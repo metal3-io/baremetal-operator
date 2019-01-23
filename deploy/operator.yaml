@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bare-metal-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: bare-metal-operator
+  template:
+    metadata:
+      labels:
+        name: bare-metal-operator
+    spec:
+      serviceAccountName: bare-metal-operator
+      containers:
+        - name: bare-metal-operator
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          ports:
+          - containerPort: 60000
+            name: metrics
+          command:
+          - bare-metal-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "bare-metal-operator"

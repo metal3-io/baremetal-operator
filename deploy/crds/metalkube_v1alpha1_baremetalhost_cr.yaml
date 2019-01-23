@@ -1,0 +1,7 @@
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: example-baremetalhost
+spec:
+  # Add fields here
+  size: 3

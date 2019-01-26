@@ -15,8 +15,7 @@ spec:
       serviceAccountName: bare-metal-operator
       containers:
         - name: bare-metal-operator
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: quay.io/metalkube/bare-metal-operator
           ports:
           - containerPort: 60000
             name: metrics

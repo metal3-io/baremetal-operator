@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/metalkube/bare-metal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 )
 
 func init() {

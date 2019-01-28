@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/metalkube/bare-metal-operator/pkg/controller/baremetalhost"
+	"github.com/metalkube/baremetal-operator/pkg/controller/baremetalhost"
 )
 
 func init() {

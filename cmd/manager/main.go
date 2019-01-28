@@ -7,8 +7,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/metalkube/bare-metal-operator/pkg/apis"
-	"github.com/metalkube/bare-metal-operator/pkg/controller"
+	"github.com/metalkube/baremetal-operator/pkg/apis"
+	"github.com/metalkube/baremetal-operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// Become the leader before proceeding
-	err = leader.Become(context.TODO(), "bare-metal-operator-lock")
+	err = leader.Become(context.TODO(), "baremetal-operator-lock")
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)

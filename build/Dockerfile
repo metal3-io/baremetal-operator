@@ -4,4 +4,4 @@ RUN apk upgrade --update --no-cache
 
 USER nobody
 
-ADD build/_output/bin/bare-metal-operator /usr/local/bin/bare-metal-operator
+ADD build/_output/bin/baremetal-operator /usr/local/bin/baremetal-operator

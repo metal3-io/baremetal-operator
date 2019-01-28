@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bare-metal-operator
+  name: baremetal-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: bare-metal-operator
+      name: baremetal-operator
   template:
     metadata:
       labels:
-        name: bare-metal-operator
+        name: baremetal-operator
     spec:
-      serviceAccountName: bare-metal-operator
+      serviceAccountName: baremetal-operator
       containers:
         - name: bare-metal-operator
-          image: quay.io/metalkube/bare-metal-operator
+          image: quay.io/metalkube/baremetal-operator
           ports:
           - containerPort: 60000
             name: metrics
           command:
-          - bare-metal-operator
+          - baremetal-operator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -32,4 +32,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "bare-metal-operator"
+              value: "baremetal-operator"

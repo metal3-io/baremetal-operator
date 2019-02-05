@@ -163,6 +163,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			instance.Status.StatusMessage = "Missing BMC connection details"
 			saveStatus = true
 		}
+	} else {
+		if instance.Status.OperationalStatus == "ERROR" {
+			// Clear the error
+			reqLogger.Info("clearing operational status error")
+			instance.Status.OperationalStatus = "OK"
+			instance.Status.StatusMessage = ""
+			saveStatus = true
+		}
 	}
 
 	if saveStatus {

@@ -6,6 +6,7 @@ import (
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -82,6 +83,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling BareMetalHost")
 
+	saveStatus := false
+
 	// Fetch the BareMetalHost instance
 	instance := &metalkubev1alpha1.BareMetalHost{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
@@ -97,6 +100,23 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	reqLogger.Info("found BMH instance", "instance", instance)
+
+	// If we've never recorded an update, assume we're going to need
+	// to do that.
+	if instance.Status.LastUpdated.IsZero() {
+		saveStatus = true
+	}
+
+	if saveStatus {
+		t := metav1.Now()
+		instance.Status.LastUpdated = &t
+		if err = r.client.Status().Update(context.Background(), instance); err != nil {
+			reqLogger.Error(err, "failed to update host status")
+			return reconcile.Result{}, err
+		} else {
+			reqLogger.Info("successfully updated host status")
+		}
+	}
 
 	// Pod already exists - don't requeue
 	reqLogger.Info("Done with reconcile")

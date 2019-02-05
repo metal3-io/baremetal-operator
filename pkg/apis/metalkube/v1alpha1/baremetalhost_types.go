@@ -29,7 +29,7 @@ type BareMetalHostSpec struct {
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
 	// How do we connect to the BMC?
-	BMCDetails BMCDetails `json:"bmc"`
+	BMC BMCDetails `json:"bmc"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -71,6 +71,7 @@ type BareMetalHostStatus struct {
 	ProvisioningID    string          // UUID in ironic
 	Image             string          // the last thing we deployed here
 	OperationalStatus string
+	StatusMessage     string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

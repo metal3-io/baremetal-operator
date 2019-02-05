@@ -154,6 +154,17 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		saveStatus = true
 	}
 
+	// If we do not have all of the needed BMC credentials, set our
+	// operational status to indicate missing information.
+	if instance.Spec.BMC.IP == "" || instance.Spec.BMC.Username == "" || instance.Spec.BMC.Password == "" {
+		if instance.Status.OperationalStatus != "ERROR" {
+			reqLogger.Info("missing BMC connection details", "BMC", instance.Spec.BMC)
+			instance.Status.OperationalStatus = "ERROR"
+			instance.Status.StatusMessage = "Missing BMC connection details"
+			saveStatus = true
+		}
+	}
+
 	if saveStatus {
 		t := metav1.Now()
 		instance.Status.LastUpdated = &t

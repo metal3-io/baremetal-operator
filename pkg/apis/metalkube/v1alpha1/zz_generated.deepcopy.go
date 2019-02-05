@@ -112,7 +112,7 @@ func (in *BareMetalHostSpec) DeepCopyInto(out *BareMetalHostSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	out.BMCDetails = in.BMCDetails
+	out.BMC = in.BMC
 	return
 }
 

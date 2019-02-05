@@ -2,9 +2,12 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: baremetal-operator
+  namespace: bmo-project
 subjects:
 - kind: ServiceAccount
   name: baremetal-operator
+- kind: User
+  name: developer
 roleRef:
   kind: Role
   name: baremetal-operator

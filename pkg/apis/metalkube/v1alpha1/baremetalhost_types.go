@@ -55,6 +55,25 @@ type HardwareDetails struct {
 	CPUs    []CPU     `json:"cpus"`
 }
 
+type OperationalState struct {
+	Status  string
+	Message string
+}
+
+func (o *OperationalState) IsError() bool {
+	return o.Status == "ERROR"
+}
+
+func (o *OperationalState) SetError(message string) {
+	o.Status = "ERROR"
+	o.Message = message
+}
+
+func (o *OperationalState) SetOK(message string) {
+	o.Status = "OK"
+	o.Message = message
+}
+
 // BareMetalHostStatus defines the observed state of BareMetalHost
 type BareMetalHostStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
@@ -67,11 +86,10 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
-	HardwareDetails   HardwareDetails `json:"hardware"`
-	ProvisioningID    string          // UUID in ironic
-	Image             string          // the last thing we deployed here
-	OperationalStatus string
-	StatusMessage     string
+	HardwareDetails  HardwareDetails `json:"hardware"`
+	ProvisioningID   string          // UUID in ironic
+	Image            string          // the last thing we deployed here
+	OperationalState OperationalState
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

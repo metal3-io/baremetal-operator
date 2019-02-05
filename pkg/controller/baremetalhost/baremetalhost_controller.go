@@ -101,6 +101,53 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	reqLogger.Info("found BMH instance", "instance", instance)
 
+	// Handle deletes
+
+	// If object hasn't been deleted and doesn't have a finalizer, add one
+	// Add a finalizer to newly created objects.
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() &&
+		!stringInList(instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+		reqLogger.Info(
+			"adding finalizer",
+			"existingFinalizers", instance.ObjectMeta.Finalizers,
+			"newValue", metalkubev1alpha1.BareMetalHostFinalizer,
+		)
+		instance.Finalizers = append(instance.Finalizers,
+			metalkubev1alpha1.BareMetalHostFinalizer)
+		err := r.client.Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "failed to add finalizer")
+			return reconcile.Result{}, err
+		}
+	}
+
+	if !instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		reqLogger.Info(
+			"marked to be deleted",
+			"timestamp", instance.ObjectMeta.DeletionTimestamp,
+		)
+		// no-op if finalizer has been removed.
+		if !stringInList(instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+			reqLogger.Info("reconciling BareMetalHost object causes a no-op as there is no finalizer")
+			return reconcile.Result{}, nil
+		}
+
+		// NOTE(dhellmann): This is where we would do something with
+		// external resources not managed through CRs (those are
+		// deleted automatically), like telling ironic to wipe the
+		// host.
+
+		// Remove finalizer to allow deletion
+		reqLogger.Info("cleanup is complete, removing finalizer")
+		instance.ObjectMeta.Finalizers = filterStringFromList(
+			instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
+		if err := r.client.Update(context.Background(), instance); err != nil {
+			reqLogger.Error(err, "failed to remove finalizer")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil // done
+	}
+
 	// If we've never recorded an update, assume we're going to need
 	// to do that.
 	if instance.Status.LastUpdated.IsZero() {
@@ -121,4 +168,22 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// Pod already exists - don't requeue
 	reqLogger.Info("Done with reconcile")
 	return reconcile.Result{}, nil
+}
+
+func stringInList(list []string, strToSearch string) bool {
+	for _, item := range list {
+		if item == strToSearch {
+			return true
+		}
+	}
+	return false
+}
+
+func filterStringFromList(list []string, strToFilter string) (newList []string) {
+	for _, item := range list {
+		if item != strToFilter {
+			newList = append(newList, item)
+		}
+	}
+	return
 }

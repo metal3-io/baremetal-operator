@@ -14,7 +14,7 @@ package e2e
 
 import (
 	goctx "context"
-	// "fmt"
+	"fmt"
 	"testing"
 	"time"
 
@@ -77,7 +77,7 @@ func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.
 			APIVersion: "baremetalhosts.metalkube.org/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      fmt.Sprintf("%s-%s", ctx.GetID(), name),
 			Namespace: namespace,
 		},
 		Spec: *spec,

@@ -147,3 +147,41 @@ func TestAddFinalizers(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSetLastUpdated(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, &metalkube.BareMetalHostSpec{
+		BMC: metalkube.BMCDetails{
+			IP:       "192.168.100.100",
+			Username: "user",
+			Password: "pass",
+		},
+	})
+
+	// get global framework variables
+	f := framework.Global
+
+	// Verify that the last updated field is set for the new host.
+	namespacedName := types.NamespacedName{
+		Namespace: exampleHost.ObjectMeta.Namespace,
+		Name:      exampleHost.ObjectMeta.Name,
+	}
+	instance := &metalkube.BareMetalHost{}
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		t.Log("polling host for updates")
+		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
+		if err != nil {
+			return false, err
+		}
+		t.Logf("LastUpdated: %v", instance.Status.LastUpdated)
+		if !instance.Status.LastUpdated.IsZero() {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

@@ -3,7 +3,7 @@ kind: BareMetalHost
 metadata:
   name: example-baremetalhost
 spec:
-  # Add fields here
+  online: true
   bmc:
     ip: 192.168.100.100
     username: user

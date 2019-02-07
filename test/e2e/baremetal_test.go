@@ -111,17 +111,22 @@ func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube
 
 type DoneFunc func(host *metalkube.BareMetalHost) (bool, error)
 
-func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone DoneFunc) *metalkube.BareMetalHost {
+func refreshHost(host *metalkube.BareMetalHost) error {
 	f := framework.Global
 	namespacedName := types.NamespacedName{
 		Namespace: host.ObjectMeta.Namespace,
 		Name:      host.ObjectMeta.Name,
 	}
+	return f.Client.Get(goctx.TODO(), namespacedName, host)
+}
+
+func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone DoneFunc) *metalkube.BareMetalHost {
 	instance := &metalkube.BareMetalHost{}
+	instance.ObjectMeta = host.ObjectMeta
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		t.Log("polling host for updates")
-		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
+		refreshHost(instance)
 		if err != nil {
 			return false, err
 		}
@@ -137,8 +142,9 @@ func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone 
 
 func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
 	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		t.Logf("OperationalState: %v", host.Status.OperationalState)
-		if host.Status.OperationalState.Status == "ERROR" {
+		state := host.Labels[metalkube.OperationalStatusLabel]
+		t.Logf("OperationalState: %s", state)
+		if state == metalkube.OperationalStatusError {
 			return true, nil
 		}
 		return false, nil
@@ -222,4 +228,88 @@ func TestMissingBMCParameters(t *testing.T) {
 			},
 		})
 	waitForErrorStatus(t, no_password)
+}
+
+func TestSetOffline(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, "gets-last-updated",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "pass",
+			},
+			Online: true,
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkube.OperationalStatusLabel]
+		t.Logf("OperationalState before toggle: %s", state)
+		if state == metalkube.OperationalStatusOnline {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	refreshHost(exampleHost)
+	exampleHost.Spec.Online = false
+	f := framework.Global
+	err := f.Client.Update(goctx.TODO(), exampleHost)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkube.OperationalStatusLabel]
+		t.Logf("OperationalState after toggle: %s", state)
+		if state == metalkube.OperationalStatusOffline {
+			return true, nil
+		}
+		return false, nil
+	})
+
+}
+
+func TestSetOnline(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, "gets-last-updated",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "pass",
+			},
+			Online: false,
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkube.OperationalStatusLabel]
+		t.Logf("OperationalState before toggle: %s", state)
+		if state == metalkube.OperationalStatusOffline {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	refreshHost(exampleHost)
+	exampleHost.Spec.Online = true
+	f := framework.Global
+	err := f.Client.Update(goctx.TODO(), exampleHost)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkube.OperationalStatusLabel]
+		t.Logf("OperationalState after toggle: %s", state)
+		if state == metalkube.OperationalStatusOnline {
+			return true, nil
+		}
+		return false, nil
+	})
+
 }

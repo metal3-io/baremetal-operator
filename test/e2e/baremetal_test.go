@@ -109,6 +109,42 @@ func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube
 	return host
 }
 
+type DoneFunc func(host *metalkube.BareMetalHost) (bool, error)
+
+func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone DoneFunc) *metalkube.BareMetalHost {
+	f := framework.Global
+	namespacedName := types.NamespacedName{
+		Namespace: host.ObjectMeta.Namespace,
+		Name:      host.ObjectMeta.Name,
+	}
+	instance := &metalkube.BareMetalHost{}
+
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		t.Log("polling host for updates")
+		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
+		if err != nil {
+			return false, err
+		}
+		done, err = isDone(instance)
+		return done, err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return instance
+}
+
+func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
+	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("OperationalState: %v", host.Status.OperationalState)
+		if host.Status.OperationalState.Status == "ERROR" {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
 func TestAddFinalizers(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
@@ -122,30 +158,13 @@ func TestAddFinalizers(t *testing.T) {
 			},
 		})
 
-	// get global framework variables
-	f := framework.Global
-
-	// Verify that the finalizers list is updated for the new host.
-	namespacedName := types.NamespacedName{
-		Namespace: exampleHost.ObjectMeta.Namespace,
-		Name:      exampleHost.ObjectMeta.Name,
-	}
-	instance := &metalkube.BareMetalHost{}
-	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		t.Log("polling host for updates")
-		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
-		if err != nil {
-			return false, err
-		}
-		t.Logf("finalizers: %v", instance.ObjectMeta.Finalizers)
-		if utils.StringInList(instance.ObjectMeta.Finalizers, metalkube.BareMetalHostFinalizer) {
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("finalizers: %v", host.ObjectMeta.Finalizers)
+		if utils.StringInList(host.ObjectMeta.Finalizers, metalkube.BareMetalHostFinalizer) {
 			return true, nil
 		}
 		return false, nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestSetLastUpdated(t *testing.T) {
@@ -161,55 +180,13 @@ func TestSetLastUpdated(t *testing.T) {
 			},
 		})
 
-	// get global framework variables
-	f := framework.Global
-
-	// Verify that the last updated field is set for the new host.
-	namespacedName := types.NamespacedName{
-		Namespace: exampleHost.ObjectMeta.Namespace,
-		Name:      exampleHost.ObjectMeta.Name,
-	}
-	instance := &metalkube.BareMetalHost{}
-	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		t.Log("polling host for updates")
-		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
-		if err != nil {
-			return false, err
-		}
-		t.Logf("LastUpdated: %v", instance.Status.LastUpdated)
-		if !instance.Status.LastUpdated.IsZero() {
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("LastUpdated: %v", host.Status.LastUpdated)
+		if !host.Status.LastUpdated.IsZero() {
 			return true, nil
 		}
 		return false, nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
-	f := framework.Global
-	namespacedName := types.NamespacedName{
-		Namespace: host.ObjectMeta.Namespace,
-		Name:      host.ObjectMeta.Name,
-	}
-	instance := &metalkube.BareMetalHost{}
-
-	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		t.Log("polling host for updates")
-		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
-		if err != nil {
-			return false, err
-		}
-		t.Logf("OperationalState: %v", instance.Status.OperationalState)
-		if instance.Status.OperationalState.Status == "ERROR" {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestMissingBMCParameters(t *testing.T) {

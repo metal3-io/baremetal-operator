@@ -64,21 +64,20 @@ func setup(t *testing.T) *framework.TestCtx {
 }
 
 // Create a new BareMetalHost instance.
-func newHost(t *testing.T, ctx *framework.TestCtx, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
+func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Using namespace: %v\n", namespace)
 
-	exampleName := "example-baremetalhost"
 	host := &metalkube.BareMetalHost{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
 			APIVersion: "baremetalhosts.metalkube.org/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      exampleName,
+			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: *spec,
@@ -88,8 +87,8 @@ func newHost(t *testing.T, ctx *framework.TestCtx, spec *metalkube.BareMetalHost
 }
 
 // Create a BareMetalHost and publish it to the test system.
-func makeHost(t *testing.T, ctx *framework.TestCtx, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
-	host := newHost(t, ctx, spec)
+func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
+	host := newHost(t, ctx, name, spec)
 
 	// get global framework variables
 	f := framework.Global
@@ -114,13 +113,14 @@ func TestAddFinalizers(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	exampleHost := makeHost(t, ctx, &metalkube.BareMetalHostSpec{
-		BMC: metalkube.BMCDetails{
-			IP:       "192.168.100.100",
-			Username: "user",
-			Password: "pass",
-		},
-	})
+	exampleHost := makeHost(t, ctx, "gets-finalizers",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "pass",
+			},
+		})
 
 	// get global framework variables
 	f := framework.Global
@@ -152,13 +152,14 @@ func TestSetLastUpdated(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	exampleHost := makeHost(t, ctx, &metalkube.BareMetalHostSpec{
-		BMC: metalkube.BMCDetails{
-			IP:       "192.168.100.100",
-			Username: "user",
-			Password: "pass",
-		},
-	})
+	exampleHost := makeHost(t, ctx, "gets-last-updated",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "pass",
+			},
+		})
 
 	// get global framework variables
 	f := framework.Global
@@ -184,4 +185,64 @@ func TestSetLastUpdated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
+	f := framework.Global
+	namespacedName := types.NamespacedName{
+		Namespace: host.ObjectMeta.Namespace,
+		Name:      host.ObjectMeta.Name,
+	}
+	instance := &metalkube.BareMetalHost{}
+
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		t.Log("polling host for updates")
+		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
+		if err != nil {
+			return false, err
+		}
+		t.Logf("OperationalState: %v", instance.Status.OperationalState)
+		if instance.Status.OperationalState.Status == "ERROR" {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMissingBMCParameters(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	no_ip := makeHost(t, ctx, "missing-bmc-ip",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "",
+				Username: "user",
+				Password: "pass",
+			},
+		})
+	waitForErrorStatus(t, no_ip)
+
+	no_username := makeHost(t, ctx, "missing-bmc-username",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "",
+				Password: "pass",
+			},
+		})
+	waitForErrorStatus(t, no_username)
+
+	no_password := makeHost(t, ctx, "missing-bmc-password",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "",
+			},
+		})
+	waitForErrorStatus(t, no_password)
 }

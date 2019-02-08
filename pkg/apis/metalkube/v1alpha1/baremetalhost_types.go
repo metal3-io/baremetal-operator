@@ -20,9 +20,10 @@ const (
 // FIXME(dhellmann): We probably want this to be a secret reference
 // instead of inlining the values.
 type BMCDetails struct {
-	IP       string `json:"ip"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	IP string `json:"ip"`
+	// The name of the secret containing the BMC credentials (requires
+	// keys "username" and "password").
+	Credentials *corev1.SecretReference `json:"credentials"`
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost

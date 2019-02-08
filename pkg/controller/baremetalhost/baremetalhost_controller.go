@@ -77,8 +77,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling BareMetalHost")
 
-	saveStatus := false
-
 	// Fetch the BareMetalHost instance
 	instance := &metalkubev1alpha1.BareMetalHost{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
@@ -93,8 +91,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-
-	reqLogger.Info("found BMH instance", "instance", instance)
 
 	// Add a finalizer to newly created objects.
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() &&
@@ -111,6 +107,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			reqLogger.Error(err, "failed to add finalizer")
 			return reconcile.Result{}, err
 		}
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Handle delete operations.
@@ -141,12 +138,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil // done
 	}
 
-	// If we've never recorded an update, assume we're going to need
-	// to do that.
-	if instance.Status.LastUpdated.IsZero() {
-		saveStatus = true
-	}
-
 	// FIXME(dhellmann): There are likely to be many more cases where
 	// we need to look for errors. Do we want to chain them all here
 	// in if/elif blocks?
@@ -154,41 +145,84 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// If we do not have all of the needed BMC credentials, set our
 	// operational status to indicate missing information.
 	if instance.Spec.BMC.IP == "" || instance.Spec.BMC.Username == "" || instance.Spec.BMC.Password == "" {
-		saveStatus = instance.SetErrorMessage(MissingBMCCredentialsMsg) || saveStatus
+		if instance.SetErrorMessage(MissingBMCCredentialsMsg) {
+			reqLogger.Info(
+				"adding error message",
+				"message", MissingBMCCredentialsMsg,
+			)
+			if err := r.saveStatus(instance); err != nil {
+				reqLogger.Error(err, "failed to update error message")
+				return reconcile.Result{}, err
+			}
+		}
 		if instance.SetOperationalStatus(metalkubev1alpha1.OperationalStatusError) {
+			reqLogger.Info(
+				"setting operational status",
+				"newStatus", metalkubev1alpha1.OperationalStatusError,
+			)
 			if err := r.client.Update(context.TODO(), instance); err != nil {
 				reqLogger.Error(err, "failed to update operational status")
 				return reconcile.Result{}, err
 			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	} else {
-		saveStatus = instance.SetErrorMessage("") || saveStatus
+		if instance.SetErrorMessage("") {
+			reqLogger.Info("clearing error message")
+			if err := r.saveStatus(instance); err != nil {
+				reqLogger.Error(err, "failed to clear error message")
+				return reconcile.Result{}, err
+			}
+		}
 		newOpStatus := metalkubev1alpha1.OperationalStatusOffline
 		if instance.Spec.Online {
 			newOpStatus = metalkubev1alpha1.OperationalStatusOnline
 		}
+
 		// FIXME(dhellmann): Need to ensure the power state matches
 		// the desired state here before updating the status label.
 		if instance.SetOperationalStatus(newOpStatus) {
+			reqLogger.Info(
+				"setting operational status",
+				"newStatus", newOpStatus,
+			)
 			if err := r.client.Update(context.TODO(), instance); err != nil {
 				reqLogger.Error(err, "failed to update operational status")
 				return reconcile.Result{}, err
 			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
-	if saveStatus {
-		t := metav1.Now()
-		instance.Status.LastUpdated = &t
-		if err = r.client.Status().Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "failed to update host status")
+	// Set the hardware profile name.
+	//
+	// FIXME(dhellmann): This should pull data from Ironic and compare
+	// it against known profiles.
+	if instance.SetLabel(metalkubev1alpha1.HardwareProfileLabel, "unknown") {
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "failed to update hardware profile")
 			return reconcile.Result{}, err
-		} else {
-			reqLogger.Info("successfully updated host status")
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// If we have nothing else to do and there is no LastUpdated
+	// timestamp set, set one.
+	if instance.Status.LastUpdated.IsZero() {
+		reqLogger.Info("initializing status")
+		if err := r.saveStatus(instance); err != nil {
+			reqLogger.Error(err, "failed to initialize status block")
+			return reconcile.Result{}, err
 		}
 	}
 
 	// Pod already exists - don't requeue
 	reqLogger.Info("Done with reconcile")
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileBareMetalHost) saveStatus(instance *metalkubev1alpha1.BareMetalHost) error {
+	t := metav1.Now()
+	instance.Status.LastUpdated = &t
+	return r.client.Status().Update(context.TODO(), instance)
 }

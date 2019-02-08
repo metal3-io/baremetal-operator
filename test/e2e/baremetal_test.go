@@ -234,7 +234,7 @@ func TestSetOffline(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	exampleHost := makeHost(t, ctx, "gets-last-updated",
+	exampleHost := makeHost(t, ctx, "toggle-offline",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP:       "192.168.100.100",
@@ -276,7 +276,7 @@ func TestSetOnline(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	exampleHost := makeHost(t, ctx, "gets-last-updated",
+	exampleHost := makeHost(t, ctx, "toggle-online",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP:       "192.168.100.100",
@@ -312,4 +312,26 @@ func TestSetOnline(t *testing.T) {
 		return false, nil
 	})
 
+}
+
+func TestSetHardwareProfileLabel(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, "hardware-profile",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "pass",
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("labels: %v", host.ObjectMeta.Labels)
+		if host.ObjectMeta.Labels[metalkube.HardwareProfileLabel] != "" {
+			return true, nil
+		}
+		return false, nil
+	})
 }

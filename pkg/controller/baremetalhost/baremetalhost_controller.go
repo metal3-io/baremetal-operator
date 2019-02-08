@@ -3,6 +3,7 @@ package baremetalhost
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
@@ -173,7 +174,9 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		if !validCreds {
 			reqLogger.Info("invalid BMC Credentials", "reason", reason)
 			err := r.setErrorCondition(request, instance, reason)
-			return reconcile.Result{}, err
+			// We won't see a change to the secret, so put ourselves
+			// back into the queue after a brief wait.
+			return reconcile.Result{RequeueAfter: time.Second * 10}, err
 		}
 
 		// FIXME(dhellmann): Need to ensure the power state matches

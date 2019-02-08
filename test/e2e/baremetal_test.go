@@ -234,7 +234,7 @@ func TestSetOffline(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	exampleHost := makeHost(t, ctx, "gets-last-updated",
+	exampleHost := makeHost(t, ctx, "toggle-offline",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP:       "192.168.100.100",
@@ -276,7 +276,7 @@ func TestSetOnline(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	exampleHost := makeHost(t, ctx, "gets-last-updated",
+	exampleHost := makeHost(t, ctx, "toggle-online",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP:       "192.168.100.100",

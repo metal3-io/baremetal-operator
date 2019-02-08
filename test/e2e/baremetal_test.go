@@ -14,7 +14,7 @@ package e2e
 
 import (
 	goctx "context"
-	// "fmt"
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,7 +37,9 @@ var (
 	cleanupTimeout       = time.Second * 5
 )
 
-func TestBareMetalHost(t *testing.T) {
+// Set up the test system to know about our types and return a
+// context.
+func setup(t *testing.T) *framework.TestCtx {
 	bmhList := &metalkube.BareMetalHostList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
@@ -51,7 +53,6 @@ func TestBareMetalHost(t *testing.T) {
 
 	t.Parallel()
 	ctx := framework.NewTestCtx(t)
-	defer ctx.Cleanup()
 
 	err = ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
@@ -59,39 +60,44 @@ func TestBareMetalHost(t *testing.T) {
 	}
 	t.Log("Initialized cluster resources")
 
+	return ctx
+}
+
+// Create a new BareMetalHost instance.
+func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Using namespace: %v\n", namespace)
 
-	exampleName := "example-baremetalhost"
-	exampleHost := &metalkube.BareMetalHost{
+	host := &metalkube.BareMetalHost{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
 			APIVersion: "baremetalhosts.metalkube.org/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      exampleName,
+			Name:      fmt.Sprintf("%s-%s", ctx.GetID(), name),
 			Namespace: namespace,
 		},
-		Spec: metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "user",
-				Password: "pass",
-			},
-		},
+		Spec: *spec,
 	}
+
+	return host
+}
+
+// Create a BareMetalHost and publish it to the test system.
+func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
+	host := newHost(t, ctx, name, spec)
 
 	// get global framework variables
 	f := framework.Global
 
 	// use TestCtx's create helper to create the object and add a
 	// cleanup function for the new object
-	err = f.Client.Create(
+	err := f.Client.Create(
 		goctx.TODO(),
-		exampleHost,
+		host,
 		&framework.CleanupOptions{
 			TestContext:   ctx,
 			Timeout:       cleanupTimeout,
@@ -100,26 +106,120 @@ func TestBareMetalHost(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	instance := &metalkube.BareMetalHost{}
-	namespacedName := types.NamespacedName{
-		Namespace: namespace,
-		Name:      exampleName,
-	}
+	return host
+}
 
-	// Verify that the finalizers list is updated for the new host.
-	err = wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+type DoneFunc func(host *metalkube.BareMetalHost) (bool, error)
+
+func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone DoneFunc) *metalkube.BareMetalHost {
+	f := framework.Global
+	namespacedName := types.NamespacedName{
+		Namespace: host.ObjectMeta.Namespace,
+		Name:      host.ObjectMeta.Name,
+	}
+	instance := &metalkube.BareMetalHost{}
+
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		t.Log("polling host for updates")
 		err = f.Client.Get(goctx.TODO(), namespacedName, instance)
 		if err != nil {
 			return false, err
 		}
-		t.Logf("finalizers: %v", instance.ObjectMeta.Finalizers)
-		if utils.StringInList(instance.ObjectMeta.Finalizers, metalkube.BareMetalHostFinalizer) {
-			return true, nil
-		}
-		return false, nil
+		done, err = isDone(instance)
+		return done, err
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	return instance
+}
+
+func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
+	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("OperationalState: %v", host.Status.OperationalState)
+		if host.Status.OperationalState.Status == "ERROR" {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func TestAddFinalizers(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, "gets-finalizers",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "pass",
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("finalizers: %v", host.ObjectMeta.Finalizers)
+		if utils.StringInList(host.ObjectMeta.Finalizers, metalkube.BareMetalHostFinalizer) {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func TestSetLastUpdated(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, "gets-last-updated",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "pass",
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("LastUpdated: %v", host.Status.LastUpdated)
+		if !host.Status.LastUpdated.IsZero() {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func TestMissingBMCParameters(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	no_ip := makeHost(t, ctx, "missing-bmc-ip",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "",
+				Username: "user",
+				Password: "pass",
+			},
+		})
+	waitForErrorStatus(t, no_ip)
+
+	no_username := makeHost(t, ctx, "missing-bmc-username",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "",
+				Password: "pass",
+			},
+		})
+	waitForErrorStatus(t, no_username)
+
+	no_password := makeHost(t, ctx, "missing-bmc-password",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:       "192.168.100.100",
+				Username: "user",
+				Password: "",
+			},
+		})
+	waitForErrorStatus(t, no_password)
 }

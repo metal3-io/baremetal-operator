@@ -2,12 +2,17 @@ package baremetalhost
 
 import (
 	"context"
+	"fmt"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
+
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -15,10 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-)
-
-const (
-	MissingBMCCredentialsMsg string = "Missing BMC connection details"
 )
 
 var log = logf.Log.WithName("controller_baremetalhost")
@@ -144,43 +145,44 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// If we do not have all of the needed BMC credentials, set our
 	// operational status to indicate missing information.
-	if instance.Spec.BMC.IP == "" || instance.Spec.BMC.Username == "" || instance.Spec.BMC.Password == "" {
-		if instance.SetErrorMessage(MissingBMCCredentialsMsg) {
-			reqLogger.Info(
-				"adding error message",
-				"message", MissingBMCCredentialsMsg,
-			)
-			if err := r.saveStatus(instance); err != nil {
-				reqLogger.Error(err, "failed to update error message")
-				return reconcile.Result{}, err
-			}
-		}
-		if instance.SetOperationalStatus(metalkubev1alpha1.OperationalStatusError) {
-			reqLogger.Info(
-				"setting operational status",
-				"newStatus", metalkubev1alpha1.OperationalStatusError,
-			)
-			if err := r.client.Update(context.TODO(), instance); err != nil {
-				reqLogger.Error(err, "failed to update operational status")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		}
+	if instance.Spec.BMC.IP == "" {
+		reqLogger.Info(bmc.MissingIPMsg)
+		err := r.setErrorCondition(request, instance, bmc.MissingIPMsg)
+		// Without the BMC IP there's no more we can do, so we're
+		// going to return the emtpy Result anyway, and don't need to
+		// check err.
+		return reconcile.Result{}, err
+	}
+
+	if instance.Spec.BMC.Credentials == nil {
+		reqLogger.Info(bmc.MissingCredentialsMsg)
+		err := r.setErrorCondition(request, instance, bmc.MissingCredentialsMsg)
+		// Without the BMC IP there's no more we can do, so we're
+		// going to return the emtpy Result anyway, and don't need to
+		// check err.
+		return reconcile.Result{}, err
 	} else {
-		if instance.SetErrorMessage("") {
-			reqLogger.Info("clearing error message")
-			if err := r.saveStatus(instance); err != nil {
-				reqLogger.Error(err, "failed to clear error message")
-				return reconcile.Result{}, err
-			}
+
+		bmcCreds, err := r.getBMCCredentials(request, instance)
+		if err != nil {
+			// If we can't fetch the BMC settings there's no more we can do.
+			reqLogger.Info("missing BMC Credentials")
+			return reconcile.Result{}, err
 		}
-		newOpStatus := metalkubev1alpha1.OperationalStatusOffline
-		if instance.Spec.Online {
-			newOpStatus = metalkubev1alpha1.OperationalStatusOnline
+		validCreds, reason := bmcCreds.AreValid()
+		if !validCreds {
+			reqLogger.Info("invalid BMC Credentials", "reason", reason)
+			err := r.setErrorCondition(request, instance, reason)
+			return reconcile.Result{}, err
 		}
 
 		// FIXME(dhellmann): Need to ensure the power state matches
 		// the desired state here before updating the status label.
+
+		newOpStatus := metalkubev1alpha1.OperationalStatusOffline
+		if instance.Spec.Online {
+			newOpStatus = metalkubev1alpha1.OperationalStatusOnline
+		}
 		if instance.SetOperationalStatus(newOpStatus) {
 			reqLogger.Info(
 				"setting operational status",
@@ -206,6 +208,17 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// If we reach this point we haven't encountered any issues
+	// communicating with the host, so ensure the error message field
+	// is cleared.
+	if instance.SetErrorMessage("") {
+		reqLogger.Info("clearing error message")
+		if err := r.saveStatus(instance); err != nil {
+			reqLogger.Error(err, "failed to clear error message")
+			return reconcile.Result{}, err
+		}
+	}
+
 	// If we have nothing else to do and there is no LastUpdated
 	// timestamp set, set one.
 	if instance.Status.LastUpdated.IsZero() {
@@ -225,4 +238,68 @@ func (r *ReconcileBareMetalHost) saveStatus(instance *metalkubev1alpha1.BareMeta
 	t := metav1.Now()
 	instance.Status.LastUpdated = &t
 	return r.client.Status().Update(context.TODO(), instance)
+}
+
+func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, instance *metalkubev1alpha1.BareMetalHost, message string) error {
+	reqLogger := log.WithValues("Request.Namespace",
+		request.Namespace, "Request.Name", request.Name)
+
+	if instance.SetErrorMessage(message) {
+		reqLogger.Info(
+			"adding error message",
+			"message", message,
+		)
+		if err := r.saveStatus(instance); err != nil {
+			reqLogger.Error(err, "failed to update error message")
+			return err
+		}
+	}
+
+	if instance.SetOperationalStatus(metalkubev1alpha1.OperationalStatusError) {
+		reqLogger.Info(
+			"setting operational status",
+			"newStatus", metalkubev1alpha1.OperationalStatusError,
+		)
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "failed to update operational status")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcileBareMetalHost) getBMCCredentials(request reconcile.Request, instance *metalkubev1alpha1.BareMetalHost) (creds bmc.Credentials, err error) {
+	reqLogger := log.WithValues("Request.Namespace",
+		request.Namespace, "Request.Name", request.Name)
+
+	if instance.Spec.BMC.Credentials.Name == "" {
+		return creds, fmt.Errorf(bmc.MissingCredentialsMsg)
+	}
+
+	// Fetch the named secret.
+	secretKey := types.NamespacedName{
+		Name: instance.Spec.BMC.Credentials.Name,
+	}
+	secretKey.Namespace = instance.Spec.BMC.Credentials.Namespace
+	if secretKey.Namespace == "" {
+		secretKey.Namespace = request.Namespace
+	}
+	reqLogger.Info("looking for secret", "secretKey", secretKey)
+
+	bmcSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretKey.Name,
+			Namespace: secretKey.Namespace,
+		},
+	}
+	err = r.client.Get(context.TODO(), secretKey, bmcSecret)
+	if err != nil {
+		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")
+		return creds, err
+	}
+	creds.Username = string(bmcSecret.Data["username"])
+	creds.Password = string(bmcSecret.Data["password"])
+
+	return creds, nil
 }

@@ -14,17 +14,17 @@ package e2e
 
 import (
 	goctx "context"
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
 
 	apis "github.com/metalkube/baremetal-operator/pkg/apis"
 	metalkube "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	// operator "github.com/metalkube/baremetal-operator/pkg/controller/baremetalhost"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
-	// "github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -59,6 +59,10 @@ func setup(t *testing.T) *framework.TestCtx {
 		t.Fatalf("failed to initialize cluster resources: %v", err)
 	}
 	t.Log("Initialized cluster resources")
+
+	makeSecret(t, ctx, "bmc-creds-valid", "User", "Pass")
+	makeSecret(t, ctx, "bmc-creds-no-user", "", "Pass")
+	makeSecret(t, ctx, "bmc-creds-no-pass", "User", "")
 
 	return ctx
 }
@@ -107,6 +111,39 @@ func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube
 	}
 
 	return host
+}
+
+func makeSecret(t *testing.T, ctx *framework.TestCtx, name string, username string, password string) {
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := make(map[string][]byte)
+	data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte(username)))
+	data["password"] = []byte(base64.StdEncoding.EncodeToString([]byte(password)))
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: data,
+	}
+
+	f := framework.Global
+	err = f.Client.Create(
+		goctx.TODO(),
+		secret,
+		&framework.CleanupOptions{
+			TestContext:   ctx,
+			Timeout:       cleanupTimeout,
+			RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 type DoneFunc func(host *metalkube.BareMetalHost) (bool, error)
@@ -158,9 +195,10 @@ func TestAddFinalizers(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "gets-finalizers",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "user",
-				Password: "pass",
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
 			},
 		})
 
@@ -180,9 +218,10 @@ func TestSetLastUpdated(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "gets-last-updated",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "user",
-				Password: "pass",
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
 			},
 		})
 
@@ -202,9 +241,10 @@ func TestMissingBMCParameters(t *testing.T) {
 	no_ip := makeHost(t, ctx, "missing-bmc-ip",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "",
-				Username: "user",
-				Password: "pass",
+				IP: "",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
 			},
 		})
 	waitForErrorStatus(t, no_ip)
@@ -212,9 +252,10 @@ func TestMissingBMCParameters(t *testing.T) {
 	no_username := makeHost(t, ctx, "missing-bmc-username",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "",
-				Password: "pass",
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-no-user",
+				},
 			},
 		})
 	waitForErrorStatus(t, no_username)
@@ -222,9 +263,10 @@ func TestMissingBMCParameters(t *testing.T) {
 	no_password := makeHost(t, ctx, "missing-bmc-password",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "user",
-				Password: "",
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-no-pass",
+				},
 			},
 		})
 	waitForErrorStatus(t, no_password)
@@ -237,9 +279,10 @@ func TestSetOffline(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "toggle-offline",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "user",
-				Password: "pass",
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
 			},
 			Online: true,
 		})
@@ -279,9 +322,10 @@ func TestSetOnline(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "toggle-online",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "user",
-				Password: "pass",
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
 			},
 			Online: false,
 		})
@@ -321,9 +365,10 @@ func TestSetHardwareProfileLabel(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "hardware-profile",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP:       "192.168.100.100",
-				Username: "user",
-				Password: "pass",
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
 			},
 		})
 

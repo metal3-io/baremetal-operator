@@ -4,6 +4,7 @@ import (
 	"context"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,7 +94,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Add a finalizer to newly created objects.
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() &&
-		!stringInList(instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+		!utils.StringInList(instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
 		reqLogger.Info(
 			"adding finalizer",
 			"existingFinalizers", instance.ObjectMeta.Finalizers,
@@ -115,7 +116,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"timestamp", instance.ObjectMeta.DeletionTimestamp,
 		)
 		// no-op if finalizer has been removed.
-		if !stringInList(instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+		if !utils.StringInList(instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
 			reqLogger.Info("BareMetalHost is ready to be deleted")
 			return reconcile.Result{}, nil
 		}
@@ -127,7 +128,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 		// Remove finalizer to allow deletion
 		reqLogger.Info("cleanup is complete, removing finalizer")
-		instance.ObjectMeta.Finalizers = filterStringFromList(
+		instance.ObjectMeta.Finalizers = utils.FilterStringFromList(
 			instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
 		if err := r.client.Update(context.Background(), instance); err != nil {
 			reqLogger.Error(err, "failed to remove finalizer")
@@ -173,22 +174,4 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// Pod already exists - don't requeue
 	reqLogger.Info("Done with reconcile")
 	return reconcile.Result{}, nil
-}
-
-func stringInList(list []string, strToSearch string) bool {
-	for _, item := range list {
-		if item == strToSearch {
-			return true
-		}
-	}
-	return false
-}
-
-func filterStringFromList(list []string, strToFilter string) (newList []string) {
-	for _, item := range list {
-		if item != strToFilter {
-			newList = append(newList, item)
-		}
-	}
-	return
 }

@@ -194,6 +194,18 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
+	// Set the hardware profile name.
+	//
+	// FIXME(dhellmann): This should pull data from Ironic and compare
+	// it against known profiles.
+	if instance.SetLabel(metalkubev1alpha1.HardwareProfileLabel, "unknown") {
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "failed to update hardware profile")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	// If we have nothing else to do and there is no LastUpdated
 	// timestamp set, set one.
 	if instance.Status.LastUpdated.IsZero() {

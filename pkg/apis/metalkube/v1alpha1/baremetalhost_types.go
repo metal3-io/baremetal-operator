@@ -14,6 +14,7 @@ const (
 	OperationalStatusError   string = "error"
 	OperationalStatusOnline  string = "online"
 	OperationalStatusOffline string = "offline"
+	HardwareProfileLabel     string = "metalkube.org/hardware-profile"
 )
 
 // FIXME(dhellmann): We probably want this to be a secret reference
@@ -107,15 +108,19 @@ func (host *BareMetalHost) SetErrorMessage(message string) bool {
 	return false
 }
 
-func (host *BareMetalHost) SetOperationalStatus(status string) bool {
+func (host *BareMetalHost) SetLabel(name, value string) bool {
 	if host.Labels == nil {
 		host.Labels = make(map[string]string)
 	}
-	if host.Labels[OperationalStatusLabel] != status {
-		host.Labels[OperationalStatusLabel] = status
+	if host.Labels[name] != value {
+		host.Labels[name] = value
 		return true
 	}
 	return false
+}
+
+func (host *BareMetalHost) SetOperationalStatus(status string) bool {
+	return host.SetLabel(OperationalStatusLabel, status)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

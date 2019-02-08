@@ -17,6 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const (
+	MissingBMCCredentialsMsg string = "Missing BMC connection details"
+)
+
 var log = logf.Log.WithName("controller_baremetalhost")
 
 // Add creates a new BareMetalHost Controller and adds it to the
@@ -130,7 +134,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("cleanup is complete, removing finalizer")
 		instance.ObjectMeta.Finalizers = utils.FilterStringFromList(
 			instance.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
-		if err := r.client.Update(context.Background(), instance); err != nil {
+		if err := r.client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "failed to remove finalizer")
 			return reconcile.Result{}, err
 		}
@@ -143,27 +147,40 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		saveStatus = true
 	}
 
+	// FIXME(dhellmann): There are likely to be many more cases where
+	// we need to look for errors. Do we want to chain them all here
+	// in if/elif blocks?
+
 	// If we do not have all of the needed BMC credentials, set our
 	// operational status to indicate missing information.
 	if instance.Spec.BMC.IP == "" || instance.Spec.BMC.Username == "" || instance.Spec.BMC.Password == "" {
-		if !instance.Status.OperationalState.IsError() {
-			reqLogger.Info("missing BMC connection details", "BMC", instance.Spec.BMC)
-			instance.Status.OperationalState.SetError("Missing BMC connection details")
-			saveStatus = true
+		saveStatus = instance.SetErrorMessage(MissingBMCCredentialsMsg) || saveStatus
+		if instance.SetOperationalStatus(metalkubev1alpha1.OperationalStatusError) {
+			if err := r.client.Update(context.TODO(), instance); err != nil {
+				reqLogger.Error(err, "failed to update operational status")
+				return reconcile.Result{}, err
+			}
 		}
 	} else {
-		if instance.Status.OperationalState.IsError() {
-			// Clear the error
-			reqLogger.Info("clearing operational status error")
-			instance.Status.OperationalState.SetOK("")
-			saveStatus = true
+		saveStatus = instance.SetErrorMessage("") || saveStatus
+		newOpStatus := metalkubev1alpha1.OperationalStatusOffline
+		if instance.Spec.Online {
+			newOpStatus = metalkubev1alpha1.OperationalStatusOnline
+		}
+		// FIXME(dhellmann): Need to ensure the power state matches
+		// the desired state here before updating the status label.
+		if instance.SetOperationalStatus(newOpStatus) {
+			if err := r.client.Update(context.TODO(), instance); err != nil {
+				reqLogger.Error(err, "failed to update operational status")
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
 	if saveStatus {
 		t := metav1.Now()
 		instance.Status.LastUpdated = &t
-		if err = r.client.Status().Update(context.Background(), instance); err != nil {
+		if err = r.client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "failed to update host status")
 			return reconcile.Result{}, err
 		} else {

@@ -8,7 +8,13 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-const BareMetalHostFinalizer = "baremetalhost.metalkube.org"
+const (
+	BareMetalHostFinalizer   string = "baremetalhost.metalkube.org"
+	OperationalStatusLabel   string = "metalkube.org/operational-status"
+	OperationalStatusError   string = "error"
+	OperationalStatusOnline  string = "online"
+	OperationalStatusOffline string = "offline"
+)
 
 // FIXME(dhellmann): We probably want this to be a secret reference
 // instead of inlining the values.
@@ -30,6 +36,9 @@ type BareMetalHostSpec struct {
 
 	// How do we connect to the BMC?
 	BMC BMCDetails `json:"bmc"`
+
+	// Should the server be online?
+	Online bool `json:"online"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -55,25 +64,6 @@ type HardwareDetails struct {
 	CPUs    []CPU     `json:"cpus"`
 }
 
-type OperationalState struct {
-	Status  string
-	Message string
-}
-
-func (o *OperationalState) IsError() bool {
-	return o.Status == "ERROR"
-}
-
-func (o *OperationalState) SetError(message string) {
-	o.Status = "ERROR"
-	o.Message = message
-}
-
-func (o *OperationalState) SetOK(message string) {
-	o.Status = "OK"
-	o.Message = message
-}
-
 // BareMetalHostStatus defines the observed state of BareMetalHost
 type BareMetalHostStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
@@ -86,10 +76,15 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
-	HardwareDetails  HardwareDetails `json:"hardware"`
-	ProvisioningID   string          // UUID in ironic
-	Image            string          // the last thing we deployed here
-	OperationalState OperationalState
+	HardwareDetails HardwareDetails `json:"hardware"`
+
+	// UUID in ironic
+	ProvisioningID string `json:"provisioningID"`
+
+	// the last thing we deployed here
+	Image string `json:"image"`
+
+	ErrorMessage string `json:"errorMessage"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -102,6 +97,25 @@ type BareMetalHost struct {
 
 	Spec   BareMetalHostSpec   `json:"spec,omitempty"`
 	Status BareMetalHostStatus `json:"status,omitempty"`
+}
+
+func (host *BareMetalHost) SetErrorMessage(message string) bool {
+	if host.Status.ErrorMessage != message {
+		host.Status.ErrorMessage = message
+		return true
+	}
+	return false
+}
+
+func (host *BareMetalHost) SetOperationalStatus(status string) bool {
+	if host.Labels == nil {
+		host.Labels = make(map[string]string)
+	}
+	if host.Labels[OperationalStatusLabel] != status {
+		host.Labels[OperationalStatusLabel] = status
+		return true
+	}
+	return false
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

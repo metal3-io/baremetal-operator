@@ -177,6 +177,17 @@ func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone 
 	return instance
 }
 
+func waitForOfflineStatus(t *testing.T, host *metalkube.BareMetalHost) {
+	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkube.OperationalStatusLabel]
+		t.Logf("OperationalState: %s", state)
+		if state == metalkube.OperationalStatusOffline {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
 func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
 	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
 		state := host.Labels[metalkube.OperationalStatusLabel]
@@ -270,6 +281,48 @@ func TestMissingBMCParameters(t *testing.T) {
 			},
 		})
 	waitForErrorStatus(t, noPassword)
+}
+
+func TestChangeSecret(t *testing.T) {
+	// Create the host using the secret that does not have a username,
+	// then modify the secret and look for the host status to change.
+
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	f := framework.Global
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	noUsername := makeHost(t, ctx, "missing-bmc-username",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP: "192.168.100.100",
+				Credentials: &corev1.SecretReference{
+					Name: "bmc-creds-no-user",
+				},
+			},
+		})
+	waitForErrorStatus(t, noUsername)
+
+	secret := &corev1.Secret{}
+	secretName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      "bmc-creds-no-user",
+	}
+	err = f.Client.Get(goctx.TODO(), secretName, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret.Data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte("username")))
+	err = f.Client.Update(goctx.TODO(), secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForOfflineStatus(t, noUsername)
 }
 
 func TestSetOffline(t *testing.T) {

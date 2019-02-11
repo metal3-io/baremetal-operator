@@ -3,17 +3,18 @@ package baremetalhost
 import (
 	"context"
 	"fmt"
-	"time"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	v1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -53,7 +54,66 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// Watch for secrets being used by hosts
+	mapper := &secretToHostMapper{
+		client: mgr.GetClient(),
+	}
+	err = c.Watch(&source.Kind{Type: &v1.Secret{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: mapper})
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// secretToHostMapper knows how to find the hosts that are using a
+// given secret and propagate the reconciliation event when the secret
+// is changed.
+type secretToHostMapper struct {
+	client client.Client
+}
+
+// implement handler.Mapper interface
+func (m *secretToHostMapper) Map(obj handler.MapObject) []reconcile.Request {
+	var results []reconcile.Request
+
+	selector := &client.ListOptions{}
+	selector.InNamespace(obj.Meta.GetNamespace())
+	// FIXME(dhellmann): Using a field selector gives an error because
+	// the index does not exist, and I don't know how to create an
+	// index.
+	//
+	//	selector.MatchingField("bmc.credentials", obj.Meta.GetName())
+
+	hosts := &metalkubev1alpha1.BareMetalHostList{}
+	err := m.client.List(context.TODO(), selector, hosts)
+	if err != nil {
+		log.Error(err, "could not list BareMetalHost resources")
+		return results
+	}
+
+	desiredName := obj.Meta.GetName()
+	for _, host := range hosts.Items {
+		// FIXME(dhellmann): See note above about using the field
+		// selector. When that is fixed, this loop can be changed to
+		// just build the requests without testing the name.
+		if host.Spec.BMC.Credentials == nil || host.Spec.BMC.Credentials.Name != desiredName {
+			continue
+		}
+		newRequest := reconcile.Request{
+			types.NamespacedName{
+				Name:      host.GetName(),
+				Namespace: host.GetNamespace(),
+			},
+		}
+		results = append(results, newRequest)
+	}
+
+	if len(results) > 0 {
+		log.Info("triggering requests from secret", "count", len(results))
+	}
+	return results
 }
 
 var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
@@ -162,48 +222,52 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		// going to return the emtpy Result anyway, and don't need to
 		// check err.
 		return reconcile.Result{}, err
-	} else {
+	}
 
-		bmcCreds, err := r.getBMCCredentials(request, instance)
-		if err != nil {
-			// If we can't fetch the BMC settings there's no more we can do.
-			reqLogger.Info("missing BMC Credentials")
+	// Load the secret containing the credentials for talking to the
+	// BMC.
+	bmcCreds, err := r.getBMCCredentials(request, instance)
+	if err != nil {
+		// If we can't fetch the BMC settings there's no more we can do.
+		reqLogger.Info("missing BMC Credentials")
+		return reconcile.Result{}, err
+	}
+
+	// Verify that the secret contains the expected info.
+	validCreds, reason := bmcCreds.AreValid()
+	if !validCreds {
+		reqLogger.Info("invalid BMC Credentials", "reason", reason)
+		err := r.setErrorCondition(request, instance, reason)
+		return reconcile.Result{}, err
+	}
+
+	// Update the operational status of the host.
+	newOpStatus := metalkubev1alpha1.OperationalStatusOffline
+	if instance.Spec.Online {
+		newOpStatus = metalkubev1alpha1.OperationalStatusOnline
+	}
+	if instance.SetOperationalStatus(newOpStatus) {
+		reqLogger.Info(
+			"setting operational status",
+			"newStatus", newOpStatus,
+		)
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "failed to update operational status")
 			return reconcile.Result{}, err
 		}
-		validCreds, reason := bmcCreds.AreValid()
-		if !validCreds {
-			reqLogger.Info("invalid BMC Credentials", "reason", reason)
-			err := r.setErrorCondition(request, instance, reason)
-			// We won't see a change to the secret, so put ourselves
-			// back into the queue after a brief wait.
-			return reconcile.Result{RequeueAfter: time.Second * 10}, err
-		}
-
-		// FIXME(dhellmann): Need to ensure the power state matches
-		// the desired state here before updating the status label.
-
-		newOpStatus := metalkubev1alpha1.OperationalStatusOffline
-		if instance.Spec.Online {
-			newOpStatus = metalkubev1alpha1.OperationalStatusOnline
-		}
-		if instance.SetOperationalStatus(newOpStatus) {
-			reqLogger.Info(
-				"setting operational status",
-				"newStatus", newOpStatus,
-			)
-			if err := r.client.Update(context.TODO(), instance); err != nil {
-				reqLogger.Error(err, "failed to update operational status")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		}
+		return reconcile.Result{Requeue: true}, nil
 	}
+
+	// FIXME(dhellmann): Need to ensure the power state matches
+	// the desired state here.
 
 	// Set the hardware profile name.
 	//
 	// FIXME(dhellmann): This should pull data from Ironic and compare
 	// it against known profiles.
-	if instance.SetLabel(metalkubev1alpha1.HardwareProfileLabel, "unknown") {
+	hardwareProfile := "unknown"
+	if instance.SetLabel(metalkubev1alpha1.HardwareProfileLabel, hardwareProfile) {
+		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
 		if err := r.client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "failed to update hardware profile")
 			return reconcile.Result{}, err

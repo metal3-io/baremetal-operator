@@ -158,7 +158,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	if instance.Spec.BMC.Credentials == nil {
 		reqLogger.Info(bmc.MissingCredentialsMsg)
 		err := r.setErrorCondition(request, instance, bmc.MissingCredentialsMsg)
-		// Without the BMC IP there's no more we can do, so we're
+		// Without the BMC credentials there's no more we can do, so we're
 		// going to return the emtpy Result anyway, and don't need to
 		// check err.
 		return reconcile.Result{}, err

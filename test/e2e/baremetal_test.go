@@ -238,7 +238,7 @@ func TestMissingBMCParameters(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	no_ip := makeHost(t, ctx, "missing-bmc-ip",
+	noIP := makeHost(t, ctx, "missing-bmc-ip",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "",
@@ -247,9 +247,9 @@ func TestMissingBMCParameters(t *testing.T) {
 				},
 			},
 		})
-	waitForErrorStatus(t, no_ip)
+	waitForErrorStatus(t, noIP)
 
-	no_username := makeHost(t, ctx, "missing-bmc-username",
+	noUsername := makeHost(t, ctx, "missing-bmc-username",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
@@ -258,9 +258,9 @@ func TestMissingBMCParameters(t *testing.T) {
 				},
 			},
 		})
-	waitForErrorStatus(t, no_username)
+	waitForErrorStatus(t, noUsername)
 
-	no_password := makeHost(t, ctx, "missing-bmc-password",
+	noPassword := makeHost(t, ctx, "missing-bmc-password",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
@@ -269,7 +269,7 @@ func TestMissingBMCParameters(t *testing.T) {
 				},
 			},
 		})
-	waitForErrorStatus(t, no_password)
+	waitForErrorStatus(t, noPassword)
 }
 
 func TestSetOffline(t *testing.T) {

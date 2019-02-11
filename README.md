@@ -48,3 +48,8 @@ Bare Metal Operator
 ## Testing
 
 Refer to [testing](docs/testing.md) for details about running the tests.
+
+## API
+
+Refer to [the API documentation](docs/api.md) for details about the
+custom resources defined by this operator.

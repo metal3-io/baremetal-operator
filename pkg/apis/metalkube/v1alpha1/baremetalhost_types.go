@@ -5,8 +5,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// NOTE: json tags are required.  Any new fields you add must have
+// json tags for the fields to be serialized.
 
 const (
 	BareMetalHostFinalizer   string = "baremetalhost.metalkube.org"
@@ -17,8 +17,6 @@ const (
 	HardwareProfileLabel     string = "metalkube.org/hardware-profile"
 )
 
-// FIXME(dhellmann): We probably want this to be a secret reference
-// instead of inlining the values.
 type BMCDetails struct {
 	IP string `json:"ip"`
 	// The name of the secret containing the BMC credentials (requires
@@ -28,7 +26,8 @@ type BMCDetails struct {
 
 // BareMetalHostSpec defines the desired state of BareMetalHost
 type BareMetalHostSpec struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Important: Run "operator-sdk generate k8s" to regenerate code
+	// after modifying this file
 
 	// Taints is the full, authoritative list of taints to apply to
 	// the corresponding Machine. This list will overwrite any
@@ -68,7 +67,8 @@ type HardwareDetails struct {
 
 // BareMetalHostStatus defines the observed state of BareMetalHost
 type BareMetalHostStatus struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Important: Run "operator-sdk generate k8s" to regenerate code
+	// after modifying this file
 
 	// MachineRef will point to the corresponding Machine if it exists.
 	// +optional

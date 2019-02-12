@@ -205,8 +205,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		// Reaching this point means the credentials are valid and
 		// worked, so record that in the status block.
 		reqLogger.Info("updating credentials success status fields")
-		instance.Status.CredentialsSuccessVersion = bmcCredsSecret.ObjectMeta.ResourceVersion
-		instance.Status.CredentialsSuccessReference = &instance.Spec.BMC.Credentials
+		instance.UpdateGoodCredentials(*bmcCredsSecret)
 		if err := r.saveStatus(instance); err != nil {
 			reqLogger.Error(err, "failed to update credentials success status fields")
 			return reconcile.Result{}, err

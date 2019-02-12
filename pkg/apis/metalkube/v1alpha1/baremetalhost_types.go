@@ -65,6 +65,13 @@ type HardwareDetails struct {
 	CPUs    []CPU     `json:"cpus"`
 }
 
+// the reference and version of the last set of BMC credentials we
+// were able to validate
+type CredentialsStatus struct {
+	Reference *corev1.SecretReference `json:"credentials,omitempty"`
+	Version   string                  `json:"credentialsVersion,omitempty"`
+}
+
 // BareMetalHostStatus defines the observed state of BareMetalHost
 type BareMetalHostStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code
@@ -86,10 +93,8 @@ type BareMetalHostStatus struct {
 	// the last thing we deployed here
 	Image string `json:"image"`
 
-	// the reference and version of the last set of BMC credentials we
-	// were able to validate
-	CredentialsSuccessReference *corev1.SecretReference `json:"credentials,omitempty"`
-	CredentialsSuccessVersion   string                  `json:"credentialsSuccessVersion,omitempty"`
+	// the last credentials we were able to validate as working
+	GoodCredentials CredentialsStatus `json:"goodCredentials"`
 
 	ErrorMessage string `json:"errorMessage"`
 }
@@ -132,8 +137,8 @@ func (host *BareMetalHost) SetOperationalStatus(status string) bool {
 // compare the secret with the last one known to work and report if
 // they are the same
 func (host *BareMetalHost) CredentialsHaveChanged(currentSecret corev1.Secret) bool {
-	currentRef := host.Status.CredentialsSuccessReference
-	currentVersion := host.Status.CredentialsSuccessVersion
+	currentRef := host.Status.GoodCredentials.Reference
+	currentVersion := host.Status.GoodCredentials.Version
 	newRef := host.Spec.BMC.Credentials
 
 	if currentRef == nil {
@@ -144,6 +149,11 @@ func (host *BareMetalHost) CredentialsHaveChanged(currentSecret corev1.Secret) b
 		return true
 	}
 	return false
+}
+
+func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
+	host.Status.GoodCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
+	host.Status.GoodCredentials.Reference = &host.Spec.BMC.Credentials
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

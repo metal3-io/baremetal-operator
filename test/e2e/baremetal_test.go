@@ -237,9 +237,9 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 		})
 
 	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		t.Logf("ref: %v ver: %s", host.Status.CredentialsSuccessReference,
-			host.Status.CredentialsSuccessVersion)
-		if host.Status.CredentialsSuccessVersion != "" {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Status.GoodCredentials.Version != "" {
 			return true, nil
 		}
 		return false, nil

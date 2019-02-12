@@ -21,7 +21,7 @@ type BMCDetails struct {
 	IP string `json:"ip"`
 	// The name of the secret containing the BMC credentials (requires
 	// keys "username" and "password").
-	Credentials *corev1.SecretReference `json:"credentials"`
+	Credentials corev1.SecretReference `json:"credentials"`
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost

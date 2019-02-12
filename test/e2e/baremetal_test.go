@@ -207,7 +207,7 @@ func TestAddFinalizers(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-valid",
 				},
 			},
@@ -230,7 +230,7 @@ func TestSetLastUpdated(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-valid",
 				},
 			},
@@ -253,7 +253,7 @@ func TestMissingBMCParameters(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-valid",
 				},
 			},
@@ -264,7 +264,7 @@ func TestMissingBMCParameters(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-no-user",
 				},
 			},
@@ -275,7 +275,7 @@ func TestMissingBMCParameters(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-no-pass",
 				},
 			},
@@ -301,7 +301,7 @@ func TestChangeSecret(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-no-user",
 				},
 			},
@@ -333,7 +333,7 @@ func TestSetOffline(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-valid",
 				},
 			},
@@ -376,7 +376,7 @@ func TestSetOnline(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-valid",
 				},
 			},
@@ -419,7 +419,7 @@ func TestSetHardwareProfileLabel(t *testing.T) {
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
 				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
+				Credentials: corev1.SecretReference{
 					Name: "bmc-creds-valid",
 				},
 			},

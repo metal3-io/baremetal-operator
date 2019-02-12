@@ -246,6 +246,49 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 	})
 }
 
+func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+	f := framework.Global
+
+	exampleHost := makeHost(t, ctx, "updates-success",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP: "192.168.100.100",
+				Credentials: corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Status.GoodCredentials.Version != "" {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	makeSecret(t, ctx, "bmc-creds-valid2", "User", "Pass")
+
+	refreshHost(exampleHost)
+	exampleHost.Spec.BMC.Credentials.Name = "bmc-creds-valid2"
+	err := f.Client.Update(goctx.TODO(), exampleHost)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Status.GoodCredentials.Reference != nil && host.Status.GoodCredentials.Reference.Name == "bmc-creds-valid2" {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
 func TestSetLastUpdated(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()

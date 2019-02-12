@@ -104,3 +104,24 @@ status:
   lastUpdated: 2019-02-11T17:44:30Z
   provisioningID: ""
 ```
+
+## Labels
+
+The BareMetalHost operator manages several labels with host status and
+settings to make it easier to find specific hosts.
+
+*metalkube.org/hardware-profile* -- The name of the hardware profile
+that matches the hardware discovered on the host. Details about the
+hardware are saved to the *hardware* section of the status. If the
+hardware does not match a known profile, the value "unknown" is used.
+
+*metalkube.org/operational-status* -- The status of the server.
+
+  *online* -- The server is powered on and running.
+
+  *offline* -- The server is powered off.
+
+  *error* -- There is an error with the configuration data for the
+  host or there is a problem with the host itself. Refer to the
+  *errorMessage* field in the status section for more details about
+  the error condition.

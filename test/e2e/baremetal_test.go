@@ -222,6 +222,30 @@ func TestAddFinalizers(t *testing.T) {
 	})
 }
 
+func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, "updates-success",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP: "192.168.100.100",
+				Credentials: corev1.SecretReference{
+					Name: "bmc-creds-valid",
+				},
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.CredentialsSuccessReference,
+			host.Status.CredentialsSuccessVersion)
+		if host.Status.CredentialsSuccessVersion != "" {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
 func TestSetLastUpdated(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()

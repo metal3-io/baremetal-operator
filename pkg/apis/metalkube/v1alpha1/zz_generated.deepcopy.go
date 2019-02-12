@@ -140,6 +140,11 @@ func (in *BareMetalHostStatus) DeepCopyInto(out *BareMetalHostStatus) {
 		*out = (*in).DeepCopy()
 	}
 	in.HardwareDetails.DeepCopyInto(&out.HardwareDetails)
+	if in.CredentialsSuccessReference != nil {
+		in, out := &in.CredentialsSuccessReference, &out.CredentialsSuccessReference
+		*out = new(v1.SecretReference)
+		**out = **in
+	}
 	return
 }
 

@@ -86,6 +86,11 @@ type BareMetalHostStatus struct {
 	// the last thing we deployed here
 	Image string `json:"image"`
 
+	// the reference and version of the last set of BMC credentials we
+	// were able to validate
+	CredentialsSuccessReference *corev1.SecretReference `json:"credentials,omitempty"`
+	CredentialsSuccessVersion   string                  `json:"credentialsSuccessVersion,omitempty"`
+
 	ErrorMessage string `json:"errorMessage"`
 }
 
@@ -122,6 +127,23 @@ func (host *BareMetalHost) SetLabel(name, value string) bool {
 
 func (host *BareMetalHost) SetOperationalStatus(status string) bool {
 	return host.SetLabel(OperationalStatusLabel, status)
+}
+
+// compare the secret with the last one known to work and report if
+// they are the same
+func (host *BareMetalHost) CredentialsHaveChanged(currentSecret corev1.Secret) bool {
+	currentRef := host.Status.CredentialsSuccessReference
+	currentVersion := host.Status.CredentialsSuccessVersion
+	newRef := host.Spec.BMC.Credentials
+
+	if currentRef == nil {
+		return true
+	} else if currentRef.Name != newRef.Name || currentRef.Namespace != newRef.Namespace {
+		return true
+	} else if currentVersion != currentSecret.ObjectMeta.ResourceVersion {
+		return true
+	}
+	return false
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

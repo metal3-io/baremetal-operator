@@ -137,6 +137,7 @@ func (host *BareMetalHost) SetOperationalStatus(status string) bool {
 // compare the secret with the last one known to work and report if
 // they are the same
 func (host *BareMetalHost) CredentialsHaveChanged(currentSecret corev1.Secret) bool {
+func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret) bool {
 	currentRef := host.Status.GoodCredentials.Reference
 	currentVersion := host.Status.GoodCredentials.Version
 	newRef := host.Spec.BMC.Credentials

@@ -197,7 +197,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Update the success info for the credentails.
-	if instance.CredentialsHaveChanged(*bmcCredsSecret) {
+	if instance.CredentialsNeedValidation(*bmcCredsSecret) {
 
 		// FIXME(dhellmann): Test using the credentials to get into
 		// the BMC, and record error status if it fails.

@@ -9,14 +9,35 @@ import (
 // json tags for the fields to be serialized.
 
 const (
-	BareMetalHostFinalizer   string = "baremetalhost.metalkube.org"
-	OperationalStatusLabel   string = "metalkube.org/operational-status"
-	OperationalStatusError   string = "error"
-	OperationalStatusOnline  string = "online"
+	// BareMetalHostFinalizer is the name of the finalizer added to
+	// hosts to block delete operations until the physical host can be
+	// deprovisioned.
+	BareMetalHostFinalizer string = "baremetalhost.metalkube.org"
+
+	// OperationalStatusLabel is the name of the label added to the
+	// host with the operating status.
+	OperationalStatusLabel string = "metalkube.org/operational-status"
+
+	// OperationalStatusError is the status value for the
+	// OperationalStatusLabel when the host has an error condition and
+	// should not be used.
+	OperationalStatusError string = "error"
+
+	// OperationalStatusOnline is the status value for the
+	// OperationalStatusLabel when the host is powered on and running.
+	OperationalStatusOnline string = "online"
+
+	// OperationalStatusOffline is the status value for the
+	// OperationalStatusLabel when the host is powered off.
 	OperationalStatusOffline string = "offline"
-	HardwareProfileLabel     string = "metalkube.org/hardware-profile"
+
+	// HardwareProfileLabel is the name of the label added to the host
+	// with the discovered hardware profile.
+	HardwareProfileLabel string = "metalkube.org/hardware-profile"
 )
 
+// BMCDetails contains the information necessary to communicate with
+// the bare metal controller module on host.
 type BMCDetails struct {
 	IP string `json:"ip"`
 	// The name of the secret containing the BMC credentials (requires
@@ -44,29 +65,35 @@ type BareMetalHostSpec struct {
 
 // FIXME(dhellmann): We probably want some other module to own these
 // data structures.
+
+// CPU describes one processor on the host.
 type CPU struct {
 	Type  string
 	Speed int // GHz
 }
 
+// Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
 	Size int    // GB
 	Info string // model, etc.
 }
 
+// NIC describes one network interface on the host.
 type NIC struct {
 	MAC string
 	IP  string
 }
 
+// HardwareDetails collects all of the information about hardware
+// discovered on the host.
 type HardwareDetails struct {
 	NIC     []NIC     `json:"nics"`
 	Storage []Storage `json:"storage"`
 	CPUs    []CPU     `json:"cpus"`
 }
 
-// the reference and version of the last set of BMC credentials we
-// were able to validate
+// CredentialsStatus contains the reference and version of the last
+// set of BMC credentials the controller was able to validate.
 type CredentialsStatus struct {
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
 	Version   string                  `json:"credentialsVersion,omitempty"`
@@ -111,6 +138,9 @@ type BareMetalHost struct {
 	Status BareMetalHostStatus `json:"status,omitempty"`
 }
 
+// SetErrorMessage updates the ErrorMessage in the host Status struct
+// when necessary and returns true when a change is made or false when
+// no change is made.
 func (host *BareMetalHost) SetErrorMessage(message string) bool {
 	if host.Status.ErrorMessage != message {
 		host.Status.ErrorMessage = message
@@ -119,6 +149,8 @@ func (host *BareMetalHost) SetErrorMessage(message string) bool {
 	return false
 }
 
+// SetLabel updates the given label when necessary and returns true
+// when a change is made or false when no change is made.
 func (host *BareMetalHost) SetLabel(name, value string) bool {
 	if host.Labels == nil {
 		host.Labels = make(map[string]string)
@@ -130,13 +162,14 @@ func (host *BareMetalHost) SetLabel(name, value string) bool {
 	return false
 }
 
+// SetOperationalStatus updates the OperationalStatusLabel and returns
+// true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetOperationalStatus(status string) bool {
 	return host.SetLabel(OperationalStatusLabel, status)
 }
 
-// compare the secret with the last one known to work and report if
-// they are the same
-func (host *BareMetalHost) CredentialsHaveChanged(currentSecret corev1.Secret) bool {
+// CredentialsNeedValidation compares the secret with the last one
+// known to work and report if the new ones need to be checked.
 func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret) bool {
 	currentRef := host.Status.GoodCredentials.Reference
 	currentVersion := host.Status.GoodCredentials.Version
@@ -155,6 +188,9 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 	return false
 }
 
+// UpdateGoodCredentials modifies the GoodCredentials portion of the
+// Status struct to record the details of the secret containing
+// credentials known to work.
 func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
 	host.Status.GoodCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
 	host.Status.GoodCredentials.Reference = &host.Spec.BMC.Credentials

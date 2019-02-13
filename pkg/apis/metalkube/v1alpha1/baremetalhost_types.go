@@ -8,6 +8,8 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have
 // json tags for the fields to be serialized.
 
+// NOTE(dhellmann): Update docs/api.md when changing these data structure.
+
 const (
 	BareMetalHostFinalizer   string = "baremetalhost.metalkube.org"
 	OperationalStatusLabel   string = "metalkube.org/operational-status"
@@ -45,18 +47,18 @@ type BareMetalHostSpec struct {
 // FIXME(dhellmann): We probably want some other module to own these
 // data structures.
 type CPU struct {
-	Type  string
-	Speed int // GHz
+	Type  string `json:"type"`
+	Speed int    `json:"speed"` // GHz
 }
 
 type Storage struct {
-	Size int    // GB
-	Info string // model, etc.
+	Size int    `json:"size"` // GB
+	Info string `json:"info"` // model, etc.
 }
 
 type NIC struct {
-	MAC string
-	IP  string
+	MAC string `json:"mac"`
+	IP  string `json:"ip"`
 }
 
 type HardwareDetails struct {

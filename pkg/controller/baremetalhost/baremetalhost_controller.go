@@ -61,11 +61,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			IsController: true,
 			OwnerType:    &metalkubev1alpha1.BareMetalHost{},
 		})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 var _ reconcile.Reconciler = &ReconcileBareMetalHost{}

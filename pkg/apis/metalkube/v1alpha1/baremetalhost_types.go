@@ -141,11 +141,14 @@ func (host *BareMetalHost) CredentialsHaveChanged(currentSecret corev1.Secret) b
 	currentVersion := host.Status.GoodCredentials.Version
 	newRef := host.Spec.BMC.Credentials
 
-	if currentRef == nil {
+	switch {
+	case currentRef == nil:
 		return true
-	} else if currentRef.Name != newRef.Name || currentRef.Namespace != newRef.Namespace {
+	case currentRef.Name != newRef.Name:
 		return true
-	} else if currentVersion != currentSecret.ObjectMeta.ResourceVersion {
+	case currentRef.Namespace != newRef.Namespace:
+		return true
+	case currentVersion != currentSecret.ObjectMeta.ResourceVersion:
 		return true
 	}
 	return false

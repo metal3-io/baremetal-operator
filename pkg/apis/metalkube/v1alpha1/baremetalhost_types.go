@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have
@@ -42,7 +43,7 @@ type BMCDetails struct {
 	IP string `json:"ip"`
 	// The name of the secret containing the BMC credentials (requires
 	// keys "username" and "password").
-	Credentials corev1.SecretReference `json:"credentials"`
+	CredentialsName string `json:"credentialsName"`
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost
@@ -168,19 +169,26 @@ func (host *BareMetalHost) SetOperationalStatus(status string) bool {
 	return host.SetLabel(OperationalStatusLabel, status)
 }
 
+// GetCredentialsKey returns a NamespacedName suitable for loading the
+// Secret containing the credentials associated with the host.
+func (host *BareMetalHost) GetCredentialsKey() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      host.Spec.BMC.CredentialsName,
+		Namespace: host.ObjectMeta.Namespace,
+	}
+}
+
 // CredentialsNeedValidation compares the secret with the last one
 // known to work and report if the new ones need to be checked.
 func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret) bool {
 	currentRef := host.Status.GoodCredentials.Reference
 	currentVersion := host.Status.GoodCredentials.Version
-	newRef := host.Spec.BMC.Credentials
+	newName := host.Spec.BMC.CredentialsName
 
 	switch {
 	case currentRef == nil:
 		return true
-	case currentRef.Name != newRef.Name:
-		return true
-	case currentRef.Namespace != newRef.Namespace:
+	case currentRef.Name != newName:
 		return true
 	case currentVersion != currentSecret.ObjectMeta.ResourceVersion:
 		return true
@@ -193,7 +201,10 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 // credentials known to work.
 func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
 	host.Status.GoodCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
-	host.Status.GoodCredentials.Reference = &host.Spec.BMC.Credentials
+	host.Status.GoodCredentials.Reference = &corev1.SecretReference{
+		Name:      currentSecret.ObjectMeta.Name,
+		Namespace: currentSecret.ObjectMeta.Namespace,
+	}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

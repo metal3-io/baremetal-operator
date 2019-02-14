@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -308,25 +307,13 @@ func (r *ReconcileBareMetalHost) getBMCCredentialsSecret(request reconcile.Reque
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 
-	if instance.Spec.BMC.Credentials.Name == "" {
+	if instance.Spec.BMC.CredentialsName == "" {
 		return nil, fmt.Errorf(bmc.MissingCredentialsMsg)
 	}
 
 	// Fetch the named secret.
-	secretKey := types.NamespacedName{
-		Name: instance.Spec.BMC.Credentials.Name,
-	}
-	secretKey.Namespace = instance.Spec.BMC.Credentials.Namespace
-	if secretKey.Namespace == "" {
-		secretKey.Namespace = request.Namespace
-	}
-
-	bmcSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretKey.Name,
-			Namespace: secretKey.Namespace,
-		},
-	}
+	secretKey := instance.GetCredentialsKey()
+	bmcSecret := &v1.Secret{}
 	err = r.client.Get(context.TODO(), secretKey, bmcSecret)
 	if err != nil {
 		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")

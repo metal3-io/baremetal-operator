@@ -2,7 +2,6 @@ package baremetalhost
 
 import (
 	"context"
-	"fmt"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
@@ -164,10 +163,17 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Load the secret containing the credentials for talking to the
 	// BMC.
-	bmcCredsSecret, err := r.getBMCCredentialsSecret(request, instance)
+	if instance.Spec.BMC.CredentialsName == "" {
+		// We have no name to use to load the secrets.
+		reqLogger.Error(err, "BMC.CredentialsName is not set")
+		err := r.setErrorCondition(request, instance, bmc.MissingCredentialsMsg)
+		return reconcile.Result{}, err
+	}
+	secretKey := instance.GetCredentialsKey()
+	bmcCredsSecret := &v1.Secret{}
+	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
 	if err != nil {
-		// If we can't fetch the BMC settings there's no more we can do.
-		reqLogger.Error(err, "could not load BMC Credentials")
+		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")
 		return reconcile.Result{}, err
 	}
 	bmcCreds := bmc.Credentials{
@@ -301,25 +307,6 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, in
 	}
 
 	return nil
-}
-
-func (r *ReconcileBareMetalHost) getBMCCredentialsSecret(request reconcile.Request, instance *metalkubev1alpha1.BareMetalHost) (secret *v1.Secret, err error) {
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-
-	if instance.Spec.BMC.CredentialsName == "" {
-		return nil, fmt.Errorf(bmc.MissingCredentialsMsg)
-	}
-
-	// Fetch the named secret.
-	secretKey := instance.GetCredentialsKey()
-	bmcSecret := &v1.Secret{}
-	err = r.client.Get(context.TODO(), secretKey, bmcSecret)
-	if err != nil {
-		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")
-		return nil, err
-	}
-	return bmcSecret, nil
 }
 
 func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, instance *metalkubev1alpha1.BareMetalHost, secret *v1.Secret) (err error) {

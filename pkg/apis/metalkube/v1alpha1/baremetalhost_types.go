@@ -83,13 +83,15 @@ type Storage struct {
 
 // NIC describes one network interface on the host.
 type NIC struct {
-	MAC string `json:"mac"`
-	IP  string `json:"ip"`
+	MAC     string `json:"mac"`
+	IP      string `json:"ip"`
+	SpeedGB int    `json:"speedGB"`
 }
 
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
+	RAMGB   int       `json:"ramGB"`
 	NIC     []NIC     `json:"nics"`
 	Storage []Storage `json:"storage"`
 	CPUs    []CPU     `json:"cpus"`

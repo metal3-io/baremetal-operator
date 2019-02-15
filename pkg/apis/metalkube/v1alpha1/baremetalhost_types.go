@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have
@@ -11,19 +12,40 @@ import (
 // NOTE(dhellmann): Update docs/api.md when changing these data structure.
 
 const (
-	BareMetalHostFinalizer   string = "baremetalhost.metalkube.org"
-	OperationalStatusLabel   string = "metalkube.org/operational-status"
-	OperationalStatusError   string = "error"
-	OperationalStatusOnline  string = "online"
+	// BareMetalHostFinalizer is the name of the finalizer added to
+	// hosts to block delete operations until the physical host can be
+	// deprovisioned.
+	BareMetalHostFinalizer string = "baremetalhost.metalkube.org"
+
+	// OperationalStatusLabel is the name of the label added to the
+	// host with the operating status.
+	OperationalStatusLabel string = "metalkube.org/operational-status"
+
+	// OperationalStatusError is the status value for the
+	// OperationalStatusLabel when the host has an error condition and
+	// should not be used.
+	OperationalStatusError string = "error"
+
+	// OperationalStatusOnline is the status value for the
+	// OperationalStatusLabel when the host is powered on and running.
+	OperationalStatusOnline string = "online"
+
+	// OperationalStatusOffline is the status value for the
+	// OperationalStatusLabel when the host is powered off.
 	OperationalStatusOffline string = "offline"
-	HardwareProfileLabel     string = "metalkube.org/hardware-profile"
+
+	// HardwareProfileLabel is the name of the label added to the host
+	// with the discovered hardware profile.
+	HardwareProfileLabel string = "metalkube.org/hardware-profile"
 )
 
+// BMCDetails contains the information necessary to communicate with
+// the bare metal controller module on host.
 type BMCDetails struct {
 	IP string `json:"ip"`
 	// The name of the secret containing the BMC credentials (requires
 	// keys "username" and "password").
-	Credentials *corev1.SecretReference `json:"credentials"`
+	CredentialsName string `json:"credentialsName"`
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost
@@ -46,25 +68,38 @@ type BareMetalHostSpec struct {
 
 // FIXME(dhellmann): We probably want some other module to own these
 // data structures.
+
+// CPU describes one processor on the host.
 type CPU struct {
 	Type  string `json:"type"`
 	Speed int    `json:"speed"` // GHz
 }
 
+// Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
 	Size int    `json:"size"` // GB
 	Info string `json:"info"` // model, etc.
 }
 
+// NIC describes one network interface on the host.
 type NIC struct {
 	MAC string `json:"mac"`
 	IP  string `json:"ip"`
 }
 
+// HardwareDetails collects all of the information about hardware
+// discovered on the host.
 type HardwareDetails struct {
 	NIC     []NIC     `json:"nics"`
 	Storage []Storage `json:"storage"`
 	CPUs    []CPU     `json:"cpus"`
+}
+
+// CredentialsStatus contains the reference and version of the last
+// set of BMC credentials the controller was able to validate.
+type CredentialsStatus struct {
+	Reference *corev1.SecretReference `json:"credentials,omitempty"`
+	Version   string                  `json:"credentialsVersion,omitempty"`
 }
 
 // BareMetalHostStatus defines the observed state of BareMetalHost
@@ -88,6 +123,9 @@ type BareMetalHostStatus struct {
 	// the last thing we deployed here
 	Image string `json:"image"`
 
+	// the last credentials we were able to validate as working
+	GoodCredentials CredentialsStatus `json:"goodCredentials"`
+
 	ErrorMessage string `json:"errorMessage"`
 }
 
@@ -103,6 +141,9 @@ type BareMetalHost struct {
 	Status BareMetalHostStatus `json:"status,omitempty"`
 }
 
+// SetErrorMessage updates the ErrorMessage in the host Status struct
+// when necessary and returns true when a change is made or false when
+// no change is made.
 func (host *BareMetalHost) SetErrorMessage(message string) bool {
 	if host.Status.ErrorMessage != message {
 		host.Status.ErrorMessage = message
@@ -111,6 +152,8 @@ func (host *BareMetalHost) SetErrorMessage(message string) bool {
 	return false
 }
 
+// SetLabel updates the given label when necessary and returns true
+// when a change is made or false when no change is made.
 func (host *BareMetalHost) SetLabel(name, value string) bool {
 	if host.Labels == nil {
 		host.Labels = make(map[string]string)
@@ -122,8 +165,48 @@ func (host *BareMetalHost) SetLabel(name, value string) bool {
 	return false
 }
 
+// SetOperationalStatus updates the OperationalStatusLabel and returns
+// true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetOperationalStatus(status string) bool {
 	return host.SetLabel(OperationalStatusLabel, status)
+}
+
+// GetCredentialsKey returns a NamespacedName suitable for loading the
+// Secret containing the credentials associated with the host.
+func (host *BareMetalHost) GetCredentialsKey() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      host.Spec.BMC.CredentialsName,
+		Namespace: host.ObjectMeta.Namespace,
+	}
+}
+
+// CredentialsNeedValidation compares the secret with the last one
+// known to work and report if the new ones need to be checked.
+func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret) bool {
+	currentRef := host.Status.GoodCredentials.Reference
+	currentVersion := host.Status.GoodCredentials.Version
+	newName := host.Spec.BMC.CredentialsName
+
+	switch {
+	case currentRef == nil:
+		return true
+	case currentRef.Name != newName:
+		return true
+	case currentVersion != currentSecret.ObjectMeta.ResourceVersion:
+		return true
+	}
+	return false
+}
+
+// UpdateGoodCredentials modifies the GoodCredentials portion of the
+// Status struct to record the details of the secret containing
+// credentials known to work.
+func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
+	host.Status.GoodCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
+	host.Status.GoodCredentials.Reference = &corev1.SecretReference{
+		Name:      currentSecret.ObjectMeta.Name,
+		Namespace: currentSecret.ObjectMeta.Namespace,
+	}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

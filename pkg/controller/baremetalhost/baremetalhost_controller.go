@@ -2,20 +2,20 @@ package baremetalhost
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	v1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -53,7 +53,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	return nil
+	// Watch for changes to secrets being used by hosts
+	err = c.Watch(&source.Kind{Type: &v1.Secret{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &metalkubev1alpha1.BareMetalHost{},
+		})
+	return err
 }
 
 var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
@@ -155,55 +161,86 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	if instance.Spec.BMC.Credentials == nil {
-		reqLogger.Info(bmc.MissingCredentialsMsg)
+	// Load the secret containing the credentials for talking to the
+	// BMC.
+	if instance.Spec.BMC.CredentialsName == "" {
+		// We have no name to use to load the secrets.
+		reqLogger.Error(err, "BMC.CredentialsName is not set")
 		err := r.setErrorCondition(request, instance, bmc.MissingCredentialsMsg)
-		// Without the BMC credentials there's no more we can do, so we're
-		// going to return the emtpy Result anyway, and don't need to
-		// check err.
 		return reconcile.Result{}, err
-	} else {
+	}
+	secretKey := instance.GetCredentialsKey()
+	bmcCredsSecret := &v1.Secret{}
+	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
+	if err != nil {
+		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")
+		return reconcile.Result{}, err
+	}
+	bmcCreds := bmc.Credentials{
+		Username: string(bmcCredsSecret.Data["username"]),
+		Password: string(bmcCredsSecret.Data["password"]),
+	}
 
-		bmcCreds, err := r.getBMCCredentials(request, instance)
-		if err != nil {
-			// If we can't fetch the BMC settings there's no more we can do.
-			reqLogger.Info("missing BMC Credentials")
+	// Make sure the secret has the correct owner.
+	err = r.setBMCCredentialsSecretOwner(request, instance, bmcCredsSecret)
+	if err != nil {
+		// FIXME: Set error condition?
+		reqLogger.Error(err, "could not update owner of credentials secret")
+		return reconcile.Result{}, err
+	}
+
+	// Verify that the secret contains the expected info.
+	validCreds, reason := bmcCreds.AreValid()
+	if !validCreds {
+		reqLogger.Info("invalid BMC Credentials", "reason", reason)
+		err := r.setErrorCondition(request, instance, reason)
+		return reconcile.Result{}, err
+	}
+
+	// Update the success info for the credentails.
+	if instance.CredentialsNeedValidation(*bmcCredsSecret) {
+
+		// FIXME(dhellmann): Test using the credentials to get into
+		// the BMC, and record error status if it fails.
+
+		// Reaching this point means the credentials are valid and
+		// worked, so record that in the status block.
+		reqLogger.Info("updating credentials success status fields")
+		instance.UpdateGoodCredentials(*bmcCredsSecret)
+		if err := r.saveStatus(instance); err != nil {
+			reqLogger.Error(err, "failed to update credentials success status fields")
 			return reconcile.Result{}, err
 		}
-		validCreds, reason := bmcCreds.AreValid()
-		if !validCreds {
-			reqLogger.Info("invalid BMC Credentials", "reason", reason)
-			err := r.setErrorCondition(request, instance, reason)
-			// We won't see a change to the secret, so put ourselves
-			// back into the queue after a brief wait.
-			return reconcile.Result{RequeueAfter: time.Second * 10}, err
-		}
-
-		// FIXME(dhellmann): Need to ensure the power state matches
-		// the desired state here before updating the status label.
-
-		newOpStatus := metalkubev1alpha1.OperationalStatusOffline
-		if instance.Spec.Online {
-			newOpStatus = metalkubev1alpha1.OperationalStatusOnline
-		}
-		if instance.SetOperationalStatus(newOpStatus) {
-			reqLogger.Info(
-				"setting operational status",
-				"newStatus", newOpStatus,
-			)
-			if err := r.client.Update(context.TODO(), instance); err != nil {
-				reqLogger.Error(err, "failed to update operational status")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		}
+		return reconcile.Result{Requeue: true}, nil
 	}
+
+	// Update the operational status of the host.
+	newOpStatus := metalkubev1alpha1.OperationalStatusOffline
+	if instance.Spec.Online {
+		newOpStatus = metalkubev1alpha1.OperationalStatusOnline
+	}
+	if instance.SetOperationalStatus(newOpStatus) {
+		reqLogger.Info(
+			"setting operational status",
+			"newStatus", newOpStatus,
+		)
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "failed to update operational status")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// FIXME(dhellmann): Need to ensure the power state matches
+	// the desired state here.
 
 	// Set the hardware profile name.
 	//
 	// FIXME(dhellmann): This should pull data from Ironic and compare
 	// it against known profiles.
-	if instance.SetLabel(metalkubev1alpha1.HardwareProfileLabel, "unknown") {
+	hardwareProfile := "unknown"
+	if instance.SetLabel(metalkubev1alpha1.HardwareProfileLabel, hardwareProfile) {
+		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
 		if err := r.client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "failed to update hardware profile")
 			return reconcile.Result{}, err
@@ -272,37 +309,22 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, in
 	return nil
 }
 
-func (r *ReconcileBareMetalHost) getBMCCredentials(request reconcile.Request, instance *metalkubev1alpha1.BareMetalHost) (creds bmc.Credentials, err error) {
+func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, instance *metalkubev1alpha1.BareMetalHost, secret *v1.Secret) (err error) {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
-
-	if instance.Spec.BMC.Credentials.Name == "" {
-		return creds, fmt.Errorf(bmc.MissingCredentialsMsg)
+	if metav1.IsControlledBy(secret, instance) {
+		return nil
 	}
-
-	// Fetch the named secret.
-	secretKey := types.NamespacedName{
-		Name: instance.Spec.BMC.Credentials.Name,
-	}
-	secretKey.Namespace = instance.Spec.BMC.Credentials.Namespace
-	if secretKey.Namespace == "" {
-		secretKey.Namespace = request.Namespace
-	}
-	reqLogger.Info("looking for secret", "secretKey", secretKey)
-
-	bmcSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretKey.Name,
-			Namespace: secretKey.Namespace,
-		},
-	}
-	err = r.client.Get(context.TODO(), secretKey, bmcSecret)
+	reqLogger.Info("updating owner of secret")
+	err = controllerutil.SetControllerReference(instance, secret, r.scheme)
 	if err != nil {
-		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")
-		return creds, err
+		reqLogger.Error(err, "failed to set owner")
+		return err
 	}
-	creds.Username = string(bmcSecret.Data["username"])
-	creds.Password = string(bmcSecret.Data["password"])
-
-	return creds, nil
+	err = r.client.Update(context.TODO(), secret)
+	if err != nil {
+		reqLogger.Error(err, "failed to save owner")
+		return err
+	}
+	return nil
 }

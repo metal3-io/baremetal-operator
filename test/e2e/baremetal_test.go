@@ -32,7 +32,7 @@ import (
 
 var (
 	retryInterval        = time.Second * 5
-	timeout              = time.Second * 60
+	timeout              = time.Second * 10
 	cleanupRetryInterval = time.Second * 1
 	cleanupTimeout       = time.Second * 5
 )
@@ -177,6 +177,17 @@ func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone 
 	return instance
 }
 
+func waitForOfflineStatus(t *testing.T, host *metalkube.BareMetalHost) {
+	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkube.OperationalStatusLabel]
+		t.Logf("OperationalState: %s", state)
+		if state == metalkube.OperationalStatusOffline {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
 func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
 	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
 		state := host.Labels[metalkube.OperationalStatusLabel]
@@ -195,16 +206,119 @@ func TestAddFinalizers(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "gets-finalizers",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-valid",
-				},
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
 	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
 		t.Logf("finalizers: %v", host.ObjectMeta.Finalizers)
 		if utils.StringInList(host.ObjectMeta.Finalizers, metalkube.BareMetalHostFinalizer) {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	exampleHost := makeHost(t, ctx, "updates-success",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Status.GoodCredentials.Version != "" {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+	f := framework.Global
+
+	exampleHost := makeHost(t, ctx, "updates-success",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Status.GoodCredentials.Version != "" {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	makeSecret(t, ctx, "bmc-creds-valid2", "User", "Pass")
+
+	refreshHost(exampleHost)
+	exampleHost.Spec.BMC.CredentialsName = "bmc-creds-valid2"
+	err := f.Client.Update(goctx.TODO(), exampleHost)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Status.GoodCredentials.Reference != nil && host.Status.GoodCredentials.Reference.Name == "bmc-creds-valid2" {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+	f := framework.Global
+
+	exampleHost := makeHost(t, ctx, "updates-success",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
+			},
+		})
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Status.GoodCredentials.Version != "" {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	refreshHost(exampleHost)
+	exampleHost.Spec.BMC.CredentialsName = "bmc-creds-no-user"
+	err := f.Client.Update(goctx.TODO(), exampleHost)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForHostStateChange(t, exampleHost, func(host *metalkube.BareMetalHost) (done bool, err error) {
+		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+			host.Status.GoodCredentials.Version)
+		if host.Spec.BMC.CredentialsName != "bmc-creds-no-user" {
+			return false, nil
+		}
+		if host.Status.GoodCredentials.Reference != nil && host.Status.GoodCredentials.Reference.Name == "bmc-creds-valid" {
 			return true, nil
 		}
 		return false, nil
@@ -218,10 +332,8 @@ func TestSetLastUpdated(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "gets-last-updated",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-valid",
-				},
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
@@ -238,38 +350,72 @@ func TestMissingBMCParameters(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
 
-	no_ip := makeHost(t, ctx, "missing-bmc-ip",
+	noIP := makeHost(t, ctx, "missing-bmc-ip",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-valid",
-				},
+				IP:              "",
+				CredentialsName: "bmc-creds-valid",
 			},
 		})
-	waitForErrorStatus(t, no_ip)
+	waitForErrorStatus(t, noIP)
 
-	no_username := makeHost(t, ctx, "missing-bmc-username",
+	noUsername := makeHost(t, ctx, "missing-bmc-username",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-no-user",
-				},
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-no-user",
 			},
 		})
-	waitForErrorStatus(t, no_username)
+	waitForErrorStatus(t, noUsername)
 
-	no_password := makeHost(t, ctx, "missing-bmc-password",
+	noPassword := makeHost(t, ctx, "missing-bmc-password",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-no-pass",
-				},
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-no-pass",
 			},
 		})
-	waitForErrorStatus(t, no_password)
+	waitForErrorStatus(t, noPassword)
+}
+
+func TestChangeSecret(t *testing.T) {
+	// Create the host using the secret that does not have a username,
+	// then modify the secret and look for the host status to change.
+
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	f := framework.Global
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	noUsername := makeHost(t, ctx, "missing-bmc-username",
+		&metalkube.BareMetalHostSpec{
+			BMC: metalkube.BMCDetails{
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-no-user",
+			},
+		})
+	waitForErrorStatus(t, noUsername)
+
+	secret := &corev1.Secret{}
+	secretName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      "bmc-creds-no-user",
+	}
+	err = f.Client.Get(goctx.TODO(), secretName, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret.Data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte("username")))
+	err = f.Client.Update(goctx.TODO(), secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForOfflineStatus(t, noUsername)
 }
 
 func TestSetOffline(t *testing.T) {
@@ -279,10 +425,8 @@ func TestSetOffline(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "toggle-offline",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-valid",
-				},
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
 			},
 			Online: true,
 		})
@@ -322,10 +466,8 @@ func TestSetOnline(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "toggle-online",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-valid",
-				},
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
 			},
 			Online: false,
 		})
@@ -365,10 +507,8 @@ func TestSetHardwareProfileLabel(t *testing.T) {
 	exampleHost := makeHost(t, ctx, "hardware-profile",
 		&metalkube.BareMetalHostSpec{
 			BMC: metalkube.BMCDetails{
-				IP: "192.168.100.100",
-				Credentials: &corev1.SecretReference{
-					Name: "bmc-creds-valid",
-				},
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
 			},
 		})
 

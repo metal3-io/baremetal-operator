@@ -71,25 +71,27 @@ type BareMetalHostSpec struct {
 
 // CPU describes one processor on the host.
 type CPU struct {
-	Type  string `json:"type"`
-	Speed int    `json:"speed"` // GHz
+	Type     string `json:"type"`
+	SpeedGHz int    `json:"speedGHz"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	Size int    `json:"size"` // GB
-	Info string `json:"info"` // model, etc.
+	SizeGiB int    `json:"sizeGiB"`
+	Info    string `json:"info"`
 }
 
 // NIC describes one network interface on the host.
 type NIC struct {
-	MAC string `json:"mac"`
-	IP  string `json:"ip"`
+	MAC       string `json:"mac"`
+	IP        string `json:"ip"`
+	SpeedGbps int    `json:"speedGbps"`
 }
 
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
+	RAMGiB  int       `json:"ramGiB"`
 	NIC     []NIC     `json:"nics"`
 	Storage []Storage `json:"storage"`
 	CPUs    []CPU     `json:"cpus"`

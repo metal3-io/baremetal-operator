@@ -77,7 +77,7 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	SizeGIB int    `json:"sizeGIB"`
+	SizeGiB int    `json:"sizeGiB"`
 	Info    string `json:"info"`
 }
 
@@ -91,7 +91,7 @@ type NIC struct {
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
-	RAMGIB  int       `json:"ramGIB"`
+	RAMGiB  int       `json:"ramGiB"`
 	NIC     []NIC     `json:"nics"`
 	Storage []Storage `json:"storage"`
 	CPUs    []CPU     `json:"cpus"`

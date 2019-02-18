@@ -24,3 +24,9 @@ exists" errors, use the --no-setup option to skip that step in the test.
     ```
     operator-sdk test local ./test/e2e --namespace operator-test --up-local --debug --no-setup
     ```
+
+The tests can also be run via `make`
+
+    ```
+    make test
+    ```

@@ -169,7 +169,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		err := r.setErrorCondition(request, host, bmc.MissingCredentialsMsg)
 		return reconcile.Result{}, err
 	}
-	secretKey := host.GetCredentialsKey()
+	secretKey := host.CredentialsKey()
 	bmcCredsSecret := &v1.Secret{}
 	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
 	if err != nil {
@@ -239,7 +239,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// FIXME(dhellmann): This should pull data from Ironic and compare
 	// it against known profiles.
 	hardwareProfile := "unknown"
-	if host.SetLabel(metalkubev1alpha1.HardwareProfileLabel, hardwareProfile) {
+	if host.SetHardwareProfile(hardwareProfile) {
 		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
 		if err := r.client.Update(context.TODO(), host); err != nil {
 			reqLogger.Error(err, "failed to update hardware profile")

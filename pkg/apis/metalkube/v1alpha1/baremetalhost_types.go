@@ -154,9 +154,9 @@ func (host *BareMetalHost) SetErrorMessage(message string) bool {
 	return false
 }
 
-// SetLabel updates the given label when necessary and returns true
+// setLabel updates the given label when necessary and returns true
 // when a change is made or false when no change is made.
-func (host *BareMetalHost) SetLabel(name, value string) bool {
+func (host *BareMetalHost) setLabel(name, value string) bool {
 	if host.Labels == nil {
 		host.Labels = make(map[string]string)
 	}
@@ -176,10 +176,16 @@ func (host *BareMetalHost) getLabel(name string) string {
 	return host.Labels[name]
 }
 
+// SetHardwareProfile updates the HardwareProfileLabel and returns
+// true when a change is made or false when no change is made.
+func (host *BareMetalHost) SetHardwareProfile(name string) bool {
+	return host.setLabel(HardwareProfileLabel, name)
+}
+
 // SetOperationalStatus updates the OperationalStatusLabel and returns
 // true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetOperationalStatus(status string) bool {
-	return host.SetLabel(OperationalStatusLabel, status)
+	return host.setLabel(OperationalStatusLabel, status)
 }
 
 // OperationalStatus returns the value associated with the

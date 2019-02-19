@@ -26,11 +26,6 @@ required = [
   revision = "0cd23ebeb6882bd1cdc2cb15fc7b2d72e8a86a5b"
 
 [[override]]
-  name = "k8s.io/apimachinery"
-  # revision for tag "kubernetes-1.12.3"
-  revision = "eddba98df674a16931d2d4ba75edc3a389bf633a"
-
-[[override]]
   name = "k8s.io/client-go"
   # revision for tag "kubernetes-1.12.3"
   revision = "d082d5923d3cc0bfbb066ee5fbdea3d0ca79acf8"

@@ -167,15 +167,34 @@ func (host *BareMetalHost) SetLabel(name, value string) bool {
 	return false
 }
 
+// getLabel returns the value associated with the given label. If
+// there is no value, an empty string is returned.
+func (host *BareMetalHost) getLabel(name string) string {
+	if host.Labels == nil {
+		return ""
+	}
+	return host.Labels[name]
+}
+
 // SetOperationalStatus updates the OperationalStatusLabel and returns
 // true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetOperationalStatus(status string) bool {
 	return host.SetLabel(OperationalStatusLabel, status)
 }
 
-// GetCredentialsKey returns a NamespacedName suitable for loading the
+// OperationalStatus returns the value associated with the
+// OperationalStatusLabel
+func (host *BareMetalHost) OperationalStatus() string {
+	status := host.getLabel(OperationalStatusLabel)
+	if status == "" {
+		return "unknown"
+	}
+	return status
+}
+
+// CredentialsKey returns a NamespacedName suitable for loading the
 // Secret containing the credentials associated with the host.
-func (host *BareMetalHost) GetCredentialsKey() types.NamespacedName {
+func (host *BareMetalHost) CredentialsKey() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      host.Spec.BMC.CredentialsName,
 		Namespace: host.ObjectMeta.Namespace,

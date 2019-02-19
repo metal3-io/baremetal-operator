@@ -169,7 +169,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		err := r.setErrorCondition(request, host, bmc.MissingCredentialsMsg)
 		return reconcile.Result{}, err
 	}
-	secretKey := host.GetCredentialsKey()
+	secretKey := host.CredentialsKey()
 	bmcCredsSecret := &v1.Secret{}
 	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
 	if err != nil {

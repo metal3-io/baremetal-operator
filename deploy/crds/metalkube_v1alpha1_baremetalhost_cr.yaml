@@ -15,7 +15,7 @@ metadata:
   name: bmc2-secret
 type: Opaque
 data:
-  username: 
+  username: ""
   password: MWYyZDFlMmU2N2Rm
 
 ---
@@ -26,7 +26,7 @@ metadata:
 type: Opaque
 data:
   username: YWRtaW4=
-  password: 
+  password: ""
 
 ---
 apiVersion: metalkube.org/v1alpha1

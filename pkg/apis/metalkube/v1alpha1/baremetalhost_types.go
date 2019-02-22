@@ -64,6 +64,9 @@ type BareMetalHostSpec struct {
 
 	// Should the server be online?
 	Online bool `json:"online"`
+
+	// MachineRef is a reference to the machine.openshift.io/Machine
+	MachineRef *corev1.ObjectReference `json:"machineRef,omitempty"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these

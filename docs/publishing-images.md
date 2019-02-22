@@ -59,3 +59,15 @@ your development fork.
       branch at the end, like this:
 
           quay.io/dhellmann/baremetal-operator:update-operator-deployment
+
+6. Launch the deployment by applying the new file.
+
+   1. Make sure you have run the [setup steps](dev-setup.md) to set up
+      the service account, role, and mapping.
+   2. Apply the new deployment:
+
+       oc apply -f deploy/dev-operator.yaml
+
+To monitor the operator, use `oc get pods` to find the pod name for
+the deployment (it will start with `baremetal-operator`) and then use
+`oc log -f $podname` to see the console log output.

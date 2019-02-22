@@ -1,6 +1,7 @@
 Bare Metal Operator
 ===================
 
+* [API documentation](docs/api.md)
 * [Setup Development Environment](docs/dev-setup.md)
 * [Testing](docs/testing.md)
-* [API documentation](docs/api.md)
+* [Publishing Imgaes](docs/publishing-images.md)

@@ -20,7 +20,7 @@ spec:
           - containerPort: 60000
             name: metrics
           command:
-          - baremetal-operator
+          - /baremetal-operator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

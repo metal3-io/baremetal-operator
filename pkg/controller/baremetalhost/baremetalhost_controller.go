@@ -309,7 +309,7 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 	return nil
 }
 
-func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, secret *v1.Secret) (err error) {
+func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 	if metav1.IsControlledBy(secret, host) {

@@ -7,7 +7,7 @@ import (
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to secrets being used by hosts
-	err = c.Watch(&source.Kind{Type: &v1.Secret{}},
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}},
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &metalkubev1alpha1.BareMetalHost{},
@@ -170,7 +170,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 	secretKey := host.CredentialsKey()
-	bmcCredsSecret := &v1.Secret{}
+	bmcCredsSecret := &corev1.Secret{}
 	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
 	if err != nil {
 		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")

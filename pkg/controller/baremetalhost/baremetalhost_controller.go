@@ -2,9 +2,11 @@ package baremetalhost
 
 import (
 	"context"
+	"fmt"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
+	"github.com/metalkube/baremetal-operator/pkg/provisioning"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +36,14 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileBareMetalHost{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileBareMetalHost{
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		// FIXME(dhellmann): Do we want each reconciler to have its
+		// own provisioner? Or do we want to connect each time in
+		// Reconcile() when we need one?
+		provisioner: &provisioning.Provisioner{},
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -68,8 +77,9 @@ var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
 type ReconcileBareMetalHost struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client      client.Client
+	scheme      *runtime.Scheme
+	provisioner *provisioning.Provisioner
 }
 
 // Reconcile reads that state of the cluster for a BareMetalHost
@@ -146,10 +156,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil // done
 	}
 
-	// FIXME(dhellmann): There are likely to be many more cases where
-	// we need to look for errors. Do we want to chain them all here
-	// in if/elif blocks?
-
 	// If we do not have all of the needed BMC credentials, set our
 	// operational status to indicate missing information.
 	if host.Spec.BMC.IP == "" {
@@ -197,11 +203,35 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
+	target := provisioning.Target{
+		Name:           fmt.Sprintf("%s/%s", request.Namespace, request.Name),
+		BMCLocation:    host.Spec.BMC.IP,
+		BMCCredentials: bmcCreds,
+		// Link the status field here to the one in the host CR so
+		// when it is updated and we save status the API gets the
+		// updates without us having to know which fields to copy.
+		Status: &host.Status.ProvisionStatus,
+	}
+
 	// Update the success info for the credentails.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
-		// FIXME(dhellmann): Test using the credentials to get into
-		// the BMC, and record error status if it fails.
+		if err := r.provisioner.ValidateManagementAccess(&target); err != nil {
+			reqLogger.Error(err, "failed to validate BMC access")
+			return reconcile.Result{}, err
+		}
+
+		// Check if the validation process updated the status block,
+		// requiring us to save it.
+		if target.StatusDirty() {
+			reqLogger.Info("saving status after validating management access")
+			if err := r.saveStatus(host); err != nil {
+				reqLogger.Error(err, "failed to save provisioning host status")
+				return reconcile.Result{}, err
+			}
+			// Not returning here because it seems we can update the
+			// status multiple times safely?
+		}
 
 		// Reaching this point means the credentials are valid and
 		// worked, so record that in the status block.

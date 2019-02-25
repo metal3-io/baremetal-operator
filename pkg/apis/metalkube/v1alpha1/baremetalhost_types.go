@@ -4,6 +4,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/metalkube/baremetal-operator/pkg/provisioning"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have
@@ -120,10 +122,11 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
+	// The hardware discovered to exist on the host.
 	HardwareDetails HardwareDetails `json:"hardware"`
 
-	// UUID in ironic
-	ProvisioningID string `json:"provisioningID"`
+	// Information tracked by the provisioner.
+	ProvisionStatus provisioning.ProvisionStatus `json:"provisionStatus"`
 
 	// the last thing we deployed here
 	Image string `json:"image"`

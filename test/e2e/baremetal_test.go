@@ -20,7 +20,7 @@ import (
 	"time"
 
 	apis "github.com/metalkube/baremetal-operator/pkg/apis"
-	metalkube "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -40,7 +40,7 @@ var (
 // Set up the test system to know about our types and return a
 // context.
 func setup(t *testing.T) *framework.TestCtx {
-	bmhList := &metalkube.BareMetalHostList{
+	bmhList := &metalkubev1alpha1.BareMetalHostList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
 			APIVersion: "baremetalhosts.metalkube.org/v1alpha1",
@@ -68,17 +68,17 @@ func setup(t *testing.T) *framework.TestCtx {
 }
 
 // Create a new BareMetalHost instance.
-func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
+func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev1alpha1.BareMetalHost {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Using namespace: %v\n", namespace)
 
-	host := &metalkube.BareMetalHost{
+	host := &metalkubev1alpha1.BareMetalHost{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
-			APIVersion: "baremetalhosts.metalkube.org/v1alpha1",
+			APIVersion: "baremetalhosts.metalkubev1alpha1.org/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", ctx.GetID(), name),
@@ -91,7 +91,7 @@ func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.
 }
 
 // Create a BareMetalHost and publish it to the test system.
-func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkube.BareMetalHostSpec) *metalkube.BareMetalHost {
+func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev1alpha1.BareMetalHost {
 	host := newHost(t, ctx, name, spec)
 
 	// get global framework variables
@@ -146,9 +146,9 @@ func makeSecret(t *testing.T, ctx *framework.TestCtx, name string, username stri
 
 }
 
-type DoneFunc func(host *metalkube.BareMetalHost) (bool, error)
+type DoneFunc func(host *metalkubev1alpha1.BareMetalHost) (bool, error)
 
-func refreshHost(host *metalkube.BareMetalHost) error {
+func refreshHost(host *metalkubev1alpha1.BareMetalHost) error {
 	f := framework.Global
 	namespacedName := types.NamespacedName{
 		Namespace: host.ObjectMeta.Namespace,
@@ -157,8 +157,8 @@ func refreshHost(host *metalkube.BareMetalHost) error {
 	return f.Client.Get(goctx.TODO(), namespacedName, host)
 }
 
-func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone DoneFunc) *metalkube.BareMetalHost {
-	instance := &metalkube.BareMetalHost{}
+func waitForHostStateChange(t *testing.T, host *metalkubev1alpha1.BareMetalHost, isDone DoneFunc) *metalkubev1alpha1.BareMetalHost {
+	instance := &metalkubev1alpha1.BareMetalHost{}
 	instance.ObjectMeta = host.ObjectMeta
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
@@ -177,22 +177,22 @@ func waitForHostStateChange(t *testing.T, host *metalkube.BareMetalHost, isDone 
 	return instance
 }
 
-func waitForOfflineStatus(t *testing.T, host *metalkube.BareMetalHost) {
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkube.OperationalStatusLabel]
+func waitForOfflineStatus(t *testing.T, host *metalkubev1alpha1.BareMetalHost) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
 		t.Logf("OperationalState: %s", state)
-		if state == metalkube.OperationalStatusOffline {
+		if state == metalkubev1alpha1.OperationalStatusOffline {
 			return true, nil
 		}
 		return false, nil
 	})
 }
 
-func waitForErrorStatus(t *testing.T, host *metalkube.BareMetalHost) {
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkube.OperationalStatusLabel]
+func waitForErrorStatus(t *testing.T, host *metalkubev1alpha1.BareMetalHost) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
 		t.Logf("OperationalState: %s", state)
-		if state == metalkube.OperationalStatusError {
+		if state == metalkubev1alpha1.OperationalStatusError {
 			return true, nil
 		}
 		return false, nil
@@ -204,16 +204,16 @@ func TestAddFinalizers(t *testing.T) {
 	defer ctx.Cleanup()
 
 	host := makeHost(t, ctx, "gets-finalizers",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("finalizers: %v", host.ObjectMeta.Finalizers)
-		if utils.StringInList(host.ObjectMeta.Finalizers, metalkube.BareMetalHostFinalizer) {
+		if utils.StringInList(host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
 			return true, nil
 		}
 		return false, nil
@@ -225,14 +225,14 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 	defer ctx.Cleanup()
 
 	host := makeHost(t, ctx, "updates-success",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 			host.Status.GoodCredentials.Version)
 		if host.Status.GoodCredentials.Version != "" {
@@ -248,14 +248,14 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	f := framework.Global
 
 	host := makeHost(t, ctx, "updates-success",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 			host.Status.GoodCredentials.Version)
 		if host.Status.GoodCredentials.Version != "" {
@@ -273,7 +273,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 			host.Status.GoodCredentials.Version)
 		if host.Status.GoodCredentials.Reference != nil && host.Status.GoodCredentials.Reference.Name == "bmc-creds-valid2" {
@@ -289,14 +289,14 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	f := framework.Global
 
 	host := makeHost(t, ctx, "updates-success",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 			host.Status.GoodCredentials.Version)
 		if host.Status.GoodCredentials.Version != "" {
@@ -312,7 +312,7 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 			host.Status.GoodCredentials.Version)
 		if host.Spec.BMC.CredentialsName != "bmc-creds-no-user" {
@@ -330,14 +330,14 @@ func TestSetLastUpdated(t *testing.T) {
 	defer ctx.Cleanup()
 
 	host := makeHost(t, ctx, "gets-last-updated",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("LastUpdated: %v", host.Status.LastUpdated)
 		if !host.Status.LastUpdated.IsZero() {
 			return true, nil
@@ -351,8 +351,8 @@ func TestMissingBMCParameters(t *testing.T) {
 	defer ctx.Cleanup()
 
 	noIP := makeHost(t, ctx, "missing-bmc-ip",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "",
 				CredentialsName: "bmc-creds-valid",
 			},
@@ -360,8 +360,8 @@ func TestMissingBMCParameters(t *testing.T) {
 	waitForErrorStatus(t, noIP)
 
 	noUsername := makeHost(t, ctx, "missing-bmc-username",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-no-user",
 			},
@@ -369,8 +369,8 @@ func TestMissingBMCParameters(t *testing.T) {
 	waitForErrorStatus(t, noUsername)
 
 	noPassword := makeHost(t, ctx, "missing-bmc-password",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-no-pass",
 			},
@@ -393,8 +393,8 @@ func TestChangeSecret(t *testing.T) {
 	}
 
 	noUsername := makeHost(t, ctx, "missing-bmc-username",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-no-user",
 			},
@@ -423,18 +423,18 @@ func TestSetOffline(t *testing.T) {
 	defer ctx.Cleanup()
 
 	host := makeHost(t, ctx, "toggle-offline",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 			Online: true,
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkube.OperationalStatusLabel]
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
 		t.Logf("OperationalState before toggle: %s", state)
-		if state == metalkube.OperationalStatusOnline {
+		if state == metalkubev1alpha1.OperationalStatusOnline {
 			return true, nil
 		}
 		return false, nil
@@ -448,10 +448,10 @@ func TestSetOffline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkube.OperationalStatusLabel]
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
 		t.Logf("OperationalState after toggle: %s", state)
-		if state == metalkube.OperationalStatusOffline {
+		if state == metalkubev1alpha1.OperationalStatusOffline {
 			return true, nil
 		}
 		return false, nil
@@ -464,18 +464,18 @@ func TestSetOnline(t *testing.T) {
 	defer ctx.Cleanup()
 
 	host := makeHost(t, ctx, "toggle-online",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 			Online: false,
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkube.OperationalStatusLabel]
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
 		t.Logf("OperationalState before toggle: %s", state)
-		if state == metalkube.OperationalStatusOffline {
+		if state == metalkubev1alpha1.OperationalStatusOffline {
 			return true, nil
 		}
 		return false, nil
@@ -489,10 +489,10 @@ func TestSetOnline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkube.OperationalStatusLabel]
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
 		t.Logf("OperationalState after toggle: %s", state)
-		if state == metalkube.OperationalStatusOnline {
+		if state == metalkubev1alpha1.OperationalStatusOnline {
 			return true, nil
 		}
 		return false, nil
@@ -505,16 +505,16 @@ func TestSetHardwareProfileLabel(t *testing.T) {
 	defer ctx.Cleanup()
 
 	host := makeHost(t, ctx, "hardware-profile",
-		&metalkube.BareMetalHostSpec{
-			BMC: metalkube.BMCDetails{
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
 				IP:              "192.168.100.100",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
-	waitForHostStateChange(t, host, func(host *metalkube.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("labels: %v", host.ObjectMeta.Labels)
-		if host.ObjectMeta.Labels[metalkube.HardwareProfileLabel] != "" {
+		if host.ObjectMeta.Labels[metalkubev1alpha1.HardwareProfileLabel] != "" {
 			return true, nil
 		}
 		return false, nil

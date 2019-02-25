@@ -143,7 +143,12 @@ func (in *BareMetalHostStatus) DeepCopyInto(out *BareMetalHostStatus) {
 		in, out := &in.LastUpdated, &out.LastUpdated
 		*out = (*in).DeepCopy()
 	}
-	in.HardwareDetails.DeepCopyInto(&out.HardwareDetails)
+	if in.HardwareDetails != nil {
+		in, out := &in.HardwareDetails, &out.HardwareDetails
+		*out = new(HardwareDetails)
+		(*in).DeepCopyInto(*out)
+	}
+	out.ProvisionStatus = in.ProvisionStatus
 	in.GoodCredentials.DeepCopyInto(&out.GoodCredentials)
 	return
 }

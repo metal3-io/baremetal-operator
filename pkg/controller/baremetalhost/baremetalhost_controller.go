@@ -203,7 +203,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	target := provisioning.Target{
+	target := &provisioning.Target{
 		Name:           fmt.Sprintf("%s/%s", request.Namespace, request.Name),
 		BMCLocation:    host.Spec.BMC.IP,
 		BMCCredentials: bmcCreds,
@@ -216,7 +216,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// Update the success info for the credentails.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
-		if err := r.provisioner.ValidateManagementAccess(&target); err != nil {
+		if err := r.provisioner.ValidateManagementAccess(target); err != nil {
 			reqLogger.Error(err, "failed to validate BMC access")
 			return reconcile.Result{}, err
 		}
@@ -265,9 +265,21 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// the desired state here.
 
 	// Set the hardware profile name.
-	//
-	// FIXME(dhellmann): This should pull data from Ironic and compare
-	// it against known profiles.
+	if host.Status.HardwareDetails == nil {
+		if err := r.provisioner.InspectHardware(target); err != nil {
+			reqLogger.Error(err, "failed to inspect hardware")
+			return reconcile.Result{}, err
+		}
+		if target.StatusDirty() {
+			reqLogger.Info("saving status after validating management access")
+			if err := r.saveStatus(host); err != nil {
+				reqLogger.Error(err, "failed to save provisioning host status")
+				return reconcile.Result{}, err
+			}
+			// Not returning here because it seems we can update the
+			// status multiple times safely?
+		}
+	}
 	hardwareProfile := "unknown"
 	if host.SetHardwareProfile(hardwareProfile) {
 		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)

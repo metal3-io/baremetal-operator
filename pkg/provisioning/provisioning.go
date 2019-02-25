@@ -53,8 +53,12 @@ func (t Target) StatusDirty() bool {
 func (p *Provisioner) ensureExists(host *Target) error {
 	reqLogger := log.WithValues("host", host.Name)
 	reqLogger.Info("ensuring host exists")
-	host.Status.ProvisioningID = "temporary-fake-id"
-	host.dirty = true
+	if host.Status.ProvisioningID == "" {
+		host.Status.ProvisioningID = "temporary-fake-id"
+		reqLogger.Info("setting provisioning id",
+			"provisioningID", host.Status.ProvisioningID)
+		host.dirty = true
+	}
 	return nil
 }
 
@@ -63,6 +67,18 @@ func (p *Provisioner) ensureExists(host *Target) error {
 func (p *Provisioner) ValidateManagementAccess(host *Target) error {
 	reqLogger := log.WithValues("host", host.Name)
 	reqLogger.Info("testing management access")
+	if err := p.ensureExists(host); err != nil {
+		return err
+	}
+	return nil
+}
+
+// InspectHardware returns the HardwareDetails discovered on the
+// hardware through inspection.
+// FIXME(dhellmann): Update this to return something.
+func (p *Provisioner) InspectHardware(host *Target) error {
+	reqLogger := log.WithValues("host", host.Name)
+	reqLogger.Info("inspecting hardware")
 	if err := p.ensureExists(host); err != nil {
 		return err
 	}

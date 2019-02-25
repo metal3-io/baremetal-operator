@@ -123,7 +123,7 @@ type BareMetalHostStatus struct {
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
 	// The hardware discovered to exist on the host.
-	HardwareDetails HardwareDetails `json:"hardware"`
+	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 
 	// Information tracked by the provisioner.
 	ProvisionStatus provisioning.ProvisionStatus `json:"provisionStatus"`

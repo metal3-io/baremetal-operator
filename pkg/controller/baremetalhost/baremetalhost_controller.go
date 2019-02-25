@@ -5,6 +5,7 @@ import (
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
+	"github.com/metalkube/baremetal-operator/pkg/provisioning"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +35,14 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileBareMetalHost{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileBareMetalHost{
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		// FIXME(dhellmann): Do we want each reconciler to have its
+		// own provisioner? Or do we want to connect each time in
+		// Reconcile() when we need one?
+		provisioner: &provisioning.Provisioner{},
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -68,8 +76,9 @@ var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
 type ReconcileBareMetalHost struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client      client.Client
+	scheme      *runtime.Scheme
+	provisioner *provisioning.Provisioner
 }
 
 // Reconcile reads that state of the cluster for a BareMetalHost
@@ -81,6 +90,9 @@ type ReconcileBareMetalHost struct {
 // is true, otherwise upon completion it will remove the work from the
 // queue.
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+
+	var dirty bool // have we updated the host status but not saved it?
+
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling BareMetalHost")
@@ -130,10 +142,21 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, nil
 		}
 
-		// NOTE(dhellmann): This is where we would do something with
-		// external resources not managed through CRs (those are
-		// deleted automatically), like telling ironic to wipe the
-		// host.
+		if dirty, err = r.provisioner.Deprovision(host); err != nil {
+			reqLogger.Error(err, "failed to deprovision")
+			return reconcile.Result{}, err
+		}
+		if dirty {
+			if err := r.saveStatus(host); err != nil {
+				reqLogger.Error(err, "failed to clear host status on deprovision")
+				return reconcile.Result{}, err
+			}
+			// Go back into the queue and wait for the Deprovision() method
+			// to return false, indicating that it has no more work to
+			// do.
+			// FIXME(dhellmann): Should this use an explicit delay?
+			return reconcile.Result{Requeue: true}, nil
+		}
 
 		// Remove finalizer to allow deletion
 		reqLogger.Info("cleanup is complete, removing finalizer")
@@ -145,10 +168,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		}
 		return reconcile.Result{}, nil // done
 	}
-
-	// FIXME(dhellmann): There are likely to be many more cases where
-	// we need to look for errors. Do we want to chain them all here
-	// in if/elif blocks?
 
 	// If we do not have all of the needed BMC credentials, set our
 	// operational status to indicate missing information.
@@ -200,8 +219,20 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// Update the success info for the credentails.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
-		// FIXME(dhellmann): Test using the credentials to get into
-		// the BMC, and record error status if it fails.
+		if dirty, err = r.provisioner.ValidateManagementAccess(host); err != nil {
+			reqLogger.Error(err, "failed to validate BMC access")
+			return reconcile.Result{}, err
+		}
+
+		if dirty {
+			reqLogger.Info("saving status after validating management access")
+			if err := r.saveStatus(host); err != nil {
+				reqLogger.Error(err, "failed to save provisioning host status")
+				return reconcile.Result{}, err
+			}
+			// Not returning here because it seems we can update the
+			// status multiple times safely?
+		}
 
 		// Reaching this point means the credentials are valid and
 		// worked, so record that in the status block.
@@ -214,10 +245,63 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// Set the hardware profile name.
+	if host.Status.HardwareDetails == nil {
+		if dirty, err = r.provisioner.InspectHardware(host); err != nil {
+			reqLogger.Error(err, "failed to inspect hardware")
+			return reconcile.Result{}, err
+		}
+		if dirty {
+			reqLogger.Info("saving host after inspecting hardware")
+			if err := r.client.Update(context.TODO(), host); err != nil {
+				reqLogger.Error(err, "failed to save host during inspection")
+				return reconcile.Result{}, err
+			}
+			if host.Status.HardwareDetails != nil {
+				reqLogger.Info("saving hardware details")
+				if err := r.saveStatus(host); err != nil {
+					reqLogger.Error(err, "failed to save hardware details during inspection")
+					return reconcile.Result{}, err
+				}
+			}
+			return reconcile.Result{Requeue: true}, err
+		}
+	}
+
+	// FIXME(dhellmann): Insert logic to match hardware profiles here.
+	hardwareProfile := "unknown"
+	if host.SetHardwareProfile(hardwareProfile) {
+		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
+		if err := r.client.Update(context.TODO(), host); err != nil {
+			reqLogger.Error(err, "failed to update hardware profile")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	// Update the operational status of the host.
 	newOpStatus := metalkubev1alpha1.OperationalStatusOffline
 	if host.Spec.Online {
+		reqLogger.Info("ensuring host is powered on")
+		dirty, err = r.provisioner.PowerOn(host)
+		if err != nil {
+			reqLogger.Error(err, "failed to power on the host")
+			return reconcile.Result{}, err
+		}
 		newOpStatus = metalkubev1alpha1.OperationalStatusOnline
+	} else {
+		reqLogger.Info("ensuring host is powered off")
+		dirty, err = r.provisioner.PowerOff(host)
+		if err != nil {
+			reqLogger.Error(err, "failed to power off the host")
+			return reconcile.Result{}, err
+		}
+	}
+	if dirty {
+		if err := r.saveStatus(host); err != nil {
+			reqLogger.Error(err, "failed to save power status")
+			return reconcile.Result{}, err
+		}
 	}
 	if host.SetOperationalStatus(newOpStatus) {
 		reqLogger.Info(
@@ -226,23 +310,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		)
 		if err := r.client.Update(context.TODO(), host); err != nil {
 			reqLogger.Error(err, "failed to update operational status")
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	// FIXME(dhellmann): Need to ensure the power state matches
-	// the desired state here.
-
-	// Set the hardware profile name.
-	//
-	// FIXME(dhellmann): This should pull data from Ironic and compare
-	// it against known profiles.
-	hardwareProfile := "unknown"
-	if host.SetHardwareProfile(hardwareProfile) {
-		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
-		if err := r.client.Update(context.TODO(), host); err != nil {
-			reqLogger.Error(err, "failed to update hardware profile")
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil

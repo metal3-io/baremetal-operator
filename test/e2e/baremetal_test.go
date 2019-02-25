@@ -520,3 +520,40 @@ func TestSetHardwareProfileLabel(t *testing.T) {
 		return false, nil
 	})
 }
+
+func TestManageHardwareDetails(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	f := framework.Global
+
+	host := makeHost(t, ctx, "hardware-profile",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
+			},
+		})
+
+	// Details should be filled in when the host is created...
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		t.Logf("details: %v", host.Status.HardwareDetails)
+		if host.Status.HardwareDetails != nil {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	if err := f.Client.Delete(goctx.TODO(), host); err != nil {
+		t.Fatal(err)
+	}
+
+	// and removed when the host is deleted.
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		t.Logf("details: %v", host.Status.HardwareDetails)
+		if host.Status.HardwareDetails == nil {
+			return true, nil
+		}
+		return false, nil
+	})
+}

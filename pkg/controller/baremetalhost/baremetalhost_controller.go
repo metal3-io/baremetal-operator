@@ -46,12 +46,9 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileBareMetalHost{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-		// FIXME(dhellmann): Do we want each reconciler to have its
-		// own provisioner? Or do we want to connect each time in
-		// Reconcile() when we need one?
-		provisioner: &provisioning.Provisioner{},
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Provisioner: &provisioning.Provisioner{},
 	}
 }
 
@@ -86,9 +83,11 @@ var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
 type ReconcileBareMetalHost struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client      client.Client
-	scheme      *runtime.Scheme
-	provisioner *provisioning.Provisioner
+	Client client.Client
+	Scheme *runtime.Scheme
+
+	// Provisioner handles interacting with the provisioning system.
+	Provisioner *provisioning.Provisioner
 }
 
 // Reconcile reads that state of the cluster for a BareMetalHost
@@ -109,7 +108,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Fetch the BareMetalHost
 	host := &metalkubev1alpha1.BareMetalHost{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, host)
+	err := r.Client.Get(context.TODO(), request.NamespacedName, host)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after
@@ -132,7 +131,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		)
 		host.Finalizers = append(host.Finalizers,
 			metalkubev1alpha1.BareMetalHostFinalizer)
-		err := r.client.Update(context.TODO(), host)
+		err := r.Client.Update(context.TODO(), host)
 		if err != nil {
 			reqLogger.Error(err, "failed to add finalizer")
 			return reconcile.Result{}, err
@@ -152,7 +151,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, nil
 		}
 
-		if dirty, err = r.provisioner.Deprovision(host); err != nil {
+		if dirty, err = r.Provisioner.Deprovision(host); err != nil {
 			reqLogger.Error(err, "failed to deprovision")
 			return reconcile.Result{}, err
 		}
@@ -171,7 +170,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("cleanup is complete, removing finalizer")
 		host.ObjectMeta.Finalizers = utils.FilterStringFromList(
 			host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
-		if err := r.client.Update(context.TODO(), host); err != nil {
+		if err := r.Client.Update(context.TODO(), host); err != nil {
 			reqLogger.Error(err, "failed to remove finalizer")
 			return reconcile.Result{}, err
 		}
@@ -199,7 +198,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	}
 	secretKey := host.CredentialsKey()
 	bmcCredsSecret := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
+	err = r.Client.Get(context.TODO(), secretKey, bmcCredsSecret)
 	if err != nil {
 		reqLogger.Error(err, "failed to fetch BMC credentials from secret reference")
 		return reconcile.Result{}, err
@@ -228,7 +227,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// Update the success info for the credentails.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
-		if dirty, err = r.provisioner.ValidateManagementAccess(host); err != nil {
+		if dirty, err = r.Provisioner.ValidateManagementAccess(host); err != nil {
 			reqLogger.Error(err, "failed to validate BMC access")
 			return reconcile.Result{}, err
 		}
@@ -256,13 +255,13 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Set the hardware profile name.
 	if host.Status.HardwareDetails == nil {
-		if dirty, err = r.provisioner.InspectHardware(host); err != nil {
+		if dirty, err = r.Provisioner.InspectHardware(host); err != nil {
 			reqLogger.Error(err, "failed to inspect hardware")
 			return reconcile.Result{}, err
 		}
 		if dirty {
 			reqLogger.Info("saving host after inspecting hardware")
-			if err := r.client.Update(context.TODO(), host); err != nil {
+			if err := r.Client.Update(context.TODO(), host); err != nil {
 				reqLogger.Error(err, "failed to save host during inspection")
 				return reconcile.Result{}, err
 			}
@@ -281,7 +280,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	hardwareProfile := "unknown"
 	if host.SetHardwareProfile(hardwareProfile) {
 		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
-		if err := r.client.Update(context.TODO(), host); err != nil {
+		if err := r.Client.Update(context.TODO(), host); err != nil {
 			reqLogger.Error(err, "failed to update hardware profile")
 			return reconcile.Result{}, err
 		}
@@ -292,7 +291,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	newOpStatus := metalkubev1alpha1.OperationalStatusOffline
 	if host.Spec.Online {
 		reqLogger.Info("ensuring host is powered on")
-		dirty, err = r.provisioner.PowerOn(host)
+		dirty, err = r.Provisioner.PowerOn(host)
 		if err != nil {
 			reqLogger.Error(err, "failed to power on the host")
 			return reconcile.Result{}, err
@@ -300,7 +299,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		newOpStatus = metalkubev1alpha1.OperationalStatusOnline
 	} else {
 		reqLogger.Info("ensuring host is powered off")
-		dirty, err = r.provisioner.PowerOff(host)
+		dirty, err = r.Provisioner.PowerOff(host)
 		if err != nil {
 			reqLogger.Error(err, "failed to power off the host")
 			return reconcile.Result{}, err
@@ -317,7 +316,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"setting operational status",
 			"newStatus", newOpStatus,
 		)
-		if err := r.client.Update(context.TODO(), host); err != nil {
+		if err := r.Client.Update(context.TODO(), host); err != nil {
 			reqLogger.Error(err, "failed to update operational status")
 			return reconcile.Result{}, err
 		}
@@ -353,7 +352,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {
 	t := metav1.Now()
 	host.Status.LastUpdated = &t
-	return r.client.Status().Update(context.TODO(), host)
+	return r.Client.Status().Update(context.TODO(), host)
 }
 
 func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, message string) error {
@@ -376,7 +375,7 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 			"setting operational status",
 			"newStatus", metalkubev1alpha1.OperationalStatusError,
 		)
-		if err := r.client.Update(context.TODO(), host); err != nil {
+		if err := r.Client.Update(context.TODO(), host); err != nil {
 			reqLogger.Error(err, "failed to update operational status")
 			return err
 		}
@@ -392,12 +391,12 @@ func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.
 		return nil
 	}
 	reqLogger.Info("updating owner of secret")
-	err = controllerutil.SetControllerReference(host, secret, r.scheme)
+	err = controllerutil.SetControllerReference(host, secret, r.Scheme)
 	if err != nil {
 		reqLogger.Error(err, "failed to set owner")
 		return err
 	}
-	err = r.client.Update(context.TODO(), secret)
+	err = r.Client.Update(context.TODO(), secret)
 	if err != nil {
 		reqLogger.Error(err, "failed to save owner")
 		return err

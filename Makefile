@@ -19,6 +19,10 @@ help:
 .PHONY: test
 test: e2e-local
 
+.PHONY: unit-local
+unit-local:
+	go test -v ./pkg/controller/baremetalhost
+
 .PHONY: e2e-local
 e2e-local:
 	operator-sdk test local ./test/e2e \

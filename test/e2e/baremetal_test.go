@@ -21,6 +21,7 @@ import (
 
 	apis "github.com/metalkube/baremetal-operator/pkg/apis"
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/controller/baremetalhost"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -40,6 +41,10 @@ var (
 // Set up the test system to know about our types and return a
 // context.
 func setup(t *testing.T) *framework.TestCtx {
+	// FIXME(dhellmann): Initialize the deprovision requeue interval to be
+	// smaller so the tests don't take forever.
+	baremetalhost.DeprovisionRequeueDelay = cleanupRetryInterval
+
 	bmhList := &metalkubev1alpha1.BareMetalHostList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",

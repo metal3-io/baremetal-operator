@@ -2,6 +2,7 @@ package baremetalhost
 
 import (
 	"context"
+	"time"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
@@ -25,6 +26,15 @@ import (
 )
 
 var log = logf.Log.WithName("controller_baremetalhost")
+
+// DeprovisionRequeueDelay controls the amount of time the controller
+// waits between attempts to determine if the deprovisioning operation
+// has been completed.
+//
+// FIXME(dhellmann): This is public for now so we can change it in the
+// test suite. When we figure out a better unit test setup we can make
+// it private.
+var DeprovisionRequeueDelay = time.Second * 10
 
 // Add creates a new BareMetalHost Controller and adds it to the
 // Manager. The Manager will set fields on the Controller and Start it
@@ -154,8 +164,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			// Go back into the queue and wait for the Deprovision() method
 			// to return false, indicating that it has no more work to
 			// do.
-			// FIXME(dhellmann): Should this use an explicit delay?
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: DeprovisionRequeueDelay}, nil
 		}
 
 		// Remove finalizer to allow deletion

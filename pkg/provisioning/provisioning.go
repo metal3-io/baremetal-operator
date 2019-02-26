@@ -1,6 +1,8 @@
 package provisioning
 
 import (
+	"time"
+
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -17,6 +19,10 @@ Package provisioning defines the API for talking to the provisioning backend.
 // NOTE(dhellmann): Provisioner will eventually become an interface,
 // but not until we need to have more than one backend.
 type Provisioner struct {
+	// DeprovisionRequeueDelay controls the amount of time the reconciler
+	// waits between attempts to determine if the deprovisioning operation
+	// has been completed.
+	DeprovisionRequeueDelay time.Duration
 }
 
 // Register the host with Ironic.

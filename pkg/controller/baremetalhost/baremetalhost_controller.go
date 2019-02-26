@@ -27,15 +27,6 @@ import (
 
 var log = logf.Log.WithName("controller_baremetalhost")
 
-// DeprovisionRequeueDelay controls the amount of time the controller
-// waits between attempts to determine if the deprovisioning operation
-// has been completed.
-//
-// FIXME(dhellmann): This is public for now so we can change it in the
-// test suite. When we figure out a better unit test setup we can make
-// it private.
-var DeprovisionRequeueDelay = time.Second * 10
-
 // Add creates a new BareMetalHost Controller and adds it to the
 // Manager. The Manager will set fields on the Controller and Start it
 // when the Manager is Started.
@@ -46,9 +37,11 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileBareMetalHost{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Provisioner: &provisioning.Provisioner{},
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Provisioner: &provisioning.Provisioner{
+			DeprovisionRequeueDelay: time.Second * 10,
+		},
 	}
 }
 
@@ -163,7 +156,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			// Go back into the queue and wait for the Deprovision() method
 			// to return false, indicating that it has no more work to
 			// do.
-			return reconcile.Result{RequeueAfter: DeprovisionRequeueDelay}, nil
+			return reconcile.Result{RequeueAfter: r.Provisioner.DeprovisionRequeueDelay}, nil
 		}
 
 		// Remove finalizer to allow deletion

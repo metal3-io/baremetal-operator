@@ -21,6 +21,7 @@ import (
 
 	apis "github.com/metalkube/baremetal-operator/pkg/apis"
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/controller/baremetalhost"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -40,6 +41,10 @@ var (
 // Set up the test system to know about our types and return a
 // context.
 func setup(t *testing.T) *framework.TestCtx {
+	// FIXME(dhellmann): Initialize the deprovision requeue interval to be
+	// smaller so the tests don't take forever.
+	baremetalhost.DeprovisionRequeueDelay = cleanupRetryInterval
+
 	bmhList := &metalkubev1alpha1.BareMetalHostList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
@@ -515,6 +520,43 @@ func TestSetHardwareProfileLabel(t *testing.T) {
 	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("labels: %v", host.ObjectMeta.Labels)
 		if host.ObjectMeta.Labels[metalkubev1alpha1.HardwareProfileLabel] != "" {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func TestManageHardwareDetails(t *testing.T) {
+	ctx := setup(t)
+	defer ctx.Cleanup()
+
+	f := framework.Global
+
+	host := makeHost(t, ctx, "hardware-profile",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				IP:              "192.168.100.100",
+				CredentialsName: "bmc-creds-valid",
+			},
+		})
+
+	// Details should be filled in when the host is created...
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		t.Logf("details: %v", host.Status.HardwareDetails)
+		if host.Status.HardwareDetails != nil {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	if err := f.Client.Delete(goctx.TODO(), host); err != nil {
+		t.Fatal(err)
+	}
+
+	// and removed when the host is deleted.
+	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+		t.Logf("details: %v", host.Status.HardwareDetails)
+		if host.Status.HardwareDetails == nil {
 			return true, nil
 		}
 		return false, nil

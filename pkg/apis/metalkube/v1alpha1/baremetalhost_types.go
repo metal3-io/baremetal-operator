@@ -26,6 +26,12 @@ const (
 	// should not be used.
 	OperationalStatusError string = "error"
 
+	// OperationalStatusInspecting is the status value for the
+	// OperationalStatusLabel when the host is powered on and running
+	// the discovery image to inspect the hardware resources on the
+	// host.
+	OperationalStatusInspecting string = "inspecting"
+
 	// OperationalStatusOnline is the status value for the
 	// OperationalStatusLabel when the host is powered on and running.
 	OperationalStatusOnline string = "online"
@@ -120,10 +126,11 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
-	HardwareDetails HardwareDetails `json:"hardware"`
+	// The hardware discovered to exist on the host.
+	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 
-	// UUID in ironic
-	ProvisioningID string `json:"provisioningID"`
+	// Information tracked by the provisioner.
+	Provisioning ProvisionStatus `json:"provisioning"`
 
 	// the last thing we deployed here
 	Image string `json:"image"`
@@ -132,6 +139,14 @@ type BareMetalHostStatus struct {
 	GoodCredentials CredentialsStatus `json:"goodCredentials"`
 
 	ErrorMessage string `json:"errorMessage"`
+}
+
+// ProvisionStatus holds the state information for a single target.
+type ProvisionStatus struct {
+	// FIXME(dhellmann): This should be an enum of some sort.
+	State string `json:"state"`
+	// The machine's UUID from ironic
+	ID string `json:"ID"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

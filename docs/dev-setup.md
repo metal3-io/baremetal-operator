@@ -1,6 +1,12 @@
 Setup Development Environment
 =============================
 
+## Install the operator-sdk
+
+Follow the instructions in the Quick Start section of
+https://github.com/operator-framework/operator-sdk to check out and
+install the operator-sdk tools.
+
 ## With minishift
 
 1. Install and launch minishift

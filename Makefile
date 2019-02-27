@@ -17,7 +17,7 @@ help:
 	@echo "  DEBUG          -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: e2e-local
+test: unit-local e2e-local
 
 .PHONY: unit-local
 unit-local:

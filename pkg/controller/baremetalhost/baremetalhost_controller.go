@@ -6,7 +6,8 @@ import (
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
-	"github.com/metalkube/baremetal-operator/pkg/provisioning"
+	"github.com/metalkube/baremetal-operator/pkg/provisioner"
+	"github.com/metalkube/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,15 +28,6 @@ import (
 
 var log = logf.Log.WithName("controller_baremetalhost")
 
-// DeprovisionRequeueDelay controls the amount of time the controller
-// waits between attempts to determine if the deprovisioning operation
-// has been completed.
-//
-// FIXME(dhellmann): This is public for now so we can change it in the
-// test suite. When we figure out a better unit test setup we can make
-// it private.
-var DeprovisionRequeueDelay = time.Second * 10
-
 // Add creates a new BareMetalHost Controller and adds it to the
 // Manager. The Manager will set fields on the Controller and Start it
 // when the Manager is Started.
@@ -46,12 +38,9 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileBareMetalHost{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-		// FIXME(dhellmann): Do we want each reconciler to have its
-		// own provisioner? Or do we want to connect each time in
-		// Reconcile() when we need one?
-		provisioner: &provisioning.Provisioner{},
+		client:      mgr.GetClient(),
+		scheme:      mgr.GetScheme(),
+		provisioner: ironic.New(),
 	}
 }
 
@@ -86,9 +75,10 @@ var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
 type ReconcileBareMetalHost struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client      client.Client
-	scheme      *runtime.Scheme
-	provisioner *provisioning.Provisioner
+	client client.Client
+	scheme *runtime.Scheme
+	// Provisioner handles interacting with the provisioning system.
+	provisioner provisioner.Provisioner
 }
 
 // Reconcile reads that state of the cluster for a BareMetalHost
@@ -101,7 +91,8 @@ type ReconcileBareMetalHost struct {
 // queue.
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 
-	var dirty bool // have we updated the host status but not saved it?
+	var dirty bool               // have we updated the host status but not saved it?
+	var retryDelay time.Duration // how long to wait before trying reconcile again
 
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
@@ -152,7 +143,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, nil
 		}
 
-		if dirty, err = r.provisioner.Deprovision(host); err != nil {
+		if dirty, retryDelay, err = r.provisioner.Deprovision(host); err != nil {
 			reqLogger.Error(err, "failed to deprovision")
 			return reconcile.Result{}, err
 		}
@@ -164,7 +155,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			// Go back into the queue and wait for the Deprovision() method
 			// to return false, indicating that it has no more work to
 			// do.
-			return reconcile.Result{RequeueAfter: DeprovisionRequeueDelay}, nil
+			return reconcile.Result{RequeueAfter: retryDelay}, nil
 		}
 
 		// Remove finalizer to allow deletion

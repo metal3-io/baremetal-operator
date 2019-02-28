@@ -3,6 +3,8 @@ package ironic
 import (
 	"time"
 
+	"github.com/pkg/errors"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
@@ -39,7 +41,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(host *metalkubev1alpha1.Bar
 	reqLogger := log.WithValues("host", host.Name)
 	reqLogger.Info("testing management access")
 	if dirty, err := p.ensureExists(host); err != nil {
-		return dirty, err
+		return dirty, errors.Wrap(err, "could not validate management access")
 	}
 	return dirty, nil
 }
@@ -53,7 +55,7 @@ func (p *ironicProvisioner) InspectHardware(host *metalkubev1alpha1.BareMetalHos
 	reqLogger.Info("inspecting hardware", "status", host.OperationalStatus())
 
 	if dirty, err = p.ensureExists(host); err != nil {
-		return dirty, err
+		return dirty, errors.Wrap(err, "could not inspect hardware")
 	}
 
 	if host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
@@ -110,7 +112,7 @@ func (p *ironicProvisioner) PowerOn(host *metalkubev1alpha1.BareMetalHost) (dirt
 	reqLogger.Info("ensuring host is powered on")
 
 	if dirty, err = p.ensureExists(host); err != nil {
-		return dirty, err
+		return dirty, errors.Wrap(err, "could not power on host")
 	}
 
 	if host.Status.Provisioning.State != "powered on" {
@@ -128,7 +130,7 @@ func (p *ironicProvisioner) PowerOff(host *metalkubev1alpha1.BareMetalHost) (dir
 	reqLogger.Info("ensuring host is powered off")
 
 	if dirty, err = p.ensureExists(host); err != nil {
-		return dirty, err
+		return dirty, errors.Wrap(err, "could not power off host")
 	}
 
 	if host.Status.Provisioning.State != "powered off" {

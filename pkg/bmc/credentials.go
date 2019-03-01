@@ -4,7 +4,7 @@ const (
 	MissingCredentialsMsg string = "Missing BMC connection details: Credentials"
 	MissingUsernameMsg    string = "Missing BMC connection details: 'username' in credentials"
 	MissingPasswordMsg    string = "Missing BMC connection details: 'password' in credentials"
-	MissingIPMsg          string = "Missing BMC connection details: IP"
+	MissingAddressMsg     string = "Missing BMC connection details: Address"
 )
 
 type Credentials struct {

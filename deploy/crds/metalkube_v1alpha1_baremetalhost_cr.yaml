@@ -36,5 +36,5 @@ metadata:
 spec:
   online: true
   bmc:
-    ip: 192.168.100.100
+    address: ipmi://192.168.122.1:6233
     credentialsName: bmc1-secret

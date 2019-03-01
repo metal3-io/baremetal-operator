@@ -73,7 +73,7 @@ func newHost(name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev
 func newDefaultHost() *metalkubev1alpha1.BareMetalHost {
 	spec := &metalkubev1alpha1.BareMetalHostSpec{
 		BMC: metalkubev1alpha1.BMCDetails{
-			IP:              "192.168.100.100",
+			Address:         "ipmi://192.168.122.1:6233",
 			CredentialsName: defaultSecretName,
 		},
 	}
@@ -295,21 +295,21 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 // of the required BMC settings is put into an error state.
 func TestMissingBMCParameters(t *testing.T) {
 
-	noIP := newHost("missing-bmc-ip",
+	noAddress := newHost("missing-bmc-address",
 		&metalkubev1alpha1.BareMetalHostSpec{
 			BMC: metalkubev1alpha1.BMCDetails{
-				IP:              "",
+				Address:         "",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
-	r := newTestReconciler(noIP)
-	waitForErrorStatus(t, r, noIP)
+	r := newTestReconciler(noAddress)
+	waitForErrorStatus(t, r, noAddress)
 
 	secretNoUser := newSecret("bmc-creds-no-user", "", "Pass")
 	noUsername := newHost("missing-bmc-username",
 		&metalkubev1alpha1.BareMetalHostSpec{
 			BMC: metalkubev1alpha1.BMCDetails{
-				IP:              "192.168.100.100",
+				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-no-user",
 			},
 		})
@@ -320,7 +320,7 @@ func TestMissingBMCParameters(t *testing.T) {
 	noPassword := newHost("missing-bmc-password",
 		&metalkubev1alpha1.BareMetalHostSpec{
 			BMC: metalkubev1alpha1.BMCDetails{
-				IP:              "192.168.100.100",
+				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-no-pass",
 			},
 		})
@@ -336,7 +336,7 @@ func TestFixSecret(t *testing.T) {
 	host := newHost("fix-secret",
 		&metalkubev1alpha1.BareMetalHostSpec{
 			BMC: metalkubev1alpha1.BMCDetails{
-				IP:              "192.168.100.100",
+				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-no-user",
 			},
 		})
@@ -366,7 +366,7 @@ func TestToggleOnline(t *testing.T) {
 	host := newHost("set-offline",
 		&metalkubev1alpha1.BareMetalHostSpec{
 			BMC: metalkubev1alpha1.BMCDetails{
-				IP:              "192.168.100.100",
+				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-valid",
 			},
 			Online: true,

@@ -1,5 +1,5 @@
 TEST_NAMESPACE = operator-test
-GO_TEST_FLAGS = -v
+GO_TEST_FLAGS = $(VERBOSE)
 DEBUG = --debug
 SETUP = --no-setup
 
@@ -17,7 +17,15 @@ help:
 	@echo "  DEBUG          -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: e2e-local
+test: unit-local e2e-local
+
+.PHONY: test-verbose
+test-verbose:
+	VERBOSE=-v make test
+
+.PHONY: unit-local
+unit-local:
+	go test $(GO_TEST_FLAGS) ./pkg/controller/baremetalhost
 
 .PHONY: e2e-local
 e2e-local:

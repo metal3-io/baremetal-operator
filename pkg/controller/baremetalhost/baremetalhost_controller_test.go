@@ -20,7 +20,7 @@ import (
 
 	metalkubeapis "github.com/metalkube/baremetal-operator/pkg/apis"
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 )
 
@@ -90,7 +90,7 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	return &ReconcileBareMetalHost{
 		client:             c,
 		scheme:             scheme.Scheme,
-		provisionerFactory: ironic.New(),
+		provisionerFactory: fixture.New(),
 	}
 }
 

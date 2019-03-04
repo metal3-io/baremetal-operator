@@ -9,7 +9,7 @@ necessary to manage and provision it.
 
 *bmc* -- The connection information for the BMC controller on the host.
 
-*bmc.ip* -- The IP address for communicating with the BMC controller.
+*bmc.address* -- The URL for communicating with the BMC controller.
 
 *bmc.credentials* -- A reference to a Secret containing the connection
 data, at least username and password, for the BMC.
@@ -36,7 +36,7 @@ metadata:
 spec:
   online: true
   bmc:
-    ip: 192.168.100.100
+    address: ipmi://192.168.122.1:6233
     credentials:
       name: bmc1-secret
 ```
@@ -92,7 +92,7 @@ spec:
   bmc:
     credentials:
       name: bmc1-secret
-    ip: 192.168.100.100
+    address: ipmi://192.168.122.1:6233
   online: true
 status:
   errorMessage: ""

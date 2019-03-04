@@ -48,7 +48,11 @@ const (
 // BMCDetails contains the information necessary to communicate with
 // the bare metal controller module on host.
 type BMCDetails struct {
-	IP string `json:"ip"`
+
+	// Address holds the URL for accessing the controller on the
+	// network.
+	Address string `json:"address"`
+
 	// The name of the secret containing the BMC credentials (requires
 	// keys "username" and "password").
 	CredentialsName string `json:"credentialsName"`

@@ -170,10 +170,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// If we do not have all of the needed BMC credentials, set our
 	// operational status to indicate missing information.
-	if host.Spec.BMC.IP == "" {
-		reqLogger.Info(bmc.MissingIPMsg)
-		err := r.setErrorCondition(request, host, bmc.MissingIPMsg)
-		// Without the BMC IP there's no more we can do, so we're
+	if host.Spec.BMC.Address == "" {
+		reqLogger.Info(bmc.MissingAddressMsg)
+		err := r.setErrorCondition(request, host, bmc.MissingAddressMsg)
+		// Without the BMC address there's no more we can do, so we're
 		// going to return the emtpy Result anyway, and don't need to
 		// check err.
 		return reconcile.Result{}, errors.Wrap(err, "failed to set error condition")

@@ -1,7 +1,15 @@
 package ironic
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
 	"time"
+
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 
 	"github.com/pkg/errors"
 
@@ -9,6 +17,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
 )
 
@@ -28,27 +37,259 @@ func NewFactory() provisioner.ProvisionerFactory {
 type ironicProvisioner struct {
 	// the host to be managed by this provisioner
 	host *metalkubev1alpha1.BareMetalHost
+	// a shorter path to the provisioning status data structure
+	status *metalkubev1alpha1.ProvisionStatus
+	// access parameters for the BMC
+	bmcAccess *url.URL
+	// credentials to log in to the BMC
+	bmcCreds bmc.Credentials
+	// a client for talking to ironic
+	client *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
 }
 
 // New returns a new Ironic Provisioner
-func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost) (provisioner.Provisioner, error) {
+func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
+	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
+		// FIXME(dhellmann): We need to get this URL from the caller
+		// somehow, maybe from the factory?
+		IronicEndpoint: "http://localhost:6385/v1/",
+	})
+	if err != nil {
+		return nil, err
+	}
+	bmcAccess, err := url.Parse(host.Spec.BMC.Address)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BMC address information")
+	}
+	// Ensure we have a microversion high enough to get the features
+	// we need.
+	client.Microversion = "1.50"
 	p := &ironicProvisioner{
-		host: host,
-		log:  log.WithValues("host", host.Name),
+		host:      host,
+		status:    &(host.Status.Provisioning),
+		bmcAccess: bmcAccess,
+		bmcCreds:  bmcCreds,
+		client:    client,
+		log:       log.WithValues("host", host.Name),
 	}
 	return p, nil
 }
 
 // Register the host with Ironic.
 func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
-	if p.host.Status.Provisioning.ID == "" {
-		p.host.Status.Provisioning.ID = "temporary-fake-id"
-		p.log.Info("setting provisioning id",
-			"provisioningID", p.host.Status.Provisioning.ID)
+	var ironicNode *nodes.Node
+
+	// Try to load the node by UUID
+	if p.status.ID != "" {
+		// Look for the node to see if it exists (maybe Ironic was
+		// restarted)
+		p.log.Info("looking for existing node by ID", "ID", p.status.ID)
+		ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
+		switch err.(type) {
+		case nil:
+			p.log.Info("found existing node by ID")
+		case gophercloud.ErrDefault404:
+			p.log.Info("did not find existing node by ID")
+		default:
+			return false, errors.Wrap(err,
+				fmt.Sprintf("failed to find node by ID %s", p.status.ID))
+		}
+	}
+
+	// Try to load the node by name
+	if ironicNode == nil {
+		p.log.Info("looking for existing node by name", "name", p.host.Name)
+		ironicNode, err = nodes.Get(p.client, p.host.Name).Extract()
+		switch err.(type) {
+		case nil:
+			p.log.Info("found existing node by name")
+			// Store the ID so other methods can assume it is set and
+			// so we can find the node using that value next time.
+			p.status.ID = ironicNode.UUID
+			dirty = true
+			p.log.Info("setting provisioning id", "ID", p.status.ID)
+		case gophercloud.ErrDefault404:
+			p.log.Info("did not find existing node by name")
+			ironicNode = nil
+		default:
+			return false, errors.Wrap(err,
+				fmt.Sprintf("failed to find node by name %s", p.host.Name))
+		}
+	}
+
+	// If we have not found a node yet, we need to create one
+	if ironicNode == nil {
+		p.log.Info("registering host in ironic")
+		ironicNode, err = nodes.Create(
+			p.client,
+			nodes.CreateOpts{
+				Driver:        "ipmi",
+				BootInterface: "pxe",
+				Name:          p.host.Name,
+				DriverInfo: map[string]interface{}{
+					// FIXME(dhellmann): The names of the parameters
+					// depend on the ironic driver. We are going to
+					// need to isolate the logic for building the
+					// DriverInfo dict somewhere.
+					"ipmi_port":     p.bmcAccess.Port(),
+					"ipmi_username": p.bmcCreds.Username,
+					"ipmi_password": p.bmcCreds.Password,
+					"ipmi_address":  p.bmcAccess.Hostname(),
+					// FIXME(dhellmann): The names of the images are tied
+					// to the version of ironic we are using and are
+					// likely to change.
+					//
+					// FIXME(dhellmann): We need to get our IP on the
+					// provisioning network from somewhere.
+					"deploy_kernel":  "http://172.22.0.1/images/tinyipa-stable-rocky.vmlinuz",
+					"deploy_ramdisk": "http://172.22.0.1/images/tinyipa-stable-rocky.gz",
+				},
+			}).Extract()
+		if err != nil {
+			return false, errors.Wrap(err, "failed to register host in ironic")
+		}
+
+		// Store the ID so other methods can assume it is set and so
+		// we can find the node again later.
+		p.status.ID = ironicNode.UUID
+		dirty = true
+		p.log.Info("setting provisioning id", "ID", p.status.ID)
+
+		// NOTE(dhellmann): libvirt-based hosts used for dev and testing
+		// require a MAC address and network name, specified as query
+		// parameters in the URL.
+		params := p.bmcAccess.Query()
+		if len(params["mac"]) >= 1 {
+			// FIXME(dhellmann): There is probably a safer way to
+			// get the values out of the query dict, which might be empty.
+			mac := params["mac"][0]
+			net := params["net"][0]
+			p.log.Info("creating port for node in ironic", "mac", mac, "net", net)
+			_, err := ports.Create(
+				p.client,
+				ports.CreateOpts{
+					NodeUUID:        ironicNode.UUID,
+					Address:         mac,
+					PhysicalNetwork: net,
+				}).Extract()
+			if err != nil {
+				return false, errors.Wrap(err, "failed to create port in ironic")
+			}
+		}
+
+		// FIXME(dhellmann): The URLs and image names used here also
+		// change based on deployment and version. These should come from
+		// the host, via the Machine object and actuator. We should test
+		// whether the incoming values match the values on the node in
+		// ironic before updating them. For now, using "dirty" flag as an
+		// indicator that we created the node so we need to set these
+		// values.
+		p.log.Info("updating host settings in ironic")
+		_, err = nodes.Update(
+			p.client,
+			ironicNode.UUID,
+			nodes.UpdateOpts{
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_source",
+					Value: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2",
+				},
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_checksum",
+					Value: "97830b21ed272a3d854615beb54cf004",
+				},
+			}).Extract()
+		if err != nil {
+			return false, errors.Wrap(err, "failed to update host settings in ironic")
+		}
+
+		// Validate the host settings
+		p.log.Info("validating node settings in ironic")
+		validateResult, err := nodes.Validate(p.client, ironicNode.UUID).Extract()
+		if err != nil {
+			return false, errors.Wrap(err, "failed to validate node settings in ironic")
+		}
+		var validationErrors []string
+		if !validateResult.Boot.Result {
+			validationErrors = append(validationErrors, validateResult.Boot.Reason)
+		}
+		if !validateResult.Deploy.Result {
+			validationErrors = append(validationErrors, validateResult.Deploy.Reason)
+		}
+		if len(validationErrors) > 0 {
+			// We expect to see errors of this nature sometimes, so rather
+			// than reporting it as a reconcile error we record the error
+			// status on the host and return.
+			msg := fmt.Sprintf("host validation error: %s",
+				strings.Join(validationErrors, "; "))
+			dirty = p.host.SetErrorMessage(msg) || dirty
+			return dirty, nil
+		}
+	} else {
+		// FIXME(dhellmann): At this point we have found an existing
+		// node in ironic by looking it up. We need to check its
+		// settings against what we have in the host, and change them
+		// if there are differences.
+	}
+
+	// If we tried to update the node status already and it has an
+	// error, store that value and stop trying to manipulate it.
+	if ironicNode.LastError != "" {
+		// If ironic is reporting an error that probably means it
+		// cannot see the BMC or the credentials are wrong. Set the
+		// error message and return dirty, if we've changed something,
+		// so the status is stored.
+		dirty = p.host.SetErrorMessage(ironicNode.LastError) || dirty
+		return dirty, nil
+	}
+
+	// Ensure the node is marked manageable.
+	//
+	// FIXME(dhellmann): Do we need to check other states here?
+	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get provisioning state in ironic")
+	}
+	if ironicNode.ProvisionState == string(nodes.Enroll) && ironicNode.TargetProvisionState != nodes.Manageable {
+		p.log.Info("changing provisioning state to manage",
+			"current", ironicNode.ProvisionState,
+			"target", ironicNode.TargetProvisionState,
+		)
+		changeResult := nodes.ChangeProvisionState(
+			p.client,
+			ironicNode.UUID,
+			nodes.ProvisionStateOpts{
+				Target: nodes.TargetManage,
+			})
+		if changeResult.Err != nil {
+			return false, errors.Wrap(changeResult.Err,
+				"failed to change provisioning state to manage")
+		}
+	}
+
+	// We don't expect the state to have changed to manageable
+	// immediately if we just updated it in the previous stanza, but
+	// if we didn't enter that stanza we want to make sure we have the
+	// latest state, so fetch the data again.
+	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to check provision state")
+	}
+	if ironicNode.ProvisionState != nodes.Manageable {
+		// If we're still waiting for the state to change in Ironic,
+		// return true to indicate that we're dirty and need to be
+		// reconciled again.
+		p.log.Info("waiting for manageable provision state, forcing dirty state",
+			"lastError", ironicNode.LastError,
+			"current", ironicNode.ProvisionState,
+			"target", ironicNode.TargetProvisionState,
+		)
 		dirty = true
 	}
+
 	return dirty, nil
 }
 
@@ -56,7 +297,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 // host to verify that the location and credentials work.
 func (p *ironicProvisioner) ValidateManagementAccess() (dirty bool, err error) {
 	p.log.Info("testing management access")
-	if dirty, err := p.ensureExists(); err != nil {
+	if dirty, err = p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not validate management access")
 	}
 	return dirty, nil

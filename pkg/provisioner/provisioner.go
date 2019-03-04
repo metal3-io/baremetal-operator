@@ -4,6 +4,7 @@ import (
 	"time"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/bmc"
 )
 
 /*
@@ -12,7 +13,7 @@ Package provisioning defines the API for talking to the provisioning backend.
 
 type ProvisionerFactory interface {
 	// New creates a new Provisioner for a given host.
-	New(host *metalkubev1alpha1.BareMetalHost) (Provisioner, error)
+	New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (Provisioner, error)
 }
 
 // Provisioner holds the state information for talking to the

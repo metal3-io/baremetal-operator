@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
@@ -14,22 +15,38 @@ import (
 var log = logf.Log.WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 
+// Ironic-specific provisioner factory
+type provisionerFactory struct{}
+
+// New returns a new Ironic ProvisionerFactory
+func New() provisioner.ProvisionerFactory {
+	return &provisionerFactory{}
+}
+
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
-type ironicProvisioner struct{}
+type ironicProvisioner struct {
+	// the host to be managed by this provisioner
+	host *metalkubev1alpha1.BareMetalHost
+	// a logger configured for this host
+	log logr.Logger
+}
 
-// New returns a new Ironic provisioner
-func New() provisioner.Provisioner {
-	return &ironicProvisioner{}
+// New returns a new Ironic Provisioner
+func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost) (provisioner.Provisioner, error) {
+	p := &ironicProvisioner{
+		host: host,
+		log:  log.WithValues("host", host.Name),
+	}
+	return p, nil
 }
 
 // Register the host with Ironic.
-func (p *ironicProvisioner) ensureExists(host *metalkubev1alpha1.BareMetalHost) (dirty bool, err error) {
-	reqLogger := log.WithValues("host", host.Name)
-	if host.Status.Provisioning.ID == "" {
-		host.Status.Provisioning.ID = "temporary-fake-id"
-		reqLogger.Info("setting provisioning id",
-			"provisioningID", host.Status.Provisioning.ID)
+func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
+	if p.host.Status.Provisioning.ID == "" {
+		p.host.Status.Provisioning.ID = "temporary-fake-id"
+		p.log.Info("setting provisioning id",
+			"provisioningID", p.host.Status.Provisioning.ID)
 		dirty = true
 	}
 	return dirty, nil
@@ -37,10 +54,9 @@ func (p *ironicProvisioner) ensureExists(host *metalkubev1alpha1.BareMetalHost) 
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *ironicProvisioner) ValidateManagementAccess(host *metalkubev1alpha1.BareMetalHost) (dirty bool, err error) {
-	reqLogger := log.WithValues("host", host.Name)
-	reqLogger.Info("testing management access")
-	if dirty, err := p.ensureExists(host); err != nil {
+func (p *ironicProvisioner) ValidateManagementAccess() (dirty bool, err error) {
+	p.log.Info("testing management access")
+	if dirty, err := p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not validate management access")
 	}
 	return dirty, nil
@@ -50,18 +66,17 @@ func (p *ironicProvisioner) ValidateManagementAccess(host *metalkubev1alpha1.Bar
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(host *metalkubev1alpha1.BareMetalHost) (dirty bool, err error) {
-	reqLogger := log.WithValues("host", host.Name)
-	reqLogger.Info("inspecting hardware", "status", host.OperationalStatus())
+func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
+	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
-	if dirty, err = p.ensureExists(host); err != nil {
+	if dirty, err = p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not inspect hardware")
 	}
 
-	if host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
+	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
 		// The inspection just started.
-		reqLogger.Info("starting inspection by setting state")
-		host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
+		p.log.Info("starting inspection by setting state")
+		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
 		return true, nil
 	}
 
@@ -69,9 +84,9 @@ func (p *ironicProvisioner) InspectHardware(host *metalkubev1alpha1.BareMetalHos
 	// status for the server here until it is ready for us to get the
 	// inspection details. Simulate that for now by creating the
 	// hardware details struct as part of a second pass.
-	if host.Status.HardwareDetails == nil {
-		reqLogger.Info("continuing inspection by setting details")
-		host.Status.HardwareDetails =
+	if p.host.Status.HardwareDetails == nil {
+		p.log.Info("continuing inspection by setting details")
+		p.host.Status.HardwareDetails =
 			&metalkubev1alpha1.HardwareDetails{
 				RAMGiB: 128,
 				NIC: []metalkubev1alpha1.NIC{
@@ -108,24 +123,23 @@ func (p *ironicProvisioner) InspectHardware(host *metalkubev1alpha1.BareMetalHos
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision(host *metalkubev1alpha1.BareMetalHost) (dirty bool, retryDelay time.Duration, err error) {
-	reqLogger := log.WithValues("host", host.Name)
-	reqLogger.Info("ensuring host is removed")
+func (p *ironicProvisioner) Deprovision() (dirty bool, retryDelay time.Duration, err error) {
+	p.log.Info("ensuring host is removed")
 
 	// NOTE(dhellmann): In order to simulate a multi-step process,
 	// modify some of the status data structures. This is likely not
 	// necessary once we really have Ironic doing the deprovisioning
 	// and we can monitor it's status.
 
-	if host.Status.HardwareDetails != nil {
-		reqLogger.Info("clearing hardware details")
-		host.Status.HardwareDetails = nil
+	if p.host.Status.HardwareDetails != nil {
+		p.log.Info("clearing hardware details")
+		p.host.Status.HardwareDetails = nil
 		return true, deprovisionRequeueDelay, nil
 	}
 
-	if host.Status.Provisioning.ID != "" {
-		reqLogger.Info("clearing provisioning id")
-		host.Status.Provisioning.ID = ""
+	if p.host.Status.Provisioning.ID != "" {
+		p.log.Info("clearing provisioning id")
+		p.host.Status.Provisioning.ID = ""
 		return true, deprovisionRequeueDelay, nil
 	}
 
@@ -134,16 +148,15 @@ func (p *ironicProvisioner) Deprovision(host *metalkubev1alpha1.BareMetalHost) (
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOn(host *metalkubev1alpha1.BareMetalHost) (dirty bool, err error) {
-	reqLogger := log.WithValues("host", host.Name)
-	reqLogger.Info("ensuring host is powered on")
+func (p *ironicProvisioner) PowerOn() (dirty bool, err error) {
+	p.log.Info("ensuring host is powered on")
 
-	if dirty, err = p.ensureExists(host); err != nil {
+	if dirty, err = p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not power on host")
 	}
 
-	if host.Status.Provisioning.State != "powered on" {
-		host.Status.Provisioning.State = "powered on"
+	if p.host.Status.Provisioning.State != "powered on" {
+		p.host.Status.Provisioning.State = "powered on"
 		return true, nil
 	}
 
@@ -152,16 +165,15 @@ func (p *ironicProvisioner) PowerOn(host *metalkubev1alpha1.BareMetalHost) (dirt
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOff(host *metalkubev1alpha1.BareMetalHost) (dirty bool, err error) {
-	reqLogger := log.WithValues("host", host.Name)
-	reqLogger.Info("ensuring host is powered off")
+func (p *ironicProvisioner) PowerOff() (dirty bool, err error) {
+	p.log.Info("ensuring host is powered off")
 
-	if dirty, err = p.ensureExists(host); err != nil {
+	if dirty, err = p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not power off host")
 	}
 
-	if host.Status.Provisioning.State != "powered off" {
-		host.Status.Provisioning.State = "powered off"
+	if p.host.Status.Provisioning.State != "powered off" {
+		p.host.Status.Provisioning.State = "powered off"
 		return true, nil
 	}
 

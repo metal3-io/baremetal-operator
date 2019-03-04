@@ -88,9 +88,9 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	c.Create(goctx.TODO(), newSecret(defaultSecretName, "User", "Pass"))
 
 	return &ReconcileBareMetalHost{
-		client:      c,
-		scheme:      scheme.Scheme,
-		provisioner: ironic.New(),
+		client:             c,
+		scheme:             scheme.Scheme,
+		provisionerFactory: ironic.New(),
 	}
 }
 

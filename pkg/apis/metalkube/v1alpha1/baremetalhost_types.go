@@ -165,6 +165,16 @@ type BareMetalHost struct {
 	Status BareMetalHostStatus `json:"status,omitempty"`
 }
 
+// Available returns true if the host is available to be provisioned.
+func (host *BareMetalHost) Available() bool {
+	// FIXME(mhrivnak): Add more checks to determine if the host is available, such
+	// as health checks, connectivity checks, etc
+	if host.Spec.MachineRef != nil {
+		return false
+	}
+	return true
+}
+
 // SetErrorMessage updates the ErrorMessage in the host Status struct
 // when necessary and returns true when a change is made or false when
 // no change is made.

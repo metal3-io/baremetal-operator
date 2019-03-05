@@ -380,23 +380,23 @@ func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
 func (p *ironicProvisioner) Deprovision() (dirty bool, retryDelay time.Duration, err error) {
-	p.log.Info("ensuring host is removed")
+	p.log.Info("deprovisioning")
 
-	// NOTE(dhellmann): In order to simulate a multi-step process,
-	// modify some of the status data structures. This is likely not
-	// necessary once we really have Ironic doing the deprovisioning
-	// and we can monitor it's status.
+	// FIXME(dhellmann): Depending on the node state, it might take some
+	// transitioning to move it to a state where it can be deleted. This
+	// is especially true if we enable cleaning.
 
-	if p.host.Status.HardwareDetails != nil {
-		p.log.Info("clearing hardware details")
-		p.host.Status.HardwareDetails = nil
-		return true, deprovisionRequeueDelay, nil
-	}
-
-	if p.host.Status.Provisioning.ID != "" {
-		p.log.Info("clearing provisioning id")
-		p.host.Status.Provisioning.ID = ""
-		return true, deprovisionRequeueDelay, nil
+	if p.status.ID != "" {
+		p.log.Info("removing host", "ID", p.status.ID)
+		err = nodes.Delete(p.client, p.status.ID).ExtractErr()
+		switch err.(type) {
+		case nil:
+			p.log.Info("removed")
+		case gophercloud.ErrDefault404:
+			p.log.Info("did not find host to delete, OK")
+		default:
+			return false, 0, errors.Wrap(err, "failed to remove host")
+		}
 	}
 
 	return false, 0, nil

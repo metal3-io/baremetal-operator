@@ -71,7 +71,34 @@ func (p *ironicProvisioner) InspectHardware(host *metalkubev1alpha1.BareMetalHos
 	// hardware details struct as part of a second pass.
 	if host.Status.HardwareDetails == nil {
 		reqLogger.Info("continuing inspection by setting details")
-		host.Status.HardwareDetails = &metalkubev1alpha1.HardwareDetails{}
+		host.Status.HardwareDetails =
+			&metalkubev1alpha1.HardwareDetails{
+				RAMGiB: 128,
+				NIC: []metalkubev1alpha1.NIC{
+					metalkubev1alpha1.NIC{
+						MAC:       "some:mac:address",
+						IP:        "192.168.100.1",
+						SpeedGbps: 1,
+					},
+					metalkubev1alpha1.NIC{
+						MAC:       "some:other:mac:address",
+						IP:        "192.168.100.2",
+						SpeedGbps: 1,
+					},
+				},
+				Storage: []metalkubev1alpha1.Storage{
+					metalkubev1alpha1.Storage{
+						SizeGiB: 1024,
+						Info:    "Some information about this disk.",
+					},
+				},
+				CPUs: []metalkubev1alpha1.CPU{
+					metalkubev1alpha1.CPU{
+						Type:     "x86",
+						SpeedGHz: 3,
+					},
+				},
+			}
 		return true, nil
 	}
 

@@ -30,6 +30,15 @@ import (
 
 var log = logf.Log.WithName("controller_baremetalhost")
 
+// FIXME(dhellmann): These values should probably come from
+// configuration settings and something that can tell the IP address
+// of the ironic server.
+const (
+	instanceImageSource   = "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+	instanceImageChecksum = "97830b21ed272a3d854615beb54cf004"
+	ironicEndpoint        = "http://localhost:6385/v1/"
+)
+
 // Add creates a new BareMetalHost Controller and adds it to the
 // Manager. The Manager will set fields on the Controller and Start it
 // when the Manager is Started.
@@ -40,9 +49,13 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileBareMetalHost{
-		client:             mgr.GetClient(),
-		scheme:             mgr.GetScheme(),
-		provisionerFactory: ironic.NewFactory(),
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		provisionerFactory: ironic.NewFactory(
+			ironicEndpoint,
+			instanceImageSource,
+			instanceImageChecksum,
+		),
 	}
 }
 

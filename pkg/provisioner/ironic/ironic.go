@@ -25,11 +25,22 @@ var log = logf.Log.WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 
 // Ironic-specific provisioner factory
-type provisionerFactory struct{}
+type provisionerFactory struct {
+	// Where is ironic?
+	ironicEndpoint string
+	// The image to deploy on new hosts
+	instanceImageSource string
+	// The checksum for the instanceImageSource
+	instanceImageChecksum string
+}
 
 // New returns a new Ironic ProvisionerFactory
-func NewFactory() provisioner.ProvisionerFactory {
-	return &provisionerFactory{}
+func NewFactory(ironicEndpoint, instanceImageSource, instanceImageChecksum string) provisioner.ProvisionerFactory {
+	return &provisionerFactory{
+		ironicEndpoint:        ironicEndpoint,
+		instanceImageSource:   instanceImageSource,
+		instanceImageChecksum: instanceImageChecksum,
+	}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -47,14 +58,16 @@ type ironicProvisioner struct {
 	client *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
+	// The image to deploy on new hosts
+	instanceImageSource string
+	// The checksum for the instanceImageSource
+	instanceImageChecksum string
 }
 
 // New returns a new Ironic Provisioner
 func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
 	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
-		// FIXME(dhellmann): We need to get this URL from the caller
-		// somehow, maybe from the factory?
-		IronicEndpoint: "http://localhost:6385/v1/",
+		IronicEndpoint: f.ironicEndpoint,
 	})
 	if err != nil {
 		return nil, err
@@ -67,12 +80,14 @@ func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds
 	// we need.
 	client.Microversion = "1.50"
 	p := &ironicProvisioner{
-		host:      host,
-		status:    &(host.Status.Provisioning),
-		bmcAccess: bmcAccess,
-		bmcCreds:  bmcCreds,
-		client:    client,
-		log:       log.WithValues("host", host.Name),
+		host:                  host,
+		status:                &(host.Status.Provisioning),
+		bmcAccess:             bmcAccess,
+		bmcCreds:              bmcCreds,
+		client:                client,
+		log:                   log.WithValues("host", host.Name),
+		instanceImageSource:   f.instanceImageSource,
+		instanceImageChecksum: f.instanceImageChecksum,
 	}
 	return p, nil
 }
@@ -194,12 +209,12 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
 					Path:  "/instance_info/image_source",
-					Value: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2",
+					Value: p.instanceImageSource,
 				},
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
 					Path:  "/instance_info/image_checksum",
-					Value: "97830b21ed272a3d854615beb54cf004",
+					Value: p.instanceImageChecksum,
 				},
 			}).Extract()
 		if err != nil {

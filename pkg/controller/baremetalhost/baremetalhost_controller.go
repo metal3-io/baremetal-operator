@@ -40,9 +40,9 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileBareMetalHost{
-		client:      mgr.GetClient(),
-		scheme:      mgr.GetScheme(),
-		provisioner: ironic.New(),
+		client:             mgr.GetClient(),
+		scheme:             mgr.GetScheme(),
+		provisionerFactory: ironic.NewFactory(),
 	}
 }
 
@@ -80,7 +80,7 @@ type ReconcileBareMetalHost struct {
 	client client.Client
 	scheme *runtime.Scheme
 	// Provisioner handles interacting with the provisioning system.
-	provisioner provisioner.Provisioner
+	provisionerFactory provisioner.ProvisionerFactory
 }
 
 // Reconcile reads that state of the cluster for a BareMetalHost
@@ -132,6 +132,12 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// Past this point we may need a provisioner, so create one.
+	prov, err := r.provisionerFactory.New(host)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
+	}
+
 	// Handle delete operations.
 	if !host.ObjectMeta.DeletionTimestamp.IsZero() {
 		reqLogger.Info(
@@ -144,7 +150,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, nil
 		}
 
-		if dirty, retryDelay, err = r.provisioner.Deprovision(host); err != nil {
+		if dirty, retryDelay, err = prov.Deprovision(); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to deprovision")
 		}
 		if dirty {
@@ -218,7 +224,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// Update the success info for the credentails.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
-		if dirty, err = r.provisioner.ValidateManagementAccess(host); err != nil {
+		if dirty, err = prov.ValidateManagementAccess(); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to validate BMC access")
 		}
 
@@ -245,7 +251,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Set the hardware profile name.
 	if host.Status.HardwareDetails == nil {
-		if dirty, err = r.provisioner.InspectHardware(host); err != nil {
+		if dirty, err = prov.InspectHardware(); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "hardware inspection failed")
 		}
 		if dirty {
@@ -280,14 +286,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	newOpStatus := metalkubev1alpha1.OperationalStatusOffline
 	if host.Spec.Online {
 		reqLogger.Info("ensuring host is powered on")
-		dirty, err = r.provisioner.PowerOn(host)
+		dirty, err = prov.PowerOn()
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to power on the host")
 		}
 		newOpStatus = metalkubev1alpha1.OperationalStatusOnline
 	} else {
 		reqLogger.Info("ensuring host is powered off")
-		dirty, err = r.provisioner.PowerOff(host)
+		dirty, err = prov.PowerOff()
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to power off the host")
 		}

@@ -1,4 +1,4 @@
-package ironic
+package fixture
 
 import (
 	"time"
@@ -15,17 +15,17 @@ import (
 var log = logf.Log.WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 
-// Ironic-specific provisioner factory
+// Test fixture provisioner factory
 type provisionerFactory struct{}
 
-// New returns a new Ironic ProvisionerFactory
+// New returns a new test ProvisionerFactory
 func NewFactory() provisioner.ProvisionerFactory {
 	return &provisionerFactory{}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
-type ironicProvisioner struct {
+type fixtureProvisioner struct {
 	// the host to be managed by this provisioner
 	host *metalkubev1alpha1.BareMetalHost
 	// a logger configured for this host
@@ -34,15 +34,15 @@ type ironicProvisioner struct {
 
 // New returns a new Ironic Provisioner
 func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost) (provisioner.Provisioner, error) {
-	p := &ironicProvisioner{
+	p := &fixtureProvisioner{
 		host: host,
 		log:  log.WithValues("host", host.Name),
 	}
 	return p, nil
 }
 
-// Register the host with Ironic.
-func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
+// Register the host with Fixture.
+func (p *fixtureProvisioner) ensureExists() (dirty bool, err error) {
 	if p.host.Status.Provisioning.ID == "" {
 		p.host.Status.Provisioning.ID = "temporary-fake-id"
 		p.log.Info("setting provisioning id",
@@ -54,7 +54,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *ironicProvisioner) ValidateManagementAccess() (dirty bool, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess() (dirty bool, err error) {
 	p.log.Info("testing management access")
 	if dirty, err := p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not validate management access")
@@ -66,7 +66,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (dirty bool, err error) {
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
+func (p *fixtureProvisioner) InspectHardware() (dirty bool, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	if dirty, err = p.ensureExists(); err != nil {
@@ -80,7 +80,7 @@ func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
 		return true, nil
 	}
 
-	// The inspection is ongoing. We'll need to check the ironic
+	// The inspection is ongoing. We'll need to check the fixture
 	// status for the server here until it is ready for us to get the
 	// inspection details. Simulate that for now by creating the
 	// hardware details struct as part of a second pass.
@@ -123,12 +123,12 @@ func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision() (dirty bool, retryDelay time.Duration, err error) {
+func (p *fixtureProvisioner) Deprovision() (dirty bool, retryDelay time.Duration, err error) {
 	p.log.Info("ensuring host is removed")
 
 	// NOTE(dhellmann): In order to simulate a multi-step process,
 	// modify some of the status data structures. This is likely not
-	// necessary once we really have Ironic doing the deprovisioning
+	// necessary once we really have Fixture doing the deprovisioning
 	// and we can monitor it's status.
 
 	if p.host.Status.HardwareDetails != nil {
@@ -148,7 +148,7 @@ func (p *ironicProvisioner) Deprovision() (dirty bool, retryDelay time.Duration,
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOn() (dirty bool, err error) {
+func (p *fixtureProvisioner) PowerOn() (dirty bool, err error) {
 	p.log.Info("ensuring host is powered on")
 
 	if dirty, err = p.ensureExists(); err != nil {
@@ -165,7 +165,7 @@ func (p *ironicProvisioner) PowerOn() (dirty bool, err error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOff() (dirty bool, err error) {
+func (p *fixtureProvisioner) PowerOff() (dirty bool, err error) {
 	p.log.Info("ensuring host is powered off")
 
 	if dirty, err = p.ensureExists(); err != nil {

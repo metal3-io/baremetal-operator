@@ -90,7 +90,7 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	return &ReconcileBareMetalHost{
 		client:             c,
 		scheme:             scheme.Scheme,
-		provisionerFactory: fixture.New(),
+		provisionerFactory: fixture.NewFactory(),
 	}
 }
 

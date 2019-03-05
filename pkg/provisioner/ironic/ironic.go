@@ -19,7 +19,7 @@ var deprovisionRequeueDelay = time.Second * 10
 type provisionerFactory struct{}
 
 // New returns a new Ironic ProvisionerFactory
-func New() provisioner.ProvisionerFactory {
+func NewFactory() provisioner.ProvisionerFactory {
 	return &provisionerFactory{}
 }
 

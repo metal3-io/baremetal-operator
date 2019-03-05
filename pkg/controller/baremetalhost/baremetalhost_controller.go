@@ -42,7 +42,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileBareMetalHost{
 		client:             mgr.GetClient(),
 		scheme:             mgr.GetScheme(),
-		provisionerFactory: ironic.New(),
+		provisionerFactory: ironic.NewFactory(),
 	}
 }
 

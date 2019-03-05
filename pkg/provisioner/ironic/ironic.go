@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -51,7 +50,7 @@ type ironicProvisioner struct {
 	// a shorter path to the provisioning status data structure
 	status *metalkubev1alpha1.ProvisionStatus
 	// access parameters for the BMC
-	bmcAccess *url.URL
+	bmcAccess *bmc.AccessDetails
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
@@ -72,7 +71,7 @@ func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds
 	if err != nil {
 		return nil, err
 	}
-	bmcAccess, err := url.Parse(host.Spec.BMC.Address)
+	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
@@ -137,30 +136,24 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
+
+		driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
+		// FIXME(dhellmann): The names of the images are tied
+		// to the version of ironic we are using and are
+		// likely to change.
+		//
+		// FIXME(dhellmann): We need to get our IP on the
+		// provisioning network from somewhere.
+		driverInfo["deploy_kernel"] = "http://172.22.0.1/images/tinyipa-stable-rocky.vmlinuz"
+		driverInfo["deploy_ramdisk"] = "http://172.22.0.1/images/tinyipa-stable-rocky.gz"
+
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
 				Driver:        "ipmi",
 				BootInterface: "pxe",
 				Name:          p.host.Name,
-				DriverInfo: map[string]interface{}{
-					// FIXME(dhellmann): The names of the parameters
-					// depend on the ironic driver. We are going to
-					// need to isolate the logic for building the
-					// DriverInfo dict somewhere.
-					"ipmi_port":     p.bmcAccess.Port(),
-					"ipmi_username": p.bmcCreds.Username,
-					"ipmi_password": p.bmcCreds.Password,
-					"ipmi_address":  p.bmcAccess.Hostname(),
-					// FIXME(dhellmann): The names of the images are tied
-					// to the version of ironic we are using and are
-					// likely to change.
-					//
-					// FIXME(dhellmann): We need to get our IP on the
-					// provisioning network from somewhere.
-					"deploy_kernel":  "http://172.22.0.1/images/tinyipa-stable-rocky.vmlinuz",
-					"deploy_ramdisk": "http://172.22.0.1/images/tinyipa-stable-rocky.gz",
-				},
+				DriverInfo:    driverInfo,
 			}).Extract()
 		if err != nil {
 			return false, errors.Wrap(err, "failed to register host in ironic")
@@ -172,35 +165,28 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 		dirty = true
 		p.log.Info("setting provisioning id", "ID", p.status.ID)
 
-		// NOTE(dhellmann): libvirt-based hosts used for dev and testing
-		// require a MAC address and network name, specified as query
-		// parameters in the URL.
-		params := p.bmcAccess.Query()
-		if len(params["mac"]) >= 1 {
-			// FIXME(dhellmann): There is probably a safer way to
-			// get the values out of the query dict, which might be empty.
-			mac := params["mac"][0]
-			net := params["net"][0]
-			p.log.Info("creating port for node in ironic", "mac", mac, "net", net)
+		// If we know the MAC, create a port. Otherwise we will have
+		// to do this after we run the introspection step.
+		if p.host.Spec.BootMACAddress != "" {
+			enable := true
+			p.log.Info("creating port for node in ironic", "MAC",
+				p.host.Spec.BootMACAddress)
 			_, err := ports.Create(
 				p.client,
 				ports.CreateOpts{
-					NodeUUID:        ironicNode.UUID,
-					Address:         mac,
-					PhysicalNetwork: net,
+					NodeUUID:   ironicNode.UUID,
+					Address:    p.host.Spec.BootMACAddress,
+					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {
 				return false, errors.Wrap(err, "failed to create port in ironic")
 			}
 		}
 
-		// FIXME(dhellmann): The URLs and image names used here also
-		// change based on deployment and version. These should come from
-		// the host, via the Machine object and actuator. We should test
-		// whether the incoming values match the values on the node in
-		// ironic before updating them. For now, using "dirty" flag as an
-		// indicator that we created the node so we need to set these
-		// values.
+		// FIXME(dhellmann): We should test whether the incoming
+		// values match the values on the node in ironic before
+		// updating them. For now, using "dirty" flag as an indicator
+		// that we created the node so we need to set these values.
 		p.log.Info("updating host settings in ironic")
 		_, err = nodes.Update(
 			p.client,
@@ -248,6 +234,15 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 		// node in ironic by looking it up. We need to check its
 		// settings against what we have in the host, and change them
 		// if there are differences.
+	}
+
+	// Some BMC types require a MAC address, so ensure we have one
+	// when we need it. If not, place the host in an error state.
+	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
+		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type)
+		p.log.Info(msg)
+		updatedMessage := p.host.SetErrorMessage(msg)
+		return dirty || updatedMessage, nil
 	}
 
 	// If we tried to update the node status already and it has an
@@ -311,7 +306,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
 func (p *ironicProvisioner) ValidateManagementAccess() (dirty bool, err error) {
-	p.log.Info("testing management access")
+	p.log.Info("validating management access")
 	if dirty, err = p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not validate management access")
 	}
@@ -327,6 +322,10 @@ func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
 
 	if dirty, err = p.ensureExists(); err != nil {
 		return dirty, errors.Wrap(err, "could not inspect hardware")
+	}
+	if p.host.HasError() {
+		p.log.Info("host has error, skipping hardware inspection")
+		return dirty, nil
 	}
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {

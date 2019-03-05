@@ -67,6 +67,10 @@ type BareMetalHostSpec struct {
 	// How do we connect to the BMC?
 	BMC BMCDetails `json:"bmc"`
 
+	// Which MAC address will PXE boot? This is optional for some
+	// types, but required for libvirt VMs driven by vbmc.
+	BootMACAddress string `json:"bootMACAddress"`
+
 	// Should the server be online?
 	Online bool `json:"online"`
 
@@ -184,6 +188,11 @@ func (host *BareMetalHost) SetErrorMessage(message string) bool {
 	return false
 }
 
+// ClearError removes any existing error message.
+func (host *BareMetalHost) ClearError() bool {
+	return host.SetErrorMessage("")
+}
+
 // setLabel updates the given label when necessary and returns true
 // when a change is made or false when no change is made.
 func (host *BareMetalHost) setLabel(name, value string) bool {
@@ -226,6 +235,12 @@ func (host *BareMetalHost) OperationalStatus() string {
 		return "unknown"
 	}
 	return status
+}
+
+// HasError returns a boolean indicating whether there is an error
+// set for the host.
+func (host *BareMetalHost) HasError() bool {
+	return host.Status.ErrorMessage != ""
 }
 
 // CredentialsKey returns a NamespacedName suitable for loading the

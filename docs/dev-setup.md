@@ -50,3 +50,24 @@ install the operator-sdk tools.
     ```
     oc apply -f deploy/crds/metalkube_v1alpha1_baremetalhost_cr.yaml
     ```
+
+## Using libvirt VMs with Ironic
+
+In order to use VMs as hosts, they need to be connected to vmbc and
+the `bootMACAddress` field needs to be set to the MAC address of the
+network interface that will PXE boot.
+
+For example:
+
+```yaml
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: worker-0
+spec:
+  online: true
+  bmc:
+    address: libvirt://192.168.122.1:6233/
+    credentialsName: worker-0-bmc-secret
+  bootMACAddress: 00:73:49:3a:76:8e
+```

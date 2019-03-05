@@ -234,23 +234,41 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"failed to update owner of credentials secret")
 	}
 
+	// Clear any error on the host so we can recalculate it in one of
+	// the next phases. This may make the host dirty, so remember that
+	// in case nothing else does.
+	dirty = host.ClearError()
+
 	// Update the success info for the credentails.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
-		if dirty, err = prov.ValidateManagementAccess(); err != nil {
+		changed, err := prov.ValidateManagementAccess()
+		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to validate BMC access")
 		}
 
-		reqLogger.Info("dirty state", "dirty", dirty)
-
-		if dirty {
+		// We may have changed the host during validation or when we
+		// cleared the error state above. In either case, save now.
+		reqLogger.Info("after validation", "changed", changed, "dirty", dirty)
+		if changed || dirty {
 			reqLogger.Info("saving status after validating management access")
 			if err := r.saveStatus(host); err != nil {
 				return reconcile.Result{}, errors.Wrap(err,
 					"failed to save provisioning host status")
 			}
-			reqLogger.Info("waiting before checking provisioning status again")
-			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+			// If we don't have an error status, we just need to wait
+			// before checking with the provisioner again. If the
+			// provisioner set an error, fall through to the next
+			// stanza where we stop reconciling.
+			if !host.HasError() {
+				reqLogger.Info("waiting before checking provisioning status again")
+				return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+			}
+		}
+
+		if host.HasError() {
+			reqLogger.Info("host failed credential validation, stopping")
+			return reconcile.Result{}, nil
 		}
 
 		// Reaching this point means the credentials are valid and
@@ -266,10 +284,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Set the hardware profile name.
 	if host.Status.HardwareDetails == nil {
-		if dirty, err = prov.InspectHardware(); err != nil {
+		changed, err := prov.InspectHardware()
+		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "hardware inspection failed")
 		}
-		if dirty {
+		if changed || dirty {
 			reqLogger.Info("saving host after inspecting hardware")
 			if err := r.client.Update(context.TODO(), host); err != nil {
 				return reconcile.Result{}, errors.Wrap(err,
@@ -301,17 +320,19 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	newOpStatus := metalkubev1alpha1.OperationalStatusOffline
 	if host.Spec.Online {
 		reqLogger.Info("ensuring host is powered on")
-		dirty, err = prov.PowerOn()
+		changed, err := prov.PowerOn()
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to power on the host")
 		}
 		newOpStatus = metalkubev1alpha1.OperationalStatusOnline
+		dirty = dirty || changed
 	} else {
 		reqLogger.Info("ensuring host is powered off")
-		dirty, err = prov.PowerOff()
+		changed, err := prov.PowerOff()
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to power off the host")
 		}
+		dirty = dirty || changed
 	}
 	if dirty {
 		if err := r.saveStatus(host); err != nil {

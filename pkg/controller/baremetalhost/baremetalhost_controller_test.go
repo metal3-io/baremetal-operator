@@ -141,8 +141,22 @@ func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alp
 	)
 }
 
-func waitForErrorStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
-	waitForStatus(t, r, host, metalkubev1alpha1.OperationalStatusError)
+func waitForError(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
+	tryReconcile(t, r, host,
+		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("ErrorMessage of %s: %q", host.ObjectMeta.Name, host.Status.ErrorMessage)
+			return host.HasError()
+		},
+	)
+}
+
+func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
+	tryReconcile(t, r, host,
+		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("ErrorMessage of %s: %q", host.ObjectMeta.Name, host.Status.ErrorMessage)
+			return !host.HasError()
+		},
+	)
 }
 
 func waitForOfflineStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
@@ -303,7 +317,7 @@ func TestMissingBMCParameters(t *testing.T) {
 			},
 		})
 	r := newTestReconciler(noAddress)
-	waitForErrorStatus(t, r, noAddress)
+	waitForError(t, r, noAddress)
 
 	secretNoUser := newSecret("bmc-creds-no-user", "", "Pass")
 	noUsername := newHost("missing-bmc-username",
@@ -314,7 +328,7 @@ func TestMissingBMCParameters(t *testing.T) {
 			},
 		})
 	r = newTestReconciler(noUsername, secretNoUser)
-	waitForErrorStatus(t, r, noUsername)
+	waitForError(t, r, noUsername)
 
 	secretNoPassword := newSecret("bmc-creds-no-pass", "User", "")
 	noPassword := newHost("missing-bmc-password",
@@ -325,7 +339,7 @@ func TestMissingBMCParameters(t *testing.T) {
 			},
 		})
 	r = newTestReconciler(noPassword, secretNoPassword)
-	waitForErrorStatus(t, r, noPassword)
+	waitForError(t, r, noPassword)
 }
 
 // TestFixSecret ensures that when the secret for a host is updated to
@@ -341,7 +355,7 @@ func TestFixSecret(t *testing.T) {
 			},
 		})
 	r := newTestReconciler(host, secret)
-	waitForErrorStatus(t, r, host)
+	waitForError(t, r, host)
 
 	secret = &corev1.Secret{}
 	secretName := types.NamespacedName{
@@ -357,7 +371,7 @@ func TestFixSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForOfflineStatus(t, r, host)
+	waitForNoError(t, r, host)
 }
 
 // TestToggleOnline ensures that when the online flag changes the

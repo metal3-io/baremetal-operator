@@ -21,11 +21,6 @@ const (
 	// host with the operating status.
 	OperationalStatusLabel string = "metalkube.org/operational-status"
 
-	// OperationalStatusError is the status value for the
-	// OperationalStatusLabel when the host has an error condition and
-	// should not be used.
-	OperationalStatusError string = "error"
-
 	// OperationalStatusInspecting is the status value for the
 	// OperationalStatusLabel when the host is powered on and running
 	// the discovery image to inspect the hardware resources on the
@@ -170,6 +165,9 @@ func (host *BareMetalHost) Available() bool {
 	// FIXME(mhrivnak): Add more checks to determine if the host is available, such
 	// as health checks, connectivity checks, etc
 	if host.Spec.MachineRef != nil {
+		return false
+	}
+	if host.HasError() {
 		return false
 	}
 	return true

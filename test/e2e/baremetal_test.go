@@ -187,14 +187,10 @@ func waitForOfflineStatus(t *testing.T, host *metalkubev1alpha1.BareMetalHost) {
 	})
 }
 
-func waitForErrorStatus(t *testing.T, host *metalkubev1alpha1.BareMetalHost) {
+func waitForError(t *testing.T, host *metalkubev1alpha1.BareMetalHost) {
 	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
-		t.Logf("OperationalState: %s", state)
-		if state == metalkubev1alpha1.OperationalStatusError {
-			return true, nil
-		}
-		return false, nil
+		t.Logf("ErrorMessage: %q", host.Status.ErrorMessage)
+		return host.HasError(), nil
 	})
 }
 

@@ -332,7 +332,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// If we reach this point we haven't encountered any issues
 	// communicating with the host, so ensure the error message field
 	// is cleared.
-	if host.SetErrorMessage("") {
+	if host.ClearError() {
 		reqLogger.Info("clearing error message")
 		if err := r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to clear error message")
@@ -370,16 +370,6 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 		)
 		if err := r.saveStatus(host); err != nil {
 			return errors.Wrap(err, "failed to update error message")
-		}
-	}
-
-	if host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusError) {
-		reqLogger.Info(
-			"setting operational status",
-			"newStatus", metalkubev1alpha1.OperationalStatusError,
-		)
-		if err := r.client.Update(context.TODO(), host); err != nil {
-			return errors.Wrap(err, "failed to update operational status")
 		}
 	}
 

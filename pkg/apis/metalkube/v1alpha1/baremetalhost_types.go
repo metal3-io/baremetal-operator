@@ -90,12 +90,17 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	SizeGiB int    `json:"sizeGiB"`
-	Info    string `json:"info"`
+	Name      string `json:"name"`
+	Interface string `json:"interface"`
+	SizeGiB   int    `json:"sizeGiB"`
+	Class     string `json:"class"`
 }
 
 // NIC describes one network interface on the host.
 type NIC struct {
+	Name      string `json:"name"`
+	Model     string `json:"model"`
+	Network   string `json:"network"`
 	MAC       string `json:"mac"`
 	IP        string `json:"ip"`
 	SpeedGbps int    `json:"speedGbps"`

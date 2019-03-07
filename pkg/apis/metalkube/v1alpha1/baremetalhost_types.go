@@ -99,8 +99,8 @@ type Storage struct {
 	// The size of the disk in gigabyte
 	SizeGiB int `json:"sizeGiB"`
 
-	// Storage class, e.g. "Storage Class 1"
-	Class string `json:"class"`
+	// Hardware model
+	Model string `json:"model"`
 }
 
 // NIC describes one network interface on the host.

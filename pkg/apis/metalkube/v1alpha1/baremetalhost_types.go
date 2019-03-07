@@ -90,20 +90,38 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	Name      string `json:"name"`
+	// A name for the disk, e.g. "disk 1 (boot)"
+	Name string `json:"name"`
+
+	// Interface
 	Interface string `json:"interface"`
-	SizeGiB   int    `json:"sizeGiB"`
-	Class     string `json:"class"`
+
+	// The size of the disk in gigabyte
+	SizeGiB int `json:"sizeGiB"`
+
+	// Storage class, e.g. "Storage Class 1"
+	Class string `json:"class"`
 }
 
 // NIC describes one network interface on the host.
 type NIC struct {
-	Name      string `json:"name"`
-	Model     string `json:"model"`
-	Network   string `json:"network"`
-	MAC       string `json:"mac"`
-	IP        string `json:"ip"`
-	SpeedGbps int    `json:"speedGbps"`
+	// The name of the NIC, e.g. "nic-1"
+	Name string `json:"name"`
+
+	// The name of the model, e.g. "virt-io"
+	Model string `json:"model"`
+
+	// The name of the network, e.g. "Pod Networking"
+	Network string `json:"network"`
+
+	// The device MAC addr
+	MAC string `json:"mac"`
+
+	// The IP address of the device
+	IP string `json:"ip"`
+
+	// The speed of the device
+	SpeedGbps int `json:"speedGbps"`
 }
 
 // HardwareDetails collects all of the information about hardware

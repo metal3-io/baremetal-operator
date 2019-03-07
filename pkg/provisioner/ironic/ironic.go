@@ -151,7 +151,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 			p.client,
 			nodes.CreateOpts{
 				Driver:        "ipmi",
-				BootInterface: "pxe",
+				BootInterface: "ipxe",
 				Name:          p.host.Name,
 				DriverInfo:    driverInfo,
 			}).Extract()

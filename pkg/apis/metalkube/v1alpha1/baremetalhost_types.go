@@ -93,8 +93,8 @@ type Storage struct {
 	// A name for the disk, e.g. "disk 1 (boot)"
 	Name string `json:"name"`
 
-	// Interface
-	Interface string `json:"interface"`
+	// Type, e.g. SSD
+	Type string `json:"type"`
 
 	// The size of the disk in gigabyte
 	SizeGiB int `json:"sizeGiB"`

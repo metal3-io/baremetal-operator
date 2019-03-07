@@ -53,9 +53,11 @@ install the operator-sdk tools.
 
 ## Using libvirt VMs with Ironic
 
-In order to use VMs as hosts, they need to be connected to vmbc and
+In order to use VMs as hosts, they need to be connected to vbmc_ and
 the `bootMACAddress` field needs to be set to the MAC address of the
 network interface that will PXE boot.
+
+.. _vbmc: https://docs.openstack.org/tripleo-docs/latest/install/environments/virtualbmc.html
 
 For example:
 

@@ -263,7 +263,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 	if err != nil {
 		return false, errors.Wrap(err, "failed to get provisioning state in ironic")
 	}
-	if ironicNode.ProvisionState == string(nodes.Enroll) && ironicNode.TargetProvisionState != nodes.Manageable {
+	if ironicNode.ProvisionState == string(nodes.Enroll) {
 		p.log.Info("changing provisioning state to manage",
 			"current", ironicNode.ProvisionState,
 			"target", ironicNode.TargetProvisionState,

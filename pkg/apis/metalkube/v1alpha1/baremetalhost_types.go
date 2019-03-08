@@ -76,6 +76,19 @@ type BareMetalHostSpec struct {
 
 	// MachineRef is a reference to the machine.openshift.io/Machine
 	MachineRef *corev1.ObjectReference `json:"machineRef,omitempty"`
+
+	// Image holds the details of the image to be provisioned.
+	Image *Image `json:"image,omitempty"`
+}
+
+// Image holds the details of an image either to provisioned or that
+// has been provisioned.
+type Image struct {
+	// URL is a location of an image to deploy.
+	URL string `json:"url"`
+
+	// Checksum is the checksum for the image.
+	Checksum string `json:"checksum"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -173,6 +186,9 @@ type ProvisionStatus struct {
 	State string `json:"state"`
 	// The machine's UUID from ironic
 	ID string `json:"ID"`
+	// Image holds the details of the last image successfully
+	// provisioned to the host.
+	Image *Image `json:"image,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

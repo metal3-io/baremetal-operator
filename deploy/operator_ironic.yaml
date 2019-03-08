@@ -1,0 +1,169 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metal3-baremetal-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: metal3-baremetal-operator
+  template:
+    metadata:
+      labels:
+        name: metal3-baremetal-operator
+    spec:
+      serviceAccountName: metal3-baremetal-operator
+      hostNetwork: true
+      containers:
+        - name: baremetal-operator
+          image: quay.io/metal3-io/baremetal-operator:master
+          ports:
+            - containerPort: 60000
+              name: metrics
+          command:
+            - /baremetal-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "baremetal-operator"
+            - name: DEPLOY_KERNEL_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: deploy_kernel_url
+            - name: DEPLOY_RAMDISK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: deploy_ramdisk_url
+            - name: IRONIC_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: ironic_endpoint
+            - name: IRONIC_INSPECTOR_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: ironic_inspector_endpoint
+        - name: ironic-dnsmasq
+          image: quay.io/metalkube/metalkube-ironic
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          command:
+            - /bin/rundnsmasq
+          volumeMounts:
+            - mountPath: /shared
+              name: ironic-data-volume
+          env:
+            - name: HTTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: http_port
+            - name: IP
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: http_ip
+            - name: DHCP_RANGE
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: dhcp_range
+            - name: INTERFACE
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: interface
+        - name: mariadb
+          image: quay.io/metalkube/metalkube-ironic
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          command:
+            - /bin/runmariadb
+          volumeMounts:
+            - mountPath: /shared
+              name: ironic-data-volume
+          env:
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-password
+                  key: password
+        - name: ironic-httpd
+          image: quay.io/metalkube/metalkube-ironic
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          command:
+            - /bin/runhttpd
+          volumeMounts:
+            - mountPath: /shared
+              name: ironic-data-volume
+          env:
+            - name: HTTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: http_port
+            - name: IP
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: http_ip
+        - name: ironic
+          image: quay.io/metalkube/metalkube-ironic
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          command:
+            - /bin/runironic
+          volumeMounts:
+            - mountPath: /shared
+              name: ironic-data-volume
+          env:
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-password
+                  key: password
+            - name: HTTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: http_port
+            - name: IP
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: http_ip
+            - name: INTERFACE
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: interface
+        - name: ironic-inspector
+          image: quay.io/metalkube/metalkube-ironic-inspector
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          env:
+            - name: INTERFACE
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: interface
+      volumes:
+        - name: ironic-data-volume
+          emptyDir: {}

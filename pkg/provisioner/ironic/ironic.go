@@ -202,6 +202,15 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 					Path:  "/instance_info/image_checksum",
 					Value: p.instanceImageChecksum,
 				},
+				// FIXME(dhellmann): We have to provide something for
+				// the disk size until
+				// https://storyboard.openstack.org/#!/story/2005165
+				// is fixed in ironic.
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/root_gb",
+					Value: 10,
+				},
 			}).Extract()
 		if err != nil {
 			return false, errors.Wrap(err, "failed to update host settings in ironic")

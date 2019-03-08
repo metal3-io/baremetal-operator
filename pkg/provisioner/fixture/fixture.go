@@ -9,6 +9,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
 )
 
@@ -33,7 +34,7 @@ type fixtureProvisioner struct {
 }
 
 // New returns a new Ironic Provisioner
-func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost) (provisioner.Provisioner, error) {
+func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		host: host,
 		log:  log.WithValues("host", host.Name),

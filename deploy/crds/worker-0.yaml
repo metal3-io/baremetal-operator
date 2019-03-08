@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: worker-0-bmc-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: worker-0
+spec:
+  online: true
+  bmc:
+    address: libvirt://192.168.122.1:6233/
+    credentialsName: worker-0-bmc-secret
+  bootMACAddress: 00:73:49:3a:76:8e

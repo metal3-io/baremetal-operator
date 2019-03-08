@@ -203,6 +203,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:4e00a78e2c98487c27ae54b7252e96ebd6cc4d3743663109918a769de76333bf"
+  name = "github.com/gophercloud/gophercloud"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "f83aee3da90f3f337d024070e2e68b04fb035149"
+
+[[projects]]
+  branch = "master"
   digest = "1:97972f03fbf34ec4247ddc78ddb681389c468c020492aa32b109744a54fc0c14"
   name = "github.com/gregjones/httpcache"
   packages = [
@@ -901,6 +909,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/gophercloud/gophercloud",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/test",

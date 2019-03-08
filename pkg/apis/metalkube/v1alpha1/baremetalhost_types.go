@@ -21,11 +21,6 @@ const (
 	// host with the operating status.
 	OperationalStatusLabel string = "metalkube.org/operational-status"
 
-	// OperationalStatusError is the status value for the
-	// OperationalStatusLabel when the host has an error condition and
-	// should not be used.
-	OperationalStatusError string = "error"
-
 	// OperationalStatusInspecting is the status value for the
 	// OperationalStatusLabel when the host is powered on and running
 	// the discovery image to inspect the hardware resources on the
@@ -71,6 +66,10 @@ type BareMetalHostSpec struct {
 
 	// How do we connect to the BMC?
 	BMC BMCDetails `json:"bmc"`
+
+	// Which MAC address will PXE boot? This is optional for some
+	// types, but required for libvirt VMs driven by vbmc.
+	BootMACAddress string `json:"bootMACAddress"`
 
 	// Should the server be online?
 	Online bool `json:"online"`
@@ -195,6 +194,9 @@ func (host *BareMetalHost) Available() bool {
 	if host.Spec.MachineRef != nil {
 		return false
 	}
+	if host.HasError() {
+		return false
+	}
 	return true
 }
 
@@ -207,6 +209,11 @@ func (host *BareMetalHost) SetErrorMessage(message string) bool {
 		return true
 	}
 	return false
+}
+
+// ClearError removes any existing error message.
+func (host *BareMetalHost) ClearError() bool {
+	return host.SetErrorMessage("")
 }
 
 // setLabel updates the given label when necessary and returns true
@@ -251,6 +258,12 @@ func (host *BareMetalHost) OperationalStatus() string {
 		return "unknown"
 	}
 	return status
+}
+
+// HasError returns a boolean indicating whether there is an error
+// set for the host.
+func (host *BareMetalHost) HasError() bool {
+	return host.Status.ErrorMessage != ""
 }
 
 // CredentialsKey returns a NamespacedName suitable for loading the

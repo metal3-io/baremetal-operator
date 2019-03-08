@@ -177,7 +177,11 @@ type BareMetalHostStatus struct {
 	// the last credentials we were able to validate as working
 	GoodCredentials CredentialsStatus `json:"goodCredentials"`
 
+	// the last error message reported by the provisioning subsystem
 	ErrorMessage string `json:"errorMessage"`
+
+	// indicator for whether or not the host is powered on
+	PoweredOn bool `json:"poweredOn"`
 }
 
 // ProvisionStatus holds the state information for a single target.

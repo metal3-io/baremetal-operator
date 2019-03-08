@@ -156,8 +156,8 @@ func (p *fixtureProvisioner) PowerOn() (dirty bool, err error) {
 		return dirty, errors.Wrap(err, "could not power on host")
 	}
 
-	if p.host.Status.Provisioning.State != "powered on" {
-		p.host.Status.Provisioning.State = "powered on"
+	if !p.host.Status.PoweredOn {
+		p.host.Status.PoweredOn = true
 		return true, nil
 	}
 
@@ -173,8 +173,8 @@ func (p *fixtureProvisioner) PowerOff() (dirty bool, err error) {
 		return dirty, errors.Wrap(err, "could not power off host")
 	}
 
-	if p.host.Status.Provisioning.State != "powered off" {
-		p.host.Status.Provisioning.State = "powered off"
+	if p.host.Status.PoweredOn {
+		p.host.Status.PoweredOn = false
 		return true, nil
 	}
 

@@ -211,6 +211,16 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 					Path:  "/instance_info/root_gb",
 					Value: 10,
 				},
+				// FIXME(dhellmann): We need to specify the root
+				// device to receive the image. That should come from
+				// some combination of inspecting the host to see what
+				// is available and the hardware profile to give us
+				// instructions.
+				// nodes.UpdateOperation{
+				// 	Op:    nodes.AddOp,
+				// 	Path:  "/properties/root_device",
+				// 	Value: map[string]interface{},
+				// },
 			}).Extract()
 		if err != nil {
 			return false, errors.Wrap(err, "failed to update host settings in ironic")

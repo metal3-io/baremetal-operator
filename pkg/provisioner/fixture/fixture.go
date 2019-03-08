@@ -16,28 +16,23 @@ import (
 var log = logf.Log.WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 
-// Test fixture provisioner factory
-type provisionerFactory struct{}
-
-// New returns a new test ProvisionerFactory
-func NewFactory() provisioner.ProvisionerFactory {
-	return &provisionerFactory{}
-}
-
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
 type fixtureProvisioner struct {
 	// the host to be managed by this provisioner
 	host *metalkubev1alpha1.BareMetalHost
+	// the bmc credentials
+	bmcCreds bmc.Credentials
 	// a logger configured for this host
 	log logr.Logger
 }
 
 // New returns a new Ironic Provisioner
-func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
+func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
-		host: host,
-		log:  log.WithValues("host", host.Name),
+		host:     host,
+		bmcCreds: bmcCreds,
+		log:      log.WithValues("host", host.Name),
 	}
 	return p, nil
 }

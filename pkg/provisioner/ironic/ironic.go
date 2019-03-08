@@ -23,24 +23,9 @@ import (
 var log = logf.Log.WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 
-// Ironic-specific provisioner factory
-type provisionerFactory struct {
-	// Where is ironic?
-	ironicEndpoint string
-	// The image to deploy on new hosts
-	instanceImageSource string
-	// The checksum for the instanceImageSource
-	instanceImageChecksum string
-}
-
-// New returns a new Ironic ProvisionerFactory
-func NewFactory(ironicEndpoint, instanceImageSource, instanceImageChecksum string) provisioner.ProvisionerFactory {
-	return &provisionerFactory{
-		ironicEndpoint:        ironicEndpoint,
-		instanceImageSource:   instanceImageSource,
-		instanceImageChecksum: instanceImageChecksum,
-	}
-}
+const (
+	ironicEndpoint = "http://localhost:6385/v1/"
+)
 
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
@@ -57,16 +42,12 @@ type ironicProvisioner struct {
 	client *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
-	// The image to deploy on new hosts
-	instanceImageSource string
-	// The checksum for the instanceImageSource
-	instanceImageChecksum string
 }
 
 // New returns a new Ironic Provisioner
-func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
+func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
 	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
-		IronicEndpoint: f.ironicEndpoint,
+		IronicEndpoint: ironicEndpoint,
 	})
 	if err != nil {
 		return nil, err
@@ -79,14 +60,12 @@ func (f *provisionerFactory) New(host *metalkubev1alpha1.BareMetalHost, bmcCreds
 	// we need.
 	client.Microversion = "1.50"
 	p := &ironicProvisioner{
-		host:                  host,
-		status:                &(host.Status.Provisioning),
-		bmcAccess:             bmcAccess,
-		bmcCreds:              bmcCreds,
-		client:                client,
-		log:                   log.WithValues("host", host.Name),
-		instanceImageSource:   f.instanceImageSource,
-		instanceImageChecksum: f.instanceImageChecksum,
+		host:      host,
+		status:    &(host.Status.Provisioning),
+		bmcAccess: bmcAccess,
+		bmcCreds:  bmcCreds,
+		client:    client,
+		log:       log.WithValues("host", host.Name),
 	}
 	return p, nil
 }
@@ -187,44 +166,44 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 		// values match the values on the node in ironic before
 		// updating them. For now, using "dirty" flag as an indicator
 		// that we created the node so we need to set these values.
-		p.log.Info("updating host settings in ironic")
-		_, err = nodes.Update(
-			p.client,
-			ironicNode.UUID,
-			nodes.UpdateOpts{
-				nodes.UpdateOperation{
-					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_source",
-					Value: p.instanceImageSource,
-				},
-				nodes.UpdateOperation{
-					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_checksum",
-					Value: p.instanceImageChecksum,
-				},
-				// FIXME(dhellmann): We have to provide something for
-				// the disk size until
-				// https://storyboard.openstack.org/#!/story/2005165
-				// is fixed in ironic.
-				nodes.UpdateOperation{
-					Op:    nodes.AddOp,
-					Path:  "/instance_info/root_gb",
-					Value: 10,
-				},
-				// FIXME(dhellmann): We need to specify the root
-				// device to receive the image. That should come from
-				// some combination of inspecting the host to see what
-				// is available and the hardware profile to give us
-				// instructions.
-				// nodes.UpdateOperation{
-				// 	Op:    nodes.AddOp,
-				// 	Path:  "/properties/root_device",
-				// 	Value: map[string]interface{},
-				// },
-			}).Extract()
-		if err != nil {
-			return false, errors.Wrap(err, "failed to update host settings in ironic")
-		}
+		// p.log.Info("updating host settings in ironic")
+		// _, err = nodes.Update(
+		// 	p.client,
+		// 	ironicNode.UUID,
+		// 	nodes.UpdateOpts{
+		// 		nodes.UpdateOperation{
+		// 			Op:    nodes.AddOp,
+		// 			Path:  "/instance_info/image_source",
+		// 			Value: p.instanceImageSource,
+		// 		},
+		// 		nodes.UpdateOperation{
+		// 			Op:    nodes.AddOp,
+		// 			Path:  "/instance_info/image_checksum",
+		// 			Value: p.instanceImageChecksum,
+		// 		},
+		// 		// FIXME(dhellmann): We have to provide something for
+		// 		// the disk size until
+		// 		// https://storyboard.openstack.org/#!/story/2005165
+		// 		// is fixed in ironic.
+		// 		nodes.UpdateOperation{
+		// 			Op:    nodes.AddOp,
+		// 			Path:  "/instance_info/root_gb",
+		// 			Value: 10,
+		// 		},
+		// 		// FIXME(dhellmann): We need to specify the root
+		// 		// device to receive the image. That should come from
+		// 		// some combination of inspecting the host to see what
+		// 		// is available and the hardware profile to give us
+		// 		// instructions.
+		// 		// nodes.UpdateOperation{
+		// 		// 	Op:    nodes.AddOp,
+		// 		// 	Path:  "/properties/root_device",
+		// 		// 	Value: map[string]interface{},
+		// 		// },
+		// 	}).Extract()
+		// if err != nil {
+		// 	return false, errors.Wrap(err, "failed to update host settings in ironic")
+		// }
 
 		// Validate the host settings
 		p.log.Info("validating node settings in ironic")

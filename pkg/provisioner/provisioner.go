@@ -11,10 +11,8 @@ import (
 Package provisioning defines the API for talking to the provisioning backend.
 */
 
-type ProvisionerFactory interface {
-	// New creates a new Provisioner for a given host.
-	New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (Provisioner, error)
-}
+// Factory is the interface for creating new Provisioner objects.
+type Factory func(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (Provisioner, error)
 
 // Provisioner holds the state information for talking to the
 // provisioning backend.

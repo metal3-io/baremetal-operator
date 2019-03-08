@@ -105,7 +105,7 @@ func (p *fixtureProvisioner) InspectHardware() (dirty bool, err error) {
 				Storage: []metalkubev1alpha1.Storage{
 					metalkubev1alpha1.Storage{
 						SizeGiB: 1024,
-						Info:    "Some information about this disk.",
+						Model:   "stone tablet",
 					},
 				},
 				CPUs: []metalkubev1alpha1.CPU{

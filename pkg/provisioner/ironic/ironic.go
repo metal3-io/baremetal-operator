@@ -71,7 +71,7 @@ func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provi
 }
 
 // Register the host with Ironic.
-func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
+func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	// Try to load the node by UUID
@@ -86,7 +86,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 		case gophercloud.ErrDefault404:
 			p.log.Info("did not find existing node by ID")
 		default:
-			return false, errors.Wrap(err,
+			return result, errors.Wrap(err,
 				fmt.Sprintf("failed to find node by ID %s", p.status.ID))
 		}
 	}
@@ -101,13 +101,13 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 			// Store the ID so other methods can assume it is set and
 			// so we can find the node using that value next time.
 			p.status.ID = ironicNode.UUID
-			dirty = true
+			result.Dirty = true
 			p.log.Info("setting provisioning id", "ID", p.status.ID)
 		case gophercloud.ErrDefault404:
 			p.log.Info("did not find existing node by name")
 			ironicNode = nil
 		default:
-			return false, errors.Wrap(err,
+			return result, errors.Wrap(err,
 				fmt.Sprintf("failed to find node by name %s", p.host.Name))
 		}
 	}
@@ -135,13 +135,13 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 				DriverInfo:    driverInfo,
 			}).Extract()
 		if err != nil {
-			return false, errors.Wrap(err, "failed to register host in ironic")
+			return result, errors.Wrap(err, "failed to register host in ironic")
 		}
 
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
 		p.status.ID = ironicNode.UUID
-		dirty = true
+		result.Dirty = true
 		p.log.Info("setting provisioning id", "ID", p.status.ID)
 
 		// If we know the MAC, create a port. Otherwise we will have
@@ -158,7 +158,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {
-				return false, errors.Wrap(err, "failed to create port in ironic")
+				return result, errors.Wrap(err, "failed to create port in ironic")
 			}
 		}
 
@@ -209,7 +209,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 		p.log.Info("validating node settings in ironic")
 		validateResult, err := nodes.Validate(p.client, ironicNode.UUID).Extract()
 		if err != nil {
-			return false, errors.Wrap(err, "failed to validate node settings in ironic")
+			return result, errors.Wrap(err, "failed to validate node settings in ironic")
 		}
 		var validationErrors []string
 		if !validateResult.Boot.Result {
@@ -224,8 +224,8 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 			// status on the host and return.
 			msg := fmt.Sprintf("host validation error: %s",
 				strings.Join(validationErrors, "; "))
-			dirty = p.host.SetErrorMessage(msg) || dirty
-			return dirty, nil
+			result.Dirty = p.host.SetErrorMessage(msg) || result.Dirty
+			return result, nil
 		}
 	} else {
 		// FIXME(dhellmann): At this point we have found an existing
@@ -240,7 +240,8 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type)
 		p.log.Info(msg)
 		updatedMessage := p.host.SetErrorMessage(msg)
-		return dirty || updatedMessage, nil
+		result.Dirty = result.Dirty || updatedMessage
+		return result, nil
 	}
 
 	// If we tried to update the node status already and it has an
@@ -250,8 +251,8 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 		// cannot see the BMC or the credentials are wrong. Set the
 		// error message and return dirty, if we've changed something,
 		// so the status is stored.
-		dirty = p.host.SetErrorMessage(ironicNode.LastError) || dirty
-		return dirty, nil
+		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError) || result.Dirty
+		return result, nil
 	}
 
 	// Ensure the node is marked manageable.
@@ -259,7 +260,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 	// FIXME(dhellmann): Do we need to check other states here?
 	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to get provisioning state in ironic")
+		return result, errors.Wrap(err, "failed to get provisioning state in ironic")
 	}
 	if ironicNode.ProvisionState == string(nodes.Enroll) {
 		p.log.Info("changing provisioning state to manage",
@@ -273,7 +274,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 				Target: nodes.TargetManage,
 			})
 		if changeResult.Err != nil {
-			return false, errors.Wrap(changeResult.Err,
+			return result, errors.Wrap(changeResult.Err,
 				"failed to change provisioning state to manage")
 		}
 	}
@@ -284,7 +285,7 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 	// latest state, so fetch the data again.
 	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to check provision state")
+		return result, errors.Wrap(err, "failed to check provision state")
 	}
 	if ironicNode.ProvisionState != nodes.Manageable {
 		// If we're still waiting for the state to change in Ironic,
@@ -295,42 +296,43 @@ func (p *ironicProvisioner) ensureExists() (dirty bool, err error) {
 			"current", ironicNode.ProvisionState,
 			"target", ironicNode.TargetProvisionState,
 		)
-		dirty = true
+		result.Dirty = true
 	}
 
-	return dirty, nil
+	return result, nil
 }
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *ironicProvisioner) ValidateManagementAccess() (dirty bool, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Result, err error) {
 	p.log.Info("validating management access")
-	if dirty, err = p.ensureExists(); err != nil {
-		return dirty, errors.Wrap(err, "could not validate management access")
+	if result, err = p.ensureExists(); err != nil {
+		return result, errors.Wrap(err, "could not validate management access")
 	}
-	return dirty, nil
+	return result, nil
 }
 
 // InspectHardware updates the HardwareDetails field of the host with
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
+func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
-	if dirty, err = p.ensureExists(); err != nil {
-		return dirty, errors.Wrap(err, "could not inspect hardware")
+	if result, err = p.ensureExists(); err != nil {
+		return result, errors.Wrap(err, "could not inspect hardware")
 	}
 	if p.host.HasError() {
 		p.log.Info("host has error, skipping hardware inspection")
-		return dirty, nil
+		return result, nil
 	}
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
 		// The inspection just started.
 		p.log.Info("starting inspection by setting state")
 		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
-		return true, nil
+		result.Dirty = true
+		return result, nil
 	}
 
 	// The inspection is ongoing. We'll need to check the ironic
@@ -381,16 +383,17 @@ func (p *ironicProvisioner) InspectHardware() (dirty bool, err error) {
 					},
 				},
 			}
-		return true, nil
+		result.Dirty = true
+		return result, nil
 	}
 
-	return false, nil
+	return result, nil
 }
 
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision() (dirty bool, retryDelay time.Duration, err error) {
+func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	// FIXME(dhellmann): Depending on the node state, it might take some
@@ -406,43 +409,43 @@ func (p *ironicProvisioner) Deprovision() (dirty bool, retryDelay time.Duration,
 		case gophercloud.ErrDefault404:
 			p.log.Info("did not find host to delete, OK")
 		default:
-			return false, 0, errors.Wrap(err, "failed to remove host")
+			return result, errors.Wrap(err, "failed to remove host")
 		}
 	}
 
-	return false, 0, nil
+	return result, nil
 }
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOn() (dirty bool, err error) {
+func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	if dirty, err = p.ensureExists(); err != nil {
-		return dirty, errors.Wrap(err, "could not power on host")
+	if result, err = p.ensureExists(); err != nil {
+		return result, errors.Wrap(err, "could not power on host")
 	}
 
 	if p.host.Status.Provisioning.State != "powered on" {
 		p.host.Status.Provisioning.State = "powered on"
-		return true, nil
+		result.Dirty = true
 	}
 
-	return false, nil
+	return result, nil
 }
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOff() (dirty bool, err error) {
+func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
-	if dirty, err = p.ensureExists(); err != nil {
-		return dirty, errors.Wrap(err, "could not power off host")
+	if result, err = p.ensureExists(); err != nil {
+		return result, errors.Wrap(err, "could not power off host")
 	}
 
 	if p.host.Status.Provisioning.State != "powered off" {
 		p.host.Status.Provisioning.State = "powered off"
-		return true, nil
+		result.Dirty = true
 	}
 
-	return false, nil
+	return result, nil
 }

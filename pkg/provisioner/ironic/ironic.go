@@ -35,7 +35,7 @@ type ironicProvisioner struct {
 	// a shorter path to the provisioning status data structure
 	status *metalkubev1alpha1.ProvisionStatus
 	// access parameters for the BMC
-	bmcAccess *bmc.AccessDetails
+	bmcAccess bmc.AccessDetails
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
@@ -237,7 +237,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 	// Some BMC types require a MAC address, so ensure we have one
 	// when we need it. If not, place the host in an error state.
 	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
-		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type)
+		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
 		updatedMessage := p.host.SetErrorMessage(msg)
 		result.Dirty = result.Dirty || updatedMessage

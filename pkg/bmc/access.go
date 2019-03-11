@@ -12,22 +12,24 @@ import (
 //
 // NOTE(dhellmann): This structure is very likely to change as we
 // adapt it to additional types.
-type AccessDetails struct {
-	// The type of the BMC, indicating the driver that will be used to
-	// communicate with it.
-	Type string
+type AccessDetails interface {
+	// Type returns the kind of the BMC, indicating the driver that
+	// will be used to communicate with it.
+	Type() string
 
-	portNum  string
-	hostname string
+	// NeedsMAC returns true when the host is going to need a separate
+	// port created rather than having it discovered.
+	NeedsMAC() bool
+
+	// DriverInfo returns a data structure to pass as the DriverInfo
+	// parameter when creating a node in Ironic. The structure is
+	// pre-populated with the access information, and the caller is
+	// expected to add any other information that might be needed
+	// (such as the kernel and ramdisk locations).
+	DriverInfo(bmcCreds Credentials) map[string]interface{}
 }
 
-const ipmiDefaultPort = "623"
-
-// NewAccessDetails creates an AccessDetails structure from the URL
-// for a BMC.
-func NewAccessDetails(address string) (*AccessDetails, error) {
-	var addr AccessDetails
-
+func getTypeHostPort(address string) (bmcType, host, port string, err error) {
 	// Start by assuming "type://host:port"
 	parsedURL, err := url.Parse(address)
 	if err != nil {
@@ -39,61 +41,47 @@ func NewAccessDetails(address string) (*AccessDetails, error) {
 		if strings.Contains(address, ":") {
 			// If we can parse host:port, carry on with those
 			// values. Otherwise, report the original parser error.
-			host, port, err2 := net.SplitHostPort(address)
+			var err2 error
+			host, port, err2 = net.SplitHostPort(address)
 			if err2 != nil {
-				return nil, errors.Wrap(err, "failed to parse BMC address information")
+				return "", "", "", errors.Wrap(err, "failed to parse BMC address information")
 			}
-			addr.Type = "ipmi"
-			addr.hostname = host
-			addr.portNum = port
+			bmcType = "ipmi"
 		} else {
-			addr.Type = "ipmi"
-			addr.hostname = address
+			bmcType = "ipmi"
+			host = address
 		}
 	} else {
 		// Successfully parsed the URL
-		addr.Type = parsedURL.Scheme
-		addr.portNum = parsedURL.Port()
-		addr.hostname = parsedURL.Hostname()
+		bmcType = parsedURL.Scheme
+		port = parsedURL.Port()
+		host = parsedURL.Hostname()
 		if parsedURL.Scheme == "" {
-			addr.Type = "ipmi"
-			if addr.hostname == "" {
+			bmcType = "ipmi"
+			if host == "" {
 				// If there was no scheme at all, the hostname was
 				// interpreted as a path.
-				addr.hostname = parsedURL.Path
+				host = parsedURL.Path
 			}
 		}
 	}
-
-	if addr.Type == "ipmi" && addr.portNum == "" {
-		addr.portNum = ipmiDefaultPort
-	}
-
-	return &addr, nil
+	return bmcType, host, port, nil
 }
 
-// NeedsMAC returns true when the host is going to need a separate
-// port created rather than having it discovered.
-//
-// libvirt-based hosts used for dev and testing require a MAC address,
-// specified as part of the host, but we don't want the provisioner to
-// have to know the rules about which drivers require what so we hide
-// that detail inside this class and just let the provisioner know
-// that "some" drivers require a MAC and it should ask.
-func (a *AccessDetails) NeedsMAC() bool {
-	return a.Type == "libvirt"
-}
+// NewAccessDetails creates an AccessDetails structure from the URL
+// for a BMC.
+func NewAccessDetails(address string) (AccessDetails, error) {
 
-// DriverInfo returns a data structure to pass as the DriverInfo
-// parameter when creating a node in Ironic. The structure is
-// pre-populated with the access information, and the caller is
-// expected to add any other information that might be needed (such as
-// the kernel and ramdisk locations).
-func (a AccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-	return map[string]interface{}{
-		"ipmi_port":     a.portNum,
-		"ipmi_username": bmcCreds.Username,
-		"ipmi_password": bmcCreds.Password,
-		"ipmi_address":  a.hostname,
+	bmcType, host, port, err := getTypeHostPort(address)
+	if err != nil {
+		return nil, err
 	}
+
+	addr := &ipmiAccessDetails{
+		bmcType:  bmcType,
+		portNum:  port,
+		hostname: host,
+	}
+
+	return addr, nil
 }

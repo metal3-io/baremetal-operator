@@ -25,7 +25,7 @@ test-verbose:
 
 .PHONY: unit-local
 unit-local:
-	go test $(GO_TEST_FLAGS) ./pkg/controller/baremetalhost
+	go test $(GO_TEST_FLAGS) ./pkg/...
 
 .PHONY: e2e-local
 e2e-local:

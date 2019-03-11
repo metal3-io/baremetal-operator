@@ -1,7 +1,9 @@
 package bmc
 
 import (
+	"net"
 	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -19,26 +21,55 @@ type AccessDetails struct {
 	hostname string
 }
 
+const ipmiDefaultPort = "623"
+
 // NewAccessDetails creates an AccessDetails structure from the URL
 // for a BMC.
 func NewAccessDetails(address string) (*AccessDetails, error) {
+	var addr AccessDetails
+
+	// Start by assuming "type://host:port"
 	parsedURL, err := url.Parse(address)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
-	}
-
-	addr := &AccessDetails{
-		portNum:  parsedURL.Port(),
-		hostname: parsedURL.Hostname(),
-	}
-
-	if parsedURL.Scheme == "libvirt" {
-		addr.Type = "libvirt"
+		// We failed to parse the URL, but it may just be a host or
+		// host:port string (which the URL parser rejects because ":"
+		// is not allowed in the first segment of a
+		// path. Unfortunately there is no error class to represent
+		// that specific error, so we have to guess.
+		if strings.Contains(address, ":") {
+			// If we can parse host:port, carry on with those
+			// values. Otherwise, report the original parser error.
+			host, port, err2 := net.SplitHostPort(address)
+			if err2 != nil {
+				return nil, errors.Wrap(err, "failed to parse BMC address information")
+			}
+			addr.Type = "ipmi"
+			addr.hostname = host
+			addr.portNum = port
+		} else {
+			addr.Type = "ipmi"
+			addr.hostname = address
+		}
 	} else {
-		addr.Type = "ipmi"
+		// Successfully parsed the URL
+		addr.Type = parsedURL.Scheme
+		addr.portNum = parsedURL.Port()
+		addr.hostname = parsedURL.Hostname()
+		if parsedURL.Scheme == "" {
+			addr.Type = "ipmi"
+			if addr.hostname == "" {
+				// If there was no scheme at all, the hostname was
+				// interpreted as a path.
+				addr.hostname = parsedURL.Path
+			}
+		}
 	}
 
-	return addr, nil
+	if addr.Type == "ipmi" && addr.portNum == "" {
+		addr.portNum = ipmiDefaultPort
+	}
+
+	return &addr, nil
 }
 
 // NeedsMAC returns true when the host is going to need a separate

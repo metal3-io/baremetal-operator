@@ -171,9 +171,6 @@ type BareMetalHostStatus struct {
 	// Information tracked by the provisioner.
 	Provisioning ProvisionStatus `json:"provisioning"`
 
-	// the last thing we deployed here
-	Image string `json:"image"`
-
 	// the last credentials we were able to validate as working
 	GoodCredentials CredentialsStatus `json:"goodCredentials"`
 

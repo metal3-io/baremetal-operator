@@ -36,7 +36,6 @@ var log = logf.Log.WithName("controller_baremetalhost")
 const (
 	instanceImageSource   = "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
 	instanceImageChecksum = "97830b21ed272a3d854615beb54cf004"
-	ironicEndpoint        = "http://localhost:6385/v1/"
 )
 
 // Add creates a new BareMetalHost Controller and adds it to the
@@ -49,13 +48,9 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileBareMetalHost{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-		provisionerFactory: ironic.NewFactory(
-			ironicEndpoint,
-			instanceImageSource,
-			instanceImageChecksum,
-		),
+		client:             mgr.GetClient(),
+		scheme:             mgr.GetScheme(),
+		provisionerFactory: ironic.New,
 	}
 }
 
@@ -90,10 +85,9 @@ var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
 type ReconcileBareMetalHost struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
-	// Provisioner handles interacting with the provisioning system.
-	provisionerFactory provisioner.ProvisionerFactory
+	client             client.Client
+	scheme             *runtime.Scheme
+	provisionerFactory provisioner.Factory
 }
 
 // Reconcile reads that state of the cluster for a BareMetalHost
@@ -185,7 +179,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Past this point we may need a provisioner, so create one.
-	prov, err := r.provisionerFactory.New(host, bmcCreds)
+	prov, err := r.provisionerFactory(host, bmcCreds)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}

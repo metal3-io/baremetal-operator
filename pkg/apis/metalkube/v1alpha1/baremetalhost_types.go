@@ -206,9 +206,10 @@ type BareMetalHost struct {
 
 // Available returns true if the host is available to be provisioned.
 func (host *BareMetalHost) Available() bool {
-	// FIXME(mhrivnak): Add more checks to determine if the host is available, such
-	// as health checks, connectivity checks, etc
 	if host.Spec.MachineRef != nil {
+		return false
+	}
+	if host.GetDeletionTimestamp() != nil {
 		return false
 	}
 	if host.HasError() {

@@ -242,11 +242,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"failed to update owner of credentials secret")
 	}
 
-	// Clear any error on the host so we can recalculate it in one of
-	// the next phases. This may make the host dirty, so remember that
-	// in case nothing else does.
-	dirty = host.ClearError()
-
 	// Update the success info for the credentails.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
@@ -257,26 +252,21 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 		// We may have changed the host during validation or when we
 		// cleared the error state above. In either case, save now.
-		reqLogger.Info("after validation", "provResult", provResult, "dirty", dirty)
-		if provResult.Dirty || dirty {
+		reqLogger.Info("after validation", "provResult", provResult)
+		if provResult.Dirty {
 			reqLogger.Info("saving status after validating management access")
 			if err := r.saveStatus(host); err != nil {
 				return reconcile.Result{}, errors.Wrap(err,
 					"failed to save provisioning host status")
 			}
-			// If we don't have an error status, we just need to wait
-			// before checking with the provisioner again. If the
-			// provisioner set an error, fall through to the next
-			// stanza where we stop reconciling.
-			if !host.HasError() {
-				reqLogger.Info("waiting before checking provisioning status again")
-				return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
+			// We need to wait before checking with the provisioner
+			// again.
+			reqLogger.Info("host not ready", "delay", provResult.RequeueAfter)
+			result := reconcile.Result{
+				Requeue:      true,
+				RequeueAfter: provResult.RequeueAfter,
 			}
-		}
-
-		if host.HasError() {
-			reqLogger.Info("host failed credential validation, stopping")
-			return reconcile.Result{}, nil
+			return result, nil
 		}
 
 		// Reaching this point means the credentials are valid and
@@ -309,10 +299,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 						"failed to save hardware details after inspection")
 				}
 			}
-			if provResult.RequeueAfter != 0 {
-				return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
+			res := reconcile.Result{
+				Requeue:      true,
+				RequeueAfter: provResult.RequeueAfter,
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return res, nil
 		}
 	}
 

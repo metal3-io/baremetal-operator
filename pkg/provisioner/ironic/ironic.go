@@ -558,15 +558,32 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	// is especially true if we enable cleaning.
 
 	if p.status.ID != "" {
-		// p.log.Info("setting host maintenance flag for deleting")
-		// ironicNode, err := nodes.Get(p.client, p.status.ID).Extract()
-		// switch err.(type) {
-		// case nil:
-		// case gophercloud.ErrDefault404:
-		// 	p.log.Info("did not find host to delete, OK")
-		// default:
-		// 	return result, errors.Wrap(err, "failed to remove host")
-		// }
+		ironicNode, err := p.findExistingHost()
+		if err != nil {
+			return result, errors.Wrap(err, "failed to find existing host")
+		}
+		if ironicNode == nil {
+			p.log.Info("no node found, already deleted")
+			return result, nil
+		}
+
+		if !ironicNode.Maintenance {
+			p.log.Info("setting host maintenance flag for deleting")
+			_, err = nodes.Update(
+				p.client,
+				ironicNode.UUID,
+				nodes.UpdateOpts{
+					nodes.UpdateOperation{
+						Op:    nodes.ReplaceOp,
+						Path:  "/maintenance",
+						Value: true,
+					},
+				},
+			).Extract()
+			if err != nil {
+				return result, errors.Wrap(err, "failed to set host maintenance flag")
+			}
+		}
 
 		p.log.Info("removing host", "ID", p.status.ID)
 		err = nodes.Delete(p.client, p.status.ID).ExtractErr()

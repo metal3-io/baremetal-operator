@@ -22,9 +22,19 @@ import (
 
 var log = logf.Log.WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
+var provisionRequeueDelay = time.Second * 10
 
 const (
-	ironicEndpoint = "http://localhost:6385/v1/"
+	ironicEndpoint            = "http://localhost:6385/v1/"
+	stateNone                 = ""
+	stateRegistrationError    = "registration error"
+	stateRegistering          = "registering"
+	stateReady                = "ready"
+	statePreparingToProvision = "preparing to provision"
+	stateMakingAvailable      = "making host available"
+	stateValidationError      = "validation error"
+	stateProvisioning         = "provisioning"
+	stateProvisioned          = "provisioned"
 )
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -228,6 +238,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		// cannot see the BMC or the credentials are wrong. Set the
 		// error message and return dirty, if we've changed something,
 		// so the status is stored.
+		p.status.State = stateRegistrationError
 		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError) || result.Dirty
 		return result, nil
 	}
@@ -244,6 +255,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 			"current", ironicNode.ProvisionState,
 			"target", ironicNode.TargetProvisionState,
 		)
+		p.status.State = stateRegistering
 		changeResult := nodes.ChangeProvisionState(
 			p.client,
 			ironicNode.UUID,
@@ -264,16 +276,29 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 	if err != nil {
 		return result, errors.Wrap(err, "failed to check provision state")
 	}
-	if ironicNode.ProvisionState != nodes.Manageable {
-		// If we're still waiting for the state to change in Ironic,
-		// return true to indicate that we're dirty and need to be
-		// reconciled again.
-		p.log.Info("waiting for manageable provision state, forcing dirty state",
-			"lastError", ironicNode.LastError,
-			"current", ironicNode.ProvisionState,
-			"target", ironicNode.TargetProvisionState,
-		)
-		result.Dirty = true
+	if p.status.State == stateRegistering {
+		if ironicNode.ProvisionState != nodes.Manageable {
+			// If we're still waiting for the state to change in Ironic,
+			// return true to indicate that we're dirty and need to be
+			// reconciled again.
+			p.log.Info("waiting for manageable provision state, forcing dirty state",
+				"lastError", ironicNode.LastError,
+				"current", ironicNode.ProvisionState,
+				"target", ironicNode.TargetProvisionState,
+			)
+			p.status.State = stateRegistering
+			result.Dirty = true
+		} else {
+			// Mark the node as ready to be used
+			p.status.State = stateReady
+			result.Dirty = true
+		}
+	}
+
+	if !result.Dirty {
+		// If we aren't saving any other updates, clear the error
+		// status if we have one.
+		result.Dirty = p.host.ClearError()
 	}
 
 	return result, nil
@@ -362,8 +387,166 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
 func (p *ironicProvisioner) Provision() (result provisioner.Result, err error) {
+	var ironicNode *nodes.Node
+
+	p.log.Info("provisioning image to host")
+
+	// The last time we were here we set the host in an error state.
+	if p.status.State == stateValidationError {
+		p.log.Info("stopping provisioning due to validation error")
+		return result, nil
+	}
+
+	if ironicNode, err = p.findExistingHost(); err != nil {
+		return result, errors.Wrap(err, "could not find host to receive image")
+	}
+
+	// Since we were here ironic has recorded an error for this host.
+	if ironicNode.LastError != "" {
+		p.log.Info("found error", "msg", ironicNode.LastError)
+		p.status.State = stateValidationError
+		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError)
+		return result, nil
+	}
+
+	result.RequeueAfter = provisionRequeueDelay
+
+	// Ensure the instance_info properties for the host are set to
+	// tell Ironic where to get the image to be provisioned.
+	var op nodes.UpdateOp
+	if imageSource, ok := ironicNode.InstanceInfo["image_source"]; !ok {
+		// no source, need to add
+		op = nodes.AddOp
+		p.log.Info("adding host settings in ironic")
+	} else if imageSource != p.host.Spec.Image.URL {
+		//  have a different source, need to update
+		op = nodes.ReplaceOp
+		p.log.Info("updating host settings in ironic")
+	}
+	if op != "" {
+		_, err = nodes.Update(
+			p.client,
+			ironicNode.UUID,
+			nodes.UpdateOpts{
+				nodes.UpdateOperation{
+					Op:    op,
+					Path:  "/instance_info/image_source",
+					Value: p.host.Spec.Image.URL,
+				},
+				nodes.UpdateOperation{
+					Op:    op,
+					Path:  "/instance_info/image_checksum",
+					Value: p.host.Spec.Image.Checksum,
+				},
+				// FIXME(dhellmann): We have to provide something for
+				// the disk size until
+				// https://storyboard.openstack.org/#!/story/2005165
+				// is fixed in ironic.
+				nodes.UpdateOperation{
+					Op:    op,
+					Path:  "/instance_info/root_gb",
+					Value: 10,
+				},
+				// FIXME(dhellmann): We need to specify the root
+				// device to receive the image. That should come from
+				// some combination of inspecting the host to see what
+				// is available and the hardware profile to give us
+				// instructions.
+				// nodes.UpdateOperation{
+				// 	Op:    nodes.AddOp,
+				// 	Path:  "/properties/root_device",
+				// 	Value: map[string]interface{},
+				// },
+			}).Extract()
+		if err != nil {
+			return result, errors.Wrap(err, "failed to update host settings in ironic")
+		}
+		p.status.State = statePreparingToProvision
+		result.Dirty = true
+		return result, nil
+	}
+
+	// Ironic has the settings it needs, see if it finds any issues
+	// with them.
+	if p.status.State == statePreparingToProvision {
+		ok, err := p.validateNode(ironicNode)
+		if err != nil {
+			return result, errors.Wrap(err, "could not validate host during registration")
+		}
+		if !ok {
+			p.status.State = stateValidationError
+			result.Dirty = true // validateNode() would have set the errors
+			return result, nil
+		}
+
+		// If validation is successful we can start moving the host
+		// through the states necessary to make it "available".
+		p.log.Info("making host available",
+			"lastError", ironicNode.LastError,
+			"current", ironicNode.ProvisionState,
+			"target", ironicNode.TargetProvisionState,
+			"deploy step", ironicNode.DeployStep,
+		)
+		changeResult := nodes.ChangeProvisionState(
+			p.client,
+			ironicNode.UUID,
+			nodes.ProvisionStateOpts{
+				Target: nodes.TargetProvide,
+			})
+		if changeResult.Err != nil {
+			return result, errors.Wrap(changeResult.Err,
+				"failed to change provisioning state to provide")
+		}
+		p.status.State = stateMakingAvailable
+		result.Dirty = true
+		return result, nil
+	}
+
+	// Wait for the host to become available
+	if p.status.State == stateMakingAvailable {
+		if ironicNode.ProvisionState != nodes.Available {
+			p.log.Info("waiting for host to become available",
+				"deploy step", ironicNode.DeployStep)
+			return result, nil
+		}
+
+		// After it is available, we need to start provisioning by
+		// setting the state to "active".
+		p.log.Info("triggering provisioning")
+		changeResult := nodes.ChangeProvisionState(
+			p.client,
+			ironicNode.UUID,
+			nodes.ProvisionStateOpts{
+				Target: nodes.TargetActive,
+			})
+		if changeResult.Err != nil {
+			return result, errors.Wrap(changeResult.Err,
+				"failed to trigger provisioning")
+		}
+		p.status.State = stateProvisioning
+		result.Dirty = true
+		return result, nil
+	}
+
+	// Wait for provisioning to be completed
+	if p.status.State == stateProvisioning {
+		if ironicNode.ProvisionState == nodes.Active {
+			p.log.Info("finished provisioning")
+			p.status.Image = *p.host.Spec.Image
+			p.status.State = stateProvisioned
+			result.Dirty = true
+			return result, nil
+		}
+		p.log.Info("still provisioning",
+			"deploy step", ironicNode.DeployStep,
+			"ironic state", ironicNode.ProvisionState,
+		)
+		result.Dirty = true // make sure we check back
+	}
+
 	return result, nil
 }
+
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
@@ -375,6 +558,16 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	// is especially true if we enable cleaning.
 
 	if p.status.ID != "" {
+		// p.log.Info("setting host maintenance flag for deleting")
+		// ironicNode, err := nodes.Get(p.client, p.status.ID).Extract()
+		// switch err.(type) {
+		// case nil:
+		// case gophercloud.ErrDefault404:
+		// 	p.log.Info("did not find host to delete, OK")
+		// default:
+		// 	return result, errors.Wrap(err, "failed to remove host")
+		// }
+
 		p.log.Info("removing host", "ID", p.status.ID)
 		err = nodes.Delete(p.client, p.status.ID).ExtractErr()
 		switch err.(type) {

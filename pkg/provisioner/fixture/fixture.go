@@ -13,7 +13,7 @@ import (
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
 )
 
-var log = logf.Log.WithName("ironic")
+var log = logf.Log.WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 
 // Provisioner implements the provisioning.Provisioner interface

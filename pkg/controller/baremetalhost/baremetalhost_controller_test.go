@@ -374,36 +374,6 @@ func TestFixSecret(t *testing.T) {
 	waitForNoError(t, r, host)
 }
 
-// TestToggleOnline ensures that when the online flag changes the
-// status of the host is updated.
-func TestToggleOnline(t *testing.T) {
-	host := newHost("set-offline",
-		&metalkubev1alpha1.BareMetalHostSpec{
-			BMC: metalkubev1alpha1.BMCDetails{
-				Address:         "ipmi://192.168.122.1:6233",
-				CredentialsName: "bmc-creds-valid",
-			},
-			Online: true,
-		})
-	r := newTestReconciler(host)
-	waitForOnlineStatus(t, r, host)
-
-	host.Spec.Online = false
-	err := r.client.Update(goctx.TODO(), host)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	waitForOfflineStatus(t, r, host)
-
-	host.Spec.Online = true
-	err = r.client.Update(goctx.TODO(), host)
-	if err != nil {
-		t.Fatal(err)
-	}
-	waitForOnlineStatus(t, r, host)
-}
-
 // TestSetHardwareProfileLabel ensures that the host has a label with
 // the hardware profile name.
 func TestSetHardwareProfileLabel(t *testing.T) {

@@ -312,41 +312,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Update the operational status of the host.
-	newOpStatus := metalkubev1alpha1.OperationalStatusOffline
-	if host.Spec.Online {
-		reqLogger.Info("ensuring host is powered on")
-		provResult, err = prov.PowerOn()
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to power on the host")
-		}
-		newOpStatus = metalkubev1alpha1.OperationalStatusOnline
-		dirty = dirty || provResult.Dirty
-	} else {
-		reqLogger.Info("ensuring host is powered off")
-		provResult, err = prov.PowerOff()
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to power off the host")
-		}
-		dirty = dirty || provResult.Dirty
-	}
-	if dirty {
-		reqLogger.Info("saving status after power change")
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to save power status")
-		}
-	}
-	if host.SetOperationalStatus(newOpStatus) {
-		reqLogger.Info(
-			"setting operational status",
-			"newStatus", newOpStatus,
-		)
-		if err := r.client.Update(context.TODO(), host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to update operational status")
-		}
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	// If we reach this point we haven't encountered any issues
 	// communicating with the host, so ensure the error message field
 	// is cleared.

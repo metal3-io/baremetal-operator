@@ -71,7 +71,7 @@ func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provi
 }
 
 // Register the host with Ironic.
-func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) ensureExists() (result provisioner.Result, node *nodes.Node, err error) {
 	var ironicNode *nodes.Node
 
 	// Try to load the node by UUID
@@ -86,7 +86,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 		case gophercloud.ErrDefault404:
 			p.log.Info("did not find existing node by ID")
 		default:
-			return result, errors.Wrap(err,
+			return result, nil, errors.Wrap(err,
 				fmt.Sprintf("failed to find node by ID %s", p.status.ID))
 		}
 	}
@@ -107,7 +107,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 			p.log.Info("did not find existing node by name")
 			ironicNode = nil
 		default:
-			return result, errors.Wrap(err,
+			return result, nil, errors.Wrap(err,
 				fmt.Sprintf("failed to find node by name %s", p.host.Name))
 		}
 	}
@@ -135,7 +135,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 				DriverInfo:    driverInfo,
 			}).Extract()
 		if err != nil {
-			return result, errors.Wrap(err, "failed to register host in ironic")
+			return result, nil, errors.Wrap(err, "failed to register host in ironic")
 		}
 
 		// Store the ID so other methods can assume it is set and so
@@ -158,7 +158,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {
-				return result, errors.Wrap(err, "failed to create port in ironic")
+				return result, nil, errors.Wrap(err, "failed to create port in ironic")
 			}
 		}
 
@@ -209,7 +209,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 		p.log.Info("validating node settings in ironic")
 		validateResult, err := nodes.Validate(p.client, ironicNode.UUID).Extract()
 		if err != nil {
-			return result, errors.Wrap(err, "failed to validate node settings in ironic")
+			return result, nil, errors.Wrap(err, "failed to validate node settings in ironic")
 		}
 		var validationErrors []string
 		if !validateResult.Boot.Result {
@@ -225,7 +225,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 			msg := fmt.Sprintf("host validation error: %s",
 				strings.Join(validationErrors, "; "))
 			result.Dirty = p.host.SetErrorMessage(msg) || result.Dirty
-			return result, nil
+			return result, nil, nil
 		}
 	} else {
 		// FIXME(dhellmann): At this point we have found an existing
@@ -241,7 +241,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 		p.log.Info(msg)
 		updatedMessage := p.host.SetErrorMessage(msg)
 		result.Dirty = result.Dirty || updatedMessage
-		return result, nil
+		return result, nil, nil
 	}
 
 	// If we tried to update the node status already and it has an
@@ -252,7 +252,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 		// error message and return dirty, if we've changed something,
 		// so the status is stored.
 		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError) || result.Dirty
-		return result, nil
+		return result, nil, nil
 	}
 
 	// Ensure the node is marked manageable.
@@ -260,7 +260,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 	// FIXME(dhellmann): Do we need to check other states here?
 	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to get provisioning state in ironic")
+		return result, nil, errors.Wrap(err, "failed to get provisioning state in ironic")
 	}
 	if ironicNode.ProvisionState == string(nodes.Enroll) {
 		p.log.Info("changing provisioning state to manage",
@@ -274,7 +274,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 				Target: nodes.TargetManage,
 			})
 		if changeResult.Err != nil {
-			return result, errors.Wrap(changeResult.Err,
+			return result, nil, errors.Wrap(changeResult.Err,
 				"failed to change provisioning state to manage")
 		}
 	}
@@ -285,7 +285,7 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 	// latest state, so fetch the data again.
 	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to check provision state")
+		return result, nil, errors.Wrap(err, "failed to check provision state")
 	}
 	if ironicNode.ProvisionState != nodes.Manageable {
 		// If we're still waiting for the state to change in Ironic,
@@ -299,14 +299,14 @@ func (p *ironicProvisioner) ensureExists() (result provisioner.Result, err error
 		result.Dirty = true
 	}
 
-	return result, nil
+	return result, ironicNode, nil
 }
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
 func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Result, err error) {
 	p.log.Info("validating management access")
-	if result, err = p.ensureExists(); err != nil {
+	if result, _, err = p.ensureExists(); err != nil {
 		return result, errors.Wrap(err, "could not validate management access")
 	}
 	return result, nil
@@ -319,7 +319,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
-	if result, err = p.ensureExists(); err != nil {
+	if result, _, err = p.ensureExists(); err != nil {
 		return result, errors.Wrap(err, "could not inspect hardware")
 	}
 	if p.host.HasError() {
@@ -421,7 +421,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	if result, err = p.ensureExists(); err != nil {
+	if result, _, err = p.ensureExists(); err != nil {
 		return result, errors.Wrap(err, "could not power on host")
 	}
 
@@ -438,7 +438,7 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
-	if result, err = p.ensureExists(); err != nil {
+	if result, _, err = p.ensureExists(); err != nil {
 		return result, errors.Wrap(err, "could not power off host")
 	}
 

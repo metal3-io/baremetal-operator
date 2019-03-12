@@ -437,3 +437,28 @@ func TestCreateHardwareDetails(t *testing.T) {
 		},
 	)
 }
+
+// TestNeedsProvisioning verifies the logic for deciding when a host
+// needs to be provisioned.
+func TestNeedsProvisioning(t *testing.T) {
+	host := newDefaultHost()
+
+	if host.NeedsProvisioning() {
+		t.Fatal("host without spec image should not need provisioning")
+	}
+
+	host.Spec.Image = &metalkubev1alpha1.Image{
+		URL:      "https://example.com/image-name",
+		Checksum: "12345",
+	}
+
+	if !host.NeedsProvisioning() {
+		t.Fatal("host with spec image and no status image should need provisioning")
+	}
+
+	host.Status.Provisioning.Image = host.Spec.Image
+
+	if host.NeedsProvisioning() {
+		t.Fatal("host with spec image matching status image should not need provisioning")
+	}
+}

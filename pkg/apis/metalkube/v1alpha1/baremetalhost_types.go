@@ -311,6 +311,23 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 	return false
 }
 
+// NeedsProvisioning compares the settings with the provisioning
+// status and returns true when more work is needed or false
+// otherwise.
+func (host *BareMetalHost) NeedsProvisioning() bool {
+	if host.Spec.Image == nil {
+		// Without an image, there is nothing to provision.
+		return false
+	}
+	if host.Status.Provisioning.Image == nil {
+		// We have an image set, but not provisioned.
+		return true
+	}
+	// FIXME(dhellmann): Compare the provisioned image against the one
+	// we are supposed to have to make sure they match.
+	return false
+}
+
 // UpdateGoodCredentials modifies the GoodCredentials portion of the
 // Status struct to record the details of the secret containing
 // credentials known to work.

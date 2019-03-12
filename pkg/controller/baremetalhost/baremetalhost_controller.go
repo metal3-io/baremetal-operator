@@ -327,13 +327,40 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// Start/continue provisioning if we need to.
+	if host.NeedsProvisioning() {
+		reqLogger.Info("provisioning")
+		provResult, err = prov.Provision()
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to provision")
+		}
+		if provResult.Dirty || dirty {
+			reqLogger.Info("saving host status after provisioning")
+			if err := r.saveStatus(host); err != nil {
+				return reconcile.Result{}, errors.Wrap(err,
+					"failed to save host status after provisioning")
+			}
+			// Go back into the queue and wait for the Provision() method
+			// to return false, indicating that it has no more work to
+			// do.
+			res := reconcile.Result{
+				Requeue:      true,
+				RequeueAfter: provResult.RequeueAfter,
+			}
+			return res, nil
+		}
+		if host.HasError() {
+			reqLogger.Info("needs provisioning but has error")
+			return reconcile.Result{}, nil
+		}
+	}
+
 	// If we reach this point we haven't encountered any issues
 	// communicating with the host, so ensure the error message field
 	// is cleared.
 	if host.ClearError() {
-		reqLogger.Info("clearing error message")
 		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to clear error message")
+			return reconcile.Result{}, errors.Wrap(err, "failed to clear error")
 		}
 	}
 

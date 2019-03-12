@@ -13,6 +13,7 @@ import (
 
 var log = logf.Log.WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
+var provisionRequeueDelay = time.Second * 10
 
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
@@ -119,6 +120,44 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 					},
 				},
 			}
+		result.Dirty = true
+		return result, nil
+	}
+
+	return result, nil
+}
+
+// Provision writes the image from the host spec to the host. It may
+// be called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *fixtureProvisioner) Provision() (result provisioner.Result, err error) {
+	p.log.Info("provisioning image to host",
+		"state", p.host.Status.Provisioning.State)
+
+	result.RequeueAfter = provisionRequeueDelay
+
+	// NOTE(dhellmann): This is a test class, so we simulate a
+	// multi-step process to ensure that multiple cycles through the
+	// reconcile loop work properly.
+
+	if p.host.Status.Provisioning.State == "" {
+		p.log.Info("moving to step1")
+		p.host.Status.Provisioning.State = "step1"
+		result.Dirty = true
+		return result, nil
+	}
+
+	if p.host.Status.Provisioning.State == "step1" {
+		p.log.Info("moving to step2")
+		p.host.Status.Provisioning.State = "step2"
+		result.Dirty = true
+		return result, nil
+	}
+
+	if p.host.Status.Provisioning.State == "step2" {
+		p.log.Info("moving to done")
+		p.host.Status.Provisioning.State = "done"
+		p.host.Status.Provisioning.Image = *p.host.Spec.Image
 		result.Dirty = true
 		return result, nil
 	}

@@ -3,8 +3,6 @@ package fixture
 import (
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
@@ -37,25 +35,24 @@ func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provi
 	return p, nil
 }
 
-// Register the host with Fixture.
-func (p *fixtureProvisioner) ensureExists() (result provisioner.Result, err error) {
+// ValidateManagementAccess tests the connection information for the
+// host to verify that the location and credentials work.
+func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Result, err error) {
+	p.log.Info("testing management access")
+
+	// Fill in the ID of the host in the provisioning system
 	if p.host.Status.Provisioning.ID == "" {
 		p.host.Status.Provisioning.ID = "temporary-fake-id"
 		p.log.Info("setting provisioning id",
 			"provisioningID", p.host.Status.Provisioning.ID)
 		result.Dirty = true
+		result.RequeueAfter = time.Second * 5
+		return result, nil
 	}
-	return result, nil
-}
 
-// ValidateManagementAccess tests the connection information for the
-// host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Result, err error) {
-	p.log.Info("testing management access")
-	if result, err := p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not validate management access")
-	}
-	result.RequeueAfter = time.Second * 5
+	// Clear any error
+	result.Dirty = p.host.ClearError()
+
 	return result, nil
 }
 
@@ -65,10 +62,6 @@ func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Resu
 // inspection is completed.
 func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
-
-	if result, err = p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not inspect hardware")
-	}
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
 		// The inspection just started.
@@ -168,10 +161,6 @@ func (p *fixtureProvisioner) Deprovision() (result provisioner.Result, err error
 func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	if result, err = p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not power on host")
-	}
-
 	if !p.host.Status.PoweredOn {
 		p.host.Status.PoweredOn = true
 		result.Dirty = true
@@ -185,10 +174,6 @@ func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 // provisioning operation.
 func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
-
-	if result, err = p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not power off host")
-	}
 
 	if p.host.Status.PoweredOn {
 		p.host.Status.PoweredOn = false

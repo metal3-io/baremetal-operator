@@ -169,8 +169,8 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		//
 		// FIXME(dhellmann): We need to get our IP on the
 		// provisioning network from somewhere.
-		driverInfo["deploy_kernel"] = "http://172.22.0.1/images/tinyipa-stable-rocky.vmlinuz"
-		driverInfo["deploy_ramdisk"] = "http://172.22.0.1/images/tinyipa-stable-rocky.gz"
+		driverInfo["deploy_kernel"] = "http://172.22.0.1/images/ironic-python-agent.kernel"
+		driverInfo["deploy_ramdisk"] = "http://172.22.0.1/images/ironic-python-agent.initramfs"
 
 		ironicNode, err = nodes.Create(
 			p.client,

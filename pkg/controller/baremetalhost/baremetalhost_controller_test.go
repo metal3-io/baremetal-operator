@@ -124,7 +124,8 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 			break
 		}
 
-		if !result.Requeue {
+		t.Logf("result: %v", result)
+		if !result.Requeue && result.RequeueAfter == 0 {
 			t.Fatal(fmt.Errorf("Ended reconcile without test condition being true"))
 			break
 		}

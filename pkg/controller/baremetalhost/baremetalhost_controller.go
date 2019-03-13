@@ -2,12 +2,14 @@ package baremetalhost
 
 import (
 	"context"
+	"flag"
 
 	"github.com/pkg/errors"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
+	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
 
@@ -26,6 +28,12 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+var runInTestMode bool
+
+func init() {
+	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
+}
 
 var log = logf.Log.WithName("controller_baremetalhost")
 
@@ -46,10 +54,17 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	var provisionerFactory provisioner.Factory
+	if runInTestMode {
+		log.Info("USING TEST MODE")
+		provisionerFactory = fixture.New
+	} else {
+		provisionerFactory = ironic.New
+	}
 	return &ReconcileBareMetalHost{
 		client:             mgr.GetClient(),
 		scheme:             mgr.GetScheme(),
-		provisionerFactory: ironic.New,
+		provisionerFactory: provisionerFactory,
 	}
 }
 

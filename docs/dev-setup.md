@@ -51,6 +51,17 @@ install the operator-sdk tools.
     oc apply -f deploy/crds/metalkube_v1alpha1_baremetalhost_cr.yaml
     ```
 
+## Running without Ironic
+
+In environments where Ironic is not available, and the only real need
+is to be able to have some test data, use the test fixture provisioner
+instead of the real Ironic provisioner by passing `-test-mode` to the
+operator when launching it.
+
+```
+operator-sdk up local --operator-flags "-test-mode"
+```
+
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to vbmc_ and

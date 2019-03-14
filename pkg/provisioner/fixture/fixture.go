@@ -89,11 +89,17 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 				RAMGiB: 128,
 				NIC: []metalkubev1alpha1.NIC{
 					metalkubev1alpha1.NIC{
+						Name:      "nic-1",
+						Model:     "virt-io",
+						Network:   "Pod Networking",
 						MAC:       "some:mac:address",
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
 					},
 					metalkubev1alpha1.NIC{
+						Name:      "nic-2",
+						Model:     "e1000",
+						Network:   "Pod Networking",
 						MAC:       "some:other:mac:address",
 						IP:        "192.168.100.2",
 						SpeedGbps: 1,
@@ -101,8 +107,16 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 				},
 				Storage: []metalkubev1alpha1.Storage{
 					metalkubev1alpha1.Storage{
-						SizeGiB: 1024,
-						Model:   "stone tablet",
+						Name:    "disk-1 (boot)",
+						Type:    "SSD",
+						SizeGiB: 1024 * 93,
+						Model:   "Dell CFJ61",
+					},
+					metalkubev1alpha1.Storage{
+						Name:    "disk-2",
+						Type:    "SSD",
+						SizeGiB: 1024 * 93,
+						Model:   "Dell CFJ61",
 					},
 				},
 				CPUs: []metalkubev1alpha1.CPU{

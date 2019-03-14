@@ -3,8 +3,6 @@ package fixture
 import (
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
@@ -13,8 +11,9 @@ import (
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
 )
 
-var log = logf.Log.WithName("ironic")
+var log = logf.Log.WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
+var provisionRequeueDelay = time.Second * 10
 
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
@@ -37,25 +36,24 @@ func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provi
 	return p, nil
 }
 
-// Register the host with Fixture.
-func (p *fixtureProvisioner) ensureExists() (result provisioner.Result, err error) {
+// ValidateManagementAccess tests the connection information for the
+// host to verify that the location and credentials work.
+func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Result, err error) {
+	p.log.Info("testing management access")
+
+	// Fill in the ID of the host in the provisioning system
 	if p.host.Status.Provisioning.ID == "" {
 		p.host.Status.Provisioning.ID = "temporary-fake-id"
 		p.log.Info("setting provisioning id",
 			"provisioningID", p.host.Status.Provisioning.ID)
 		result.Dirty = true
+		result.RequeueAfter = time.Second * 5
+		return result, nil
 	}
-	return result, nil
-}
 
-// ValidateManagementAccess tests the connection information for the
-// host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Result, err error) {
-	p.log.Info("testing management access")
-	if result, err := p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not validate management access")
-	}
-	result.RequeueAfter = time.Second * 5
+	// Clear any error
+	result.Dirty = p.host.ClearError()
+
 	return result, nil
 }
 
@@ -65,10 +63,6 @@ func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Resu
 // inspection is completed.
 func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
-
-	if result, err = p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not inspect hardware")
-	}
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
 		// The inspection just started.
@@ -133,6 +127,44 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 	return result, nil
 }
 
+// Provision writes the image from the host spec to the host. It may
+// be called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *fixtureProvisioner) Provision() (result provisioner.Result, err error) {
+	p.log.Info("provisioning image to host",
+		"state", p.host.Status.Provisioning.State)
+
+	result.RequeueAfter = provisionRequeueDelay
+
+	// NOTE(dhellmann): This is a test class, so we simulate a
+	// multi-step process to ensure that multiple cycles through the
+	// reconcile loop work properly.
+
+	if p.host.Status.Provisioning.State == "" {
+		p.log.Info("moving to step1")
+		p.host.Status.Provisioning.State = "step1"
+		result.Dirty = true
+		return result, nil
+	}
+
+	if p.host.Status.Provisioning.State == "step1" {
+		p.log.Info("moving to step2")
+		p.host.Status.Provisioning.State = "step2"
+		result.Dirty = true
+		return result, nil
+	}
+
+	if p.host.Status.Provisioning.State == "step2" {
+		p.log.Info("moving to done")
+		p.host.Status.Provisioning.State = "done"
+		p.host.Status.Provisioning.Image = *p.host.Spec.Image
+		result.Dirty = true
+		return result, nil
+	}
+
+	return result, nil
+}
+
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
@@ -168,10 +200,6 @@ func (p *fixtureProvisioner) Deprovision() (result provisioner.Result, err error
 func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	if result, err = p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not power on host")
-	}
-
 	if !p.host.Status.PoweredOn {
 		p.host.Status.PoweredOn = true
 		result.Dirty = true
@@ -185,10 +213,6 @@ func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 // provisioning operation.
 func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
-
-	if result, err = p.ensureExists(); err != nil {
-		return result, errors.Wrap(err, "could not power off host")
-	}
 
 	if p.host.Status.PoweredOn {
 		p.host.Status.PoweredOn = false

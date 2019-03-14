@@ -189,7 +189,7 @@ type ProvisionStatus struct {
 	ID string `json:"ID"`
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
-	Image *Image `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -319,7 +319,7 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		// Without an image, there is nothing to provision.
 		return false
 	}
-	if host.Status.Provisioning.Image == nil {
+	if host.Status.Provisioning.Image.URL == "" {
 		// We have an image set, but not provisioned.
 		return true
 	}

@@ -105,6 +105,8 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 	request := reconcile.Request{NamespacedName: namespacedName}
 
 	for i := 0; ; i++ {
+		logger := log.WithValues("iteration", i)
+		logger.Info("tryReconcile: top of loop")
 		if i >= 50 {
 			t.Fatal(fmt.Errorf("Exceeded 50 iterations"))
 		}
@@ -121,12 +123,13 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 		r.client.Get(goctx.TODO(), namespacedName, host)
 
 		if isDone(host, result) {
+			logger.Info("tryReconcile: loop done")
 			break
 		}
 
-		t.Logf("result: %v", result)
+		logger.Info("tryReconcile: loop bottom", "result", result)
 		if !result.Requeue && result.RequeueAfter == 0 {
-			t.Fatal(fmt.Errorf("Ended reconcile without test condition being true"))
+			t.Fatal(fmt.Errorf("Ended reconcile at iteration %d without test condition being true", i))
 			break
 		}
 	}
@@ -427,9 +430,32 @@ func TestNeedsProvisioning(t *testing.T) {
 		t.Fatal("host with spec image and no status image should need provisioning")
 	}
 
-	host.Status.Provisioning.Image = host.Spec.Image
+	host.Status.Provisioning.Image = *host.Spec.Image
 
 	if host.NeedsProvisioning() {
 		t.Fatal("host with spec image matching status image should not need provisioning")
 	}
+}
+
+// TestProvision ensures that the Provisioning.Image portion of the
+// status block is filled in for provisioned hosts.
+func TestProvision(t *testing.T) {
+	host := newDefaultHost()
+	host.Spec.Image = &metalkubev1alpha1.Image{
+		URL:      "https://example.com/image-name",
+		Checksum: "12345",
+	}
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("image details: %v", host.Spec.Image)
+			t.Logf("provisioning image details: %v", host.Status.Provisioning.Image)
+			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
+			if host.Status.Provisioning.Image.URL != "" {
+				return true
+			}
+			return false
+		},
+	)
 }

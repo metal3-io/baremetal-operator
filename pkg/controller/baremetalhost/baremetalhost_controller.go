@@ -37,14 +37,6 @@ func init() {
 
 var log = logf.Log.WithName("controller_baremetalhost")
 
-// FIXME(dhellmann): These values should probably come from
-// configuration settings and something that can tell the IP address
-// of the ironic server.
-const (
-	instanceImageSource   = "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
-	instanceImageChecksum = "97830b21ed272a3d854615beb54cf004"
-)
-
 // Add creates a new BareMetalHost Controller and adds it to the
 // Manager. The Manager will set fields on the Controller and Start it
 // when the Manager is Started.

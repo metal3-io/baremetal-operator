@@ -130,7 +130,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *fixtureProvisioner) Provision() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Provision(userData string) (result provisioner.Result, err error) {
 	p.log.Info("provisioning image to host",
 		"state", p.host.Status.Provisioning.State)
 

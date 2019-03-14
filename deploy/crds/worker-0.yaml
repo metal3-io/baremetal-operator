@@ -22,3 +22,6 @@ spec:
   image:
     url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
     checksum: "97830b21ed272a3d854615beb54cf004"
+  userData:
+    name: worker-user-data
+    namespace: openshift-machine-api

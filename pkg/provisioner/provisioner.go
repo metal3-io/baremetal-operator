@@ -30,7 +30,7 @@ type Provisioner interface {
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.
-	Provision() (result Result, err error)
+	Provision(userData string) (result Result, err error)
 
 	// Deprovision prepares the host to be removed from the cluster. It
 	// may be called multiple times, and should return true for its dirty

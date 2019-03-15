@@ -340,7 +340,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, errors.Wrap(err, "failed to provision")
 		}
 		if provResult.Dirty || dirty {
-			reqLogger.Info("saving host status after provisioning")
 			if err := r.saveStatus(host); err != nil {
 				return reconcile.Result{}, errors.Wrap(err,
 					"failed to save host status after provisioning")

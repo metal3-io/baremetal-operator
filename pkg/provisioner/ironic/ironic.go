@@ -575,7 +575,7 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.findExistingHost()
@@ -620,6 +620,17 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	}
 
 	if ironicNode.ProvisionState == nodes.Available {
+		if !deleteIt {
+			p.log.Info("deprovisioning complete")
+			if p.status.Image.URL != "" {
+				p.log.Info("clearing provisioning status")
+				p.status.Image.URL = ""
+				p.status.Image.Checksum = ""
+				p.status.State = stateNone
+				result.Dirty = true
+			}
+			return result, nil
+		}
 		p.log.Info("host ready to be removed")
 		err = nodes.Delete(p.client, p.status.ID).ExtractErr()
 		switch err.(type) {
@@ -638,7 +649,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	result.RequeueAfter = deprovisionRequeueDelay
 
 	if ironicNode.ProvisionState == nodes.Deleting {
-		p.log.Info("still deleting")
+		p.log.Info("still deprovisioning")
 		result.Dirty = true
 		return result, nil
 	}

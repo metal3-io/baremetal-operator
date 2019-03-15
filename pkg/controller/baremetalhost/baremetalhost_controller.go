@@ -203,7 +203,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, nil
 		}
 
-		if provResult, err = prov.Deprovision(); err != nil {
+		if provResult, err = prov.Deprovision(true); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to deprovision")
 		}
 		if provResult.Dirty {
@@ -356,6 +356,23 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		if host.HasError() {
 			reqLogger.Info("needs provisioning but has error")
 			return reconcile.Result{}, nil
+		}
+	}
+
+	// Start/continue deprovisioning if we need to.
+	if host.NeedsDeprovisioning() {
+		if provResult, err = prov.Deprovision(false); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to deprovision")
+		}
+		if provResult.Dirty {
+			if err := r.saveStatus(host); err != nil {
+				return reconcile.Result{}, errors.Wrap(err,
+					"failed to clear host status on deprovision")
+			}
+			// Go back into the queue and wait for the Deprovision() method
+			// to return false, indicating that it has no more work to
+			// do.
+			return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
 		}
 	}
 

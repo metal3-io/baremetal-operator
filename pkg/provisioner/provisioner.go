@@ -35,7 +35,7 @@ type Provisioner interface {
 	// Deprovision prepares the host to be removed from the cluster. It
 	// may be called multiple times, and should return true for its dirty
 	// flag until the deprovisioning operation is completed.
-	Deprovision() (result Result, err error)
+	Deprovision(deleteIt bool) (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image
 	// provisioning operation.

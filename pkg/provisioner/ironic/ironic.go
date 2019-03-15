@@ -10,6 +10,8 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 
+	nodeutils "github.com/gophercloud/utils/openstack/baremetal/v1/nodes"
+
 	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
@@ -386,7 +388,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Provision() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Provision(userData string) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	p.log.Info("provisioning image to host")
@@ -512,13 +514,35 @@ func (p *ironicProvisioner) Provision() (result provisioner.Result, err error) {
 
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
-		p.log.Info("triggering provisioning")
+
+		// Build the config drive image using the userData we've been
+		// given so we can pass it to Ironic.
+		//
+		// FIXME(dhellmann): The Stein version of Ironic should be
+		// able to accept the user data string directly, without
+		// building the ISO image first.
+		var configDriveData string
+		if userData != "" {
+			configDrive := nodeutils.ConfigDrive{
+				UserData: nodeutils.UserDataString(userData),
+			}
+			configDriveData, err = configDrive.ToConfigDrive()
+			if err != nil {
+				return result, errors.Wrap(err, "failed to build config drive")
+			}
+			p.log.Info("triggering provisioning with config drive")
+		} else {
+			p.log.Info("triggering provisioning without config drive")
+		}
+
 		changeResult := nodes.ChangeProvisionState(
 			p.client,
 			ironicNode.UUID,
 			nodes.ProvisionStateOpts{
-				Target: nodes.TargetActive,
-			})
+				Target:      nodes.TargetActive,
+				ConfigDrive: configDriveData,
+			},
+		)
 		if changeResult.Err != nil {
 			return result, errors.Wrap(changeResult.Err,
 				"failed to trigger provisioning")

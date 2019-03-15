@@ -18,6 +18,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -312,8 +313,29 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Start/continue provisioning if we need to.
 	if host.NeedsProvisioning() {
+		var userData string
+
+		// FIXME(dhellmann): Maybe instead of loading this every time
+		// through the loop we want to provide a callback for
+		// Provision() to invoke when it actually needs the data.
+		if host.Spec.UserData != nil {
+			reqLogger.Info("fetching user data before provisioning")
+			userDataSecret := &corev1.Secret{}
+			key := types.NamespacedName{
+				Name:      host.Spec.UserData.Name,
+				Namespace: host.Spec.UserData.Namespace,
+			}
+			err = r.client.Get(context.TODO(), key, userDataSecret)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrap(err,
+					"failed to fetch user data from secret reference")
+			}
+			userData = string(userDataSecret.Data["userData"])
+		}
+
 		reqLogger.Info("provisioning")
-		provResult, err = prov.Provision()
+
+		provResult, err = prov.Provision(userData)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to provision")
 		}

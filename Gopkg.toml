@@ -10,6 +10,7 @@ required = [
   "k8s.io/gengo/args",
   "github.com/pkg/errors",
   "github.com/gophercloud/gophercloud",
+  "github.com/gophercloud/utils/openstack/baremetal/v1/nodes",
 ]
 
 [[override]]

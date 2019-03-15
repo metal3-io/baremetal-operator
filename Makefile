@@ -33,3 +33,7 @@ e2e-local:
 		--namespace $(TEST_NAMESPACE) \
 		--up-local $(SETUP) \
 		$(DEBUG) --go-test-flags "$(GO_TEST_FLAGS)"
+
+.PHONY: dep
+dep:
+	dep ensure

@@ -5,10 +5,17 @@ import (
 	"encoding/xml"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"text/template"
+)
+
+const (
+	instanceImageSource      = "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+	instanceImageChecksumURL = instanceImageSource + ".md5sum"
 )
 
 /* PARTIAL EXAMPLE XML OUTPUT:
@@ -67,12 +74,19 @@ spec:
     address: libvirt://192.168.122.1:{{ .BMCPort }}/
     credentialsName: {{ .Domain }}-bmc-secret
   bootMACAddress: {{ .MAC }}
+  userData:
+    namespace: openshift-machine-api
+    name: worker-user-data
+  image:
+    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    checksum: "{{ .Checksum }}"
 `
 
 type TemplateArgs struct {
-	Domain  string
-	MAC     string
-	BMCPort int
+	Domain   string
+	MAC      string
+	BMCPort  int
+	Checksum string
 }
 
 /*
@@ -158,10 +172,23 @@ func main() {
 		nameToPort[vbmc.Name] = vbmc.Port
 	}
 
+	resp, err := http.Get(instanceImageChecksumURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Could not get image checksum: %s\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+	checksum, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Could not get image checksum: %s\n", err)
+		os.Exit(1)
+	}
+
 	args := TemplateArgs{
-		Domain:  strings.Replace(virshDomain, "_", "-", -1),
-		MAC:     desiredMAC,
-		BMCPort: nameToPort[virshDomain],
+		Domain:   strings.Replace(virshDomain, "_", "-", -1),
+		MAC:      desiredMAC,
+		BMCPort:  nameToPort[virshDomain],
+		Checksum: strings.TrimSpace(string(checksum)),
 	}
 	t := template.Must(template.New("yaml_out").Parse(templateBody))
 	err = t.Execute(os.Stdout, args)

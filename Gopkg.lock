@@ -205,9 +205,23 @@
   branch = "master"
   digest = "1:4e00a78e2c98487c27ae54b7252e96ebd6cc4d3743663109918a769de76333bf"
   name = "github.com/gophercloud/gophercloud"
-  packages = ["."]
+  packages = [
+    ".",
+    "openstack/baremetal/noauth",
+    "openstack/baremetal/v1/nodes",
+    "openstack/baremetal/v1/ports",
+    "pagination",
+  ]
   pruneopts = "NT"
   revision = "f83aee3da90f3f337d024070e2e68b04fb035149"
+
+[[projects]]
+  branch = "master"
+  digest = "1:dc38c10fcce749fddc805b8fb3d7db639cc776e36b85ddf2dfe1cba533f10fd7"
+  name = "github.com/gophercloud/utils"
+  packages = ["openstack/baremetal/v1/nodes"]
+  pruneopts = "NT"
+  revision = "0bcc8e728cb54c9dce9ed46924688b817ab14f31"
 
 [[projects]]
   branch = "master"
@@ -909,7 +923,12 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/go-logr/logr",
     "github.com/gophercloud/gophercloud",
+    "github.com/gophercloud/gophercloud/openstack/baremetal/noauth",
+    "github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes",
+    "github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports",
+    "github.com/gophercloud/utils/openstack/baremetal/v1/nodes",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/test",

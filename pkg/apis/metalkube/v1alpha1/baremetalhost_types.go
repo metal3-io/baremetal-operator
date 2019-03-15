@@ -79,6 +79,10 @@ type BareMetalHostSpec struct {
 
 	// Image holds the details of the image to be provisioned.
 	Image *Image `json:"image,omitempty"`
+
+	// UserData holds the reference to the Secret containing the user
+	// data to be passed to the host before it boots.
+	UserData *corev1.SecretReference `json:"userData,omitempty"`
 }
 
 // Image holds the details of an image either to provisioned or that

@@ -123,6 +123,11 @@ func (in *BareMetalHostSpec) DeepCopyInto(out *BareMetalHostSpec) {
 		*out = new(Image)
 		**out = **in
 	}
+	if in.UserData != nil {
+		in, out := &in.UserData, &out.UserData
+		*out = new(v1.SecretReference)
+		**out = **in
+	}
 	return
 }
 

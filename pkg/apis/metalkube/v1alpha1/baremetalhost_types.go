@@ -323,12 +323,31 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		// Without an image, there is nothing to provision.
 		return false
 	}
+	if host.Spec.Image.URL == "" {
+		// We have an Image struct but it is empty
+		return false
+	}
 	if host.Status.Provisioning.Image.URL == "" {
 		// We have an image set, but not provisioned.
 		return true
 	}
 	// FIXME(dhellmann): Compare the provisioned image against the one
 	// we are supposed to have to make sure they match.
+	return false
+}
+
+// NeedsDeprovisioning compares the settings with the provisioning
+// status and returns true when the host should be deprovisioned.
+func (host *BareMetalHost) NeedsDeprovisioning() bool {
+	if host.Status.Provisioning.Image.URL == "" {
+		return false
+	}
+	if host.Spec.Image == nil {
+		return true
+	}
+	if host.Spec.Image.URL == "" {
+		return true
+	}
 	return false
 }
 

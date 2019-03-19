@@ -168,7 +168,7 @@ func (p *fixtureProvisioner) Provision(userData string) (result provisioner.Resu
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
-func (p *fixtureProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is removed")
 
 	result.RequeueAfter = deprovisionRequeueDelay

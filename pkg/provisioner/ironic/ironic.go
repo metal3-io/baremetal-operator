@@ -37,6 +37,7 @@ const (
 	stateValidationError      = "validation error"
 	stateProvisioning         = "provisioning"
 	stateProvisioned          = "provisioned"
+	stateDeprovisioning       = "deprovisioning"
 )
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -574,23 +575,27 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 // Deprovision prepares the host to be removed from the cluster. It
 // may be called multiple times, and should return true for its dirty
 // flag until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
-	// FIXME(dhellmann): Depending on the node state, it might take some
-	// transitioning to move it to a state where it can be deleted. This
-	// is especially true if we enable cleaning.
+	ironicNode, err := p.findExistingHost()
+	if err != nil {
+		return result, errors.Wrap(err, "failed to find existing host")
+	}
+	if ironicNode == nil {
+		p.log.Info("no node found, already deleted")
+		return result, nil
+	}
 
-	if p.status.ID != "" {
-		ironicNode, err := p.findExistingHost()
-		if err != nil {
-			return result, errors.Wrap(err, "failed to find existing host")
-		}
-		if ironicNode == nil {
-			p.log.Info("no node found, already deleted")
-			return result, nil
-		}
+	p.log.Info("deprovisioning host",
+		"ID", ironicNode.UUID,
+		"lastError", ironicNode.LastError,
+		"current", ironicNode.ProvisionState,
+		"target", ironicNode.TargetProvisionState,
+		"deploy step", ironicNode.DeployStep,
+	)
 
+	if ironicNode.ProvisionState == nodes.Error {
 		if !ironicNode.Maintenance {
 			p.log.Info("setting host maintenance flag for deleting")
 			_, err = nodes.Update(
@@ -608,8 +613,25 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 				return result, errors.Wrap(err, "failed to set host maintenance flag")
 			}
 		}
+		// Fake the status change to Available so that the next block
+		// will delete the node now that we have placed it into
+		// maintenance mode.
+		ironicNode.ProvisionState = nodes.Available
+	}
 
-		p.log.Info("removing host", "ID", p.status.ID)
+	if ironicNode.ProvisionState == nodes.Available {
+		if !deleteIt {
+			p.log.Info("deprovisioning complete")
+			if p.status.Image.URL != "" {
+				p.log.Info("clearing provisioning status")
+				p.status.Image.URL = ""
+				p.status.Image.Checksum = ""
+				p.status.State = stateNone
+				result.Dirty = true
+			}
+			return result, nil
+		}
+		p.log.Info("host ready to be removed")
 		err = nodes.Delete(p.client, p.status.ID).ExtractErr()
 		switch err.(type) {
 		case nil:
@@ -619,7 +641,38 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		default:
 			return result, errors.Wrap(err, "failed to remove host")
 		}
+		return result, nil
 	}
+
+	// Most of the next steps are going to take time, so set the delay
+	// now once.
+	result.RequeueAfter = deprovisionRequeueDelay
+
+	if ironicNode.ProvisionState == nodes.Deleting {
+		p.log.Info("still deprovisioning")
+		result.Dirty = true
+		return result, nil
+	}
+
+	if ironicNode.ProvisionState == nodes.Active {
+		p.log.Info("starting delete")
+		changeResult := nodes.ChangeProvisionState(
+			p.client,
+			ironicNode.UUID,
+			nodes.ProvisionStateOpts{
+				Target: nodes.TargetDeleted,
+			},
+		)
+		if changeResult.Err != nil {
+			return result, errors.Wrap(changeResult.Err,
+				"failed to trigger deprovisioning")
+		}
+		p.status.State = stateDeprovisioning
+		result.Dirty = true
+		return result, nil
+	}
+
+	p.log.Info("unhandled provision state", "state", ironicNode.ProvisionState)
 
 	return result, nil
 }

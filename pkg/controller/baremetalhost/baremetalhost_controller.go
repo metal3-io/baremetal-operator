@@ -262,7 +262,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	hardwareProfile := "unknown"
 	if host.SetHardwareProfile(hardwareProfile) {
 		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
-		if err := r.client.Update(context.TODO(), host); err != nil {
+		if err := r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				"failed to save host after updating hardware profile")
 		}

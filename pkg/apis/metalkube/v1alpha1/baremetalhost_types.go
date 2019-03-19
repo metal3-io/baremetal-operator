@@ -16,10 +16,6 @@ const (
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
 	BareMetalHostFinalizer string = "baremetalhost.metalkube.org"
-
-	// HardwareProfileLabel is the name of the label added to the host
-	// with the discovered hardware profile.
-	HardwareProfileLabel string = "metalkube.org/hardware-profile"
 )
 
 // OperationalStatus represents the state of the host
@@ -172,6 +168,9 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
+	// The name of the profile matching the hardware details.
+	HardwareProfile string `json:"hardwareProfile"`
+
 	// The hardware discovered to exist on the host.
 	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 
@@ -277,8 +276,12 @@ func (host *BareMetalHost) getLabel(name string) string {
 
 // SetHardwareProfile updates the HardwareProfileLabel and returns
 // true when a change is made or false when no change is made.
-func (host *BareMetalHost) SetHardwareProfile(name string) bool {
-	return host.setLabel(HardwareProfileLabel, name)
+func (host *BareMetalHost) SetHardwareProfile(name string) (dirty bool) {
+	if host.Status.HardwareProfile != name {
+		host.Status.HardwareProfile = name
+		dirty = true
+	}
+	return dirty
 }
 
 // SetOperationalStatus updates the OperationalStatusLabel and returns

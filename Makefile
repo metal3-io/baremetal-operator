@@ -20,7 +20,7 @@ help:
 	@echo "  DEBUG          -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: unit lint
+test: unit lint fmt
 
 .PHONY: travis
 travis: test-verbose lint
@@ -36,6 +36,10 @@ test-verbose:
 .PHONY: lint
 lint:
 	golint -set_exit_status pkg/... cmd/...
+
+.PHONY: fmt
+fmt:
+	go fmt pkg/... cmd/...
 
 .PHONY: e2e-local
 e2e-local:

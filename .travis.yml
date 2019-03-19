@@ -7,4 +7,5 @@ before_install:
 env:
   - TARGET=test-verbose
   - TARGET=lint
+  - TARGET=fmt
 script: make $TARGET

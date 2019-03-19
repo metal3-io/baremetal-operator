@@ -146,47 +146,20 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// If we do not have all of the needed BMC credentials, set our
-	// operational status to indicate missing information.
-	if host.Spec.BMC.Address == "" {
-		reqLogger.Info(bmc.MissingAddressMsg)
-		err := r.setErrorCondition(request, host, bmc.MissingAddressMsg)
-		// Without the BMC address there's no more we can do, so we're
-		// going to return the emtpy Result anyway, and don't need to
-		// check err.
-		return reconcile.Result{}, errors.Wrap(err, "failed to set error condition")
-	}
-
-	// Load the secret containing the credentials for talking to the
-	// BMC.
-	if host.Spec.BMC.CredentialsName == "" {
-		// We have no name to use to load the secrets.
-		reqLogger.Info(bmc.MissingCredentialsMsg)
-		err := r.setErrorCondition(request, host, bmc.MissingCredentialsMsg)
-		return reconcile.Result{}, errors.Wrap(err, "failed to set error condition")
-	}
-	secretKey := host.CredentialsKey()
-	bmcCredsSecret := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
+	// Load the credentials for talking to the management controller.
+	bmcCreds, bmcCredsSecret, err := r.getValidBMCCredentials(request, host)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err,
-			"failed to fetch BMC credentials from secret reference")
+		return reconcile.Result{}, errors.Wrap(err, "BMC credentials are invalid")
 	}
-	bmcCreds := bmc.Credentials{
-		Username: string(bmcCredsSecret.Data["username"]),
-		Password: string(bmcCredsSecret.Data["password"]),
-	}
-
-	// Verify that the secret contains the expected info.
-	validCreds, reason := bmcCreds.AreValid()
-	if !validCreds {
-		reqLogger.Info("invalid BMC Credentials", "reason", reason)
-		err := r.setErrorCondition(request, host, reason)
-		return reconcile.Result{}, errors.Wrap(err, "failed to set error condition")
+	if bmcCreds == nil {
+		// We do not have valid credentials, but did not encounter a
+		// retriable error in determining that. Reconciliation is
+		// complete until something about the secrets change.
+		return reconcile.Result{}, nil
 	}
 
 	// Past this point we may need a provisioner, so create one.
-	prov, err := r.provisionerFactory(host, bmcCreds)
+	prov, err := r.provisionerFactory(host, *bmcCreds)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
@@ -227,15 +200,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil // done
 	}
 
-	// Make sure the secret has the correct owner.
-	err = r.setBMCCredentialsSecretOwner(request, host, bmcCredsSecret)
-	if err != nil {
-		// FIXME: Set error condition?
-		return reconcile.Result{}, errors.Wrap(err,
-			"failed to update owner of credentials secret")
-	}
-
-	// Update the success info for the credentails.
+	// Test the credentials by connecting to the management controller.
 	if host.CredentialsNeedValidation(*bmcCredsSecret) {
 
 		provResult, err = prov.ValidateManagementAccess()
@@ -273,7 +238,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Set the hardware profile name.
+	// Ensure we have the information about the hardware on the host.
 	if host.Status.HardwareDetails == nil {
 		provResult, err = prov.InspectHardware()
 		if err != nil {
@@ -404,6 +369,59 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 	}
 
 	return nil
+}
+
+// Make sure the credentials for the management controller look
+// right. This does not actually try to use the credentials.
+func (r *ReconcileBareMetalHost) getValidBMCCredentials(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
+	reqLogger := log.WithValues("Request.Namespace",
+		request.Namespace, "Request.Name", request.Name)
+
+	// If we do not have all of the needed BMC credentials, set our
+	// operational status to indicate missing information.
+	if host.Spec.BMC.Address == "" {
+		reqLogger.Info(bmc.MissingAddressMsg)
+		err := r.setErrorCondition(request, host, bmc.MissingAddressMsg)
+		// Without the BMC address there's no more we can do, so we're
+		// going to return the emtpy Result anyway, and don't need to
+		// check err.
+		return nil, nil, errors.Wrap(err, "failed to set error condition")
+	}
+
+	// Load the secret containing the credentials for talking to the
+	// BMC.
+	if host.Spec.BMC.CredentialsName == "" {
+		// We have no name to use to load the secrets.
+		reqLogger.Info(bmc.MissingCredentialsMsg)
+		err := r.setErrorCondition(request, host, bmc.MissingCredentialsMsg)
+		return nil, nil, errors.Wrap(err, "failed to set error condition")
+	}
+	secretKey := host.CredentialsKey()
+	bmcCredsSecret = &corev1.Secret{}
+	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
+	if err != nil {
+		return nil, nil, errors.Wrap(err,
+			"failed to fetch BMC credentials from secret reference")
+	}
+	bmcCreds = &bmc.Credentials{
+		Username: string(bmcCredsSecret.Data["username"]),
+		Password: string(bmcCredsSecret.Data["password"]),
+	}
+
+	// Verify that the secret contains the expected info.
+	if validCreds, reason := bmcCreds.AreValid(); !validCreds {
+		reqLogger.Info("invalid BMC Credentials", "reason", reason)
+		err := r.setErrorCondition(request, host, reason)
+		return nil, nil, errors.Wrap(err, "failed to set error condition")
+	}
+
+	// Make sure the secret has the correct owner.
+	if err = r.setBMCCredentialsSecretOwner(request, host, bmcCredsSecret); err != nil {
+		return nil, nil, errors.Wrap(err,
+			"failed to update owner of credentials secret")
+	}
+
+	return bmcCreds, bmcCredsSecret, nil
 }
 
 func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {

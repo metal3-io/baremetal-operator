@@ -35,7 +35,7 @@ test-verbose:
 
 .PHONY: lint
 lint:
-	golint pkg/... cmd/...
+	golint -set_exit_status pkg/... cmd/...
 
 .PHONY: e2e-local
 e2e-local:

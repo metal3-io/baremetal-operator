@@ -100,6 +100,13 @@ vbmc list -f json -c 'Domain name' -c Port
 ]
 */
 
+// VBMC holds the parameters for describing a virtual machine
+// controller
+type VBMC struct {
+	Port int    `json:"Port"`
+	Name string `json:"Domain name"`
+}
+
 func main() {
 	var provisionNet = flag.String(
 		"provision-net", "provisioning", "use the MAC on this network")

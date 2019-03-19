@@ -1,0 +1,7 @@
+language: go
+go:
+  - "1.11.x"
+env:
+  - TARGET=test-verbose
+  - TARGET=lint
+script: make $TARGET

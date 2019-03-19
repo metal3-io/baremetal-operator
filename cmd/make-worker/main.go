@@ -82,6 +82,7 @@ spec:
     checksum: "{{ .Checksum }}"
 `
 
+// TemplateArgs holds the arguments to pass to the template.
 type TemplateArgs struct {
 	Domain   string
 	MAC      string
@@ -98,11 +99,6 @@ vbmc list -f json -c 'Domain name' -c Port
   }, ...
 ]
 */
-
-type VBMC struct {
-	Port int    `json:"Port"`
-	Name string `json:"Domain name"`
-}
 
 func main() {
 	var provisionNet = flag.String(

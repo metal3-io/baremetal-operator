@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"strings"
@@ -21,6 +22,10 @@ type AccessDetails interface {
 	// port created rather than having it discovered.
 	NeedsMAC() bool
 
+	// The name of the driver to instantiate the BMC with. This may differ
+	// from the Type - both the ipmi and libvirt types use the ipmi driver.
+	Driver() string
+
 	// DriverInfo returns a data structure to pass as the DriverInfo
 	// parameter when creating a node in Ironic. The structure is
 	// pre-populated with the access information, and the caller is
@@ -29,7 +34,19 @@ type AccessDetails interface {
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
 }
 
-func getTypeHostPort(address string) (bmcType, host, port string, err error) {
+// UnknownBMCTypeError is returned when the provided BMC address cannot be
+// mapped to a driver.
+type UnknownBMCTypeError struct {
+	address string
+	bmcType string
+}
+
+func (e UnknownBMCTypeError) Error() string {
+	return fmt.Sprintf("Unknown BMC type '%s' for address %s",
+		e.bmcType, e.address)
+}
+
+func getTypeHostPort(address string) (bmcType, host, port, path string, err error) {
 	// Start by assuming "type://host:port"
 	parsedURL, err := url.Parse(address)
 	if err != nil {
@@ -44,7 +61,7 @@ func getTypeHostPort(address string) (bmcType, host, port string, err error) {
 			var err2 error
 			host, port, err2 = net.SplitHostPort(address)
 			if err2 != nil {
-				return "", "", "", errors.Wrap(err, "failed to parse BMC address information")
+				return "", "", "", "", errors.Wrap(err, "failed to parse BMC address information")
 			}
 			bmcType = "ipmi"
 		} else {
@@ -63,25 +80,40 @@ func getTypeHostPort(address string) (bmcType, host, port string, err error) {
 				// interpreted as a path.
 				host = parsedURL.Path
 			}
+		} else {
+			path = parsedURL.Path
 		}
 	}
-	return bmcType, host, port, nil
+	return bmcType, host, port, path, nil
 }
 
 // NewAccessDetails creates an AccessDetails structure from the URL
 // for a BMC.
 func NewAccessDetails(address string) (AccessDetails, error) {
 
-	bmcType, host, port, err := getTypeHostPort(address)
+	bmcType, host, port, path, err := getTypeHostPort(address)
 	if err != nil {
 		return nil, err
 	}
 
-	addr := &ipmiAccessDetails{
-		bmcType:  bmcType,
-		portNum:  port,
-		hostname: host,
+	var addr AccessDetails
+	switch bmcType {
+	case "ipmi", "libvirt":
+		addr = &ipmiAccessDetails{
+			bmcType:  bmcType,
+			portNum:  port,
+			hostname: host,
+		}
+	case "idrac":
+		addr = &iDracAccessDetails{
+			bmcType:  bmcType,
+			portNum:  port,
+			hostname: host,
+			path:     path,
+		}
+	default:
+		err = &UnknownBMCTypeError{address, bmcType}
 	}
 
-	return addr, nil
+	return addr, err
 }

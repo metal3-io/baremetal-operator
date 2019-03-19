@@ -135,7 +135,7 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 	}
 }
 
-func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, desiredStatus string) {
+func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, desiredStatus metalkubev1alpha1.OperationalStatus) {
 	tryReconcile(t, r, host,
 		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
 			state := host.OperationalStatus()
@@ -161,14 +161,6 @@ func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1al
 			return !host.HasError()
 		},
 	)
-}
-
-func waitForOfflineStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
-	waitForStatus(t, r, host, metalkubev1alpha1.OperationalStatusOffline)
-}
-
-func waitForOnlineStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
-	waitForStatus(t, r, host, metalkubev1alpha1.OperationalStatusOnline)
 }
 
 // TestAddFinalizers ensures that the finalizers for the host are

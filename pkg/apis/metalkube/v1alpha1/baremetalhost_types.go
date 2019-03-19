@@ -17,27 +17,27 @@ const (
 	// deprovisioned.
 	BareMetalHostFinalizer string = "baremetalhost.metalkube.org"
 
-	// OperationalStatusLabel is the name of the label added to the
-	// host with the operating status.
-	OperationalStatusLabel string = "metalkube.org/operational-status"
-
-	// OperationalStatusInspecting is the status value for the
-	// OperationalStatusLabel when the host is powered on and running
-	// the discovery image to inspect the hardware resources on the
-	// host.
-	OperationalStatusInspecting string = "inspecting"
-
-	// OperationalStatusOnline is the status value for the
-	// OperationalStatusLabel when the host is powered on and running.
-	OperationalStatusOnline string = "online"
-
-	// OperationalStatusOffline is the status value for the
-	// OperationalStatusLabel when the host is powered off.
-	OperationalStatusOffline string = "offline"
-
 	// HardwareProfileLabel is the name of the label added to the host
 	// with the discovered hardware profile.
 	HardwareProfileLabel string = "metalkube.org/hardware-profile"
+)
+
+// OperationalStatus represents the state of the host
+type OperationalStatus string
+
+const (
+	// OperationalStatusOK is the status value for when the host is
+	// configured correctly and not actively being managed.
+	OperationalStatusOK OperationalStatus = "OK"
+
+	// OperationalStatusInspecting is the status value for when the
+	// host is powered on and running the discovery image to inspect
+	// the hardware resources on the host.
+	OperationalStatusInspecting OperationalStatus = "inspecting"
+
+	// OperationalStatusError is the status value for when the host
+	// has any sort of error.
+	OperationalStatusError OperationalStatus = "error"
 )
 
 // BMCDetails contains the information necessary to communicate with
@@ -161,6 +161,9 @@ type BareMetalHostStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code
 	// after modifying this file
 
+	// OperationalStatus holds the status of the host
+	OperationalStatus OperationalStatus `json:"operationalStatus"`
+
 	// MachineRef will point to the corresponding Machine if it exists.
 	// +optional
 	MachineRef *corev1.ObjectReference `json:"machineRef,omitempty"`
@@ -225,17 +228,29 @@ func (host *BareMetalHost) Available() bool {
 // SetErrorMessage updates the ErrorMessage in the host Status struct
 // when necessary and returns true when a change is made or false when
 // no change is made.
-func (host *BareMetalHost) SetErrorMessage(message string) bool {
+func (host *BareMetalHost) SetErrorMessage(message string) (dirty bool) {
+	if host.Status.OperationalStatus != OperationalStatusError {
+		host.Status.OperationalStatus = OperationalStatusError
+		dirty = true
+	}
 	if host.Status.ErrorMessage != message {
 		host.Status.ErrorMessage = message
-		return true
+		dirty = true
 	}
-	return false
+	return dirty
 }
 
 // ClearError removes any existing error message.
-func (host *BareMetalHost) ClearError() bool {
-	return host.SetErrorMessage("")
+func (host *BareMetalHost) ClearError() (dirty bool) {
+	if host.Status.OperationalStatus != OperationalStatusOK {
+		host.Status.OperationalStatus = OperationalStatusOK
+		dirty = true
+	}
+	if host.Status.ErrorMessage != "" {
+		host.Status.ErrorMessage = ""
+		dirty = true
+	}
+	return dirty
 }
 
 // setLabel updates the given label when necessary and returns true
@@ -268,18 +283,18 @@ func (host *BareMetalHost) SetHardwareProfile(name string) bool {
 
 // SetOperationalStatus updates the OperationalStatusLabel and returns
 // true when a change is made or false when no change is made.
-func (host *BareMetalHost) SetOperationalStatus(status string) bool {
-	return host.setLabel(OperationalStatusLabel, status)
+func (host *BareMetalHost) SetOperationalStatus(status OperationalStatus) bool {
+	if host.Status.OperationalStatus != status {
+		host.Status.OperationalStatus = status
+		return true
+	}
+	return false
 }
 
 // OperationalStatus returns the value associated with the
 // OperationalStatusLabel
-func (host *BareMetalHost) OperationalStatus() string {
-	status := host.getLabel(OperationalStatusLabel)
-	if status == "" {
-		return "unknown"
-	}
-	return status
+func (host *BareMetalHost) OperationalStatus() OperationalStatus {
+	return host.Status.OperationalStatus
 }
 
 // HasError returns a boolean indicating whether there is an error

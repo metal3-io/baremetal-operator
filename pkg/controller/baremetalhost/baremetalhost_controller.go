@@ -245,17 +245,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, errors.Wrap(err, "hardware inspection failed")
 		}
 		if provResult.Dirty || dirty {
-			reqLogger.Info("saving host after inspecting hardware")
-			if err := r.client.Update(context.TODO(), host); err != nil {
+			reqLogger.Info("saving hardware details after inspecting hardware")
+			if err := r.saveStatus(host); err != nil {
 				return reconcile.Result{}, errors.Wrap(err,
-					"failed to save host after inspection")
-			}
-			if host.Status.HardwareDetails != nil {
-				reqLogger.Info("saving hardware details")
-				if err := r.saveStatus(host); err != nil {
-					return reconcile.Result{}, errors.Wrap(err,
-						"failed to save hardware details after inspection")
-				}
+					"failed to save hardware details after inspection")
 			}
 			res := reconcile.Result{
 				Requeue:      true,

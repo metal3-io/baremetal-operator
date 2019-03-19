@@ -6,9 +6,12 @@ SETUP = --no-setup
 .PHONY: help
 help:
 	@echo "Targets:"
-	@echo "  test      -- run all tests"
-	@echo "  e2e-local -- run end-to-end tests locally"
-	@echo "  help      -- this help output"
+	@echo "  test         -- run unit tests and linter"
+	@echo "  unit         -- run the unit tests"
+	@echo "  unit-verbose -- run unit tests with verbose flag enabled"
+	@echo "  lint         -- run the linter"
+	@echo "  e2e-local    -- run end-to-end tests locally"
+	@echo "  help         -- this help output"
 	@echo
 	@echo "Variables:"
 	@echo "  TEST_NAMESPACE -- project name to use ($(TEST_NAMESPACE))"
@@ -17,15 +20,22 @@ help:
 	@echo "  DEBUG          -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: unit-local e2e-local
+test: unit lint
 
-.PHONY: test-verbose
-test-verbose:
-	VERBOSE=-v make test
+.PHONY: travis
+travis: test-verbose lint
 
-.PHONY: unit-local
-unit-local:
+.PHONY: unit
+unit:
 	go test $(GO_TEST_FLAGS) ./pkg/...
+
+.PHONY: unit-verbose
+test-verbose:
+	VERBOSE=-v make unit
+
+.PHONY: lint
+lint:
+	golint -set_exit_status pkg/... cmd/...
 
 .PHONY: e2e-local
 e2e-local:

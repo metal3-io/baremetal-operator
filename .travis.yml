@@ -1,0 +1,10 @@
+language: go
+sudo: false
+go:
+  - "1.11.5"
+before_install:
+  - go get golang.org/x/lint/golint
+env:
+  - TARGET=test-verbose
+  - TARGET=lint
+script: make $TARGET

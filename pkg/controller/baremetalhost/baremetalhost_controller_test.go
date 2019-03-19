@@ -107,8 +107,8 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 	for i := 0; ; i++ {
 		logger := log.WithValues("iteration", i)
 		logger.Info("tryReconcile: top of loop")
-		if i >= 50 {
-			t.Fatal(fmt.Errorf("Exceeded 50 iterations"))
+		if i >= 25 {
+			t.Fatal(fmt.Errorf("Exceeded 25 iterations"))
 		}
 
 		result, err := r.Reconcile(request)

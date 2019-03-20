@@ -107,8 +107,8 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 	for i := 0; ; i++ {
 		logger := log.WithValues("iteration", i)
 		logger.Info("tryReconcile: top of loop")
-		if i >= 50 {
-			t.Fatal(fmt.Errorf("Exceeded 50 iterations"))
+		if i >= 25 {
+			t.Fatal(fmt.Errorf("Exceeded 25 iterations"))
 		}
 
 		result, err := r.Reconcile(request)
@@ -135,7 +135,7 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 	}
 }
 
-func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, desiredStatus string) {
+func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, desiredStatus metalkubev1alpha1.OperationalStatus) {
 	tryReconcile(t, r, host,
 		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
 			state := host.OperationalStatus()
@@ -161,14 +161,6 @@ func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1al
 			return !host.HasError()
 		},
 	)
-}
-
-func waitForOfflineStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
-	waitForStatus(t, r, host, metalkubev1alpha1.OperationalStatusOffline)
-}
-
-func waitForOnlineStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
-	waitForStatus(t, r, host, metalkubev1alpha1.OperationalStatusOnline)
 }
 
 // TestAddFinalizers ensures that the finalizers for the host are
@@ -378,16 +370,16 @@ func TestFixSecret(t *testing.T) {
 	waitForNoError(t, r, host)
 }
 
-// TestSetHardwareProfileLabel ensures that the host has a label with
+// TestSetHardwareProfile ensures that the host has a label with
 // the hardware profile name.
-func TestSetHardwareProfileLabel(t *testing.T) {
+func TestSetHardwareProfile(t *testing.T) {
 	host := newDefaultHost()
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
 		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
-			t.Logf("labels: %v", host.ObjectMeta.Labels)
-			if host.ObjectMeta.Labels[metalkubev1alpha1.HardwareProfileLabel] != "" {
+			t.Logf("profile: %v", host.Status.HardwareProfile)
+			if host.Status.HardwareProfile != "" {
 				return true
 			}
 			return false

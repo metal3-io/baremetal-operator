@@ -100,6 +100,12 @@ vbmc list -f json -c 'Domain name' -c Port
 ]
 */
 
+// VBMC holds info about domain's VBMC Port and Name
+type VBMC struct {
+       Port int    `json:"Port"`
+       Name string `json:"Domain name"`
+}
+
 func main() {
 	var provisionNet = flag.String(
 		"provision-net", "provisioning", "use the MAC on this network")

@@ -47,3 +47,10 @@ e2e-local:
 .PHONY: dep
 dep:
 	dep ensure
+
+.PHONY: run
+run:
+	OPERATOR_NAME=baremetal-operator \
+		operator-sdk up local \
+		--namespace=openshift-machine-api \
+		--operator-flags="-dev"

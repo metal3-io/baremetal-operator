@@ -301,10 +301,9 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	)
 }
 
-// TestMissingBMCParameters ensures that a host that is missing some
-// of the required BMC settings is put into an error state.
-func TestMissingBMCParameters(t *testing.T) {
-
+// TestDiscoveredHost ensures that a host without a BMC IP and
+// credentials is placed into the "discovered" state.
+func TestDiscoveredHost(t *testing.T) {
 	noAddress := newHost("missing-bmc-address",
 		&metalkubev1alpha1.BareMetalHostSpec{
 			BMC: metalkubev1alpha1.BMCDetails{
@@ -313,7 +312,22 @@ func TestMissingBMCParameters(t *testing.T) {
 			},
 		})
 	r := newTestReconciler(noAddress)
-	waitForError(t, r, noAddress)
+	waitForStatus(t, r, noAddress, metalkubev1alpha1.OperationalStatusDiscovered)
+
+	noAddressOrSecret := newHost("missing-bmc-address",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				Address:         "",
+				CredentialsName: "",
+			},
+		})
+	r = newTestReconciler(noAddressOrSecret)
+	waitForStatus(t, r, noAddressOrSecret, metalkubev1alpha1.OperationalStatusDiscovered)
+}
+
+// TestMissingBMCParameters ensures that a host that is missing some
+// of the required BMC settings is put into an error state.
+func TestMissingBMCParameters(t *testing.T) {
 
 	secretNoUser := newSecret("bmc-creds-no-user", "", "Pass")
 	noUsername := newHost("missing-bmc-username",
@@ -323,7 +337,7 @@ func TestMissingBMCParameters(t *testing.T) {
 				CredentialsName: "bmc-creds-no-user",
 			},
 		})
-	r = newTestReconciler(noUsername, secretNoUser)
+	r := newTestReconciler(noUsername, secretNoUser)
 	waitForError(t, r, noUsername)
 
 	secretNoPassword := newSecret("bmc-creds-no-pass", "User", "")

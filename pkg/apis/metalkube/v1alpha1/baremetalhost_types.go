@@ -26,6 +26,11 @@ const (
 	// configured correctly and not actively being managed.
 	OperationalStatusOK OperationalStatus = "OK"
 
+	// OperationalStatusDiscovered is the status value for when the
+	// host is only partially configured, such as when a few values
+	// are loaded from Ironic.
+	OperationalStatusDiscovered OperationalStatus = "discovered"
+
 	// OperationalStatusInspecting is the status value for when the
 	// host is powered on and running the discovery image to inspect
 	// the hardware resources on the host.

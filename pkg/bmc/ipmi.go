@@ -24,6 +24,10 @@ func (a *ipmiAccessDetails) NeedsMAC() bool {
 	return a.bmcType == "libvirt"
 }
 
+func (a *ipmiAccessDetails) Driver() string {
+	return "ipmi"
+}
+
 // DriverInfo returns a data structure to pass as the DriverInfo
 // parameter when creating a node in Ironic. The structure is
 // pre-populated with the access information, and the caller is

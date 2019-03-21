@@ -178,7 +178,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
-				Driver:        "ipmi",
+				Driver:        p.bmcAccess.Driver(),
 				BootInterface: "ipxe",
 				Name:          p.host.Name,
 				DriverInfo:    driverInfo,

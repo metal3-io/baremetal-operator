@@ -78,7 +78,7 @@ spec:
     namespace: openshift-machine-api
     name: worker-user-data
   image:
-    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    url: "{{ .ImageSourceUrl }}"
     checksum: "{{ .Checksum }}"
 `
 
@@ -188,10 +188,11 @@ func main() {
 	}
 
 	args := TemplateArgs{
-		Domain:   strings.Replace(virshDomain, "_", "-", -1),
-		MAC:      desiredMAC,
-		BMCPort:  nameToPort[virshDomain],
-		Checksum: strings.TrimSpace(string(checksum)),
+		Domain:         strings.Replace(virshDomain, "_", "-", -1),
+		MAC:            desiredMAC,
+		BMCPort:        nameToPort[virshDomain],
+		Checksum:       strings.TrimSpace(string(checksum)),
+		ImageSourceUrl: strings.TrimSpace(instanceImageSource),
 	}
 	t := template.Must(template.New("yaml_out").Parse(templateBody))
 	err = t.Execute(os.Stdout, args)

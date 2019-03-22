@@ -438,7 +438,13 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 		if err != nil {
 			return result, errors.Wrap(err, "Could not fetch image checksum")
 		}
-		defer resp.Body.Close()
+		if resp.Close {
+			defer resp.Body.Close()
+		}
+		if resp.StatusCode != 200 {
+			return result, fmt.Errorf("Failed to fetch image checksum from %s: [%d] %s",
+				checksum, resp.StatusCode, resp.Status)
+		}
 		checksumBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return result, errors.Wrap(err, "Could not read image checksum")

@@ -78,16 +78,17 @@ spec:
     namespace: openshift-machine-api
     name: worker-user-data
   image:
-    url: "{{ .ImageSourceUrl }}"
+    url: "{{ .ImageSourceURL }}"
     checksum: "{{ .Checksum }}"
 `
 
 // TemplateArgs holds the arguments to pass to the template.
 type TemplateArgs struct {
-	Domain   string
-	MAC      string
-	BMCPort  int
-	Checksum string
+	Domain         string
+	MAC            string
+	BMCPort        int
+	Checksum       string
+	ImageSourceURL string
 }
 
 /*
@@ -192,7 +193,7 @@ func main() {
 		MAC:            desiredMAC,
 		BMCPort:        nameToPort[virshDomain],
 		Checksum:       strings.TrimSpace(string(checksum)),
-		ImageSourceUrl: strings.TrimSpace(instanceImageSource),
+		ImageSourceURL: strings.TrimSpace(instanceImageSource),
 	}
 	t := template.Must(template.New("yaml_out").Parse(templateBody))
 	err = t.Execute(os.Stdout, args)

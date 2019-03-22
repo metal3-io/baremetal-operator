@@ -130,8 +130,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Add a finalizer to newly created objects.
-	if host.ObjectMeta.DeletionTimestamp.IsZero() &&
-		!utils.StringInList(host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+	if host.ObjectMeta.DeletionTimestamp.IsZero() && !hostHasFinalizer(host) {
 		reqLogger.Info(
 			"adding finalizer",
 			"existingFinalizers", host.ObjectMeta.Finalizers,
@@ -144,6 +143,52 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
 		}
 		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Handle delete operations for discovered hosts separately
+	// because we cannot connect to the BMC to deprovision them.
+	if !host.ObjectMeta.DeletionTimestamp.IsZero() && host.Status.OperationalStatus == metalkubev1alpha1.OperationalStatusDiscovered {
+		reqLogger.Info(
+			"discovered host marked to be deleted",
+			"timestamp", host.ObjectMeta.DeletionTimestamp,
+		)
+		if hostHasFinalizer(host) {
+			reqLogger.Info("removing finalizer from discovered host without cleanup")
+			host.ObjectMeta.Finalizers = utils.FilterStringFromList(
+				host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
+			if err := r.client.Update(context.TODO(), host); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "failed to remove finalizer")
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+		reqLogger.Info("discovered host is ready to be deleted")
+		return reconcile.Result{}, nil
+	}
+
+	// Check for a "discovered" host vs. one that we have all the info for.
+	if host.Spec.BMC.Address == "" {
+		reqLogger.Info(bmc.MissingAddressMsg)
+		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
+		if dirty {
+			err = r.saveStatus(host)
+			// Without the address we can't do any more so we return here
+			// without checking for an error.
+			return reconcile.Result{Requeue: true}, err
+		}
+		reqLogger.Info("nothing to do for discovered host without BMC address")
+		return reconcile.Result{}, nil
+	}
+	if host.Spec.BMC.CredentialsName == "" {
+		reqLogger.Info(bmc.MissingCredentialsMsg)
+		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
+		if dirty {
+			err = r.saveStatus(host)
+			// Without any credentials we can't do any more so we return
+			// here without checking for an error.
+			return reconcile.Result{Requeue: true}, err
+		}
+		reqLogger.Info("nothing to do for discovered host without BMC credentials")
+		return reconcile.Result{}, nil
 	}
 
 	// Load the credentials for talking to the management controller.
@@ -386,25 +431,9 @@ func (r *ReconcileBareMetalHost) getValidBMCCredentials(request reconcile.Reques
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 
-	// If we do not have all of the needed BMC credentials, set our
-	// operational status to indicate missing information.
-	if host.Spec.BMC.Address == "" {
-		reqLogger.Info(bmc.MissingAddressMsg)
-		err := r.setErrorCondition(request, host, bmc.MissingAddressMsg)
-		// Without the BMC address there's no more we can do, so we're
-		// going to return the emtpy Result anyway, and don't need to
-		// check err.
-		return nil, nil, errors.Wrap(err, "failed to set error condition")
-	}
-
 	// Load the secret containing the credentials for talking to the
-	// BMC.
-	if host.Spec.BMC.CredentialsName == "" {
-		// We have no name to use to load the secrets.
-		reqLogger.Info(bmc.MissingCredentialsMsg)
-		err := r.setErrorCondition(request, host, bmc.MissingCredentialsMsg)
-		return nil, nil, errors.Wrap(err, "failed to set error condition")
-	}
+	// BMC. This assumes we have a reference to the secret, otherwise
+	// Reconcile() should not have let us be called.
 	secretKey := host.CredentialsKey()
 	bmcCredsSecret = &corev1.Secret{}
 	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
@@ -449,4 +478,8 @@ func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.
 		return errors.Wrap(err, "failed to save owner")
 	}
 	return nil
+}
+
+func hostHasFinalizer(host *metalkubev1alpha1.BareMetalHost) bool {
+	return utils.StringInList(host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
 }

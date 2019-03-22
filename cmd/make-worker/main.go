@@ -5,8 +5,6 @@ import (
 	"encoding/xml"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -176,23 +174,11 @@ func main() {
 		nameToPort[vbmc.Name] = vbmc.Port
 	}
 
-	resp, err := http.Get(instanceImageChecksumURL)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Could not get image checksum: %s\n", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-	checksum, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Could not get image checksum: %s\n", err)
-		os.Exit(1)
-	}
-
 	args := TemplateArgs{
 		Domain:         strings.Replace(virshDomain, "_", "-", -1),
 		MAC:            desiredMAC,
 		BMCPort:        nameToPort[virshDomain],
-		Checksum:       strings.TrimSpace(string(checksum)),
+		Checksum:       instanceImageChecksumURL,
 		ImageSourceURL: strings.TrimSpace(instanceImageSource),
 	}
 	t := template.Must(template.New("yaml_out").Parse(templateBody))

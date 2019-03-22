@@ -273,6 +273,28 @@ func TestiDRACDriverInfo(t *testing.T) {
 	}
 }
 
+func TestiDRACDriverInfoHTTP(t *testing.T) {
+	acc, err := NewAccessDetails("idrac+http://192.168.122.1/")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["drac_address"] != "http://192.168.122.1/" {
+		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	}
+}
+
+func TestiDRACDriverInfoHTTPS(t *testing.T) {
+	acc, err := NewAccessDetails("idrac+https://192.168.122.1/")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["drac_address"] != "https://192.168.122.1/" {
+		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	}
+}
+
 func TestiDRACDriverInfoPort(t *testing.T) {
 	acc, err := NewAccessDetails("idrac://192.168.122.1:8080/foo")
 	if err != nil {

@@ -104,7 +104,7 @@ func NewAccessDetails(address string) (AccessDetails, error) {
 			portNum:  port,
 			hostname: host,
 		}
-	case "idrac":
+	case "idrac", "idrac+http", "idrac+https":
 		addr = &iDracAccessDetails{
 			bmcType:  bmcType,
 			portNum:  port,

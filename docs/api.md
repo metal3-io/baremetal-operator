@@ -13,8 +13,9 @@ necessary to manage and provision it.
 communicating over IPMI, this should be a URL of the form
 `ipmi://<host>:<port>` (an unadorned `<host>:<port>` is also accepted).
 Specifying the port is optional; the default port is 623. Dell iDRAC is also
-supported, by using the scheme `idrac://` in place of `http://` in the iDRAC
-URL.
+supported, by using the scheme `idrac+http://` (or just `idrac://`), or
+`idrac+https://`, in place of `http://` or `https://` (respectively) in the
+iDRAC URL.
 
 *bmc.credentials* -- A reference to a Secret containing the connection
 data, at least username and password, for the BMC.

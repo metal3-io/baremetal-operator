@@ -71,6 +71,13 @@ func getTypeHostPort(address string) (bmcType, host, port, path string, err erro
 	} else {
 		// Successfully parsed the URL
 		bmcType = parsedURL.Scheme
+		if parsedURL.Opaque != "" {
+			parsedURL, err = url.Parse(strings.Replace(address, ":", "://", 1))
+			if err != nil {
+				return "", "", "", "", errors.Wrap(err, "failed to parse BMC address information")
+
+			}
+		}
 		port = parsedURL.Port()
 		host = parsedURL.Hostname()
 		if parsedURL.Scheme == "" {

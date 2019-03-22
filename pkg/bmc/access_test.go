@@ -132,6 +132,44 @@ func TestParseIPMIURL(t *testing.T) {
 	}
 }
 
+func TestParseIPMIURLNoSep(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("ipmi:192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "ipmi" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestParseIPMIURLNoSepPort(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("ipmi:192.168.122.1:6233")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "ipmi" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "6233" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
 func TestIPMINeedsMAC(t *testing.T) {
 	acc, err := NewAccessDetails("ipmi://192.168.122.1:6233")
 	if err != nil {

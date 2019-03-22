@@ -18,27 +18,45 @@ data, at least username and password, for the BMC.
 (true) or off (false). Changing this value will trigger a change in
 power state on the physical host.
 
+*machineRef* -- A reference to a Machine to which this host will be
+attached when it is provisioned.
+
+*image.url* -- The URL of an image to deploy to the host.
+
+*image.checksum* -- An md5 checksum or URL to a file with a checksum
+for the image at *image.url*.
+
+*userData* -- A reference to the Secret containing the user data to be
+passed to the host before it boots.
+
 ```
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: bmc1-secret
+  name: openshift-worker-1-bmc-secret
 type: Opaque
 data:
   username: YWRtaW4=
-  password: MWYyZDFlMmU2N2Rm
+  password: cGFzc3dvcmQ=
+
 ---
 apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
-  name: example-baremetalhost
+  name: openshift-worker-1
 spec:
   online: true
   bmc:
-    address: ipmi://192.168.122.1:6233
-    credentials:
-      name: bmc1-secret
+    address: libvirt://192.168.122.1:6234/
+    credentialsName: openshift-worker-1-bmc-secret
+  bootMACAddress: 00:11:55:9e:1d:f7
+  userData:
+    namespace: openshift-machine-api
+    name: worker-user-data
+  image:
+    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
 ```
 
 ### Status Fields

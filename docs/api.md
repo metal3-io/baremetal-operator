@@ -9,7 +9,12 @@ necessary to manage and provision it.
 
 *bmc* -- The connection information for the BMC controller on the host.
 
-*bmc.address* -- The URL for communicating with the BMC controller.
+*bmc.address* -- The URL for communicating with the BMC controller. When
+communicating over IPMI, this should be a URL of the form
+`ipmi://<host>:<port>` (an unadorned `<host>:<port>` is also accepted).
+Specifying the port is optional; the default port is 623. Dell iDRAC is also
+supported, by using the scheme `idrac://` in place of `http://` in the iDRAC
+URL.
 
 *bmc.credentials* -- A reference to a Secret containing the connection
 data, at least username and password, for the BMC.

@@ -1,4 +1,5 @@
 TEST_NAMESPACE = operator-test
+RUN_NAMESPACE = metalkube
 GO_TEST_FLAGS = $(VERBOSE)
 DEBUG = --debug
 SETUP = --no-setup
@@ -52,5 +53,5 @@ dep:
 run:
 	OPERATOR_NAME=baremetal-operator \
 		operator-sdk up local \
-		--namespace=openshift-machine-api \
+		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"

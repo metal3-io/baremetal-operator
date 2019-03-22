@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: baremetal-operator
+  name: metalkube-baremetal-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: baremetal-operator
+      name: metalkube-baremetal-operator
   template:
     metadata:
       labels:
-        name: baremetal-operator
+        name: metalkube-baremetal-operator
     spec:
-      serviceAccountName: baremetal-operator
+      serviceAccountName: metalkube-baremetal-operator
       containers:
-        - name: bare-metal-operator
+        - name: baremetal-operator
           image: quay.io/metalkube/baremetal-operator
           ports:
           - containerPort: 60000

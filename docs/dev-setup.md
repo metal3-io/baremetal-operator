@@ -16,7 +16,7 @@ install the operator-sdk tools.
 3. Create a namespace to host the operator
 
     ```
-    kubectl create namespace bmo-project
+    kubectl create namespace metalkube
     ```
 
 4. Install operator-sdk
@@ -34,7 +34,7 @@ install the operator-sdk tools.
 
     ```
     export OPERATOR_NAME=baremetal-operator
-    operator-sdk up local --namespace=bmo-project
+    operator-sdk up local --namespace=metalkube
     ```
 
 6. Create the CR

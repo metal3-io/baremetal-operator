@@ -42,8 +42,13 @@ func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfa
 		host = fmt.Sprintf("%s:%s", host, a.portNum)
 	}
 
+	scheme := "http"
+	if strings.HasSuffix(a.bmcType, "https") {
+		scheme = "https"
+	}
+
 	address := url.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   host,
 		Path:   a.path,
 	}

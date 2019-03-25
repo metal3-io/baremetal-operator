@@ -222,7 +222,7 @@ func TestLibvirtDriver(t *testing.T) {
 	}
 }
 
-func TestParseiDRACURL(t *testing.T) {
+func TestParseIDRACURL(t *testing.T) {
 	T, H, P, A, err := getTypeHostPort("idrac://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -241,7 +241,7 @@ func TestParseiDRACURL(t *testing.T) {
 	}
 }
 
-func TestParseiDRACURLPath(t *testing.T) {
+func TestParseIDRACURLPath(t *testing.T) {
 	T, H, P, A, err := getTypeHostPort("idrac://192.168.122.1:6233/foo")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -260,7 +260,7 @@ func TestParseiDRACURLPath(t *testing.T) {
 	}
 }
 
-func TestParseiDRACURLIPv6(t *testing.T) {
+func TestParseIDRACURLIPv6(t *testing.T) {
 	T, H, P, A, err := getTypeHostPort("idrac://[fe80::fc33:62ff:fe83:8a76]")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -279,7 +279,7 @@ func TestParseiDRACURLIPv6(t *testing.T) {
 	}
 }
 
-func TestiDRACNeedsMAC(t *testing.T) {
+func TestIDRACNeedsMAC(t *testing.T) {
 	acc, err := NewAccessDetails("idrac://192.168.122.1/")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -289,7 +289,7 @@ func TestiDRACNeedsMAC(t *testing.T) {
 	}
 }
 
-func TestiDRACDriver(t *testing.T) {
+func TestIDRACDriver(t *testing.T) {
 	acc, err := NewAccessDetails("idrac://192.168.122.1/")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -300,7 +300,7 @@ func TestiDRACDriver(t *testing.T) {
 	}
 }
 
-func TestiDRACDriverInfo(t *testing.T) {
+func TestIDRACDriverInfo(t *testing.T) {
 	acc, err := NewAccessDetails("idrac://192.168.122.1/")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -311,7 +311,7 @@ func TestiDRACDriverInfo(t *testing.T) {
 	}
 }
 
-func TestiDRACDriverInfoHTTP(t *testing.T) {
+func TestIDRACDriverInfoHTTP(t *testing.T) {
 	acc, err := NewAccessDetails("idrac+http://192.168.122.1/")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -322,7 +322,7 @@ func TestiDRACDriverInfoHTTP(t *testing.T) {
 	}
 }
 
-func TestiDRACDriverInfoHTTPS(t *testing.T) {
+func TestIDRACDriverInfoHTTPS(t *testing.T) {
 	acc, err := NewAccessDetails("idrac+https://192.168.122.1/")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -333,7 +333,7 @@ func TestiDRACDriverInfoHTTPS(t *testing.T) {
 	}
 }
 
-func TestiDRACDriverInfoPort(t *testing.T) {
+func TestIDRACDriverInfoPort(t *testing.T) {
 	acc, err := NewAccessDetails("idrac://192.168.122.1:8080/foo")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -344,7 +344,7 @@ func TestiDRACDriverInfoPort(t *testing.T) {
 	}
 }
 
-func TestiDRACDriverInfoIPv6(t *testing.T) {
+func TestIDRACDriverInfoIPv6(t *testing.T) {
 	acc, err := NewAccessDetails("idrac://[fe80::fc33:62ff:fe83:8a76]/foo")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -355,7 +355,7 @@ func TestiDRACDriverInfoIPv6(t *testing.T) {
 	}
 }
 
-func TestiDRACDriverInfoIPv6Port(t *testing.T) {
+func TestIDRACDriverInfoIPv6Port(t *testing.T) {
 	acc, err := NewAccessDetails("idrac://[fe80::fc33:62ff:fe83:8a76]:8080/foo")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)

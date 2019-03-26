@@ -64,7 +64,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("baremetalhost-controller", mgr,
+	c, err := controller.New("metalkube-baremetalhost-controller", mgr,
 		controller.Options{Reconciler: r})
 	if err != nil {
 		return err
@@ -170,6 +170,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info(bmc.MissingAddressMsg)
 		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
 		if dirty {
+			r.publishEvent(request, host, "Discovered", "Discovered host without BMC address")
 			err = r.saveStatus(host)
 			// Without the address we can't do any more so we return here
 			// without checking for an error.
@@ -182,6 +183,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info(bmc.MissingCredentialsMsg)
 		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
 		if dirty {
+			r.publishEvent(request, host, "Discovered", "Discovered host without BMC credentials")
 			err = r.saveStatus(host)
 			// Without any credentials we can't do any more so we return
 			// here without checking for an error.
@@ -204,7 +206,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Past this point we may need a provisioner, so create one.
-	prov, err := r.provisionerFactory(host, *bmcCreds)
+	publisher := func(reason, message string) {
+		r.publishEvent(request, host, reason, message)
+	}
+	prov, err := r.provisionerFactory(host, *bmcCreds, publisher)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
@@ -311,6 +316,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, errors.Wrap(err,
 				"failed to save host after updating hardware profile")
 		}
+		r.publishEvent(request, host, "ProfileSet", "Hardware profile set")
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -478,6 +484,19 @@ func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.
 		return errors.Wrap(err, "failed to save owner")
 	}
 	return nil
+}
+
+func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, reason, message string) {
+	reqLogger := log.WithValues("Request.Namespace",
+		request.Namespace, "Request.Name", request.Name)
+	event := host.NewEvent(reason, message)
+	log.Info("publishing event", "reason", reason, "message", message)
+	err := r.client.Create(context.TODO(), &event)
+	if err != nil {
+		reqLogger.Info("failed to record event",
+			"reason", reason, "message", message, "error", err)
+	}
+	return
 }
 
 func hostHasFinalizer(host *metalkubev1alpha1.BareMetalHost) bool {

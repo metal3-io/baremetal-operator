@@ -385,6 +385,36 @@ func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
 	}
 }
 
+// NewEvent creates a new event associated with the object and ready
+// to be published to the kubernetes API.
+func (host *BareMetalHost) NewEvent(reason, message string) corev1.Event {
+	t := metav1.Now()
+	return corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: reason + "-",
+			Namespace:    host.ObjectMeta.Namespace,
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Kind:       host.TypeMeta.Kind,
+			Namespace:  host.ObjectMeta.Namespace,
+			Name:       host.ObjectMeta.Name,
+			UID:        host.ObjectMeta.UID,
+			APIVersion: host.TypeMeta.APIVersion,
+		},
+		Reason:  reason,
+		Message: message,
+		Source: corev1.EventSource{
+			Component: "metalkube-baremetal-controller",
+		},
+		FirstTimestamp:      t,
+		LastTimestamp:       t,
+		Count:               1,
+		Type:                corev1.EventTypeNormal,
+		ReportingController: "metalkube.org/baremetal-controller",
+		Related:             host.Spec.MachineRef,
+	}
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // BareMetalHostList contains a list of BareMetalHost

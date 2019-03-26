@@ -11,8 +11,12 @@ import (
 Package provisioning defines the API for talking to the provisioning backend.
 */
 
+// EventPublisher is a function type for publishing events associated
+// with provisioning.
+type EventPublisher func(reason, message string)
+
 // Factory is the interface for creating new Provisioner objects.
-type Factory func(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (Provisioner, error)
+type Factory func(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
 
 // Provisioner holds the state information for talking to the
 // provisioning backend.

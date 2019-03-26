@@ -58,10 +58,12 @@ type ironicProvisioner struct {
 	client *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
+	// an event publisher for recording significant events
+	publisher provisioner.EventPublisher
 }
 
 // New returns a new Ironic Provisioner
-func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provisioner.Provisioner, error) {
+func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
 		IronicEndpoint: ironicEndpoint,
 	})
@@ -82,6 +84,7 @@ func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials) (provi
 		bmcCreds:  bmcCreds,
 		client:    client,
 		log:       log.WithValues("host", host.Name),
+		publisher: publisher,
 	}
 	return p, nil
 }
@@ -189,6 +192,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		if err != nil {
 			return result, errors.Wrap(err, "failed to register host in ironic")
 		}
+		p.publisher("Registered", "Registered new host")
 
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
@@ -328,6 +332,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
 		// The inspection just started.
+		p.publisher("InspectionStarted", "Hardware inspection started")
 		p.log.Info("starting inspection by setting state")
 		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
 		result.Dirty = true
@@ -382,6 +387,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 					},
 				},
 			}
+		p.publisher("InspectionComplete", "Hardware inspection completed")
 		result.Dirty = true
 		return result, nil
 	}
@@ -414,10 +420,14 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 	if ironicNode, err = p.findExistingHost(); err != nil {
 		return result, errors.Wrap(err, "could not find host to receive image")
 	}
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
+	}
 
 	// Since we were here ironic has recorded an error for this host.
 	if ironicNode.LastError != "" {
 		p.log.Info("found error", "msg", ironicNode.LastError)
+		p.publisher("ProvisioningFailed", "Image provisioning failed")
 		p.status.State = stateValidationError
 		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError)
 		return result, nil
@@ -500,6 +510,7 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 		if err != nil {
 			return result, errors.Wrap(err, "failed to update host settings in ironic")
 		}
+		p.publisher("ProvisioningStarted", "Image provisioning started")
 		p.status.State = statePreparingToProvision
 		result.Dirty = true
 		return result, nil
@@ -592,6 +603,7 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 	// Wait for provisioning to be completed
 	if p.status.State == stateProvisioning {
 		if ironicNode.ProvisionState == nodes.Active {
+			p.publisher("ProvisioningComplete", "Image provisioning completed")
 			p.log.Info("finished provisioning")
 			p.status.Image = *p.host.Spec.Image
 			p.status.State = stateProvisioned
@@ -632,6 +644,7 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 	)
 
 	if ironicNode.ProvisionState == nodes.Error {
+		p.publisher("ForceDeprovision", "Forcing deprovision due to internal error")
 		if !ironicNode.Maintenance {
 			p.log.Info("setting host maintenance flag for deleting")
 			_, err = nodes.Update(
@@ -657,6 +670,7 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 
 	if ironicNode.ProvisionState == nodes.Available {
 		if !deleteIt {
+			p.publisher("DeprovisionComplete", "Image deprovisioning completed")
 			p.log.Info("deprovisioning complete")
 			if p.status.Image.URL != "" {
 				p.log.Info("clearing provisioning status")
@@ -703,6 +717,7 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 			return result, errors.Wrap(changeResult.Err,
 				"failed to trigger deprovisioning")
 		}
+		p.publisher("DeprovisionStarted", "Image deprovisioning started")
 		p.status.State = stateDeprovisioning
 		result.Dirty = true
 		return result, nil

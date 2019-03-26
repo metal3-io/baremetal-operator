@@ -466,3 +466,33 @@ func TestProvision(t *testing.T) {
 		},
 	)
 }
+
+// TestPowerOn verifies that the controller turns the host on when it
+// should.
+func TestPowerOn(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("power status: %v", host.Status.PoweredOn)
+			return host.Status.PoweredOn
+		},
+	)
+}
+
+// TestPowerOff verifies that the controller turns the host on when it
+// should.
+func TestPowerOff(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = false
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("power status: %v", host.Status.PoweredOn)
+			return !host.Status.PoweredOn
+		},
+	)
+}

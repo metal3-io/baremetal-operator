@@ -24,14 +24,17 @@ type fixtureProvisioner struct {
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
 	log logr.Logger
+	// an event publisher for recording significant events
+	publisher provisioner.EventPublisher
 }
 
 // New returns a new Ironic Provisioner
 func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
-		host:     host,
-		bmcCreds: bmcCreds,
-		log:      log.WithValues("host", host.Name),
+		host:      host,
+		bmcCreds:  bmcCreds,
+		log:       log.WithValues("host", host.Name),
+		publisher: publisher,
 	}
 	return p, nil
 }
@@ -48,6 +51,7 @@ func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Resu
 			"provisioningID", p.host.Status.Provisioning.ID)
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
+		p.publisher("Registered", "Registered new host")
 		return result, nil
 	}
 
@@ -66,6 +70,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
 		// The inspection just started.
+		p.publisher("InspectionStarted", "Hardware inspection started")
 		p.log.Info("starting inspection by setting state")
 		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
 		result.Dirty = true
@@ -120,6 +125,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 					},
 				},
 			}
+		p.publisher("InspectionComplete", "Hardware inspection completed")
 		result.Dirty = true
 		return result, nil
 	}
@@ -141,6 +147,7 @@ func (p *fixtureProvisioner) Provision(userData string) (result provisioner.Resu
 	// reconcile loop work properly.
 
 	if p.host.Status.Provisioning.State == "" {
+		p.publisher("ProvisioningStarted", "Image provisioning started")
 		p.log.Info("moving to step1")
 		p.host.Status.Provisioning.State = "step1"
 		result.Dirty = true
@@ -155,6 +162,7 @@ func (p *fixtureProvisioner) Provision(userData string) (result provisioner.Resu
 	}
 
 	if p.host.Status.Provisioning.State == "step2" {
+		p.publisher("ProvisioningComplete", "Image provisioning completed")
 		p.log.Info("moving to done")
 		p.host.Status.Provisioning.State = "done"
 		p.host.Status.Provisioning.Image = *p.host.Spec.Image
@@ -179,6 +187,7 @@ func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Resu
 	// and we can monitor it's status.
 
 	if p.host.Status.HardwareDetails != nil {
+		p.publisher("DeprovisionStarted", "Image deprovisioning started")
 		p.log.Info("clearing hardware details")
 		p.host.Status.HardwareDetails = nil
 		result.Dirty = true
@@ -192,6 +201,7 @@ func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Resu
 		return result, nil
 	}
 
+	p.publisher("DeprovisionComplete", "Image deprovisioning completed")
 	return result, nil
 }
 

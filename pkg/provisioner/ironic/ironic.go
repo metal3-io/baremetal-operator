@@ -510,7 +510,8 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 		if err != nil {
 			return result, errors.Wrap(err, "failed to update host settings in ironic")
 		}
-		p.publisher("ProvisioningStarted", "Image provisioning started")
+		p.publisher("ProvisioningStarted",
+			fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
 		p.status.State = statePreparingToProvision
 		result.Dirty = true
 		return result, nil
@@ -603,7 +604,8 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 	// Wait for provisioning to be completed
 	if p.status.State == stateProvisioning {
 		if ironicNode.ProvisionState == nodes.Active {
-			p.publisher("ProvisioningComplete", "Image provisioning completed")
+			p.publisher("ProvisioningComplete",
+				fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
 			p.log.Info("finished provisioning")
 			p.status.Image = *p.host.Spec.Image
 			p.status.State = stateProvisioned

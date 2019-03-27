@@ -42,6 +42,8 @@ const (
 	stateProvisioning         = "provisioning"
 	stateProvisioned          = "provisioned"
 	stateDeprovisioning       = "deprovisioning"
+	powerOn                   = "power on"
+	powerOff                  = "power off"
 )
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -418,9 +420,11 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 
 	var discoveredVal bool
 	switch ironicNode.PowerState {
-	case "power on":
+	case powerOn:
 		discoveredVal = true
-	case "power off":
+	case "":
+		discoveredVal = false
+	case powerOff:
 		discoveredVal = false
 	default:
 		p.log.Info("unknown power state", "value", ironicNode.PowerState)
@@ -815,8 +819,8 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 		"current", p.host.Status.PoweredOn,
 		"target", ironicNode.TargetPowerState)
 
-	if ironicNode.PowerState != "power on" {
-		if ironicNode.TargetPowerState == "power on" {
+	if ironicNode.PowerState != powerOn {
+		if ironicNode.TargetPowerState == powerOn {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
 			return result, nil
@@ -842,8 +846,8 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 
-	if ironicNode.PowerState != "power off" {
-		if ironicNode.TargetPowerState == "power off" {
+	if ironicNode.PowerState != powerOff {
+		if ironicNode.TargetPowerState == powerOff {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
 			return result, nil

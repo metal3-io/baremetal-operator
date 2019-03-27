@@ -329,13 +329,12 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
-	_, err = p.findExistingHost()
+	ironicNode, err := p.findExistingHost()
 	if err != nil {
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
-	if p.host.HasError() {
-		p.log.Info("host has error, skipping hardware inspection")
-		return result, nil
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
 	}
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
@@ -415,9 +414,8 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	if err != nil {
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
-	if p.host.HasError() {
-		p.log.Info("host has error, skipping hardware state update")
-		return result, nil
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
 	}
 
 	var discoveredVal bool

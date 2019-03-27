@@ -42,8 +42,10 @@ const (
 	stateProvisioning         = "provisioning"
 	stateProvisioned          = "provisioned"
 	stateDeprovisioning       = "deprovisioning"
-	powerOn                   = "power on"
-	powerOff                  = "power off"
+	// See nodes.Node.PowerState for details
+	powerOn   = "power on"
+	powerOff  = "power off"
+	powerNone = "None"
 )
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -422,10 +424,11 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	switch ironicNode.PowerState {
 	case powerOn:
 		discoveredVal = true
-	case "":
-		discoveredVal = false
 	case powerOff:
 		discoveredVal = false
+	case powerNone:
+		p.log.Info("could not determine power state", "value", ironicNode.PowerState)
+		return result, nil
 	default:
 		p.log.Info("unknown power state", "value", ironicNode.PowerState)
 		return result, nil

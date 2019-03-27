@@ -455,6 +455,7 @@ func (r *ReconcileBareMetalHost) getValidBMCCredentials(request reconcile.Reques
 	// Verify that the secret contains the expected info.
 	if validCreds, reason := bmcCreds.AreValid(); !validCreds {
 		reqLogger.Info("invalid BMC Credentials", "reason", reason)
+		r.publishEvent(request, host, "BMCCredentialError", reason)
 		err := r.setErrorCondition(request, host, reason)
 		return nil, nil, errors.Wrap(err, "failed to set error condition")
 	}

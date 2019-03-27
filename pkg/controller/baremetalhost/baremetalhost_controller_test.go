@@ -70,14 +70,15 @@ func newHost(name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev
 	}
 }
 
-func newDefaultHost() *metalkubev1alpha1.BareMetalHost {
+func newDefaultHost(t *testing.T) *metalkubev1alpha1.BareMetalHost {
 	spec := &metalkubev1alpha1.BareMetalHostSpec{
 		BMC: metalkubev1alpha1.BMCDetails{
 			Address:         "ipmi://192.168.122.1:6233",
 			CredentialsName: defaultSecretName,
 		},
 	}
-	return newHost("test-host", spec)
+	t.Logf("newDefaultHost(%s)", t.Name())
+	return newHost(t.Name(), spec)
 }
 
 func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
@@ -166,7 +167,7 @@ func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1al
 // TestAddFinalizers ensures that the finalizers for the host are
 // updated as part of reconciling it.
 func TestAddFinalizers(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -183,7 +184,7 @@ func TestAddFinalizers(t *testing.T) {
 // TestSetLastUpdated ensures that the lastUpdated timestamp in the
 // status is set to a non-zero value during reconciliation.
 func TestSetLastUpdated(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -201,7 +202,7 @@ func TestSetLastUpdated(t *testing.T) {
 // GoodCredentials fields are updated in the status block of a host
 // when the secret used exists and has all of the right fields.
 func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -221,7 +222,7 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 // GoodCredentials fields are updated when the secret for a host is
 // changed to another secret that is also good.
 func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -264,7 +265,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 // GoodCredentials fields are *not* updated when the secret is changed
 // to one that is missing data.
 func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	badSecret := newSecret("bmc-creds-no-user", "", "Pass")
 	r := newTestReconciler(host, badSecret)
 
@@ -387,7 +388,7 @@ func TestFixSecret(t *testing.T) {
 // TestSetHardwareProfile ensures that the host has a label with
 // the hardware profile name.
 func TestSetHardwareProfile(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -404,7 +405,7 @@ func TestSetHardwareProfile(t *testing.T) {
 // TestCreateHardwareDetails ensures that the HardwareDetails portion
 // of the status block is filled in for new hosts.
 func TestCreateHardwareDetails(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -421,7 +422,7 @@ func TestCreateHardwareDetails(t *testing.T) {
 // TestNeedsProvisioning verifies the logic for deciding when a host
 // needs to be provisioned.
 func TestNeedsProvisioning(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 
 	if host.NeedsProvisioning() {
 		t.Fatal("host without spec image should not need provisioning")
@@ -446,7 +447,7 @@ func TestNeedsProvisioning(t *testing.T) {
 // TestProvision ensures that the Provisioning.Image portion of the
 // status block is filled in for provisioned hosts.
 func TestProvision(t *testing.T) {
-	host := newDefaultHost()
+	host := newDefaultHost(t)
 	host.Spec.Image = &metalkubev1alpha1.Image{
 		URL:      "https://example.com/image-name",
 		Checksum: "12345",

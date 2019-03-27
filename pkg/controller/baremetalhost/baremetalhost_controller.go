@@ -3,6 +3,7 @@ package baremetalhost
 import (
 	"context"
 	"flag"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -388,7 +389,16 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// If we reach this point we haven't encountered any issues
 	// communicating with the host, so ensure the error message field
 	// is cleared.
+	previousError := host.Status.ErrorMessage
 	if host.ClearError() {
+		if previousError != "" {
+			r.publishEvent(request, host,
+				"ClearedError", fmt.Sprintf("Resolved previous error condition : %s",
+					previousError))
+		} else {
+			r.publishEvent(request, host,
+				"ClearedError", "Resolved previous error condition")
+		}
 		if err := r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to clear error")
 		}

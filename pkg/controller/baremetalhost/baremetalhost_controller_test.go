@@ -433,8 +433,14 @@ func TestNeedsProvisioning(t *testing.T) {
 		Checksum: "12345",
 	}
 
+	if host.NeedsProvisioning() {
+		t.Fatal("host with spec image but not online should not need provisioning")
+	}
+
+	host.Spec.Online = true
+
 	if !host.NeedsProvisioning() {
-		t.Fatal("host with spec image and no status image should need provisioning")
+		t.Fatal("host with spec image and online without provisioning image should need provisioning")
 	}
 
 	host.Status.Provisioning.Image = *host.Spec.Image
@@ -452,6 +458,7 @@ func TestProvision(t *testing.T) {
 		URL:      "https://example.com/image-name",
 		Checksum: "12345",
 	}
+	host.Spec.Online = true
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,

@@ -435,31 +435,6 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 
 	result.RequeueAfter = provisionRequeueDelay
 
-	// FIXME(dhellmann): The Stein version of Ironic supports passing
-	// a URL. When we upgrade, we can stop doing this work ourself.
-	checksum := p.host.Spec.Image.Checksum
-	isURL, err := checksumIsURL(checksum)
-	if err != nil {
-		return result, errors.Wrap(err, "Could not understand image checksum")
-	}
-	if isURL {
-		p.log.Info("looking for checksum for image", "URL", checksum)
-		resp, err := http.Get(checksum)
-		if err != nil {
-			return result, errors.Wrap(err, "Could not fetch image checksum")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return result, fmt.Errorf("Failed to fetch image checksum from %s: [%d] %s",
-				checksum, resp.StatusCode, resp.Status)
-		}
-		checksumBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return result, errors.Wrap(err, "Could not read image checksum")
-		}
-		checksum = strings.TrimSpace(string(checksumBody))
-	}
-
 	// Ensure the instance_info properties for the host are set to
 	// tell Ironic where to get the image to be provisioned.
 	var op nodes.UpdateOp
@@ -473,6 +448,32 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 		p.log.Info("updating host settings in ironic")
 	}
 	if op != "" {
+
+		// FIXME(dhellmann): The Stein version of Ironic supports passing
+		// a URL. When we upgrade, we can stop doing this work ourself.
+		checksum := p.host.Spec.Image.Checksum
+		isURL, err := checksumIsURL(checksum)
+		if err != nil {
+			return result, errors.Wrap(err, "Could not understand image checksum")
+		}
+		if isURL {
+			p.log.Info("looking for checksum for image", "URL", checksum)
+			resp, err := http.Get(checksum)
+			if err != nil {
+				return result, errors.Wrap(err, "Could not fetch image checksum")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
+				return result, fmt.Errorf("Failed to fetch image checksum from %s: [%d] %s",
+					checksum, resp.StatusCode, resp.Status)
+			}
+			checksumBody, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return result, errors.Wrap(err, "Could not read image checksum")
+			}
+			checksum = strings.TrimSpace(string(checksumBody))
+		}
+
 		_, err = nodes.Update(
 			p.client,
 			ironicNode.UUID,

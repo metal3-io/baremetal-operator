@@ -110,6 +110,7 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (ok bool, err e
 		msg := fmt.Sprintf("host validation error: %s",
 			strings.Join(validationErrors, "; "))
 		ok = p.host.SetErrorMessage(msg)
+		p.publisher("HostValidationError", msg)
 		return ok, nil
 	}
 	return true, nil
@@ -237,6 +238,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
 		updatedMessage := p.host.SetErrorMessage(msg)
+		p.publisher("HostValidationError", msg)
 		result.Dirty = result.Dirty || updatedMessage
 		return result, nil
 	}
@@ -250,6 +252,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		// so the status is stored.
 		p.status.State = stateRegistrationError
 		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError) || result.Dirty
+		p.publisher("HostRegistrationError", ironicNode.LastError)
 		return result, nil
 	}
 
@@ -427,7 +430,8 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 	// Since we were here ironic has recorded an error for this host.
 	if ironicNode.LastError != "" {
 		p.log.Info("found error", "msg", ironicNode.LastError)
-		p.publisher("ProvisioningFailed", "Image provisioning failed")
+		p.publisher("ProvisioningFailed",
+			fmt.Sprintf("Image provisioning failed: %s", ironicNode.LastError))
 		p.status.State = stateValidationError
 		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError)
 		return result, nil

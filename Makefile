@@ -56,3 +56,10 @@ run:
 		operator-sdk up local \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
+
+.PHONY: demo
+demo:
+	OPERATOR_NAME=baremetal-operator \
+		operator-sdk up local \
+		--namespace=$(RUN_NAMESPACE) \
+		--operator-flags="-dev -demo-mode"

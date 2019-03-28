@@ -11,6 +11,7 @@ import (
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
+	"github.com/metalkube/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
@@ -37,9 +38,12 @@ const (
 )
 
 var runInTestMode bool
+var runInDemoMode bool
 
 func init() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
+	flag.BoolVar(&runInDemoMode, "demo-mode", false,
+		"use the demo provisioner to set host states")
 }
 
 var log = logf.Log.WithName("controller_baremetalhost")
@@ -54,10 +58,14 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	var provisionerFactory provisioner.Factory
-	if runInTestMode {
+	switch {
+	case runInTestMode:
 		log.Info("USING TEST MODE")
 		provisionerFactory = fixture.New
-	} else {
+	case runInDemoMode:
+		log.Info("USING DEMO MODE")
+		provisionerFactory = demo.New
+	default:
 		provisionerFactory = ironic.New
 	}
 	return &ReconcileBareMetalHost{
@@ -302,7 +310,12 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, errors.Wrap(err,
 				"failed to update credentials success status fields")
 		}
-		return reconcile.Result{Requeue: true}, nil
+	}
+	if host.Status.Provisioning.State == provisioner.StateRegistrationError {
+		// We have tried to register and validate the host and that
+		// failed, so do not proceed to any other steps.
+		reqLogger.Info("registration error, stopping")
+		return reconcile.Result{}, nil
 	}
 
 	// Ensure we have the information about the hardware on the host.

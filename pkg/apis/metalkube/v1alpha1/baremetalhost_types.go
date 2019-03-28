@@ -246,7 +246,7 @@ func (host *BareMetalHost) SetErrorMessage(message string) (dirty bool) {
 
 // ClearError removes any existing error message.
 func (host *BareMetalHost) ClearError() (dirty bool) {
-	if host.Status.OperationalStatus != OperationalStatusOK {
+	if host.Status.OperationalStatus == OperationalStatusError {
 		host.Status.OperationalStatus = OperationalStatusOK
 		dirty = true
 	}

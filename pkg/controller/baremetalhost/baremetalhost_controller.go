@@ -32,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const (
+	hostErrorRetryDelay = time.Second * 10
+)
+
 var runInTestMode bool
 
 func init() {
@@ -167,6 +171,9 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil
 	}
 
+	// Clear any error so we can recompute it
+	host.ClearError()
+
 	// Check for a "discovered" host vs. one that we have all the info for.
 	if host.Spec.BMC.Address == "" {
 		reqLogger.Info(bmc.MissingAddressMsg)
@@ -279,6 +286,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return result, nil
 		}
 
+		if host.HasError() {
+			// We have tried to register and validate the host and
+			// that failed in a way we assume is not retryable, so do
+			// not proceed to any other steps.
+			reqLogger.Info("registration error")
+			return reconcile.Result{}, nil
+		}
+
 		// Reaching this point means the credentials are valid and
 		// worked, so record that in the status block.
 		reqLogger.Info("updating credentials success status fields")
@@ -297,7 +312,9 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, errors.Wrap(err, "hardware inspection failed")
 		}
 		if provResult.Dirty || dirty {
-			reqLogger.Info("saving hardware details after inspecting hardware")
+			reqLogger.Info("saving hardware details after inspecting hardware",
+				"state", host.Status.Provisioning.State,
+				"status", host.Status.OperationalStatus)
 			if err := r.saveStatus(host); err != nil {
 				return reconcile.Result{}, errors.Wrap(err,
 					"failed to save hardware details after inspection")
@@ -307,6 +324,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 				RequeueAfter: provResult.RequeueAfter,
 			}
 			return res, nil
+		}
+
+		if host.HasError() {
+			// We have tried to inspect the hardware and that failed
+			// in a way we assume is not retryable, so do not proceed
+			// to any other steps.
+			reqLogger.Info("hardware inspection error")
+			return reconcile.Result{}, nil
 		}
 	}
 
@@ -365,6 +390,9 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return res, nil
 		}
 		if host.HasError() {
+			// We have tried to provision the host and that failed in
+			// a way we assume is not retryable, so do not proceed to
+			// any other steps.
 			reqLogger.Info("needs provisioning but has error")
 			return reconcile.Result{}, nil
 		}
@@ -435,6 +463,13 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		}
 		if err := r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to clear error")
+		}
+		if host.HasError() {
+			// We have tried to deprovision the host and that failed
+			// in a way we assume is not retryable, so do not proceed
+			// to any other steps.
+			reqLogger.Info("registration error")
+			return reconcile.Result{}, nil
 		}
 	}
 

@@ -126,6 +126,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")
+		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusOK)
 		result.Dirty = true
 		return result, nil
 	}

@@ -100,7 +100,7 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (ok bool, err e
 	p.log.Info("validating node settings in ironic")
 	validateResult, err := nodes.Validate(p.client, ironicNode.UUID).Extract()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to validate node settings in ironic")
+		return false, err // do not wrap error so we can check type in caller
 	}
 	if !validateResult.Boot.Result {
 		validationErrors = append(validationErrors, validateResult.Boot.Reason)
@@ -280,7 +280,14 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 			nodes.ProvisionStateOpts{
 				Target: nodes.TargetManage,
 			})
-		if changeResult.Err != nil {
+		switch changeResult.Err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not change state of host, busy")
+			result.Dirty = true
+			result.RequeueAfter = provisionRequeueDelay
+			return result, nil
+		default:
 			return result, errors.Wrap(changeResult.Err,
 				"failed to change provisioning state to manage")
 		}
@@ -554,9 +561,16 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 				// 	Value: map[string]interface{},
 				// },
 			}).Extract()
-		if err != nil {
+		switch err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not update host settings in ironic, busy")
+			result.Dirty = true
+			return result, nil
+		default:
 			return result, errors.Wrap(err, "failed to update host settings in ironic")
 		}
+
 		p.publisher("ProvisioningStarted",
 			fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
 		p.status.State = statePreparingToProvision
@@ -568,8 +582,14 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 	// with them.
 	if p.status.State == statePreparingToProvision {
 		ok, err := p.validateNode(ironicNode)
-		if err != nil {
-			return result, errors.Wrap(err, "could not validate host during registration")
+		switch err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not validate host during registration, busy")
+			result.Dirty = true
+			return result, nil
+		default:
+			return result, errors.Wrap(err, "failed to validate host during registration")
 		}
 		if !ok {
 			p.status.State = stateValidationError
@@ -591,7 +611,13 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 			nodes.ProvisionStateOpts{
 				Target: nodes.TargetProvide,
 			})
-		if changeResult.Err != nil {
+		switch changeResult.Err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not change provisioning state to provide, busy")
+			result.Dirty = true
+			return result, nil
+		default:
 			return result, errors.Wrap(changeResult.Err,
 				"failed to change provisioning state to provide")
 		}
@@ -639,7 +665,13 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 				ConfigDrive: configDriveData,
 			},
 		)
-		if changeResult.Err != nil {
+		switch changeResult.Err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not trigger provisioning, busy")
+			result.Dirty = true
+			return result, nil
+		default:
 			return result, errors.Wrap(changeResult.Err,
 				"failed to trigger provisioning")
 		}
@@ -707,7 +739,13 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 					},
 				},
 			).Extract()
-			if err != nil {
+			switch err.(type) {
+			case nil:
+			case gophercloud.ErrDefault409:
+				p.log.Info("could not set host maintenance flag, busy")
+				result.Dirty = true
+				return result, nil
+			default:
 				return result, errors.Wrap(err, "failed to set host maintenance flag")
 			}
 		}
@@ -735,6 +773,10 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 		switch err.(type) {
 		case nil:
 			p.log.Info("removed")
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not remove host, busy")
+			result.Dirty = true
+			return result, nil
 		case gophercloud.ErrDefault404:
 			p.log.Info("did not find host to delete, OK")
 		default:
@@ -762,7 +804,13 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 				Target: nodes.TargetDeleted,
 			},
 		)
-		if changeResult.Err != nil {
+		switch changeResult.Err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not delete host, busy")
+			result.Dirty = true
+			return result, nil
+		default:
 			return result, errors.Wrap(changeResult.Err,
 				"failed to trigger deprovisioning")
 		}

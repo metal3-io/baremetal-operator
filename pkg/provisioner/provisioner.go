@@ -31,6 +31,13 @@ type Provisioner interface {
 	// inspection is completed.
 	InspectHardware() (result Result, err error)
 
+	// UpdateHardwareState fetches the latest hardware state of the
+	// server and updates the HardwareDetails field of the host with
+	// details. It is expected to do this in the least expensive way
+	// possible, such as reading from a cache, and return dirty only
+	// if any state information has changed.
+	UpdateHardwareState() (result Result, err error)
+
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.

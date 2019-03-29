@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -386,6 +387,39 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
+	// Check the current power status against the desired power
+	// status.
+	if provResult, err = prov.UpdateHardwareState(); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to update the hardware status")
+	}
+	if provResult.Dirty {
+		if err := r.saveStatus(host); err != nil {
+			return reconcile.Result{}, errors.Wrap(err,
+				"failed to update host hardware state")
+		}
+		return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
+	}
+	if host.Status.PoweredOn != host.Spec.Online {
+		reqLogger.Info("power state change needed",
+			"expected", host.Spec.Online, "actual", host.Status.PoweredOn)
+		if host.Spec.Online {
+			provResult, err = prov.PowerOn()
+		} else {
+			provResult, err = prov.PowerOff()
+		}
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to manage power state of host")
+		}
+		if provResult.Dirty {
+			if err := r.saveStatus(host); err != nil {
+				return reconcile.Result{}, errors.Wrap(err,
+					"failed to save host status after power change")
+			}
+			return reconcile.Result{Requeue: true, RequeueAfter: provResult.RequeueAfter}, nil
+		}
+		return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
+	}
+
 	// If we reach this point we haven't encountered any issues
 	// communicating with the host, so ensure the error message field
 	// is cleared.
@@ -413,9 +447,9 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
-	// Pod already exists - don't requeue
+	// Come back in 60 seconds to keep an eye on the power state
 	reqLogger.Info("Done with reconcile")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {

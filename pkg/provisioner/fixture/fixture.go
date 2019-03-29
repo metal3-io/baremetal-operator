@@ -133,6 +133,17 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 	return result, nil
 }
 
+// UpdateHardwareState fetches the latest hardware state of the server
+// and updates the HardwareDetails field of the host with details. It
+// is expected to do this in the least expensive way possible, such as
+// reading from a cache, and return dirty only if any state
+// information has changed.
+func (p *fixtureProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
+	p.log.Info("updating hardware state")
+	result.Dirty = false
+	return result, nil
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
@@ -211,6 +222,8 @@ func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
 	if !p.host.Status.PoweredOn {
+		p.publisher("PowerOn", "Host powered on")
+		p.log.Info("changing status")
 		p.host.Status.PoweredOn = true
 		result.Dirty = true
 		return result, nil
@@ -225,6 +238,8 @@ func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
 	if p.host.Status.PoweredOn {
+		p.publisher("PowerOff", "Host powered off")
+		p.log.Info("changing status")
 		p.host.Status.PoweredOn = false
 		result.Dirty = true
 		return result, nil

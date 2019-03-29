@@ -28,6 +28,7 @@ import (
 var log = logf.Log.WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
+var powerRequeueDelay = time.Second * 10
 
 const (
 	ironicEndpoint            = "http://localhost:6385/v1/"
@@ -41,6 +42,10 @@ const (
 	stateProvisioning         = "provisioning"
 	stateProvisioned          = "provisioned"
 	stateDeprovisioning       = "deprovisioning"
+	// See nodes.Node.PowerState for details
+	powerOn   = "power on"
+	powerOff  = "power off"
+	powerNone = "None"
 )
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -324,13 +329,12 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
-	_, err = p.findExistingHost()
+	ironicNode, err := p.findExistingHost()
 	if err != nil {
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
-	if p.host.HasError() {
-		p.log.Info("host has error, skipping hardware inspection")
-		return result, nil
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
 	}
 
 	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
@@ -395,6 +399,44 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 		return result, nil
 	}
 
+	return result, nil
+}
+
+// UpdateHardwareState fetches the latest hardware state of the server
+// and updates the HardwareDetails field of the host with details. It
+// is expected to do this in the least expensive way possible, such as
+// reading from a cache, and return dirty only if any state
+// information has changed.
+func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
+	p.log.Info("updating hardware state")
+
+	ironicNode, err := p.findExistingHost()
+	if err != nil {
+		return result, errors.Wrap(err, "failed to find existing host")
+	}
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
+	}
+
+	var discoveredVal bool
+	switch ironicNode.PowerState {
+	case powerOn:
+		discoveredVal = true
+	case powerOff:
+		discoveredVal = false
+	case powerNone:
+		p.log.Info("could not determine power state", "value", ironicNode.PowerState)
+		return result, nil
+	default:
+		p.log.Info("unknown power state", "value", ironicNode.PowerState)
+		return result, nil
+	}
+
+	if discoveredVal != p.host.Status.PoweredOn {
+		p.log.Info("updating power status", "discovered", discoveredVal)
+		p.host.Status.PoweredOn = discoveredVal
+		result.Dirty = true
+	}
 	return result, nil
 }
 
@@ -735,19 +777,61 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 	return result, nil
 }
 
+func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {
+	p.log.Info("changing power state")
+
+	// If we're here, we're going to change the state and we should
+	// wait to try that again.
+	result.RequeueAfter = powerRequeueDelay
+
+	changeResult := nodes.ChangePowerState(
+		p.client,
+		ironicNode.UUID,
+		nodes.PowerStateOpts{
+			Target: target,
+		})
+
+	switch changeResult.Err.(type) {
+	case nil:
+		result.Dirty = true
+		p.log.Info("power change OK")
+	case gophercloud.ErrDefault409:
+		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
+		return result, nil
+	default:
+		p.log.Info("power change error")
+		return result, errors.Wrap(err, "failed to change power state")
+	}
+
+	return result, nil
+}
+
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
 func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	_, err = p.findExistingHost()
+	ironicNode, err := p.findExistingHost()
 	if err != nil {
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 
-	if !p.host.Status.PoweredOn {
-		p.host.Status.PoweredOn = true
-		result.Dirty = true
+	p.log.Info("checking current state",
+		"current", p.host.Status.PoweredOn,
+		"target", ironicNode.TargetPowerState)
+
+	if ironicNode.PowerState != powerOn {
+		if ironicNode.TargetPowerState == powerOn {
+			p.log.Info("waiting for power status to change")
+			result.RequeueAfter = powerRequeueDelay
+			return result, nil
+		}
+		result, err = p.changePower(ironicNode, nodes.PowerOn)
+		if err != nil {
+			result.RequeueAfter = powerRequeueDelay
+			return result, errors.Wrap(err, "failed to power on host")
+		}
+		p.publisher("PowerOn", "Host powered on")
 	}
 
 	return result, nil
@@ -758,14 +842,23 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
-	_, err = p.findExistingHost()
+	ironicNode, err := p.findExistingHost()
 	if err != nil {
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 
-	if p.host.Status.PoweredOn {
-		p.host.Status.PoweredOn = false
-		result.Dirty = true
+	if ironicNode.PowerState != powerOff {
+		if ironicNode.TargetPowerState == powerOff {
+			p.log.Info("waiting for power status to change")
+			result.RequeueAfter = powerRequeueDelay
+			return result, nil
+		}
+		result, err = p.changePower(ironicNode, nodes.PowerOff)
+		if err != nil {
+			result.RequeueAfter = powerRequeueDelay
+			return result, errors.Wrap(err, "failed to power off host")
+		}
+		p.publisher("PowerOff", "Host powered off")
 	}
 
 	return result, nil

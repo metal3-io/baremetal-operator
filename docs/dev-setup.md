@@ -43,7 +43,7 @@ install the operator-sdk tools.
 6. Create the CR
 
     ```
-    kubectl apply -f deploy/crds/metalkube_v1alpha1_baremetalhost_cr.yaml
+    kubectl apply -f deploy/crds/example-host.yaml
     ```
 
 ## Running without Ironic

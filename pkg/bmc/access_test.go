@@ -279,8 +279,27 @@ func TestParseIDRACURLIPv6(t *testing.T) {
 	}
 }
 
+func TestParseIDRACURLNoSep(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("idrac:192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "idrac" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
 func TestIDRACNeedsMAC(t *testing.T) {
-	acc, err := NewAccessDetails("idrac://192.168.122.1/")
+	acc, err := NewAccessDetails("idrac://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -290,7 +309,7 @@ func TestIDRACNeedsMAC(t *testing.T) {
 }
 
 func TestIDRACDriver(t *testing.T) {
-	acc, err := NewAccessDetails("idrac://192.168.122.1/")
+	acc, err := NewAccessDetails("idrac://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -301,35 +320,62 @@ func TestIDRACDriver(t *testing.T) {
 }
 
 func TestIDRACDriverInfo(t *testing.T) {
-	acc, err := NewAccessDetails("idrac://192.168.122.1/")
+	acc, err := NewAccessDetails("idrac://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 	di := acc.DriverInfo(Credentials{})
-	if di["drac_address"] != "http://192.168.122.1/" {
-		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	if di["drac_address"] != "192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["drac_address"])
+	}
+	if _, present := di["drac_port"]; present {
+		t.Fatalf("unexpected port: %v", di["drac_port"])
+	}
+	if _, present := di["drac_protocol"]; present {
+		t.Fatalf("unexpected protocol: %v", di["drac_protocol"])
+	}
+	if _, present := di["drac_path"]; present {
+		t.Fatalf("unexpected path: %v", di["drac_path"])
 	}
 }
 
 func TestIDRACDriverInfoHTTP(t *testing.T) {
-	acc, err := NewAccessDetails("idrac+http://192.168.122.1/")
+	acc, err := NewAccessDetails("idrac+http://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 	di := acc.DriverInfo(Credentials{})
-	if di["drac_address"] != "http://192.168.122.1/" {
-		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	if di["drac_address"] != "192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["drac_address"])
+	}
+	if _, present := di["drac_port"]; present {
+		t.Fatalf("unexpected port: %v", di["drac_port"])
+	}
+	if di["drac_protocol"] != "http" {
+		t.Fatalf("unexpected protocol: %v", di["drac_protocol"])
+	}
+	if _, present := di["drac_path"]; present {
+		t.Fatalf("unexpected path: %v", di["drac_path"])
 	}
 }
 
 func TestIDRACDriverInfoHTTPS(t *testing.T) {
-	acc, err := NewAccessDetails("idrac+https://192.168.122.1/")
+	acc, err := NewAccessDetails("idrac+https://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 	di := acc.DriverInfo(Credentials{})
-	if di["drac_address"] != "https://192.168.122.1/" {
-		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	if di["drac_address"] != "192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["drac_address"])
+	}
+	if _, present := di["drac_port"]; present {
+		t.Fatalf("unexpected port: %v", di["drac_port"])
+	}
+	if di["drac_protocol"] != "https" {
+		t.Fatalf("unexpected protocol: %v", di["drac_protocol"])
+	}
+	if _, present := di["drac_path"]; present {
+		t.Fatalf("unexpected path: %v", di["drac_path"])
 	}
 }
 
@@ -339,8 +385,17 @@ func TestIDRACDriverInfoPort(t *testing.T) {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 	di := acc.DriverInfo(Credentials{})
-	if di["drac_address"] != "http://192.168.122.1:8080/foo" {
-		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	if di["drac_address"] != "192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["drac_address"])
+	}
+	if di["drac_port"] != "8080" {
+		t.Fatalf("unexpected port: %v", di["drac_port"])
+	}
+	if _, present := di["drac_protocol"]; present {
+		t.Fatalf("unexpected protocol: %v", di["drac_protocol"])
+	}
+	if di["drac_path"] != "/foo" {
+		t.Fatalf("unexpected path: %v", di["drac_path"])
 	}
 }
 
@@ -350,8 +405,17 @@ func TestIDRACDriverInfoIPv6(t *testing.T) {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 	di := acc.DriverInfo(Credentials{})
-	if di["drac_address"] != "http://[fe80::fc33:62ff:fe83:8a76]/foo" {
-		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	if di["drac_address"] != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected address: %v", di["drac_address"])
+	}
+	if _, present := di["drac_port"]; present {
+		t.Fatalf("unexpected port: %v", di["drac_port"])
+	}
+	if _, present := di["drac_protocol"]; present {
+		t.Fatalf("unexpected protocol: %v", di["drac_protocol"])
+	}
+	if di["drac_path"] != "/foo" {
+		t.Fatalf("unexpected path: %v", di["drac_path"])
 	}
 }
 
@@ -361,13 +425,22 @@ func TestIDRACDriverInfoIPv6Port(t *testing.T) {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 	di := acc.DriverInfo(Credentials{})
-	if di["drac_address"] != "http://[fe80::fc33:62ff:fe83:8a76]:8080/foo" {
-		t.Fatalf("unexpected port: %v", di["ipmi_port"])
+	if di["drac_address"] != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected address: %v", di["drac_address"])
+	}
+	if di["drac_port"] != "8080" {
+		t.Fatalf("unexpected port: %v", di["drac_port"])
+	}
+	if _, present := di["drac_protocol"]; present {
+		t.Fatalf("unexpected protocol: %v", di["drac_protocol"])
+	}
+	if di["drac_path"] != "/foo" {
+		t.Fatalf("unexpected path: %v", di["drac_path"])
 	}
 }
 
 func TestUnknownType(t *testing.T) {
-	acc, err := NewAccessDetails("foo://192.168.122.1/")
+	acc, err := NewAccessDetails("foo://192.168.122.1")
 	if err == nil || acc != nil {
 		t.Fatal("unexpected parse success")
 	}

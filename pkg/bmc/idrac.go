@@ -1,8 +1,6 @@
 package bmc
 
 import (
-	"fmt"
-	"net/url"
 	"strings"
 )
 
@@ -33,29 +31,22 @@ func (a *iDracAccessDetails) Driver() string {
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
 func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-	host := a.hostname
-	if strings.ContainsRune(host, ':') {
-		// Hostname is an IPv6 address
-		host = fmt.Sprintf("[%s]", host)
-	}
-	if a.portNum != "" {
-		host = fmt.Sprintf("%s:%s", host, a.portNum)
-	}
-
-	scheme := "http"
-	if strings.HasSuffix(a.bmcType, "https") {
-		scheme = "https"
-	}
-
-	address := url.URL{
-		Scheme: scheme,
-		Host:   host,
-		Path:   a.path,
-	}
-
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"drac_username": bmcCreds.Username,
 		"drac_password": bmcCreds.Password,
-		"drac_address":  address.String(),
+		"drac_address":  a.hostname,
 	}
+
+	schemes := strings.Split(a.bmcType, "+")
+	if len(schemes) > 1 {
+		result["drac_protocol"] = schemes[1]
+	}
+	if a.portNum != "" {
+		result["drac_port"] = a.portNum
+	}
+	if a.path != "" {
+		result["drac_path"] = a.path
+	}
+
+	return result
 }

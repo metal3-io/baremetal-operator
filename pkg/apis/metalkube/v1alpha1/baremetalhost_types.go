@@ -342,6 +342,10 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 // status and returns true when more work is needed or false
 // otherwise.
 func (host *BareMetalHost) NeedsProvisioning() bool {
+	if !host.Spec.Online {
+		// The host is not supposed to be powered on.
+		return false
+	}
 	if host.Spec.Image == nil {
 		// Without an image, there is nothing to provision.
 		return false

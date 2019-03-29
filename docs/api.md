@@ -149,3 +149,18 @@ hardware does not match a known profile, the value "unknown" is used.
   host or there is a problem with the host itself. Refer to the
   *errorMessage* field in the status section for more details about
   the error condition.
+
+## Triggering Provisioning
+
+Several conditions must be met in order to initiate provisioning.
+
+1. The host `spec.image.url` field must contain a URL for a valid
+   image file that is visible from within the cluster and from the
+   host receiving the image.
+2. The host must not have an image provisioned, as reflected by the
+   `status.provisioning.image.URL` field being empty. To reuse an
+   existing host with a different image, deprovision the host first.
+3. The host must have `online` set to `true` so that the operator will
+   keep the host powered on.
+
+To initiate deprovisioning, clear the image URL from the host spec.

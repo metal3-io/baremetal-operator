@@ -550,6 +550,15 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 					Path:  "/instance_info/root_gb",
 					Value: 10,
 				},
+				// NOTE(dhellmann): We must fill in *some* value so
+				// that Ironic will monitor the host. We don't have a
+				// nova instance at all, so just give the node it's
+				// UUID again.
+				nodes.UpdateOperation{
+					Op:    op,
+					Path:  "/instance_uuid",
+					Value: p.host.Status.Provisioning.ID,
+				},
 				// FIXME(dhellmann): We need to specify the root
 				// device to receive the image. That should come from
 				// some combination of inspecting the host to see what

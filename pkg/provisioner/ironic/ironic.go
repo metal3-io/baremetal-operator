@@ -13,6 +13,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
+	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
 
 	nodeutils "github.com/gophercloud/utils/openstack/baremetal/v1/nodes"
 
@@ -34,6 +35,7 @@ var powerRequeueDelay = time.Second * 10
 var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
+var inspectorEndpoint string
 
 const (
 	// See nodes.Node.PowerState for details
@@ -60,6 +62,11 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_ENDPOINT variable set\n")
 		os.Exit(1)
 	}
+	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
+	if inspectorEndpoint == "" {
+		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
+		os.Exit(1)
+	}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -75,6 +82,8 @@ type ironicProvisioner struct {
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
 	client *gophercloud.ServiceClient
+	// a client for talking to ironic-inspector
+	inspector *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
 	// an event publisher for recording significant events
@@ -86,6 +95,7 @@ type ironicProvisioner struct {
 func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
 	log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
+		"inspectorEndpoint", inspectorEndpoint,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
 	)
@@ -99,6 +109,13 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
+	inspector, err := noauthintrospection.NewBareMetalIntrospectionNoAuth(
+		noauthintrospection.EndpointOpts{
+			IronicInspectorEndpoint: inspectorEndpoint,
+		})
+	if err != nil {
+		return nil, err
+	}
 	// Ensure we have a microversion high enough to get the features
 	// we need.
 	client.Microversion = "1.50"
@@ -108,6 +125,7 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 		bmcAccess: bmcAccess,
 		bmcCreds:  bmcCreds,
 		client:    client,
+		inspector: inspector,
 		log:       log.WithValues("host", host.Name),
 		publisher: publisher,
 	}

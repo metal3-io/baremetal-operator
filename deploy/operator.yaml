@@ -39,6 +39,8 @@ spec:
               value: "http://172.22.0.1/images/ironic-python-agent.initramfs"
             - name: IRONIC_ENDPOINT
               value: "http://localhost:6385/v1/"
+            - name: IRONIC_INSPECTOR_ENDPOINT
+              value: "http://localhost:5050/v1/"
         # Temporary workaround to talk to an external Ironic process until Ironic is running in this pod.
         - name: ironic-proxy
           image: alpine/socat

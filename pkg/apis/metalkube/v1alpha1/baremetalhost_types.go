@@ -31,11 +31,6 @@ const (
 	// are loaded from Ironic.
 	OperationalStatusDiscovered OperationalStatus = "discovered"
 
-	// OperationalStatusInspecting is the status value for when the
-	// host is powered on and running the discovery image to inspect
-	// the hardware resources on the host.
-	OperationalStatusInspecting OperationalStatus = "inspecting"
-
 	// OperationalStatusError is the status value for when the host
 	// has any sort of error.
 	OperationalStatusError OperationalStatus = "error"

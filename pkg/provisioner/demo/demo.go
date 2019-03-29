@@ -107,17 +107,17 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, err erro
 
 	hostName := p.host.ObjectMeta.Name
 
-	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
+	if p.host.Status.Provisioning.State != provisioner.StateInspecting {
 		// The inspection just started.
 		p.publisher("InspectionStarted", "Hardware inspection started")
 		p.log.Info("starting inspection by setting state")
-		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
+		p.host.Status.Provisioning.State = provisioner.StateInspecting
 		result.Dirty = true
 		return result, nil
 	}
 
 	if hostName == inspectingHost {
-		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
+		p.host.Status.Provisioning.State = provisioner.StateInspecting
 		// set dirty so we don't allow the host to progress past this
 		// state in Reconcile()
 		result.Dirty = true

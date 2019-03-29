@@ -68,11 +68,11 @@ func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Resu
 func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
-	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
+	if p.host.Status.Provisioning.State != provisioner.StateInspecting {
 		// The inspection just started.
 		p.publisher("InspectionStarted", "Hardware inspection started")
 		p.log.Info("starting inspection by setting state")
-		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
+		p.host.Status.Provisioning.State = provisioner.StateInspecting
 		result.Dirty = true
 		return result, nil
 	}
@@ -126,7 +126,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")
-		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusOK)
+		p.host.Status.Provisioning.State = provisioner.StateReady
 		result.Dirty = true
 		return result, nil
 	}
@@ -140,8 +140,10 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 // reading from a cache, and return dirty only if any state
 // information has changed.
 func (p *fixtureProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
-	p.log.Info("updating hardware state")
-	result.Dirty = false
+	if !p.host.NeedsProvisioning() {
+		p.log.Info("updating hardware state")
+		result.Dirty = false
+	}
 	return result, nil
 }
 
@@ -158,7 +160,7 @@ func (p *fixtureProvisioner) Provision(userData string) (result provisioner.Resu
 	// multi-step process to ensure that multiple cycles through the
 	// reconcile loop work properly.
 
-	if p.host.Status.Provisioning.State == "" {
+	if p.host.Status.Provisioning.State == provisioner.StateReady {
 		p.publisher("ProvisioningStarted", "Image provisioning started")
 		p.log.Info("moving to step1")
 		p.host.Status.Provisioning.State = "step1"
@@ -182,6 +184,7 @@ func (p *fixtureProvisioner) Provision(userData string) (result provisioner.Resu
 		return result, nil
 	}
 
+	result.RequeueAfter = 0
 	return result, nil
 }
 

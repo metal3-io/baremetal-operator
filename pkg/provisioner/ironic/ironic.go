@@ -334,11 +334,11 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 		return result, fmt.Errorf("no ironic node for host")
 	}
 
-	if p.host.OperationalStatus() != metalkubev1alpha1.OperationalStatusInspecting {
+	if p.host.Status.Provisioning.State != provisioner.StateInspecting {
 		// The inspection just started.
 		p.publisher("InspectionStarted", "Hardware inspection started")
 		p.log.Info("starting inspection by setting state")
-		p.host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusInspecting)
+		p.host.Status.Provisioning.State = provisioner.StateInspecting
 		result.Dirty = true
 		return result, nil
 	}
@@ -451,7 +451,7 @@ func checksumIsURL(checksumURL string) (bool, error) {
 func (p *ironicProvisioner) Provision(userData string) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
-	p.log.Info("provisioning image to host")
+	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
 
 	// The last time we were here we set the host in an error state.
 	if p.status.State == provisioner.StateValidationError {

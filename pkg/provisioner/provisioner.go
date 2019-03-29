@@ -95,4 +95,7 @@ const (
 	// StateDeprovisioning means we are removing an image from the
 	// host's disk(s)
 	StateDeprovisioning = "deprovisioning"
+	// StateInspecting means we are running the agent on the host to
+	// learn about the hardware components available there
+	StateInspecting = "inspecting"
 )

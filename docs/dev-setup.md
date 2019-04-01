@@ -78,13 +78,13 @@ spec:
   bootMACAddress: 00:73:49:3a:76:8e
 ```
 
-The `make-worker` utility can be used to generate a YAML file for
+The `make-virt-worker` utility can be used to generate a YAML file for
 registering a host. It takes as input the name of the `virsh` domain
 and produces as output the basic YAML to register that host properly,
 with the boot MAC address and BMC address filled in.
 
 ```
-$ go run cmd/make-worker/main.go openshift_worker_1
+$ go run cmd/make-virt-worker/main.go openshift_worker_1
 ---
 apiVersion: v1
 kind: Secret
@@ -111,5 +111,34 @@ spec:
 The output can be passed directly to `oc apply` like this:
 
 ```
-$ go run cmd/make-worker/main.go openshift_worker_1 | oc apply -f -
+$ go run cmd/make-virt-worker/main.go openshift_worker_1 | oc apply -f -
+```
+
+## Using Bare Metal Hosts
+
+The `make-bm-worker` tool may be a more convenient way of creating
+YAML definitions for workers than editing the files directly.
+
+```
+$ go run cmd/make-bm-worker/main.go -address 1.2.3.4 -password password -user admin worker-99
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: worker-99-bmc-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: worker-99
+spec:
+  online: true
+  bmc:
+    address: 1.2.3.4
+    credentialsName: worker-99-bmc-secret
 ```

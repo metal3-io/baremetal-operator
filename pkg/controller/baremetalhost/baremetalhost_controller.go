@@ -274,6 +274,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	phases := []reconcilePhase{
 		{name: "delete", action: r.phaseDelete},
 		{name: "validate access", action: r.phaseValidateAccess},
+		{name: "inspect hardware", action: r.phaseInspectHardware},
 	}
 	for _, phase := range phases {
 		ctx.log = reqLogger.WithValues("phase", phase.name)
@@ -306,36 +307,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"after", (*phaseResult).RequeueAfter,
 		)
 		return *phaseResult, nil
-	}
-
-	// Ensure we have the information about the hardware on the host.
-	if host.Status.HardwareDetails == nil {
-		provResult, err = prov.InspectHardware()
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "hardware inspection failed")
-		}
-		if provResult.Dirty || dirty {
-			reqLogger.Info("saving hardware details after inspecting hardware",
-				"state", host.Status.Provisioning.State,
-				"status", host.Status.OperationalStatus)
-			if err := r.saveStatus(host); err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					"failed to save hardware details after inspection")
-			}
-			res := reconcile.Result{
-				Requeue:      true,
-				RequeueAfter: provResult.RequeueAfter,
-			}
-			return res, nil
-		}
-
-		if host.HasError() {
-			// We have tried to inspect the hardware and that failed
-			// in a way we assume is not retryable, so do not proceed
-			// to any other steps.
-			reqLogger.Info("hardware inspection error")
-			return reconcile.Result{}, nil
-		}
 	}
 
 	// FIXME(dhellmann): Insert logic to match hardware profiles here.
@@ -532,10 +503,10 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 	return nil
 }
 
+// Test the credentials by connecting to the management controller.
 func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	// Test the credentials by connecting to the management controller.
 	if !ctx.host.CredentialsNeedValidation(*ctx.bmcCredsSecret) {
 		return nil, nil
 	}
@@ -552,9 +523,6 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (resu
 		return &reconcile.Result{}, nil
 	}
 
-	// If the provisioner still has work to do, we should wait before
-	// checking in again.
-	ctx.log.Info("after validation", "provResult", provResult)
 	if provResult.Dirty {
 		// Set Requeue true as well as RequeueAfter in case the delay
 		// is 0.
@@ -576,6 +544,34 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (resu
 		RequeueAfter: provResult.RequeueAfter,
 	}
 	return result, nil
+}
+
+// Ensure we have the information about the hardware on the host.
+func (r *ReconcileBareMetalHost) phaseInspectHardware(ctx reconcileContext) (result *reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	if ctx.host.Status.HardwareDetails != nil {
+		return nil, nil
+	}
+
+	provResult, err = ctx.provisioner.InspectHardware()
+	if err != nil {
+		return nil, errors.Wrap(err, "hardware inspection failed")
+	}
+	if provResult.Dirty {
+		res := &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: provResult.RequeueAfter,
+		}
+		return res, nil
+	}
+
+	// FIXME(dhellmann): Since we test the HardwareDetails pointer
+	// here in this function, perhaps it makes sense to have
+	// InspectHardware() return a value and store it here in this
+	// function. That would eliminate duplication in the provisioners
+	// and make this phase consistent with the structure of others.
+	return nil, nil
 }
 
 // Make sure the credentials for the management controller look

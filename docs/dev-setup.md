@@ -113,3 +113,32 @@ The output can be passed directly to `oc apply` like this:
 ```
 $ go run cmd/make-virt-worker/main.go openshift_worker_1 | oc apply -f -
 ```
+
+## Using Bare Metal Hosts
+
+The `make-bm-worker` tool may be a more convenient way of creating
+YAML definitions for workers than editing the files directly.
+
+```
+$ go run cmd/make-bm-worker/main.go -address 1.2.3.4 -password password -user admin worker-99
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: worker-99-bmc-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: worker-99
+spec:
+  online: true
+  bmc:
+    address: 1.2.3.4
+    credentialsName: worker-99-bmc-secret
+```

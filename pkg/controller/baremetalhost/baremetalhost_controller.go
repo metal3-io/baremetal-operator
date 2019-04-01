@@ -116,10 +116,12 @@ type ReconcileBareMetalHost struct {
 // Instead of passing a zillion arguments to the action of a phase,
 // hold them in a context
 type reconcileContext struct {
-	log         logr.Logger
-	host        *metalkubev1alpha1.BareMetalHost
-	provisioner provisioner.Provisioner
-	request     reconcile.Request
+	log            logr.Logger
+	host           *metalkubev1alpha1.BareMetalHost
+	provisioner    provisioner.Provisioner
+	request        reconcile.Request
+	publisher      provisioner.EventPublisher
+	bmcCredsSecret *corev1.Secret
 }
 
 // Action for one step of reconciliation.
@@ -166,6 +168,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, errors.Wrap(err, "could not load host data")
 	}
+
+	// NOTE(dhellmann): Handle a few steps outside of the phase
+	// structure because they require extra data lookup (like the
+	// credential checks) or have to be done "first" (like delete
+	// handling) to avoid looping.
 
 	// Add a finalizer to newly created objects.
 	if host.ObjectMeta.DeletionTimestamp.IsZero() && !hostHasFinalizer(host) {
@@ -256,20 +263,22 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	ctx := reconcileContext{
-		log:         reqLogger,
-		host:        host,
-		provisioner: prov,
-		request:     request,
+		log:            reqLogger,
+		host:           host,
+		provisioner:    prov,
+		request:        request,
+		publisher:      publisher,
+		bmcCredsSecret: bmcCredsSecret,
 	}
 
 	phases := []reconcilePhase{
 		{name: "delete", action: r.phaseDelete},
+		{name: "validate access", action: r.phaseValidateAccess},
 	}
 	for _, phase := range phases {
-		log := reqLogger.WithValues("phase", phase.name)
-		ctx.log = log
+		ctx.log = reqLogger.WithValues("phase", phase.name)
 
-		log.Info("starting")
+		ctx.log.Info("starting")
 		phaseResult, err := phase.action(ctx)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("phase %s failed", phase.name))
@@ -278,7 +287,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			continue
 		}
 
-		log.Info("saving status")
+		ctx.log.Info("saving status")
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %s phase", phase.name))
@@ -288,66 +297,15 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			// We have tried to do something that failed in a way we
 			// assume is not retryable, so do not proceed to any other
 			// steps.
-			log.Info("stopping on host error")
+			ctx.log.Info("stopping on host error")
 			return reconcile.Result{}, nil
 		}
 
-		log.Info("phase done",
+		ctx.log.Info("phase done",
 			"requeue", (*phaseResult).Requeue,
 			"after", (*phaseResult).RequeueAfter,
 		)
 		return *phaseResult, nil
-	}
-
-	// Test the credentials by connecting to the management controller.
-	if host.CredentialsNeedValidation(*bmcCredsSecret) {
-
-		provResult, err = prov.ValidateManagementAccess()
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to validate BMC access")
-		}
-
-		// We may have changed the host during validation or when we
-		// cleared the error state above. In either case, save now.
-		reqLogger.Info("after validation", "provResult", provResult)
-		if provResult.Dirty {
-			reqLogger.Info("saving status after validating management access")
-			if err := r.saveStatus(host); err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					"failed to save provisioning host status")
-			}
-			// We need to wait before checking with the provisioner
-			// again.
-			reqLogger.Info("host not ready", "delay", provResult.RequeueAfter)
-			result := reconcile.Result{
-				Requeue:      true,
-				RequeueAfter: provResult.RequeueAfter,
-			}
-			return result, nil
-		}
-
-		if host.HasError() {
-			// We have tried to register and validate the host and
-			// that failed in a way we assume is not retryable, so do
-			// not proceed to any other steps.
-			reqLogger.Info("registration error")
-			return reconcile.Result{}, nil
-		}
-
-		// Reaching this point means the credentials are valid and
-		// worked, so record that in the status block.
-		reqLogger.Info("updating credentials success status fields")
-		host.UpdateGoodCredentials(*bmcCredsSecret)
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
-				"failed to update credentials success status fields")
-		}
-	}
-	if host.Status.Provisioning.State == provisioner.StateRegistrationError {
-		// We have tried to register and validate the host and that
-		// failed, so do not proceed to any other steps.
-		reqLogger.Info("registration error, stopping")
-		return reconcile.Result{}, nil
 	}
 
 	// Ensure we have the information about the hardware on the host.
@@ -572,6 +530,52 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 	}
 
 	return nil
+}
+
+func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (result *reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	// Test the credentials by connecting to the management controller.
+	if !ctx.host.CredentialsNeedValidation(*ctx.bmcCredsSecret) {
+		return nil, nil
+	}
+
+	provResult, err = ctx.provisioner.ValidateManagementAccess()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to validate BMC access")
+	}
+
+	if ctx.host.Status.Provisioning.State == provisioner.StateRegistrationError {
+		// We have tried to register and validate the host and that
+		// failed, so do not proceed to any other steps.
+		ctx.log.Info("registration error, stopping")
+		return &reconcile.Result{}, nil
+	}
+
+	// If the provisioner still has work to do, we should wait before
+	// checking in again.
+	ctx.log.Info("after validation", "provResult", provResult)
+	if provResult.Dirty {
+		// Set Requeue true as well as RequeueAfter in case the delay
+		// is 0.
+		ctx.log.Info("host not ready")
+		result = &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: provResult.RequeueAfter,
+		}
+		return result, nil
+	}
+
+	// Reaching this point means the credentials are valid and worked,
+	// so record that in the status block.
+	ctx.log.Info("updating credentials success status fields")
+	ctx.host.UpdateGoodCredentials(*ctx.bmcCredsSecret)
+
+	result = &reconcile.Result{
+		Requeue:      true,
+		RequeueAfter: provResult.RequeueAfter,
+	}
+	return result, nil
 }
 
 // Make sure the credentials for the management controller look

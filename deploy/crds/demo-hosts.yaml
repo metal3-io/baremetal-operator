@@ -29,6 +29,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-registration-error
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -49,6 +51,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-registering
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -69,6 +73,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-ready
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -89,6 +95,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-inspecting
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -109,6 +117,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-preparing-to-provision
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -137,6 +147,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-available
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -164,6 +176,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-provisioning
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -191,6 +205,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-provisioned
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:
@@ -218,6 +234,8 @@ apiVersion: metalkube.org/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-validation-error
+  labels:
+    metalkubedemo: ""
 spec:
   online: true
   bmc:

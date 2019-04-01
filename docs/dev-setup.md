@@ -78,13 +78,13 @@ spec:
   bootMACAddress: 00:73:49:3a:76:8e
 ```
 
-The `make-worker` utility can be used to generate a YAML file for
+The `make-virt-worker` utility can be used to generate a YAML file for
 registering a host. It takes as input the name of the `virsh` domain
 and produces as output the basic YAML to register that host properly,
 with the boot MAC address and BMC address filled in.
 
 ```
-$ go run cmd/make-worker/main.go openshift_worker_1
+$ go run cmd/make-virt-worker/main.go openshift_worker_1
 ---
 apiVersion: v1
 kind: Secret
@@ -111,5 +111,5 @@ spec:
 The output can be passed directly to `oc apply` like this:
 
 ```
-$ go run cmd/make-worker/main.go openshift_worker_1 | oc apply -f -
+$ go run cmd/make-virt-worker/main.go openshift_worker_1 | oc apply -f -
 ```

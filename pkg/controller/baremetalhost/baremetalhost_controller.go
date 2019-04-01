@@ -275,6 +275,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		{name: "delete", action: r.phaseDelete},
 		{name: "validate access", action: r.phaseValidateAccess},
 		{name: "inspect hardware", action: r.phaseInspectHardware},
+		{name: "hardware profile", action: r.phaseSetHardwareProfile},
 	}
 	for _, phase := range phases {
 		ctx.log = reqLogger.WithValues("phase", phase.name)
@@ -307,18 +308,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"after", (*phaseResult).RequeueAfter,
 		)
 		return *phaseResult, nil
-	}
-
-	// FIXME(dhellmann): Insert logic to match hardware profiles here.
-	hardwareProfile := "unknown"
-	if host.SetHardwareProfile(hardwareProfile) {
-		reqLogger.Info("updating hardware profile", "profile", hardwareProfile)
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
-				"failed to save host after updating hardware profile")
-		}
-		r.publishEvent(request, host, "ProfileSet", "Hardware profile set")
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Start/continue provisioning if we need to.
@@ -571,6 +560,19 @@ func (r *ReconcileBareMetalHost) phaseInspectHardware(ctx reconcileContext) (res
 	// InspectHardware() return a value and store it here in this
 	// function. That would eliminate duplication in the provisioners
 	// and make this phase consistent with the structure of others.
+	return nil, nil
+}
+
+func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(ctx reconcileContext) (result *reconcile.Result, err error) {
+
+	// FIXME(dhellmann): Insert logic to match hardware profiles here.
+	hardwareProfile := "unknown"
+	if ctx.host.SetHardwareProfile(hardwareProfile) {
+		ctx.log.Info("updating hardware profile", "profile", hardwareProfile)
+		ctx.publisher("ProfileSet", "Hardware profile set")
+		return &reconcile.Result{Requeue: true}, nil
+	}
+
 	return nil, nil
 }
 

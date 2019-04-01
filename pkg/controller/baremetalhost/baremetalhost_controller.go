@@ -277,6 +277,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		{name: "hardware profile", action: r.phaseSetHardwareProfile},
 		{name: "provisioning", action: r.phaseProvisioning},
 		{name: "deprovisioning", action: r.phaseDeprovisioning},
+		{name: "check hardware state", action: r.phaseCheckHardwareState},
 	}
 	for _, phase := range phases {
 		ctx.log = reqLogger.WithValues("phase", phase.name)
@@ -313,16 +314,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Check the current power status against the desired power
 	// status.
-	if provResult, err = prov.UpdateHardwareState(); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to update the hardware status")
-	}
-	if provResult.Dirty {
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
-				"failed to update host hardware state")
-		}
-		return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
-	}
 	if host.Status.PoweredOn != host.Spec.Online {
 		reqLogger.Info("power state change needed",
 			"expected", host.Spec.Online, "actual", host.Status.PoweredOn)
@@ -568,7 +559,29 @@ func (r *ReconcileBareMetalHost) phaseDeprovisioning(ctx reconcileContext) (resu
 		return nil, errors.Wrap(err, "failed to deprovision")
 	}
 	if provResult.Dirty {
-		return &reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
+		result = &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: provResult.RequeueAfter,
+		}
+		return result, nil
+	}
+
+	return nil, nil
+}
+
+func (r *ReconcileBareMetalHost) phaseCheckHardwareState(ctx reconcileContext) (result *reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	if provResult, err = ctx.provisioner.UpdateHardwareState(); err != nil {
+		return nil, errors.Wrap(err, "failed to update the hardware status")
+	}
+
+	if provResult.Dirty {
+		result = &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: provResult.RequeueAfter,
+		}
+		return result, nil
 	}
 
 	return nil, nil

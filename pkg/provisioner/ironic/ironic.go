@@ -14,6 +14,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
+	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	nodeutils "github.com/gophercloud/utils/openstack/baremetal/v1/nodes"
 
@@ -32,6 +33,7 @@ var log = logf.Log.WithName("baremetalhost_ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var powerRequeueDelay = time.Second * 10
+var introspectionRequeueDelay = time.Second * 15
 var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
@@ -380,10 +382,35 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 		return result, fmt.Errorf("no ironic node for host")
 	}
 
-	// The inspection is ongoing. We'll need to check the ironic
-	// status for the server here until it is ready for us to get the
-	// inspection details. Simulate that for now by creating the
-	// hardware details struct as part of a second pass.
+	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
+	if err != nil {
+		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
+			p.log.Info("starting new hardware inspection")
+			manageBoot := true
+			start := introspection.StartIntrospection(p.inspector,
+				ironicNode.UUID,
+				introspection.StartOpts{ManageBoot: &manageBoot})
+			if err := start.ExtractErr(); err != nil {
+				return result, errors.Wrap(err, "failed to begin hardware inspection")
+			}
+			result.Dirty = true
+			return result, nil
+		}
+		return result, errors.Wrap(err, "failed to extract hardware inspection status")
+	}
+	if !status.Finished {
+		p.log.Info("inspection in progress", "started_at", status.StartedAt)
+		result.Dirty = true // make sure we check back
+		result.RequeueAfter = introspectionRequeueDelay
+		return result, nil
+	}
+	if status.Error != "" {
+		p.log.Info("inspection failed", "error", status.Error)
+		result.ErrorMessage = status.Error
+		return result, nil
+	}
+
+	// Introspection is ongoing
 	if p.host.Status.HardwareDetails == nil {
 		p.log.Info("continuing inspection by setting details")
 		p.host.Status.HardwareDetails =

@@ -108,7 +108,6 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, err erro
 	hostName := p.host.ObjectMeta.Name
 
 	if hostName == InspectingHost {
-		p.host.Status.Provisioning.State = metal3v1alpha1.StateInspecting
 		// set dirty so we don't allow the host to progress past this
 		// state in Reconcile()
 		result.Dirty = true

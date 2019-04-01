@@ -1,0 +1,232 @@
+# # Use this file with the -demo flag to the controller to produce 1
+# # host in each state.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-discovered-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-discovered
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-registration-error-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-registration-error
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.1:6233
+    credentialsName: demo-registration-error-secret
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-registering-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-registering
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.2:6233
+    credentialsName: demo-registering-secret
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-ready-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-ready
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.3:6233
+    credentialsName: demo-ready-secret
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-inspecting-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-inspecting
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.4:6233
+    credentialsName: demo-inspecting-secret
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-preparing-to-provision-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-preparing-to-provision
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.5:6233
+    credentialsName: demo-preparing-to-provision-secret
+  bootMACAddress: 00:c6:14:04:61:b2
+  online: true
+  userData:
+    namespace: openshift-machine-api
+    name: worker-user-data
+  image:
+    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-available-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-available
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.7:6233
+    credentialsName: demo-available-secret
+  bootMACAddress: 00:c6:14:04:61:b2
+  userData:
+    namespace: openshift-machine-api
+    name: worker-user-data
+  image:
+    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-provisioning-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-provisioning
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.6:6233
+    credentialsName: demo-provisioning-secret
+  bootMACAddress: 00:c6:14:04:61:b2
+  userData:
+    namespace: openshift-machine-api
+    name: worker-user-data
+  image:
+    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-provisioned-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-provisioned
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.8:6233
+    credentialsName: demo-provisioned-secret
+  bootMACAddress: 00:c6:14:04:61:b2
+  userData:
+    namespace: openshift-machine-api
+    name: worker-user-data
+  image:
+    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-validation-error-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-validation-error
+spec:
+  online: true
+  bmc:
+    address: ipmi://192.168.122.8:6233
+    credentialsName: demo-validation-error-secret
+  bootMACAddress: 00:c6:14:04:61:b2
+  userData:
+    namespace: openshift-machine-api
+    name: worker-user-data
+  image:
+    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"

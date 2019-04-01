@@ -276,6 +276,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		{name: "inspect hardware", action: r.phaseInspectHardware},
 		{name: "hardware profile", action: r.phaseSetHardwareProfile},
 		{name: "provisioning", action: r.phaseProvisioning},
+		{name: "deprovisioning", action: r.phaseDeprovisioning},
 	}
 	for _, phase := range phases {
 		ctx.log = reqLogger.WithValues("phase", phase.name)
@@ -308,23 +309,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"after", (*phaseResult).RequeueAfter,
 		)
 		return *phaseResult, nil
-	}
-
-	// Start/continue deprovisioning if we need to.
-	if host.NeedsDeprovisioning() {
-		if provResult, err = prov.Deprovision(false); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to deprovision")
-		}
-		if provResult.Dirty {
-			if err := r.saveStatus(host); err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					"failed to clear host status on deprovision")
-			}
-			// Go back into the queue and wait for the Deprovision() method
-			// to return false, indicating that it has no more work to
-			// do.
-			return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
-		}
 	}
 
 	// Check the current power status against the desired power
@@ -568,6 +552,23 @@ func (r *ReconcileBareMetalHost) phaseProvisioning(ctx reconcileContext) (result
 			RequeueAfter: provResult.RequeueAfter,
 		}
 		return result, nil
+	}
+
+	return nil, nil
+}
+
+func (r *ReconcileBareMetalHost) phaseDeprovisioning(ctx reconcileContext) (result *reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	if !ctx.host.NeedsDeprovisioning() {
+		return nil, nil
+	}
+
+	if provResult, err = ctx.provisioner.Deprovision(false); err != nil {
+		return nil, errors.Wrap(err, "failed to deprovision")
+	}
+	if provResult.Dirty {
+		return &reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
 	}
 
 	return nil, nil

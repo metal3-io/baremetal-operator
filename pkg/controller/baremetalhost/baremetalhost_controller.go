@@ -3,6 +3,7 @@ package baremetalhost
 import (
 	"context"
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,6 +15,8 @@ import (
 	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metalkube/baremetal-operator/pkg/utils"
+
+	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -108,6 +111,28 @@ type ReconcileBareMetalHost struct {
 	client             client.Client
 	scheme             *runtime.Scheme
 	provisionerFactory provisioner.Factory
+}
+
+// Instead of passing a zillion arguments to the action of a phase,
+// hold them in a context
+type reconcileContext struct {
+	log         logr.Logger
+	host        *metalkubev1alpha1.BareMetalHost
+	provisioner provisioner.Provisioner
+	request     reconcile.Request
+}
+
+// Action for one step of reconciliation.
+//
+// - Return a result if the host should be saved and requeued without error.
+// - Return error if there was an error.
+// - Return double nil if nothing was done and processing should continue.
+type reconcileAction func(context reconcileContext) (*reconcile.Result, error)
+
+// One step of reconciliation
+type reconcilePhase struct {
+	name   string
+	action reconcileAction
 }
 
 // Reconcile reads that state of the cluster for a BareMetalHost
@@ -230,40 +255,48 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	// Handle delete operations.
-	if !host.ObjectMeta.DeletionTimestamp.IsZero() {
-		reqLogger.Info(
-			"marked to be deleted",
-			"timestamp", host.ObjectMeta.DeletionTimestamp,
-		)
-		// no-op if finalizer has been removed.
-		if !utils.StringInList(host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
-			reqLogger.Info("BareMetalHost is ready to be deleted")
+	ctx := reconcileContext{
+		log:         reqLogger,
+		host:        host,
+		provisioner: prov,
+		request:     request,
+	}
+
+	phases := []reconcilePhase{
+		{name: "delete", action: r.phaseDelete},
+	}
+	for _, phase := range phases {
+		log := reqLogger.WithValues("phase", phase.name)
+		ctx.log = log
+
+		log.Info("starting")
+		phaseResult, err := phase.action(ctx)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("phase %s failed", phase.name))
+		}
+		if phaseResult == nil {
+			continue
+		}
+
+		log.Info("saving status")
+		if err = r.saveStatus(host); err != nil {
+			return reconcile.Result{}, errors.Wrap(err,
+				fmt.Sprintf("failed to save host status after %s phase", phase.name))
+		}
+
+		if host.HasError() {
+			// We have tried to do something that failed in a way we
+			// assume is not retryable, so do not proceed to any other
+			// steps.
+			log.Info("stopping on host error")
 			return reconcile.Result{}, nil
 		}
 
-		if provResult, err = prov.Deprovision(true); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to deprovision")
-		}
-		if provResult.Dirty {
-			if err := r.saveStatus(host); err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					"failed to clear host status on deprovision")
-			}
-			// Go back into the queue and wait for the Deprovision() method
-			// to return false, indicating that it has no more work to
-			// do.
-			return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
-		}
-
-		// Remove finalizer to allow deletion
-		reqLogger.Info("cleanup is complete, removing finalizer")
-		host.ObjectMeta.Finalizers = utils.FilterStringFromList(
-			host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
-		if err := r.client.Update(context.TODO(), host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to remove finalizer")
-		}
-		return reconcile.Result{}, nil // done
+		log.Info("phase done",
+			"requeue", (*phaseResult).Requeue,
+			"after", (*phaseResult).RequeueAfter,
+		)
+		return *phaseResult, nil
 	}
 
 	// Test the credentials by connecting to the management controller.
@@ -472,6 +505,50 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	// Come back in 60 seconds to keep an eye on the power state
 	reqLogger.Info("Done with reconcile")
 	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+}
+
+// Handle delete operations.
+func (r *ReconcileBareMetalHost) phaseDelete(ctx reconcileContext) (result *reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	if ctx.host.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Not requesting delete
+		return nil, nil
+	}
+	ctx.log.Info(
+		"marked to be deleted",
+		"timestamp", ctx.host.ObjectMeta.DeletionTimestamp,
+	)
+
+	// no-op if finalizer has been removed.
+	if !utils.StringInList(ctx.host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+		ctx.log.Info("ready to be deleted")
+		return &reconcile.Result{}, nil
+	}
+
+	if provResult, err = ctx.provisioner.Deprovision(true); err != nil {
+		return nil, errors.Wrap(err, "failed to deprovision")
+	}
+	if provResult.Dirty {
+		if err := r.saveStatus(ctx.host); err != nil {
+			return nil, errors.Wrap(err,
+				"failed to clear host status on deprovision")
+		}
+		// Go back into the queue and wait for the Deprovision() method
+		// to return false, indicating that it has no more work to
+		// do.
+		return &reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
+	}
+
+	// Remove finalizer to allow deletion
+	ctx.log.Info("cleanup is complete, removing finalizer")
+	ctx.host.ObjectMeta.Finalizers = utils.FilterStringFromList(
+		ctx.host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
+	if err := r.client.Update(context.Background(), ctx.host); err != nil {
+		return nil, errors.Wrap(err, "failed to remove finalizer")
+	}
+
+	return &reconcile.Result{}, nil
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {

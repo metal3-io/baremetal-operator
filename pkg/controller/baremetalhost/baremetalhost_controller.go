@@ -147,8 +147,6 @@ type reconcilePhase struct {
 // queue.
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 
-	var provResult provisioner.Result // result of any provisioner call
-
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling BareMetalHost")
@@ -278,6 +276,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		{name: "provisioning", action: r.phaseProvisioning},
 		{name: "deprovisioning", action: r.phaseDeprovisioning},
 		{name: "check hardware state", action: r.phaseCheckHardwareState},
+		{name: "manage power", action: r.phaseManagePower},
 	}
 	for _, phase := range phases {
 		ctx.log = reqLogger.WithValues("phase", phase.name)
@@ -310,29 +309,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"after", (*phaseResult).RequeueAfter,
 		)
 		return *phaseResult, nil
-	}
-
-	// Check the current power status against the desired power
-	// status.
-	if host.Status.PoweredOn != host.Spec.Online {
-		reqLogger.Info("power state change needed",
-			"expected", host.Spec.Online, "actual", host.Status.PoweredOn)
-		if host.Spec.Online {
-			provResult, err = prov.PowerOn()
-		} else {
-			provResult, err = prov.PowerOff()
-		}
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to manage power state of host")
-		}
-		if provResult.Dirty {
-			if err := r.saveStatus(host); err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					"failed to save host status after power change")
-			}
-			return reconcile.Result{Requeue: true, RequeueAfter: provResult.RequeueAfter}, nil
-		}
-		return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
 	}
 
 	// If we have nothing else to do and there is no LastUpdated
@@ -569,11 +545,44 @@ func (r *ReconcileBareMetalHost) phaseDeprovisioning(ctx reconcileContext) (resu
 	return nil, nil
 }
 
+// Ask the backend about the current state of the hardware.
 func (r *ReconcileBareMetalHost) phaseCheckHardwareState(ctx reconcileContext) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	if provResult, err = ctx.provisioner.UpdateHardwareState(); err != nil {
 		return nil, errors.Wrap(err, "failed to update the hardware status")
+	}
+
+	if provResult.Dirty {
+		result = &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: provResult.RequeueAfter,
+		}
+		return result, nil
+	}
+
+	return nil, nil
+}
+
+// Check the current power status against the desired power status.
+func (r *ReconcileBareMetalHost) phaseManagePower(ctx reconcileContext) (result *reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	if ctx.host.Status.PoweredOn == ctx.host.Spec.Online {
+		return nil, nil
+	}
+
+	ctx.log.Info("power state change needed",
+		"expected", ctx.host.Spec.Online,
+		"actual", ctx.host.Status.PoweredOn)
+
+	if ctx.host.Spec.Online {
+		provResult, err = ctx.provisioner.PowerOn()
+	} else {
+		provResult, err = ctx.provisioner.PowerOff()
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to manage power state of host")
 	}
 
 	if provResult.Dirty {

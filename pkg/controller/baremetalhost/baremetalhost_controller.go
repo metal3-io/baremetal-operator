@@ -147,7 +147,6 @@ type reconcilePhase struct {
 // queue.
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 
-	var dirty bool                    // have we updated the host status but not saved it?
 	var provResult provisioner.Result // result of any provisioner call
 
 	reqLogger := log.WithValues("Request.Namespace",
@@ -276,6 +275,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		{name: "validate access", action: r.phaseValidateAccess},
 		{name: "inspect hardware", action: r.phaseInspectHardware},
 		{name: "hardware profile", action: r.phaseSetHardwareProfile},
+		{name: "provisioning", action: r.phaseProvisioning},
 	}
 	for _, phase := range phases {
 		ctx.log = reqLogger.WithValues("phase", phase.name)
@@ -308,57 +308,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			"after", (*phaseResult).RequeueAfter,
 		)
 		return *phaseResult, nil
-	}
-
-	// Start/continue provisioning if we need to.
-	if host.NeedsProvisioning() {
-		var userData string
-
-		// FIXME(dhellmann): Maybe instead of loading this every time
-		// through the loop we want to provide a callback for
-		// Provision() to invoke when it actually needs the data.
-		if host.Spec.UserData != nil {
-			reqLogger.Info("fetching user data before provisioning")
-			userDataSecret := &corev1.Secret{}
-			key := types.NamespacedName{
-				Name:      host.Spec.UserData.Name,
-				Namespace: host.Spec.UserData.Namespace,
-			}
-			err = r.client.Get(context.TODO(), key, userDataSecret)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					"failed to fetch user data from secret reference")
-			}
-			userData = string(userDataSecret.Data["userData"])
-		}
-
-		reqLogger.Info("provisioning")
-
-		provResult, err = prov.Provision(userData)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to provision")
-		}
-		if provResult.Dirty || dirty {
-			if err := r.saveStatus(host); err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					"failed to save host status after provisioning")
-			}
-			// Go back into the queue and wait for the Provision() method
-			// to return false, indicating that it has no more work to
-			// do.
-			res := reconcile.Result{
-				Requeue:      true,
-				RequeueAfter: provResult.RequeueAfter,
-			}
-			return res, nil
-		}
-		if host.HasError() {
-			// We have tried to provision the host and that failed in
-			// a way we assume is not retryable, so do not proceed to
-			// any other steps.
-			reqLogger.Info("needs provisioning but has error")
-			return reconcile.Result{}, nil
-		}
 	}
 
 	// Start/continue deprovisioning if we need to.
@@ -571,6 +520,54 @@ func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(ctx reconcileContext) (
 		ctx.log.Info("updating hardware profile", "profile", hardwareProfile)
 		ctx.publisher("ProfileSet", "Hardware profile set")
 		return &reconcile.Result{Requeue: true}, nil
+	}
+
+	return nil, nil
+}
+
+// Start/continue provisioning if we need to.
+func (r *ReconcileBareMetalHost) phaseProvisioning(ctx reconcileContext) (result *reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	if !ctx.host.NeedsProvisioning() {
+		return nil, nil
+	}
+
+	var userData string
+
+	// FIXME(dhellmann): Maybe instead of loading this every time
+	// through the loop we want to provide a callback for
+	// Provision() to invoke when it actually needs the data.
+	if ctx.host.Spec.UserData != nil {
+		ctx.log.Info("fetching user data before provisioning")
+		userDataSecret := &corev1.Secret{}
+		key := types.NamespacedName{
+			Name:      ctx.host.Spec.UserData.Name,
+			Namespace: ctx.host.Spec.UserData.Namespace,
+		}
+		err = r.client.Get(context.TODO(), key, userDataSecret)
+		if err != nil {
+			return nil, errors.Wrap(err,
+				"failed to fetch user data from secret reference")
+		}
+		userData = string(userDataSecret.Data["userData"])
+	}
+
+	ctx.log.Info("provisioning")
+
+	provResult, err = ctx.provisioner.Provision(userData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to provision")
+	}
+	if provResult.Dirty {
+		// Go back into the queue and wait for the Provision() method
+		// to return false, indicating that it has no more work to
+		// do.
+		result = &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: provResult.RequeueAfter,
+		}
+		return result, nil
 	}
 
 	return nil, nil

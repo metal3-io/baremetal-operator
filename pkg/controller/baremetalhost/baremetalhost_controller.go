@@ -290,10 +290,12 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			continue
 		}
 
-		ctx.log.Info("saving status")
-		if err = r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
-				fmt.Sprintf("failed to save host status after %s phase", phase.name))
+		if phaseResult.Requeue {
+			ctx.log.Info("saving host status")
+			if err = r.saveStatus(host); err != nil {
+				return reconcile.Result{}, errors.Wrap(err,
+					fmt.Sprintf("failed to save host status after %s phase", phase.name))
+			}
 		}
 
 		if host.HasError() {
@@ -330,9 +332,9 @@ func (r *ReconcileBareMetalHost) phaseDelete(ctx reconcileContext) (result *reco
 	var provResult provisioner.Result
 
 	if ctx.host.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Not requesting delete
 		return nil, nil
 	}
+
 	ctx.log.Info(
 		"marked to be deleted",
 		"timestamp", ctx.host.ObjectMeta.DeletionTimestamp,
@@ -341,21 +343,21 @@ func (r *ReconcileBareMetalHost) phaseDelete(ctx reconcileContext) (result *reco
 	// no-op if finalizer has been removed.
 	if !utils.StringInList(ctx.host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
 		ctx.log.Info("ready to be deleted")
+		// There is nothing to save and no reason to requeue since we
+		// are being deleted.
 		return &reconcile.Result{}, nil
 	}
 
+	ctx.log.Info("deprovisioning")
 	if provResult, err = ctx.provisioner.Deprovision(true); err != nil {
 		return nil, errors.Wrap(err, "failed to deprovision")
 	}
 	if provResult.Dirty {
-		if err := r.saveStatus(ctx.host); err != nil {
-			return nil, errors.Wrap(err,
-				"failed to clear host status on deprovision")
+		result = &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: provResult.RequeueAfter,
 		}
-		// Go back into the queue and wait for the Deprovision() method
-		// to return false, indicating that it has no more work to
-		// do.
-		return &reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
+		return result, nil
 	}
 
 	// Remove finalizer to allow deletion
@@ -369,29 +371,6 @@ func (r *ReconcileBareMetalHost) phaseDelete(ctx reconcileContext) (result *reco
 	return &reconcile.Result{}, nil
 }
 
-func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {
-	t := metav1.Now()
-	host.Status.LastUpdated = &t
-	return r.client.Status().Update(context.TODO(), host)
-}
-
-func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, message string) error {
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-
-	if host.SetErrorMessage(message) {
-		reqLogger.Info(
-			"adding error message",
-			"message", message,
-		)
-		if err := r.saveStatus(host); err != nil {
-			return errors.Wrap(err, "failed to update error message")
-		}
-	}
-
-	return nil
-}
-
 // Test the credentials by connecting to the management controller.
 func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
@@ -400,6 +379,8 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (resu
 		return nil, nil
 	}
 
+	ctx.log.Info("validating access to management controller")
+
 	provResult, err = ctx.provisioner.ValidateManagementAccess()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to validate BMC access")
@@ -407,9 +388,11 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (resu
 
 	if ctx.host.Status.Provisioning.State == provisioner.StateRegistrationError {
 		// We have tried to register and validate the host and that
-		// failed, so do not proceed to any other steps.
-		ctx.log.Info("registration error, stopping")
-		return &reconcile.Result{}, nil
+		// failed. We have to return Requeue=true to ensure the host
+		// object is saved before the main loop stops when it sees the
+		// host error.
+		ctx.log.Info("registration error")
+		return &reconcile.Result{Requeue: true}, nil
 	}
 
 	if provResult.Dirty {
@@ -442,6 +425,8 @@ func (r *ReconcileBareMetalHost) phaseInspectHardware(ctx reconcileContext) (res
 	if ctx.host.Status.HardwareDetails != nil {
 		return nil, nil
 	}
+
+	ctx.log.Info("inspecting hardware")
 
 	provResult, err = ctx.provisioner.InspectHardware()
 	if err != nil {
@@ -479,12 +464,11 @@ func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(ctx reconcileContext) (
 // Start/continue provisioning if we need to.
 func (r *ReconcileBareMetalHost) phaseProvisioning(ctx reconcileContext) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
+	var userData string
 
 	if !ctx.host.NeedsProvisioning() {
 		return nil, nil
 	}
-
-	var userData string
 
 	// FIXME(dhellmann): Maybe instead of loading this every time
 	// through the loop we want to provide a callback for
@@ -530,6 +514,8 @@ func (r *ReconcileBareMetalHost) phaseDeprovisioning(ctx reconcileContext) (resu
 	if !ctx.host.NeedsDeprovisioning() {
 		return nil, nil
 	}
+
+	ctx.log.Info("deprovisioning")
 
 	if provResult, err = ctx.provisioner.Deprovision(false); err != nil {
 		return nil, errors.Wrap(err, "failed to deprovision")
@@ -594,6 +580,29 @@ func (r *ReconcileBareMetalHost) phaseManagePower(ctx reconcileContext) (result 
 	}
 
 	return nil, nil
+}
+
+func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {
+	t := metav1.Now()
+	host.Status.LastUpdated = &t
+	return r.client.Status().Update(context.TODO(), host)
+}
+
+func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, message string) error {
+	reqLogger := log.WithValues("Request.Namespace",
+		request.Namespace, "Request.Name", request.Name)
+
+	if host.SetErrorMessage(message) {
+		reqLogger.Info(
+			"adding error message",
+			"message", message,
+		)
+		if err := r.saveStatus(host); err != nil {
+			return errors.Wrap(err, "failed to update error message")
+		}
+	}
+
+	return nil
 }
 
 // Make sure the credentials for the management controller look

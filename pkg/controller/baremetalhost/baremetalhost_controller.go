@@ -3,7 +3,6 @@ package baremetalhost
 import (
 	"context"
 	"flag"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -459,31 +458,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{Requeue: true, RequeueAfter: provResult.RequeueAfter}, nil
 		}
 		return reconcile.Result{RequeueAfter: provResult.RequeueAfter}, nil
-	}
-
-	// If we reach this point we haven't encountered any issues
-	// communicating with the host, so ensure the error message field
-	// is cleared.
-	previousError := host.Status.ErrorMessage
-	if host.ClearError() {
-		if previousError != "" {
-			r.publishEvent(request, host,
-				"ClearedError", fmt.Sprintf("Resolved previous error condition : %s",
-					previousError))
-		} else {
-			r.publishEvent(request, host,
-				"ClearedError", "Resolved previous error condition")
-		}
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to clear error")
-		}
-		if host.HasError() {
-			// We have tried to deprovision the host and that failed
-			// in a way we assume is not retryable, so do not proceed
-			// to any other steps.
-			reqLogger.Info("registration error")
-			return reconcile.Result{}, nil
-		}
 	}
 
 	// If we have nothing else to do and there is no LastUpdated

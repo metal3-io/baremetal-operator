@@ -72,21 +72,31 @@ spec:
     address: libvirt://192.168.122.1:{{ .BMCPort }}/
     credentialsName: {{ .Domain }}-bmc-secret
   bootMACAddress: {{ .MAC }}
+{{- if .WithImage }}
   userData:
     namespace: openshift-machine-api
     name: worker-user-data
   image:
     url: "{{ .ImageSourceURL }}"
     checksum: "{{ .Checksum }}"
+{{- end }}{{ if .WithMachine }}
+  machineRef:
+    name: {{ .Machine }}
+    namespace: {{ .MachineNamespace }}
+{{ end }}
 `
 
 // TemplateArgs holds the arguments to pass to the template.
 type TemplateArgs struct {
-	Domain         string
-	MAC            string
-	BMCPort        int
-	Checksum       string
-	ImageSourceURL string
+	Domain           string
+	MAC              string
+	BMCPort          int
+	Checksum         string
+	ImageSourceURL   string
+	WithMachine      bool
+	Machine          string
+	MachineNamespace string
+	WithImage        bool
 }
 
 /*
@@ -109,7 +119,12 @@ type VBMC struct {
 func main() {
 	var provisionNet = flag.String(
 		"provision-net", "provisioning", "use the MAC on this network")
+	var machine = flag.String(
+		"machine", "", "specify name of a related, existing, machine to link")
+	var machineNamespace = flag.String(
+		"machine-namespace", "", "specify namespace of a related, existing, machine to link")
 	var verbose = flag.Bool("v", false, "turn on verbose output")
+	var withImage = flag.Bool("image", false, "include image settings for immediate provisioning")
 	var desiredMAC string
 
 	flag.Parse()
@@ -175,11 +190,17 @@ func main() {
 	}
 
 	args := TemplateArgs{
-		Domain:         strings.Replace(virshDomain, "_", "-", -1),
-		MAC:            desiredMAC,
-		BMCPort:        nameToPort[virshDomain],
-		Checksum:       instanceImageChecksumURL,
-		ImageSourceURL: strings.TrimSpace(instanceImageSource),
+		Domain:           strings.Replace(virshDomain, "_", "-", -1),
+		MAC:              desiredMAC,
+		BMCPort:          nameToPort[virshDomain],
+		WithImage:        *withImage,
+		Checksum:         instanceImageChecksumURL,
+		ImageSourceURL:   strings.TrimSpace(instanceImageSource),
+		Machine:          strings.TrimSpace(*machine),
+		MachineNamespace: strings.TrimSpace(*machineNamespace),
+	}
+	if args.Machine != "" {
+		args.WithMachine = true
 	}
 	t := template.Must(template.New("yaml_out").Parse(templateBody))
 	err = t.Execute(os.Stdout, args)

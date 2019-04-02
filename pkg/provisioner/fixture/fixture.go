@@ -163,22 +163,15 @@ func (p *fixtureProvisioner) Provision(userData string) (result provisioner.Resu
 	if p.host.Status.Provisioning.State == provisioner.StateReady {
 		p.publisher("ProvisioningStarted", "Image provisioning started")
 		p.log.Info("moving to step1")
-		p.host.Status.Provisioning.State = "step1"
+		p.host.Status.Provisioning.State = provisioner.StateProvisioning
 		result.Dirty = true
 		return result, nil
 	}
 
-	if p.host.Status.Provisioning.State == "step1" {
-		p.log.Info("moving to step2")
-		p.host.Status.Provisioning.State = "step2"
-		result.Dirty = true
-		return result, nil
-	}
-
-	if p.host.Status.Provisioning.State == "step2" {
+	if p.host.Status.Provisioning.State == provisioner.StateProvisioning {
 		p.publisher("ProvisioningComplete", "Image provisioning completed")
 		p.log.Info("moving to done")
-		p.host.Status.Provisioning.State = "done"
+		p.host.Status.Provisioning.State = provisioner.StateProvisioned
 		p.host.Status.Provisioning.Image = *p.host.Spec.Image
 		result.Dirty = true
 		return result, nil

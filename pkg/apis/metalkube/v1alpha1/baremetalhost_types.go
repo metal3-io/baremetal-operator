@@ -333,6 +333,17 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 	return false
 }
 
+// NeedsHardwareInspection looks at the state of the host to determine
+// if hardware inspection should be run.
+func (host *BareMetalHost) NeedsHardwareInspection() bool {
+	if host.Status.MachineRef != nil {
+		// Never perform inspection if we already know which machine
+		// this is.
+		return false
+	}
+	return host.Status.HardwareDetails == nil
+}
+
 // NeedsProvisioning compares the settings with the provisioning
 // status and returns true when more work is needed or false
 // otherwise.

@@ -115,7 +115,7 @@ type ReconcileBareMetalHost struct {
 
 // Instead of passing a zillion arguments to the action of a phase,
 // hold them in a context
-type reconcileContext struct {
+type reconcileInfo struct {
 	log            logr.Logger
 	host           *metalkubev1alpha1.BareMetalHost
 	provisioner    provisioner.Provisioner
@@ -129,7 +129,7 @@ type reconcileContext struct {
 // - Return a result if the host should be saved and requeued without error.
 // - Return error if there was an error.
 // - Return double nil if nothing was done and processing should continue.
-type reconcileAction func(context reconcileContext) (*reconcile.Result, error)
+type reconcileAction func(info reconcileInfo) (*reconcile.Result, error)
 
 // One step of reconciliation
 type reconcilePhase struct {
@@ -259,7 +259,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	ctx := reconcileContext{
+	info := reconcileInfo{
 		log:            reqLogger,
 		host:           host,
 		provisioner:    prov,
@@ -279,10 +279,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		{name: "manage power", action: r.phaseManagePower},
 	}
 	for _, phase := range phases {
-		ctx.log = reqLogger.WithValues("phase", phase.name)
+		info.log = reqLogger.WithValues("phase", phase.name)
 
-		ctx.log.Info("starting")
-		phaseResult, err := phase.action(ctx)
+		info.log.Info("starting")
+		phaseResult, err := phase.action(info)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("phase %s failed", phase.name))
 		}
@@ -290,7 +290,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			continue
 		}
 
-		ctx.log.Info("saving host status")
+		info.log.Info("saving host status")
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %s phase", phase.name))
@@ -300,11 +300,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			// We have tried to do something that failed in a way we
 			// assume is not retryable, so do not proceed to any other
 			// steps.
-			ctx.log.Info("stopping on host error")
+			info.log.Info("stopping on host error")
 			return reconcile.Result{}, nil
 		}
 
-		ctx.log.Info("phase done",
+		info.log.Info("phase done",
 			"requeue", (*phaseResult).Requeue,
 			"after", (*phaseResult).RequeueAfter,
 		)
@@ -326,28 +326,28 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 }
 
 // Handle delete operations.
-func (r *ReconcileBareMetalHost) phaseDelete(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseDelete(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if ctx.host.ObjectMeta.DeletionTimestamp.IsZero() {
+	if info.host.ObjectMeta.DeletionTimestamp.IsZero() {
 		return nil, nil
 	}
 
-	ctx.log.Info(
+	info.log.Info(
 		"marked to be deleted",
-		"timestamp", ctx.host.ObjectMeta.DeletionTimestamp,
+		"timestamp", info.host.ObjectMeta.DeletionTimestamp,
 	)
 
 	// no-op if finalizer has been removed.
-	if !utils.StringInList(ctx.host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
-		ctx.log.Info("ready to be deleted")
+	if !utils.StringInList(info.host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+		info.log.Info("ready to be deleted")
 		// There is nothing to save and no reason to requeue since we
 		// are being deleted.
 		return &reconcile.Result{}, nil
 	}
 
-	ctx.log.Info("deprovisioning")
-	if provResult, err = ctx.provisioner.Deprovision(true); err != nil {
+	info.log.Info("deprovisioning")
+	if provResult, err = info.provisioner.Deprovision(true); err != nil {
 		return nil, errors.Wrap(err, "failed to deprovision")
 	}
 	if provResult.Dirty {
@@ -359,10 +359,10 @@ func (r *ReconcileBareMetalHost) phaseDelete(ctx reconcileContext) (result *reco
 	}
 
 	// Remove finalizer to allow deletion
-	ctx.log.Info("cleanup is complete, removing finalizer")
-	ctx.host.ObjectMeta.Finalizers = utils.FilterStringFromList(
-		ctx.host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
-	if err := r.client.Update(context.Background(), ctx.host); err != nil {
+	info.log.Info("cleanup is complete, removing finalizer")
+	info.host.ObjectMeta.Finalizers = utils.FilterStringFromList(
+		info.host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
+	if err := r.client.Update(context.Background(), info.host); err != nil {
 		return nil, errors.Wrap(err, "failed to remove finalizer")
 	}
 
@@ -370,33 +370,33 @@ func (r *ReconcileBareMetalHost) phaseDelete(ctx reconcileContext) (result *reco
 }
 
 // Test the credentials by connecting to the management controller.
-func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseValidateAccess(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if !ctx.host.CredentialsNeedValidation(*ctx.bmcCredsSecret) {
+	if !info.host.CredentialsNeedValidation(*info.bmcCredsSecret) {
 		return nil, nil
 	}
 
-	ctx.log.Info("validating access to management controller")
+	info.log.Info("validating access to management controller")
 
-	provResult, err = ctx.provisioner.ValidateManagementAccess()
+	provResult, err = info.provisioner.ValidateManagementAccess()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to validate BMC access")
 	}
 
-	if ctx.host.Status.Provisioning.State == provisioner.StateRegistrationError {
+	if info.host.Status.Provisioning.State == provisioner.StateRegistrationError {
 		// We have tried to register and validate the host and that
 		// failed. We have to return Requeue=true to ensure the host
 		// object is saved before the main loop stops when it sees the
 		// host error.
-		ctx.log.Info("registration error")
+		info.log.Info("registration error")
 		return &reconcile.Result{Requeue: true}, nil
 	}
 
 	if provResult.Dirty {
 		// Set Requeue true as well as RequeueAfter in case the delay
 		// is 0.
-		ctx.log.Info("host not ready")
+		info.log.Info("host not ready")
 		result = &reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: provResult.RequeueAfter,
@@ -406,8 +406,8 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (resu
 
 	// Reaching this point means the credentials are valid and worked,
 	// so record that in the status block.
-	ctx.log.Info("updating credentials success status fields")
-	ctx.host.UpdateGoodCredentials(*ctx.bmcCredsSecret)
+	info.log.Info("updating credentials success status fields")
+	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 
 	result = &reconcile.Result{
 		Requeue:      true,
@@ -417,16 +417,16 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(ctx reconcileContext) (resu
 }
 
 // Ensure we have the information about the hardware on the host.
-func (r *ReconcileBareMetalHost) phaseInspectHardware(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseInspectHardware(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if ctx.host.Status.HardwareDetails != nil {
+	if info.host.Status.HardwareDetails != nil {
 		return nil, nil
 	}
 
-	ctx.log.Info("inspecting hardware")
+	info.log.Info("inspecting hardware")
 
-	provResult, err = ctx.provisioner.InspectHardware()
+	provResult, err = info.provisioner.InspectHardware()
 	if err != nil {
 		return nil, errors.Wrap(err, "hardware inspection failed")
 	}
@@ -446,13 +446,13 @@ func (r *ReconcileBareMetalHost) phaseInspectHardware(ctx reconcileContext) (res
 	return nil, nil
 }
 
-func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info reconcileInfo) (result *reconcile.Result, err error) {
 
 	// FIXME(dhellmann): Insert logic to match hardware profiles here.
 	hardwareProfile := "unknown"
-	if ctx.host.SetHardwareProfile(hardwareProfile) {
-		ctx.log.Info("updating hardware profile", "profile", hardwareProfile)
-		ctx.publisher("ProfileSet", "Hardware profile set")
+	if info.host.SetHardwareProfile(hardwareProfile) {
+		info.log.Info("updating hardware profile", "profile", hardwareProfile)
+		info.publisher("ProfileSet", "Hardware profile set")
 		return &reconcile.Result{Requeue: true}, nil
 	}
 
@@ -460,23 +460,23 @@ func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(ctx reconcileContext) (
 }
 
 // Start/continue provisioning if we need to.
-func (r *ReconcileBareMetalHost) phaseProvisioning(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseProvisioning(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 	var userData string
 
-	if !ctx.host.NeedsProvisioning() {
+	if !info.host.NeedsProvisioning() {
 		return nil, nil
 	}
 
 	// FIXME(dhellmann): Maybe instead of loading this every time
 	// through the loop we want to provide a callback for
 	// Provision() to invoke when it actually needs the data.
-	if ctx.host.Spec.UserData != nil {
-		ctx.log.Info("fetching user data before provisioning")
+	if info.host.Spec.UserData != nil {
+		info.log.Info("fetching user data before provisioning")
 		userDataSecret := &corev1.Secret{}
 		key := types.NamespacedName{
-			Name:      ctx.host.Spec.UserData.Name,
-			Namespace: ctx.host.Spec.UserData.Namespace,
+			Name:      info.host.Spec.UserData.Name,
+			Namespace: info.host.Spec.UserData.Namespace,
 		}
 		err = r.client.Get(context.TODO(), key, userDataSecret)
 		if err != nil {
@@ -486,9 +486,9 @@ func (r *ReconcileBareMetalHost) phaseProvisioning(ctx reconcileContext) (result
 		userData = string(userDataSecret.Data["userData"])
 	}
 
-	ctx.log.Info("provisioning")
+	info.log.Info("provisioning")
 
-	provResult, err = ctx.provisioner.Provision(userData)
+	provResult, err = info.provisioner.Provision(userData)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to provision")
 	}
@@ -506,16 +506,16 @@ func (r *ReconcileBareMetalHost) phaseProvisioning(ctx reconcileContext) (result
 	return nil, nil
 }
 
-func (r *ReconcileBareMetalHost) phaseDeprovisioning(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseDeprovisioning(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if !ctx.host.NeedsDeprovisioning() {
+	if !info.host.NeedsDeprovisioning() {
 		return nil, nil
 	}
 
-	ctx.log.Info("deprovisioning")
+	info.log.Info("deprovisioning")
 
-	if provResult, err = ctx.provisioner.Deprovision(false); err != nil {
+	if provResult, err = info.provisioner.Deprovision(false); err != nil {
 		return nil, errors.Wrap(err, "failed to deprovision")
 	}
 	if provResult.Dirty {
@@ -530,10 +530,10 @@ func (r *ReconcileBareMetalHost) phaseDeprovisioning(ctx reconcileContext) (resu
 }
 
 // Ask the backend about the current state of the hardware.
-func (r *ReconcileBareMetalHost) phaseCheckHardwareState(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseCheckHardwareState(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if provResult, err = ctx.provisioner.UpdateHardwareState(); err != nil {
+	if provResult, err = info.provisioner.UpdateHardwareState(); err != nil {
 		return nil, errors.Wrap(err, "failed to update the hardware status")
 	}
 
@@ -549,21 +549,21 @@ func (r *ReconcileBareMetalHost) phaseCheckHardwareState(ctx reconcileContext) (
 }
 
 // Check the current power status against the desired power status.
-func (r *ReconcileBareMetalHost) phaseManagePower(ctx reconcileContext) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseManagePower(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if ctx.host.Status.PoweredOn == ctx.host.Spec.Online {
+	if info.host.Status.PoweredOn == info.host.Spec.Online {
 		return nil, nil
 	}
 
-	ctx.log.Info("power state change needed",
-		"expected", ctx.host.Spec.Online,
-		"actual", ctx.host.Status.PoweredOn)
+	info.log.Info("power state change needed",
+		"expected", info.host.Spec.Online,
+		"actual", info.host.Status.PoweredOn)
 
-	if ctx.host.Spec.Online {
-		provResult, err = ctx.provisioner.PowerOn()
+	if info.host.Spec.Online {
+		provResult, err = info.provisioner.PowerOn()
 	} else {
-		provResult, err = ctx.provisioner.PowerOff()
+		provResult, err = info.provisioner.PowerOff()
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to manage power state of host")

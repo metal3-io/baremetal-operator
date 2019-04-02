@@ -391,6 +391,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 					},
 				},
 			}
+		p.host.Status.Provisioning.State = provisioner.StateReady
 		p.publisher("InspectionComplete", "Hardware inspection completed")
 		result.Dirty = true
 		return result, nil

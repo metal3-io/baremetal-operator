@@ -290,12 +290,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 			continue
 		}
 
-		if phaseResult.Requeue {
-			ctx.log.Info("saving host status")
-			if err = r.saveStatus(host); err != nil {
-				return reconcile.Result{}, errors.Wrap(err,
-					fmt.Sprintf("failed to save host status after %s phase", phase.name))
-			}
+		ctx.log.Info("saving host status")
+		if err = r.saveStatus(host); err != nil {
+			return reconcile.Result{}, errors.Wrap(err,
+				fmt.Sprintf("failed to save host status after %s phase", phase.name))
 		}
 
 		if host.HasError() {

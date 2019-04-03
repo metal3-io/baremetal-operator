@@ -220,9 +220,13 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info(bmc.MissingAddressMsg)
 		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
 		if dirty {
-			r.publishEvent(request,
-				host.NewEvent("Discovered", "Discovered host without BMC address"))
 			err = r.saveStatus(host)
+			if err != nil {
+				// Only publish the event if we do not have an error
+				// after saving so that we only publish one time.
+				r.publishEvent(request,
+					host.NewEvent("Discovered", "Discovered host without BMC address"))
+			}
 			// Without the address we can't do any more so we return here
 			// without checking for an error.
 			return reconcile.Result{Requeue: true}, err
@@ -234,9 +238,13 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info(bmc.MissingCredentialsMsg)
 		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
 		if dirty {
-			r.publishEvent(request,
-				host.NewEvent("Discovered", "Discovered host without BMC credentials"))
 			err = r.saveStatus(host)
+			if err != nil {
+				// Only publish the event if we do not have an error
+				// after saving so that we only publish one time.
+				r.publishEvent(request,
+					host.NewEvent("Discovered", "Discovered host without BMC credentials"))
+			}
 			// Without any credentials we can't do any more so we return
 			// here without checking for an error.
 			return reconcile.Result{Requeue: true}, err
@@ -302,12 +310,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		}
 
 		for _, e := range info.events {
-			log.Info("publishing event", "reason", e.Reason, "message", e.Message)
-			err := r.client.Create(context.Background(), &e)
-			if err != nil {
-				reqLogger.Info("failed to record event",
-					"reason", e.Reason, "message", e.Message)
-			}
+			r.publishEvent(request, e)
 		}
 
 		if host.HasError() {
@@ -643,8 +646,12 @@ func (r *ReconcileBareMetalHost) getValidBMCCredentials(request reconcile.Reques
 	// Verify that the secret contains the expected info.
 	if validCreds, reason := bmcCreds.AreValid(); !validCreds {
 		reqLogger.Info("invalid BMC Credentials", "reason", reason)
-		r.publishEvent(request, host.NewEvent("BMCCredentialError", reason))
 		err := r.setErrorCondition(request, host, reason)
+		if err != nil {
+			// Only publish the event if we do not have an error
+			// after saving so that we only publish one time.
+			r.publishEvent(request, host.NewEvent("BMCCredentialError", reason))
+		}
 		return nil, nil, errors.Wrap(err, "failed to set error condition")
 	}
 

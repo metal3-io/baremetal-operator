@@ -409,6 +409,8 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(info reconcileInfo) (result
 	info.log.Info("updating credentials success status fields")
 	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 
+	info.publisher("BMCAccessValidated", "Verified access to BMC")
+
 	result = &reconcile.Result{
 		Requeue:      true,
 		RequeueAfter: provResult.RequeueAfter,

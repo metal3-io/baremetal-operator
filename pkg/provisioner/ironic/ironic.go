@@ -448,7 +448,7 @@ func checksumIsURL(checksumURL string) (bool, error) {
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Provision(userData string) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
@@ -643,6 +643,10 @@ func (p *ironicProvisioner) Provision(userData string) (result provisioner.Resul
 		// able to accept the user data string directly, without
 		// building the ISO image first.
 		var configDriveData string
+		userData, err := getUserData()
+		if err != nil {
+			return result, errors.Wrap(err, "could not retrieve user data")
+		}
 		if userData != "" {
 			configDrive := nodeutils.ConfigDrive{
 				UserData: nodeutils.UserDataString(userData),

@@ -462,16 +462,12 @@ func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info reconcileInfo) (re
 // Start/continue provisioning if we need to.
 func (r *ReconcileBareMetalHost) phaseProvisioning(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
-	var userData string
 
 	if !info.host.NeedsProvisioning() {
 		return nil, nil
 	}
 
-	// FIXME(dhellmann): Maybe instead of loading this every time
-	// through the loop we want to provide a callback for
-	// Provision() to invoke when it actually needs the data.
-	if info.host.Spec.UserData != nil {
+	getUserData := func() (string, error) {
 		info.log.Info("fetching user data before provisioning")
 		userDataSecret := &corev1.Secret{}
 		key := types.NamespacedName{
@@ -480,15 +476,15 @@ func (r *ReconcileBareMetalHost) phaseProvisioning(info reconcileInfo) (result *
 		}
 		err = r.client.Get(context.TODO(), key, userDataSecret)
 		if err != nil {
-			return nil, errors.Wrap(err,
+			return "", errors.Wrap(err,
 				"failed to fetch user data from secret reference")
 		}
-		userData = string(userDataSecret.Data["userData"])
+		return string(userDataSecret.Data["userData"]), nil
 	}
 
 	info.log.Info("provisioning")
 
-	provResult, err = info.provisioner.Provision(userData)
+	provResult, err = info.provisioner.Provision(getUserData)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to provision")
 	}

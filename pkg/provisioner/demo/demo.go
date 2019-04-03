@@ -196,7 +196,7 @@ func (p *demoProvisioner) UpdateHardwareState() (result provisioner.Result, err 
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *demoProvisioner) Provision(userData string) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
 
 	hostName := p.host.ObjectMeta.Name
 	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)

@@ -129,7 +129,7 @@ type reconcileInfo struct {
 // - Return a result if the host should be saved and requeued without error.
 // - Return error if there was an error.
 // - Return double nil if nothing was done and processing should continue.
-type reconcileAction func(info reconcileInfo) (*reconcile.Result, error)
+type reconcileAction func(info *reconcileInfo) (*reconcile.Result, error)
 
 // One step of reconciliation
 type reconcilePhase struct {
@@ -259,7 +259,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	info := reconcileInfo{
+	info := &reconcileInfo{
 		log:            reqLogger,
 		host:           host,
 		provisioner:    prov,
@@ -326,7 +326,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 }
 
 // Handle delete operations.
-func (r *ReconcileBareMetalHost) phaseDelete(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseDelete(info *reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	if info.host.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -370,7 +370,7 @@ func (r *ReconcileBareMetalHost) phaseDelete(info reconcileInfo) (result *reconc
 }
 
 // Test the credentials by connecting to the management controller.
-func (r *ReconcileBareMetalHost) phaseValidateAccess(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseValidateAccess(info *reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	if !info.host.CredentialsNeedValidation(*info.bmcCredsSecret) {
@@ -419,7 +419,7 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(info reconcileInfo) (result
 }
 
 // Ensure we have the information about the hardware on the host.
-func (r *ReconcileBareMetalHost) phaseInspectHardware(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseInspectHardware(info *reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	if info.host.Status.HardwareDetails != nil {
@@ -448,7 +448,7 @@ func (r *ReconcileBareMetalHost) phaseInspectHardware(info reconcileInfo) (resul
 	return nil, nil
 }
 
-func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info *reconcileInfo) (result *reconcile.Result, err error) {
 
 	// FIXME(dhellmann): Insert logic to match hardware profiles here.
 	hardwareProfile := "unknown"
@@ -462,7 +462,7 @@ func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info reconcileInfo) (re
 }
 
 // Start/continue provisioning if we need to.
-func (r *ReconcileBareMetalHost) phaseProvisioning(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseProvisioning(info *reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 	var userData string
 
@@ -508,7 +508,7 @@ func (r *ReconcileBareMetalHost) phaseProvisioning(info reconcileInfo) (result *
 	return nil, nil
 }
 
-func (r *ReconcileBareMetalHost) phaseDeprovisioning(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseDeprovisioning(info *reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	if !info.host.NeedsDeprovisioning() {
@@ -532,7 +532,7 @@ func (r *ReconcileBareMetalHost) phaseDeprovisioning(info reconcileInfo) (result
 }
 
 // Ask the backend about the current state of the hardware.
-func (r *ReconcileBareMetalHost) phaseCheckHardwareState(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseCheckHardwareState(info *reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	if provResult, err = info.provisioner.UpdateHardwareState(); err != nil {
@@ -551,7 +551,7 @@ func (r *ReconcileBareMetalHost) phaseCheckHardwareState(info reconcileInfo) (re
 }
 
 // Check the current power status against the desired power status.
-func (r *ReconcileBareMetalHost) phaseManagePower(info reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) phaseManagePower(info *reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	if info.host.Status.PoweredOn == info.host.Spec.Online {

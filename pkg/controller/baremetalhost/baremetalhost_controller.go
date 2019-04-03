@@ -452,7 +452,7 @@ func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info reconcileInfo) (re
 	hardwareProfile := "unknown"
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
-		info.publisher("ProfileSet", "Hardware profile set")
+		info.publisher("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 		return &reconcile.Result{Requeue: true}, nil
 	}
 

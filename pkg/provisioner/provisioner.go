@@ -18,6 +18,10 @@ type EventPublisher func(reason, message string)
 // Factory is the interface for creating new Provisioner objects.
 type Factory func(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
 
+// UserDataSource is the interface for a function to retrieve user
+// data for a host being provisioned.
+type UserDataSource func() (string, error)
+
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
@@ -41,7 +45,7 @@ type Provisioner interface {
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.
-	Provision(userData string) (result Result, err error)
+	Provision(getUserData UserDataSource) (result Result, err error)
 
 	// Deprovision prepares the host to be removed from the cluster. It
 	// may be called multiple times, and should return true for its dirty

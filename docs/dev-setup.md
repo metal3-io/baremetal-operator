@@ -78,13 +78,13 @@ spec:
   bootMACAddress: 00:73:49:3a:76:8e
 ```
 
-The `make-virt-worker` utility can be used to generate a YAML file for
+The `make-virt-host` utility can be used to generate a YAML file for
 registering a host. It takes as input the name of the `virsh` domain
 and produces as output the basic YAML to register that host properly,
 with the boot MAC address and BMC address filled in.
 
 ```
-$ go run cmd/make-virt-worker/main.go openshift_worker_1
+$ go run cmd/make-virt-host/main.go openshift_worker_1
 ---
 apiVersion: v1
 kind: Secret
@@ -111,7 +111,39 @@ spec:
 The output can be passed directly to `oc apply` like this:
 
 ```
-$ go run cmd/make-virt-worker/main.go openshift_worker_1 | oc apply -f -
+$ go run cmd/make-virt-host/main.go openshift_worker_1 | oc apply -f -
+```
+
+When the host is a *master*, include the `-machine` and
+`-machine-namespace` options to associate the host with the existing
+`Machine` object.
+
+```
+$ go run cmd/make-virt-host/main.go -machine ostest-master-1 -machine-namespace openshift-machine-api  openshift_master_1
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openshift-master-1-bmc-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: openshift-master-1
+spec:
+  online: true
+  bmc:
+    address: libvirt://192.168.122.1:6231/
+    credentialsName: openshift-master-1-bmc-secret
+  bootMACAddress: 00:c9:a0:f2:e0:59
+  machineRef:
+    name: ostest-master-1
+    namespace: openshift-machine-api
 ```
 
 ## Using Bare Metal Hosts

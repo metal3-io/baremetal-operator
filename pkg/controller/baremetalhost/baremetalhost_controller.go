@@ -422,7 +422,7 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(info reconcileInfo) (result
 func (r *ReconcileBareMetalHost) phaseInspectHardware(info reconcileInfo) (result *reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if info.host.Status.HardwareDetails != nil {
+	if !info.host.NeedsHardwareInspection() {
 		return nil, nil
 	}
 

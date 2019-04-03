@@ -120,8 +120,13 @@ type reconcileInfo struct {
 	host           *metalkubev1alpha1.BareMetalHost
 	provisioner    provisioner.Provisioner
 	request        reconcile.Request
-	publisher      provisioner.EventPublisher
 	bmcCredsSecret *corev1.Secret
+	events         []corev1.Event
+}
+
+// match the provisioner.EventPublisher interface
+func (info *reconcileInfo) publishEvent(reason, message string) {
+	info.events = append(info.events, info.host.NewEvent(reason, message))
 }
 
 // Action for one step of reconciliation.
@@ -215,7 +220,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info(bmc.MissingAddressMsg)
 		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
 		if dirty {
-			r.publishEvent(request, host, "Discovered", "Discovered host without BMC address")
+			r.publishEvent(request,
+				host.NewEvent("Discovered", "Discovered host without BMC address"))
 			err = r.saveStatus(host)
 			// Without the address we can't do any more so we return here
 			// without checking for an error.
@@ -228,7 +234,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info(bmc.MissingCredentialsMsg)
 		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
 		if dirty {
-			r.publishEvent(request, host, "Discovered", "Discovered host without BMC credentials")
+			r.publishEvent(request,
+				host.NewEvent("Discovered", "Discovered host without BMC credentials"))
 			err = r.saveStatus(host)
 			// Without any credentials we can't do any more so we return
 			// here without checking for an error.
@@ -250,23 +257,18 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil
 	}
 
-	// Past this point we may need a provisioner, so create one.
-	publisher := func(reason, message string) {
-		r.publishEvent(request, host, reason, message)
-	}
-	prov, err := r.provisionerFactory(host, *bmcCreds, publisher)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
-	}
-
 	info := &reconcileInfo{
 		log:            reqLogger,
 		host:           host,
-		provisioner:    prov,
 		request:        request,
-		publisher:      publisher,
 		bmcCredsSecret: bmcCredsSecret,
 	}
+
+	prov, err := r.provisionerFactory(host, *bmcCreds, info.publishEvent)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
+	}
+	info.provisioner = prov
 
 	phases := []reconcilePhase{
 		{name: "delete", action: r.phaseDelete},
@@ -281,6 +283,9 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 	for _, phase := range phases {
 		info.log = reqLogger.WithValues("phase", phase.name)
 
+		// Clear out any saved events from the last iteration.
+		info.events = []corev1.Event{}
+
 		info.log.Info("starting")
 		phaseResult, err := phase.action(info)
 		if err != nil {
@@ -294,6 +299,15 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %s phase", phase.name))
+		}
+
+		for _, e := range info.events {
+			log.Info("publishing event", "reason", e.Reason, "message", e.Message)
+			err := r.client.Create(context.Background(), &e)
+			if err != nil {
+				reqLogger.Info("failed to record event",
+					"reason", e.Reason, "message", e.Message)
+			}
 		}
 
 		if host.HasError() {
@@ -409,7 +423,7 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(info *reconcileInfo) (resul
 	info.log.Info("updating credentials success status fields")
 	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 
-	info.publisher("BMCAccessValidated", "Verified access to BMC")
+	info.publishEvent("BMCAccessValidated", "Verified access to BMC")
 
 	result = &reconcile.Result{
 		Requeue:      true,
@@ -454,7 +468,7 @@ func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info *reconcileInfo) (r
 	hardwareProfile := "unknown"
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
-		info.publisher("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
+		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 		return &reconcile.Result{Requeue: true}, nil
 	}
 
@@ -629,7 +643,7 @@ func (r *ReconcileBareMetalHost) getValidBMCCredentials(request reconcile.Reques
 	// Verify that the secret contains the expected info.
 	if validCreds, reason := bmcCreds.AreValid(); !validCreds {
 		reqLogger.Info("invalid BMC Credentials", "reason", reason)
-		r.publishEvent(request, host, "BMCCredentialError", reason)
+		r.publishEvent(request, host.NewEvent("BMCCredentialError", reason))
 		err := r.setErrorCondition(request, host, reason)
 		return nil, nil, errors.Wrap(err, "failed to set error condition")
 	}
@@ -661,15 +675,14 @@ func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.
 	return nil
 }
 
-func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, reason, message string) {
+func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, event corev1.Event) {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
-	event := host.NewEvent(reason, message)
-	log.Info("publishing event", "reason", reason, "message", message)
+	log.Info("publishing event", "reason", event.Reason, "message", event.Message)
 	err := r.client.Create(context.TODO(), &event)
 	if err != nil {
-		reqLogger.Info("failed to record event",
-			"reason", reason, "message", message, "error", err)
+		reqLogger.Info("failed to record event, ignoring",
+			"reason", event.Reason, "message", event.Message, "error", err)
 	}
 	return
 }

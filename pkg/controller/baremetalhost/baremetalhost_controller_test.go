@@ -97,13 +97,17 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 
 type DoneFunc func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool
 
-func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, isDone DoneFunc) {
-
+func newRequest(host *metalkubev1alpha1.BareMetalHost) reconcile.Request {
 	namespacedName := types.NamespacedName{
 		Namespace: host.ObjectMeta.Namespace,
 		Name:      host.ObjectMeta.Name,
 	}
-	request := reconcile.Request{NamespacedName: namespacedName}
+	return reconcile.Request{NamespacedName: namespacedName}
+}
+
+func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, isDone DoneFunc) {
+
+	request := newRequest(host)
 
 	for i := 0; ; i++ {
 		logger := log.WithValues("iteration", i)
@@ -121,7 +125,7 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 		// The FakeClient keeps a copy of the object we update, so we
 		// need to replace the one we have with the updated data in
 		// order to test it.
-		r.client.Get(goctx.TODO(), namespacedName, host)
+		r.client.Get(goctx.TODO(), request.NamespacedName, host)
 
 		if isDone(host, result) {
 			logger.Info("tryReconcile: loop done")
@@ -502,4 +506,65 @@ func TestPowerOff(t *testing.T) {
 			return !host.Status.PoweredOn
 		},
 	)
+}
+
+// TestDeleteHost verifies several delete cases
+func TestDeleteHost(t *testing.T) {
+	now := metav1.Now()
+
+	type HostFactory func() *metalkubev1alpha1.BareMetalHost
+
+	testCases := []HostFactory{
+		func() *metalkubev1alpha1.BareMetalHost {
+			t.Logf("normal host with finalizer")
+			host := newDefaultHost(t)
+			host.Finalizers = append(host.Finalizers,
+				metalkubev1alpha1.BareMetalHostFinalizer)
+			return host
+		},
+		func() *metalkubev1alpha1.BareMetalHost {
+			t.Logf("host without BMC details")
+			host := newDefaultHost(t)
+			host.Spec.BMC = metalkubev1alpha1.BMCDetails{}
+			host.Finalizers = append(host.Finalizers,
+				metalkubev1alpha1.BareMetalHostFinalizer)
+			return host
+		},
+		func() *metalkubev1alpha1.BareMetalHost {
+			t.Logf("host with bad credentials, no user")
+			host := newHost("fix-secret",
+				&metalkubev1alpha1.BareMetalHostSpec{
+					BMC: metalkubev1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: "bmc-creds-no-user",
+					},
+				})
+			host.Finalizers = append(host.Finalizers,
+				metalkubev1alpha1.BareMetalHostFinalizer)
+			return host
+		},
+		func() *metalkubev1alpha1.BareMetalHost {
+			t.Logf("host with hardware details")
+			host := newDefaultHost(t)
+			host.Status.HardwareDetails = &metalkubev1alpha1.HardwareDetails{}
+			host.Finalizers = append(host.Finalizers,
+				metalkubev1alpha1.BareMetalHostFinalizer)
+			return host
+		},
+	}
+
+	for _, factory := range testCases {
+		host := factory()
+		host.DeletionTimestamp = &now
+		host.Status.Provisioning.ID = "made-up-id"
+		badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+		r := newTestReconciler(host, badSecret)
+
+		tryReconcile(t, r, host,
+			func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+				t.Logf("provisioning id: %q", host.Status.Provisioning.ID)
+				return host.Status.Provisioning.ID == ""
+			},
+		)
+	}
 }

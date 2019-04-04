@@ -405,7 +405,7 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(info *reconcileInfo) (resul
 		return nil, errors.Wrap(err, "failed to validate BMC access")
 	}
 
-	if info.host.Status.Provisioning.State == provisioner.StateRegistrationError {
+	if info.host.Status.Provisioning.State == metalkubev1alpha1.StateRegistrationError {
 		// We have tried to register and validate the host and that
 		// failed. We have to return Requeue=true to ensure the host
 		// object is saved before the main loop stops when it sees the

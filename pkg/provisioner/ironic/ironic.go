@@ -245,7 +245,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		// cannot see the BMC or the credentials are wrong. Set the
 		// error message and return dirty, if we've changed something,
 		// so the status is stored.
-		p.status.State = provisioner.StateRegistrationError
+		p.status.State = metalkubev1alpha1.StateRegistrationError
 		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError) || result.Dirty
 		p.publisher("HostRegistrationError", ironicNode.LastError)
 		return result, nil
@@ -263,7 +263,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 			"current", ironicNode.ProvisionState,
 			"target", ironicNode.TargetProvisionState,
 		)
-		p.status.State = provisioner.StateRegistering
+		p.status.State = metalkubev1alpha1.StateRegistering
 		changeResult := nodes.ChangeProvisionState(
 			p.client,
 			ironicNode.UUID,
@@ -291,7 +291,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 	if err != nil {
 		return result, errors.Wrap(err, "failed to check provision state")
 	}
-	if p.status.State == provisioner.StateRegistering {
+	if p.status.State == metalkubev1alpha1.StateRegistering {
 		if ironicNode.ProvisionState != nodes.Manageable {
 			// If we're still waiting for the state to change in Ironic,
 			// return true to indicate that we're dirty and need to be
@@ -301,11 +301,11 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 				"current", ironicNode.ProvisionState,
 				"target", ironicNode.TargetProvisionState,
 			)
-			p.status.State = provisioner.StateRegistering
+			p.status.State = metalkubev1alpha1.StateRegistering
 			result.Dirty = true
 		} else {
 			// Mark the node as ready to be used
-			p.status.State = provisioner.StateReady
+			p.status.State = metalkubev1alpha1.StateReady
 			result.Dirty = true
 		}
 	}
@@ -334,11 +334,11 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 		return result, fmt.Errorf("no ironic node for host")
 	}
 
-	if p.host.Status.Provisioning.State != provisioner.StateInspecting {
+	if p.host.Status.Provisioning.State != metalkubev1alpha1.StateInspecting {
 		// The inspection just started.
 		p.publisher("InspectionStarted", "Hardware inspection started")
 		p.log.Info("starting inspection by setting state")
-		p.host.Status.Provisioning.State = provisioner.StateInspecting
+		p.host.Status.Provisioning.State = metalkubev1alpha1.StateInspecting
 		result.Dirty = true
 		return result, nil
 	}
@@ -454,7 +454,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
 
 	// The last time we were here we set the host in an error state.
-	if p.status.State == provisioner.StateValidationError {
+	if p.status.State == metalkubev1alpha1.StateValidationError {
 		p.log.Info("stopping provisioning due to validation error")
 		return result, nil
 	}
@@ -471,7 +471,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 		p.log.Info("found error", "msg", ironicNode.LastError)
 		p.publisher("ProvisioningFailed",
 			fmt.Sprintf("Image provisioning failed: %s", ironicNode.LastError))
-		p.status.State = provisioner.StateValidationError
+		p.status.State = metalkubev1alpha1.StateValidationError
 		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError)
 		return result, nil
 	}
@@ -572,14 +572,14 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 
 		p.publisher("ProvisioningStarted",
 			fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
-		p.status.State = provisioner.StatePreparingToProvision
+		p.status.State = metalkubev1alpha1.StatePreparingToProvision
 		result.Dirty = true
 		return result, nil
 	}
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
-	if p.status.State == provisioner.StatePreparingToProvision {
+	if p.status.State == metalkubev1alpha1.StatePreparingToProvision {
 		ok, err := p.validateNode(ironicNode)
 		switch err.(type) {
 		case nil:
@@ -591,7 +591,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 			return result, errors.Wrap(err, "failed to validate host during registration")
 		}
 		if !ok {
-			p.status.State = provisioner.StateValidationError
+			p.status.State = metalkubev1alpha1.StateValidationError
 			result.Dirty = true // validateNode() would have set the errors
 			return result, nil
 		}
@@ -620,13 +620,13 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 			return result, errors.Wrap(changeResult.Err,
 				"failed to change provisioning state to provide")
 		}
-		p.status.State = provisioner.StateMakingAvailable
+		p.status.State = metalkubev1alpha1.StateMakingAvailable
 		result.Dirty = true
 		return result, nil
 	}
 
 	// Wait for the host to become available
-	if p.status.State == provisioner.StateMakingAvailable {
+	if p.status.State == metalkubev1alpha1.StateMakingAvailable {
 		if ironicNode.ProvisionState != nodes.Available {
 			p.log.Info("waiting for host to become available",
 				"deploy step", ironicNode.DeployStep)
@@ -678,19 +678,19 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 			return result, errors.Wrap(changeResult.Err,
 				"failed to trigger provisioning")
 		}
-		p.status.State = provisioner.StateProvisioning
+		p.status.State = metalkubev1alpha1.StateProvisioning
 		result.Dirty = true
 		return result, nil
 	}
 
 	// Wait for provisioning to be completed
-	if p.status.State == provisioner.StateProvisioning {
+	if p.status.State == metalkubev1alpha1.StateProvisioning {
 		if ironicNode.ProvisionState == nodes.Active {
 			p.publisher("ProvisioningComplete",
 				fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
 			p.log.Info("finished provisioning")
 			p.status.Image = *p.host.Spec.Image
-			p.status.State = provisioner.StateProvisioned
+			p.status.State = metalkubev1alpha1.StateProvisioned
 			result.Dirty = true
 			return result, nil
 		}
@@ -766,7 +766,7 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 				p.log.Info("clearing provisioning status")
 				p.status.Image.URL = ""
 				p.status.Image.Checksum = ""
-				p.status.State = provisioner.StateNone
+				p.status.State = metalkubev1alpha1.StateNone
 				result.Dirty = true
 			}
 			return result, nil
@@ -818,7 +818,7 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 				"failed to trigger deprovisioning")
 		}
 		p.publisher("DeprovisionStarted", "Image deprovisioning started")
-		p.status.State = provisioner.StateDeprovisioning
+		p.status.State = metalkubev1alpha1.StateDeprovisioning
 		result.Dirty = true
 		return result, nil
 	}

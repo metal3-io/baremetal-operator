@@ -36,6 +36,53 @@ const (
 	OperationalStatusError OperationalStatus = "error"
 )
 
+// ProvisioningState defines the states the provisioner will report
+// the host has having.
+type ProvisioningState string
+
+const (
+	// StateNone means the state is unknown
+	StateNone ProvisioningState = ""
+
+	// StateRegistrationError means there was an error registering the
+	// host with the backend
+	StateRegistrationError ProvisioningState = "registration error"
+
+	// StateRegistering means we are telling the backend about the host
+	StateRegistering ProvisioningState = "registering"
+
+	// StateReady means the host can be consumed
+	StateReady ProvisioningState = "ready"
+
+	// StatePreparingToProvision means we are updating the host to
+	// receive its image
+	StatePreparingToProvision ProvisioningState = "preparing to provision"
+
+	// StateMakingAvailable means we are making the host available to
+	// be provisioned
+	StateMakingAvailable ProvisioningState = "making host available"
+
+	// StateValidationError means the provisioning instructions had an
+	// error
+	StateValidationError ProvisioningState = "validation error"
+
+	// StateProvisioning means we are writing an image to the host's
+	// disk(s)
+	StateProvisioning ProvisioningState = "provisioning"
+
+	// StateProvisioned means we have written an image to the host's
+	// disk(s)
+	StateProvisioned ProvisioningState = "provisioned"
+
+	// StateDeprovisioning means we are removing an image from the
+	// host's disk(s)
+	StateDeprovisioning ProvisioningState = "deprovisioning"
+
+	// StateInspecting means we are running the agent on the host to
+	// learn about the hardware components available there
+	StateInspecting ProvisioningState = "inspecting"
+)
+
 // BMCDetails contains the information necessary to communicate with
 // the bare metal controller module on host.
 type BMCDetails struct {
@@ -189,10 +236,12 @@ type BareMetalHostStatus struct {
 
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
-	// FIXME(dhellmann): This should be an enum of some sort.
-	State string `json:"state"`
-	// The machine's UUID from ironic
+	// An indiciator for what the provisioner is doing with the host.
+	State ProvisioningState `json:"state"`
+
+	// The machine's UUID from the underlying provisioning tool
 	ID string `json:"ID"`
+
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`

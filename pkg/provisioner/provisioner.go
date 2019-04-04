@@ -70,36 +70,3 @@ type Result struct {
 	// Dirty is also true.
 	RequeueAfter time.Duration
 }
-
-const (
-	// StateNone means the state is unknown
-	StateNone = ""
-	// StateRegistrationError means there was an error registering the
-	// host with the backend
-	StateRegistrationError = "registration error"
-	// StateRegistering means we are telling the backend about the host
-	StateRegistering = "registering"
-	// StateReady means the host can be consumed
-	StateReady = "ready"
-	// StatePreparingToProvision means we are updating the host to
-	// receive its image
-	StatePreparingToProvision = "preparing to provision"
-	// StateMakingAvailable means we are making the host available to
-	// be provisioned
-	StateMakingAvailable = "making host available"
-	// StateValidationError means the provisioning instructions had an
-	// error
-	StateValidationError = "validation error"
-	// StateProvisioning means we are writing an image to the host's
-	// disk(s)
-	StateProvisioning = "provisioning"
-	// StateProvisioned means we have written an image to the host's
-	// disk(s)
-	StateProvisioned = "provisioned"
-	// StateDeprovisioning means we are removing an image from the
-	// host's disk(s)
-	StateDeprovisioning = "deprovisioning"
-	// StateInspecting means we are running the agent on the host to
-	// learn about the hardware components available there
-	StateInspecting = "inspecting"
-)

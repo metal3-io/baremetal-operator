@@ -644,11 +644,15 @@ func (r *ReconcileBareMetalHost) getValidBMCCredentials(request reconcile.Reques
 		reqLogger.Info("invalid BMC Credentials", "reason", reason)
 		err := r.setErrorCondition(request, host, reason)
 		if err != nil {
-			// Only publish the event if we do not have an error
-			// after saving so that we only publish one time.
-			r.publishEvent(request, host.NewEvent("BMCCredentialError", reason))
+			return nil, nil, errors.Wrap(err, "failed to set error condition")
 		}
-		return nil, nil, errors.Wrap(err, "failed to set error condition")
+
+		// Only publish the event if we do not have an error
+		// after saving so that we only publish one time.
+		r.publishEvent(request, host.NewEvent("BMCCredentialError", reason))
+
+		// This is not an error we can retry from, so stop reconciling.
+		return nil, nil, nil
 	}
 
 	// Make sure the secret has the correct owner.

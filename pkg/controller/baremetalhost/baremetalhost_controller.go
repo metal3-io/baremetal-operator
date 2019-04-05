@@ -48,7 +48,7 @@ func init() {
 		"use the demo provisioner to set host states")
 }
 
-var log = logf.Log.WithName("controller_baremetalhost")
+var log = logf.Log.WithName("baremetalhost")
 
 // Add creates a new BareMetalHost Controller and adds it to the
 // Manager. The Manager will set fields on the Controller and Start it

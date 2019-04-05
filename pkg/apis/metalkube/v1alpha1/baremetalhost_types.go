@@ -51,16 +51,12 @@ const (
 	// StateRegistering means we are telling the backend about the host
 	StateRegistering ProvisioningState = "registering"
 
+	// StateMatchProfile means we are comparing the discovered details
+	// against known hardware profiles
+	StateMatchProfile ProvisioningState = "match profile"
+
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
-
-	// StatePreparingToProvision means we are updating the host to
-	// receive its image
-	StatePreparingToProvision ProvisioningState = "preparing to provision"
-
-	// StateMakingAvailable means we are making the host available to
-	// be provisioned
-	StateMakingAvailable ProvisioningState = "making host available"
 
 	// StateValidationError means the provisioning instructions had an
 	// error
@@ -323,7 +319,17 @@ func (host *BareMetalHost) getLabel(name string) string {
 	return host.Labels[name]
 }
 
-// SetHardwareProfile updates the HardwareProfileLabel and returns
+// NeedsHardwareProfile returns true if the profile is not set
+func (host *BareMetalHost) NeedsHardwareProfile() bool {
+	return host.Status.HardwareProfile == ""
+}
+
+// HardwareProfile returns the hardware profile name for the host.
+func (host *BareMetalHost) HardwareProfile() string {
+	return host.Status.HardwareProfile
+}
+
+// SetHardwareProfile updates the hardware profile name and returns
 // true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetHardwareProfile(name string) (dirty bool) {
 	if host.Status.HardwareProfile != name {
@@ -415,6 +421,16 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 	}
 	// FIXME(dhellmann): Compare the provisioned image against the one
 	// we are supposed to have to make sure they match.
+	return false
+}
+
+// WasProvisioned returns true when we think we have placed an image
+// on the host.
+func (host *BareMetalHost) WasProvisioned() bool {
+	if host.Status.Provisioning.Image.URL != "" {
+		// We have an image provisioned.
+		return true
+	}
 	return false
 }
 

@@ -118,7 +118,6 @@ type ReconcileBareMetalHost struct {
 type reconcileInfo struct {
 	log            logr.Logger
 	host           *metalkubev1alpha1.BareMetalHost
-	provisioner    provisioner.Provisioner
 	request        reconcile.Request
 	bmcCredsSecret *corev1.Secret
 	events         []corev1.Event
@@ -150,7 +149,7 @@ type reconcilePhase struct {
 // processed again if the returned error is non-nil or Result.Requeue
 // is true, otherwise upon completion it will remove the work from the
 // queue.
-func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result reconcile.Result, err error) {
 
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
@@ -158,7 +157,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 
 	// Fetch the BareMetalHost
 	host := &metalkubev1alpha1.BareMetalHost{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, host)
+	err = r.client.Get(context.TODO(), request.NamespacedName, host)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after
@@ -251,80 +250,93 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil
 	}
 
+	// Pick the action to perform
+	var actionName metalkubev1alpha1.ProvisioningState
+	switch {
+	case host.CredentialsNeedValidation(*bmcCredsSecret):
+		actionName = metalkubev1alpha1.StateRegistering
+	case host.NeedsHardwareInspection():
+		actionName = metalkubev1alpha1.StateInspecting
+	case host.HardwareProfile() == "":
+		actionName = metalkubev1alpha1.StateMatchProfile
+	case host.NeedsProvisioning():
+		actionName = metalkubev1alpha1.StateProvisioning
+	case host.NeedsDeprovisioning():
+		actionName = metalkubev1alpha1.StateDeprovisioning
+	case host.WasProvisioned():
+		actionName = metalkubev1alpha1.StateProvisioned
+	default:
+		actionName = metalkubev1alpha1.StateReady
+	}
+
+	if actionName != host.Status.Provisioning.State {
+		host.Status.Provisioning.State = actionName
+		reqLogger.Info(fmt.Sprintf("setting provisioning state to %q", actionName))
+		if err := r.saveStatus(host); err != nil {
+			return reconcile.Result{}, errors.Wrap(err,
+				fmt.Sprintf("failed to save host status after handling %q", actionName))
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	info := &reconcileInfo{
-		log:            reqLogger,
+		log:            reqLogger.WithValues("actionName", actionName),
 		host:           host,
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
 	}
-
 	prov, err := r.provisionerFactory(host, *bmcCreds, info.publishEvent)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
-	info.provisioner = prov
 
-	phases := []reconcilePhase{
-		{name: "validate access", action: r.phaseValidateAccess},
-		{name: "inspect hardware", action: r.phaseInspectHardware},
-		{name: "hardware profile", action: r.phaseSetHardwareProfile},
-		{name: "provisioning", action: r.phaseProvisioning},
-		{name: "deprovisioning", action: r.phaseDeprovisioning},
-		{name: "check hardware state", action: r.phaseCheckHardwareState},
-		{name: "manage power", action: r.phaseManagePower},
-	}
-	for _, phase := range phases {
-		info.log = reqLogger.WithValues("phase", phase.name)
-
-		// Clear out any saved events from the last iteration.
-		info.events = []corev1.Event{}
-
-		info.log.Info("starting")
-		phaseResult, err := phase.action(info)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("phase %s failed", phase.name))
-		}
-		if phaseResult == nil {
-			continue
-		}
-
-		info.log.Info("saving host status")
-		if err = r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
-				fmt.Sprintf("failed to save host status after %s phase", phase.name))
-		}
-
-		for _, e := range info.events {
-			r.publishEvent(request, e)
-		}
-
-		if host.HasError() {
-			// We have tried to do something that failed in a way we
-			// assume is not retryable, so do not proceed to any other
-			// steps.
-			info.log.Info("stopping on host error")
-			return reconcile.Result{}, nil
-		}
-
-		info.log.Info("phase done",
-			"requeue", (*phaseResult).Requeue,
-			"after", (*phaseResult).RequeueAfter,
-		)
-		return *phaseResult, nil
+	switch actionName {
+	case metalkubev1alpha1.StateRegistering:
+		result, err = r.actionRegistering(prov, info)
+	case metalkubev1alpha1.StateInspecting:
+		result, err = r.actionInspecting(prov, info)
+	case metalkubev1alpha1.StateMatchProfile:
+		result, err = r.actionMatchProfile(prov, info)
+	case metalkubev1alpha1.StateProvisioning:
+		result, err = r.actionProvisioning(prov, info)
+	case metalkubev1alpha1.StateDeprovisioning:
+		result, err = r.actionDeprovisioning(prov, info)
+	case metalkubev1alpha1.StateProvisioned:
+		result, err = r.actionManageHostPower(prov, info)
+	case metalkubev1alpha1.StateReady:
+		result, err = r.actionManageHostPower(prov, info)
+	default:
+		// Probably a provisioning error state?
+		return reconcile.Result{}, fmt.Errorf("Unrecognized action %q", actionName)
 	}
 
-	// If we have nothing else to do and there is no LastUpdated
-	// timestamp set, set one.
-	if host.Status.LastUpdated.IsZero() {
-		reqLogger.Info("initializing status")
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to initialize status block")
-		}
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("action %q failed", actionName))
 	}
 
-	// Come back in 60 seconds to keep an eye on the power state
-	reqLogger.Info("Done with reconcile")
-	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+	info.log.Info("saving host status")
+	if err = r.saveStatus(host); err != nil {
+		return reconcile.Result{}, errors.Wrap(err,
+			fmt.Sprintf("failed to save host status after %q", actionName))
+	}
+
+	for _, e := range info.events {
+		r.publishEvent(request, e)
+	}
+
+	if host.HasError() {
+		// We have tried to do something that failed in a way we
+		// assume is not retryable, so do not proceed to any other
+		// steps.
+		info.log.Info("stopping on host error")
+		return reconcile.Result{}, nil
+	}
+
+	info.log.Info("done",
+		"requeue", result.Requeue,
+		"after", result.RequeueAfter,
+	)
+	return result, nil
 }
 
 // Handle all delete cases
@@ -391,37 +403,29 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 }
 
 // Test the credentials by connecting to the management controller.
-func (r *ReconcileBareMetalHost) phaseValidateAccess(info *reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	if !info.host.CredentialsNeedValidation(*info.bmcCredsSecret) {
-		return nil, nil
-	}
+	info.log.Info("registering and validating access to management controller")
 
-	info.log.Info("validating access to management controller")
-
-	provResult, err = info.provisioner.ValidateManagementAccess()
+	provResult, err = prov.ValidateManagementAccess()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to validate BMC access")
+		return result, errors.Wrap(err, "failed to validate BMC access")
 	}
 
 	if info.host.Status.Provisioning.State == metalkubev1alpha1.StateRegistrationError {
 		// We have tried to register and validate the host and that
-		// failed. We have to return Requeue=true to ensure the host
-		// object is saved before the main loop stops when it sees the
-		// host error.
+		// failed.
 		info.log.Info("registration error")
-		return &reconcile.Result{Requeue: true}, nil
+		return result, nil
 	}
 
 	if provResult.Dirty {
 		// Set Requeue true as well as RequeueAfter in case the delay
 		// is 0.
 		info.log.Info("host not ready")
-		result = &reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: provResult.RequeueAfter,
-		}
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
 	}
 
@@ -432,63 +436,59 @@ func (r *ReconcileBareMetalHost) phaseValidateAccess(info *reconcileInfo) (resul
 
 	info.publishEvent("BMCAccessValidated", "Verified access to BMC")
 
-	result = &reconcile.Result{
-		Requeue:      true,
-		RequeueAfter: provResult.RequeueAfter,
-	}
+	result.Requeue = true
+	result.RequeueAfter = provResult.RequeueAfter
 	return result, nil
 }
 
 // Ensure we have the information about the hardware on the host.
-func (r *ReconcileBareMetalHost) phaseInspectHardware(info *reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
-
-	if !info.host.NeedsHardwareInspection() {
-		return nil, nil
-	}
 
 	info.log.Info("inspecting hardware")
 
-	provResult, err = info.provisioner.InspectHardware()
+	provResult, err = prov.InspectHardware()
 	if err != nil {
-		return nil, errors.Wrap(err, "hardware inspection failed")
+		return result, errors.Wrap(err, "hardware inspection failed")
 	}
 	if provResult.Dirty {
-		res := &reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: provResult.RequeueAfter,
-		}
-		return res, nil
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
+		return result, nil
 	}
 
 	// FIXME(dhellmann): Since we test the HardwareDetails pointer
-	// here in this function, perhaps it makes sense to have
+	// before calling function, perhaps it makes sense to have
 	// InspectHardware() return a value and store it here in this
 	// function. That would eliminate duplication in the provisioners
 	// and make this phase consistent with the structure of others.
-	return nil, nil
+
+	// Line up a requeue if we could set the hardware profile
+	result.Requeue = info.host.NeedsHardwareProfile()
+
+	return result, nil
 }
 
-func (r *ReconcileBareMetalHost) phaseSetHardwareProfile(info *reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 
 	// FIXME(dhellmann): Insert logic to match hardware profiles here.
 	hardwareProfile := "unknown"
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
-		return &reconcile.Result{Requeue: true}, nil
+		result.Requeue = true
+		return result, nil
 	}
 
-	return nil, nil
+	// Line up a requeue if we could provision
+	result.Requeue = info.host.NeedsProvisioning()
+
+	return result, nil
 }
 
 // Start/continue provisioning if we need to.
-func (r *ReconcileBareMetalHost) phaseProvisioning(info *reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
-
-	if !info.host.NeedsProvisioning() {
-		return nil, nil
-	}
 
 	getUserData := func() (string, error) {
 		info.log.Info("fetching user data before provisioning")
@@ -507,72 +507,79 @@ func (r *ReconcileBareMetalHost) phaseProvisioning(info *reconcileInfo) (result 
 
 	info.log.Info("provisioning")
 
-	provResult, err = info.provisioner.Provision(getUserData)
+	provResult, err = prov.Provision(getUserData)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to provision")
+		return result, errors.Wrap(err, "failed to provision")
 	}
 	if provResult.Dirty {
 		// Go back into the queue and wait for the Provision() method
 		// to return false, indicating that it has no more work to
 		// do.
-		result = &reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: provResult.RequeueAfter,
-		}
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
 	}
 
-	return nil, nil
+	// If the provisioner had no work, ensure the image settings match.
+	if info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
+		info.log.Info("updating deployed image in status")
+		info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
+	}
+
+	// After provisioning we always requeue to ensure we enter the
+	// "provisioned" state and start monitoring power status.
+	result.Requeue = true
+
+	return result, nil
 }
 
-func (r *ReconcileBareMetalHost) phaseDeprovisioning(info *reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
-
-	if !info.host.NeedsDeprovisioning() {
-		return nil, nil
-	}
 
 	info.log.Info("deprovisioning")
 
-	if provResult, err = info.provisioner.Deprovision(false); err != nil {
-		return nil, errors.Wrap(err, "failed to deprovision")
+	if provResult, err = prov.Deprovision(false); err != nil {
+		return result, errors.Wrap(err, "failed to deprovision")
 	}
 	if provResult.Dirty {
-		result = &reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: provResult.RequeueAfter,
-		}
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
 	}
 
-	return nil, nil
-}
+	// After the provisioner is done, clear the image settings so we
+	// transition to the next state.
+	info.host.Status.Provisioning.Image = metalkubev1alpha1.Image{}
 
-// Ask the backend about the current state of the hardware.
-func (r *ReconcileBareMetalHost) phaseCheckHardwareState(info *reconcileInfo) (result *reconcile.Result, err error) {
-	var provResult provisioner.Result
+	// After deprovisioning we always requeue to ensure we enter the
+	// "ready" state and start monitoring power status.
+	result.Requeue = true
 
-	if provResult, err = info.provisioner.UpdateHardwareState(); err != nil {
-		return nil, errors.Wrap(err, "failed to update the hardware status")
-	}
-
-	if provResult.Dirty {
-		result = &reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: provResult.RequeueAfter,
-		}
-		return result, nil
-	}
-
-	return nil, nil
+	return result, nil
 }
 
 // Check the current power status against the desired power status.
-func (r *ReconcileBareMetalHost) phaseManagePower(info *reconcileInfo) (result *reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
 
+	// Check the current status and save it before trying to update it.
+	if provResult, err = prov.UpdateHardwareState(); err != nil {
+		return result, errors.Wrap(err, "failed to update the hardware status")
+	}
+
+	if provResult.Dirty {
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
+		return result, nil
+	}
+
+	// Power state needs to be monitored regularly, so if we leave
+	// this function without an error we always want to requeue after
+	// a delay.
+	result.RequeueAfter = time.Second * 60
+
 	if info.host.Status.PoweredOn == info.host.Spec.Online {
-		return nil, nil
+		return result, nil
 	}
 
 	info.log.Info("power state change needed",
@@ -580,23 +587,13 @@ func (r *ReconcileBareMetalHost) phaseManagePower(info *reconcileInfo) (result *
 		"actual", info.host.Status.PoweredOn)
 
 	if info.host.Spec.Online {
-		provResult, err = info.provisioner.PowerOn()
+		_, err = prov.PowerOn()
 	} else {
-		provResult, err = info.provisioner.PowerOff()
+		_, err = prov.PowerOff()
 	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to manage power state of host")
-	}
-
-	if provResult.Dirty {
-		result = &reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: provResult.RequeueAfter,
-		}
-		return result, nil
-	}
-
-	return nil, nil
+	// errors.Wrap() returns nil if err is nil, so we don't have to
+	// check it here.
+	return result, errors.Wrap(err, "failed to manage power state of host")
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {

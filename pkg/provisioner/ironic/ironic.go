@@ -733,6 +733,7 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 	// FIXME(dhellmann): handle CleanFailed?
 
 	case nodes.Manageable:
+		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
 		if deleteIt {
 			p.log.Info("host ready to be removed")
 			err = nodes.Delete(p.client, p.status.ID).ExtractErr()
@@ -746,12 +747,13 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 			default:
 				return result, errors.Wrap(err, "failed to remove host")
 			}
+			result.Dirty = true
 		}
-		result.Dirty = true
 		return result, nil
 
 	default:
 		p.log.Info("starting delete")
+		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},

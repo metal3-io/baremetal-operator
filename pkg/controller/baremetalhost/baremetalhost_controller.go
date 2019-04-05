@@ -121,6 +121,7 @@ type reconcileInfo struct {
 	request        reconcile.Request
 	bmcCredsSecret *corev1.Secret
 	events         []corev1.Event
+	errorMessage   string
 }
 
 // match the provisioner.EventPublisher interface
@@ -196,9 +197,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		result, err := r.deleteHost(request, host)
 		return result, err
 	}
-
-	// Clear any error so we can recompute it
-	host.ClearError()
 
 	// Check for a "discovered" host vs. one that we have all the info for.
 	if host.Spec.BMC.Address == "" {
@@ -314,10 +312,16 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("action %q failed", actionName))
 	}
 
-	info.log.Info("saving host status")
-	if err = r.saveStatus(host); err != nil {
-		return reconcile.Result{}, errors.Wrap(err,
-			fmt.Sprintf("failed to save host status after %q", actionName))
+	// Only save status when we're told to requeue, otherwise we
+	// introduce an infinite loop reconciling the same object over and
+	// over when there is an unrecoverable error (tracked through the
+	// error state of the host).
+	if result.Requeue {
+		info.log.Info("saving host status")
+		if err = r.saveStatus(host); err != nil {
+			return reconcile.Result{}, errors.Wrap(err,
+				fmt.Sprintf("failed to save host status after %q", actionName))
+		}
 	}
 
 	for _, e := range info.events {
@@ -413,10 +417,10 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 		return result, errors.Wrap(err, "failed to validate BMC access")
 	}
 
-	if info.host.Status.Provisioning.State == metalkubev1alpha1.StateRegistrationError {
-		// We have tried to register and validate the host and that
-		// failed.
-		info.log.Info("registration error")
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistrationError
+		info.host.SetErrorMessage(provResult.ErrorMessage)
+		info.publishEvent("RegistrationError", provResult.ErrorMessage)
 		return result, nil
 	}
 
@@ -424,6 +428,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 		// Set Requeue true as well as RequeueAfter in case the delay
 		// is 0.
 		info.log.Info("host not ready")
+		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
@@ -451,7 +456,16 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 	if err != nil {
 		return result, errors.Wrap(err, "hardware inspection failed")
 	}
+
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistrationError
+		info.host.SetErrorMessage(provResult.ErrorMessage)
+		info.publishEvent("RegistrationError", provResult.ErrorMessage)
+		return result, nil
+	}
+
 	if provResult.Dirty {
+		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
@@ -511,10 +525,21 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 	if err != nil {
 		return result, errors.Wrap(err, "failed to provision")
 	}
+
+	if provResult.ErrorMessage != "" {
+		info.log.Info("handling provisioning error in controller")
+		info.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioningError
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
+		}
+		return result, nil
+	}
+
 	if provResult.Dirty {
 		// Go back into the queue and wait for the Provision() method
 		// to return false, indicating that it has no more work to
 		// do.
+		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
@@ -541,7 +566,16 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	if provResult, err = prov.Deprovision(false); err != nil {
 		return result, errors.Wrap(err, "failed to deprovision")
 	}
+
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioningError
+		info.host.SetErrorMessage(provResult.ErrorMessage)
+		info.publishEvent("ProvisioningError", provResult.ErrorMessage)
+		return result, nil
+	}
+
 	if provResult.Dirty {
+		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
@@ -567,7 +601,15 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 		return result, errors.Wrap(err, "failed to update the hardware status")
 	}
 
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metalkubev1alpha1.StatePowerManagementError
+		info.host.SetErrorMessage(provResult.ErrorMessage)
+		info.publishEvent("PowerManagementError", provResult.ErrorMessage)
+		return result, nil
+	}
+
 	if provResult.Dirty {
+		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
 		return result, nil
@@ -587,13 +629,36 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 		"actual", info.host.Status.PoweredOn)
 
 	if info.host.Spec.Online {
-		_, err = prov.PowerOn()
+		provResult, err = prov.PowerOn()
 	} else {
-		_, err = prov.PowerOff()
+		provResult, err = prov.PowerOff()
 	}
-	// errors.Wrap() returns nil if err is nil, so we don't have to
-	// check it here.
-	return result, errors.Wrap(err, "failed to manage power state of host")
+	if err != nil {
+		return result, errors.Wrap(err, "failed to manage power state of host")
+	}
+
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metalkubev1alpha1.StatePowerManagementError
+		info.host.SetErrorMessage(provResult.ErrorMessage)
+		info.publishEvent("PowerManagementError", provResult.ErrorMessage)
+		return result, nil
+	}
+
+	if provResult.Dirty {
+		info.host.ClearError()
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
+		return result, nil
+	}
+
+	// The provisioner did not have to do anything to change the power
+	// state and there were no errors, so reflect the new state in the
+	// host status field.
+	info.host.Status.PoweredOn = info.host.Spec.Online
+	result.Requeue = true
+
+	return result, nil
+
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {

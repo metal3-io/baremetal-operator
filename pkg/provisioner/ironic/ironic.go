@@ -84,13 +84,13 @@ func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publis
 	return p, nil
 }
 
-func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (ok bool, err error) {
+func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage string, err error) {
 	var validationErrors []string
 
 	p.log.Info("validating node settings in ironic")
 	validateResult, err := nodes.Validate(p.client, ironicNode.UUID).Extract()
 	if err != nil {
-		return false, err // do not wrap error so we can check type in caller
+		return "", err // do not wrap error so we can check type in caller
 	}
 	if !validateResult.Boot.Result {
 		validationErrors = append(validationErrors, validateResult.Boot.Reason)
@@ -102,13 +102,11 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (ok bool, err e
 		// We expect to see errors of this nature sometimes, so rather
 		// than reporting it as a reconcile error we record the error
 		// status on the host and return.
-		msg := fmt.Sprintf("host validation error: %s",
+		errorMessage = fmt.Sprintf("host validation error: %s",
 			strings.Join(validationErrors, "; "))
-		ok = p.host.SetErrorMessage(msg)
-		p.publisher("HostValidationError", msg)
-		return ok, nil
+		return errorMessage, nil
 	}
-	return true, nil
+	return "", nil
 }
 
 // Look for an existing registration for the host in Ironic.
@@ -230,8 +228,8 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
-		result.Dirty = p.host.SetErrorMessage(msg)
-		p.publisher("HostValidationError", msg)
+		result.ErrorMessage = msg
+		result.Dirty = true
 		return result, nil
 	}
 
@@ -247,10 +245,8 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		// cannot see the BMC or the credentials are wrong. Set the
 		// error message and return dirty, if we've changed something,
 		// so the status is stored.
-		if p.host.SetErrorMessage(ironicNode.LastError) {
-			result.Dirty = true
-			p.publisher("HostRegistrationError", ironicNode.LastError)
-		}
+		result.ErrorMessage = ironicNode.LastError
+		result.Dirty = true
 		return result, nil
 	}
 
@@ -453,54 +449,27 @@ func (p *ironicProvisioner) getImageChecksum() (string, error) {
 	return checksum, nil
 }
 
-// Provision writes the image from the host spec to the host. It may
-// be called multiple times, and should return true for its dirty flag
-// until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
-	var ironicNode *nodes.Node
-
-	p.log.Info("provisioning image to host")
-
-	if ironicNode, err = p.findExistingHost(); err != nil {
-		return result, errors.Wrap(err, "could not find host to receive image")
-	}
-	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
-	}
-
-	// Since we were here ironic has recorded an error for this host,
-	// so we should stop.
-	if ironicNode.LastError != "" {
-		p.log.Info("found error", "msg", ironicNode.LastError)
-		p.publisher("ProvisioningFailed",
-			fmt.Sprintf("Image provisioning failed: %s", ironicNode.LastError))
-		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError)
-		return result, nil
-	}
-
-	result.RequeueAfter = provisionRequeueDelay
+func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum string, getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
 
 	// Ensure the instance_info properties for the host are set to
 	// tell Ironic where to get the image to be provisioned.
+	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+		ironicNode.InstanceInfo["image_checksum"] == checksum)
 	var op nodes.UpdateOp
-	if imageSource, ok := ironicNode.InstanceInfo["image_source"]; !ok {
+	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
 		// no source, need to add
 		op = nodes.AddOp
 		p.log.Info("adding host settings in ironic")
-	} else if imageSource != p.host.Spec.Image.URL {
-		//  have a different source, need to update
+	} else if !ironicHasSameImage {
+		//  have a different source or checksum, need to update
 		op = nodes.ReplaceOp
 		p.log.Info("updating host settings in ironic")
+	} else {
+		p.log.Info("not making any change to host settings",
+			"ok", ok, "same", ironicHasSameImage)
 	}
+
 	if op != "" {
-
-		// FIXME(dhellmann): The Stein version of Ironic supports passing
-		// a URL. When we upgrade, we can stop doing this work ourself.
-		checksum, err := p.getImageChecksum()
-		if err != nil {
-			return result, errors.Wrap(err, "failed to retrieve image checksum")
-		}
-
 		_, err = nodes.Update(
 			p.client,
 			ironicNode.UUID,
@@ -553,48 +522,107 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 		default:
 			return result, errors.Wrap(err, "failed to update host settings in ironic")
 		}
+	}
 
-		p.publisher("ProvisioningStarted",
-			fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
+	p.log.Info("validating host settings")
+
+	errorMessage, err := p.validateNode(ironicNode)
+	switch err.(type) {
+	case nil:
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not validate host during registration, busy")
 		result.Dirty = true
 		return result, nil
+	default:
+		return result, errors.Wrap(err, "failed to validate host during registration")
 	}
+	if errorMessage != "" {
+		result.ErrorMessage = errorMessage
+		result.Dirty = true // validateNode() would have set the errors
+		return result, nil
+	}
+
+	// If validation is successful we can start moving the host
+	// through the states necessary to make it "available".
+	p.log.Info("starting provisioning",
+		"lastError", ironicNode.LastError,
+		"current", ironicNode.ProvisionState,
+		"target", ironicNode.TargetProvisionState,
+		"deploy step", ironicNode.DeployStep,
+	)
+	p.publisher("ProvisioningStarted",
+		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
+
+	var opts nodes.ProvisionStateOpts
+	if ironicNode.ProvisionState == nodes.DeployFail {
+		opts = nodes.ProvisionStateOpts{Target: nodes.TargetActive}
+	} else {
+		opts = nodes.ProvisionStateOpts{Target: nodes.TargetProvide}
+	}
+	return p.changeNodeProvisionState(ironicNode, opts)
+}
+
+// Provision writes the image from the host spec to the host. It may
+// be called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
+	var ironicNode *nodes.Node
+
+	if ironicNode, err = p.findExistingHost(); err != nil {
+		return result, errors.Wrap(err, "could not find host to receive image")
+	}
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
+	}
+
+	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
+
+	// FIXME(dhellmann): The Stein version of Ironic supports passing
+	// a URL. When we upgrade, we can stop doing this work ourself.
+	checksum, err := p.getImageChecksum()
+	if err != nil {
+		return result, errors.Wrap(err, "failed to retrieve image checksum")
+	}
+
+	// Local variable to make it easier to test if ironic is
+	// configured with the same image we are trying to provision to
+	// the host.
+	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+		ironicNode.InstanceInfo["image_checksum"] == checksum)
+	p.log.Info("checking image settings",
+		"source", ironicNode.InstanceInfo["image_source"],
+		"checksum", checksum,
+		"same", ironicHasSameImage)
+
+	result.RequeueAfter = provisionRequeueDelay
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
 	switch ironicNode.ProvisionState {
 
+	case nodes.DeployFail:
+		// Since we were here ironic has recorded an error for this host,
+		// with the image and checksum we have been trying to use, so we
+		// should stop. (If the image values do not match, we want to try
+		// again.)
+		if ironicHasSameImage {
+			// Save me from "eventually consistent" systems built on
+			// top of relational databases...
+			if ironicNode.LastError == "" {
+				p.log.Info("failed but error message not available")
+				result.Dirty = true
+				return result, nil
+			}
+			p.log.Info("found error", "msg", ironicNode.LastError)
+			result.ErrorMessage = fmt.Sprintf("Image provisioning failed: %s",
+				ironicNode.LastError)
+			return result, nil
+		}
+		p.log.Info("recovering from previous failure")
+		return p.startProvisioning(ironicNode, checksum, getUserData)
+
 	case nodes.Manageable:
-		// Need to validate host and make it available
-		p.log.Info("validating host settings")
-
-		ok, err := p.validateNode(ironicNode)
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not validate host during registration, busy")
-			result.Dirty = true
-			return result, nil
-		default:
-			return result, errors.Wrap(err, "failed to validate host during registration")
-		}
-		if !ok {
-			result.Dirty = true // validateNode() would have set the errors
-			return result, nil
-		}
-
-		// If validation is successful we can start moving the host
-		// through the states necessary to make it "available".
-		p.log.Info("making host available",
-			"lastError", ironicNode.LastError,
-			"current", ironicNode.ProvisionState,
-			"target", ironicNode.TargetProvisionState,
-			"deploy step", ironicNode.DeployStep,
-		)
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetProvide},
-		)
+		return p.startProvisioning(ironicNode, checksum, getUserData)
 
 	case nodes.Available:
 		// After it is available, we need to start provisioning by

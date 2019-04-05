@@ -413,8 +413,6 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		// We have an image set, but not provisioned.
 		return true
 	}
-	// FIXME(dhellmann): Compare the provisioned image against the one
-	// we are supposed to have to make sure they match.
 	return false
 }
 
@@ -427,7 +425,7 @@ func (host *BareMetalHost) NeedsDeprovisioning() bool {
 	if host.Spec.Image == nil {
 		return true
 	}
-	if host.Spec.Image.URL == "" {
+	if host.Spec.Image.URL != host.Status.Provisioning.Image.URL {
 		return true
 	}
 	return false

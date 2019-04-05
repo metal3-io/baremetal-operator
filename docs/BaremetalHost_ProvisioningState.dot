@@ -1,0 +1,30 @@
+digraph BaremetalHost {
+    None -> Registering
+    None -> RegistrationError [label=error]
+    None -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Registering -> Registering
+    Registering -> Ready [label=done]
+    Registering -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Registering -> RegistrationError [label=error]
+    RegistrationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Ready -> Inspecting [label="NeedsHardwareInspection()"]
+    Ready -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Inspecting -> Inspecting
+    Inspecting -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Inspecting -> PreparingToProvision [label="NeedsProvisioning()"]
+    PreparingToProvision -> ValidationError [label=error]
+    ValidationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    PreparingToProvision -> MakingAvailable
+    PreparingToProvision -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    MakingAvailable -> Provisioning
+    MakingAvailable -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Provisioning -> Provisioning
+    Provisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Provisioning -> Provisioned [label=done]
+    Provisioned -> Provisioned
+    Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
+    Provisioned -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Deprovisioning -> Deprovisioning
+    Deprovisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Deprovisioning -> PreparingToProvision [label="NeedsProvisioning()"]
+}

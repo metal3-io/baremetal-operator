@@ -4,6 +4,7 @@ digraph BaremetalHost {
     Start -> Registering [label="(with BMC access details)"]
 
     Discovered -> Registering [label="set BMC access details"]
+    Discovered -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]
     Registering -> Deleting [label="!DeletionTimestamp.IsZero()"]

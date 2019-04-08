@@ -13,6 +13,7 @@ digraph BaremetalHost {
     Inspecting -> Ready [label="done"]
 
     RegistrationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    RegistrationError -> Registering [label="(user edits settings)"]
 
     Ready [shape=doublecircle]
     Ready -> Deleting [label="!DeletionTimestamp.IsZero()"]
@@ -23,6 +24,7 @@ digraph BaremetalHost {
     PreparingToProvision -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     ValidationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    ValidationError -> PreparingToProvision [label="(user edits settings)"]
 
     MakingAvailable -> Provisioning
     MakingAvailable -> Deleting [label="!DeletionTimestamp.IsZero()"]

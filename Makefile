@@ -39,6 +39,12 @@ lint:
 	golint -set_exit_status pkg/... cmd/...
 	go vet ./pkg/... ./cmd/...
 
+.PHONY: docs
+docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))
+
+%.png: %.dot
+	dot -Tpng $< >$@
+
 .PHONY: e2e-local
 e2e-local:
 	operator-sdk test local ./test/e2e \

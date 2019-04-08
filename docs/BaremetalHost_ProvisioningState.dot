@@ -4,38 +4,56 @@ digraph BaremetalHost {
     Created -> Registering [label="BMC.* != \"\""]
 
     Discovered -> Registering [label="BMC.* != \"\""]
-    Discovered -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    Discovered -> Deleted1 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted1 [shape=point]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]
     Registering -> RegistrationError [label=error]
-    Registering -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    Registering -> Deleted2 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted2 [shape=point]
 
     Inspecting -> Ready [label="done"]
-    Inspecting -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    Inspecting -> Deleted3 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted3 [shape=point]
 
     RegistrationError -> Registering [label="(user edits settings)"]
-    RegistrationError -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    RegistrationError -> Deleted4 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted4 [shape=point]
 
     Ready [shape=doublecircle]
     Ready -> PreparingToProvision [label="NeedsProvisioning()"]
-    Ready -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    Ready -> Deleted5 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted5 [shape=point]
 
     PreparingToProvision -> ValidationError [label=error]
     PreparingToProvision -> Provisioning
-    PreparingToProvision -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    PreparingToProvision -> Deleted6 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted6 [shape=point]
 
     ValidationError -> PreparingToProvision [label="(user edits settings)"]
-    ValidationError -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    ValidationError -> Deleted7 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted7 [shape=point]
 
     Provisioning -> Provisioned [label=done]
-    Provisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    Provisioning -> Deleted8 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted8 [shape=point]
 
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
-    Provisioned -> Deleted [label="!DeletionTimestamp.IsZero()"]
+    Provisioned -> Deleted9 [label="!DeletionTimestamp.IsZero()"]
 
-    Deleted [shape=doublecircle]
+    Deleted9 [shape=point]
 
     Deprovisioning -> PreparingToProvision [label="NeedsProvisioning()"]
     Deprovisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted [shape=doublecircle]
 }

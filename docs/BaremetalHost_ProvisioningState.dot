@@ -9,7 +9,7 @@ digraph BaremetalHost {
     Deleted1 [shape=point]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]
-    Registering -> RegistrationError [label=error]
+    Registering -> RegistrationError [shape=doublecircle label="registration error"]
     Registering -> Deleted2 [label="!DeletionTimestamp.IsZero()"]
 
     Deleted2 [shape=point]
@@ -19,6 +19,7 @@ digraph BaremetalHost {
 
     Deleted3 [shape=point]
 
+    RegistrationError [shape=doublecircle label="Error"]
     RegistrationError -> Registering [label="(user edits settings)"]
     RegistrationError -> Deleted4 [label="!DeletionTimestamp.IsZero()"]
 
@@ -30,12 +31,13 @@ digraph BaremetalHost {
 
     Deleted5 [shape=point]
 
-    PreparingToProvision -> ValidationError [label=error]
+    PreparingToProvision -> ValidationError [label="validation error"]
     PreparingToProvision -> Provisioning
     PreparingToProvision -> Deleted6 [label="!DeletionTimestamp.IsZero()"]
 
     Deleted6 [shape=point]
 
+    ValidationError [shape=doublecircle label="Error"]
     ValidationError -> PreparingToProvision [label="(user edits settings)"]
     ValidationError -> Deleted7 [label="!DeletionTimestamp.IsZero()"]
 

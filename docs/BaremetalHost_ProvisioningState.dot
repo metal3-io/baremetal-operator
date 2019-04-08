@@ -53,6 +53,7 @@ digraph BaremetalHost {
     Deleted9 [shape=point]
 
     Deprovisioning -> PreparingToProvision [label="NeedsProvisioning()"]
+    Deprovisioning -> Ready [label="!NeedsProvisioning()"]
     Deprovisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Deleted [shape=doublecircle]

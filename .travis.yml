@@ -1,10 +1,19 @@
 language: go
+
 sudo: false
+
+services:
+  - docker
+
 go:
   - "1.11.5"
+
 before_install:
   - go get golang.org/x/lint/golint
+
 env:
   - TARGET=test-verbose
   - TARGET=lint
+  - TARGET=docker
+
 script: make $TARGET

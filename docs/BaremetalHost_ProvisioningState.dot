@@ -1,5 +1,7 @@
 digraph BaremetalHost {
-    None -> Registering
+    None -> Discovered [label="(without BMC access details)"]
+    Discovered -> Registering [label="set BMC access details"]
+    None -> Registering [label="(with BMC access details)"]
     None -> RegistrationError [label=error]
     None -> Deleting [label="!DeletionTimestamp.IsZero()"]
     Registering -> Registering

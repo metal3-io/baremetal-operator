@@ -1,44 +1,44 @@
 digraph BaremetalHost {
-    Start [shape=house]
-    Start -> Discovered [label="(without BMC access details)"]
-    Start -> Registering [label="(with BMC access details)"]
+    Created [shape=house]
+    Created -> Discovered [label="(without BMC access details)"]
+    Created -> Registering [label="(with BMC access details)"]
 
     Discovered -> Registering [label="set BMC access details"]
-    Discovered -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Discovered -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]
     Registering -> RegistrationError [label=error]
-    Registering -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Registering -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Inspecting -> Ready [label="done"]
-    Inspecting -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Inspecting -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     RegistrationError -> Registering [label="(user edits settings)"]
-    RegistrationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    RegistrationError -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Ready [shape=doublecircle]
     Ready -> PreparingToProvision [label="NeedsProvisioning()"]
-    Ready -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Ready -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     PreparingToProvision -> ValidationError [label=error]
     PreparingToProvision -> MakingAvailable
-    PreparingToProvision -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    PreparingToProvision -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     ValidationError -> PreparingToProvision [label="(user edits settings)"]
-    ValidationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    ValidationError -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     MakingAvailable -> Provisioning
-    MakingAvailable -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    MakingAvailable -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Provisioning -> Provisioned [label=done]
-    Provisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Provisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
-    Provisioned -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Provisioned -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
-    Deleting [shape=doublecircle]
+    Deleted [shape=doublecircle]
 
     Deprovisioning -> PreparingToProvision [label="NeedsProvisioning()"]
-    Deprovisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    Deprovisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]
 }

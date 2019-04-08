@@ -531,6 +531,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 		info.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioningError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
+			result.Requeue = true
 		}
 		return result, nil
 	}
@@ -569,8 +570,10 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioningError
-		info.host.SetErrorMessage(provResult.ErrorMessage)
-		info.publishEvent("ProvisioningError", provResult.ErrorMessage)
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
 		return result, nil
 	}
 
@@ -603,8 +606,10 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metalkubev1alpha1.StatePowerManagementError
-		info.host.SetErrorMessage(provResult.ErrorMessage)
-		info.publishEvent("PowerManagementError", provResult.ErrorMessage)
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("PowerManagementError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
 		return result, nil
 	}
 
@@ -639,8 +644,10 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metalkubev1alpha1.StatePowerManagementError
-		info.host.SetErrorMessage(provResult.ErrorMessage)
-		info.publishEvent("PowerManagementError", provResult.ErrorMessage)
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("PowerManagementError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
 		return result, nil
 	}
 

@@ -21,14 +21,11 @@ digraph BaremetalHost {
     Ready -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     PreparingToProvision -> ValidationError [label=error]
-    PreparingToProvision -> MakingAvailable
+    PreparingToProvision -> Provisioning
     PreparingToProvision -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     ValidationError -> PreparingToProvision [label="(user edits settings)"]
     ValidationError -> Deleted [label="!DeletionTimestamp.IsZero()"]
-
-    MakingAvailable -> Provisioning
-    MakingAvailable -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Provisioning -> Provisioned [label=done]
     Provisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]

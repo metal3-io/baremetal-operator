@@ -1,9 +1,9 @@
 digraph BaremetalHost {
     Created [shape=house]
-    Created -> Discovered [label="(without BMC access details)"]
-    Created -> Registering [label="(with BMC access details)"]
+    Created -> Discovered [label="BMC.* == \"\""]
+    Created -> Registering [label="BMC.* != \"\""]
 
-    Discovered -> Registering [label="set BMC access details"]
+    Discovered -> Registering [label="BMC.* != \"\""]
     Discovered -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]

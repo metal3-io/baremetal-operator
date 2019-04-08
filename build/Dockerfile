@@ -3,6 +3,15 @@ WORKDIR /go/src/github.com/metalkube/baremetal-operator
 COPY . .
 RUN go build -o build/_output/bin/baremetal-operator cmd/manager/main.go
 
-FROM registry.svc.ci.openshift.org/openshift/origin-v4.0:base
+FROM quay.io/metalkube/base-image
+
 COPY --from=builder /go/src/github.com/metalkube/baremetal-operator/build/_output/bin/baremetal-operator /
-RUN if ! rpm -q genisoimage; then yum install -y genisoimage && yum clean all && rm -rf /var/cache/yum/*; fi
+
+RUN if ! rpm -q genisoimage; \
+    then yum install -y genisoimage && \
+    yum clean all && \
+    rm -rf /var/cache/yum/*; \
+    fi
+
+LABEL io.k8s.display-name="MetalKube BareMetal Operator" \
+      io.k8s.description="This is the image for the MetalKube BareMetal Operator."

@@ -7,31 +7,31 @@ digraph BaremetalHost {
     Discovered -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]
-    Registering -> Deleting [label="!DeletionTimestamp.IsZero()"]
     Registering -> RegistrationError [label=error]
+    Registering -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
-    Inspecting -> Deleting [label="!DeletionTimestamp.IsZero()"]
     Inspecting -> Ready [label="done"]
+    Inspecting -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
-    RegistrationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
     RegistrationError -> Registering [label="(user edits settings)"]
+    RegistrationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     Ready [shape=doublecircle]
-    Ready -> Deleting [label="!DeletionTimestamp.IsZero()"]
     Ready -> PreparingToProvision [label="NeedsProvisioning()"]
+    Ready -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     PreparingToProvision -> ValidationError [label=error]
     PreparingToProvision -> MakingAvailable
     PreparingToProvision -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
-    ValidationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
     ValidationError -> PreparingToProvision [label="(user edits settings)"]
+    ValidationError -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     MakingAvailable -> Provisioning
     MakingAvailable -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
-    Provisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
     Provisioning -> Provisioned [label=done]
+    Provisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
@@ -39,6 +39,6 @@ digraph BaremetalHost {
 
     Deleting [shape=doublecircle]
 
-    Deprovisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
     Deprovisioning -> PreparingToProvision [label="NeedsProvisioning()"]
+    Deprovisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
 }

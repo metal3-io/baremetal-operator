@@ -69,3 +69,7 @@ demo:
 		operator-sdk up local \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev -demo-mode"
+
+.PHONY: docker
+docker:
+	docker build . -f build/Dockerfile

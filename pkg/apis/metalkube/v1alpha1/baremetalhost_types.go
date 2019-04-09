@@ -294,10 +294,7 @@ func (host *BareMetalHost) SetErrorMessage(message string) (dirty bool) {
 
 // ClearError removes any existing error message.
 func (host *BareMetalHost) ClearError() (dirty bool) {
-	if host.Status.OperationalStatus == OperationalStatusError {
-		host.Status.OperationalStatus = OperationalStatusOK
-		dirty = true
-	}
+	dirty = host.SetOperationalStatus(OperationalStatusOK)
 	if host.Status.ErrorMessage != "" {
 		host.Status.ErrorMessage = ""
 		dirty = true
@@ -357,8 +354,8 @@ func (host *BareMetalHost) SetOperationalStatus(status OperationalStatus) bool {
 	return false
 }
 
-// OperationalStatus returns the value associated with the
-// OperationalStatusLabel
+// OperationalStatus returns the contents of the OperationalStatus
+// field.
 func (host *BareMetalHost) OperationalStatus() OperationalStatus {
 	return host.Status.OperationalStatus
 }

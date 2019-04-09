@@ -317,7 +317,9 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	// over when there is an unrecoverable error (tracked through the
 	// error state of the host).
 	if result.Requeue {
-		info.log.Info("saving host status")
+		info.log.Info("saving host status",
+			"operational status", host.OperationalStatus(),
+			"provisioning state", host.Status.Provisioning.State)
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", actionName))
@@ -490,6 +492,7 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
+		info.host.ClearError()
 		result.Requeue = true
 		return result, nil
 	}

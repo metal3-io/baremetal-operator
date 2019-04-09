@@ -33,3 +33,8 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "baremetal-operator"
+        # Temporary workaround to talk to an external Ironic process until Ironic is running in this pod.
+        - name: ironic-proxy
+          image: alpine/socat
+          command: ["socat", "tcp-listen:6385,fork,reuseaddr", "tcp-connect:172.22.0.1:6385"]
+          imagePullPolicy: Always

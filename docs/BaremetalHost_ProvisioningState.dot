@@ -46,20 +46,19 @@ digraph BaremetalHost {
 
     Provisioning -> Provisioned [label=done]
     Provisioning -> ProvisioningError [label="provisioning error"]
-    Provisioning -> Cleaning [label="!DeletionTimestamp.IsZero()"]
-
-    Cleaning -> Deleted [label="done"]
+    Provisioning -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
 
     ProvisioningError [shape=doublecircle label="Error"]
     ProvisioningError -> PreparingToProvision [label="?"]
-    ProvisioningError -> Cleaning [label="!DeletionTimestamp.IsZero()"]
+    ProvisioningError -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
 
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
-    Provisioned -> Cleaning [label="!DeletionTimestamp.IsZero()"]
+    Provisioned -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
 
     Deprovisioning -> PreparingToProvision [label="NeedsProvisioning()"]
     Deprovisioning -> Ready [label="!NeedsProvisioning()"]
+    Deprovisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Deleted [shape=doublecircle]
 }

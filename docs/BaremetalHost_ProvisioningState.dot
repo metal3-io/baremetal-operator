@@ -3,6 +3,7 @@ digraph BaremetalHost {
     Created -> Discovered [label="BMC.* == \"\""]
     Created -> Registering [label="BMC.* != \"\""]
 
+    Discovered [shape=doublecircle]
     Discovered -> Registering [label="BMC.* != \"\""]
     Discovered -> Deleted1 [label="!DeletionTimestamp.IsZero()"]
 

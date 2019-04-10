@@ -334,7 +334,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		// We have tried to do something that failed in a way we
 		// assume is not retryable, so do not proceed to any other
 		// steps.
-		info.log.Info("stopping on host error")
+		info.log.Info("stopping on host error", "message", host.Status.ErrorMessage)
 		return reconcile.Result{}, nil
 	}
 
@@ -423,6 +423,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 		info.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistrationError
 		info.host.SetErrorMessage(provResult.ErrorMessage)
 		info.publishEvent("RegistrationError", provResult.ErrorMessage)
+		result.Requeue = true
 		return result, nil
 	}
 

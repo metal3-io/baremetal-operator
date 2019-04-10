@@ -70,15 +70,19 @@ func newHost(name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev
 	}
 }
 
-func newDefaultHost(t *testing.T) *metalkubev1alpha1.BareMetalHost {
+func newDefaultNamedHost(name string, t *testing.T) *metalkubev1alpha1.BareMetalHost {
 	spec := &metalkubev1alpha1.BareMetalHostSpec{
 		BMC: metalkubev1alpha1.BMCDetails{
 			Address:         "ipmi://192.168.122.1:6233",
 			CredentialsName: defaultSecretName,
 		},
 	}
-	t.Logf("newDefaultHost(%s)", t.Name())
-	return newHost(t.Name(), spec)
+	t.Logf("newNamedHost(%s)", name)
+	return newHost(name, spec)
+}
+
+func newDefaultHost(t *testing.T) *metalkubev1alpha1.BareMetalHost {
+	return newDefaultNamedHost(t.Name(), t)
 }
 
 func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {

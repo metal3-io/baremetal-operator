@@ -1,7 +1,6 @@
 package demo
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -93,7 +92,6 @@ func (p *demoProvisioner) ValidateManagementAccess() (result provisioner.Result,
 			p.log.Info("setting provisioning id",
 				"provisioningID", p.host.Status.Provisioning.ID)
 			result.Dirty = true
-			p.publisher("Registered", "Registered new host")
 		}
 	}
 
@@ -197,10 +195,8 @@ func (p *demoProvisioner) Provision(getUserData provisioner.UserDataSource) (res
 	switch hostName {
 
 	case ValidationErrorHost:
-		p.log.Info("validation error host")
-		p.publisher("HostValidationError", "validation failed")
-		p.host.SetErrorMessage("validation failed")
-		result.Dirty = true
+		p.log.Info("setting validation error")
+		result.ErrorMessage = "validation failed"
 
 	case ProvisioningHost:
 		p.log.Info("provisioning host")
@@ -208,10 +204,7 @@ func (p *demoProvisioner) Provision(getUserData provisioner.UserDataSource) (res
 		result.RequeueAfter = time.Second * 5
 
 	default:
-		p.publisher("ProvisioningComplete",
-			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
 		p.log.Info("finished provisioning")
-		result.Dirty = true
 	}
 
 	return result, nil

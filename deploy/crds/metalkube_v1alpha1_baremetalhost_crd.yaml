@@ -13,3 +13,24 @@ spec:
   version: v1alpha1
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - JSONPath: .status.operationalStatus
+    description: Operational status
+    name: Status
+    type: string
+  - JSONPath: .status.provisioning.state
+    description: Provisioning status
+    name: Provisioning Status
+    type: string
+  - JSONPath: .spec.machineRef.name
+    description: Machine
+    name: Machine using this host
+    type: string
+  - JSONPath: .spec.bmc.address
+    description: Address of management controler
+    name: BMC
+    type: string
+  - JSONPath: .status.errorMessage
+    description: Most recent error
+    name: Error
+    type: string

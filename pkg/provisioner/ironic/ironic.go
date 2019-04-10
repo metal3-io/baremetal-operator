@@ -271,11 +271,16 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		p.log.Info("have available host")
 		return result, nil
 
+	case nodes.Active:
+		// The host is already running, maybe it's a master?
+		p.log.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
+		return result, nil
+
 	default:
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
-		p.log.Info("waiting for manageable provision state",
+		p.log.Info("waiting for  provision state",
 			"lastError", ironicNode.LastError,
 			"current", ironicNode.ProvisionState,
 			"target", ironicNode.TargetProvisionState,

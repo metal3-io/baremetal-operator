@@ -44,3 +44,7 @@ spec:
           image: alpine/socat
           command: ["socat", "tcp-listen:6385,fork,reuseaddr", "tcp-connect:172.22.0.1:6385"]
           imagePullPolicy: Always
+        - name: ironic-inspector-proxy
+          image: alpine/socat
+          command: ["socat", "tcp-listen:5050,fork,reuseaddr", "tcp-connect:172.22.0.1:5050"]
+          imagePullPolicy: Always

@@ -17,15 +17,13 @@ var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 
 const (
-	registrationErrorHost    string = "demo-registration-error"
-	registeringHost          string = "demo-registering"
-	readyHost                string = "demo-ready"
-	inspectingHost           string = "demo-inspecting"
-	preparingToProvisionHost string = "demo-preparing-to-provision"
-	validationErrorHost      string = "demo-validation-error"
-	availableHost            string = "demo-available"
-	provisioningHost         string = "demo-provisioning"
-	provisionedHost          string = "demo-provisioned"
+	registrationErrorHost string = "demo-registration-error"
+	registeringHost       string = "demo-registering"
+	readyHost             string = "demo-ready"
+	inspectingHost        string = "demo-inspecting"
+	validationErrorHost   string = "demo-validation-error"
+	provisioningHost      string = "demo-provisioning"
+	provisionedHost       string = "demo-provisioned"
 )
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -58,41 +56,31 @@ func (p *demoProvisioner) ValidateManagementAccess() (result provisioner.Result,
 	p.log.Info("testing management access")
 
 	hostName := p.host.ObjectMeta.Name
-	if hostName == registrationErrorHost {
-		if p.host.Status.Provisioning.State != metalkubev1alpha1.StateRegistrationError {
+
+	switch hostName {
+
+	case registrationErrorHost:
+		if p.host.SetErrorMessage("failed to register new host") {
 			p.log.Info("setting registration error")
-			p.host.SetErrorMessage("failed to register new host")
-			p.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistrationError
 			p.publisher("RegistrationError", "Failed to register new host")
 			result.Dirty = true
 		}
-		// We don't need to set this as dirty because we've set an
-		// error so Reconcile() will stop
-		return result, nil
-	}
+		// We have set an error, so Reconcile() will stop
 
-	if hostName == registeringHost {
-		if p.host.Status.Provisioning.State != metalkubev1alpha1.StateRegistering {
-			p.log.Info("setting registering")
-			p.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistering
-		}
+	case registeringHost:
 		// Always mark the host as dirty so it never moves past this
 		// point.
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
-		return result, nil
-	}
 
-	result.RequeueAfter = time.Second * 5
-
-	if p.host.Status.Provisioning.ID == "" {
-		p.host.Status.Provisioning.ID = p.host.ObjectMeta.Name
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateReady
-		p.log.Info("setting provisioning id",
-			"provisioningID", p.host.Status.Provisioning.ID)
-		result.Dirty = true
-		p.publisher("Registered", "Registered new host")
-		return result, nil
+	default:
+		if p.host.Status.Provisioning.ID == "" {
+			p.host.Status.Provisioning.ID = p.host.ObjectMeta.Name
+			p.log.Info("setting provisioning id",
+				"provisioningID", p.host.Status.Provisioning.ID)
+			result.Dirty = true
+			p.publisher("Registered", "Registered new host")
+		}
 	}
 
 	return result, nil
@@ -106,15 +94,6 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, err erro
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	hostName := p.host.ObjectMeta.Name
-
-	if p.host.Status.Provisioning.State != metalkubev1alpha1.StateInspecting {
-		// The inspection just started.
-		p.publisher("InspectionStarted", "Hardware inspection started")
-		p.log.Info("starting inspection by setting state")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateInspecting
-		result.Dirty = true
-		return result, nil
-	}
 
 	if hostName == inspectingHost {
 		p.host.Status.Provisioning.State = metalkubev1alpha1.StateInspecting
@@ -201,72 +180,24 @@ func (p *demoProvisioner) Provision(getUserData provisioner.UserDataSource) (res
 	hostName := p.host.ObjectMeta.Name
 	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
 
-	switch p.host.Status.Provisioning.State {
-	case metalkubev1alpha1.StatePreparingToProvision:
-	case metalkubev1alpha1.StateMakingAvailable:
-	case metalkubev1alpha1.StateProvisioning:
-	case metalkubev1alpha1.StateValidationError:
-	default:
-		p.log.Info("starting provisioning image to host")
-		p.publisher("ProvisioningStarted",
-			fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StatePreparingToProvision
-		result.Dirty = true
-		return result, nil
-	}
+	switch hostName {
 
-	if hostName == preparingToProvisionHost {
-		p.log.Info("prepare host")
-		result.Dirty = true
-		result.RequeueAfter = time.Second * 5
-		return result, nil
-	}
-
-	if p.host.Status.Provisioning.State == metalkubev1alpha1.StatePreparingToProvision {
-		p.log.Info("making available")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateMakingAvailable
-		result.Dirty = true
-		return result, nil
-	}
-
-	if hostName == availableHost {
-		p.log.Info("available host")
-		result.Dirty = true
-		result.RequeueAfter = time.Second * 5
-		return result, nil
-	}
-
-	if hostName == validationErrorHost {
+	case validationErrorHost:
 		p.log.Info("validation error host")
 		p.publisher("HostValidationError", "validation failed")
 		p.host.SetErrorMessage("validation failed")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateValidationError
 		result.Dirty = true
-		return result, nil
-	}
 
-	if p.host.Status.Provisioning.State == metalkubev1alpha1.StateMakingAvailable {
-		p.log.Info("provisioning")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioning
-		result.Dirty = true
-		return result, nil
-	}
-
-	if hostName == provisioningHost {
+	case provisioningHost:
 		p.log.Info("provisioning host")
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
-		return result, nil
-	}
 
-	if p.host.Status.Provisioning.State == metalkubev1alpha1.StateProvisioning {
+	default:
 		p.publisher("ProvisioningComplete",
 			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
 		p.log.Info("finished provisioning")
-		p.host.Status.Provisioning.Image = *p.host.Spec.Image
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioned
 		result.Dirty = true
-		return result, nil
 	}
 
 	return result, nil

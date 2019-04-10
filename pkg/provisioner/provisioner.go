@@ -69,4 +69,6 @@ type Result struct {
 	// Provisioner call again. The request should only be requeued if
 	// Dirty is also true.
 	RequeueAfter time.Duration
+	// Any error message produced by the provisioner.
+	ErrorMessage string
 }

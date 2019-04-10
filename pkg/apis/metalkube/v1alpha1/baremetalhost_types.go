@@ -51,16 +51,12 @@ const (
 	// StateRegistering means we are telling the backend about the host
 	StateRegistering ProvisioningState = "registering"
 
+	// StateMatchProfile means we are comparing the discovered details
+	// against known hardware profiles
+	StateMatchProfile ProvisioningState = "match profile"
+
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
-
-	// StatePreparingToProvision means we are updating the host to
-	// receive its image
-	StatePreparingToProvision ProvisioningState = "preparing to provision"
-
-	// StateMakingAvailable means we are making the host available to
-	// be provisioned
-	StateMakingAvailable ProvisioningState = "making host available"
 
 	// StateValidationError means the provisioning instructions had an
 	// error
@@ -69,6 +65,10 @@ const (
 	// StateProvisioning means we are writing an image to the host's
 	// disk(s)
 	StateProvisioning ProvisioningState = "provisioning"
+
+	// StateProvisioningError means we are writing an image to the
+	// host's disk(s)
+	StateProvisioningError ProvisioningState = "provisioning error"
 
 	// StateProvisioned means we have written an image to the host's
 	// disk(s)
@@ -81,6 +81,10 @@ const (
 	// StateInspecting means we are running the agent on the host to
 	// learn about the hardware components available there
 	StateInspecting ProvisioningState = "inspecting"
+
+	// StatePowerManagementError means something went wrong trying to
+	// power the server on or off.
+	StatePowerManagementError ProvisioningState = "power management error"
 )
 
 // BMCDetails contains the information necessary to communicate with
@@ -290,10 +294,7 @@ func (host *BareMetalHost) SetErrorMessage(message string) (dirty bool) {
 
 // ClearError removes any existing error message.
 func (host *BareMetalHost) ClearError() (dirty bool) {
-	if host.Status.OperationalStatus == OperationalStatusError {
-		host.Status.OperationalStatus = OperationalStatusOK
-		dirty = true
-	}
+	dirty = host.SetOperationalStatus(OperationalStatusOK)
 	if host.Status.ErrorMessage != "" {
 		host.Status.ErrorMessage = ""
 		dirty = true
@@ -323,7 +324,17 @@ func (host *BareMetalHost) getLabel(name string) string {
 	return host.Labels[name]
 }
 
-// SetHardwareProfile updates the HardwareProfileLabel and returns
+// NeedsHardwareProfile returns true if the profile is not set
+func (host *BareMetalHost) NeedsHardwareProfile() bool {
+	return host.Status.HardwareProfile == ""
+}
+
+// HardwareProfile returns the hardware profile name for the host.
+func (host *BareMetalHost) HardwareProfile() string {
+	return host.Status.HardwareProfile
+}
+
+// SetHardwareProfile updates the hardware profile name and returns
 // true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetHardwareProfile(name string) (dirty bool) {
 	if host.Status.HardwareProfile != name {
@@ -343,8 +354,8 @@ func (host *BareMetalHost) SetOperationalStatus(status OperationalStatus) bool {
 	return false
 }
 
-// OperationalStatus returns the value associated with the
-// OperationalStatusLabel
+// OperationalStatus returns the contents of the OperationalStatus
+// field.
 func (host *BareMetalHost) OperationalStatus() OperationalStatus {
 	return host.Status.OperationalStatus
 }
@@ -415,6 +426,16 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 	}
 	// FIXME(dhellmann): Compare the provisioned image against the one
 	// we are supposed to have to make sure they match.
+	return false
+}
+
+// WasProvisioned returns true when we think we have placed an image
+// on the host.
+func (host *BareMetalHost) WasProvisioned() bool {
+	if host.Status.Provisioning.Image.URL != "" {
+		// We have an image provisioned.
+		return true
+	}
 	return false
 }
 

@@ -25,7 +25,7 @@ import (
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
 )
 
-var log = logf.Log.WithName("ironic")
+var log = logf.Log.WithName("baremetalhost_ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var powerRequeueDelay = time.Second * 10
@@ -84,13 +84,13 @@ func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publis
 	return p, nil
 }
 
-func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (ok bool, err error) {
+func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage string, err error) {
 	var validationErrors []string
 
 	p.log.Info("validating node settings in ironic")
 	validateResult, err := nodes.Validate(p.client, ironicNode.UUID).Extract()
 	if err != nil {
-		return false, err // do not wrap error so we can check type in caller
+		return "", err // do not wrap error so we can check type in caller
 	}
 	if !validateResult.Boot.Result {
 		validationErrors = append(validationErrors, validateResult.Boot.Reason)
@@ -102,13 +102,11 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (ok bool, err e
 		// We expect to see errors of this nature sometimes, so rather
 		// than reporting it as a reconcile error we record the error
 		// status on the host and return.
-		msg := fmt.Sprintf("host validation error: %s",
+		errorMessage = fmt.Sprintf("host validation error: %s",
 			strings.Join(validationErrors, "; "))
-		ok = p.host.SetErrorMessage(msg)
-		p.publisher("HostValidationError", msg)
-		return ok, nil
+		return errorMessage, nil
 	}
-	return true, nil
+	return "", nil
 }
 
 // Look for an existing registration for the host in Ironic.
@@ -117,14 +115,12 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 	if p.status.ID != "" {
 		// Look for the node to see if it exists (maybe Ironic was
 		// restarted)
-		p.log.Info("looking for existing node by ID", "ID", p.status.ID)
 		ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 		switch err.(type) {
 		case nil:
 			p.log.Info("found existing node by ID")
 			return ironicNode, nil
 		case gophercloud.ErrDefault404:
-			p.log.Info("did not find existing node by ID")
 		default:
 			return nil, errors.Wrap(err,
 				fmt.Sprintf("failed to find node by ID %s", p.status.ID))
@@ -139,7 +135,6 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 		p.log.Info("found existing node by name")
 		return ironicNode, nil
 	case gophercloud.ErrDefault404:
-		p.log.Info("did not find existing node by name")
 		return nil, nil
 	default:
 		return nil, errors.Wrap(err,
@@ -185,6 +180,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 				Name:          p.host.Name,
 				DriverInfo:    driverInfo,
 			}).Extract()
+		// FIXME(dhellmann): Handle 409 and 503? errors here.
 		if err != nil {
 			return result, errors.Wrap(err, "failed to register host in ironic")
 		}
@@ -232,10 +228,14 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
-		updatedMessage := p.host.SetErrorMessage(msg)
-		p.publisher("HostValidationError", msg)
-		result.Dirty = result.Dirty || updatedMessage
+		result.ErrorMessage = msg
+		result.Dirty = true
 		return result, nil
+	}
+
+	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
+	if err != nil {
+		return result, errors.Wrap(err, "failed to get provisioning state in ironic")
 	}
 
 	// If we tried to update the node status already and it has an
@@ -245,77 +245,65 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		// cannot see the BMC or the credentials are wrong. Set the
 		// error message and return dirty, if we've changed something,
 		// so the status is stored.
-		p.status.State = metalkubev1alpha1.StateRegistrationError
-		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError) || result.Dirty
-		p.publisher("HostRegistrationError", ironicNode.LastError)
+		result.ErrorMessage = ironicNode.LastError
+		result.Dirty = true
 		return result, nil
 	}
 
 	// Ensure the node is marked manageable.
-	//
-	// FIXME(dhellmann): Do we need to check other states here?
-	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
-	if err != nil {
-		return result, errors.Wrap(err, "failed to get provisioning state in ironic")
-	}
-	if ironicNode.ProvisionState == string(nodes.Enroll) {
-		p.log.Info("changing provisioning state to manage",
+	switch ironicNode.ProvisionState {
+
+	// NOTE(dhellmann): gophercloud bug? The Enroll value is the only
+	// one not a string.
+	case string(nodes.Enroll):
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
+	case nodes.Manageable:
+		p.log.Info("have manageable host")
+		return result, nil
+
+	case nodes.Available:
+		// The host is fully registered (and probably wasn't cleanly
+		// deleted previously)
+		p.log.Info("have available host")
+		return result, nil
+
+	default:
+		// If we're still waiting for the state to change in Ironic,
+		// return true to indicate that we're dirty and need to be
+		// reconciled again.
+		p.log.Info("waiting for manageable provision state",
+			"lastError", ironicNode.LastError,
 			"current", ironicNode.ProvisionState,
 			"target", ironicNode.TargetProvisionState,
 		)
-		p.status.State = metalkubev1alpha1.StateRegistering
-		changeResult := nodes.ChangeProvisionState(
-			p.client,
-			ironicNode.UUID,
-			nodes.ProvisionStateOpts{
-				Target: nodes.TargetManage,
-			})
-		switch changeResult.Err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not change state of host, busy")
-			result.Dirty = true
-			result.RequeueAfter = provisionRequeueDelay
-			return result, nil
-		default:
-			return result, errors.Wrap(changeResult.Err,
-				"failed to change provisioning state to manage")
-		}
+		result.Dirty = true
+		return result, nil
+	}
+}
+
+func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (result provisioner.Result, err error) {
+	p.log.Info("changing provisioning state",
+		"current", ironicNode.ProvisionState,
+		"existing target", ironicNode.TargetProvisionState,
+		"new target", opts.Target,
+	)
+
+	changeResult := nodes.ChangeProvisionState(p.client, ironicNode.UUID, opts)
+	switch changeResult.Err.(type) {
+	case nil:
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not change state of host, busy")
+	default:
+		return result, errors.Wrap(changeResult.Err,
+			fmt.Sprintf("failed to change provisioning state to %q", opts.Target))
 	}
 
-	// We don't expect the state to have changed to manageable
-	// immediately if we just updated it in the previous stanza, but
-	// if we didn't enter that stanza we want to make sure we have the
-	// latest state, so fetch the data again.
-	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
-	if err != nil {
-		return result, errors.Wrap(err, "failed to check provision state")
-	}
-	if p.status.State == metalkubev1alpha1.StateRegistering {
-		if ironicNode.ProvisionState != nodes.Manageable {
-			// If we're still waiting for the state to change in Ironic,
-			// return true to indicate that we're dirty and need to be
-			// reconciled again.
-			p.log.Info("waiting for manageable provision state, forcing dirty state",
-				"lastError", ironicNode.LastError,
-				"current", ironicNode.ProvisionState,
-				"target", ironicNode.TargetProvisionState,
-			)
-			p.status.State = metalkubev1alpha1.StateRegistering
-			result.Dirty = true
-		} else {
-			// Mark the node as ready to be used
-			p.status.State = metalkubev1alpha1.StateReady
-			result.Dirty = true
-		}
-	}
-
-	if !result.Dirty {
-		// If we aren't saving any other updates, clear the error
-		// status if we have one.
-		result.Dirty = p.host.ClearError()
-	}
-
+	result.Dirty = true
+	result.RequeueAfter = provisionRequeueDelay
 	return result, nil
 }
 
@@ -332,15 +320,6 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 	}
 	if ironicNode == nil {
 		return result, fmt.Errorf("no ironic node for host")
-	}
-
-	if p.host.Status.Provisioning.State != metalkubev1alpha1.StateInspecting {
-		// The inspection just started.
-		p.publisher("InspectionStarted", "Hardware inspection started")
-		p.log.Info("starting inspection by setting state")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateInspecting
-		result.Dirty = true
-		return result, nil
 	}
 
 	// The inspection is ongoing. We'll need to check the ironic
@@ -393,7 +372,6 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")
 		result.Dirty = true
-		return result, nil
 	}
 
 	return result, nil
@@ -445,78 +423,53 @@ func checksumIsURL(checksumURL string) (bool, error) {
 	return parsedChecksumURL.Scheme != "", nil
 }
 
-// Provision writes the image from the host spec to the host. It may
-// be called multiple times, and should return true for its dirty flag
-// until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
-	var ironicNode *nodes.Node
-
-	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
-
-	// The last time we were here we set the host in an error state.
-	if p.status.State == metalkubev1alpha1.StateValidationError {
-		p.log.Info("stopping provisioning due to validation error")
-		return result, nil
+func (p *ironicProvisioner) getImageChecksum() (string, error) {
+	checksum := p.host.Spec.Image.Checksum
+	isURL, err := checksumIsURL(checksum)
+	if err != nil {
+		return "", errors.Wrap(err, "Could not understand image checksum")
 	}
-
-	if ironicNode, err = p.findExistingHost(); err != nil {
-		return result, errors.Wrap(err, "could not find host to receive image")
+	if isURL {
+		p.log.Info("looking for checksum for image", "URL", checksum)
+		resp, err := http.Get(checksum)
+		if err != nil {
+			return "", errors.Wrap(err, "Could not fetch image checksum")
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return "", fmt.Errorf("Failed to fetch image checksum from %s: [%d] %s",
+				checksum, resp.StatusCode, resp.Status)
+		}
+		checksumBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", errors.Wrap(err, "Could not read image checksum")
+		}
+		checksum = strings.TrimSpace(string(checksumBody))
 	}
-	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
-	}
+	return checksum, nil
+}
 
-	// Since we were here ironic has recorded an error for this host.
-	if ironicNode.LastError != "" {
-		p.log.Info("found error", "msg", ironicNode.LastError)
-		p.publisher("ProvisioningFailed",
-			fmt.Sprintf("Image provisioning failed: %s", ironicNode.LastError))
-		p.status.State = metalkubev1alpha1.StateValidationError
-		result.Dirty = p.host.SetErrorMessage(ironicNode.LastError)
-		return result, nil
-	}
-
-	result.RequeueAfter = provisionRequeueDelay
+func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum string, getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
 
 	// Ensure the instance_info properties for the host are set to
 	// tell Ironic where to get the image to be provisioned.
+	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+		ironicNode.InstanceInfo["image_checksum"] == checksum)
 	var op nodes.UpdateOp
-	if imageSource, ok := ironicNode.InstanceInfo["image_source"]; !ok {
+	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
 		// no source, need to add
 		op = nodes.AddOp
 		p.log.Info("adding host settings in ironic")
-	} else if imageSource != p.host.Spec.Image.URL {
-		//  have a different source, need to update
+	} else if !ironicHasSameImage {
+		//  have a different source or checksum, need to update
 		op = nodes.ReplaceOp
 		p.log.Info("updating host settings in ironic")
+	} else {
+		p.log.Info("not making any change to host settings",
+			"ok", ok, "same", ironicHasSameImage)
 	}
+
 	if op != "" {
-
-		// FIXME(dhellmann): The Stein version of Ironic supports passing
-		// a URL. When we upgrade, we can stop doing this work ourself.
-		checksum := p.host.Spec.Image.Checksum
-		isURL, err := checksumIsURL(checksum)
-		if err != nil {
-			return result, errors.Wrap(err, "Could not understand image checksum")
-		}
-		if isURL {
-			p.log.Info("looking for checksum for image", "URL", checksum)
-			resp, err := http.Get(checksum)
-			if err != nil {
-				return result, errors.Wrap(err, "Could not fetch image checksum")
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != 200 {
-				return result, fmt.Errorf("Failed to fetch image checksum from %s: [%d] %s",
-					checksum, resp.StatusCode, resp.Status)
-			}
-			checksumBody, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return result, errors.Wrap(err, "Could not read image checksum")
-			}
-			checksum = strings.TrimSpace(string(checksumBody))
-		}
-
 		_, err = nodes.Update(
 			p.client,
 			ironicNode.UUID,
@@ -569,72 +522,112 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 		default:
 			return result, errors.Wrap(err, "failed to update host settings in ironic")
 		}
+	}
 
-		p.publisher("ProvisioningStarted",
-			fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
-		p.status.State = metalkubev1alpha1.StatePreparingToProvision
+	p.log.Info("validating host settings")
+
+	errorMessage, err := p.validateNode(ironicNode)
+	switch err.(type) {
+	case nil:
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not validate host during registration, busy")
 		result.Dirty = true
 		return result, nil
+	default:
+		return result, errors.Wrap(err, "failed to validate host during registration")
 	}
+	if errorMessage != "" {
+		result.ErrorMessage = errorMessage
+		result.Dirty = true // validateNode() would have set the errors
+		return result, nil
+	}
+
+	// If validation is successful we can start moving the host
+	// through the states necessary to make it "available".
+	p.log.Info("starting provisioning",
+		"lastError", ironicNode.LastError,
+		"current", ironicNode.ProvisionState,
+		"target", ironicNode.TargetProvisionState,
+		"deploy step", ironicNode.DeployStep,
+	)
+	p.publisher("ProvisioningStarted",
+		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
+
+	var opts nodes.ProvisionStateOpts
+	if ironicNode.ProvisionState == nodes.DeployFail {
+		opts = nodes.ProvisionStateOpts{Target: nodes.TargetActive}
+	} else {
+		opts = nodes.ProvisionStateOpts{Target: nodes.TargetProvide}
+	}
+	return p.changeNodeProvisionState(ironicNode, opts)
+}
+
+// Provision writes the image from the host spec to the host. It may
+// be called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
+	var ironicNode *nodes.Node
+
+	if ironicNode, err = p.findExistingHost(); err != nil {
+		return result, errors.Wrap(err, "could not find host to receive image")
+	}
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
+	}
+
+	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
+
+	// FIXME(dhellmann): The Stein version of Ironic supports passing
+	// a URL. When we upgrade, we can stop doing this work ourself.
+	checksum, err := p.getImageChecksum()
+	if err != nil {
+		return result, errors.Wrap(err, "failed to retrieve image checksum")
+	}
+
+	// Local variable to make it easier to test if ironic is
+	// configured with the same image we are trying to provision to
+	// the host.
+	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+		ironicNode.InstanceInfo["image_checksum"] == checksum)
+	p.log.Info("checking image settings",
+		"source", ironicNode.InstanceInfo["image_source"],
+		"checksum", checksum,
+		"same", ironicHasSameImage)
+
+	result.RequeueAfter = provisionRequeueDelay
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
-	if p.status.State == metalkubev1alpha1.StatePreparingToProvision {
-		ok, err := p.validateNode(ironicNode)
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not validate host during registration, busy")
-			result.Dirty = true
-			return result, nil
-		default:
-			return result, errors.Wrap(err, "failed to validate host during registration")
-		}
-		if !ok {
-			p.status.State = metalkubev1alpha1.StateValidationError
-			result.Dirty = true // validateNode() would have set the errors
-			return result, nil
-		}
+	switch ironicNode.ProvisionState {
 
-		// If validation is successful we can start moving the host
-		// through the states necessary to make it "available".
-		p.log.Info("making host available",
-			"lastError", ironicNode.LastError,
-			"current", ironicNode.ProvisionState,
-			"target", ironicNode.TargetProvisionState,
-			"deploy step", ironicNode.DeployStep,
-		)
-		changeResult := nodes.ChangeProvisionState(
-			p.client,
-			ironicNode.UUID,
-			nodes.ProvisionStateOpts{
-				Target: nodes.TargetProvide,
-			})
-		switch changeResult.Err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not change provisioning state to provide, busy")
-			result.Dirty = true
-			return result, nil
-		default:
-			return result, errors.Wrap(changeResult.Err,
-				"failed to change provisioning state to provide")
-		}
-		p.status.State = metalkubev1alpha1.StateMakingAvailable
-		result.Dirty = true
-		return result, nil
-	}
-
-	// Wait for the host to become available
-	if p.status.State == metalkubev1alpha1.StateMakingAvailable {
-		if ironicNode.ProvisionState != nodes.Available {
-			p.log.Info("waiting for host to become available",
-				"deploy step", ironicNode.DeployStep)
+	case nodes.DeployFail:
+		// Since we were here ironic has recorded an error for this host,
+		// with the image and checksum we have been trying to use, so we
+		// should stop. (If the image values do not match, we want to try
+		// again.)
+		if ironicHasSameImage {
+			// Save me from "eventually consistent" systems built on
+			// top of relational databases...
+			if ironicNode.LastError == "" {
+				p.log.Info("failed but error message not available")
+				result.Dirty = true
+				return result, nil
+			}
+			p.log.Info("found error", "msg", ironicNode.LastError)
+			result.ErrorMessage = fmt.Sprintf("Image provisioning failed: %s",
+				ironicNode.LastError)
 			return result, nil
 		}
+		p.log.Info("recovering from previous failure")
+		return p.startProvisioning(ironicNode, checksum, getUserData)
 
+	case nodes.Manageable:
+		return p.startProvisioning(ironicNode, checksum, getUserData)
+
+	case nodes.Available:
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
+		p.log.Info("making host active")
 
 		// Build the config drive image using the userData we've been
 		// given so we can pass it to Ironic.
@@ -660,48 +653,29 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 			p.log.Info("triggering provisioning without config drive")
 		}
 
-		changeResult := nodes.ChangeProvisionState(
-			p.client,
-			ironicNode.UUID,
+		return p.changeNodeProvisionState(
+			ironicNode,
 			nodes.ProvisionStateOpts{
 				Target:      nodes.TargetActive,
 				ConfigDrive: configDriveData,
 			},
 		)
-		switch changeResult.Err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not trigger provisioning, busy")
-			result.Dirty = true
-			return result, nil
-		default:
-			return result, errors.Wrap(changeResult.Err,
-				"failed to trigger provisioning")
-		}
-		p.status.State = metalkubev1alpha1.StateProvisioning
+
+	case nodes.Active:
+		// provisioning is done
+		p.publisher("ProvisioningComplete",
+			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
+		p.log.Info("finished provisioning")
+		return result, nil
+
+	default:
+		// wait states like cleaning and clean wait
+		p.log.Info("waiting for host to become available",
+			"state", ironicNode.ProvisionState,
+			"deploy step", ironicNode.DeployStep)
 		result.Dirty = true
 		return result, nil
 	}
-
-	// Wait for provisioning to be completed
-	if p.status.State == metalkubev1alpha1.StateProvisioning {
-		if ironicNode.ProvisionState == nodes.Active {
-			p.publisher("ProvisioningComplete",
-				fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
-			p.log.Info("finished provisioning")
-			p.status.Image = *p.host.Spec.Image
-			p.status.State = metalkubev1alpha1.StateProvisioned
-			result.Dirty = true
-			return result, nil
-		}
-		p.log.Info("still provisioning",
-			"deploy step", ironicNode.DeployStep,
-			"ironic state", ironicNode.ProvisionState,
-		)
-		result.Dirty = true // make sure we check back
-	}
-
-	return result, nil
 }
 
 // Deprovision prepares the host to be removed from the cluster. It
@@ -727,10 +701,11 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 		"deploy step", ironicNode.DeployStep,
 	)
 
-	if ironicNode.ProvisionState == nodes.Error {
-		p.publisher("ForceDeprovision", "Forcing deprovision due to internal error")
+	switch ironicNode.ProvisionState {
+
+	case nodes.Error:
 		if !ironicNode.Maintenance {
-			p.log.Info("setting host maintenance flag for deleting")
+			p.log.Info("setting host maintenance flag to force image delete")
 			_, err = nodes.Update(
 				p.client,
 				ironicNode.UUID,
@@ -746,86 +721,72 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not set host maintenance flag, busy")
-				result.Dirty = true
-				return result, nil
 			default:
 				return result, errors.Wrap(err, "failed to set host maintenance flag")
 			}
-		}
-		// Fake the status change to Available so that the next block
-		// will delete the node now that we have placed it into
-		// maintenance mode.
-		ironicNode.ProvisionState = nodes.Available
-	}
-
-	if ironicNode.ProvisionState == nodes.Available {
-		if !deleteIt {
-			p.publisher("DeprovisionComplete", "Image deprovisioning completed")
-			p.log.Info("deprovisioning complete")
-			if p.status.Image.URL != "" {
-				p.log.Info("clearing provisioning status")
-				p.status.Image.URL = ""
-				p.status.Image.Checksum = ""
-				p.status.State = metalkubev1alpha1.StateNone
-				result.Dirty = true
-			}
-			return result, nil
-		}
-		p.log.Info("host ready to be removed")
-		err = nodes.Delete(p.client, p.status.ID).ExtractErr()
-		switch err.(type) {
-		case nil:
-			p.log.Info("removed")
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not remove host, busy")
 			result.Dirty = true
 			return result, nil
-		case gophercloud.ErrDefault404:
-			p.log.Info("did not find host to delete, OK")
-		default:
-			return result, errors.Wrap(err, "failed to remove host")
 		}
-		return result, nil
-	}
-
-	// Most of the next steps are going to take time, so set the delay
-	// now once.
-	result.RequeueAfter = deprovisionRequeueDelay
-
-	if ironicNode.ProvisionState == nodes.Deleting {
-		p.log.Info("still deprovisioning")
-		result.Dirty = true
-		return result, nil
-	}
-
-	if ironicNode.ProvisionState == nodes.Active {
-		p.log.Info("starting delete")
-		changeResult := nodes.ChangeProvisionState(
-			p.client,
-			ironicNode.UUID,
-			nodes.ProvisionStateOpts{
-				Target: nodes.TargetDeleted,
-			},
+		// Once it's in maintenance, we can start the delete process.
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
-		switch changeResult.Err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not delete host, busy")
-			result.Dirty = true
-			return result, nil
-		default:
-			return result, errors.Wrap(changeResult.Err,
-				"failed to trigger deprovisioning")
-		}
-		p.publisher("DeprovisionStarted", "Image deprovisioning started")
-		p.status.State = metalkubev1alpha1.StateDeprovisioning
+
+	case nodes.Available:
+		// Move back to manageable
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
+	case nodes.Deleting:
+		p.log.Info("deleting")
 		result.Dirty = true
+		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
+
+	case nodes.Cleaning:
+		p.log.Info("cleaning")
+		result.Dirty = true
+		result.RequeueAfter = deprovisionRequeueDelay
+		return result, nil
+
+	case nodes.CleanWait:
+		p.log.Info("cleaning")
+		result.Dirty = true
+		result.RequeueAfter = deprovisionRequeueDelay
+		return result, nil
+
+	// FIXME(dhellmann): handle CleanFailed?
+
+	case nodes.Manageable:
+		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
+		if deleteIt {
+			p.log.Info("host ready to be removed")
+			err = nodes.Delete(p.client, p.status.ID).ExtractErr()
+			switch err.(type) {
+			case nil:
+				p.log.Info("removed")
+			case gophercloud.ErrDefault409:
+				p.log.Info("could not remove host, busy")
+			case gophercloud.ErrDefault404:
+				p.log.Info("did not find host to delete, OK")
+			default:
+				return result, errors.Wrap(err, "failed to remove host")
+			}
+			result.Dirty = true
+		}
+		return result, nil
+
+	default:
+		p.log.Info("starting delete")
+		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
+		)
 	}
-
-	p.log.Info("unhandled provision state", "state", ironicNode.ProvisionState)
-
-	return result, nil
 }
 
 func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {

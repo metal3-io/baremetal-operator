@@ -502,6 +502,18 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum s
 					Path:  "/instance_uuid",
 					Value: p.host.Status.Provisioning.ID,
 				},
+				// FIXME(russellb) Don't hardcode this
+				nodes.UpdateOperation{
+					Op:    op,
+					Path:  "/properties/cpu_arch",
+					Value: "x86_64",
+				},
+				// FIXME(russellb) Don't hardcode this
+				nodes.UpdateOperation{
+					Op:    op,
+					Path:  "/properties/local_gb",
+					Value: 50,
+				},
 				// FIXME(dhellmann): We need to specify the root
 				// device to receive the image. That should come from
 				// some combination of inspecting the host to see what
@@ -512,6 +524,11 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum s
 				// 	Path:  "/properties/root_device",
 				// 	Value: map[string]interface{},
 				// },
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/properties/root_device",
+					Value: map[string]string{"name": "/dev/vda"},
+				},
 			}).Extract()
 		switch err.(type) {
 		case nil:

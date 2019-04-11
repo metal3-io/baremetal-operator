@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	instanceImageSource      = "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
+	instanceImageSource      = "http://172.22.0.1/images/rhcos-oopta-latest.qcow2"
 	instanceImageChecksumURL = instanceImageSource + ".md5sum"
 )
 

@@ -62,8 +62,8 @@ spec:
     namespace: openshift-machine-api
     name: worker-user-data
   image:
-    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
-    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+    url: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2"
+    checksum: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2.md5sum"
 ```
 
 ### Status Fields

@@ -57,6 +57,17 @@ operator when launching it.
 operator-sdk up local --operator-flags "-test-mode"
 ```
 
+## Running a local instance of Ironic
+
+There is a script available that will run a set of containers locally using
+`podman` to stand up Ironic for development and testing.
+
+See `tools/run_local_ironic.sh`.
+
+Note that this script may need customizations to some of the `podman run`
+commands, to include environment variables that configure the containers for
+your environment.
+
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to [vbmc](https://docs.openstack.org/tripleo-docs/latest/install/environments/virtualbmc.html) and

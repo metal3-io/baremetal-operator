@@ -30,6 +30,10 @@ spec:
     description: Address of management controler
     name: BMC
     type: string
+  - JSONPath: .status.hardwareProfile
+    description: The type of hardware detected
+    name: Hardware Profile
+    type: string
   - JSONPath: .status.errorMessage
     description: Most recent error
     name: Error

@@ -508,6 +508,10 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 	var provResult provisioner.Result
 
 	getUserData := func() (string, error) {
+		if info.host.Spec.UserData == nil {
+			info.log.Info("no user data for host")
+			return "", nil
+		}
 		info.log.Info("fetching user data before provisioning")
 		userDataSecret := &corev1.Secret{}
 		key := types.NamespacedName{

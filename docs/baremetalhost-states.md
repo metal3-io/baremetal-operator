@@ -16,6 +16,13 @@ A Discovered host is missing either the BMC address or credentials
 secret name, and does not have enough information to access the BMC
 for registration.
 
+## Externally Provisioned
+
+An Externally Provisioned host was deployed using another tool and
+then a host object was created with a link to an existing Machine
+object and without an Image setting. Hosts in this state are
+monitored, and only their power status is managed.
+
 ## Registering
 
 The host will stay in the Registering state while the BMC access

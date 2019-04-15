@@ -2,6 +2,7 @@ digraph BaremetalHost {
     Created [shape=house]
     Created -> Discovered [label="BMC.* == \"\""]
     Created -> Registering [label="BMC.* != \"\""]
+    Created -> ExternallyProvisioned [label="image.URL = '' && machineRef != nil"]
 
     Discovered [shape=doublecircle]
     Discovered -> Registering [label="BMC.* != \"\""]
@@ -43,6 +44,9 @@ digraph BaremetalHost {
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
     Provisioned -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
+
+    ExternallyProvisioned [shape=doublecircle]
+    ExternallyProvisioned -> Deleted [label="!DeletionTimestamp.IsZero()"]
 
     Deprovisioning -> Provisioning [label="NeedsProvisioning()"]
     Deprovisioning -> Ready [label="!NeedsProvisioning()"]

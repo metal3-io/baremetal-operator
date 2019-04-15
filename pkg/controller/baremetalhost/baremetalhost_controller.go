@@ -198,60 +198,65 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return result, err
 	}
 
-	// Check for a "discovered" host vs. one that we have all the info for.
-	if host.Spec.BMC.Address == "" {
-		reqLogger.Info(bmc.MissingAddressMsg)
-		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
-		if dirty {
-			err = r.saveStatus(host)
-			if err != nil {
-				// Only publish the event if we do not have an error
-				// after saving so that we only publish one time.
-				r.publishEvent(request,
-					host.NewEvent("Discovered", "Discovered host without BMC address"))
-			}
-			// Without the address we can't do any more so we return here
-			// without checking for an error.
-			return reconcile.Result{Requeue: true}, err
-		}
-		reqLogger.Info("nothing to do for discovered host without BMC address")
-		return reconcile.Result{}, nil
-	}
-	if host.Spec.BMC.CredentialsName == "" {
-		reqLogger.Info(bmc.MissingCredentialsMsg)
-		dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
-		if dirty {
-			err = r.saveStatus(host)
-			if err != nil {
-				// Only publish the event if we do not have an error
-				// after saving so that we only publish one time.
-				r.publishEvent(request,
-					host.NewEvent("Discovered", "Discovered host without BMC credentials"))
-			}
-			// Without any credentials we can't do any more so we return
-			// here without checking for an error.
-			return reconcile.Result{Requeue: true}, err
-		}
-		reqLogger.Info("nothing to do for discovered host without BMC credentials")
-		return reconcile.Result{}, nil
-	}
+	// create BMC credentials
+	bmcCreds, err := bmc.NewCredentials(r.client, host)
 
-	// Load the credentials for talking to the management controller.
-	bmcCreds, bmcCredsSecret, err := r.getValidBMCCredentials(request, host)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "BMC credentials are invalid")
-	}
-	if bmcCreds == nil {
-		// We do not have valid credentials, but did not encounter a
-		// retriable error in determining that. Reconciliation is
-		// complete until something about the secrets change.
-		return reconcile.Result{}, nil
+		reqLogger.Info(err.Error())
+		if err, ok := err.(*bmc.Error); ok {
+
+			switch err.Err {
+
+			// The host has either a missing BMC address or an empty
+			// credential pointer
+			case bmc.ErrMissingAddress, bmc.ErrMissingCredentials:
+				dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
+				if dirty {
+					saveErr := r.saveStatus(host)
+					if saveErr != nil {
+						// Only publish the event if we do not have an error
+						// after saving so that we only publish one time.
+						r.publishEvent(request,
+							host.NewEvent("Discovered", "Discovered host with unusable BMC details"))
+					}
+					// Without the address we can't do any more so we return here
+					// without checking for an error.
+					return reconcile.Result{Requeue: true}, saveErr
+				}
+				reqLogger.Info("nothing to do for discovered host without BMC address or credentials")
+				return reconcile.Result{}, nil
+
+			// the credential pointer cannot be retrieved, or it has missing data
+			case bmc.ErrMissingBMCSecret, bmc.ErrMissingUsername, bmc.ErrMissingPassword:
+
+				// alanmeadows(NOTE) ideally, we do this no matter what the case
+				// given we have a convenient flag on whether a host error
+				// message exists
+				if err.SetHostError {
+					reqLogger.Info("Setting host error state")
+					dirty := host.SetErrorMessage(err.HostErrorMessage)
+					if dirty {
+						saveErr := r.saveStatus(host)
+						if saveErr != nil {
+							// What can we do besides log that this happened?
+							reqLogger.Info("Failed to save error for host %q", host.Name)
+						}
+						return reconcile.Result{Requeue: true}, saveErr
+					}
+				}
+				return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
+
+			// we encountered a transient error fetching the BMC secret
+			case bmc.ErrFailedToRetrieveBMCSecret:
+				return reconcile.Result{Requeue: true}, err
+			}
+		}
 	}
 
 	// Pick the action to perform
 	var actionName metalkubev1alpha1.ProvisioningState
 	switch {
-	case host.CredentialsNeedValidation(*bmcCredsSecret):
+	case host.CredentialsNeedValidation(*bmcCreds.Secret):
 		actionName = metalkubev1alpha1.StateRegistering
 	case host.NeedsHardwareInspection():
 		actionName = metalkubev1alpha1.StateInspecting
@@ -281,7 +286,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		log:            reqLogger.WithValues("actionName", actionName),
 		host:           host,
 		request:        request,
-		bmcCredsSecret: bmcCredsSecret,
+		bmcCredsSecret: bmcCreds.Secret,
 	}
 	prov, err := r.provisionerFactory(host, *bmcCreds, info.publishEvent)
 	if err != nil {
@@ -364,9 +369,11 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 		return reconcile.Result{}, nil
 	}
 
-	bmcCreds, _, err := r.getValidBMCCredentials(request, host)
+	// get host bmc creds
+	bmcCreds, err := bmc.NewCredentials(r.client, host)
+
 	// We ignore the error, because we are deleting this host anyway.
-	if bmcCreds == nil {
+	if err != nil {
 		// There are no valid credentials, so create an empty
 		// credentials object to give to the provisioner.
 		bmcCreds = &bmc.Credentials{}
@@ -697,52 +704,6 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 	}
 
 	return nil
-}
-
-// Make sure the credentials for the management controller look
-// right. This does not actually try to use the credentials.
-func (r *ReconcileBareMetalHost) getValidBMCCredentials(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-
-	// Load the secret containing the credentials for talking to the
-	// BMC. This assumes we have a reference to the secret, otherwise
-	// Reconcile() should not have let us be called.
-	secretKey := host.CredentialsKey()
-	bmcCredsSecret = &corev1.Secret{}
-	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
-	if err != nil {
-		return nil, nil, errors.Wrap(err,
-			"failed to fetch BMC credentials from secret reference")
-	}
-	bmcCreds = &bmc.Credentials{
-		Username: string(bmcCredsSecret.Data["username"]),
-		Password: string(bmcCredsSecret.Data["password"]),
-	}
-
-	// Verify that the secret contains the expected info.
-	if validCreds, reason := bmcCreds.AreValid(); !validCreds {
-		reqLogger.Info("invalid BMC Credentials", "reason", reason)
-		err := r.setErrorCondition(request, host, reason)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to set error condition")
-		}
-
-		// Only publish the event if we do not have an error
-		// after saving so that we only publish one time.
-		r.publishEvent(request, host.NewEvent("BMCCredentialError", reason))
-
-		// This is not an error we can retry from, so stop reconciling.
-		return nil, nil, nil
-	}
-
-	// Make sure the secret has the correct owner.
-	if err = r.setBMCCredentialsSecretOwner(request, host, bmcCredsSecret); err != nil {
-		return nil, nil, errors.Wrap(err,
-			"failed to update owner of credentials secret")
-	}
-
-	return bmcCreds, bmcCredsSecret, nil
 }
 
 func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {

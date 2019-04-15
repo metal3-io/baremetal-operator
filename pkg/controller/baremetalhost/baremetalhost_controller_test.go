@@ -4,6 +4,7 @@ import (
 	goctx "context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -190,7 +191,7 @@ func TestAddFinalizers(t *testing.T) {
 }
 
 // TestSetLastUpdated ensures that the lastUpdated timestamp in the
-// status is set to a non-zero value during reconciliation.
+// status is set to a non-zero value during reconciliation.q
 func TestSetLastUpdated(t *testing.T) {
 	host := newDefaultHost(t)
 	r := newTestReconciler(host)
@@ -224,6 +225,32 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 		},
 	)
 
+}
+
+// TestMissingBMCSecretsSetsError ensures that the
+// absence of a BMC credentials secret behaves properly
+// by setting host.setErrorMessage
+func TestMissingBMCSecretsSetsError(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host)
+
+	host.Spec.BMC.CredentialsName = "bmc-creds-does-not-exist"
+	err := r.client.Update(goctx.TODO(), host)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tryReconcile(t, r, host,
+		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
+				host.Status.GoodCredentials.Version)
+			t.Logf("ERR MSG: %q", host.Status.ErrorMessage)
+			if strings.Contains(host.Status.ErrorMessage, "Missing BMC k8s secret") {
+				return true
+			}
+			return false
+		},
+	)
 }
 
 // TestUpdateGoodCredentialsOnNewSecret ensures that the

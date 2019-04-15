@@ -1,7 +1,6 @@
 package demo
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,13 +16,30 @@ var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 
 const (
-	registrationErrorHost string = "demo-registration-error"
-	registeringHost       string = "demo-registering"
-	readyHost             string = "demo-ready"
-	inspectingHost        string = "demo-inspecting"
-	validationErrorHost   string = "demo-validation-error"
-	provisioningHost      string = "demo-provisioning"
-	provisionedHost       string = "demo-provisioned"
+	// RegistrationErrorHost is a host that fails the registration
+	// process.
+	RegistrationErrorHost string = "demo-registration-error"
+
+	// RegisteringHost is a host that is in the process of being
+	// registered.
+	RegisteringHost string = "demo-registering"
+
+	// ReadyHost is a host that is ready to be used.
+	ReadyHost string = "demo-ready"
+
+	// InspectingHost is a host that is having its hardware scanned.
+	InspectingHost string = "demo-inspecting"
+
+	// ValidationErrorHost is a host that started provisioning but
+	// failed validation.
+	ValidationErrorHost string = "demo-validation-error"
+
+	// ProvisioningHost is a host that is in the middle of
+	// provisioning.
+	ProvisioningHost string = "demo-provisioning"
+
+	// ProvisionedHost is a host that has had an image provisioned.
+	ProvisionedHost string = "demo-provisioned"
 )
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -59,15 +75,12 @@ func (p *demoProvisioner) ValidateManagementAccess() (result provisioner.Result,
 
 	switch hostName {
 
-	case registrationErrorHost:
-		if p.host.SetErrorMessage("failed to register new host") {
-			p.log.Info("setting registration error")
-			p.publisher("RegistrationError", "Failed to register new host")
-			result.Dirty = true
-		}
+	case RegistrationErrorHost:
 		// We have set an error, so Reconcile() will stop
+		result.ErrorMessage = "failed to register new host"
+		p.log.Info("setting registration error")
 
-	case registeringHost:
+	case RegisteringHost:
 		// Always mark the host as dirty so it never moves past this
 		// point.
 		result.Dirty = true
@@ -79,7 +92,6 @@ func (p *demoProvisioner) ValidateManagementAccess() (result provisioner.Result,
 			p.log.Info("setting provisioning id",
 				"provisioningID", p.host.Status.Provisioning.ID)
 			result.Dirty = true
-			p.publisher("Registered", "Registered new host")
 		}
 	}
 
@@ -95,7 +107,7 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, err erro
 
 	hostName := p.host.ObjectMeta.Name
 
-	if hostName == inspectingHost {
+	if hostName == InspectingHost {
 		p.host.Status.Provisioning.State = metalkubev1alpha1.StateInspecting
 		// set dirty so we don't allow the host to progress past this
 		// state in Reconcile()
@@ -182,22 +194,17 @@ func (p *demoProvisioner) Provision(getUserData provisioner.UserDataSource) (res
 
 	switch hostName {
 
-	case validationErrorHost:
-		p.log.Info("validation error host")
-		p.publisher("HostValidationError", "validation failed")
-		p.host.SetErrorMessage("validation failed")
-		result.Dirty = true
+	case ValidationErrorHost:
+		p.log.Info("setting validation error")
+		result.ErrorMessage = "validation failed"
 
-	case provisioningHost:
+	case ProvisioningHost:
 		p.log.Info("provisioning host")
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
 
 	default:
-		p.publisher("ProvisioningComplete",
-			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
 		p.log.Info("finished provisioning")
-		result.Dirty = true
 	}
 
 	return result, nil

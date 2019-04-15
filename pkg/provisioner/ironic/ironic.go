@@ -461,197 +461,170 @@ func (p *ironicProvisioner) getImageChecksum() (string, error) {
 	return checksum, nil
 }
 
-func (p *ironicProvisioner) updateNodeSetting(ironicNode *nodes.Node, op nodes.UpdateOp, path string, value interface{}) (err error) {
-	p.log.Info("updateNodeSetting", "op", op, "path", path, "value", value)
-	_, err = nodes.Update(
-		p.client,
-		ironicNode.UUID,
-		nodes.UpdateOpts{
-			nodes.UpdateOperation{
-				Op:    op,
-				Path:  path,
-				Value: value,
-			},
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksum string) (updates nodes.UpdateOpts, err error) {
+
+	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+	if err != nil {
+		return updates, errors.Wrap(err,
+			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
+				p.host.HardwareProfile()))
+	}
+
+	// image_source
+	var op nodes.UpdateOp
+	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding image_source")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating image_source")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/image_source",
+			Value: p.host.Spec.Image.URL,
 		},
-	).Extract()
-	return err
+	)
+
+	// image_checksum
+	if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding image_checksum")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating image_checksum")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/image_checksum",
+			Value: checksum,
+		},
+	)
+
+	// instance_uuid
+	//
+	// NOTE(dhellmann): We must fill in *some* value so that Ironic
+	// will monitor the host. We don't have a nova instance at all, so
+	// just give the node it's UUID again.
+	p.log.Info("setting instance_uuid")
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    nodes.ReplaceOp,
+			Path:  "/instance_uuid",
+			Value: p.host.Status.Provisioning.ID,
+		},
+	)
+
+	// root_gb
+	//
+	// FIXME(dhellmann): We have to provide something for the disk
+	// size until https://storyboard.openstack.org/#!/story/2005165 is
+	// fixed in ironic.
+	if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding root_gb")
+	} else if ironicNode.InstanceInfo["root_gb"] != 10 {
+		op = nodes.ReplaceOp
+		p.log.Info("updating root_gb")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/root_gb",
+			Value: hwProf.RootGB,
+		},
+	)
+
+	// root_device
+	//
+	// FIXME(dhellmann): We need to specify the root device to receive
+	// the image. That should come from some combination of inspecting
+	// the host to see what is available and the hardware profile to
+	// give us instructions.
+	if _, ok := ironicNode.Properties["root_device"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding root_device")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating root_device")
+	}
+	hints := map[string]string{}
+	switch {
+	case hwProf.RootDeviceHints.DeviceName != "":
+		hints["name"] = hwProf.RootDeviceHints.DeviceName
+	case hwProf.RootDeviceHints.HCTL != "":
+		hints["hctl"] = hwProf.RootDeviceHints.HCTL
+	}
+	p.log.Info("using root device", "hints", hints)
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/properties/root_device",
+			Value: hints,
+		},
+	)
+
+	// cpu_arch
+	//
+	// FIXME(dhellmann): This should come from inspecting the
+	// host.
+	if _, ok := ironicNode.Properties["cpu_arch"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding cpu_arch")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating cpu_arch")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/properties/cpu_arch",
+			Value: hwProf.CPUArch,
+		},
+	)
+
+	// local_gb
+	if _, ok := ironicNode.Properties["local_gb"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding local_gb")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating local_gb")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/properties/local_gb",
+			Value: hwProf.LocalGB,
+		},
+	)
+
+	return updates, nil
 }
 
 func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum string, getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning")
 
-	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
-	if err != nil {
-		return result, errors.Wrap(err,
-			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
-				p.host.HardwareProfile()))
-	}
-
-	// FIXME(dhellmann): All of these little functions need to be
-	// pulled out so we can set up unit tests to verify they produce
-	// the expected values.
-	updaters := []func() error{
-
-		// image_source
-		func() error {
-			var op nodes.UpdateOp
-			if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
-				op = nodes.AddOp
-				p.log.Info("adding image_source")
-			} else {
-				op = nodes.ReplaceOp
-				p.log.Info("updating image_source")
-			}
-			return p.updateNodeSetting(
-				ironicNode,
-				op,
-				"/instance_info/image_source",
-				p.host.Spec.Image.URL,
-			)
-		},
-
-		// image_checksum
-		func() error {
-			var op nodes.UpdateOp
-			if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
-				op = nodes.AddOp
-				p.log.Info("adding image_checksum")
-			} else {
-				op = nodes.ReplaceOp
-				p.log.Info("updating image_checksum")
-			}
-			return p.updateNodeSetting(
-				ironicNode,
-				op,
-				"/instance_info/image_checksum",
-				checksum,
-			)
-		},
-
-		// instance_uuid
-		func() error {
-			// NOTE(dhellmann): We must fill in *some* value so that
-			// Ironic will monitor the host. We don't have a nova
-			// instance at all, so just give the node it's UUID again.
-			p.log.Info("setting instance_uuid")
-			return p.updateNodeSetting(
-				ironicNode,
-				nodes.ReplaceOp,
-				"/instance_uuid",
-				p.host.Status.Provisioning.ID,
-			)
-		},
-
-		// root_gb
-		func() error {
-			// FIXME(dhellmann): We have to provide something for the
-			// disk size until
-			// https://storyboard.openstack.org/#!/story/2005165 is
-			// fixed in ironic.
-			var op nodes.UpdateOp
-			if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
-				op = nodes.AddOp
-				p.log.Info("adding root_gb")
-			} else if ironicNode.InstanceInfo["root_gb"] != 10 {
-				op = nodes.ReplaceOp
-				p.log.Info("updating root_gb")
-			}
-			return p.updateNodeSetting(
-				ironicNode,
-				op,
-				"/instance_info/root_gb",
-				hwProf.RootGB,
-			)
-		},
-
-		// root_device
-		func() error {
-			// FIXME(dhellmann): We need to specify the root device to
-			// receive the image. That should come from some
-			// combination of inspecting the host to see what is
-			// available and the hardware profile to give us
-			// instructions.
-			var op nodes.UpdateOp
-			if _, ok := ironicNode.Properties["root_device"]; !ok {
-				op = nodes.AddOp
-				p.log.Info("adding root_device")
-			} else {
-				op = nodes.ReplaceOp
-				p.log.Info("updating root_device")
-			}
-			hints := map[string]string{}
-			switch {
-			case hwProf.RootDeviceHints.DeviceName != "":
-				hints["name"] = hwProf.RootDeviceHints.DeviceName
-			case hwProf.RootDeviceHints.HCTL != "":
-				hints["hctl"] = hwProf.RootDeviceHints.HCTL
-			}
-			p.log.Info("using root device", "hints", hints)
-			return p.updateNodeSetting(
-				ironicNode,
-				op,
-				"/properties/root_device",
-				hints,
-			)
-		},
-
-		// cpu_arch
-		func() error {
-			// FIXME(dhellmann): This should come from inspecting the
-			// host.
-			var op nodes.UpdateOp
-			if _, ok := ironicNode.Properties["cpu_arch"]; !ok {
-				op = nodes.AddOp
-				p.log.Info("adding cpu_arch")
-			} else {
-				op = nodes.ReplaceOp
-				p.log.Info("updating cpu_arch")
-			}
-			return p.updateNodeSetting(
-				ironicNode,
-				op,
-				"/properties/cpu_arch",
-				hwProf.CPUArch,
-			)
-		},
-
-		// local_gb
-		func() error {
-			var op nodes.UpdateOp
-			if _, ok := ironicNode.Properties["local_gb"]; !ok {
-				op = nodes.AddOp
-				p.log.Info("adding local_gb")
-			} else {
-				op = nodes.ReplaceOp
-				p.log.Info("updating local_gb")
-			}
-			return p.updateNodeSetting(
-				ironicNode,
-				op,
-				"/properties/local_gb",
-				hwProf.LocalGB,
-			)
-		},
-
-		// properties:
-		//  cpu_arch: x86_64
-		//  local_gb: '50'
-		//  root_device:
-		//    name: /dev/vda
-	}
-
-	for _, update := range updaters {
-		err := update()
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not update host settings in ironic, busy")
-			result.Dirty = true
-			return result, nil
-		default:
-			return result, errors.Wrap(err, "failed to update host settings in ironic")
-		}
+	updates, err := p.getUpdateOptsForNode(ironicNode, checksum)
+	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+	switch err.(type) {
+	case nil:
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not update host settings in ironic, busy")
+		result.Dirty = true
+		return result, nil
+	default:
+		return result, errors.Wrap(err, "failed to update host settings in ironic")
 	}
 
 	p.log.Info("validating host settings")

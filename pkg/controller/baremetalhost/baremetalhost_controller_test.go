@@ -482,6 +482,25 @@ func TestProvision(t *testing.T) {
 	)
 }
 
+// TestExternallyProvisioned ensures that host enters the expected
+// state when it looks like it has been provisioned by another tool.
+func TestExternallyProvisioned(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.MachineRef = &corev1.ObjectReference{} // it doesn't have to point to a real machine
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
+			if host.Status.Provisioning.State == metalkubev1alpha1.StateExternallyProvisioned {
+				return true
+			}
+			return false
+		},
+	)
+}
+
 // TestPowerOn verifies that the controller turns the host on when it
 // should.
 func TestPowerOn(t *testing.T) {

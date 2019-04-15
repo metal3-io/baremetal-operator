@@ -74,6 +74,10 @@ const (
 	// disk(s)
 	StateProvisioned ProvisioningState = "provisioned"
 
+	// StateExternallyProvisioned means something else is managing the
+	// image on the host
+	StateExternallyProvisioned ProvisioningState = "externally provisioned"
+
 	// StateDeprovisioning means we are removing an image from the
 	// host's disk(s)
 	StateDeprovisioning ProvisioningState = "deprovisioning"
@@ -434,6 +438,15 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 func (host *BareMetalHost) WasProvisioned() bool {
 	if host.Status.Provisioning.Image.URL != "" {
 		// We have an image provisioned.
+		return true
+	}
+	return false
+}
+
+// WasExternallyProvisioned returns true when we think something else
+// is managing the image running on the host.
+func (host *BareMetalHost) WasExternallyProvisioned() bool {
+	if host.Spec.Image == nil && host.Spec.MachineRef != nil {
 		return true
 	}
 	return false

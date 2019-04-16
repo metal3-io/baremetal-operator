@@ -359,6 +359,27 @@ func TestMissingBMCParameters(t *testing.T) {
 		})
 	r = newTestReconciler(noPassword, secretNoPassword)
 	waitForError(t, r, noPassword)
+
+	secretOk := newSecret("bmc-creds-no-pass", "User", "Pass")
+	noAddress := newHost("missing-bmc-address",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				Address:         "",
+				CredentialsName: "bmc-creds-no-pass",
+			},
+		})
+	r = newTestReconciler(noAddress, secretOk)
+	waitForError(t, r, noAddress)
+
+	noSecretRef := newHost("missing-bmc-address",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				Address:         "ipmi://192.168.122.1:6233",
+				CredentialsName: "",
+			},
+		})
+	r = newTestReconciler(noSecretRef, secretOk)
+	waitForError(t, r, noSecretRef)
 }
 
 // TestFixSecret ensures that when the secret for a host is updated to

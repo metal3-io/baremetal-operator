@@ -2,7 +2,6 @@ digraph BaremetalHost {
     Created [shape=house]
     Created -> Discovered [label="BMC.* == \"\""]
     Created -> Registering [label="BMC.* != \"\""]
-    Created -> ExternallyProvisioned [label="image.URL = '' && machineRef != nil"]
 
     Discovered [shape=doublecircle]
     Discovered -> Registering [label="BMC.* != \"\""]
@@ -11,6 +10,7 @@ digraph BaremetalHost {
     Deleted1 [shape=point]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]
+    Registering -> ExternallyProvisioned [label="image.URL = '' && machineRef != nil"]
     Registering -> RegistrationError [shape=doublecircle label="registration error"]
     Registering -> Deleted2 [label="!DeletionTimestamp.IsZero()"]
 

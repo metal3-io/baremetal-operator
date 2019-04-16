@@ -262,10 +262,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	// Pick the action to perform
 	var actionName metal3v1alpha1.ProvisioningState
 	switch {
-	case host.WasExternallyProvisioned():
-		actionName = metal3v1alpha1.StateExternallyProvisioned
 	case host.CredentialsNeedValidation(*bmcCredsSecret):
 		actionName = metal3v1alpha1.StateRegistering
+	case host.WasExternallyProvisioned():
+		actionName = metal3v1alpha1.StateExternallyProvisioned
 	case host.NeedsHardwareInspection():
 		actionName = metal3v1alpha1.StateInspecting
 	case host.NeedsHardwareProfile():
@@ -462,6 +462,11 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 
 	info.publishEvent("BMCAccessValidated", "Verified access to BMC")
+
+	if info.host.WasExternallyProvisioned() {
+		info.publishEvent("ExternallyProvisioned",
+			"Registered host that was externally provisioned")
+	}
 
 	result.Requeue = true
 	result.RequeueAfter = provResult.RequeueAfter

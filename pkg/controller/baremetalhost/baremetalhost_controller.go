@@ -251,6 +251,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	// Pick the action to perform
 	var actionName metalkubev1alpha1.ProvisioningState
 	switch {
+	case host.WasExternallyProvisioned():
+		actionName = metalkubev1alpha1.StateExternallyProvisioned
 	case host.CredentialsNeedValidation(*bmcCredsSecret):
 		actionName = metalkubev1alpha1.StateRegistering
 	case host.NeedsHardwareInspection():
@@ -268,8 +270,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	}
 
 	if actionName != host.Status.Provisioning.State {
+		reqLogger.Info("changing provisioning state",
+			"old", host.Status.Provisioning.State,
+			"new", actionName,
+		)
 		host.Status.Provisioning.State = actionName
-		reqLogger.Info(fmt.Sprintf("setting provisioning state to %q", actionName))
 		if err := r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after handling %q", actionName))
@@ -278,7 +283,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	}
 
 	info := &reconcileInfo{
-		log:            reqLogger.WithValues("actionName", actionName),
+		log:            reqLogger.WithValues("provisioningState", actionName),
 		host:           host,
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
@@ -302,6 +307,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	case metalkubev1alpha1.StateProvisioned:
 		result, err = r.actionManageHostPower(prov, info)
 	case metalkubev1alpha1.StateReady:
+		result, err = r.actionManageHostPower(prov, info)
+	case metalkubev1alpha1.StateExternallyProvisioned:
 		result, err = r.actionManageHostPower(prov, info)
 	default:
 		// Probably a provisioning error state?

@@ -16,6 +16,39 @@ metadata:
   name: demo-discovered
 
 ---
+apiVersion: machine.openshift.io/v1beta1
+kind: Machine
+metadata:
+  labels:
+    sigs.k8s.io/cluster-api-cluster: ostest
+    sigs.k8s.io/cluster-api-machine-role: worker
+    sigs.k8s.io/cluster-api-machine-type: worker
+  name: demo-ostest-worker
+  namespace: openshift-machine-api
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-externally-provisioned-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metalkube.org/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-externally-provisioned
+spec:
+  online: false
+  bmc:
+    address: ipmi://192.168.122.1:6233
+    credentialsName: demo-externally-provisioned-secret
+  machineRef:
+    name: demo-ostest-worker
+    namespace: openshift-machine-api
+
+---
 apiVersion: v1
 kind: Secret
 metadata:

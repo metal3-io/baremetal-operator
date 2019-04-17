@@ -5,7 +5,7 @@ import (
 )
 
 // EmptyBMCAddressError is returned when the BMC address field
-// for a host is invalid or empty
+// for a host is empty
 type EmptyBMCAddressError struct {
 	message string
 }

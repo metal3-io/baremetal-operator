@@ -47,10 +47,15 @@ type Provisioner interface {
 	// dirty flag until the deprovisioning operation is completed.
 	Provision(getUserData UserDataSource) (result Result, err error)
 
-	// Deprovision prepares the host to be removed from the cluster. It
-	// may be called multiple times, and should return true for its dirty
+	// Deprovision removes the host from the image. It may be called
+	// multiple times, and should return true for its dirty flag until
+	// the deprovisioning operation is completed.
+	Deprovision() (result Result, err error)
+
+	// Delete removes the host from the provisioning system. It may be
+	// called multiple times, and should return true for its dirty
 	// flag until the deprovisioning operation is completed.
-	Deprovision(deleteIt bool) (result Result, err error)
+	Delete() (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image
 	// provisioning operation.

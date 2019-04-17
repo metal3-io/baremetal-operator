@@ -155,11 +155,11 @@ func (p *fixtureProvisioner) Provision(getUserData provisioner.UserDataSource) (
 	return result, nil
 }
 
-// Deprovision prepares the host to be removed from the cluster. It
-// may be called multiple times, and should return true for its dirty
-// flag until the deprovisioning operation is completed.
-func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Result, err error) {
-	p.log.Info("ensuring host is removed")
+// Deprovision removes the host from the image. It may be called
+// multiple times, and should return true for its dirty flag until the
+// deprovisioning operation is completed.
+func (p *fixtureProvisioner) Deprovision() (result provisioner.Result, err error) {
+	p.log.Info("ensuring host is deprovisioned")
 
 	result.RequeueAfter = deprovisionRequeueDelay
 
@@ -176,6 +176,16 @@ func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Resu
 		return result, nil
 	}
 
+	p.publisher("DeprovisionComplete", "Image deprovisioning completed")
+	return result, nil
+}
+
+// Delete removes the host from the provisioning system. It may be
+// called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
+	p.log.Info("deleting host")
+
 	if p.host.Status.Provisioning.ID != "" {
 		p.log.Info("clearing provisioning id")
 		p.host.Status.Provisioning.ID = ""
@@ -183,7 +193,6 @@ func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Resu
 		return result, nil
 	}
 
-	p.publisher("DeprovisionComplete", "Image deprovisioning completed")
 	return result, nil
 }
 

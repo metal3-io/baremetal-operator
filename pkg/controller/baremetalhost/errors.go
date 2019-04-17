@@ -36,3 +36,14 @@ func (e ResolveBMCSecretRefError) Error() string {
 	return fmt.Sprintf("BMC CredentialsName secret doesn't exist %s",
 		e.message)
 }
+
+// SaveBMCCredentialsSecretOwnerError is returned when we
+// fail to set the owner of a secret
+type SaveBMCCredentialsSecretOwnerError struct {
+	message string
+}
+
+func (e SaveBMCCredentialsSecretOwnerError) Error() string {
+	return fmt.Sprintf("Failed to set owner of BMC secret %s",
+		e.message)
+}

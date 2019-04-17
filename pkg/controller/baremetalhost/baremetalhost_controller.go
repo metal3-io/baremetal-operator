@@ -4,12 +4,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
 	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
 	"github.com/metalkube/baremetal-operator/pkg/bmc"
+	"github.com/metalkube/baremetal-operator/pkg/hardware"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
@@ -257,7 +259,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		actionName = metalkubev1alpha1.StateRegistering
 	case host.NeedsHardwareInspection():
 		actionName = metalkubev1alpha1.StateInspecting
-	case host.HardwareProfile() == "":
+	case host.NeedsHardwareProfile():
 		actionName = metalkubev1alpha1.StateMatchProfile
 	case host.NeedsProvisioning():
 		actionName = metalkubev1alpha1.StateProvisioning
@@ -495,8 +497,39 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 
 func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 
-	// FIXME(dhellmann): Insert logic to match hardware profiles here.
-	hardwareProfile := "unknown"
+	var hardwareProfile string
+
+	info.log.Info("determining hardware profile")
+
+	// Start by looking for an override value from the user
+	if info.host.Spec.HardwareProfile != "" {
+		info.log.Info("using spec value for profile name",
+			"name", info.host.Spec.HardwareProfile)
+		hardwareProfile = info.host.Spec.HardwareProfile
+		_, err = hardware.GetProfile(hardwareProfile)
+		if err != nil {
+			info.log.Info("invalid hardware profile", "profile", hardwareProfile)
+			return result, err
+		}
+	}
+
+	// Now do a bit of matching.
+	//
+	// FIXME(dhellmann): Insert more robust logic to match
+	// hardware profiles here.
+	if hardwareProfile == "" {
+		if strings.HasPrefix(info.host.Spec.BMC.Address, "libvirt") {
+			hardwareProfile = "libvirt"
+			info.log.Info("determining from BMC address", "name", hardwareProfile)
+		}
+	}
+
+	// Now default to a value just in case there is no match
+	if hardwareProfile == "" {
+		hardwareProfile = hardware.DefaultProfileName
+		info.log.Info("using the default", "name", hardwareProfile)
+	}
+
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))

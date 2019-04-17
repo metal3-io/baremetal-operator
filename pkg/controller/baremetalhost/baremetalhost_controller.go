@@ -732,7 +732,7 @@ func (r *ReconcileBareMetalHost) getBMCSecretAndSetOwner(request reconcile.Reque
 	}
 
 	// Make sure the secret has the correct owner as soon as we can.
-	// This can return an SaveBMCCredentialsSecretOwnerError
+	// This can return an SaveBMCSecretOwnerError
 	// which isn't handled causing us to immediately try again
 	// which seems fine as we expect this to be a transient failure
 	err = r.setBMCCredentialsSecretOwner(request, host, bmcCredsSecret)
@@ -792,11 +792,11 @@ func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.
 	reqLogger.Info("updating owner of secret")
 	err = controllerutil.SetControllerReference(host, secret, r.scheme)
 	if err != nil {
-		return &SaveBMCCredentialsSecretOwnerError{message: fmt.Sprintf("cannot set owner: %q", err.Error())}
+		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot set owner: %q", err.Error())}
 	}
 	err = r.client.Update(context.TODO(), secret)
 	if err != nil {
-		return &SaveBMCCredentialsSecretOwnerError{message: fmt.Sprintf("cannot save owner: %q", err.Error())}
+		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot save owner: %q", err.Error())}
 	}
 	return nil
 }

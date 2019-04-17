@@ -37,13 +37,13 @@ func (e ResolveBMCSecretRefError) Error() string {
 		e.message)
 }
 
-// SaveBMCCredentialsSecretOwnerError is returned when we
+// SaveBMCSecretOwnerError is returned when we
 // fail to set the owner of a secret
-type SaveBMCCredentialsSecretOwnerError struct {
+type SaveBMCSecretOwnerError struct {
 	message string
 }
 
-func (e SaveBMCCredentialsSecretOwnerError) Error() string {
+func (e SaveBMCSecretOwnerError) Error() string {
 	return fmt.Sprintf("Failed to set owner of BMC secret %s",
 		e.message)
 }

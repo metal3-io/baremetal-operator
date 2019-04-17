@@ -204,12 +204,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	bmcCreds, bmcCredsSecret, err := r.buildAndValidateBMCCredentials(request, host)
 	if err != nil {
 		switch err.(type) {
-
-		// We key on invalid bmc address and secret references as a trigger
-		// the host needs to be put into a discovered status and requeue it for
+		// We key on empty bmc address and empty bmc credentials fields as a
+		// trigger the host needs to be put into a discovered status and requeue it for
 		// later.  We do set an error message (but not an error state) on the host
 		// so we can understand what we may be waiting on.
-		case *InvalidBMCAddressError, *InvalidBMCSecretError:
+		case *EmptyBMCAddressError, *EmptyBMCSecretError:
 			dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
 			if dirty {
 				// Set the host error message directly
@@ -225,12 +224,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 				r.publishEvent(request,
 					host.NewEvent("Discovered", fmt.Sprintf("Discovered host with unusable BMC details: %s", err.Error())))
 			}
-			// This avoids tracebacks on these "expected" missing values
 			return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
-		// In the case of a non-null empty secret reference that has invalid data
-		// or non-null and invalid BMC addresses, we set the host into an error state
-		// and requeue it for evaluation later
-		case *bmc.ValidationError, *bmc.UnknownBMCTypeError:
+		// In the event a credential secret is defined, but we cannot find it, or the secret is
+		// missing the required fields, or the BMC address is defined but malformed we set the
+		// host into an error state and requeue it for evaluation later
+		case *ResolveBMCSecretRefError, *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
 			saveErr := r.setErrorCondition(request, host, err.Error())
 			if saveErr != nil {
 				return reconcile.Result{Requeue: true}, saveErr
@@ -709,22 +707,21 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 }
 
 // Retrieve the secret containing the credentials for talking to the BMC.
-func (r *ReconcileBareMetalHost) getBMCKubernetesSecret(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (bmcCredsSecret *corev1.Secret, err error) {
+func (r *ReconcileBareMetalHost) getBMCSecret(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (bmcCredsSecret *corev1.Secret, err error) {
 
 	if host.Spec.BMC.CredentialsName == "" {
-		return nil, &InvalidBMCSecretError{message: "The BMC secret reference is empty"}
+		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
 	}
 	secretKey := host.CredentialsKey()
 	bmcCredsSecret = &corev1.Secret{}
 	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, &InvalidBMCSecretError{message: fmt.Sprintf("The BMC secret %s does not exist", secretKey)}
+			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", secretKey)}
 		}
 		return nil, err
 	}
 	return bmcCredsSecret, nil
-
 }
 
 // Make sure the credentials for the management controller look
@@ -733,7 +730,7 @@ func (r *ReconcileBareMetalHost) getBMCKubernetesSecret(request reconcile.Reques
 func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
 
 	// Retrieve the BMC secret from Kubernetes for this host
-	bmcCredsSecret, err = r.getBMCKubernetesSecret(request, host)
+	bmcCredsSecret, err = r.getBMCSecret(request, host)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -741,11 +738,13 @@ func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcil
 	// Check for a "discovered" host vs. one that we have all the info for
 	// and find empty Address or CredentialsName fields
 	if host.Spec.BMC.Address == "" {
-		return nil, nil, &InvalidBMCAddressError{message: "Missing BMC connection detail 'Address'"}
+		return nil, nil, &EmptyBMCAddressError{message: "Missing BMC connection detail 'Address'"}
 	}
 
-	// Ensure NewAccessDetails, which does more indepth checking of the address field
-	// doesn't raise an UnknownBMCTypeError so we can catch it early
+	// pass the bmc address to bmc.NewAccessDetails which will do
+	// more in-depth checking on the url to ensure it is
+	// a valid bmc address, returning a bmc.UnknownBMCTypeError
+	// if it is not conformant
 	_, err = bmc.NewAccessDetails(host.Spec.BMC.Address)
 	if err != nil {
 		return nil, nil, err
@@ -757,13 +756,12 @@ func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcil
 	}
 
 	// Verify that the secret contains the expected info.
-	_, err = bmcCreds.AreValid()
+	err = bmcCreds.Validate()
 	if err != nil {
 		return nil, bmcCredsSecret, err
 	}
 
 	return bmcCreds, bmcCredsSecret, nil
-
 }
 
 func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {

@@ -15,8 +15,8 @@ func TestValidCredentials(t *testing.T) {
 		Username: "username",
 		Password: "password",
 	}
-	valid, err := creds.AreValid()
-	if !valid {
+	err := creds.Validate()
+	if err != nil {
 		t.Fatalf("got unexpected validation error: %q", err)
 	}
 }
@@ -25,8 +25,8 @@ func TestMissingUser(t *testing.T) {
 	creds := Credentials{
 		Password: "password",
 	}
-	valid, err := creds.AreValid()
-	if valid || err == nil {
+	err := creds.Validate()
+	if err == nil {
 		t.Fatal("got unexpected valid result")
 	}
 }
@@ -35,8 +35,8 @@ func TestMissingPassword(t *testing.T) {
 	creds := Credentials{
 		Username: "username",
 	}
-	valid, err := creds.AreValid()
-	if valid || err == nil {
+	err := creds.Validate()
+	if err == nil {
 		t.Fatal("got unexpected valid result")
 	}
 }

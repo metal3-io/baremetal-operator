@@ -4,24 +4,35 @@ import (
 	"fmt"
 )
 
-// InvalidBMCAddressError is returned when the BMC address field
+// EmptyBMCAddressError is returned when the BMC address field
 // for a host is invalid or empty
-type InvalidBMCAddressError struct {
+type EmptyBMCAddressError struct {
 	message string
 }
 
-func (e InvalidBMCAddressError) Error() string {
-	return fmt.Sprintf("Invalid BMC address %s",
+func (e EmptyBMCAddressError) Error() string {
+	return fmt.Sprintf("Empty BMC address %s",
 		e.message)
 }
 
-// InvalidBMCSecretError is returned when the BMC secret
-// for a host is invalid or empty
-type InvalidBMCSecretError struct {
+// EmptyBMCSecretError is returned when the BMC secret
+// for a host is empty
+type EmptyBMCSecretError struct {
 	message string
 }
 
-func (e InvalidBMCSecretError) Error() string {
-	return fmt.Sprintf("Invalid BMC Secret %s",
+func (e EmptyBMCSecretError) Error() string {
+	return fmt.Sprintf("No BMC CredentialsName defined %s",
+		e.message)
+}
+
+// ResolveBMCSecretRefError is returned when the BMC secret
+// for a host is defined but cannot be found
+type ResolveBMCSecretRefError struct {
+	message string
+}
+
+func (e ResolveBMCSecretRefError) Error() string {
+	return fmt.Sprintf("BMC CredentialsName secret doesn't exist %s",
 		e.message)
 }

@@ -16,13 +16,13 @@ func (e UnknownBMCTypeError) Error() string {
 		e.bmcType, e.address)
 }
 
-// ValidationError is returned when the provided BMC credentials
+// CredentialsValidationError is returned when the provided BMC credentials
 // are invalid (e.g. null)
-type ValidationError struct {
+type CredentialsValidationError struct {
 	message string
 }
 
-func (e ValidationError) Error() string {
+func (e CredentialsValidationError) Error() string {
 	return fmt.Sprintf("Validation error with BMC credentials: %s",
 		e.message)
 }

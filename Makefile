@@ -4,6 +4,12 @@ GO_TEST_FLAGS = $(VERBOSE)
 DEBUG = --debug
 SETUP = --no-setup
 
+# Set some variables the operator expects to have in order to work
+export OPERATOR_NAME="baremetal-operator"
+export DEPLOY_KERNEL_URL="http://172.22.0.1/images/ironic-python-agent.kernel"
+export DEPLOY_RAMDISK_URL="http://172.22.0.1/images/ironic-python-agent.initramfs"
+export IRONIC_ENDPOINT="http://localhost:6385/v1/"
+
 .PHONY: help
 help:
 	@echo "Targets:"
@@ -58,15 +64,13 @@ dep:
 
 .PHONY: run
 run:
-	OPERATOR_NAME=baremetal-operator \
-		operator-sdk up local \
+	operator-sdk up local \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
 
 .PHONY: demo
 demo:
-	OPERATOR_NAME=baremetal-operator \
-		operator-sdk up local \
+	operator-sdk up local \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev -demo-mode"
 

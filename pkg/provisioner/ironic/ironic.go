@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -30,14 +31,34 @@ var log = logf.Log.WithName("baremetalhost_ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var powerRequeueDelay = time.Second * 10
+var deployKernelURL string
+var deployRamdiskURL string
+var ironicEndpoint string
 
 const (
-	ironicEndpoint = "http://localhost:6385/v1/"
 	// See nodes.Node.PowerState for details
 	powerOn   = "power on"
 	powerOff  = "power off"
 	powerNone = "None"
 )
+
+func init() {
+	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
+	if deployKernelURL == "" {
+		log.Error(fmt.Errorf("No DEPLOY_KERNEL_URL variable set"), "Cannot start")
+		os.Exit(1)
+	}
+	deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
+	if deployRamdiskURL == "" {
+		log.Error(fmt.Errorf("No DEPLOY_RAMDISK_URL variable set"), "Cannot start")
+		os.Exit(1)
+	}
+	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
+	if ironicEndpoint == "" {
+		log.Error(fmt.Errorf("No IRONIC_ENDPOINT variable set"), "Cannot start")
+		os.Exit(1)
+	}
+}
 
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
@@ -176,8 +197,8 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		//
 		// FIXME(dhellmann): We need to get our IP on the
 		// provisioning network from somewhere.
-		driverInfo["deploy_kernel"] = "http://172.22.0.1/images/ironic-python-agent.kernel"
-		driverInfo["deploy_ramdisk"] = "http://172.22.0.1/images/ironic-python-agent.initramfs"
+		driverInfo["deploy_kernel"] = deployKernelURL
+		driverInfo["deploy_ramdisk"] = deployRamdiskURL
 
 		ironicNode, err = nodes.Create(
 			p.client,

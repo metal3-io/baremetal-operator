@@ -33,6 +33,12 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "baremetal-operator"
+            - name: DEPLOY_KERNEL_URL
+              value: "http://172.22.0.1/images/ironic-python-agent.kernel"
+            - name: DEPLOY_RAMDISK_URL
+              value: "http://172.22.0.1/images/ironic-python-agent.initramfs"
+            - name: IRONIC_ENDPOINT
+              value: "http://localhost:6385/v1/"
         # Temporary workaround to talk to an external Ironic process until Ironic is running in this pod.
         - name: ironic-proxy
           image: alpine/socat

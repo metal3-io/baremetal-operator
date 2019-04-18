@@ -430,9 +430,10 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistrationError
-		info.host.SetErrorMessage(provResult.ErrorMessage)
-		info.publishEvent("RegistrationError", provResult.ErrorMessage)
-		result.Requeue = true
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("RegistrationError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
 		return result, nil
 	}
 

@@ -23,8 +23,8 @@ spec:
     name: Provisioning Status
     type: string
   - JSONPath: .spec.machineRef.name
-    description: Machine
-    name: Machine using this host
+    description: Machine using this host
+    name: Machine
     type: string
   - JSONPath: .spec.bmc.address
     description: Address of management controler

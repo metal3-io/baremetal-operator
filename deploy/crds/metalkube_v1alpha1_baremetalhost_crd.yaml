@@ -34,6 +34,10 @@ spec:
     description: The type of hardware detected
     name: Hardware Profile
     type: string
+  - JSONPath: .spec.online
+    description: Whether the host is online or not
+    name: Online
+    type: string
   - JSONPath: .status.errorMessage
     description: Most recent error
     name: Error

@@ -424,38 +424,41 @@ func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetail
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		err = errors.Wrap(err, "failed to find existing host")
+		return
 	}
 	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
+		return result, nil, fmt.Errorf("no ironic node for host")
 	}
 
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
 	if err != nil {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
 			p.log.Info("starting new hardware inspection")
-			return p.changeNodeProvisionState(
+			result, err = p.changeNodeProvisionState(
 				ironicNode,
 				nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
 			)
+			return
 		}
-		return result, errors.Wrap(err, "failed to extract hardware inspection status")
+		err = errors.Wrap(err, "failed to extract hardware inspection status")
+		return
 	}
 	if !status.Finished {
 		p.log.Info("inspection in progress", "started_at", status.StartedAt)
 		result.Dirty = true // make sure we check back
 		result.RequeueAfter = introspectionRequeueDelay
-		return result, nil
+		return
 	}
 	if status.Error != "" {
 		p.log.Info("inspection failed", "error", status.Error)
 		result.ErrorMessage = status.Error
-		return result, nil
+		return
 	}
 
 	// Introspection is ongoing
@@ -463,15 +466,14 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 	introData := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
 	data, err := introData.Extract()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to retrieve hardware introspection data")
+		err = errors.Wrap(err, "failed to retrieve hardware introspection data")
+		return
 	}
 	p.log.Info("received introspection data", "data", introData.Body)
 
-	p.host.Status.HardwareDetails = getHardwareDetails(data)
+	details = getHardwareDetails(data)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
-	result.Dirty = true
-
-	return result, nil
+	return
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

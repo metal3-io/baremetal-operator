@@ -65,7 +65,7 @@ func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Resu
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	// The inspection is ongoing. We'll need to check the fixture
@@ -74,7 +74,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 	// hardware details struct as part of a second pass.
 	if p.host.Status.HardwareDetails == nil {
 		p.log.Info("continuing inspection by setting details")
-		p.host.Status.HardwareDetails =
+		details =
 			&metal3v1alpha1.HardwareDetails{
 				RAMGiB: 128,
 				NIC: []metal3v1alpha1.NIC{
@@ -117,11 +117,9 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")
-		result.Dirty = true
-		return result, nil
 	}
 
-	return result, nil
+	return
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

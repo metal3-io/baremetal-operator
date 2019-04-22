@@ -82,6 +82,11 @@ type ironicProvisioner struct {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisioner(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+	log.Info("ironic settings",
+		"endpoint", ironicEndpoint,
+		"deployKernelURL", deployKernelURL,
+		"deployRamdiskURL", deployRamdiskURL,
+	)
 	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
 		IronicEndpoint: ironicEndpoint,
 	})

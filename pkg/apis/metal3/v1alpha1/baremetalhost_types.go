@@ -157,18 +157,25 @@ type Image struct {
 // FIXME(dhellmann): We probably want some other module to own these
 // data structures.
 
-// GHz is a clock speed in GHz
-type GHz float64
+// ClockSpeed is a clock speed in MHz
+type ClockSpeed float64
+
+// ClockSpeed multipliers
+const (
+	MegaHertz ClockSpeed = 1.0
+	GigaHertz            = 1000 * MegaHertz
+)
 
 // GiB is a memory size in GiB
 type GiB int32
 
 // CPU describes one processor on the host.
 type CPU struct {
-	Type     string `json:"type"`
-	Model    string `json:"model"`
-	SpeedGHz GHz    `json:"speedGHz"`
-	Count    int    `json:"count"`
+	Arch           string     `json:"arch"`
+	Model          string     `json:"model"`
+	ClockMegahertz ClockSpeed `json:"clockMegahertz"`
+	Flags          []string   `json:"flags"`
+	Count          int        `json:"count"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -413,12 +414,15 @@ func getSystemVendorDetails(vendor introspection.SystemVendorType) metal3v1alpha
 func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	var freq float64
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
+	sort.Strings(cpudata.Flags)
 	cpu := metal3v1alpha1.CPU{
-		Type:     cpudata.Architecture,
-		Model:    cpudata.ModelName,
-		SpeedGHz: metal3v1alpha1.GHz(freq / 1000.0),
-		Count:    cpudata.Count,
+		Arch:           cpudata.Architecture,
+		Model:          cpudata.ModelName,
+		ClockMegahertz: metal3v1alpha1.ClockSpeed(freq) * metal3v1alpha1.MegaHertz,
+		Count:          cpudata.Count,
+		Flags:          cpudata.Flags,
 	}
+
 	return cpu
 }
 

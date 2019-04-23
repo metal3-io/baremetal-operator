@@ -338,6 +338,8 @@ func TestDiscoveredHost(t *testing.T) {
 // of the required BMC settings is put into an error state.
 func TestMissingBMCParameters(t *testing.T) {
 
+	// test bmc data populated with a secret that itself contains
+	// invalid or null parameters
 	secretNoUser := newSecret("bmc-creds-no-user", "", "Pass")
 	noUsername := newHost("missing-bmc-username",
 		&metalkubev1alpha1.BareMetalHostSpec{
@@ -359,6 +361,54 @@ func TestMissingBMCParameters(t *testing.T) {
 		})
 	r = newTestReconciler(noPassword, secretNoPassword)
 	waitForError(t, r, noPassword)
+
+	// test we set an error message when the address
+	// is malformed - bmc access tests do more exhaustive
+	// type checking tests
+	secretOk := newSecret("bmc-creds-ok", "User", "Pass")
+	invalidAddress := newHost("invalid-bmc-address",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				Address:         "unknown://notAvalidIPMIURL",
+				CredentialsName: "bmc-creds-ok",
+			},
+		})
+	r = newTestReconciler(invalidAddress, secretOk)
+	waitForError(t, r, invalidAddress)
+
+	// test we set an error message when BMCDetails are missing
+	secretOk = newSecret("bmc-creds-ok", "User", "Pass")
+	noAddress := newHost("missing-bmc-address",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				Address:         "",
+				CredentialsName: "bmc-creds-ok",
+			},
+		})
+	r = newTestReconciler(noAddress, secretOk)
+	waitForError(t, r, noAddress)
+
+	noSecretRef := newHost("missing-bmc-credentials-ref",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				Address:         "ipmi://192.168.122.1:6233",
+				CredentialsName: "",
+			},
+		})
+	r = newTestReconciler(noSecretRef)
+	waitForError(t, r, noSecretRef)
+
+	// test we set an error message when the CredentialsName
+	// defined does not exist in kubernetes
+	NonExistentSecretRef := newHost("non-existent-bmc-secret-ref",
+		&metalkubev1alpha1.BareMetalHostSpec{
+			BMC: metalkubev1alpha1.BMCDetails{
+				Address:         "ipmi://192.168.122.1:6233",
+				CredentialsName: "this-secret-does-not-exist",
+			},
+		})
+	r = newTestReconciler(NonExistentSecretRef)
+	waitForError(t, r, NonExistentSecretRef)
 }
 
 // TestFixSecret ensures that when the secret for a host is updated to

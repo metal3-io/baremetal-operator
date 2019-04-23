@@ -9,14 +9,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
-	"github.com/metalkube/baremetal-operator/pkg/hardware"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/demo"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/ironic"
-	"github.com/metalkube/baremetal-operator/pkg/utils"
+	metalkubev1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 
 	"github.com/go-logr/logr"
 

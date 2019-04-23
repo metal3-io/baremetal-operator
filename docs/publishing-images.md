@@ -2,12 +2,12 @@ Publishing Images
 =================
 
 Images for changes merged into master are automatically built through
-the [MetalKube org on
-quay.io](https://quay.io/repository/metalkube/baremetal-operator). It
+the [Metal3 org on
+quay.io](https://quay.io/repository/metal3-io/baremetal-operator). It
 is also easy to set up your own builds to test images from branches in
 your development fork.
 
-1. Fork `metalkube/baremetal-operator` on GitHub.
+1. Fork `metal3-io/baremetal-operator` on GitHub.
 2. Set up your account on [quay.io](https://quay.io).
 3. Link your repository from step 1 to quay.io by following the
    instructions to "Create New Repository" from
@@ -49,7 +49,7 @@ your development fork.
       build because the UI seems to cache pretty aggressively.
 
 5. Create a dev deployment file that uses your image instead of the
-   one from the metalkube organization.
+   one from the metal3 organization.
 
    1. Copy `deploy/operator.yaml` to `deploy/dev-operator.yaml`.
    2. Edit `deploy/dev-operator.yaml` and change the `image` setting

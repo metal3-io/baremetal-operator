@@ -18,10 +18,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metalkubeapis "github.com/metalkube/baremetal-operator/pkg/apis"
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metalkube/baremetal-operator/pkg/utils"
+	metalkubeapis "github.com/metal3-io/baremetal-operator/pkg/apis"
+	metalkubev1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
 const (

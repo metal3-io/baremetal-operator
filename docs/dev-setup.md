@@ -23,9 +23,10 @@ install the operator-sdk tools.
 
     ```
     eval $(go env)
-    mkdir -p $GOPATH/src/github.com/metalkube
-    cd $GOPATH/src/github.com/metalkube
-    git clone https://github.com/metalkube/baremetal-operator.git
+    mkdir -p $GOPATH/src/github.com/metal3-io
+    cd $GOPATH/src/github.com/metal3-io
+    git clone https://github.com/metal3-io/baremetal-operator.git
+    git checkout origin/metalkube
     cd baremetal-operator
     kubectl apply -f deploy/service_account.yaml
     kubectl apply -f deploy/role.yaml

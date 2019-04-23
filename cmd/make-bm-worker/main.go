@@ -20,7 +20,7 @@ data:
   password: {{ .EncodedPassword }}
 
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: {{ .Name }}

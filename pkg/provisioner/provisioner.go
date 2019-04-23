@@ -3,8 +3,8 @@ package provisioner
 import (
 	"time"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
 /*
@@ -16,7 +16,7 @@ Package provisioning defines the API for talking to the provisioning backend.
 type EventPublisher func(reason, message string)
 
 // Factory is the interface for creating new Provisioner objects.
-type Factory func(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
+type Factory func(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
 
 // UserDataSource is the interface for a function to retrieve user
 // data for a host being provisioned.

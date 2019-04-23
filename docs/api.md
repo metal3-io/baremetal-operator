@@ -48,7 +48,7 @@ data:
   password: cGFzc3dvcmQ=
 
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: openshift-worker-1
@@ -98,20 +98,20 @@ the host.
 *hardware.cpus.speed* -- The speed in GHz of the CPU.
 
 ```
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   creationTimestamp: 2019-02-08T20:10:32Z
   finalizers:
-  - baremetalhost.metalkube.org
+  - baremetalhost.metal3.io
   generation: 9
   labels:
-    metalkube.org/hardware-profile: unknown
-    metalkube.org/operational-status: online
+    metal3.io/hardware-profile: unknown
+    metal3.io/operational-status: online
   name: example-baremetalhost
   namespace: bmo-project
   resourceVersion: "1750818"
-  selfLink: /apis/metalkube.org/v1alpha1/namespaces/bmo-project/baremetalhosts/example-baremetalhost
+  selfLink: /apis/metal3.io/v1alpha1/namespaces/bmo-project/baremetalhosts/example-baremetalhost
   uid: 96837048-2bdd-11e9-8df7-525400f68198
 spec:
   bmc:
@@ -135,12 +135,12 @@ status:
 The BareMetalHost operator manages several labels with host status and
 settings to make it easier to find specific hosts.
 
-*metalkube.org/hardware-profile* -- The name of the hardware profile
+*metal3.io/hardware-profile* -- The name of the hardware profile
 that matches the hardware discovered on the host. Details about the
 hardware are saved to the *hardware* section of the status. If the
 hardware does not match a known profile, the value "unknown" is used.
 
-*metalkube.org/operational-status* -- The status of the server.
+*metal3.io/operational-status* -- The status of the server.
 
   *online* -- The server is powered on and running.
 

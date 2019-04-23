@@ -15,7 +15,7 @@ const (
 	// BareMetalHostFinalizer is the name of the finalizer added to
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
-	BareMetalHostFinalizer string = "baremetalhost.metalkube.org"
+	BareMetalHostFinalizer string = "baremetalhost.metal3.io"
 )
 
 // OperationalStatus represents the state of the host
@@ -500,13 +500,13 @@ func (host *BareMetalHost) NewEvent(reason, message string) corev1.Event {
 		Reason:  reason,
 		Message: message,
 		Source: corev1.EventSource{
-			Component: "metalkube-baremetal-controller",
+			Component: "metal3-baremetal-controller",
 		},
 		FirstTimestamp:      t,
 		LastTimestamp:       t,
 		Count:               1,
 		Type:                corev1.EventTypeNormal,
-		ReportingController: "metalkube.org/baremetal-controller",
+		ReportingController: "metal3.io/baremetal-controller",
 		Related:             host.Spec.MachineRef,
 	}
 }

@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: metalkube-baremetal-operator
+  name: metal3-baremetal-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: metalkube-baremetal-operator
+      name: metal3-baremetal-operator
   template:
     metadata:
       labels:
-        name: metalkube-baremetal-operator
+        name: metal3-baremetal-operator
     spec:
-      serviceAccountName: metalkube-baremetal-operator
+      serviceAccountName: metal3-baremetal-operator
       containers:
         - name: baremetal-operator
-          image: quay.io/metalkube/baremetal-operator
+          image: quay.io/metal3-io/baremetal-operator
           ports:
           - containerPort: 60000
             name: metrics

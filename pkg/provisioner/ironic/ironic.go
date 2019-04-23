@@ -43,19 +43,21 @@ const (
 )
 
 func init() {
+	// NOTE(dhellmann): Use Fprintf() to report errors instead of
+	// logging, because logging is not configured yet in init().
 	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
 	if deployKernelURL == "" {
-		log.Error(fmt.Errorf("No DEPLOY_KERNEL_URL variable set"), "Cannot start")
+		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_KERNEL_URL variable set\n")
 		os.Exit(1)
 	}
 	deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
 	if deployRamdiskURL == "" {
-		log.Error(fmt.Errorf("No DEPLOY_RAMDISK_URL variable set"), "Cannot start")
+		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_RAMDISK_URL variable set\n")
 		os.Exit(1)
 	}
 	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
 	if ironicEndpoint == "" {
-		log.Error(fmt.Errorf("No IRONIC_ENDPOINT variable set"), "Cannot start")
+		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_ENDPOINT variable set\n")
 		os.Exit(1)
 	}
 }

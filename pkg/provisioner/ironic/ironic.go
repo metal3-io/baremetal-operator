@@ -21,10 +21,10 @@ import (
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
-	"github.com/metalkube/baremetal-operator/pkg/hardware"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 var log = logf.Log.WithName("baremetalhost_ironic")
@@ -66,9 +66,9 @@ func init() {
 // and uses Ironic to manage the host.
 type ironicProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metalkubev1alpha1.BareMetalHost
+	host *metal3v1alpha1.BareMetalHost
 	// a shorter path to the provisioning status data structure
-	status *metalkubev1alpha1.ProvisionStatus
+	status *metal3v1alpha1.ProvisionStatus
 	// access parameters for the BMC
 	bmcAccess bmc.AccessDetails
 	// credentials to log in to the BMC
@@ -83,7 +83,7 @@ type ironicProvisioner struct {
 
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
-func newProvisioner(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
 	log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
 		"deployKernelURL", deployKernelURL,
@@ -115,7 +115,7 @@ func newProvisioner(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credenti
 }
 
 // New returns a new Ironic Provisioner
-func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	return newProvisioner(host, bmcCreds, publisher)
 }
 
@@ -369,10 +369,10 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 	if p.host.Status.HardwareDetails == nil {
 		p.log.Info("continuing inspection by setting details")
 		p.host.Status.HardwareDetails =
-			&metalkubev1alpha1.HardwareDetails{
+			&metal3v1alpha1.HardwareDetails{
 				RAMGiB: 128,
-				NIC: []metalkubev1alpha1.NIC{
-					metalkubev1alpha1.NIC{
+				NIC: []metal3v1alpha1.NIC{
+					metal3v1alpha1.NIC{
 						Name:      "nic-1",
 						Model:     "virt-io",
 						Network:   "Pod Networking",
@@ -380,7 +380,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
 					},
-					metalkubev1alpha1.NIC{
+					metal3v1alpha1.NIC{
 						Name:      "nic-2",
 						Model:     "e1000",
 						Network:   "Pod Networking",
@@ -389,22 +389,22 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err er
 						SpeedGbps: 1,
 					},
 				},
-				Storage: []metalkubev1alpha1.Storage{
-					metalkubev1alpha1.Storage{
+				Storage: []metal3v1alpha1.Storage{
+					metal3v1alpha1.Storage{
 						Name:    "disk-1 (boot)",
 						Type:    "SSD",
 						SizeGiB: 1024 * 93,
 						Model:   "Dell CFJ61",
 					},
-					metalkubev1alpha1.Storage{
+					metal3v1alpha1.Storage{
 						Name:    "disk-2",
 						Type:    "SSD",
 						SizeGiB: 1024 * 93,
 						Model:   "Dell CFJ61",
 					},
 				},
-				CPUs: []metalkubev1alpha1.CPU{
-					metalkubev1alpha1.CPU{
+				CPUs: []metal3v1alpha1.CPU{
+					metal3v1alpha1.CPU{
 						Type:     "x86",
 						SpeedGHz: 3,
 					},

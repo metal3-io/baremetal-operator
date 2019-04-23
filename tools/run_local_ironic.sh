@@ -2,8 +2,8 @@
 
 set -ex
 
-IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metalkube/metalkube-ironic"}
-IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metalkube/metalkube-ironic-inspector"}
+IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic"}
+IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic-inspector"}
 IRONIC_DATA_DIR="$PWD/ironic"
 
 sudo podman pull $IRONIC_IMAGE
@@ -35,22 +35,22 @@ sudo podman pod create -n ironic-pod
 # Start dnsmasq, http, mariadb, and ironic containers using same image
 
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
-# https://github.com/metalkube/metalkube-ironic/blob/master/rundnsmasq.sh
+# https://github.com/metal3-io/ironic/blob/master/rundnsmasq.sh
 sudo podman run -d --net host --privileged --name dnsmasq  --pod ironic-pod \
      -v $IRONIC_DATA_DIR:/shared --entrypoint /bin/rundnsmasq ${IRONIC_IMAGE}
 
 # For available env vars, see:
-# https://github.com/metalkube/metalkube-ironic/blob/master/runhttpd.sh
+# https://github.com/metal3-io/ironic/blob/master/runhttpd.sh
 sudo podman run -d --net host --privileged --name httpd --pod ironic-pod \
      -v $IRONIC_DATA_DIR:/shared --entrypoint /bin/runhttpd ${IRONIC_IMAGE}
 
-# https://github.com/metalkube/metalkube-ironic/blob/master/runmariadb.sh
+# https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
 sudo podman run -d --net host --privileged --name mariadb --pod ironic-pod \
      -v $IRONIC_DATA_DIR:/shared --entrypoint /bin/runmariadb \
      --env MARIADB_PASSWORD=$mariadb_password ${IRONIC_IMAGE}
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
-# https://github.com/metalkube/metalkube-ironic/blob/master/runironic.sh
+# https://github.com/metal3-io/ironic/blob/master/runironic.sh
 sudo podman run -d --net host --privileged --name ironic --pod ironic-pod \
      --env MARIADB_PASSWORD=$mariadb_password \
      -v $IRONIC_DATA_DIR:/shared ${IRONIC_IMAGE}

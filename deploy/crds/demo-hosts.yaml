@@ -10,7 +10,7 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-discovered
@@ -35,7 +35,7 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-externally-provisioned
@@ -58,12 +58,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-registration-error
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -80,12 +80,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-registering
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -102,12 +102,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-ready
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -124,12 +124,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-inspecting
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -146,12 +146,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-provisioning
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -175,12 +175,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-provisioned
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -204,12 +204,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-validation-error
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:

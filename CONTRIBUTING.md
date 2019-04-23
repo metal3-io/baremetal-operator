@@ -1,6 +1,6 @@
 # How to Contribute
 
-MetalKube projects are [Apache 2.0 licensed](LICENSE) and accept contributions via
+Metal3 projects are [Apache 2.0 licensed](LICENSE) and accept contributions via
 GitHub pull requests.
 
 ## Certificate of Origin

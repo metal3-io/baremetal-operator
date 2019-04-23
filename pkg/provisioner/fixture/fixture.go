@@ -6,9 +6,9 @@ import (
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 var log = logf.Log.WithName("fixture")
@@ -19,7 +19,7 @@ var provisionRequeueDelay = time.Second * 10
 // and uses Ironic to manage the host.
 type fixtureProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metalkubev1alpha1.BareMetalHost
+	host *metal3v1alpha1.BareMetalHost
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -29,7 +29,7 @@ type fixtureProvisioner struct {
 }
 
 // New returns a new Ironic Provisioner
-func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		host:      host,
 		bmcCreds:  bmcCreds,
@@ -75,10 +75,10 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 	if p.host.Status.HardwareDetails == nil {
 		p.log.Info("continuing inspection by setting details")
 		p.host.Status.HardwareDetails =
-			&metalkubev1alpha1.HardwareDetails{
+			&metal3v1alpha1.HardwareDetails{
 				RAMGiB: 128,
-				NIC: []metalkubev1alpha1.NIC{
-					metalkubev1alpha1.NIC{
+				NIC: []metal3v1alpha1.NIC{
+					metal3v1alpha1.NIC{
 						Name:      "nic-1",
 						Model:     "virt-io",
 						Network:   "Pod Networking",
@@ -86,7 +86,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
 					},
-					metalkubev1alpha1.NIC{
+					metal3v1alpha1.NIC{
 						Name:      "nic-2",
 						Model:     "e1000",
 						Network:   "Pod Networking",
@@ -95,22 +95,22 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 						SpeedGbps: 1,
 					},
 				},
-				Storage: []metalkubev1alpha1.Storage{
-					metalkubev1alpha1.Storage{
+				Storage: []metal3v1alpha1.Storage{
+					metal3v1alpha1.Storage{
 						Name:    "disk-1 (boot)",
 						Type:    "SSD",
 						SizeGiB: 1024 * 93,
 						Model:   "Dell CFJ61",
 					},
-					metalkubev1alpha1.Storage{
+					metal3v1alpha1.Storage{
 						Name:    "disk-2",
 						Type:    "SSD",
 						SizeGiB: 1024 * 93,
 						Model:   "Dell CFJ61",
 					},
 				},
-				CPUs: []metalkubev1alpha1.CPU{
-					metalkubev1alpha1.CPU{
+				CPUs: []metal3v1alpha1.CPU{
+					metal3v1alpha1.CPU{
 						Type:     "x86",
 						SpeedGHz: 3,
 					},

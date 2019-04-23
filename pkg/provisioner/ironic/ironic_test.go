@@ -8,8 +8,8 @@ import (
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
 func init() {
@@ -37,20 +37,20 @@ func TestChecksumIsURLYes(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
-	host := &metalkubev1alpha1.BareMetalHost{
+	host := &metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
 		},
-		Spec: metalkubev1alpha1.BareMetalHostSpec{
-			Image: &metalkubev1alpha1.Image{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
 				URL: "not-empty",
 			},
 			Online: true,
 		},
-		Status: metalkubev1alpha1.BareMetalHostStatus{
+		Status: metal3v1alpha1.BareMetalHostStatus{
 			HardwareProfile: "libvirt",
-			Provisioning: metalkubev1alpha1.ProvisionStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
 				ID: "provisioning-id",
 			},
 		},
@@ -122,20 +122,20 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeDell(t *testing.T) {
-	host := &metalkubev1alpha1.BareMetalHost{
+	host := &metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
 		},
-		Spec: metalkubev1alpha1.BareMetalHostSpec{
-			Image: &metalkubev1alpha1.Image{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
 				URL: "not-empty",
 			},
 			Online: true,
 		},
-		Status: metalkubev1alpha1.BareMetalHostStatus{
+		Status: metal3v1alpha1.BareMetalHostStatus{
 			HardwareProfile: "dell",
-			Provisioning: metalkubev1alpha1.ProvisionStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
 				ID: "provisioning-id",
 			},
 		},

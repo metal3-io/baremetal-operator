@@ -9,14 +9,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
-	"github.com/metalkube/baremetal-operator/pkg/hardware"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/demo"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/ironic"
-	"github.com/metalkube/baremetal-operator/pkg/utils"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 
 	"github.com/go-logr/logr"
 
@@ -82,14 +82,14 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("metalkube-baremetalhost-controller", mgr,
+	c, err := controller.New("metal3-baremetalhost-controller", mgr,
 		controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to primary resource BareMetalHost
-	err = c.Watch(&source.Kind{Type: &metalkubev1alpha1.BareMetalHost{}},
+	err = c.Watch(&source.Kind{Type: &metal3v1alpha1.BareMetalHost{}},
 		&handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = c.Watch(&source.Kind{Type: &corev1.Secret{}},
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
-			OwnerType:    &metalkubev1alpha1.BareMetalHost{},
+			OwnerType:    &metal3v1alpha1.BareMetalHost{},
 		})
 	return err
 }
@@ -119,7 +119,7 @@ type ReconcileBareMetalHost struct {
 // hold them in a context
 type reconcileInfo struct {
 	log            logr.Logger
-	host           *metalkubev1alpha1.BareMetalHost
+	host           *metal3v1alpha1.BareMetalHost
 	request        reconcile.Request
 	bmcCredsSecret *corev1.Secret
 	events         []corev1.Event
@@ -159,7 +159,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	reqLogger.Info("Reconciling BareMetalHost")
 
 	// Fetch the BareMetalHost
-	host := &metalkubev1alpha1.BareMetalHost{}
+	host := &metal3v1alpha1.BareMetalHost{}
 	err = r.client.Get(context.TODO(), request.NamespacedName, host)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -183,10 +183,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		reqLogger.Info(
 			"adding finalizer",
 			"existingFinalizers", host.Finalizers,
-			"newValue", metalkubev1alpha1.BareMetalHostFinalizer,
+			"newValue", metal3v1alpha1.BareMetalHostFinalizer,
 		)
 		host.Finalizers = append(host.Finalizers,
-			metalkubev1alpha1.BareMetalHostFinalizer)
+			metal3v1alpha1.BareMetalHostFinalizer)
 		err := r.client.Update(context.TODO(), host)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
@@ -212,7 +212,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		// what we may be waiting on.  Editing the host to set these values will
 		// cause the host to be reconciled again so we do not Requeue.
 		case *EmptyBMCAddressError, *EmptyBMCSecretError:
-			dirty := host.SetOperationalStatus(metalkubev1alpha1.OperationalStatusDiscovered)
+			dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
 			if dirty {
 				// Set the host error message directly
 				// as we cannot use SetErrorCondition which
@@ -260,24 +260,24 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	}
 
 	// Pick the action to perform
-	var actionName metalkubev1alpha1.ProvisioningState
+	var actionName metal3v1alpha1.ProvisioningState
 	switch {
 	case host.WasExternallyProvisioned():
-		actionName = metalkubev1alpha1.StateExternallyProvisioned
+		actionName = metal3v1alpha1.StateExternallyProvisioned
 	case host.CredentialsNeedValidation(*bmcCredsSecret):
-		actionName = metalkubev1alpha1.StateRegistering
+		actionName = metal3v1alpha1.StateRegistering
 	case host.NeedsHardwareInspection():
-		actionName = metalkubev1alpha1.StateInspecting
+		actionName = metal3v1alpha1.StateInspecting
 	case host.NeedsHardwareProfile():
-		actionName = metalkubev1alpha1.StateMatchProfile
+		actionName = metal3v1alpha1.StateMatchProfile
 	case host.NeedsProvisioning():
-		actionName = metalkubev1alpha1.StateProvisioning
+		actionName = metal3v1alpha1.StateProvisioning
 	case host.NeedsDeprovisioning():
-		actionName = metalkubev1alpha1.StateDeprovisioning
+		actionName = metal3v1alpha1.StateDeprovisioning
 	case host.WasProvisioned():
-		actionName = metalkubev1alpha1.StateProvisioned
+		actionName = metal3v1alpha1.StateProvisioned
 	default:
-		actionName = metalkubev1alpha1.StateReady
+		actionName = metal3v1alpha1.StateReady
 	}
 
 	if actionName != host.Status.Provisioning.State {
@@ -305,21 +305,21 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	}
 
 	switch actionName {
-	case metalkubev1alpha1.StateRegistering:
+	case metal3v1alpha1.StateRegistering:
 		result, err = r.actionRegistering(prov, info)
-	case metalkubev1alpha1.StateInspecting:
+	case metal3v1alpha1.StateInspecting:
 		result, err = r.actionInspecting(prov, info)
-	case metalkubev1alpha1.StateMatchProfile:
+	case metal3v1alpha1.StateMatchProfile:
 		result, err = r.actionMatchProfile(prov, info)
-	case metalkubev1alpha1.StateProvisioning:
+	case metal3v1alpha1.StateProvisioning:
 		result, err = r.actionProvisioning(prov, info)
-	case metalkubev1alpha1.StateDeprovisioning:
+	case metal3v1alpha1.StateDeprovisioning:
 		result, err = r.actionDeprovisioning(prov, info)
-	case metalkubev1alpha1.StateProvisioned:
+	case metal3v1alpha1.StateProvisioned:
 		result, err = r.actionManageHostPower(prov, info)
-	case metalkubev1alpha1.StateReady:
+	case metal3v1alpha1.StateReady:
 		result, err = r.actionManageHostPower(prov, info)
-	case metalkubev1alpha1.StateExternallyProvisioned:
+	case metal3v1alpha1.StateExternallyProvisioned:
 		result, err = r.actionManageHostPower(prov, info)
 	default:
 		// Probably a provisioning error state?
@@ -364,7 +364,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 }
 
 // Handle all delete cases
-func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (result reconcile.Result, err error) {
 
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
@@ -375,7 +375,7 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 	)
 
 	// no-op if finalizer has been removed.
-	if !utils.StringInList(host.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+	if !utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
 		reqLogger.Info("ready to be deleted")
 		// There is nothing to save and no reason to requeue since we
 		// are being deleted.
@@ -416,7 +416,7 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 
 	// Remove finalizer to allow deletion
 	host.Finalizers = utils.FilterStringFromList(
-		host.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
+		host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 	reqLogger.Info("cleanup is complete, removed finalizer",
 		"remaining", host.Finalizers)
 	if err := r.client.Update(context.Background(), host); err != nil {
@@ -438,7 +438,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistrationError
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("RegistrationError", provResult.ErrorMessage)
 			result.Requeue = true
@@ -480,7 +480,7 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metalkubev1alpha1.StateRegistrationError
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
 		info.host.SetErrorMessage(provResult.ErrorMessage)
 		info.publishEvent("RegistrationError", provResult.ErrorMessage)
 		return result, nil
@@ -586,7 +586,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling provisioning error in controller")
-		info.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioningError
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateProvisioningError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
 			result.Requeue = true
@@ -627,7 +627,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioningError
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateProvisioningError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
 			result.Requeue = true
@@ -644,7 +644,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 
 	// After the provisioner is done, clear the image settings so we
 	// transition to the next state.
-	info.host.Status.Provisioning.Image = metalkubev1alpha1.Image{}
+	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
 
 	// After deprovisioning we always requeue to ensure we enter the
 	// "ready" state and start monitoring power status.
@@ -663,7 +663,7 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metalkubev1alpha1.StatePowerManagementError
+		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("PowerManagementError", provResult.ErrorMessage)
 			result.Requeue = true
@@ -701,7 +701,7 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metalkubev1alpha1.StatePowerManagementError
+		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("PowerManagementError", provResult.ErrorMessage)
 			result.Requeue = true
@@ -726,13 +726,13 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 
 }
 
-func (r *ReconcileBareMetalHost) saveStatus(host *metalkubev1alpha1.BareMetalHost) error {
+func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) error {
 	t := metav1.Now()
 	host.Status.LastUpdated = &t
 	return r.client.Status().Update(context.TODO(), host)
 }
 
-func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, message string) error {
+func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, message string) error {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 
@@ -750,7 +750,7 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 }
 
 // Retrieve the secret containing the credentials for talking to the BMC.
-func (r *ReconcileBareMetalHost) getBMCSecretAndSetOwner(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (bmcCredsSecret *corev1.Secret, err error) {
+func (r *ReconcileBareMetalHost) getBMCSecretAndSetOwner(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (bmcCredsSecret *corev1.Secret, err error) {
 
 	if host.Spec.BMC.CredentialsName == "" {
 		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
@@ -780,7 +780,7 @@ func (r *ReconcileBareMetalHost) getBMCSecretAndSetOwner(request reconcile.Reque
 // Make sure the credentials for the management controller look
 // right and manufacture bmc.Credentials.  This does not actually try
 // to use the credentials.
-func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
+func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
 
 	// Retrieve the BMC secret from Kubernetes for this host
 	bmcCredsSecret, err = r.getBMCSecretAndSetOwner(request, host)
@@ -817,7 +817,7 @@ func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcil
 	return bmcCreds, bmcCredsSecret, nil
 }
 
-func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metalkubev1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {
+func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 	if metav1.IsControlledBy(secret, host) {
@@ -847,6 +847,6 @@ func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, event c
 	return
 }
 
-func hostHasFinalizer(host *metalkubev1alpha1.BareMetalHost) bool {
-	return utils.StringInList(host.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer)
+func hostHasFinalizer(host *metal3v1alpha1.BareMetalHost) bool {
+	return utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 }

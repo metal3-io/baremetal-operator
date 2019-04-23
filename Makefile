@@ -1,5 +1,5 @@
 TEST_NAMESPACE = operator-test
-RUN_NAMESPACE = metalkube
+RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(VERBOSE)
 DEBUG = --debug
 SETUP = --no-setup

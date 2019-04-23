@@ -3,8 +3,8 @@ package provisioner
 import (
 	"time"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
+	metalkubev1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
 /*

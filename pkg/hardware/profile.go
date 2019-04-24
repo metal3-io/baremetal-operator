@@ -76,6 +76,16 @@ func init() {
 		CPUArch: "x86_64",
 	}
 
+	profiles["dell-raid"] = Profile{
+		Name: "dell-raid",
+		RootDeviceHints: RootDeviceHints{
+			HCTL: "0:2:0:0",
+		},
+		RootGB:  10,
+		LocalGB: 50,
+		CPUArch: "x86_64",
+	}
+
 }
 
 // GetProfile returns the named profile

@@ -37,6 +37,9 @@ install the operator-sdk tools.
 
     ```
     export OPERATOR_NAME=baremetal-operator
+    export DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel
+    export DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs
+    export IRONIC_ENDPOINT=http://localhost:6385/v1/
     operator-sdk up local --namespace=metal3
     ```
 

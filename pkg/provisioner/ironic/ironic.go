@@ -931,6 +931,26 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 
+	case nodes.Inpsecting:
+		p.log.Info("waiting for inspection to complete")
+		result.Dirty = true
+		result.RequeueAfter = introspectionRequeueDelay
+		return result, nil
+
+	case nodes.InspectWait:
+		p.log.Info("cancelling inspection")
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+		)
+
+	case nodes.InspectFail:
+		p.log.Info("inspection failed or cancelled")
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
 	case nodes.Deleting:
 		p.log.Info("deleting")
 		result.Dirty = true

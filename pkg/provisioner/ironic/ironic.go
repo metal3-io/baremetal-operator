@@ -13,6 +13,8 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
+	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
+	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	nodeutils "github.com/gophercloud/utils/openstack/baremetal/v1/nodes"
 
@@ -31,9 +33,11 @@ var log = logf.Log.WithName("baremetalhost_ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var powerRequeueDelay = time.Second * 10
+var introspectionRequeueDelay = time.Second * 15
 var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
+var inspectorEndpoint string
 
 const (
 	// See nodes.Node.PowerState for details
@@ -60,6 +64,11 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_ENDPOINT variable set\n")
 		os.Exit(1)
 	}
+	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
+	if inspectorEndpoint == "" {
+		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
+		os.Exit(1)
+	}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -75,6 +84,8 @@ type ironicProvisioner struct {
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
 	client *gophercloud.ServiceClient
+	// a client for talking to ironic-inspector
+	inspector *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
 	// an event publisher for recording significant events
@@ -86,6 +97,7 @@ type ironicProvisioner struct {
 func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
 	log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
+		"inspectorEndpoint", inspectorEndpoint,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
 	)
@@ -99,6 +111,13 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
+	inspector, err := noauthintrospection.NewBareMetalIntrospectionNoAuth(
+		noauthintrospection.EndpointOpts{
+			IronicInspectorEndpoint: inspectorEndpoint,
+		})
+	if err != nil {
+		return nil, err
+	}
 	// Ensure we have a microversion high enough to get the features
 	// we need.
 	client.Microversion = "1.50"
@@ -108,6 +127,7 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 		bmcAccess: bmcAccess,
 		bmcCreds:  bmcCreds,
 		client:    client,
+		inspector: inspector,
 		log:       log.WithValues("host", host.Name),
 		publisher: publisher,
 	}
@@ -347,74 +367,113 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 	return result, nil
 }
 
+func getNICDetails(ifdata []introspection.InterfaceType) []metal3v1alpha1.NIC {
+	nics := make([]metal3v1alpha1.NIC, len(ifdata))
+	for i, intf := range ifdata {
+		nics[i] = metal3v1alpha1.NIC{
+			Name: intf.Name,
+			Model: strings.TrimLeft(fmt.Sprintf("%s %s",
+				intf.Vendor, intf.Product), " "),
+			MAC:       intf.MACAddress,
+			Network:   "Pod Networking", // TODO(zaneb)
+			IP:        intf.IPV4Address,
+			SpeedGbps: 0, // TODO(zaneb)
+		}
+	}
+	return nics
+}
+
+func getStorageDetails(diskdata []introspection.RootDiskType) []metal3v1alpha1.Storage {
+	storage := make([]metal3v1alpha1.Storage, len(diskdata))
+	for i, disk := range diskdata {
+		storage[i] = metal3v1alpha1.Storage{
+			Name:    disk.Name,
+			Type:    map[bool]string{true: "HDD", false: "SSD"}[disk.Rotational],
+			SizeGiB: metal3v1alpha1.GiB(disk.Size / (1024 * 1024 * 1024)),
+			Model:   fmt.Sprintf("%s %s", disk.Vendor, disk.Model),
+		}
+	}
+	return storage
+}
+
+func getCPUDetails(cpudata *introspection.CPUType) []metal3v1alpha1.CPU {
+	var freq float64
+	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
+	cpu := metal3v1alpha1.CPU{
+		Type:     cpudata.Architecture,
+		SpeedGHz: metal3v1alpha1.GHz(freq / 1000.0),
+	}
+
+	cpus := make([]metal3v1alpha1.CPU, cpudata.Count)
+	for i := range cpus {
+		cpus[i] = cpu
+	}
+	return cpus
+}
+
+func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetails {
+	details := new(metal3v1alpha1.HardwareDetails)
+	details.RAMGiB = metal3v1alpha1.GiB(data.MemoryMB / 1024)
+	details.NIC = getNICDetails(data.Inventory.Interfaces)
+	details.Storage = getStorageDetails(data.Inventory.Disks)
+	details.CPUs = getCPUDetails(&data.Inventory.CPU)
+	return details
+}
+
 // InspectHardware updates the HardwareDetails field of the host with
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		err = errors.Wrap(err, "failed to find existing host")
+		return
 	}
 	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
+		return result, nil, fmt.Errorf("no ironic node for host")
 	}
 
-	// The inspection is ongoing. We'll need to check the ironic
-	// status for the server here until it is ready for us to get the
-	// inspection details. Simulate that for now by creating the
-	// hardware details struct as part of a second pass.
-	if p.host.Status.HardwareDetails == nil {
-		p.log.Info("continuing inspection by setting details")
-		p.host.Status.HardwareDetails =
-			&metal3v1alpha1.HardwareDetails{
-				RAMGiB: 128,
-				NIC: []metal3v1alpha1.NIC{
-					metal3v1alpha1.NIC{
-						Name:      "nic-1",
-						Model:     "virt-io",
-						Network:   "Pod Networking",
-						MAC:       "some:mac:address",
-						IP:        "192.168.100.1",
-						SpeedGbps: 1,
-					},
-					metal3v1alpha1.NIC{
-						Name:      "nic-2",
-						Model:     "e1000",
-						Network:   "Pod Networking",
-						MAC:       "some:other:mac:address",
-						IP:        "192.168.100.2",
-						SpeedGbps: 1,
-					},
-				},
-				Storage: []metal3v1alpha1.Storage{
-					metal3v1alpha1.Storage{
-						Name:    "disk-1 (boot)",
-						Type:    "SSD",
-						SizeGiB: 1024 * 93,
-						Model:   "Dell CFJ61",
-					},
-					metal3v1alpha1.Storage{
-						Name:    "disk-2",
-						Type:    "SSD",
-						SizeGiB: 1024 * 93,
-						Model:   "Dell CFJ61",
-					},
-				},
-				CPUs: []metal3v1alpha1.CPU{
-					metal3v1alpha1.CPU{
-						Type:     "x86",
-						SpeedGHz: 3,
-					},
-				},
-			}
-		p.publisher("InspectionComplete", "Hardware inspection completed")
-		result.Dirty = true
+	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
+	if err != nil {
+		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
+			p.log.Info("starting new hardware inspection")
+			result, err = p.changeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
+			)
+			return
+		}
+		err = errors.Wrap(err, "failed to extract hardware inspection status")
+		return
+	}
+	if !status.Finished {
+		p.log.Info("inspection in progress", "started_at", status.StartedAt)
+		result.Dirty = true // make sure we check back
+		result.RequeueAfter = introspectionRequeueDelay
+		return
+	}
+	if status.Error != "" {
+		p.log.Info("inspection failed", "error", status.Error)
+		result.ErrorMessage = status.Error
+		return
 	}
 
-	return result, nil
+	// Introspection is ongoing
+	p.log.Info("getting hardware details from inspection")
+	introData := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
+	data, err := introData.Extract()
+	if err != nil {
+		err = errors.Wrap(err, "failed to retrieve hardware introspection data")
+		return
+	}
+	p.log.Info("received introspection data", "data", introData.Body)
+
+	details = getHardwareDetails(data)
+	p.publisher("InspectionComplete", "Hardware inspection completed")
+	return
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

@@ -471,10 +471,11 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 // Ensure we have the information about the hardware on the host.
 func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
+	var details *metal3v1alpha1.HardwareDetails
 
 	info.log.Info("inspecting hardware")
 
-	provResult, err = prov.InspectHardware()
+	provResult, details, err = prov.InspectHardware()
 	if err != nil {
 		return result, errors.Wrap(err, "hardware inspection failed")
 	}
@@ -486,21 +487,17 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 		return result, nil
 	}
 
+	if details != nil {
+		info.host.Status.HardwareDetails = details
+		result.Requeue = true
+		return result, nil
+	}
+
 	if provResult.Dirty {
 		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
 	}
-
-	// FIXME(dhellmann): Since we test the HardwareDetails pointer
-	// before calling function, perhaps it makes sense to have
-	// InspectHardware() return a value and store it here in this
-	// function. That would eliminate duplication in the provisioners
-	// and make this phase consistent with the structure of others.
-
-	// Line up a requeue if we could set the hardware profile
-	result.Requeue = info.host.NeedsHardwareProfile()
 
 	return result, nil
 }

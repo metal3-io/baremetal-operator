@@ -102,18 +102,17 @@ func (p *demoProvisioner) ValidateManagementAccess() (result provisioner.Result,
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware() (result provisioner.Result, err error) {
+func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	hostName := p.host.ObjectMeta.Name
 
 	if hostName == InspectingHost {
-		p.host.Status.Provisioning.State = metal3v1alpha1.StateInspecting
 		// set dirty so we don't allow the host to progress past this
 		// state in Reconcile()
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
-		return result, nil
+		return
 	}
 
 	// The inspection is ongoing. We'll need to check the demo
@@ -122,7 +121,7 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, err erro
 	// hardware details struct as part of a second pass.
 	if p.host.Status.HardwareDetails == nil {
 		p.log.Info("continuing inspection by setting details")
-		p.host.Status.HardwareDetails =
+		details =
 			&metal3v1alpha1.HardwareDetails{
 				RAMGiB: 128,
 				NIC: []metal3v1alpha1.NIC{
@@ -166,11 +165,9 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, err erro
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")
 		p.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
-		result.Dirty = true
-		return result, nil
 	}
 
-	return result, nil
+	return
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

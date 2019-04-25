@@ -12,3 +12,6 @@ ramdisk.
 
 `IRONIC_ENDPOINT` -- The URL for the operator to use when talking to
 Ironic.
+
+`IRONIC_INSPECTOR_ENDPOINT` -- The URL for the operator to use when talking to
+Ironic Inspector.

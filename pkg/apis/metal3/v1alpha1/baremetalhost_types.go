@@ -177,8 +177,26 @@ type Storage struct {
 	// The size of the disk in Gibibytes
 	SizeGiB GiB `json:"sizeGiB"`
 
+	// The name of the vendor of the device
+	Vendor string `json:"vendor,omitempty"`
+
 	// Hardware model
-	Model string `json:"model"`
+	Model string `json:"model,omitempty"`
+
+	// The serial number of the device
+	SerialNumber string `json:"serialNumber"`
+
+	// The WWN of the device
+	WWN string `json:"wwn,omitempty"`
+
+	// The WWN Vendor extension of the device
+	WWNVendorExtension string `json:"wwnVendorExtension,omitempty"`
+
+	// The WWN with the extension
+	WWNWithExtension string `json:"wwnWithExtension,omitempty"`
+
+	// The SCSI location of the device
+	HCTL string `json:"hctl,omitempty"`
 }
 
 // NIC describes one network interface on the host.

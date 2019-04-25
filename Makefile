@@ -35,7 +35,7 @@ travis: test-verbose lint
 
 .PHONY: unit
 unit:
-	go test $(GO_TEST_FLAGS) ./pkg/...
+	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
 
 .PHONY: unit-verbose
 test-verbose:

@@ -164,6 +164,7 @@ type GiB int32
 type CPU struct {
 	Type     string `json:"type"`
 	SpeedGHz GHz    `json:"speedGHz"`
+	Count    int    `json:"count"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -208,7 +209,7 @@ type HardwareDetails struct {
 	RAMGiB  GiB       `json:"ramGiB"`
 	NIC     []NIC     `json:"nics"`
 	Storage []Storage `json:"storage"`
-	CPUs    []CPU     `json:"cpus"`
+	CPU     CPU       `json:"cpu"`
 }
 
 // CredentialsStatus contains the reference and version of the last

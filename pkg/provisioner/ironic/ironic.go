@@ -396,19 +396,15 @@ func getStorageDetails(diskdata []introspection.RootDiskType) []metal3v1alpha1.S
 	return storage
 }
 
-func getCPUDetails(cpudata *introspection.CPUType) []metal3v1alpha1.CPU {
+func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	var freq float64
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
 	cpu := metal3v1alpha1.CPU{
 		Type:     cpudata.Architecture,
 		SpeedGHz: metal3v1alpha1.GHz(freq / 1000.0),
+		Count:    cpudata.Count,
 	}
-
-	cpus := make([]metal3v1alpha1.CPU, cpudata.Count)
-	for i := range cpus {
-		cpus[i] = cpu
-	}
-	return cpus
+	return cpu
 }
 
 func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetails {
@@ -416,7 +412,7 @@ func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetail
 	details.RAMGiB = metal3v1alpha1.GiB(data.MemoryMB / 1024)
 	details.NIC = getNICDetails(data.Inventory.Interfaces)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
-	details.CPUs = getCPUDetails(&data.Inventory.CPU)
+	details.CPU = getCPUDetails(&data.Inventory.CPU)
 	return details
 }
 

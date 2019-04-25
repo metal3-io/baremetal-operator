@@ -396,6 +396,14 @@ func getStorageDetails(diskdata []introspection.RootDiskType) []metal3v1alpha1.S
 	return storage
 }
 
+func getSystemVendorDetails(vendor introspection.SystemVendorType) metal3v1alpha1.HardwareSystemVendor {
+	return metal3v1alpha1.HardwareSystemVendor{
+		Manufacturer: vendor.Manufacturer,
+		ProductName:  vendor.ProductName,
+		SerialNumber: vendor.SerialNumber,
+	}
+}
+
 func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	var freq float64
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
@@ -410,6 +418,7 @@ func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 
 func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetails {
 	details := new(metal3v1alpha1.HardwareDetails)
+	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
 	details.RAMGiB = metal3v1alpha1.GiB(data.MemoryMB / 1024)
 	details.NIC = getNICDetails(data.Inventory.Interfaces)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
@@ -837,7 +846,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 				// cloud-init requires that meta_data.json exists and
 				// that the "uuid" field is present to process
 				// any of the config drive contents.
-				MetaData: map[string]interface{}{"uuid":p.host.Status.Provisioning.ID},
+				MetaData: map[string]interface{}{"uuid": p.host.Status.Provisioning.ID},
 			}
 			configDriveData, err = configDrive.ToConfigDrive()
 			if err != nil {

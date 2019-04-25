@@ -207,10 +207,18 @@ type NIC struct {
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
-	RAMGiB  GiB       `json:"ramGiB"`
-	NIC     []NIC     `json:"nics"`
-	Storage []Storage `json:"storage"`
-	CPU     CPU       `json:"cpu"`
+	SystemVendor HardwareSystemVendor `json:"systemVendor"`
+	RAMGiB       GiB                  `json:"ramGiB"`
+	NIC          []NIC                `json:"nics"`
+	Storage      []Storage            `json:"storage"`
+	CPU          CPU                  `json:"cpu"`
+}
+
+// HardwareSystemVendor stores details about the whole hardware system.
+type HardwareSystemVendor struct {
+	Manufacturer string `json:"manufacturer"`
+	ProductName  string `json:"productName"`
+	SerialNumber string `json:"serialNumber"`
 }
 
 // CredentialsStatus contains the reference and version of the last

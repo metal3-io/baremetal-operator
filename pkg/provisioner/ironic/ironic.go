@@ -401,6 +401,7 @@ func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
 	cpu := metal3v1alpha1.CPU{
 		Type:     cpudata.Architecture,
+		Model:    cpudata.ModelName,
 		SpeedGHz: metal3v1alpha1.GHz(freq / 1000.0),
 		Count:    cpudata.Count,
 	}

@@ -163,6 +163,7 @@ type GiB int32
 // CPU describes one processor on the host.
 type CPU struct {
 	Type     string `json:"type"`
+	Model    string `json:"model"`
 	SpeedGHz GHz    `json:"speedGHz"`
 	Count    int    `json:"count"`
 }

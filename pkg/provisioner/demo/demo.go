@@ -156,11 +156,10 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 						Model:   "Dell CFJ61",
 					},
 				},
-				CPUs: []metal3v1alpha1.CPU{
-					metal3v1alpha1.CPU{
-						Type:     "x86",
-						SpeedGHz: 3,
-					},
+				CPU: metal3v1alpha1.CPU{
+					Type:     "x86",
+					SpeedGHz: 3,
+					Count:    1,
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")

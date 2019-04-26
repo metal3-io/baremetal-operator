@@ -917,7 +917,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	switch ironicNode.ProvisionState {
 
-	case nodes.Error:
+	case nodes.Error, nodes.CleanFail:
 		if !ironicNode.Maintenance {
 			p.log.Info("setting host maintenance flag to force image delete")
 			return p.setMaintenanceFlag(ironicNode, true)
@@ -952,8 +952,6 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		result.Dirty = true
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
-
-	// FIXME(dhellmann): handle CleanFailed?
 
 	case nodes.Manageable:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")

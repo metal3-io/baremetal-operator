@@ -810,6 +810,29 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 	}
 }
 
+func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
+	_, err = nodes.Update(
+		p.client,
+		ironicNode.UUID,
+		nodes.UpdateOpts{
+			nodes.UpdateOperation{
+				Op:    nodes.ReplaceOp,
+				Path:  "/maintenance",
+				Value: value,
+			},
+		},
+	).Extract()
+	switch err.(type) {
+	case nil:
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not set host maintenance flag, busy")
+	default:
+		return result, errors.Wrap(err, "failed to set host maintenance flag")
+	}
+	result.Dirty = true
+	return result, nil
+}
+
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
@@ -838,26 +861,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	case nodes.Error:
 		if !ironicNode.Maintenance {
 			p.log.Info("setting host maintenance flag to force image delete")
-			_, err = nodes.Update(
-				p.client,
-				ironicNode.UUID,
-				nodes.UpdateOpts{
-					nodes.UpdateOperation{
-						Op:    nodes.ReplaceOp,
-						Path:  "/maintenance",
-						Value: true,
-					},
-				},
-			).Extract()
-			switch err.(type) {
-			case nil:
-			case gophercloud.ErrDefault409:
-				p.log.Info("could not set host maintenance flag, busy")
-			default:
-				return result, errors.Wrap(err, "failed to set host maintenance flag")
-			}
-			result.Dirty = true
-			return result, nil
+			return p.setMaintenanceFlag(ironicNode, true)
 		}
 		// Once it's in maintenance, we can start the delete process.
 		return p.changeNodeProvisionState(
@@ -946,26 +950,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// Any other state requires us to use maintenance mode to
 		// delete safely.
 		p.log.Info("setting host maintenance flag to force image delete")
-		_, err = nodes.Update(
-			p.client,
-			ironicNode.UUID,
-			nodes.UpdateOpts{
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/maintenance",
-					Value: true,
-				},
-			},
-		).Extract()
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not set host maintenance flag, busy")
-		default:
-			return result, errors.Wrap(err, "failed to set host maintenance flag")
-		}
-		result.Dirty = true
-		return result, nil
+		return p.setMaintenanceFlag(ironicNode, true)
 	}
 
 	p.log.Info("host ready to be removed")

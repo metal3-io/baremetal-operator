@@ -936,7 +936,9 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
-	} else if !ironicNode.Maintenance {
+	}
+
+	if !ironicNode.Maintenance {
 		// If we see an active node and the controller doesn't think
 		// we need to deprovision it, that means the node was
 		// ExternallyProvisioned and we should remove it from Ironic
@@ -946,7 +948,8 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// maintenance flag before deleting it.
 		//
 		// Any other state requires us to use maintenance mode to
-		// delete safely.
+		// delete while bypassing Ironic's internal checks related to
+		// Nova.
 		p.log.Info("setting host maintenance flag to force image delete")
 		return p.setMaintenanceFlag(ironicNode, true)
 	}

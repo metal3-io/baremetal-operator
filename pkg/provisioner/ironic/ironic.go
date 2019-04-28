@@ -441,6 +441,9 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				ironicNode,
 				nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
 			)
+			if err == nil {
+				p.publisher("InspectionStarted", "Hardware inspection started")
+			}
 			return
 		}
 		err = errors.Wrap(err, "failed to extract hardware inspection status")

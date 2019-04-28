@@ -110,9 +110,9 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, detai
 					},
 				},
 				CPU: metal3v1alpha1.CPU{
-					Type:     "x86",
+					Type:     "x86_64",
+					Model:    "FancyPants CPU",
 					SpeedGHz: 3,
-					Count:    1,
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")

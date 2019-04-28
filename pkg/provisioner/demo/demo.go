@@ -157,7 +157,8 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 					},
 				},
 				CPU: metal3v1alpha1.CPU{
-					Type:     "x86",
+					Type:     "x86_64",
+					Model:    "Core 2 Duo",
 					SpeedGHz: 3,
 					Count:    1,
 				},

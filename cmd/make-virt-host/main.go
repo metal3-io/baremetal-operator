@@ -118,7 +118,7 @@ type VBMC struct {
 
 func main() {
 	var provisionNet = flag.String(
-		"provision-net", "provisioning", "use the MAC on this network")
+		"provision-net", "", "use the MAC on this network")
 	var machine = flag.String(
 		"machine", "", "specify name of a related, existing, machine to link")
 	var machineNamespace = flag.String(

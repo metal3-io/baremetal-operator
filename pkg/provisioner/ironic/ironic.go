@@ -953,7 +953,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
-	case nodes.Manageable:
+	case nodes.Manageable, string(nodes.Enroll), nodes.Verifying:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
 		return result, nil
 

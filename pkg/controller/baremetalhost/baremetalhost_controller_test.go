@@ -589,15 +589,13 @@ func TestDeleteHost(t *testing.T) {
 
 	testCases := []HostFactory{
 		func() *metal3v1alpha1.BareMetalHost {
-			t.Logf("normal host with finalizer")
-			host := newDefaultHost(t)
+			host := newDefaultNamedHost("with-finalizer", t)
 			host.Finalizers = append(host.Finalizers,
 				metal3v1alpha1.BareMetalHostFinalizer)
 			return host
 		},
 		func() *metal3v1alpha1.BareMetalHost {
-			t.Logf("host without BMC details")
-			host := newDefaultHost(t)
+			host := newDefaultNamedHost("without-bmc", t)
 			host.Spec.BMC = metal3v1alpha1.BMCDetails{}
 			host.Finalizers = append(host.Finalizers,
 				metal3v1alpha1.BareMetalHostFinalizer)
@@ -617,9 +615,20 @@ func TestDeleteHost(t *testing.T) {
 			return host
 		},
 		func() *metal3v1alpha1.BareMetalHost {
-			t.Logf("host with hardware details")
-			host := newDefaultHost(t)
+			host := newDefaultNamedHost("host-with-hw-details", t)
 			host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{}
+			host.Finalizers = append(host.Finalizers,
+				metal3v1alpha1.BareMetalHostFinalizer)
+			return host
+		},
+		func() *metal3v1alpha1.BareMetalHost {
+			host := newDefaultNamedHost("provisioned-host", t)
+			host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{}
+			host.Status.Provisioning.Image = metal3v1alpha1.Image{
+				URL:      "image-url",
+				Checksum: "image-checksum",
+			}
+			host.Spec.Image = &host.Status.Provisioning.Image
 			host.Finalizers = append(host.Finalizers,
 				metal3v1alpha1.BareMetalHostFinalizer)
 			return host

@@ -262,10 +262,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	// Pick the action to perform
 	var actionName metal3v1alpha1.ProvisioningState
 	switch {
-	case host.WasExternallyProvisioned():
-		actionName = metal3v1alpha1.StateExternallyProvisioned
 	case host.CredentialsNeedValidation(*bmcCredsSecret):
 		actionName = metal3v1alpha1.StateRegistering
+	case host.WasExternallyProvisioned():
+		actionName = metal3v1alpha1.StateExternallyProvisioned
 	case host.NeedsHardwareInspection():
 		actionName = metal3v1alpha1.StateInspecting
 	case host.NeedsHardwareProfile():
@@ -399,15 +399,33 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 		return result, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	reqLogger.Info("deprovisioning")
-	provResult, err := prov.Deprovision(true)
+	if host.NeedsDeprovisioning() {
+		reqLogger.Info("deprovisioning before deleting")
+		provResult, err := prov.Deprovision()
+		if err != nil {
+			return result, errors.Wrap(err, "failed to deprovision")
+		}
+		if provResult.Dirty {
+			err = r.saveStatus(host)
+			if err != nil {
+				return result, errors.Wrap(err, "failed to save host after deprovisioning")
+			}
+			result.Requeue = true
+			result.RequeueAfter = provResult.RequeueAfter
+			return result, nil
+		}
+	} else {
+		reqLogger.Info("no need to deprovision before deleting")
+	}
+
+	provResult, err := prov.Delete()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to deprovision")
+		return result, errors.Wrap(err, "failed to delete")
 	}
 	if provResult.Dirty {
 		err = r.saveStatus(host)
 		if err != nil {
-			return result, errors.Wrap(err, "failed to save host after deprovisioning")
+			return result, errors.Wrap(err, "failed to save host after deleting")
 		}
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
@@ -462,6 +480,11 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 
 	info.publishEvent("BMCAccessValidated", "Verified access to BMC")
+
+	if info.host.WasExternallyProvisioned() {
+		info.publishEvent("ExternallyProvisioned",
+			"Registered host that was externally provisioned")
+	}
 
 	result.Requeue = true
 	result.RequeueAfter = provResult.RequeueAfter
@@ -619,7 +642,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 
 	info.log.Info("deprovisioning")
 
-	if provResult, err = prov.Deprovision(false); err != nil {
+	if provResult, err = prov.Deprovision(); err != nil {
 		return result, errors.Wrap(err, "failed to deprovision")
 	}
 

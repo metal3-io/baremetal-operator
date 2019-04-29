@@ -207,10 +207,10 @@ func (p *demoProvisioner) Provision(getUserData provisioner.UserDataSource) (res
 	return result, nil
 }
 
-// Deprovision prepares the host to be removed from the cluster. It
-// may be called multiple times, and should return true for its dirty
-// flag until the deprovisioning operation is completed.
-func (p *demoProvisioner) Deprovision(deleteIt bool) (result provisioner.Result, err error) {
+// Deprovision removes the host from the image. It may be called
+// multiple times, and should return true for its dirty flag until the
+// deprovisioning operation is completed.
+func (p *demoProvisioner) Deprovision() (result provisioner.Result, err error) {
 
 	hostName := p.host.ObjectMeta.Name
 	switch hostName {
@@ -244,6 +244,14 @@ func (p *demoProvisioner) Deprovision(deleteIt bool) (result provisioner.Result,
 
 	// p.publisher("DeprovisionComplete", "Image deprovisioning completed")
 	// return result, nil
+}
+
+// Delete removes the host from the provisioning system. It may be
+// called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
+	p.log.Info("deleting host")
+	return result, nil
 }
 
 // PowerOn ensures the server is powered on independently of any image

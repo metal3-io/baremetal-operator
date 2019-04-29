@@ -869,10 +869,33 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 	}
 }
 
-// Deprovision prepares the host to be removed from the cluster. It
-// may be called multiple times, and should return true for its dirty
-// flag until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
+	_, err = nodes.Update(
+		p.client,
+		ironicNode.UUID,
+		nodes.UpdateOpts{
+			nodes.UpdateOperation{
+				Op:    nodes.ReplaceOp,
+				Path:  "/maintenance",
+				Value: value,
+			},
+		},
+	).Extract()
+	switch err.(type) {
+	case nil:
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not set host maintenance flag, busy")
+	default:
+		return result, errors.Wrap(err, "failed to set host maintenance flag")
+	}
+	result.Dirty = true
+	return result, nil
+}
+
+// Deprovision removes the host from the image. It may be called
+// multiple times, and should return true for its dirty flag until the
+// deprovisioning operation is completed.
+func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.findExistingHost()
@@ -894,29 +917,10 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 
 	switch ironicNode.ProvisionState {
 
-	case nodes.Error:
+	case nodes.Error, nodes.CleanFail:
 		if !ironicNode.Maintenance {
 			p.log.Info("setting host maintenance flag to force image delete")
-			_, err = nodes.Update(
-				p.client,
-				ironicNode.UUID,
-				nodes.UpdateOpts{
-					nodes.UpdateOperation{
-						Op:    nodes.ReplaceOp,
-						Path:  "/maintenance",
-						Value: true,
-					},
-				},
-			).Extract()
-			switch err.(type) {
-			case nil:
-			case gophercloud.ErrDefault409:
-				p.log.Info("could not set host maintenance flag, busy")
-			default:
-				return result, errors.Wrap(err, "failed to set host maintenance flag")
-			}
-			result.Dirty = true
-			return result, nil
+			return p.setMaintenanceFlag(ironicNode, true)
 		}
 		// Once it's in maintenance, we can start the delete process.
 		return p.changeNodeProvisionState(
@@ -949,35 +953,81 @@ func (p *ironicProvisioner) Deprovision(deleteIt bool) (result provisioner.Resul
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
-	// FIXME(dhellmann): handle CleanFailed?
-
 	case nodes.Manageable:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
-		if deleteIt {
-			p.log.Info("host ready to be removed")
-			err = nodes.Delete(p.client, p.status.ID).ExtractErr()
-			switch err.(type) {
-			case nil:
-				p.log.Info("removed")
-			case gophercloud.ErrDefault409:
-				p.log.Info("could not remove host, busy")
-			case gophercloud.ErrDefault404:
-				p.log.Info("did not find host to delete, OK")
-			default:
-				return result, errors.Wrap(err, "failed to remove host")
-			}
-			result.Dirty = true
-		}
 		return result, nil
 
 	default:
-		p.log.Info("starting delete")
+		p.log.Info("starting deprovisioning")
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
 	}
+}
+
+// Delete removes the host from the provisioning system. It may be
+// called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
+
+	ironicNode, err := p.findExistingHost()
+	if err != nil {
+		return result, errors.Wrap(err, "failed to find existing host")
+	}
+	if ironicNode == nil {
+		p.log.Info("no node found, already deleted")
+		return result, nil
+	}
+
+	p.log.Info("deleting host",
+		"ID", ironicNode.UUID,
+		"lastError", ironicNode.LastError,
+		"current", ironicNode.ProvisionState,
+		"target", ironicNode.TargetProvisionState,
+		"deploy step", ironicNode.DeployStep,
+	)
+
+	if ironicNode.ProvisionState == nodes.Available {
+		// Move back to manageable so we can delete it cleanly.
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+	}
+
+	if !ironicNode.Maintenance {
+		// If we see an active node and the controller doesn't think
+		// we need to deprovision it, that means the node was
+		// ExternallyProvisioned and we should remove it from Ironic
+		// without deprovisioning it.
+		//
+		// If we see a node with an error, we will have to set the
+		// maintenance flag before deleting it.
+		//
+		// Any other state requires us to use maintenance mode to
+		// delete while bypassing Ironic's internal checks related to
+		// Nova.
+		p.log.Info("setting host maintenance flag to force image delete")
+		return p.setMaintenanceFlag(ironicNode, true)
+	}
+
+	p.log.Info("host ready to be removed")
+	err = nodes.Delete(p.client, p.status.ID).ExtractErr()
+	switch err.(type) {
+	case nil:
+		p.log.Info("removed")
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not remove host, busy")
+	case gophercloud.ErrDefault404:
+		p.log.Info("did not find host to delete, OK")
+	default:
+		return result, errors.Wrap(err, "failed to remove host")
+	}
+
+	result.Dirty = true
+	return result, nil
 }
 
 func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {

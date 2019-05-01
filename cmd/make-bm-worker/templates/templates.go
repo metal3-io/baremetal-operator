@@ -26,6 +26,9 @@ spec:
 {{- if .HardwareProfile }}
   hardwareProfile: {{ .HardwareProfile }}
 {{- end }}
+{{- if .BootMacAddress }}
+  bootMACAddress: {{ .BootMacAddress }}
+{{- end }}
   bmc:
     address: {{ .BMCAddress }}
     credentialsName: {{ .Name }}-bmc-secret
@@ -43,6 +46,7 @@ type Template struct {
 	Username         string
 	Password         string
 	HardwareProfile  string
+	BootMacAddress   string
 	Machine          string
 	MachineNamespace string
 }

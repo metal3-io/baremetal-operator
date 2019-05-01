@@ -14,6 +14,7 @@ func main() {
 	var password = flag.String("password", "", "password for BMC")
 	var bmcAddress = flag.String("address", "", "address URL for BMC")
 	var hardwareProfile = flag.String("hardwareprofile", "", "hardwareProfile to be used")
+	var macAddress = flag.String("boot-mac", "", "boot-mac for bootMACAddress")
 	var verbose = flag.Bool("v", false, "turn on verbose output")
 	var machine = flag.String(
 		"machine", "", "specify name of a related, existing, machine to link")
@@ -46,6 +47,7 @@ func main() {
 		Username:         *username,
 		Password:         *password,
 		HardwareProfile:  *hardwareProfile,
+		BootMacAddress:    *macAddress,
 		Machine:          strings.TrimSpace(*machine),
 		MachineNamespace: strings.TrimSpace(*machineNamespace),
 	}

@@ -14,6 +14,7 @@ func main() {
 	var password = flag.String("password", "", "password for BMC")
 	var bmcAddress = flag.String("address", "", "address URL for BMC")
 	var hardwareProfile = flag.String("hardwareprofile", "", "hardwareProfile to be used")
+	var macAddress = flag.String("bootmacaddress", "", "bootMACAddress to be used")
 	var verbose = flag.Bool("v", false, "turn on verbose output")
 	var machine = flag.String(
 		"machine", "", "specify name of a related, existing, machine to link")
@@ -39,6 +40,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Missing -address argument\n")
 		os.Exit(1)
 	}
+	if *macAddress == "" {
+		fmt.Fprintf(os.Stderr, "Missing -bootmacaddress argument\n")
+		os.Exit(1)
+	}
 
 	template := templates.Template{
 		Name:             strings.Replace(hostName, "_", "-", -1),
@@ -46,6 +51,7 @@ func main() {
 		Username:         *username,
 		Password:         *password,
 		HardwareProfile:  *hardwareProfile,
+		BootMacAddress:    *macAddress,
 		Machine:          strings.TrimSpace(*machine),
 		MachineNamespace: strings.TrimSpace(*machineNamespace),
 	}

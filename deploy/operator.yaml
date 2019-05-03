@@ -15,7 +15,7 @@ spec:
       serviceAccountName: metal3-baremetal-operator
       containers:
         - name: baremetal-operator
-          image: quay.io/metal3-io/baremetal-operator
+          image: quay.io/metal3-io/baremetal-operator:master
           ports:
           - containerPort: 60000
             name: metrics

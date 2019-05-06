@@ -27,8 +27,8 @@ install the operator-sdk tools.
     cd $GOPATH/src/github.com/metal3-io
     git clone https://github.com/metal3-io/baremetal-operator.git
     cd baremetal-operator
-    kubectl apply -f deploy/service_account.yaml
-    kubectl apply -f deploy/role.yaml
+    kubectl apply -f deploy/service_account.yaml -n metal3
+    kubectl apply -f deploy/role.yaml -n metal3
     kubectl apply -f deploy/role_binding.yaml
     kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
     ```

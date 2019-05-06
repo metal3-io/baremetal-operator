@@ -775,6 +775,10 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 		if userData != "" {
 			configDrive := nodeutils.ConfigDrive{
 				UserData: nodeutils.UserDataString(userData),
+				// cloud-init requires that meta_data.json exists and
+				// that the "uuid" field is present to process
+				// any of the config drive contents.
+				MetaData: map[string]interface{}{"uuid":p.host.Status.Provisioning.ID},
 			}
 			configDriveData, err = configDrive.ToConfigDrive()
 			if err != nil {

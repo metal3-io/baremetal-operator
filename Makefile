@@ -78,3 +78,12 @@ demo:
 .PHONY: docker
 docker:
 	docker build . -f build/Dockerfile
+
+.PHONY: deploy
+deploy:
+	echo "{ \"kind\": \"Namespace\", \"apiVersion\": \"v1\", \"metadata\": { \"name\": \"$(RUN_NAMESPACE)\", \"labels\": { \"name\": \"$(RUN_NAMESPACE)\" } } }" | kubectl apply -f -
+	kubectl apply -f deploy/service_account.yaml -n $(RUN_NAMESPACE)
+	kubectl apply -f deploy/role.yaml -n $(RUN_NAMESPACE)
+	kubectl apply -f deploy/role_binding.yaml
+	kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
+	kubectl apply -f deploy/operator.yaml -n $(RUN_NAMESPACE)

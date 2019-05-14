@@ -36,6 +36,8 @@ for the image at *image.url*.
 *userData* -- A reference to the Secret containing the user data to be
 passed to the host before it boots.
 
+*description* -- A human-provided string to help identify the host.
+
 ```
 ---
 apiVersion: v1

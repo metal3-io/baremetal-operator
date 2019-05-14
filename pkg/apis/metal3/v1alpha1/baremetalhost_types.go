@@ -139,6 +139,9 @@ type BareMetalHostSpec struct {
 	// UserData holds the reference to the Secret containing the user
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
+
+	// Description is a human-entered text used to help identify the host
+	Description string `json:"description"`
 }
 
 // Image holds the details of an image either to provisioned or that

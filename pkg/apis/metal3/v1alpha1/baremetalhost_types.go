@@ -224,6 +224,15 @@ type Storage struct {
 	HCTL string `json:"hctl,omitempty"`
 }
 
+// VLANID is a 12-bit 802.1Q VLAN identifier
+type VLANID int16
+
+// VLAN represents the name and ID of a VLAN
+type VLAN struct {
+	ID   VLANID `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
 // NIC describes one network interface on the host.
 type NIC struct {
 	// The name of the NIC, e.g. "nic-1"
@@ -231,9 +240,6 @@ type NIC struct {
 
 	// The name of the model, e.g. "virt-io"
 	Model string `json:"model"`
-
-	// The name of the network, e.g. "Pod Networking"
-	Network string `json:"network"`
 
 	// The device MAC addr
 	MAC string `json:"mac"`
@@ -243,6 +249,15 @@ type NIC struct {
 
 	// The speed of the device
 	SpeedGbps int `json:"speedGbps"`
+
+	// The VLANs available
+	VLANs []VLAN `json:"vlans,omitempty"`
+
+	// The untagged VLAN ID
+	VLANID VLANID `json:"vlanId"`
+
+	// Whether the NIC is PXE Bootable
+	PXE bool `json:"pxe"`
 }
 
 // HardwareDetails collects all of the information about hardware

@@ -368,17 +368,44 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 	return result, nil
 }
 
-func getNICDetails(ifdata []introspection.InterfaceType) []metal3v1alpha1.NIC {
+func getVLANs(intf introspection.BaseInterfaceType) (vlans []metal3v1alpha1.VLAN, vlanid metal3v1alpha1.VLANID) {
+	if intf.LLDPProcessed == nil {
+		return
+	}
+	if spvs, ok := intf.LLDPProcessed["switch_port_vlans"]; ok {
+		if data, ok := spvs.([]map[string]interface{}); ok {
+			vlans = make([]metal3v1alpha1.VLAN, len(data))
+			for i, vlan := range data {
+				vid, _ := vlan["id"].(int)
+				name, _ := vlan["name"].(string)
+				vlans[i] = metal3v1alpha1.VLAN{
+					ID:   metal3v1alpha1.VLANID(vid),
+					Name: name,
+				}
+			}
+		}
+	}
+	if vid, ok := intf.LLDPProcessed["switch_port_untagged_vlan_id"].(int); ok {
+		vlanid = metal3v1alpha1.VLANID(vid)
+	}
+	return
+}
+
+func getNICDetails(ifdata []introspection.InterfaceType, basedata map[string]introspection.BaseInterfaceType) []metal3v1alpha1.NIC {
 	nics := make([]metal3v1alpha1.NIC, len(ifdata))
 	for i, intf := range ifdata {
+		baseIntf := basedata[intf.Name]
+		vlans, vlanid := getVLANs(baseIntf)
 		nics[i] = metal3v1alpha1.NIC{
 			Name: intf.Name,
 			Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 				intf.Vendor, intf.Product), " "),
 			MAC:       intf.MACAddress,
-			Network:   "Pod Networking", // TODO(zaneb)
 			IP:        intf.IPV4Address,
+			VLANs:     vlans,
+			VLANID:    vlanid,
 			SpeedGbps: 0, // TODO(zaneb)
+			PXE:       baseIntf.PXE,
 		}
 	}
 	return nics
@@ -430,7 +457,7 @@ func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetail
 	details := new(metal3v1alpha1.HardwareDetails)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
 	details.RAMMebibytes = data.MemoryMB
-	details.NIC = getNICDetails(data.Inventory.Interfaces)
+	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
 	details.CPU = getCPUDetails(&data.Inventory.CPU)
 	return details

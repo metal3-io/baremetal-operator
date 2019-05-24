@@ -128,18 +128,18 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 					metal3v1alpha1.NIC{
 						Name:      "nic-1",
 						Model:     "virt-io",
-						Network:   "Pod Networking",
 						MAC:       "some:mac:address",
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
+						PXE:       true,
 					},
 					metal3v1alpha1.NIC{
 						Name:      "nic-2",
 						Model:     "e1000",
-						Network:   "Pod Networking",
 						MAC:       "some:other:mac:address",
 						IP:        "192.168.100.2",
 						SpeedGbps: 1,
+						PXE:       false,
 					},
 				},
 				Storage: []metal3v1alpha1.Storage{

@@ -236,7 +236,7 @@ type NIC struct {
 // discovered on the host.
 type HardwareDetails struct {
 	SystemVendor HardwareSystemVendor `json:"systemVendor"`
-	RAMGiB       GiB                  `json:"ramGiB"`
+	RAMMebibytes int                  `json:"ramMebibytes"`
 	NIC          []NIC                `json:"nics"`
 	Storage      []Storage            `json:"storage"`
 	CPU          CPU                  `json:"cpu"`

@@ -429,7 +429,7 @@ func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetails {
 	details := new(metal3v1alpha1.HardwareDetails)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
-	details.RAMGiB = metal3v1alpha1.GiB(data.MemoryMB / 1024)
+	details.RAMMebibytes = data.MemoryMB
 	details.NIC = getNICDetails(data.Inventory.Interfaces)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
 	details.CPU = getCPUDetails(&data.Inventory.CPU)

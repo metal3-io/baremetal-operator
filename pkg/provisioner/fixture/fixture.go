@@ -76,7 +76,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, detai
 		p.log.Info("continuing inspection by setting details")
 		details =
 			&metal3v1alpha1.HardwareDetails{
-				RAMGiB: 128,
+				RAMMebibytes: 128 * 1024,
 				NIC: []metal3v1alpha1.NIC{
 					metal3v1alpha1.NIC{
 						Name:      "nic-1",

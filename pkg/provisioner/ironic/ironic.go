@@ -389,8 +389,8 @@ func getStorageDetails(diskdata []introspection.RootDiskType) []metal3v1alpha1.S
 	for i, disk := range diskdata {
 		storage[i] = metal3v1alpha1.Storage{
 			Name:               disk.Name,
-			Type:               map[bool]string{true: "HDD", false: "SSD"}[disk.Rotational],
-			SizeGiB:            metal3v1alpha1.GiB(disk.Size / (1024 * 1024 * 1024)),
+			Rotational:         disk.Rotational,
+			SizeBytes:          metal3v1alpha1.Capacity(disk.Size),
 			Vendor:             disk.Vendor,
 			Model:              disk.Model,
 			SerialNumber:       disk.Serial,

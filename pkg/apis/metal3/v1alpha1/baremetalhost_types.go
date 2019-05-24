@@ -166,8 +166,21 @@ const (
 	GigaHertz            = 1000 * MegaHertz
 )
 
-// GiB is a memory size in GiB
-type GiB int32
+// Capacity is a disk size in Bytes
+type Capacity int64
+
+// Capacity multipliers
+const (
+	Byte     Capacity = 1
+	KibiByte          = Byte * 1024
+	KiloByte          = Byte * 1000
+	MebiByte          = KibiByte * 1024
+	MegaByte          = KiloByte * 1000
+	GibiByte          = MebiByte * 1024
+	GigaByte          = MegaByte * 1000
+	TebiByte          = GibiByte * 1024
+	TeraByte          = GigaByte * 1000
+)
 
 // CPU describes one processor on the host.
 type CPU struct {
@@ -183,11 +196,11 @@ type Storage struct {
 	// A name for the disk, e.g. "disk 1 (boot)"
 	Name string `json:"name"`
 
-	// Type, e.g. SSD
-	Type string `json:"type"`
+	// Whether this disk represents rotational storage
+	Rotational bool `json:"rotational"`
 
-	// The size of the disk in Gibibytes
-	SizeGiB GiB `json:"sizeGiB"`
+	// The size of the disk in Bytes
+	SizeBytes Capacity `json:"sizeBytes"`
 
 	// The name of the vendor of the device
 	Vendor string `json:"vendor,omitempty"`

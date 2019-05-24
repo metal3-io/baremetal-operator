@@ -144,16 +144,16 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 				},
 				Storage: []metal3v1alpha1.Storage{
 					metal3v1alpha1.Storage{
-						Name:    "disk-1 (boot)",
-						Type:    "SSD",
-						SizeGiB: 1024 * 93,
-						Model:   "Dell CFJ61",
+						Name:       "disk-1 (boot)",
+						Rotational: false,
+						SizeBytes:  metal3v1alpha1.TebiByte * 93,
+						Model:      "Dell CFJ61",
 					},
 					metal3v1alpha1.Storage{
-						Name:    "disk-2",
-						Type:    "SSD",
-						SizeGiB: 1024 * 93,
-						Model:   "Dell CFJ61",
+						Name:       "disk-2",
+						Rotational: false,
+						SizeBytes:  metal3v1alpha1.TebiByte * 93,
+						Model:      "Dell CFJ61",
 					},
 				},
 				CPU: metal3v1alpha1.CPU{

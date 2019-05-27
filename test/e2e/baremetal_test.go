@@ -182,7 +182,7 @@ func TestManageHardwareDetails(t *testing.T) {
 
 	f := framework.Global
 
-	host := makeHost(t, ctx, "hardware-profile",
+	host := makeHost(t, ctx, "test-host",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
 				Address:         "ipmi://192.168.122.1:6233",

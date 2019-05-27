@@ -60,8 +60,6 @@ func setup(t *testing.T) *framework.TestCtx {
 	t.Log("Initialized cluster resources")
 
 	makeSecret(t, ctx, "bmc-creds-valid", "User", "Pass")
-	makeSecret(t, ctx, "bmc-creds-no-user", "", "Pass")
-	makeSecret(t, ctx, "bmc-creds-no-pass", "User", "")
 
 	return ctx
 }

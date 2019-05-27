@@ -75,6 +75,15 @@ spec:
 *lastUpdated* -- The timestamp of the last time the status for the
 host was updated.
 
+*operationalStatus* -- The status of the server. Value is one of the
+following:
+  * *online* -- The server is powered on and running.
+  * *offline* -- The server is powered off.
+  * *error* -- There is an error with the configuration data for the
+  host or there is a problem with the host itself. Refer to the
+  *errorMessage* field in the status section for more details about
+  the error condition.
+
 *hardware* -- The details for hardware capabilities discovered on the
 host. These are filled in by the provisioning agent when the host is
 registered.
@@ -99,6 +108,11 @@ the host.
 
 *hardware.cpus.speed* -- The speed in GHz of the CPU.
 
+*hardwareProfile* -- The name of the hardware profile that matches the
+hardware discovered on the host. Details about the hardware are saved
+to the *hardware* section of the status. If the hardware does not
+match a known profile, the value "unknown" is used.
+
 ```
 apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
@@ -107,9 +121,6 @@ metadata:
   finalizers:
   - baremetalhost.metal3.io
   generation: 9
-  labels:
-    metal3.io/hardware-profile: unknown
-    metal3.io/operational-status: online
   name: example-baremetalhost
   namespace: bmo-project
   resourceVersion: "1750818"
@@ -127,31 +138,12 @@ status:
     cpus: null
     nics: null
     storage: null
+  hardwareProfile: unknown
   image: ""
   lastUpdated: 2019-02-11T17:44:30Z
+  operationalStatus: online
   provisioningID: ""
 ```
-
-## Labels
-
-The BareMetalHost operator manages several labels with host status and
-settings to make it easier to find specific hosts.
-
-*metal3.io/hardware-profile* -- The name of the hardware profile
-that matches the hardware discovered on the host. Details about the
-hardware are saved to the *hardware* section of the status. If the
-hardware does not match a known profile, the value "unknown" is used.
-
-*metal3.io/operational-status* -- The status of the server.
-
-  *online* -- The server is powered on and running.
-
-  *offline* -- The server is powered off.
-
-  *error* -- There is an error with the configuration data for the
-  host or there is a problem with the host itself. Refer to the
-  *errorMessage* field in the status section for more details about
-  the error condition.
 
 ## Triggering Provisioning
 

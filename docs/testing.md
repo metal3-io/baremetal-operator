@@ -12,6 +12,12 @@ oc --as system:admin apply -f test/e2e/role_binding.yaml
 
 ### Run the e2e tests
 
+First, create the namespace to be used for the test:
+
+```
+$ kubectl create namespace operator-test
+```
+
 Run the tests using the operator-sdk command line tool
 
 ```

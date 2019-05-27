@@ -143,7 +143,7 @@ status:
   hardwareProfile: unknown
   image: ""
   lastUpdated: 2019-02-11T17:44:30Z
-  operationalStatus: online
+  operationalStatus: OK
   provisioningID: ""
 ```
 

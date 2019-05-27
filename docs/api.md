@@ -142,13 +142,11 @@ that matches the hardware discovered on the host. Details about the
 hardware are saved to the *hardware* section of the status. If the
 hardware does not match a known profile, the value "unknown" is used.
 
-*metal3.io/operational-status* -- The status of the server.
-
-  *online* -- The server is powered on and running.
-
-  *offline* -- The server is powered off.
-
-  *error* -- There is an error with the configuration data for the
+*metal3.io/operational-status* -- The status of the server. One of the
+following values:
+* *online* -- The server is powered on and running.
+* *offline* -- The server is powered off.
+* *error* -- There is an error with the configuration data for the
   host or there is a problem with the host itself. Refer to the
   *errorMessage* field in the status section for more details about
   the error condition.

@@ -162,7 +162,7 @@ func waitForHostStateChange(t *testing.T, host *metal3v1alpha1.BareMetalHost, is
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		t.Log("polling host for updates")
-		refreshHost(instance)
+		err = refreshHost(instance)
 		if err != nil {
 			return false, err
 		}

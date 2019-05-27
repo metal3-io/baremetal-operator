@@ -390,7 +390,7 @@ func (host *BareMetalHost) SetHardwareProfile(name string) (dirty bool) {
 	return dirty
 }
 
-// SetOperationalStatus updates the OperationalStatusLabel and returns
+// SetOperationalStatus updates the OperationalStatus field and returns
 // true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetOperationalStatus(status OperationalStatus) bool {
 	if host.Status.OperationalStatus != status {

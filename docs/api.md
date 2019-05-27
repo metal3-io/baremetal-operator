@@ -77,8 +77,10 @@ host was updated.
 
 *operationalStatus* -- The status of the server. Value is one of the
 following:
-  * *online* -- The server is powered on and running.
-  * *offline* -- The server is powered off.
+  * *OK* -- The host is configured correctly and not actively being
+  managed.
+  * *discovered* -- The host is only partially configured, such as
+  when a few values are loaded from Ironic.
   * *error* -- There is an error with the configuration data for the
   host or there is a problem with the host itself. Refer to the
   *errorMessage* field in the status section for more details about

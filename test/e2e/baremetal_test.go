@@ -16,6 +16,8 @@ import (
 	goctx "context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +37,38 @@ var (
 	cleanupRetryInterval = time.Second * 1
 	cleanupTimeout       = time.Second * 5
 )
+
+func getTestHostCreds(t *testing.T) (string, string) {
+	val := os.Getenv("TEST_HOST_CREDS")
+	if val != "" {
+		elements := strings.Split(val, ":")
+		if len(elements) == 2 {
+			username, err := base64.StdEncoding.DecodeString(elements[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			password, err := base64.StdEncoding.DecodeString(elements[1])
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("Using %s credentials from $TEST_HOST_CREDS\n", username)
+			return string(username), string(password)
+		}
+	}
+	t.Log("Using default User/Pass credentials")
+	return "User", "Pass"
+}
+
+func getTestHostURL(t *testing.T) (string) {
+	val := os.Getenv("TEST_HOST_URL")
+	if val != "" {
+		t.Logf("Using URL from $TEST_HOST_URL: %s\n", val)
+		return val
+	}
+	val = "ipmi://192.168.122.1:6233"
+	t.Logf("Using default host URL: %s\n", val)
+	return val
+}
 
 // Set up the test system to know about our types and return a
 // context.
@@ -59,7 +93,8 @@ func setup(t *testing.T) *framework.TestCtx {
 	}
 	t.Log("Initialized cluster resources")
 
-	makeSecret(t, ctx, "bmc-creds-valid", "User", "Pass")
+	username, password := getTestHostCreds(t)
+	makeSecret(t, ctx, "bmc-creds-valid", username, password)
 
 	return ctx
 }
@@ -183,7 +218,7 @@ func TestManageHardwareDetails(t *testing.T) {
 	host := makeHost(t, ctx, "test-host",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "ipmi://192.168.122.1:6233",
+				Address:         getTestHostURL(t),
 				CredentialsName: "bmc-creds-valid",
 			},
 		})

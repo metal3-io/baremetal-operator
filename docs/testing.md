@@ -18,6 +18,21 @@ First, create the namespace to be used for the test:
 $ kubectl create namespace operator-test
 ```
 
+Next, delete hosts created by metal3-dev-env and set environment
+variables with the URL and credentials for its master node:
+
+```
+$ kubectl delete -n metal3 -f ../metal3-dev-env/bmhosts_crs.yaml
+$ export TEST_HOST_URL=$(yq -r '. |
+    select(.metadata.name == "master-0") |
+   .spec.bmc.address' \
+    ../metal3-dev-env/bmhosts_crs.yaml)
+$ export TEST_HOST_CREDS=$(yq  -r '. |
+    select(.metadata.name == "master-0-bmc-secret") |
+    .data.username + ":" + .data.password' \
+    ../metal3-dev-env/bmhosts_crs.yaml)
+```
+
 Run the tests using the operator-sdk command line tool
 
 ```

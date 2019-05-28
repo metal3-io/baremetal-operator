@@ -176,24 +176,6 @@ func waitForHostStateChange(t *testing.T, host *metal3v1alpha1.BareMetalHost, is
 	return instance
 }
 
-func waitForOfflineStatus(t *testing.T, host *metal3v1alpha1.BareMetalHost) {
-	waitForHostStateChange(t, host, func(host *metal3v1alpha1.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metal3v1alpha1.OperationalStatusLabel]
-		t.Logf("OperationalState: %s", state)
-		if state == metal3v1alpha1.OperationalStatusOffline {
-			return true, nil
-		}
-		return false, nil
-	})
-}
-
-func waitForError(t *testing.T, host *metal3v1alpha1.BareMetalHost) {
-	waitForHostStateChange(t, host, func(host *metal3v1alpha1.BareMetalHost) (done bool, err error) {
-		t.Logf("ErrorMessage: %q", host.Status.ErrorMessage)
-		return host.HasError(), nil
-	})
-}
-
 func TestManageHardwareDetails(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()

@@ -153,8 +153,8 @@ func makeSecret(t *testing.T, ctx *framework.TestCtx, name string, username stri
 	}
 
 	data := make(map[string][]byte)
-	data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte(username)))
-	data["password"] = []byte(base64.StdEncoding.EncodeToString([]byte(password)))
+	data["username"] = []byte(username)
+	data["password"] = []byte(password)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

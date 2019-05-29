@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"flag"
@@ -58,8 +59,8 @@ metadata:
   name: {{ .Domain }}-bmc-secret
 type: Opaque
 data:
-  username: YWRtaW4=
-  password: cGFzc3dvcmQ=
+  username: {{ .B64UserName }}
+  password: {{ .B64Password }}
 
 ---
 apiVersion: metal3.io/v1alpha1
@@ -89,6 +90,8 @@ spec:
 // TemplateArgs holds the arguments to pass to the template.
 type TemplateArgs struct {
 	Domain           string
+	B64UserName      string
+	B64Password      string
 	MAC              string
 	BMCPort          int
 	Checksum         string
@@ -126,6 +129,10 @@ func main() {
 	var verbose = flag.Bool("v", false, "turn on verbose output")
 	var withImage = flag.Bool("image", false, "include image settings for immediate provisioning")
 	var desiredMAC string
+	var userName = flag.String(
+		"user", "admin", "Specify an username for vBMC")
+	var password = flag.String(
+		"password", "password", "Specify password for vBMC")
 
 	flag.Parse()
 
@@ -162,6 +169,11 @@ func main() {
 			desiredMAC = iface.MAC.Address
 		}
 	}
+
+	// Base64 encoding for user and password
+	b64UserName := base64.StdEncoding.EncodeToString([]byte(*userName))
+	b64Password := base64.StdEncoding.EncodeToString([]byte(*password))
+
 	if *verbose {
 		fmt.Printf("Using MAC: %s\n", desiredMAC)
 	}
@@ -191,6 +203,8 @@ func main() {
 
 	args := TemplateArgs{
 		Domain:           strings.Replace(virshDomain, "_", "-", -1),
+		B64UserName:      b64UserName,
+		B64Password:      b64Password,
 		MAC:              desiredMAC,
 		BMCPort:          nameToPort[virshDomain],
 		WithImage:        *withImage,
@@ -208,3 +222,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 	}
 }
+

@@ -210,6 +210,8 @@
     "openstack/baremetal/noauth",
     "openstack/baremetal/v1/nodes",
     "openstack/baremetal/v1/ports",
+    "openstack/baremetalintrospection/noauth",
+    "openstack/baremetalintrospection/v1/introspection",
     "pagination",
   ]
   pruneopts = "NT"
@@ -928,6 +930,8 @@
     "github.com/gophercloud/gophercloud/openstack/baremetal/noauth",
     "github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes",
     "github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports",
+    "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth",
+    "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection",
     "github.com/gophercloud/utils/openstack/baremetal/v1/nodes",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",

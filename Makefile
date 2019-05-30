@@ -28,7 +28,7 @@ help:
 	@echo "  DEBUG          -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: unit lint
+test: unit lint dep-check
 
 .PHONY: travis
 travis: test-verbose lint
@@ -87,3 +87,7 @@ deploy:
 	kubectl apply -f deploy/role_binding.yaml
 	kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
 	kubectl apply -f deploy/operator.yaml -n $(RUN_NAMESPACE)
+
+.PHONY: dep-check
+dep-check:
+	dep check

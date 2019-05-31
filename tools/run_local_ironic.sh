@@ -2,7 +2,7 @@
 
 set -ex
 
-IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic"}
+IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
 IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic-inspector"}
 IRONIC_DATA_DIR="$PWD/ironic"
 
@@ -56,4 +56,5 @@ sudo podman run -d --net host --privileged --name ironic --pod ironic-pod \
      -v $IRONIC_DATA_DIR:/shared ${IRONIC_IMAGE}
 
 # Start Ironic Inspector
-sudo podman run -d --net host --privileged --name ironic-inspector --pod ironic-pod "${IRONIC_INSPECTOR_IMAGE}"
+sudo podman run -d --net host --privileged --name ironic-inspector --pod ironic-pod \
+     -v $IRONIC_DATA_DIR:/shared "${IRONIC_INSPECTOR_IMAGE}"

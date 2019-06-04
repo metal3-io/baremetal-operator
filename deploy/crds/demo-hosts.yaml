@@ -10,10 +10,43 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-discovered
+
+---
+apiVersion: machine.openshift.io/v1beta1
+kind: Machine
+metadata:
+  labels:
+    sigs.k8s.io/cluster-api-cluster: ostest
+    sigs.k8s.io/cluster-api-machine-role: worker
+    sigs.k8s.io/cluster-api-machine-type: worker
+  name: demo-ostest-worker
+  namespace: openshift-machine-api
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-externally-provisioned-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: demo-externally-provisioned
+spec:
+  online: false
+  bmc:
+    address: ipmi://192.168.122.1:6233
+    credentialsName: demo-externally-provisioned-secret
+  machineRef:
+    name: demo-ostest-worker
+    namespace: openshift-machine-api
 
 ---
 apiVersion: v1
@@ -25,12 +58,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-registration-error
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -47,12 +80,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-registering
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -69,12 +102,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-ready
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -91,76 +124,17 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-inspecting
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
     address: ipmi://192.168.122.4:6233
     credentialsName: demo-inspecting-secret
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: demo-preparing-to-provision-secret
-type: Opaque
-data:
-  username: YWRtaW4=
-  password: MWYyZDFlMmU2N2Rm
----
-apiVersion: metalkube.org/v1alpha1
-kind: BareMetalHost
-metadata:
-  name: demo-preparing-to-provision
-  labels:
-    metalkubedemo: ""
-spec:
-  online: true
-  bmc:
-    address: ipmi://192.168.122.5:6233
-    credentialsName: demo-preparing-to-provision-secret
-  bootMACAddress: 00:c6:14:04:61:b2
-  online: true
-  userData:
-    namespace: openshift-machine-api
-    name: worker-user-data
-  image:
-    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
-    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: demo-available-secret
-type: Opaque
-data:
-  username: YWRtaW4=
-  password: MWYyZDFlMmU2N2Rm
----
-apiVersion: metalkube.org/v1alpha1
-kind: BareMetalHost
-metadata:
-  name: demo-available
-  labels:
-    metalkubedemo: ""
-spec:
-  online: true
-  bmc:
-    address: ipmi://192.168.122.7:6233
-    credentialsName: demo-available-secret
-  bootMACAddress: 00:c6:14:04:61:b2
-  userData:
-    namespace: openshift-machine-api
-    name: worker-user-data
-  image:
-    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
-    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
 
 ---
 apiVersion: v1
@@ -172,12 +146,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-provisioning
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -188,8 +162,8 @@ spec:
     namespace: openshift-machine-api
     name: worker-user-data
   image:
-    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
-    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+    url: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2"
+    checksum: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2.md5sum"
 
 ---
 apiVersion: v1
@@ -201,12 +175,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-provisioned
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -217,8 +191,8 @@ spec:
     namespace: openshift-machine-api
     name: worker-user-data
   image:
-    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
-    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+    url: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2"
+    checksum: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2.md5sum"
 
 ---
 apiVersion: v1
@@ -230,12 +204,12 @@ data:
   username: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: demo-validation-error
   labels:
-    metalkubedemo: ""
+    metal3demo: ""
 spec:
   online: true
   bmc:
@@ -246,5 +220,5 @@ spec:
     namespace: openshift-machine-api
     name: worker-user-data
   image:
-    url: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2"
-    checksum: "http://172.22.0.1/images/redhat-coreos-maipo-latest.qcow2.md5sum"
+    url: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2"
+    checksum: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2.md5sum"

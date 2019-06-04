@@ -6,9 +6,9 @@ import (
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/bmc"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 var log = logf.Log.WithName("fixture")
@@ -19,7 +19,7 @@ var provisionRequeueDelay = time.Second * 10
 // and uses Ironic to manage the host.
 type fixtureProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metalkubev1alpha1.BareMetalHost
+	host *metal3v1alpha1.BareMetalHost
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -29,7 +29,7 @@ type fixtureProvisioner struct {
 }
 
 // New returns a new Ironic Provisioner
-func New(host *metalkubev1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		host:      host,
 		bmcCreds:  bmcCreds,
@@ -65,17 +65,8 @@ func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Resu
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
-
-	if p.host.Status.Provisioning.State != metalkubev1alpha1.StateInspecting {
-		// The inspection just started.
-		p.publisher("InspectionStarted", "Hardware inspection started")
-		p.log.Info("starting inspection by setting state")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateInspecting
-		result.Dirty = true
-		return result, nil
-	}
 
 	// The inspection is ongoing. We'll need to check the fixture
 	// status for the server here until it is ready for us to get the
@@ -83,11 +74,11 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 	// hardware details struct as part of a second pass.
 	if p.host.Status.HardwareDetails == nil {
 		p.log.Info("continuing inspection by setting details")
-		p.host.Status.HardwareDetails =
-			&metalkubev1alpha1.HardwareDetails{
+		details =
+			&metal3v1alpha1.HardwareDetails{
 				RAMGiB: 128,
-				NIC: []metalkubev1alpha1.NIC{
-					metalkubev1alpha1.NIC{
+				NIC: []metal3v1alpha1.NIC{
+					metal3v1alpha1.NIC{
 						Name:      "nic-1",
 						Model:     "virt-io",
 						Network:   "Pod Networking",
@@ -95,7 +86,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
 					},
-					metalkubev1alpha1.NIC{
+					metal3v1alpha1.NIC{
 						Name:      "nic-2",
 						Model:     "e1000",
 						Network:   "Pod Networking",
@@ -104,34 +95,30 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, err e
 						SpeedGbps: 1,
 					},
 				},
-				Storage: []metalkubev1alpha1.Storage{
-					metalkubev1alpha1.Storage{
+				Storage: []metal3v1alpha1.Storage{
+					metal3v1alpha1.Storage{
 						Name:    "disk-1 (boot)",
 						Type:    "SSD",
 						SizeGiB: 1024 * 93,
 						Model:   "Dell CFJ61",
 					},
-					metalkubev1alpha1.Storage{
+					metal3v1alpha1.Storage{
 						Name:    "disk-2",
 						Type:    "SSD",
 						SizeGiB: 1024 * 93,
 						Model:   "Dell CFJ61",
 					},
 				},
-				CPUs: []metalkubev1alpha1.CPU{
-					metalkubev1alpha1.CPU{
-						Type:     "x86",
-						SpeedGHz: 3,
-					},
+				CPU: metal3v1alpha1.CPU{
+					Type:     "x86_64",
+					Model:    "FancyPants CPU",
+					SpeedGHz: 3,
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateReady
-		result.Dirty = true
-		return result, nil
 	}
 
-	return result, nil
+	return
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server
@@ -154,38 +141,22 @@ func (p *fixtureProvisioner) Provision(getUserData provisioner.UserDataSource) (
 	p.log.Info("provisioning image to host",
 		"state", p.host.Status.Provisioning.State)
 
-	result.RequeueAfter = provisionRequeueDelay
-
-	// NOTE(dhellmann): This is a test class, so we simulate a
-	// multi-step process to ensure that multiple cycles through the
-	// reconcile loop work properly.
-
-	if p.host.Status.Provisioning.State == metalkubev1alpha1.StateReady {
-		p.publisher("ProvisioningStarted", "Image provisioning started")
-		p.log.Info("moving to step1")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioning
-		result.Dirty = true
-		return result, nil
-	}
-
-	if p.host.Status.Provisioning.State == metalkubev1alpha1.StateProvisioning {
+	if p.host.Status.Provisioning.Image.URL == "" {
 		p.publisher("ProvisioningComplete", "Image provisioning completed")
 		p.log.Info("moving to done")
-		p.host.Status.Provisioning.State = metalkubev1alpha1.StateProvisioned
 		p.host.Status.Provisioning.Image = *p.host.Spec.Image
 		result.Dirty = true
-		return result, nil
+		result.RequeueAfter = provisionRequeueDelay
 	}
 
-	result.RequeueAfter = 0
 	return result, nil
 }
 
-// Deprovision prepares the host to be removed from the cluster. It
-// may be called multiple times, and should return true for its dirty
-// flag until the deprovisioning operation is completed.
-func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Result, err error) {
-	p.log.Info("ensuring host is removed")
+// Deprovision removes the host from the image. It may be called
+// multiple times, and should return true for its dirty flag until the
+// deprovisioning operation is completed.
+func (p *fixtureProvisioner) Deprovision() (result provisioner.Result, err error) {
+	p.log.Info("ensuring host is deprovisioned")
 
 	result.RequeueAfter = deprovisionRequeueDelay
 
@@ -202,6 +173,16 @@ func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Resu
 		return result, nil
 	}
 
+	p.publisher("DeprovisionComplete", "Image deprovisioning completed")
+	return result, nil
+}
+
+// Delete removes the host from the provisioning system. It may be
+// called multiple times, and should return true for its dirty flag
+// until the deprovisioning operation is completed.
+func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
+	p.log.Info("deleting host")
+
 	if p.host.Status.Provisioning.ID != "" {
 		p.log.Info("clearing provisioning id")
 		p.host.Status.Provisioning.ID = ""
@@ -209,7 +190,6 @@ func (p *fixtureProvisioner) Deprovision(deleteIt bool) (result provisioner.Resu
 		return result, nil
 	}
 
-	p.publisher("DeprovisionComplete", "Image deprovisioning completed")
 	return result, nil
 }
 

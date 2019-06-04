@@ -1,0 +1,47 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: baremetalhosts.metal3.io
+spec:
+  group: metal3.io
+  names:
+    kind: BareMetalHost
+    listKind: BareMetalHostList
+    plural: baremetalhosts
+    singular: baremetalhost
+    shortNames:
+     - bmh
+     - bmhost
+  scope: Namespaced
+  version: v1alpha1
+  subresources:
+    status: {}
+  additionalPrinterColumns:
+  - JSONPath: .status.operationalStatus
+    description: Operational status
+    name: Status
+    type: string
+  - JSONPath: .status.provisioning.state
+    description: Provisioning status
+    name: Provisioning Status
+    type: string
+  - JSONPath: .spec.machineRef.name
+    description: Machine using this host
+    name: Machine
+    type: string
+  - JSONPath: .spec.bmc.address
+    description: Address of management controler
+    name: BMC
+    type: string
+  - JSONPath: .status.hardwareProfile
+    description: The type of hardware detected
+    name: Hardware Profile
+    type: string
+  - JSONPath: .spec.online
+    description: Whether the host is online or not
+    name: Online
+    type: string
+  - JSONPath: .status.errorMessage
+    description: Most recent error
+    name: Error
+    type: string

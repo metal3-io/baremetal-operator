@@ -193,3 +193,109 @@ func TestHostNeedsProvisioning(t *testing.T) {
 		t.Error("expected to not need provisioning")
 	}
 }
+
+func TestHostNeedsDeprovisioning(t *testing.T) {
+	hostYes := BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+		},
+		Spec: BareMetalHostSpec{
+			Image: &Image{
+				URL: "not-empty",
+			},
+			Online: true,
+		},
+	}
+	if hostYes.NeedsDeprovisioning() {
+		t.Error("expected to not need deprovisioning")
+	}
+
+	hostNoURL := BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+		},
+		Spec: BareMetalHostSpec{
+			Image:  &Image{},
+			Online: true,
+		},
+	}
+	if hostNoURL.NeedsDeprovisioning() {
+		t.Error("expected to not need deprovisioning")
+	}
+
+	hostNoImage := BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+		},
+		Spec: BareMetalHostSpec{
+			Online: true,
+		},
+	}
+	if hostNoImage.NeedsDeprovisioning() {
+		t.Error("expected to not need deprovisioning")
+	}
+
+	hostOffline := BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+		},
+		Spec: BareMetalHostSpec{
+			Image: &Image{
+				URL: "not-empty",
+			},
+		},
+	}
+	if hostOffline.NeedsDeprovisioning() {
+		t.Error("expected to not need deprovisioning")
+	}
+
+	hostAlreadyProvisioned := BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+		},
+		Spec: BareMetalHostSpec{
+			Image: &Image{
+				URL: "same",
+			},
+			Online: true,
+		},
+		Status: BareMetalHostStatus{
+			Provisioning: ProvisionStatus{
+				Image: Image{
+					URL: "same",
+				},
+			},
+		},
+	}
+	if hostAlreadyProvisioned.NeedsDeprovisioning() {
+		t.Error("expected to not need deprovisioning")
+	}
+
+	hostChangedImage := BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+		},
+		Spec: BareMetalHostSpec{
+			Image: &Image{
+				URL: "not-empty",
+			},
+			Online: true,
+		},
+		Status: BareMetalHostStatus{
+			Provisioning: ProvisionStatus{
+				Image: Image{
+					URL: "also-not-empty",
+				},
+			},
+		},
+	}
+	if !hostChangedImage.NeedsDeprovisioning() {
+		t.Error("expected to need deprovisioning")
+	}
+}

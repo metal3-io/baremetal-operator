@@ -1,0 +1,56 @@
+digraph BaremetalHost {
+    Created [shape=house]
+    Created -> Discovered [label="BMC.* == \"\""]
+    Created -> Registering [label="BMC.* != \"\""]
+
+    Discovered [shape=doublecircle]
+    Discovered -> Registering [label="BMC.* != \"\""]
+    Discovered -> Deleted1 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted1 [shape=point]
+
+    Registering -> Inspecting [label="NeedsHardwareInspection()"]
+    Registering -> ExternallyProvisioned [label="image.URL = '' && machineRef != nil"]
+    Registering -> RegistrationError [shape=doublecircle label="registration error"]
+    Registering -> Deleted2 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted2 [shape=point]
+
+    Inspecting -> Ready [label="done"]
+    Inspecting -> Deleted3 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted3 [shape=point]
+
+    RegistrationError [shape=doublecircle label="Error"]
+    RegistrationError -> Registering [label="(user edits settings)"]
+    RegistrationError -> Deleted4 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted4 [shape=point]
+
+    Ready [shape=doublecircle]
+    Ready -> Provisioning [label="NeedsProvisioning()"]
+    Ready -> Deleted5 [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted5 [shape=point]
+
+    Provisioning -> Provisioned [label=done]
+    Provisioning -> ProvisioningError [label="provisioning error"]
+    Provisioning -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
+
+    ProvisioningError [shape=doublecircle label="Error"]
+    ProvisioningError -> Provisioning [label="?"]
+    ProvisioningError -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
+
+    Provisioned [shape=doublecircle]
+    Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
+    Provisioned -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
+
+    ExternallyProvisioned [shape=doublecircle]
+    ExternallyProvisioned -> Deleted [label="!DeletionTimestamp.IsZero()"]
+
+    Deprovisioning -> Provisioning [label="NeedsProvisioning()"]
+    Deprovisioning -> Ready [label="!NeedsProvisioning()"]
+    Deprovisioning -> Deleted [label="!DeletionTimestamp.IsZero()"]
+
+    Deleted [shape=doublecircle]
+}

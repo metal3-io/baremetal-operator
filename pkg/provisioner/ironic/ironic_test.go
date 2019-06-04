@@ -365,6 +365,11 @@ func TestGetNICDetails(t *testing.T) {
 					"switch_port_untagged_vlan_id": 1,
 				},
 			},
+		},
+		introspection.ExtraHardwareDataSection{
+			"eth1": introspection.ExtraHardwareData{
+				"speed": "1Gbps",
+			},
 		})
 
 	if len(nics) != 2 {
@@ -382,9 +387,38 @@ func TestGetNICDetails(t *testing.T) {
 		t.Errorf("Unexpected NIC data")
 	}
 	if (!reflect.DeepEqual(nics[1], metal3v1alpha1.NIC{
-		Name: "eth1",
-		MAC:  "66:77:88:99:aa:bb",
+		Name:      "eth1",
+		MAC:       "66:77:88:99:aa:bb",
+		SpeedGbps: 1,
 	})) {
 		t.Errorf("Unexpected NIC data")
+	}
+}
+
+func TestGetNICSpeedGbps(t *testing.T) {
+	s1 := getNICSpeedGbps(introspection.ExtraHardwareData{
+		"speed": "25Gbps",
+	})
+	if s1 != 25 {
+		t.Errorf("Expected speed 25, got %d", s1)
+	}
+
+	s2 := getNICSpeedGbps(introspection.ExtraHardwareData{
+		"speed": "100Mbps",
+	})
+	if s2 != 0 {
+		t.Errorf("Expected speed 0, got %d", s2)
+	}
+
+	s3 := getNICSpeedGbps(introspection.ExtraHardwareData{
+		"speed": 10,
+	})
+	if s3 != 0 {
+		t.Errorf("Expected speed 0, got %d", s3)
+	}
+
+	s4 := getNICSpeedGbps(introspection.ExtraHardwareData{})
+	if s4 != 0 {
+		t.Errorf("Expected speed 0, got %d", s4)
 	}
 }

@@ -391,11 +391,23 @@ func getVLANs(intf introspection.BaseInterfaceType) (vlans []metal3v1alpha1.VLAN
 	return
 }
 
-func getNICDetails(ifdata []introspection.InterfaceType, basedata map[string]introspection.BaseInterfaceType) []metal3v1alpha1.NIC {
+func getNICSpeedGbps(intfExtradata introspection.ExtraHardwareData) (speedGbps int) {
+	if speed, ok := intfExtradata["speed"].(string); ok {
+		if strings.HasSuffix(speed, "Gbps") {
+			fmt.Sscanf(speed, "%d", &speedGbps)
+		}
+	}
+	return
+}
+
+func getNICDetails(ifdata []introspection.InterfaceType,
+	basedata map[string]introspection.BaseInterfaceType,
+	extradata introspection.ExtraHardwareDataSection) []metal3v1alpha1.NIC {
 	nics := make([]metal3v1alpha1.NIC, len(ifdata))
 	for i, intf := range ifdata {
 		baseIntf := basedata[intf.Name]
 		vlans, vlanid := getVLANs(baseIntf)
+
 		nics[i] = metal3v1alpha1.NIC{
 			Name: intf.Name,
 			Model: strings.TrimLeft(fmt.Sprintf("%s %s",
@@ -404,7 +416,7 @@ func getNICDetails(ifdata []introspection.InterfaceType, basedata map[string]int
 			IP:        intf.IPV4Address,
 			VLANs:     vlans,
 			VLANID:    vlanid,
-			SpeedGbps: 0, // TODO(zaneb)
+			SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),
 			PXE:       baseIntf.PXE,
 		}
 	}
@@ -457,7 +469,7 @@ func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetail
 	details := new(metal3v1alpha1.HardwareDetails)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
 	details.RAMMebibytes = data.MemoryMB
-	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces)
+	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces, data.Extra.Network)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
 	details.CPU = getCPUDetails(&data.Inventory.CPU)
 	return details

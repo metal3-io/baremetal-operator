@@ -7,8 +7,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/metalkube/baremetal-operator/pkg/apis"
-	"github.com/metalkube/baremetal-operator/pkg/controller"
+	"github.com/metal3-io/baremetal-operator/pkg/apis"
+	"github.com/metal3-io/baremetal-operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"

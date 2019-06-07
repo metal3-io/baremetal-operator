@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	apis "github.com/metalkube/baremetal-operator/pkg/apis"
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
+	apis "github.com/metal3-io/baremetal-operator/pkg/apis"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -39,10 +39,10 @@ var (
 // Set up the test system to know about our types and return a
 // context.
 func setup(t *testing.T) *framework.TestCtx {
-	bmhList := &metalkubev1alpha1.BareMetalHostList{
+	bmhList := &metal3v1alpha1.BareMetalHostList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
-			APIVersion: "baremetalhosts.metalkube.org/v1alpha1",
+			APIVersion: "baremetalhosts.metal3.io/v1alpha1",
 		},
 	}
 	err := framework.AddToFrameworkScheme(apis.AddToScheme, bmhList)
@@ -67,17 +67,17 @@ func setup(t *testing.T) *framework.TestCtx {
 }
 
 // Create a new BareMetalHost instance.
-func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev1alpha1.BareMetalHost {
+func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha1.BareMetalHost {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Using namespace: %v\n", namespace)
 
-	host := &metalkubev1alpha1.BareMetalHost{
+	host := &metal3v1alpha1.BareMetalHost{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
-			APIVersion: "baremetalhosts.metalkubev1alpha1.org/v1alpha1",
+			APIVersion: "baremetalhosts.metal3v1alpha1.org/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", ctx.GetID(), name),
@@ -90,7 +90,7 @@ func newHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkubev
 }
 
 // Create a BareMetalHost and publish it to the test system.
-func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev1alpha1.BareMetalHost {
+func makeHost(t *testing.T, ctx *framework.TestCtx, name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha1.BareMetalHost {
 	host := newHost(t, ctx, name, spec)
 
 	// get global framework variables
@@ -145,9 +145,9 @@ func makeSecret(t *testing.T, ctx *framework.TestCtx, name string, username stri
 
 }
 
-type DoneFunc func(host *metalkubev1alpha1.BareMetalHost) (bool, error)
+type DoneFunc func(host *metal3v1alpha1.BareMetalHost) (bool, error)
 
-func refreshHost(host *metalkubev1alpha1.BareMetalHost) error {
+func refreshHost(host *metal3v1alpha1.BareMetalHost) error {
 	f := framework.Global
 	namespacedName := types.NamespacedName{
 		Namespace: host.ObjectMeta.Namespace,
@@ -156,8 +156,8 @@ func refreshHost(host *metalkubev1alpha1.BareMetalHost) error {
 	return f.Client.Get(goctx.TODO(), namespacedName, host)
 }
 
-func waitForHostStateChange(t *testing.T, host *metalkubev1alpha1.BareMetalHost, isDone DoneFunc) *metalkubev1alpha1.BareMetalHost {
-	instance := &metalkubev1alpha1.BareMetalHost{}
+func waitForHostStateChange(t *testing.T, host *metal3v1alpha1.BareMetalHost, isDone DoneFunc) *metal3v1alpha1.BareMetalHost {
+	instance := &metal3v1alpha1.BareMetalHost{}
 	instance.ObjectMeta = host.ObjectMeta
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
@@ -176,24 +176,6 @@ func waitForHostStateChange(t *testing.T, host *metalkubev1alpha1.BareMetalHost,
 	return instance
 }
 
-func waitForOfflineStatus(t *testing.T, host *metalkubev1alpha1.BareMetalHost) {
-	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
-		state := host.Labels[metalkubev1alpha1.OperationalStatusLabel]
-		t.Logf("OperationalState: %s", state)
-		if state == metalkubev1alpha1.OperationalStatusOffline {
-			return true, nil
-		}
-		return false, nil
-	})
-}
-
-func waitForError(t *testing.T, host *metalkubev1alpha1.BareMetalHost) {
-	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
-		t.Logf("ErrorMessage: %q", host.Status.ErrorMessage)
-		return host.HasError(), nil
-	})
-}
-
 func TestManageHardwareDetails(t *testing.T) {
 	ctx := setup(t)
 	defer ctx.Cleanup()
@@ -201,15 +183,15 @@ func TestManageHardwareDetails(t *testing.T) {
 	f := framework.Global
 
 	host := makeHost(t, ctx, "hardware-profile",
-		&metalkubev1alpha1.BareMetalHostSpec{
-			BMC: metalkubev1alpha1.BMCDetails{
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
 				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 
 	// Details should be filled in when the host is created...
-	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metal3v1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("details: %v", host.Status.HardwareDetails)
 		if host.Status.HardwareDetails != nil {
 			return true, nil
@@ -222,7 +204,7 @@ func TestManageHardwareDetails(t *testing.T) {
 	}
 
 	// and removed when the host is deleted.
-	waitForHostStateChange(t, host, func(host *metalkubev1alpha1.BareMetalHost) (done bool, err error) {
+	waitForHostStateChange(t, host, func(host *metal3v1alpha1.BareMetalHost) (done bool, err error) {
 		t.Logf("details: %v", host.Status.HardwareDetails)
 		if host.Status.HardwareDetails == nil {
 			return true, nil

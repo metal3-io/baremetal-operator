@@ -1,7 +1,6 @@
 package bmc
 
 import (
-	"fmt"
 	"net"
 	"net/url"
 	"strings"
@@ -32,18 +31,6 @@ type AccessDetails interface {
 	// expected to add any other information that might be needed
 	// (such as the kernel and ramdisk locations).
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
-}
-
-// UnknownBMCTypeError is returned when the provided BMC address cannot be
-// mapped to a driver.
-type UnknownBMCTypeError struct {
-	address string
-	bmcType string
-}
-
-func (e UnknownBMCTypeError) Error() string {
-	return fmt.Sprintf("Unknown BMC type '%s' for address %s",
-		e.bmcType, e.address)
 }
 
 func getTypeHostPort(address string) (bmcType, host, port, path string, err error) {

@@ -9,7 +9,7 @@ data:
   password: MWYyZDFlMmU2N2Rm
 
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: example-baremetalhost

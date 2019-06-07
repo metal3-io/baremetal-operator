@@ -18,10 +18,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metalkubeapis "github.com/metalkube/baremetal-operator/pkg/apis"
-	metalkubev1alpha1 "github.com/metalkube/baremetal-operator/pkg/apis/metalkube/v1alpha1"
-	"github.com/metalkube/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metalkube/baremetal-operator/pkg/utils"
+	metal3apis "github.com/metal3-io/baremetal-operator/pkg/apis"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 func init() {
 	logf.SetLogger(logf.ZapLogger(true))
 	// Register our package types with the global scheme
-	metalkubeapis.AddToScheme(scheme.Scheme)
+	metal3apis.AddToScheme(scheme.Scheme)
 }
 
 func newSecret(name, username, password string) *corev1.Secret {
@@ -56,11 +56,11 @@ func newSecret(name, username, password string) *corev1.Secret {
 	return secret
 }
 
-func newHost(name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev1alpha1.BareMetalHost {
-	return &metalkubev1alpha1.BareMetalHost{
+func newHost(name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha1.BareMetalHost {
+	return &metal3v1alpha1.BareMetalHost{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
-			APIVersion: "metalkube.org/v1alpha1",
+			APIVersion: "metal3.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -70,15 +70,19 @@ func newHost(name string, spec *metalkubev1alpha1.BareMetalHostSpec) *metalkubev
 	}
 }
 
-func newDefaultHost(t *testing.T) *metalkubev1alpha1.BareMetalHost {
-	spec := &metalkubev1alpha1.BareMetalHostSpec{
-		BMC: metalkubev1alpha1.BMCDetails{
+func newDefaultNamedHost(name string, t *testing.T) *metal3v1alpha1.BareMetalHost {
+	spec := &metal3v1alpha1.BareMetalHostSpec{
+		BMC: metal3v1alpha1.BMCDetails{
 			Address:         "ipmi://192.168.122.1:6233",
 			CredentialsName: defaultSecretName,
 		},
 	}
-	t.Logf("newDefaultHost(%s)", t.Name())
-	return newHost(t.Name(), spec)
+	t.Logf("newNamedHost(%s)", name)
+	return newHost(name, spec)
+}
+
+func newDefaultHost(t *testing.T) *metal3v1alpha1.BareMetalHost {
+	return newDefaultNamedHost(t.Name(), t)
 }
 
 func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
@@ -95,9 +99,9 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	}
 }
 
-type DoneFunc func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool
+type DoneFunc func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool
 
-func newRequest(host *metalkubev1alpha1.BareMetalHost) reconcile.Request {
+func newRequest(host *metal3v1alpha1.BareMetalHost) reconcile.Request {
 	namespacedName := types.NamespacedName{
 		Namespace: host.ObjectMeta.Namespace,
 		Name:      host.ObjectMeta.Name,
@@ -105,7 +109,7 @@ func newRequest(host *metalkubev1alpha1.BareMetalHost) reconcile.Request {
 	return reconcile.Request{NamespacedName: namespacedName}
 }
 
-func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, isDone DoneFunc) {
+func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost, isDone DoneFunc) {
 
 	request := newRequest(host)
 
@@ -140,9 +144,9 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alph
 	}
 }
 
-func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost, desiredStatus metalkubev1alpha1.OperationalStatus) {
+func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost, desiredStatus metal3v1alpha1.OperationalStatus) {
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			state := host.OperationalStatus()
 			t.Logf("OperationalState of %s: %s", host.ObjectMeta.Name, state)
 			return state == desiredStatus
@@ -150,18 +154,18 @@ func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alp
 	)
 }
 
-func waitForError(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
+func waitForError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost) {
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ErrorMessage of %s: %q", host.ObjectMeta.Name, host.Status.ErrorMessage)
 			return host.HasError()
 		},
 	)
 }
 
-func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metalkubev1alpha1.BareMetalHost) {
+func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost) {
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ErrorMessage of %s: %q", host.ObjectMeta.Name, host.Status.ErrorMessage)
 			return !host.HasError()
 		},
@@ -175,9 +179,9 @@ func TestAddFinalizers(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("finalizers: %v", host.ObjectMeta.Finalizers)
-			if utils.StringInList(host.ObjectMeta.Finalizers, metalkubev1alpha1.BareMetalHostFinalizer) {
+			if utils.StringInList(host.ObjectMeta.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
 				return true
 			}
 			return false
@@ -192,7 +196,7 @@ func TestSetLastUpdated(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("LastUpdated: %v", host.Status.LastUpdated)
 			if !host.Status.LastUpdated.IsZero() {
 				return true
@@ -210,7 +214,7 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Version != "" {
@@ -230,7 +234,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Version != "" {
@@ -254,7 +258,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	}
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Reference != nil && host.Status.GoodCredentials.Reference.Name == "bmc-creds-valid2" {
@@ -274,7 +278,7 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	r := newTestReconciler(host, badSecret)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Version != "" {
@@ -291,7 +295,7 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	}
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
@@ -310,34 +314,36 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 // credentials is placed into the "discovered" state.
 func TestDiscoveredHost(t *testing.T) {
 	noAddress := newHost("missing-bmc-address",
-		&metalkubev1alpha1.BareMetalHostSpec{
-			BMC: metalkubev1alpha1.BMCDetails{
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
 				Address:         "",
 				CredentialsName: "bmc-creds-valid",
 			},
 		})
 	r := newTestReconciler(noAddress)
-	waitForStatus(t, r, noAddress, metalkubev1alpha1.OperationalStatusDiscovered)
+	waitForStatus(t, r, noAddress, metal3v1alpha1.OperationalStatusDiscovered)
 
 	noAddressOrSecret := newHost("missing-bmc-address",
-		&metalkubev1alpha1.BareMetalHostSpec{
-			BMC: metalkubev1alpha1.BMCDetails{
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
 				Address:         "",
 				CredentialsName: "",
 			},
 		})
 	r = newTestReconciler(noAddressOrSecret)
-	waitForStatus(t, r, noAddressOrSecret, metalkubev1alpha1.OperationalStatusDiscovered)
+	waitForStatus(t, r, noAddressOrSecret, metal3v1alpha1.OperationalStatusDiscovered)
 }
 
 // TestMissingBMCParameters ensures that a host that is missing some
 // of the required BMC settings is put into an error state.
 func TestMissingBMCParameters(t *testing.T) {
 
+	// test bmc data populated with a secret that itself contains
+	// invalid or null parameters
 	secretNoUser := newSecret("bmc-creds-no-user", "", "Pass")
 	noUsername := newHost("missing-bmc-username",
-		&metalkubev1alpha1.BareMetalHostSpec{
-			BMC: metalkubev1alpha1.BMCDetails{
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
 				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-no-user",
 			},
@@ -347,14 +353,62 @@ func TestMissingBMCParameters(t *testing.T) {
 
 	secretNoPassword := newSecret("bmc-creds-no-pass", "User", "")
 	noPassword := newHost("missing-bmc-password",
-		&metalkubev1alpha1.BareMetalHostSpec{
-			BMC: metalkubev1alpha1.BMCDetails{
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
 				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-no-pass",
 			},
 		})
 	r = newTestReconciler(noPassword, secretNoPassword)
 	waitForError(t, r, noPassword)
+
+	// test we set an error message when the address
+	// is malformed - bmc access tests do more exhaustive
+	// type checking tests
+	secretOk := newSecret("bmc-creds-ok", "User", "Pass")
+	invalidAddress := newHost("invalid-bmc-address",
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address:         "unknown://notAvalidIPMIURL",
+				CredentialsName: "bmc-creds-ok",
+			},
+		})
+	r = newTestReconciler(invalidAddress, secretOk)
+	waitForError(t, r, invalidAddress)
+
+	// test we set an error message when BMCDetails are missing
+	secretOk = newSecret("bmc-creds-ok", "User", "Pass")
+	noAddress := newHost("missing-bmc-address",
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address:         "",
+				CredentialsName: "bmc-creds-ok",
+			},
+		})
+	r = newTestReconciler(noAddress, secretOk)
+	waitForError(t, r, noAddress)
+
+	noSecretRef := newHost("missing-bmc-credentials-ref",
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address:         "ipmi://192.168.122.1:6233",
+				CredentialsName: "",
+			},
+		})
+	r = newTestReconciler(noSecretRef)
+	waitForError(t, r, noSecretRef)
+
+	// test we set an error message when the CredentialsName
+	// defined does not exist in kubernetes
+	NonExistentSecretRef := newHost("non-existent-bmc-secret-ref",
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address:         "ipmi://192.168.122.1:6233",
+				CredentialsName: "this-secret-does-not-exist",
+			},
+		})
+	r = newTestReconciler(NonExistentSecretRef)
+	waitForError(t, r, NonExistentSecretRef)
 }
 
 // TestFixSecret ensures that when the secret for a host is updated to
@@ -363,8 +417,8 @@ func TestFixSecret(t *testing.T) {
 
 	secret := newSecret("bmc-creds-no-user", "", "Pass")
 	host := newHost("fix-secret",
-		&metalkubev1alpha1.BareMetalHostSpec{
-			BMC: metalkubev1alpha1.BMCDetails{
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
 				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-no-user",
 			},
@@ -396,7 +450,7 @@ func TestSetHardwareProfile(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("profile: %v", host.Status.HardwareProfile)
 			if host.Status.HardwareProfile != "" {
 				return true
@@ -413,7 +467,7 @@ func TestCreateHardwareDetails(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("new host details: %v", host.Status.HardwareDetails)
 			if host.Status.HardwareDetails != nil {
 				return true
@@ -432,7 +486,7 @@ func TestNeedsProvisioning(t *testing.T) {
 		t.Fatal("host without spec image should not need provisioning")
 	}
 
-	host.Spec.Image = &metalkubev1alpha1.Image{
+	host.Spec.Image = &metal3v1alpha1.Image{
 		URL:      "https://example.com/image-name",
 		Checksum: "12345",
 	}
@@ -458,7 +512,7 @@ func TestNeedsProvisioning(t *testing.T) {
 // status block is filled in for provisioned hosts.
 func TestProvision(t *testing.T) {
 	host := newDefaultHost(t)
-	host.Spec.Image = &metalkubev1alpha1.Image{
+	host.Spec.Image = &metal3v1alpha1.Image{
 		URL:      "https://example.com/image-name",
 		Checksum: "12345",
 	}
@@ -466,11 +520,30 @@ func TestProvision(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("image details: %v", host.Spec.Image)
 			t.Logf("provisioning image details: %v", host.Status.Provisioning.Image)
 			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
 			if host.Status.Provisioning.Image.URL != "" {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestExternallyProvisioned ensures that host enters the expected
+// state when it looks like it has been provisioned by another tool.
+func TestExternallyProvisioned(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.MachineRef = &corev1.ObjectReference{} // it doesn't have to point to a real machine
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
+			if host.Status.Provisioning.State == metal3v1alpha1.StateExternallyProvisioned {
 				return true
 			}
 			return false
@@ -486,7 +559,7 @@ func TestPowerOn(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("power status: %v", host.Status.PoweredOn)
 			return host.Status.PoweredOn
 		},
@@ -501,7 +574,7 @@ func TestPowerOff(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("power status: %v", host.Status.PoweredOn)
 			return !host.Status.PoweredOn
 		},
@@ -512,43 +585,52 @@ func TestPowerOff(t *testing.T) {
 func TestDeleteHost(t *testing.T) {
 	now := metav1.Now()
 
-	type HostFactory func() *metalkubev1alpha1.BareMetalHost
+	type HostFactory func() *metal3v1alpha1.BareMetalHost
 
 	testCases := []HostFactory{
-		func() *metalkubev1alpha1.BareMetalHost {
-			t.Logf("normal host with finalizer")
-			host := newDefaultHost(t)
+		func() *metal3v1alpha1.BareMetalHost {
+			host := newDefaultNamedHost("with-finalizer", t)
 			host.Finalizers = append(host.Finalizers,
-				metalkubev1alpha1.BareMetalHostFinalizer)
+				metal3v1alpha1.BareMetalHostFinalizer)
 			return host
 		},
-		func() *metalkubev1alpha1.BareMetalHost {
-			t.Logf("host without BMC details")
-			host := newDefaultHost(t)
-			host.Spec.BMC = metalkubev1alpha1.BMCDetails{}
+		func() *metal3v1alpha1.BareMetalHost {
+			host := newDefaultNamedHost("without-bmc", t)
+			host.Spec.BMC = metal3v1alpha1.BMCDetails{}
 			host.Finalizers = append(host.Finalizers,
-				metalkubev1alpha1.BareMetalHostFinalizer)
+				metal3v1alpha1.BareMetalHostFinalizer)
 			return host
 		},
-		func() *metalkubev1alpha1.BareMetalHost {
+		func() *metal3v1alpha1.BareMetalHost {
 			t.Logf("host with bad credentials, no user")
 			host := newHost("fix-secret",
-				&metalkubev1alpha1.BareMetalHostSpec{
-					BMC: metalkubev1alpha1.BMCDetails{
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: "bmc-creds-no-user",
 					},
 				})
 			host.Finalizers = append(host.Finalizers,
-				metalkubev1alpha1.BareMetalHostFinalizer)
+				metal3v1alpha1.BareMetalHostFinalizer)
 			return host
 		},
-		func() *metalkubev1alpha1.BareMetalHost {
-			t.Logf("host with hardware details")
-			host := newDefaultHost(t)
-			host.Status.HardwareDetails = &metalkubev1alpha1.HardwareDetails{}
+		func() *metal3v1alpha1.BareMetalHost {
+			host := newDefaultNamedHost("host-with-hw-details", t)
+			host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{}
 			host.Finalizers = append(host.Finalizers,
-				metalkubev1alpha1.BareMetalHostFinalizer)
+				metal3v1alpha1.BareMetalHostFinalizer)
+			return host
+		},
+		func() *metal3v1alpha1.BareMetalHost {
+			host := newDefaultNamedHost("provisioned-host", t)
+			host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{}
+			host.Status.Provisioning.Image = metal3v1alpha1.Image{
+				URL:      "image-url",
+				Checksum: "image-checksum",
+			}
+			host.Spec.Image = &host.Status.Provisioning.Image
+			host.Finalizers = append(host.Finalizers,
+				metal3v1alpha1.BareMetalHostFinalizer)
 			return host
 		},
 	}
@@ -561,7 +643,7 @@ func TestDeleteHost(t *testing.T) {
 		r := newTestReconciler(host, badSecret)
 
 		tryReconcile(t, r, host,
-			func(host *metalkubev1alpha1.BareMetalHost, result reconcile.Result) bool {
+			func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 				t.Logf("provisioning id: %q", host.Status.Provisioning.ID)
 				return host.Status.Provisioning.ID == ""
 			},

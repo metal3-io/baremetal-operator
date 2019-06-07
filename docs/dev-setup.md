@@ -16,28 +16,32 @@ install the operator-sdk tools.
 3. Create a namespace to host the operator
 
     ```
-    kubectl create namespace metalkube
+    kubectl create namespace metal3
     ```
 
 4. Install operator-sdk
 
     ```
     eval $(go env)
-    mkdir -p $GOPATH/src/github.com/metalkube
-    cd $GOPATH/src/github.com/metalkube
-    git clone https://github.com/metalkube/baremetal-operator.git
+    mkdir -p $GOPATH/src/github.com/metal3-io
+    cd $GOPATH/src/github.com/metal3-io
+    git clone https://github.com/metal3-io/baremetal-operator.git
     cd baremetal-operator
-    kubectl apply -f deploy/service_account.yaml
-    kubectl apply -f deploy/role.yaml
+    kubectl apply -f deploy/service_account.yaml -n metal3
+    kubectl apply -f deploy/role.yaml -n metal3
     kubectl apply -f deploy/role_binding.yaml
-    kubectl apply -f deploy/crds/metalkube_v1alpha1_baremetalhost_crd.yaml
+    kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
     ```
 
 5. Launch the operator locally
 
     ```
     export OPERATOR_NAME=baremetal-operator
-    operator-sdk up local --namespace=metalkube
+    export DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel
+    export DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs
+    export IRONIC_ENDPOINT=http://localhost:6385/v1/
+    export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1
+    operator-sdk up local --namespace=metal3
     ```
 
 6. Create the CR
@@ -57,6 +61,17 @@ operator when launching it.
 operator-sdk up local --operator-flags "-test-mode"
 ```
 
+## Running a local instance of Ironic
+
+There is a script available that will run a set of containers locally using
+`podman` to stand up Ironic for development and testing.
+
+See `tools/run_local_ironic.sh`.
+
+Note that this script may need customizations to some of the `podman run`
+commands, to include environment variables that configure the containers for
+your environment.
+
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to [vbmc](https://docs.openstack.org/tripleo-docs/latest/install/environments/virtualbmc.html) and
@@ -66,7 +81,7 @@ network interface that will PXE boot.
 For example:
 
 ```yaml
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: worker-0
@@ -96,7 +111,7 @@ data:
   password: cGFzc3dvcmQ=
 
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: openshift-worker-1
@@ -131,7 +146,7 @@ data:
   password: cGFzc3dvcmQ=
 
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: openshift-master-1
@@ -164,7 +179,7 @@ data:
   password: cGFzc3dvcmQ=
 
 ---
-apiVersion: metalkube.org/v1alpha1
+apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
   name: worker-99

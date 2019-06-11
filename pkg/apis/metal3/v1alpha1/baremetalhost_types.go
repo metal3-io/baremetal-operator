@@ -233,6 +233,7 @@ type HardwareDetails struct {
 	NIC          []NIC                `json:"nics"`
 	Storage      []Storage            `json:"storage"`
 	CPU          CPU                  `json:"cpu"`
+	Hostname     string               `json:"hostname"`
 }
 
 // HardwareSystemVendor stores details about the whole hardware system.

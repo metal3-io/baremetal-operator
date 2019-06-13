@@ -446,6 +446,67 @@ func TestFixSecret(t *testing.T) {
 	waitForNoError(t, r, host)
 }
 
+// TestBreakThenFixSecret ensures that when the secret for a known host
+// is updated to be broken, and then correct, the status of the host
+// moves out of the error state.
+func TestBreakThenFixSecret(t *testing.T) {
+
+	logger := log.WithValues("Test", "TestBreakThenFixSecret")
+
+	// Create the host without any errors and wait for it to be
+	// registered and get a provisioning ID.
+	secret := newSecret("bmc-creds-toggle-user", "User", "Pass")
+	host := newHost("break-then-fix-secret",
+		&metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address:         "ipmi://192.168.122.1:6233",
+				CredentialsName: "bmc-creds-toggle-user",
+			},
+		})
+	r := newTestReconciler(host, secret)
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			id := host.Status.Provisioning.ID
+			logger.Info("WAIT FOR PROVISIONING ID", "ID", id)
+			return id != ""
+		},
+	)
+
+	// Modify the secret to be bad by removing the username. Wait for
+	// the host to show the error.
+	secret = &corev1.Secret{}
+	secretName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      "bmc-creds-toggle-user",
+	}
+	err := r.client.Get(goctx.TODO(), secretName, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldUsername := secret.Data["username"]
+	secret.Data["username"] = []byte{}
+	err = r.client.Update(goctx.TODO(), secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForError(t, r, host)
+
+	// Modify the secret to be correct again. Wait for the error to be
+	// cleared from the host.
+	secret = &corev1.Secret{}
+	err = r.client.Get(goctx.TODO(), secretName, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret.Data["username"] = oldUsername
+	err = r.client.Update(goctx.TODO(), secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForNoError(t, r, host)
+
+}
+
 // TestSetHardwareProfile ensures that the host has a label with
 // the hardware profile name.
 func TestSetHardwareProfile(t *testing.T) {

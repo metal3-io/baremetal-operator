@@ -145,28 +145,31 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 }
 
 func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost, desiredStatus metal3v1alpha1.OperationalStatus) {
+	logger := log.WithValues("host", host.ObjectMeta.Name, "desiredStatus", desiredStatus)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			state := host.OperationalStatus()
-			t.Logf("OperationalState of %s: %s", host.ObjectMeta.Name, state)
+			logger.Info("WAIT FOR STATUS", "State", state)
 			return state == desiredStatus
 		},
 	)
 }
 
 func waitForError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost) {
+	logger := log.WithValues("host", host.ObjectMeta.Name)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			t.Logf("ErrorMessage of %s: %q", host.ObjectMeta.Name, host.Status.ErrorMessage)
+			logger.Info("WAIT FOR ERROR", "ErrorMessage", host.Status.ErrorMessage)
 			return host.HasError()
 		},
 	)
 }
 
 func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost) {
+	logger := log.WithValues("host", host.ObjectMeta.Name)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			t.Logf("ErrorMessage of %s: %q", host.ObjectMeta.Name, host.Status.ErrorMessage)
+			logger.Info("WAIT FOR NO ERROR", "ErrorMessage", host.Status.ErrorMessage)
 			return !host.HasError()
 		},
 	)

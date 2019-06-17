@@ -55,9 +55,6 @@ func (p *fixtureProvisioner) ValidateManagementAccess() (result provisioner.Resu
 		return result, nil
 	}
 
-	// Clear any error
-	result.Dirty = p.host.ClearError()
-
 	return result, nil
 }
 

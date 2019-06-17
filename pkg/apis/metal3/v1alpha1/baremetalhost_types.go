@@ -257,10 +257,6 @@ type BareMetalHostStatus struct {
 	// OperationalStatus holds the status of the host
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
-	// MachineRef will point to the corresponding Machine if it exists.
-	// +optional
-	MachineRef *corev1.ObjectReference `json:"machineRef,omitempty"`
-
 	// LastUpdated identifies when this status was last observed.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
@@ -442,9 +438,9 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 // NeedsHardwareInspection looks at the state of the host to determine
 // if hardware inspection should be run.
 func (host *BareMetalHost) NeedsHardwareInspection() bool {
-	if host.Status.MachineRef != nil {
-		// Never perform inspection if we already know which machine
-		// this is.
+	if host.Spec.MachineRef != nil {
+		// Never perform inspection if we already know something is
+		// using the host.
 		return false
 	}
 	return host.Status.HardwareDetails == nil

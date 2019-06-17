@@ -102,7 +102,7 @@ func TestHostNeedsHardwareInspection(t *testing.T) {
 			Name:      "myhost",
 			Namespace: "myns",
 		},
-		Status: BareMetalHostStatus{
+		Spec: BareMetalHostSpec{
 			MachineRef: &corev1.ObjectReference{},
 		},
 	}

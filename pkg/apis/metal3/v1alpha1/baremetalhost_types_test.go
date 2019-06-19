@@ -56,6 +56,22 @@ func TestHostAvailable(t *testing.T) {
 		{
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					ConsumerRef: &corev1.ObjectReference{
+						Name:      "mymachine",
+						Namespace: "myns",
+					},
+				},
+			},
+			Expected:    false,
+			FailMessage: "host with consumerref returned as available",
+		},
+		{
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "myhost",
 					Namespace:         "myns",
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
@@ -102,11 +118,24 @@ func TestHostNeedsHardwareInspection(t *testing.T) {
 			Name:      "myhost",
 			Namespace: "myns",
 		},
-		Status: BareMetalHostStatus{
+		Spec: BareMetalHostSpec{
 			MachineRef: &corev1.ObjectReference{},
 		},
 	}
 	if hostWithMachine.NeedsHardwareInspection() {
+		t.Error("expected to not need hardware inspection")
+	}
+
+	hostWithConsumer := BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+		},
+		Spec: BareMetalHostSpec{
+			ConsumerRef: &corev1.ObjectReference{},
+		},
+	}
+	if hostWithConsumer.NeedsHardwareInspection() {
 		t.Error("expected to not need hardware inspection")
 	}
 }

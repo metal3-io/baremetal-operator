@@ -47,6 +47,10 @@ required = [
   version = "=v0.1.8"
 
 [[constraint]]
+  name = "github.com/gophercloud/gophercloud"
+  revision = "157432124aab520975efedb5e54b95287785578d"
+
+[[constraint]]
   name = "github.com/operator-framework/operator-sdk"
   # The version rule is used for a specific release and the master branch for in between releases.
   branch = "master" #osdk_branch_annotation

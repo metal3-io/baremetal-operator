@@ -19,30 +19,30 @@ type ProvisionState string
 
 const (
 	Enroll       ProvisionState = "enroll"
-	Verifying                   = "verifying"
-	Manageable                  = "manageable"
-	Available                   = "available"
-	Active                      = "active"
-	DeployWait                  = "wait call-back"
-	Deploying                   = "deploying"
-	DeployFail                  = "deploy failed"
-	DeployDone                  = "deploy complete"
-	Deleting                    = "deleting"
-	Deleted                     = "deleted"
-	Cleaning                    = "cleaning"
-	CleanWait                   = "clean wait"
-	CleanFail                   = "clean failed"
-	Error                       = "error"
-	Rebuild                     = "rebuild"
-	Inpsecting                  = "inspecting"
-	InspectFail                 = "inspect failed"
-	InspectWait                 = "inspect wait"
-	Adopting                    = "adopting"
-	AdoptFail                   = "adopt failed"
-	Rescue                      = "rescue"
-	RescueFail                  = "rescue failed"
-	Rescuing                    = "rescuing"
-	UnrescueFail                = "unrescue failed"
+	Verifying    ProvisionState = "verifying"
+	Manageable   ProvisionState = "manageable"
+	Available    ProvisionState = "available"
+	Active       ProvisionState = "active"
+	DeployWait   ProvisionState = "wait call-back"
+	Deploying    ProvisionState = "deploying"
+	DeployFail   ProvisionState = "deploy failed"
+	DeployDone   ProvisionState = "deploy complete"
+	Deleting     ProvisionState = "deleting"
+	Deleted      ProvisionState = "deleted"
+	Cleaning     ProvisionState = "cleaning"
+	CleanWait    ProvisionState = "clean wait"
+	CleanFail    ProvisionState = "clean failed"
+	Error        ProvisionState = "error"
+	Rebuild      ProvisionState = "rebuild"
+	Inspecting   ProvisionState = "inspecting"
+	InspectFail  ProvisionState = "inspect failed"
+	InspectWait  ProvisionState = "inspect wait"
+	Adopting     ProvisionState = "adopting"
+	AdoptFail    ProvisionState = "adopt failed"
+	Rescue       ProvisionState = "rescue"
+	RescueFail   ProvisionState = "rescue failed"
+	Rescuing     ProvisionState = "rescuing"
+	UnrescueFail ProvisionState = "unrescue failed"
 )
 
 // TargetProvisionState is used when setting the provision state for a node.
@@ -50,15 +50,15 @@ type TargetProvisionState string
 
 const (
 	TargetActive   TargetProvisionState = "active"
-	TargetDeleted                       = "deleted"
-	TargetManage                        = "manage"
-	TargetProvide                       = "provide"
-	TargetInspect                       = "inspect"
-	TargetAbort                         = "abort"
-	TargetClean                         = "clean"
-	TargetAdopt                         = "adopt"
-	TargetRescue                        = "rescue"
-	TargetUnrescue                      = "unrescue"
+	TargetDeleted  TargetProvisionState = "deleted"
+	TargetManage   TargetProvisionState = "manage"
+	TargetProvide  TargetProvisionState = "provide"
+	TargetInspect  TargetProvisionState = "inspect"
+	TargetAbort    TargetProvisionState = "abort"
+	TargetClean    TargetProvisionState = "clean"
+	TargetAdopt    TargetProvisionState = "adopt"
+	TargetRescue   TargetProvisionState = "rescue"
+	TargetUnrescue TargetProvisionState = "unrescue"
 )
 
 // ListOpts allows the filtering and sorting of paginated collections through
@@ -301,19 +301,10 @@ func Update(client *gophercloud.ServiceClient, id string, opts UpdateOpts) (r Up
 
 		body[i] = result
 	}
-
-	resp, err := client.Request("PATCH", updateURL(client, id), &gophercloud.RequestOpts{
+	_, r.Err = client.Patch(updateURL(client, id), body, &r.Body, &gophercloud.RequestOpts{
 		JSONBody: &body,
 		OkCodes:  []int{200},
 	})
-
-	if err != nil {
-		r.Err = err
-	} else {
-		r.Body = resp.Body
-		r.Header = resp.Header
-	}
-
 	return
 }
 
@@ -408,11 +399,19 @@ type ProvisionStateOptsBuilder interface {
 	ToProvisionStateMap() (map[string]interface{}, error)
 }
 
+// Starting with Ironic API version 1.56, a configdrive may be a JSON object with structured data.
+// Prior to this version, it must be a base64-encoded, gzipped ISO9660 image.
+type ConfigDrive struct {
+	MetaData    map[string]interface{} `json:"meta_data,omitempty"`
+	NetworkData map[string]interface{} `json:"network_data,omitempty"`
+	UserData    interface{}            `json:"user_data,omitempty"`
+}
+
 // ProvisionStateOpts for a request to change a node's provision state. A config drive should be base64-encoded
 // gzipped ISO9660 image.
 type ProvisionStateOpts struct {
 	Target         TargetProvisionState `json:"target" required:"true"`
-	ConfigDrive    string               `json:"configdrive,omitempty"`
+	ConfigDrive    interface{}          `json:"configdrive,omitempty"`
 	CleanSteps     []CleanStep          `json:"clean_steps,omitempty"`
 	RescuePassword string               `json:"rescue_password,omitempty"`
 }
@@ -447,10 +446,10 @@ type TargetPowerState string
 // TargetPowerState is used when changing the power state of a node.
 const (
 	PowerOn       TargetPowerState = "power on"
-	PowerOff                       = "power off"
-	Rebooting                      = "rebooting"
-	SoftPowerOff                   = "soft power off"
-	SoftRebooting                  = "soft rebooting"
+	PowerOff      TargetPowerState = "power off"
+	Rebooting     TargetPowerState = "rebooting"
+	SoftPowerOff  TargetPowerState = "soft power off"
+	SoftRebooting TargetPowerState = "soft rebooting"
 )
 
 // PowerStateOptsBuilder allows extensions to add additional parameters to the ChangePowerState request.
@@ -484,6 +483,111 @@ func ChangePowerState(client *gophercloud.ServiceClient, id string, opts PowerSt
 
 	_, r.Err = client.Put(powerStateURL(client, id), reqBody, nil, &gophercloud.RequestOpts{
 		OkCodes: []int{202},
+	})
+	return
+}
+
+// This is the desired RAID configuration on the bare metal node.
+type RAIDConfigOpts struct {
+	LogicalDisks []LogicalDisk `json:"logical_disks"`
+}
+
+// RAIDConfigOptsBuilder allows extensions to modify a set RAID config request.
+type RAIDConfigOptsBuilder interface {
+	ToRAIDConfigMap() (map[string]interface{}, error)
+}
+
+// RAIDLevel type is used to specify the RAID level for a logical disk.
+type RAIDLevel string
+
+const (
+	RAID0  RAIDLevel = "0"
+	RAID1  RAIDLevel = "1"
+	RAID2  RAIDLevel = "2"
+	RAID5  RAIDLevel = "5"
+	RAID6  RAIDLevel = "6"
+	RAID10 RAIDLevel = "1+0"
+	RAID50 RAIDLevel = "5+0"
+	RAID60 RAIDLevel = "6+0"
+)
+
+// DiskType is used to specify the disk type for a logical disk, e.g. hdd or ssd.
+type DiskType string
+
+const (
+	HDD DiskType = "hdd"
+	SSD DiskType = "ssd"
+)
+
+// InterfaceType is used to specify the interface for a logical disk.
+type InterfaceType string
+
+const (
+	SATA DiskType = "sata"
+	SCSI DiskType = "scsi"
+	SAS  DiskType = "sas"
+)
+
+type LogicalDisk struct {
+	// Size (Integer) of the logical disk to be created in GiB.  If unspecified, "MAX" will be used.
+	SizeGB *int `json:"size_gb"`
+
+	// RAID level for the logical disk.
+	RAIDLevel RAIDLevel `json:"raid_level" required:"true"`
+
+	// Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+	VolumeName string `json:"volume_name,omitempty"`
+
+	// Set to true if this is the root volume. At most one logical disk can have this set to true.
+	IsRootVolume *bool `json:"is_root_volume,omitempty"`
+
+	// Set to true if this logical disk can share physical disks with other logical disks.
+	SharePhysicalDisks *bool `json:"share_physical_disks,omitempty"`
+
+	// If this is not specified, disk type will not be a criterion to find backing physical disks
+	DiskType DiskType `json:"disk_type,omitempty"`
+
+	// If this is not specified, interface type will not be a criterion to find backing physical disks.
+	InterfaceType InterfaceType `json:"interface_type,omitempty"`
+
+	// Integer, number of disks to use for the logical disk. Defaults to minimum number of disks required
+	// for the particular RAID level.
+	NumberOfPhysicalDisks int `json:"number_of_physical_disks,omitempty"`
+
+	// The name of the controller as read by the RAID interface.
+	Controller string `json:"controller,omitempty"`
+
+	// A list of physical disks to use as read by the RAID interface.
+	PhysicalDisks []string `json:"physical_disks,omitempty"`
+}
+
+func (opts RAIDConfigOpts) ToRAIDConfigMap() (map[string]interface{}, error) {
+	body, err := gophercloud.BuildRequestBody(opts, "")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range body["logical_disks"].([]interface{}) {
+		if logicalDisk, ok := v.(map[string]interface{}); ok {
+			if logicalDisk["size_gb"] == nil {
+				logicalDisk["size_gb"] = "MAX"
+			}
+		}
+	}
+
+	return body, nil
+}
+
+// Request to change a Node's RAID config.
+func SetRAIDConfig(client *gophercloud.ServiceClient, id string, raidConfigOptsBuilder RAIDConfigOptsBuilder) (r ChangeStateResult) {
+	reqBody, err := raidConfigOptsBuilder.ToRAIDConfigMap()
+	if err != nil {
+		r.Err = err
+		return
+	}
+
+	_, r.Err = client.Put(raidConfigURL(client, id), reqBody, nil, &gophercloud.RequestOpts{
+		OkCodes: []int{204},
 	})
 	return
 }

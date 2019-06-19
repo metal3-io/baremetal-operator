@@ -306,11 +306,11 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 	}
 
 	// Ensure the node is marked manageable.
-	switch ironicNode.ProvisionState {
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 
 	// NOTE(dhellmann): gophercloud bug? The Enroll value is the only
 	// one not a string.
-	case string(nodes.Enroll):
+	case nodes.Enroll:
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
@@ -759,7 +759,7 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum s
 		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
 
 	var opts nodes.ProvisionStateOpts
-	if ironicNode.ProvisionState == nodes.DeployFail {
+	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.DeployFail {
 		opts = nodes.ProvisionStateOpts{Target: nodes.TargetActive}
 	} else {
 		opts = nodes.ProvisionStateOpts{Target: nodes.TargetProvide}
@@ -804,7 +804,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
-	switch ironicNode.ProvisionState {
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 
 	case nodes.DeployFail:
 		// Since we were here ironic has recorded an error for this host,
@@ -934,7 +934,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		"deploy step", ironicNode.DeployStep,
 	)
 
-	switch ironicNode.ProvisionState {
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 
 	case nodes.Error, nodes.CleanFail:
 		if !ironicNode.Maintenance {
@@ -954,7 +954,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 
-	case nodes.Inpsecting:
+	case nodes.Inspecting:
 		p.log.Info("waiting for inspection to complete")
 		result.Dirty = true
 		result.RequeueAfter = introspectionRequeueDelay
@@ -992,7 +992,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
-	case nodes.Manageable, string(nodes.Enroll), nodes.Verifying:
+	case nodes.Manageable, nodes.Enroll, nodes.Verifying:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
 		return result, nil
 
@@ -1028,7 +1028,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		"deploy step", ironicNode.DeployStep,
 	)
 
-	if ironicNode.ProvisionState == nodes.Available {
+	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Available {
 		// Move back to manageable so we can delete it cleanly.
 		return p.changeNodeProvisionState(
 			ironicNode,

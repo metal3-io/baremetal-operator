@@ -475,9 +475,12 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	}
 
 	// Reaching this point means the credentials are valid and worked,
-	// so record that in the status block.
+	// so clear any previous error and record the success in the
+	// status block.
 	info.log.Info("updating credentials success status fields")
 	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
+	info.log.Info("clearing previous error message")
+	info.host.ClearError()
 
 	info.publishEvent("BMCAccessValidated", "Verified access to BMC")
 

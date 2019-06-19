@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: baremetal-operator
+  namespace: openshift-machine-api
+spec:
+  endpoints:
+  - port: "5001-tcp"
+    scheme: http
+    path: /metrics
+    targetPort: 5001
+  namespaceSelector:
+    matchNames:
+    - openshift-machine-api
+  selector: {}

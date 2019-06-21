@@ -15,24 +15,30 @@
 package helm
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
 
-	"github.com/operator-framework/operator-sdk/pkg/helm/client"
 	"github.com/operator-framework/operator-sdk/pkg/helm/controller"
 	hoflags "github.com/operator-framework/operator-sdk/pkg/helm/flags"
 	"github.com/operator-framework/operator-sdk/pkg/helm/release"
+	"github.com/operator-framework/operator-sdk/pkg/helm/watches"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"github.com/operator-framework/operator-sdk/pkg/leader"
+	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/helm/pkg/storage"
-	"k8s.io/helm/pkg/storage/driver"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+)
+
+var (
+	metricsHost       = "0.0.0.0"
+	metricsPort int32 = 8383
 )
 
 var log = logf.Log.WithName("cmd")
@@ -44,63 +50,83 @@ func printVersion() {
 }
 
 // Run runs the helm operator
-func Run(flags *hoflags.HelmOperatorFlags) {
-	logf.SetLogger(logf.ZapLogger(false))
-
+func Run(flags *hoflags.HelmOperatorFlags) error {
 	printVersion()
 
 	namespace, found := os.LookupEnv(k8sutil.WatchNamespaceEnvVar)
+	log = log.WithValues("Namespace", namespace)
 	if found {
-		log.Info("Watching single namespace", "namespace", namespace)
+		if namespace == metav1.NamespaceAll {
+			log.Info("Watching all namespaces.")
+		} else {
+			log.Info("Watching single namespace.")
+		}
 	} else {
-		log.Info(k8sutil.WatchNamespaceEnvVar + " environment variable not set, watching all namespaces")
+		log.Info(fmt.Sprintf("%v environment variable not set. Watching all namespaces.",
+			k8sutil.WatchNamespaceEnvVar))
 		namespace = metav1.NamespaceAll
 	}
 
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+		log.Error(err, "Failed to get config.")
+		return err
 	}
-
-	mgr, err := manager.New(cfg, manager.Options{Namespace: namespace})
+	mgr, err := manager.New(cfg, manager.Options{
+		Namespace:          namespace,
+		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+	})
 	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+		log.Error(err, "Failed to create a new manager.")
+		return err
 	}
 
-	// Create Tiller's storage backend and kubernetes client
-	storageBackend := storage.Init(driver.NewMemory())
-	tillerKubeClient, err := client.NewFromManager(mgr)
+	watches, err := watches.Load(flags.WatchesFile)
 	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+		log.Error(err, "Failed to create new manager factories.")
+		return err
 	}
 
-	factories, err := release.NewManagerFactoriesFromFile(storageBackend, tillerKubeClient, flags.WatchesFile)
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	for gvk, factory := range factories {
+	for _, w := range watches {
 		// Register the controller with the factory.
 		err := controller.Add(mgr, controller.WatchOptions{
 			Namespace:               namespace,
-			GVK:                     gvk,
-			ManagerFactory:          factory,
+			GVK:                     w.GroupVersionKind,
+			ManagerFactory:          release.NewManagerFactory(mgr, w.ChartDir),
 			ReconcilePeriod:         flags.ReconcilePeriod,
-			WatchDependentResources: true,
+			WatchDependentResources: w.WatchDependentResources,
 		})
 		if err != nil {
-			log.Error(err, "")
-			os.Exit(1)
+			log.Error(err, "Failed to add manager factory to controller.")
+			return err
 		}
 	}
 
+	operatorName, err := k8sutil.GetOperatorName()
+	if err != nil {
+		log.Error(err, "Failed to get operator name")
+		return err
+	}
+
+	ctx := context.TODO()
+
+	// Become the leader before proceeding
+	err = leader.Become(ctx, operatorName+"-lock")
+	if err != nil {
+		log.Error(err, "Failed to become leader.")
+		return err
+	}
+
+	// Create Service object to expose the metrics port.
+	_, err = metrics.ExposeMetricsPort(ctx, metricsPort)
+	if err != nil {
+		log.Info(err.Error())
+	}
+
 	// Start the Cmd
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		log.Error(err, "Manager exited non-zero")
+	if err = mgr.Start(signals.SetupSignalHandler()); err != nil {
+		log.Error(err, "Manager exited non-zero.")
 		os.Exit(1)
 	}
+	return nil
 }

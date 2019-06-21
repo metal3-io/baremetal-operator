@@ -26,7 +26,7 @@ import (
 	"github.com/operator-framework/operator-sdk/internal/util/fileutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var log = logf.Log.WithName("kubeconfig")
@@ -64,13 +64,19 @@ type values struct {
 	Namespace string
 }
 
+type NamespacedOwnerReference struct {
+	metav1.OwnerReference
+	Namespace string
+}
+
 // Create renders a kubeconfig template and writes it to disk
 func Create(ownerRef metav1.OwnerReference, proxyURL string, namespace string) (*os.File, error) {
+	nsOwnerRef := NamespacedOwnerReference{OwnerReference: ownerRef, Namespace: namespace}
 	parsedURL, err := url.Parse(proxyURL)
 	if err != nil {
 		return nil, err
 	}
-	ownerRefJSON, err := json.Marshal(ownerRef)
+	ownerRefJSON, err := json.Marshal(nsOwnerRef)
 	if err != nil {
 		return nil, err
 	}

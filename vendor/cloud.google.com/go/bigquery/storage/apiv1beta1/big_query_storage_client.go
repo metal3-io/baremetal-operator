@@ -48,6 +48,18 @@ func defaultBigQueryStorageClientOptions() []option.ClientOption {
 
 func defaultBigQueryStorageCallOptions() *BigQueryStorageCallOptions {
 	retry := map[[2]string][]gax.CallOption{
+		{"create_read_session", "idempotent"}: {
+			gax.WithRetry(func() gax.Retryer {
+				return gax.OnCodes([]codes.Code{
+					codes.DeadlineExceeded,
+					codes.Unavailable,
+				}, gax.Backoff{
+					Initial:    100 * time.Millisecond,
+					Max:        60000 * time.Millisecond,
+					Multiplier: 1.3,
+				})
+			}),
+		},
 		{"default", "idempotent"}: {
 			gax.WithRetry(func() gax.Retryer {
 				return gax.OnCodes([]codes.Code{
@@ -60,10 +72,21 @@ func defaultBigQueryStorageCallOptions() *BigQueryStorageCallOptions {
 				})
 			}),
 		},
+		{"read_rows", "unary_streaming"}: {
+			gax.WithRetry(func() gax.Retryer {
+				return gax.OnCodes([]codes.Code{
+					codes.Unavailable,
+				}, gax.Backoff{
+					Initial:    100 * time.Millisecond,
+					Max:        60000 * time.Millisecond,
+					Multiplier: 1.3,
+				})
+			}),
+		},
 	}
 	return &BigQueryStorageCallOptions{
-		CreateReadSession:             retry[[2]string{"default", "idempotent"}],
-		ReadRows:                      retry[[2]string{"default", "idempotent"}],
+		CreateReadSession:             retry[[2]string{"create_read_session", "idempotent"}],
+		ReadRows:                      retry[[2]string{"read_rows", "unary_streaming"}],
 		BatchCreateReadSessionStreams: retry[[2]string{"default", "idempotent"}],
 		FinalizeStream:                retry[[2]string{"default", "idempotent"}],
 		SplitReadStream:               retry[[2]string{"default", "idempotent"}],

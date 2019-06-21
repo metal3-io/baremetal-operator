@@ -116,10 +116,7 @@ func assignGoTypeToProtoPackage(p *protobufPackage, t *types.Type, local, global
 		}
 		return
 	}
-	if t.Name.Package == p.PackagePath {
-		// Associate types only to their own package
-		global[t.Name] = p
-	}
+	global[t.Name] = p
 	if _, ok := local[t.Name]; ok {
 		return
 	}

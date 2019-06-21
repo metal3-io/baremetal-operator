@@ -28,7 +28,7 @@ import (
 	"github.com/operator-framework/operator-sdk/internal/util/fileutil"
 
 	"github.com/go-logr/logr"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // EventReceiver serves the event API
@@ -160,6 +160,7 @@ func (e *EventReceiver) handleEvents(w http.ResponseWriter, r *http.Request) {
 	// https://ansible-runner.readthedocs.io/en/latest/external_interface.html#event-structure
 	if event.UUID == "" {
 		e.logger.V(1).Info("Dropping event that is not a JobEvent")
+		e.logger.V(2).Info("Dropped event", "event", event, "request", string(body))
 	} else {
 		// timeout if the channel blocks for too long
 		timeout := time.NewTimer(10 * time.Second)

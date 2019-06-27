@@ -15,15 +15,17 @@
 package k8sutil
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	intstr "k8s.io/apimachinery/pkg/util/intstr"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	discovery "k8s.io/client-go/discovery"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -68,44 +70,6 @@ func GetOperatorName() (string, error) {
 	return operatorName, nil
 }
 
-// InitOperatorService return the static service which expose operator metrics
-func InitOperatorService() (*v1.Service, error) {
-	operatorName, err := GetOperatorName()
-	if err != nil {
-		return nil, err
-	}
-	namespace, err := GetOperatorNamespace()
-	if err != nil {
-		return nil, err
-	}
-	service := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorName,
-			Namespace: namespace,
-			Labels:    map[string]string{"name": operatorName},
-		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Port:     PrometheusMetricsPort,
-					Protocol: v1.ProtocolTCP,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.String,
-						StrVal: PrometheusMetricsPortName,
-					},
-					Name: PrometheusMetricsPortName,
-				},
-			},
-			Selector: map[string]string{"name": operatorName},
-		},
-	}
-	return service, nil
-}
-
 // ResourceExists returns true if the given resource kind exists
 // in the given api groupversion
 func ResourceExists(dc discovery.DiscoveryInterface, apiGroupVersion, kind string) (bool, error) {
@@ -123,4 +87,72 @@ func ResourceExists(dc discovery.DiscoveryInterface, apiGroupVersion, kind strin
 		}
 	}
 	return false, nil
+}
+
+// GetPod returns a Pod object that corresponds to the pod in which the code
+// is currently running.
+// It expects the environment variable POD_NAME to be set by the downwards API.
+func GetPod(ctx context.Context, client crclient.Client, ns string) (*corev1.Pod, error) {
+	podName := os.Getenv(PodNameEnvVar)
+	if podName == "" {
+		return nil, fmt.Errorf("required env %s not set, please configure downward API", PodNameEnvVar)
+	}
+
+	log.V(1).Info("Found podname", "Pod.Name", podName)
+
+	pod := &corev1.Pod{}
+	key := crclient.ObjectKey{Namespace: ns, Name: podName}
+	err := client.Get(ctx, key, pod)
+	if err != nil {
+		log.Error(err, "Failed to get Pod", "Pod.Namespace", ns, "Pod.Name", podName)
+		return nil, err
+	}
+
+	// .Get() clears the APIVersion and Kind,
+	// so we need to set them before returning the object.
+	pod.TypeMeta.APIVersion = "v1"
+	pod.TypeMeta.Kind = "Pod"
+
+	log.V(1).Info("Found Pod", "Pod.Namespace", ns, "Pod.Name", pod.Name)
+
+	return pod, nil
+}
+
+// GetGVKsFromAddToScheme takes in the runtime scheme and filters out all generic apimachinery meta types.
+// It returns just the GVK specific to this scheme.
+func GetGVKsFromAddToScheme(addToSchemeFunc func(*runtime.Scheme) error) ([]schema.GroupVersionKind, error) {
+	s := runtime.NewScheme()
+	err := addToSchemeFunc(s)
+	if err != nil {
+		return nil, err
+	}
+	schemeAllKnownTypes := s.AllKnownTypes()
+	ownGVKs := []schema.GroupVersionKind{}
+	for gvk, _ := range schemeAllKnownTypes {
+		if !isKubeMetaKind(gvk.Kind) {
+			ownGVKs = append(ownGVKs, gvk)
+		}
+	}
+
+	return ownGVKs, nil
+}
+
+func isKubeMetaKind(kind string) bool {
+	if strings.HasSuffix(kind, "List") ||
+		kind == "GetOptions" ||
+		kind == "DeleteOptions" ||
+		kind == "ExportOptions" ||
+		kind == "APIVersions" ||
+		kind == "APIGroupList" ||
+		kind == "APIResourceList" ||
+		kind == "UpdateOptions" ||
+		kind == "CreateOptions" ||
+		kind == "Status" ||
+		kind == "WatchEvent" ||
+		kind == "ListOptions" ||
+		kind == "APIGroup" {
+		return true
+	}
+
+	return false
 }

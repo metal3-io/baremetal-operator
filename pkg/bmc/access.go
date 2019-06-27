@@ -31,6 +31,9 @@ type AccessDetails interface {
 	// expected to add any other information that might be needed
 	// (such as the kernel and ramdisk locations).
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
+	
+	// Boot interface to set
+	BootInterface() string
 }
 
 func getTypeHostPort(address string) (bmcType, host, port, path string, err error) {

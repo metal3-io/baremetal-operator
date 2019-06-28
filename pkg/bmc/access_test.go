@@ -201,6 +201,16 @@ func TestIPMIDriverInfoDefaultPort(t *testing.T) {
 	}
 }
 
+func TestIPMIBootInterface(t *testing.T) {
+	acc, err := NewAccessDetails("ipmi://192.168.122.1:6233")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.BootInterface() != "ipxe" {
+		t.Fatal("expected boot interface to be ipxe")
+	}
+}
+
 func TestLibvirtNeedsMAC(t *testing.T) {
 	acc, err := NewAccessDetails("libvirt://192.168.122.1:6233/")
 	if err != nil {
@@ -219,6 +229,16 @@ func TestLibvirtDriver(t *testing.T) {
 	driver := acc.Driver()
 	if driver != "ipmi" {
 		t.Fatal("unexpected driver for libvirt")
+	}
+}
+
+func TestLibvirtBootInterface(t *testing.T) {
+	acc, err := NewAccessDetails("libvirt://192.168.122.1:6233/")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.BootInterface() != "ipxe" {
+		t.Fatal("expected boot interface to be ipxe")
 	}
 }
 
@@ -436,6 +456,16 @@ func TestIDRACDriverInfoIPv6Port(t *testing.T) {
 	}
 	if di["drac_path"] != "/foo" {
 		t.Fatalf("unexpected path: %v", di["drac_path"])
+	}
+}
+
+func TestIDRACBootInterface(t *testing.T) {
+	acc, err := NewAccessDetails("idrac://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.BootInterface() != "ipxe" {
+		t.Fatal("expected boot interface to be ipxe")
 	}
 }
 

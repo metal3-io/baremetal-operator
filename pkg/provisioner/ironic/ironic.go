@@ -232,7 +232,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 			p.client,
 			nodes.CreateOpts{
 				Driver:        p.bmcAccess.Driver(),
-				BootInterface: "ipxe",
+				BootInterface: p.bmcAccess.BootInterface(),
 				Name:          p.host.Name,
 				DriverInfo:    driverInfo,
 			}).Extract()

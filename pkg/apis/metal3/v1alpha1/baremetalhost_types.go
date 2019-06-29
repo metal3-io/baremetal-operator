@@ -335,6 +335,15 @@ type ProvisionStatus struct {
 
 // BareMetalHost is the Schema for the baremetalhosts API
 // +k8s:openapi-gen=true
+// +kubebuilder:resource:shortName=bmh;bmhost
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status"
+// +kubebuilder:printcolumn:name="Provisioning Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
+// +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller"
+// +kubebuilder:printcolumn:name="Hardware Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected"
+// +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"
+// +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".status.errorMessage",description="Most recent error"
 type BareMetalHost struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

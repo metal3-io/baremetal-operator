@@ -71,6 +71,10 @@ e2e-local:
 dep:
 	dep ensure
 
+.PHONY: crd
+crd:
+	operator-sdk generate openapi
+
 .PHONY: run
 run:
 	operator-sdk up local \

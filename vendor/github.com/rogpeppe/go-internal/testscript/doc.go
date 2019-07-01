@@ -10,7 +10,7 @@ To invoke the tests, call testscript.Run. For example:
 
 	func TestFoo(t *testing.T) {
 		testscript.Run(t, testscript.Params{
-			Dir: "scripts",
+			Dir: "testdata",
 		})
 	}
 
@@ -128,11 +128,13 @@ The predefined commands are:
   (If the files have differing content, the failure prints a diff.)
 
 - cmpenv file1 file2
-  Like cmp, but environment variables are substituted in the file contents
-  before the comparison. For example, $GOOS is replaced by the target GOOS.
+  Like cmp, but environment variables in file2 are substituted before the
+  comparison. For example, $GOOS is replaced by the target GOOS.
 
 - cp src... dst
   Copy the listed files to the target file or existing directory.
+  src can include "stdout" or "stderr" to use the standard output or standard error
+  from the most recent exec or go command.
 
 - env [key=value...]
   With no arguments, print the environment (useful for debugging).
@@ -163,6 +165,12 @@ The predefined commands are:
 
 - mkdir path...
   Create the listed directories, if they do not already exists.
+
+- unquote file...
+  Rewrite each file by replacing any leading ">" characters from
+  each line. This enables a file to contain substrings that look like
+  txtar file markers.
+  See also https://godoc.org/github.com/rogpeppe/go-internal/txtar#Unquote
 
 - rm file...
   Remove the listed files or directories.

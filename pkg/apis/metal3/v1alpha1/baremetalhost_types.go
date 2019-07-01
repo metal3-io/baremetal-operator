@@ -162,18 +162,38 @@ type Image struct {
 // FIXME(dhellmann): We probably want some other module to own these
 // data structures.
 
-// GHz is a clock speed in GHz
-type GHz float64
+// ClockSpeed is a clock speed in MHz
+type ClockSpeed float64
 
-// GiB is a memory size in GiB
-type GiB int32
+// ClockSpeed multipliers
+const (
+	MegaHertz ClockSpeed = 1.0
+	GigaHertz            = 1000 * MegaHertz
+)
+
+// Capacity is a disk size in Bytes
+type Capacity int64
+
+// Capacity multipliers
+const (
+	Byte     Capacity = 1
+	KibiByte          = Byte * 1024
+	KiloByte          = Byte * 1000
+	MebiByte          = KibiByte * 1024
+	MegaByte          = KiloByte * 1000
+	GibiByte          = MebiByte * 1024
+	GigaByte          = MegaByte * 1000
+	TebiByte          = GibiByte * 1024
+	TeraByte          = GigaByte * 1000
+)
 
 // CPU describes one processor on the host.
 type CPU struct {
-	Type     string `json:"type"`
-	Model    string `json:"model"`
-	SpeedGHz GHz    `json:"speedGHz"`
-	Count    int    `json:"count"`
+	Arch           string     `json:"arch"`
+	Model          string     `json:"model"`
+	ClockMegahertz ClockSpeed `json:"clockMegahertz"`
+	Flags          []string   `json:"flags"`
+	Count          int        `json:"count"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -181,11 +201,11 @@ type Storage struct {
 	// A name for the disk, e.g. "disk 1 (boot)"
 	Name string `json:"name"`
 
-	// Type, e.g. SSD
-	Type string `json:"type"`
+	// Whether this disk represents rotational storage
+	Rotational bool `json:"rotational"`
 
-	// The size of the disk in Gibibytes
-	SizeGiB GiB `json:"sizeGiB"`
+	// The size of the disk in Bytes
+	SizeBytes Capacity `json:"sizeBytes"`
 
 	// The name of the vendor of the device
 	Vendor string `json:"vendor,omitempty"`
@@ -209,6 +229,15 @@ type Storage struct {
 	HCTL string `json:"hctl,omitempty"`
 }
 
+// VLANID is a 12-bit 802.1Q VLAN identifier
+type VLANID int16
+
+// VLAN represents the name and ID of a VLAN
+type VLAN struct {
+	ID   VLANID `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
 // NIC describes one network interface on the host.
 type NIC struct {
 	// The name of the NIC, e.g. "nic-1"
@@ -216,9 +245,6 @@ type NIC struct {
 
 	// The name of the model, e.g. "virt-io"
 	Model string `json:"model"`
-
-	// The name of the network, e.g. "Pod Networking"
-	Network string `json:"network"`
 
 	// The device MAC addr
 	MAC string `json:"mac"`
@@ -228,16 +254,26 @@ type NIC struct {
 
 	// The speed of the device
 	SpeedGbps int `json:"speedGbps"`
+
+	// The VLANs available
+	VLANs []VLAN `json:"vlans,omitempty"`
+
+	// The untagged VLAN ID
+	VLANID VLANID `json:"vlanId"`
+
+	// Whether the NIC is PXE Bootable
+	PXE bool `json:"pxe"`
 }
 
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
 	SystemVendor HardwareSystemVendor `json:"systemVendor"`
-	RAMGiB       GiB                  `json:"ramGiB"`
+	RAMMebibytes int                  `json:"ramMebibytes"`
 	NIC          []NIC                `json:"nics"`
 	Storage      []Storage            `json:"storage"`
 	CPU          CPU                  `json:"cpu"`
+	Hostname     string               `json:"hostname"`
 }
 
 // HardwareSystemVendor stores details about the whole hardware system.

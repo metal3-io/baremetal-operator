@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -231,7 +232,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 			p.client,
 			nodes.CreateOpts{
 				Driver:        p.bmcAccess.Driver(),
-				BootInterface: "ipxe",
+				BootInterface: p.bmcAccess.BootInterface(),
 				Name:          p.host.Name,
 				DriverInfo:    driverInfo,
 			}).Extract()
@@ -367,17 +368,56 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 	return result, nil
 }
 
-func getNICDetails(ifdata []introspection.InterfaceType) []metal3v1alpha1.NIC {
+func getVLANs(intf introspection.BaseInterfaceType) (vlans []metal3v1alpha1.VLAN, vlanid metal3v1alpha1.VLANID) {
+	if intf.LLDPProcessed == nil {
+		return
+	}
+	if spvs, ok := intf.LLDPProcessed["switch_port_vlans"]; ok {
+		if data, ok := spvs.([]map[string]interface{}); ok {
+			vlans = make([]metal3v1alpha1.VLAN, len(data))
+			for i, vlan := range data {
+				vid, _ := vlan["id"].(int)
+				name, _ := vlan["name"].(string)
+				vlans[i] = metal3v1alpha1.VLAN{
+					ID:   metal3v1alpha1.VLANID(vid),
+					Name: name,
+				}
+			}
+		}
+	}
+	if vid, ok := intf.LLDPProcessed["switch_port_untagged_vlan_id"].(int); ok {
+		vlanid = metal3v1alpha1.VLANID(vid)
+	}
+	return
+}
+
+func getNICSpeedGbps(intfExtradata introspection.ExtraHardwareData) (speedGbps int) {
+	if speed, ok := intfExtradata["speed"].(string); ok {
+		if strings.HasSuffix(speed, "Gbps") {
+			fmt.Sscanf(speed, "%d", &speedGbps)
+		}
+	}
+	return
+}
+
+func getNICDetails(ifdata []introspection.InterfaceType,
+	basedata map[string]introspection.BaseInterfaceType,
+	extradata introspection.ExtraHardwareDataSection) []metal3v1alpha1.NIC {
 	nics := make([]metal3v1alpha1.NIC, len(ifdata))
 	for i, intf := range ifdata {
+		baseIntf := basedata[intf.Name]
+		vlans, vlanid := getVLANs(baseIntf)
+
 		nics[i] = metal3v1alpha1.NIC{
 			Name: intf.Name,
 			Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 				intf.Vendor, intf.Product), " "),
 			MAC:       intf.MACAddress,
-			Network:   "Pod Networking", // TODO(zaneb)
 			IP:        intf.IPV4Address,
-			SpeedGbps: 0, // TODO(zaneb)
+			VLANs:     vlans,
+			VLANID:    vlanid,
+			SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),
+			PXE:       baseIntf.PXE,
 		}
 	}
 	return nics
@@ -388,8 +428,8 @@ func getStorageDetails(diskdata []introspection.RootDiskType) []metal3v1alpha1.S
 	for i, disk := range diskdata {
 		storage[i] = metal3v1alpha1.Storage{
 			Name:               disk.Name,
-			Type:               map[bool]string{true: "HDD", false: "SSD"}[disk.Rotational],
-			SizeGiB:            metal3v1alpha1.GiB(disk.Size / (1024 * 1024 * 1024)),
+			Rotational:         disk.Rotational,
+			SizeBytes:          metal3v1alpha1.Capacity(disk.Size),
 			Vendor:             disk.Vendor,
 			Model:              disk.Model,
 			SerialNumber:       disk.Serial,
@@ -413,22 +453,26 @@ func getSystemVendorDetails(vendor introspection.SystemVendorType) metal3v1alpha
 func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	var freq float64
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
+	sort.Strings(cpudata.Flags)
 	cpu := metal3v1alpha1.CPU{
-		Type:     cpudata.Architecture,
-		Model:    cpudata.ModelName,
-		SpeedGHz: metal3v1alpha1.GHz(freq / 1000.0),
-		Count:    cpudata.Count,
+		Arch:           cpudata.Architecture,
+		Model:          cpudata.ModelName,
+		ClockMegahertz: metal3v1alpha1.ClockSpeed(freq) * metal3v1alpha1.MegaHertz,
+		Count:          cpudata.Count,
+		Flags:          cpudata.Flags,
 	}
+
 	return cpu
 }
 
 func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetails {
 	details := new(metal3v1alpha1.HardwareDetails)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
-	details.RAMGiB = metal3v1alpha1.GiB(data.MemoryMB / 1024)
-	details.NIC = getNICDetails(data.Inventory.Interfaces)
+	details.RAMMebibytes = data.MemoryMB
+	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces, data.Extra.Network)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
 	details.CPU = getCPUDetails(&data.Inventory.CPU)
+	details.Hostname = data.Inventory.Hostname
 	return details
 }
 

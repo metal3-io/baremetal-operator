@@ -123,44 +123,45 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 		p.log.Info("continuing inspection by setting details")
 		details =
 			&metal3v1alpha1.HardwareDetails{
-				RAMGiB: 128,
+				RAMMebibytes: 128 * 1024,
 				NIC: []metal3v1alpha1.NIC{
 					metal3v1alpha1.NIC{
 						Name:      "nic-1",
 						Model:     "virt-io",
-						Network:   "Pod Networking",
 						MAC:       "some:mac:address",
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
+						PXE:       true,
 					},
 					metal3v1alpha1.NIC{
 						Name:      "nic-2",
 						Model:     "e1000",
-						Network:   "Pod Networking",
 						MAC:       "some:other:mac:address",
 						IP:        "192.168.100.2",
 						SpeedGbps: 1,
+						PXE:       false,
 					},
 				},
 				Storage: []metal3v1alpha1.Storage{
 					metal3v1alpha1.Storage{
-						Name:    "disk-1 (boot)",
-						Type:    "SSD",
-						SizeGiB: 1024 * 93,
-						Model:   "Dell CFJ61",
+						Name:       "disk-1 (boot)",
+						Rotational: false,
+						SizeBytes:  metal3v1alpha1.TebiByte * 93,
+						Model:      "Dell CFJ61",
 					},
 					metal3v1alpha1.Storage{
-						Name:    "disk-2",
-						Type:    "SSD",
-						SizeGiB: 1024 * 93,
-						Model:   "Dell CFJ61",
+						Name:       "disk-2",
+						Rotational: false,
+						SizeBytes:  metal3v1alpha1.TebiByte * 93,
+						Model:      "Dell CFJ61",
 					},
 				},
 				CPU: metal3v1alpha1.CPU{
-					Type:     "x86_64",
-					Model:    "Core 2 Duo",
-					SpeedGHz: 3,
-					Count:    1,
+					Arch:           "x86_64",
+					Model:          "Core 2 Duo",
+					ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+					Flags:          []string{"lm", "hypervisor", "vmx"},
+					Count:          1,
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")

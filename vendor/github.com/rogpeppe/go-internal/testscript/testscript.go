@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rogpeppe/go-internal/imports"
+	"github.com/rogpeppe/go-internal/internal/os/execpath"
 	"github.com/rogpeppe/go-internal/par"
 	"github.com/rogpeppe/go-internal/testenv"
 	"github.com/rogpeppe/go-internal/txtar"
@@ -37,9 +39,34 @@ var testWork = flag.Bool("testwork", false, "")
 
 // Env holds the environment to use at the start of a test script invocation.
 type Env struct {
+	// WorkDir holds the path to the root directory of the
+	// extracted files.
 	WorkDir string
-	Vars    []string
-	Cd      string
+	// Vars holds the initial set environment variables that will be passed to the
+	// testscript commands.
+	Vars []string
+	// Cd holds the initial current working directory.
+	Cd string
+	// Values holds a map of arbitrary values for use by custom
+	// testscript commands. This enables Setup to pass arbitrary
+	// values (not just strings) through to custom commands.
+	Values map[interface{}]interface{}
+
+	ts *TestScript
+}
+
+// Value returns a value from Env.Values, or nil if no
+// value was set by Setup.
+func (ts *TestScript) Value(key interface{}) interface{} {
+	return ts.values[key]
+}
+
+// Defer arranges for f to be called at the end
+// of the test. If Defer is called multiple times, the
+// defers are executed in reverse order (similar
+// to Go's defer statement)
+func (e *Env) Defer(f func()) {
+	e.ts.Defer(f)
 }
 
 // Params holds parameters for a call to Run.
@@ -52,7 +79,8 @@ type Params struct {
 
 	// Setup is called, if not nil, to complete any setup required
 	// for a test. The WorkDir and Vars fields will have already
-	// been initialized, and Cd will be the same as WorkDir.
+	// been initialized and all the files extracted into WorkDir,
+	// and Cd will be the same as WorkDir.
 	// The Setup function may modify Vars and Cd as it wishes.
 	Setup func(*Env) error
 
@@ -135,18 +163,19 @@ func RunT(t T, p Params) {
 				file:        file,
 				params:      p,
 				ctxt:        context.Background(),
+				deferred:    func() {},
 			}
-			ts.setup()
-			if !p.TestWork {
-				defer func() {
-					removeAll(ts.workdir)
-					if atomic.AddInt32(&refCount, -1) == 0 {
-						// This is the last subtest to finish. Remove the
-						// parent directory too.
-						os.Remove(testTempDir)
-					}
-				}()
-			}
+			defer func() {
+				if p.TestWork {
+					return
+				}
+				removeAll(ts.workdir)
+				if atomic.AddInt32(&refCount, -1) == 0 {
+					// This is the last subtest to finish. Remove the
+					// parent directory too.
+					os.Remove(testTempDir)
+				}
+			}()
 			ts.run()
 		})
 	}
@@ -157,22 +186,24 @@ type TestScript struct {
 	params      Params
 	t           T
 	testTempDir string
-	workdir     string            // temporary work dir ($WORK)
-	log         bytes.Buffer      // test execution log (printed at end of test)
-	mark        int               // offset of next log truncation
-	cd          string            // current directory during test execution; initially $WORK/gopath/src
-	name        string            // short name of test ("foo")
-	file        string            // full file name ("testdata/script/foo.txt")
-	lineno      int               // line number currently executing
-	line        string            // line currently executing
-	env         []string          // environment list (for os/exec)
-	envMap      map[string]string // environment mapping (matches env)
-	stdin       string            // standard input to next 'go' command; set by 'stdin' command.
-	stdout      string            // standard output from last 'go' command; for 'stdout' command
-	stderr      string            // standard error from last 'go' command; for 'stderr' command
-	stopped     bool              // test wants to stop early
-	start       time.Time         // time phase started
-	background  []backgroundCmd   // backgrounded 'exec' and 'go' commands
+	workdir     string                      // temporary work dir ($WORK)
+	log         bytes.Buffer                // test execution log (printed at end of test)
+	mark        int                         // offset of next log truncation
+	cd          string                      // current directory during test execution; initially $WORK/gopath/src
+	name        string                      // short name of test ("foo")
+	file        string                      // full file name ("testdata/script/foo.txt")
+	lineno      int                         // line number currently executing
+	line        string                      // line currently executing
+	env         []string                    // environment list (for os/exec)
+	envMap      map[string]string           // environment mapping (matches env; on Windows keys are lowercase)
+	values      map[interface{}]interface{} // values for custom commands
+	stdin       string                      // standard input to next 'go' command; set by 'stdin' command.
+	stdout      string                      // standard output from last 'go' command; for 'stdout' command
+	stderr      string                      // standard error from last 'go' command; for 'stderr' command
+	stopped     bool                        // test wants to stop early
+	start       time.Time                   // time phase started
+	background  []backgroundCmd             // backgrounded 'exec' and 'go' commands
+	deferred    func()                      // deferred cleanup actions.
 
 	ctxt context.Context // per TestScript context
 }
@@ -184,7 +215,8 @@ type backgroundCmd struct {
 }
 
 // setup sets up the test execution temporary directory and environment.
-func (ts *TestScript) setup() {
+// It returns the comment section of the txtar archive.
+func (ts *TestScript) setup() string {
 	ts.workdir = filepath.Join(ts.testTempDir, "script-"+ts.name)
 	ts.Check(os.MkdirAll(filepath.Join(ts.workdir, "tmp"), 0777))
 	env := &Env{
@@ -197,7 +229,9 @@ func (ts *TestScript) setup() {
 			":=" + string(os.PathListSeparator),
 		},
 		WorkDir: ts.workdir,
+		Values:  make(map[interface{}]interface{}),
 		Cd:      ts.workdir,
+		ts:      ts,
 	}
 	// Must preserve SYSTEMROOT on Windows: https://github.com/golang/go/issues/25513 et al
 	if runtime.GOOS == "windows" {
@@ -210,18 +244,30 @@ func (ts *TestScript) setup() {
 			"exe=",
 		)
 	}
+	ts.cd = env.Cd
+	// Unpack archive.
+	a, err := txtar.ParseFile(ts.file)
+	ts.Check(err)
+	for _, f := range a.Files {
+		name := ts.MkAbs(ts.expand(f.Name))
+		ts.Check(os.MkdirAll(filepath.Dir(name), 0777))
+		ts.Check(ioutil.WriteFile(name, f.Data, 0666))
+	}
+	// Run any user-defined setup.
 	if ts.params.Setup != nil {
 		ts.Check(ts.params.Setup(env))
 	}
 	ts.cd = env.Cd
 	ts.env = env.Vars
+	ts.values = env.Values
 
 	ts.envMap = make(map[string]string)
 	for _, kv := range ts.env {
 		if i := strings.Index(kv, "="); i >= 0 {
-			ts.envMap[kv[:i]] = kv[i+1:]
+			ts.envMap[envvarname(kv[:i])] = kv[i+1:]
 		}
 	}
+	return string(a.Comment)
 }
 
 // run runs the test script.
@@ -261,15 +307,10 @@ func (ts *TestScript) run() {
 		// Flush testScript log to testing.T log.
 		ts.t.Log("\n" + ts.abbrev(ts.log.String()))
 	}()
-
-	// Unpack archive.
-	a, err := txtar.ParseFile(ts.file)
-	ts.Check(err)
-	for _, f := range a.Files {
-		name := ts.MkAbs(ts.expand(f.Name))
-		ts.Check(os.MkdirAll(filepath.Dir(name), 0777))
-		ts.Check(ioutil.WriteFile(name, f.Data, 0666))
-	}
+	defer func() {
+		ts.deferred()
+	}()
+	script := ts.setup()
 
 	// With -v or -testwork, start log with full environment.
 	if *testWork || ts.t.Verbose() {
@@ -281,7 +322,6 @@ func (ts *TestScript) run() {
 
 	// Run script.
 	// See testdata/script/README for documentation of script form.
-	script := string(a.Comment)
 Script:
 	for script != "" {
 		// Extract next line.
@@ -397,11 +437,16 @@ func (ts *TestScript) condition(cond string) (bool, error) {
 		return testenv.HasLink(), nil
 	case "symlink":
 		return testenv.HasSymlink(), nil
+	case runtime.GOOS, runtime.GOARCH:
+		return true, nil
 	default:
+		if imports.KnownArch[cond] || imports.KnownOS[cond] {
+			return false, nil
+		}
 		if strings.HasPrefix(cond, "exec:") {
 			prog := cond[len("exec:"):]
 			ok := execCache.Do(prog, func() interface{} {
-				_, err := exec.LookPath(prog)
+				_, err := execpath.Look(prog, ts.Getenv)
 				return err == nil
 			}).(bool)
 			return ok, nil
@@ -427,6 +472,18 @@ func (ts *TestScript) abbrev(s string) string {
 	return s
 }
 
+// Defer arranges for f to be called at the end
+// of the test. If Defer is called multiple times, the
+// defers are executed in reverse order (similar
+// to Go's defer statement)
+func (ts *TestScript) Defer(f func()) {
+	old := ts.deferred
+	ts.deferred = func() {
+		defer old()
+		f()
+	}
+}
+
 // Check calls ts.Fatalf if err != nil.
 func (ts *TestScript) Check(err error) {
 	if err != nil {
@@ -444,7 +501,10 @@ func (ts *TestScript) Logf(format string, args ...interface{}) {
 // exec runs the given command line (an actual subprocess, not simulated)
 // in ts.cd with environment ts.env and then returns collected standard output and standard error.
 func (ts *TestScript) exec(command string, args ...string) (stdout, stderr string, err error) {
-	cmd := exec.Command(command, args...)
+	cmd, err := ts.buildExecCmd(command, args...)
+	if err != nil {
+		return "", "", err
+	}
 	cmd.Dir = ts.cd
 	cmd.Env = append(ts.env, "PWD="+ts.cd)
 	cmd.Stdin = strings.NewReader(ts.stdin)
@@ -461,7 +521,10 @@ func (ts *TestScript) exec(command string, args ...string) (stdout, stderr strin
 // execBackground starts the given command line (an actual subprocess, not simulated)
 // in ts.cd with environment ts.env.
 func (ts *TestScript) execBackground(command string, args ...string) (*exec.Cmd, error) {
-	cmd := exec.Command(command, args...)
+	cmd, err := ts.buildExecCmd(command, args...)
+	if err != nil {
+		return nil, err
+	}
 	cmd.Dir = ts.cd
 	cmd.Env = append(ts.env, "PWD="+ts.cd)
 	var stdoutBuf, stderrBuf strings.Builder
@@ -470,6 +533,28 @@ func (ts *TestScript) execBackground(command string, args ...string) (*exec.Cmd,
 	cmd.Stderr = &stderrBuf
 	ts.stdin = ""
 	return cmd, cmd.Start()
+}
+
+func (ts *TestScript) buildExecCmd(command string, args ...string) (*exec.Cmd, error) {
+	if filepath.Base(command) == command {
+		if lp, err := execpath.Look(command, ts.Getenv); err != nil {
+			return nil, err
+		} else {
+			command = lp
+		}
+	}
+	return exec.Command(command, args...), nil
+}
+
+// BackgroundCmds returns a slice containing all the commands that have
+// been started in the background since the most recent wait command, or
+// the start of the script if wait has not been called.
+func (ts *TestScript) BackgroundCmds() []*exec.Cmd {
+	cmds := make([]*exec.Cmd, len(ts.background))
+	for i, b := range ts.background {
+		cmds[i] = b.cmd
+	}
+	return cmds
 }
 
 // ctxWait is like cmd.Wait, but terminates cmd with os.Interrupt if ctx becomes done.
@@ -517,9 +602,9 @@ func (ts *TestScript) Exec(command string, args ...string) error {
 func (ts *TestScript) expand(s string) string {
 	return os.Expand(s, func(key string) string {
 		if key1 := strings.TrimSuffix(key, "@R"); len(key1) != len(key) {
-			return regexp.QuoteMeta(ts.envMap[key1])
+			return regexp.QuoteMeta(ts.Getenv(key1))
 		}
-		return ts.envMap[key]
+		return ts.Getenv(key)
 	})
 }
 
@@ -541,12 +626,12 @@ func (ts *TestScript) MkAbs(file string) string {
 // Setenv sets the value of the environment variable named by the key.
 func (ts *TestScript) Setenv(key, value string) {
 	ts.env = append(ts.env, key+"="+value)
-	ts.envMap[key] = value
+	ts.envMap[envvarname(key)] = value
 }
 
 // Getenv gets the value of the environment variable named by the key.
 func (ts *TestScript) Getenv(key string) string {
-	return ts.envMap[key]
+	return ts.envMap[envvarname(key)]
 }
 
 // parse parses a single line as a list of space-separated arguments

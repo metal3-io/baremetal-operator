@@ -39,7 +39,7 @@ type FakeInformers struct {
 }
 
 // GetInformerForKind implements Informers
-func (c *FakeInformers) GetInformerForKind(gvk schema.GroupVersionKind) (toolscache.SharedIndexInformer, error) {
+func (c *FakeInformers) GetInformerForKind(gvk schema.GroupVersionKind) (cache.Informer, error) {
 	if c.Scheme == nil {
 		c.Scheme = scheme.Scheme
 	}
@@ -67,7 +67,7 @@ func (c *FakeInformers) FakeInformerForKind(gvk schema.GroupVersionKind) (*contr
 }
 
 // GetInformer implements Informers
-func (c *FakeInformers) GetInformer(obj runtime.Object) (toolscache.SharedIndexInformer, error) {
+func (c *FakeInformers) GetInformer(obj runtime.Object) (cache.Informer, error) {
 	if c.Scheme == nil {
 		c.Scheme = scheme.Scheme
 	}
@@ -136,6 +136,6 @@ func (c *FakeInformers) Get(ctx context.Context, key client.ObjectKey, obj runti
 }
 
 // List implements Cache
-func (c *FakeInformers) List(ctx context.Context, opts *client.ListOptions, list runtime.Object) error {
+func (c *FakeInformers) List(ctx context.Context, list runtime.Object, opts ...client.ListOptionFunc) error {
 	return nil
 }

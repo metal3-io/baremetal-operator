@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -30,14 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 )
-
-// application is a simple Controller for a single API type.  It will create a Manager for itself
-// if one is not provided.
-type application struct {
-	mgr  manager.Manager
-	ctrl controller.Controller
-}
 
 // Supporting mocking out functions for testing
 var getConfig = config.GetConfig
@@ -45,120 +41,193 @@ var newController = controller.New
 var newManager = manager.New
 var getGvk = apiutil.GVKForObject
 
-// Builder builds an Application Controller (e.g. Operator) and returns a manager.Manager to start it.
+// Builder builds a Controller.
 type Builder struct {
 	apiType        runtime.Object
 	mgr            manager.Manager
 	predicates     []predicate.Predicate
 	managedObjects []runtime.Object
+	watchRequest   []watchRequest
 	config         *rest.Config
 	ctrl           controller.Controller
 }
 
-// SimpleController returns a new Builder
+// SimpleController returns a new Builder.
+//
+// Deprecated: Use ControllerManagedBy(Manager) instead.
 func SimpleController() *Builder {
 	return &Builder{}
 }
 
-// ForType sets the ForType that generates other types
-func (b *Builder) ForType(apiType runtime.Object) *Builder {
-	b.apiType = apiType
-	return b
+// ControllerManagedBy returns a new controller builder that will be started by the provided Manager
+func ControllerManagedBy(m manager.Manager) *Builder {
+	return SimpleController().WithManager(m)
 }
 
-// Owns configures the Application Controller to respond to create / delete / update events for objects it managedObjects
-// - e.g. creates.  apiType is an empty instance of an object matching the managed object type.
-func (b *Builder) Owns(apiType runtime.Object) *Builder {
-	b.managedObjects = append(b.managedObjects, apiType)
-	return b
+// ForType defines the type of Object being *reconciled*, and configures the ControllerManagedBy to respond to create / delete /
+// update events by *reconciling the object*.
+// This is the equivalent of calling
+// Watches(&source.Kind{Type: apiType}, &handler.EnqueueRequestForObject{})
+// If the passed in object has implemented the admission.Defaulter interface, a MutatingWebhook will be wired for this type.
+// If the passed in object has implemented the admission.Validator interface, a ValidatingWebhook will be wired for this type.
+//
+// Deprecated: Use For
+func (blder *Builder) ForType(apiType runtime.Object) *Builder {
+	return blder.For(apiType)
+}
+
+// For defines the type of Object being *reconciled*, and configures the ControllerManagedBy to respond to create / delete /
+// update events by *reconciling the object*.
+// This is the equivalent of calling
+// Watches(&source.Kind{Type: apiType}, &handler.EnqueueRequestForObject{})
+// If the passed in object has implemented the admission.Defaulter interface, a MutatingWebhook will be wired for this type.
+// If the passed in object has implemented the admission.Validator interface, a ValidatingWebhook will be wired for this type.
+func (blder *Builder) For(apiType runtime.Object) *Builder {
+	blder.apiType = apiType
+	return blder
+}
+
+// Owns defines types of Objects being *generated* by the ControllerManagedBy, and configures the ControllerManagedBy to respond to
+// create / delete / update events by *reconciling the owner object*.  This is the equivalent of calling
+// Watches(&handler.EnqueueRequestForOwner{&source.Kind{Type: <ForType-apiType>}, &handler.EnqueueRequestForOwner{OwnerType: apiType, IsController: true})
+func (blder *Builder) Owns(apiType runtime.Object) *Builder {
+	blder.managedObjects = append(blder.managedObjects, apiType)
+	return blder
+}
+
+type watchRequest struct {
+	src          source.Source
+	eventhandler handler.EventHandler
+}
+
+// Watches exposes the lower-level ControllerManagedBy Watches functions through the builder.  Consider using
+// Owns or For instead of Watches directly.
+func (blder *Builder) Watches(src source.Source, eventhandler handler.EventHandler) *Builder {
+	blder.watchRequest = append(blder.watchRequest, watchRequest{src: src, eventhandler: eventhandler})
+	return blder
 }
 
 // WithConfig sets the Config to use for configuring clients.  Defaults to the in-cluster config or to ~/.kube/config.
-func (b *Builder) WithConfig(config *rest.Config) *Builder {
-	b.config = config
-	return b
+//
+// Deprecated: Use ControllerManagedBy(Manager) and this isn't needed.
+func (blder *Builder) WithConfig(config *rest.Config) *Builder {
+	blder.config = config
+	return blder
 }
 
-// WithManager sets the Manager to use for registering the Controller.  Defaults to a new manager.Manager.
-func (b *Builder) WithManager(m manager.Manager) *Builder {
-	b.mgr = m
-	return b
+// WithManager sets the Manager to use for registering the ControllerManagedBy.  Defaults to a new manager.Manager.
+//
+// Deprecated: Use ControllerManagedBy(Manager) and this isn't needed.
+func (blder *Builder) WithManager(m manager.Manager) *Builder {
+	blder.mgr = m
+	return blder
 }
 
 // WithEventFilter sets the event filters, to filter which create/update/delete/generic events eventually
 // trigger reconciliations.  For example, filtering on whether the resource version has changed.
 // Defaults to the empty list.
-func (b *Builder) WithEventFilter(p predicate.Predicate) *Builder {
-	b.predicates = append(b.predicates, p)
-	return b
+func (blder *Builder) WithEventFilter(p predicate.Predicate) *Builder {
+	blder.predicates = append(blder.predicates, p)
+	return blder
 }
 
-// Build builds the Application Controller and returns the Manager used to start it.
-func (b *Builder) Build(r reconcile.Reconciler) (manager.Manager, error) {
+// Complete builds the Application ControllerManagedBy.
+func (blder *Builder) Complete(r reconcile.Reconciler) error {
+	_, err := blder.Build(r)
+	return err
+}
+
+// Build builds the Application ControllerManagedBy and returns the Manager used to start it.
+//
+// Deprecated: Use Complete
+func (blder *Builder) Build(r reconcile.Reconciler) (manager.Manager, error) {
 	if r == nil {
-		return nil, fmt.Errorf("must call WithReconciler to set Reconciler")
+		return nil, fmt.Errorf("must provide a non-nil Reconciler")
 	}
 
 	// Set the Config
-	if err := b.doConfig(); err != nil {
+	if err := blder.doConfig(); err != nil {
 		return nil, err
 	}
 
 	// Set the Manager
-	if err := b.doManager(); err != nil {
+	if err := blder.doManager(); err != nil {
 		return nil, err
 	}
 
-	// Set the Controller
-	if err := b.doController(r); err != nil {
+	// Set the ControllerManagedBy
+	if err := blder.doController(r); err != nil {
 		return nil, err
 	}
 
-	a := &application{mgr: b.mgr, ctrl: b.ctrl}
+	// Set the Webook if needed
+	if err := blder.doWebhook(); err != nil {
+		return nil, err
+	}
 
+	// Set the Watch
+	if err := blder.doWatch(); err != nil {
+		return nil, err
+	}
+
+	return blder.mgr, nil
+}
+
+func (blder *Builder) doWatch() error {
 	// Reconcile type
-	s := &source.Kind{Type: b.apiType}
-	h := &handler.EnqueueRequestForObject{}
-	err := a.ctrl.Watch(s, h, b.predicates...)
+	src := &source.Kind{Type: blder.apiType}
+	hdler := &handler.EnqueueRequestForObject{}
+	err := blder.ctrl.Watch(src, hdler, blder.predicates...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// Watch the managed types
-	for _, t := range b.managedObjects {
-		s := &source.Kind{Type: t}
-		h := &handler.EnqueueRequestForOwner{
-			OwnerType:    b.apiType,
+	// Watches the managed types
+	for _, obj := range blder.managedObjects {
+		src := &source.Kind{Type: obj}
+		hdler := &handler.EnqueueRequestForOwner{
+			OwnerType:    blder.apiType,
 			IsController: true,
 		}
-		if err := a.ctrl.Watch(s, h, b.predicates...); err != nil {
-			return nil, err
+		if err := blder.ctrl.Watch(src, hdler, blder.predicates...); err != nil {
+			return err
 		}
 	}
 
-	return a.mgr, nil
+	// Do the watch requests
+	for _, w := range blder.watchRequest {
+		if err := blder.ctrl.Watch(w.src, w.eventhandler, blder.predicates...); err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
-func (b *Builder) doConfig() error {
-	if b.config != nil {
+func (blder *Builder) doConfig() error {
+	if blder.config != nil {
+		return nil
+	}
+	if blder.mgr != nil {
+		blder.config = blder.mgr.GetConfig()
 		return nil
 	}
 	var err error
-	b.config, err = getConfig()
+	blder.config, err = getConfig()
 	return err
 }
 
-func (b *Builder) doManager() error {
-	if b.mgr != nil {
+func (blder *Builder) doManager() error {
+	if blder.mgr != nil {
 		return nil
 	}
 	var err error
-	b.mgr, err = newManager(b.config, manager.Options{})
+	blder.mgr, err = newManager(blder.config, manager.Options{})
 	return err
 }
 
-func (b *Builder) getControllerName() (string, error) {
-	gvk, err := getGvk(b.apiType, b.mgr.GetScheme())
+func (blder *Builder) getControllerName() (string, error) {
+	gvk, err := getGvk(blder.apiType, blder.mgr.GetScheme())
 	if err != nil {
 		return "", err
 	}
@@ -166,11 +235,70 @@ func (b *Builder) getControllerName() (string, error) {
 	return name, nil
 }
 
-func (b *Builder) doController(r reconcile.Reconciler) error {
-	name, err := b.getControllerName()
+func (blder *Builder) doController(r reconcile.Reconciler) error {
+	name, err := blder.getControllerName()
 	if err != nil {
 		return err
 	}
-	b.ctrl, err = newController(name, b.mgr, controller.Options{Reconciler: r})
+	blder.ctrl, err = newController(name, blder.mgr, controller.Options{Reconciler: r})
 	return err
+}
+
+func (blder *Builder) doWebhook() error {
+	// Create a webhook for each type
+	gvk, err := apiutil.GVKForObject(blder.apiType, blder.mgr.GetScheme())
+	if err != nil {
+		return err
+	}
+
+	// TODO: When the conversion webhook lands, we need to handle all registered versions of a given group-kind.
+	// A potential workflow for defaulting webhook
+	// 1) a bespoke (non-hub) version comes in
+	// 2) convert it to the hub version
+	// 3) do defaulting
+	// 4) convert it back to the same bespoke version
+	// 5) calculate the JSON patch
+	//
+	// A potential workflow for validating webhook
+	// 1) a bespoke (non-hub) version comes in
+	// 2) convert it to the hub version
+	// 3) do validation
+	if defaulter, isDefaulter := blder.apiType.(admission.Defaulter); isDefaulter {
+		mwh := admission.DefaultingWebhookFor(defaulter)
+		if mwh != nil {
+			path := generateMutatePath(gvk)
+			log.Info("Registering a mutating webhook",
+				"GVK", gvk,
+				"path", path)
+
+			blder.mgr.GetWebhookServer().Register(path, mwh)
+		}
+	}
+
+	if validator, isValidator := blder.apiType.(admission.Validator); isValidator {
+		vwh := admission.ValidatingWebhookFor(validator)
+		if vwh != nil {
+			path := generateValidatePath(gvk)
+			log.Info("Registering a validating webhook",
+				"GVK", gvk,
+				"path", path)
+			blder.mgr.GetWebhookServer().Register(path, vwh)
+		}
+	}
+
+	err = conversion.CheckConvertibility(blder.mgr.GetScheme(), blder.apiType)
+	if err != nil {
+		log.Error(err, "conversion check failed", "GVK", gvk)
+	}
+	return nil
+}
+
+func generateMutatePath(gvk schema.GroupVersionKind) string {
+	return "/mutate-" + strings.Replace(gvk.Group, ".", "-", -1) + "-" +
+		gvk.Version + "-" + strings.ToLower(gvk.Kind)
+}
+
+func generateValidatePath(gvk schema.GroupVersionKind) string {
+	return "/validate-" + strings.Replace(gvk.Group, ".", "-", -1) + "-" +
+		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }

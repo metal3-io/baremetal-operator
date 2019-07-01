@@ -63,6 +63,7 @@ func PrintfTests() {
 	var imap map[int]int
 	var fslice []float64
 	var c complex64
+	var err error
 	// Some good format/argtypes
 	fmt.Printf("")
 	fmt.Printf("%b %b %b", 3, i, x)
@@ -96,6 +97,7 @@ func PrintfTests() {
 	fmt.Printf("%T", notstringerv)
 	fmt.Printf("%q", stringerarrayv)
 	fmt.Printf("%v", stringerarrayv)
+	fmt.Printf("%w", err)
 	fmt.Printf("%s", stringerarrayv)
 	fmt.Printf("%v", notstringerarrayv)
 	fmt.Printf("%T", notstringerarrayv)
@@ -512,6 +514,20 @@ func (p *recursivePtrStringer) String() string {
 	_ = fmt.Sprintf("%v", *p)
 	_ = fmt.Sprint(&p)     // ok; prints address
 	return fmt.Sprintln(p) // want "Sprintln arg p causes recursive call to String method"
+}
+
+// implements a String() method but with non-matching return types
+type nonStringerWrongReturn int
+
+func (s nonStringerWrongReturn) String() (string, error) {
+	return "", fmt.Errorf("%v", s)
+}
+
+// implements a String() method but with non-matching arguments
+type nonStringerWrongArgs int
+
+func (s nonStringerWrongArgs) String(i int) string {
+	return fmt.Sprintf("%d%v", i, s)
 }
 
 type cons struct {

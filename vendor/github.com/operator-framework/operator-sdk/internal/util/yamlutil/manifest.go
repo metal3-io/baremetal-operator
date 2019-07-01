@@ -22,38 +22,40 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold"
 	"github.com/operator-framework/operator-sdk/internal/util/fileutil"
-	"github.com/operator-framework/operator-sdk/pkg/scaffold"
 
 	log "github.com/sirupsen/logrus"
 )
 
-var yamlSep = []byte("\n---\n")
+var yamlSep = []byte("\n\n---\n\n")
 
 // CombineManifests combines given manifests with a base manifest and adds yaml
 // style separation. Nothing is appended if the manifest is empty or base
 // already contains a trailing separator.
 func CombineManifests(base []byte, manifests ...[]byte) []byte {
 	// Base already has manifests we're appending to.
-	if len(base) > 0 {
-		tbase := bytes.Trim(base, " \n")
-		if i := bytes.LastIndex(tbase, []byte("---")); i != len(tbase)-3 {
+	base = bytes.Trim(base, " \n")
+	if len(base) > 0 && len(manifests) > 0 {
+		if i := bytes.LastIndex(base, bytes.Trim(yamlSep, "\n")); i != len(base)-3 {
 			base = append(base, yamlSep...)
 		}
 	}
 	for j, manifest := range manifests {
-		base = append(base, manifest...)
-		// Don't append sep if mmanifest is the last element in mmanifests.
-		if len(manifest) > 0 && j < len(manifests)-1 {
-			base = append(base, yamlSep...)
+		if len(manifest) > 0 {
+			base = append(base, bytes.Trim(manifest, " \n")...)
+			// Don't append sep if manifest is the last element in manifests.
+			if j < len(manifests)-1 {
+				base = append(base, yamlSep...)
+			}
 		}
 	}
-	return base
+	return append(base, '\n')
 }
 
 // GenerateCombinedNamespacedManifest creates a temporary manifest yaml
-// containing all standard namespaced resource manifests combined into 1 file
-func GenerateCombinedNamespacedManifest() (*os.File, error) {
+// by combining all standard namespaced resource manifests in deployDir.
+func GenerateCombinedNamespacedManifest(deployDir string) (*os.File, error) {
 	file, err := ioutil.TempFile("", "namespaced-manifest.yaml")
 	if err != nil {
 		return nil, err
@@ -64,19 +66,19 @@ func GenerateCombinedNamespacedManifest() (*os.File, error) {
 		}
 	}()
 
-	sa, err := ioutil.ReadFile(filepath.Join(scaffold.DeployDir, scaffold.ServiceAccountYamlFile))
+	sa, err := ioutil.ReadFile(filepath.Join(deployDir, scaffold.ServiceAccountYamlFile))
 	if err != nil {
 		log.Warnf("Could not find the serviceaccount manifest: (%v)", err)
 	}
-	role, err := ioutil.ReadFile(filepath.Join(scaffold.DeployDir, scaffold.RoleYamlFile))
+	role, err := ioutil.ReadFile(filepath.Join(deployDir, scaffold.RoleYamlFile))
 	if err != nil {
 		log.Warnf("Could not find role manifest: (%v)", err)
 	}
-	roleBinding, err := ioutil.ReadFile(filepath.Join(scaffold.DeployDir, scaffold.RoleBindingYamlFile))
+	roleBinding, err := ioutil.ReadFile(filepath.Join(deployDir, scaffold.RoleBindingYamlFile))
 	if err != nil {
 		log.Warnf("Could not find role_binding manifest: (%v)", err)
 	}
-	operator, err := ioutil.ReadFile(filepath.Join(scaffold.DeployDir, scaffold.OperatorYamlFile))
+	operator, err := ioutil.ReadFile(filepath.Join(deployDir, scaffold.OperatorYamlFile))
 	if err != nil {
 		return nil, fmt.Errorf("could not find operator manifest: (%v)", err)
 	}
@@ -96,8 +98,8 @@ func GenerateCombinedNamespacedManifest() (*os.File, error) {
 }
 
 // GenerateCombinedGlobalManifest creates a temporary manifest yaml
-// containing all standard global resource manifests combined into 1 file
-func GenerateCombinedGlobalManifest() (*os.File, error) {
+// by combining all standard global resource manifests in crdsDir.
+func GenerateCombinedGlobalManifest(crdsDir string) (*os.File, error) {
 	file, err := ioutil.TempFile("", "global-manifest.yaml")
 	if err != nil {
 		return nil, err
@@ -108,16 +110,16 @@ func GenerateCombinedGlobalManifest() (*os.File, error) {
 		}
 	}()
 
-	files, err := ioutil.ReadDir(scaffold.CrdsDir)
+	files, err := ioutil.ReadDir(crdsDir)
 	if err != nil {
 		return nil, fmt.Errorf("could not read deploy directory: (%v)", err)
 	}
 	combined := []byte{}
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), "crd.yaml") {
-			fileBytes, err := ioutil.ReadFile(filepath.Join(scaffold.CrdsDir, file.Name()))
+			fileBytes, err := ioutil.ReadFile(filepath.Join(crdsDir, file.Name()))
 			if err != nil {
-				return nil, fmt.Errorf("could not read file %s: (%v)", filepath.Join(scaffold.CrdsDir, file.Name()), err)
+				return nil, fmt.Errorf("could not read file %s: (%v)", filepath.Join(crdsDir, file.Name()), err)
 			}
 			combined = CombineManifests(combined, fileBytes)
 		}

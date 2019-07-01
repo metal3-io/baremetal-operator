@@ -6,7 +6,7 @@ required = [
   "k8s.io/code-generator/cmd/client-gen",
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
-  "k8s.io/code-generator/cmd/openapi-gen",
+  "k8s.io/kube-openapi/cmd/openapi-gen",
   "k8s.io/gengo/args",
   "github.com/pkg/errors",
   "github.com/gophercloud/gophercloud",
@@ -14,29 +14,28 @@ required = [
 ]
 
 [[override]]
+  name = "k8s.io/kube-openapi"
+  revision = "0cf8f7e6ed1d2e3d47d02e3b6e559369af24d803"
+
+[[override]]
   name = "k8s.io/code-generator"
-  # revision for tag "kubernetes-1.12.3"
-  revision = "3dcf91f64f638563e5106f21f50c31fa361c918d"
+  version = "kubernetes-1.14.0"
 
 [[override]]
   name = "k8s.io/api"
-  # revision for tag "kubernetes-1.12.3"
-  revision = "b503174bad5991eb66f18247f52e41c3258f6348"
+  version = "kubernetes-1.14.0"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  # revision for tag "kubernetes-1.12.3"
-  revision = "0cd23ebeb6882bd1cdc2cb15fc7b2d72e8a86a5b"
+  version = "kubernetes-1.14.0"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  # revision for tag "kubernetes-1.12.3"
-  revision = "eddba98df674a16931d2d4ba75edc3a389bf633a"
+  version = "kubernetes-1.14.0"
 
 [[override]]
   name = "k8s.io/client-go"
-  # revision for tag "kubernetes-1.12.3"
-  revision = "d082d5923d3cc0bfbb066ee5fbdea3d0ca79acf8"
+  version = "kubernetes-1.14.0"
 
 [[override]]
   name = "github.com/coreos/prometheus-operator"
@@ -44,7 +43,9 @@ required = [
 
 [[override]]
   name = "sigs.k8s.io/controller-runtime"
-  version = "=v0.1.8"
+  # Pin the latest master HEAD to get support webhooks
+  # which are not yet released
+  revision="96b67f231945a8e8550dbdd8bfbd550a0c68097b"
 
 [[constraint]]
   name = "github.com/gophercloud/gophercloud"
@@ -55,6 +56,12 @@ required = [
   # The version rule is used for a specific release and the master branch for in between releases.
   branch = "master" #osdk_branch_annotation
   # version = "=v0.4.0" #osdk_version_annotation
+
+# We need to specify fsnotify source to avoid dep panic
+# https://github.com/golang/dep/issues/1799
+[[override]]
+  name = "gopkg.in/fsnotify.v1"
+  source = "https://github.com/fsnotify/fsnotify.git"
 
 [prune]
   go-tests = true

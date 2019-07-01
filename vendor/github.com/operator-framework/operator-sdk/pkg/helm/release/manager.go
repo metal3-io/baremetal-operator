@@ -94,10 +94,6 @@ func (m manager) IsUpdateRequired() bool {
 // Sync ensures the Helm storage backend is in sync with the status of the
 // custom resource.
 func (m *manager) Sync(ctx context.Context) error {
-	if err := m.syncReleaseStatus(*m.status); err != nil {
-		return fmt.Errorf("failed to sync release status to storage backend: %s", err)
-	}
-
 	// Get release history for this release name
 	releases, err := m.storageBackend.History(m.releaseName)
 	if err != nil && !notFoundErr(err) {
@@ -145,31 +141,6 @@ func (m *manager) Sync(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (m manager) syncReleaseStatus(status types.HelmAppStatus) error {
-	var release *rpb.Release
-	for _, condition := range status.Conditions {
-		if condition.Type == types.ConditionDeployed && condition.Status == types.StatusTrue {
-			release = condition.Release
-			break
-		}
-	}
-	if release == nil {
-		return nil
-	}
-
-	name := release.GetName()
-	version := release.GetVersion()
-	_, err := m.storageBackend.Get(name, version)
-	if err == nil {
-		return nil
-	}
-
-	if !notFoundErr(err) {
-		return err
-	}
-	return m.storageBackend.Create(release)
 }
 
 func notFoundErr(err error) bool {
@@ -255,15 +226,24 @@ func installRelease(ctx context.Context, tiller *tiller.ReleaseServer, namespace
 		// Workaround for helm/helm#3338
 		if releaseResponse.GetRelease() != nil {
 			uninstallReq := &services.UninstallReleaseRequest{
-				Name:  releaseResponse.GetRelease().GetName(),
+				Name:  name,
 				Purge: true,
 			}
 			_, uninstallErr := tiller.UninstallRelease(ctx, uninstallReq)
-			if uninstallErr != nil {
-				return nil, fmt.Errorf("failed to roll back failed installation: %s: %s", uninstallErr, err)
+
+			// In certain cases, InstallRelease will return a partial release in
+			// the response even when it doesn't record the release in its release
+			// store (e.g. when there is an error rendering the release manifest).
+			// In that case the rollback will fail with a not found error because
+			// there was nothing to rollback.
+			//
+			// Only log a message about a rollback failure if the failure was caused
+			// by something other than the release not being found.
+			if uninstallErr != nil && !notFoundErr(uninstallErr) {
+				return nil, fmt.Errorf("failed installation (%s) and failed rollback (%s)", err, uninstallErr)
 			}
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to install release: %s", err)
 	}
 	return releaseResponse.GetRelease(), nil
 }
@@ -289,12 +269,18 @@ func updateRelease(ctx context.Context, tiller *tiller.ReleaseServer, name strin
 				Name:  name,
 				Force: true,
 			}
+
+			// As of Helm 2.13, if UpdateRelease returns a non-nil release, that
+			// means the release was also recorded in the release store.
+			// Therefore, we should perform the rollback when we have a non-nil
+			// release. Any rollback error here would be unexpected, so always
+			// log both the update and rollback errors.
 			_, rollbackErr := tiller.RollbackRelease(ctx, rollbackReq)
 			if rollbackErr != nil {
-				return nil, fmt.Errorf("failed to roll back failed update: %s: %s", rollbackErr, err)
+				return nil, fmt.Errorf("failed update (%s) and failed rollback (%s)", err, rollbackErr)
 			}
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to update release: %s", err)
 	}
 	return releaseResponse.GetRelease(), nil
 }

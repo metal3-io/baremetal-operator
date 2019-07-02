@@ -10,7 +10,7 @@ digraph BaremetalHost {
     Deleted1 [shape=point]
 
     Registering -> Inspecting [label="NeedsHardwareInspection()"]
-    Registering -> ExternallyProvisioned [label="image.URL = '' && machineRef != nil"]
+    Registering -> ExternallyProvisioned [label="image.URL = '' && consumerRef != nil"]
     Registering -> RegistrationError [shape=doublecircle label="registration error"]
     Registering -> Deleted2 [label="!DeletionTimestamp.IsZero()"]
 

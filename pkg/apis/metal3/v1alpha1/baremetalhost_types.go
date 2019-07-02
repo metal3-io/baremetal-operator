@@ -151,6 +151,10 @@ type BareMetalHostSpec struct {
 	// the power status and hardware inventory inspection. If the
 	// Image field is filled in, this field is ignored.
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
+
+	// RequestRebootAt requests a reboot after the given timestamp
+	// +optional
+	RequestRebootAt *metav1.Time `json:"requestRebootAt,omitempty"`
 }
 
 // Image holds the details of an image either to provisioned or that
@@ -348,6 +352,10 @@ type BareMetalHostStatus struct {
 
 	// indicator for whether or not the host is powered on
 	PoweredOn bool `json:"poweredOn"`
+
+	// PendingRebootSince is the time after which the server must be rebooted
+	// +optional
+	PendingRebootSince *metav1.Time `json:"pendingRebootSince,omitempty"`
 }
 
 // ProvisionStatus holds the state information for a single target.
@@ -361,6 +369,11 @@ type ProvisionStatus struct {
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
+
+	// LastBooted is the time that the server was last booted with the
+	// specified image
+	// +optional
+	LastBooted *metav1.Time `json:"lastBooted,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -421,6 +434,16 @@ func (host *BareMetalHost) ClearError() (dirty bool) {
 		dirty = true
 	}
 	return dirty
+}
+
+// RecordBoot records the current time as the LastBooted time.
+func (host *BareMetalHost) RecordBoot() {
+	now := metav1.Now()
+	host.Status.Provisioning.LastBooted = &now
+	if !host.Status.PendingRebootSince.IsZero() &&
+		host.Status.PendingRebootSince.Before(&now) {
+		host.Status.PendingRebootSince = nil
+	}
 }
 
 // setLabel updates the given label when necessary and returns true

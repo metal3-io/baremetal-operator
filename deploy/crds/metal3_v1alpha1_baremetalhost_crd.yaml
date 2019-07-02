@@ -117,6 +117,10 @@ spec:
             online:
               description: Should the server be online?
               type: boolean
+            requestRebootAt:
+              description: RequestRebootAt requests a reboot after the given timestamp
+              format: date-time
+              type: string
             taints:
               description: Taints is the full, authoritative list of taints to apply
                 to the corresponding Machine. This list will overwrite any modifications
@@ -324,6 +328,11 @@ spec:
             operationalStatus:
               description: OperationalStatus holds the status of the host
               type: string
+            pendingRebootSince:
+              description: PendingRebootSince is the time after which the server must
+                be rebooted
+              format: date-time
+              type: string
             poweredOn:
               description: indicator for whether or not the host is powered on
               type: boolean
@@ -348,6 +357,11 @@ spec:
                   - url
                   - checksum
                   type: object
+                lastBooted:
+                  description: LastBooted is the time that the server was last booted
+                    with the specified image
+                  format: date-time
+                  type: string
                 state:
                   description: An indiciator for what the provisioner is doing with
                     the host.

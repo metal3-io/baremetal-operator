@@ -128,6 +128,10 @@ func (in *BareMetalHostSpec) DeepCopyInto(out *BareMetalHostSpec) {
 		*out = new(v1.SecretReference)
 		**out = **in
 	}
+	if in.RequestRebootAt != nil {
+		in, out := &in.RequestRebootAt, &out.RequestRebootAt
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 
@@ -153,8 +157,12 @@ func (in *BareMetalHostStatus) DeepCopyInto(out *BareMetalHostStatus) {
 		*out = new(HardwareDetails)
 		(*in).DeepCopyInto(*out)
 	}
-	out.Provisioning = in.Provisioning
+	in.Provisioning.DeepCopyInto(&out.Provisioning)
 	in.GoodCredentials.DeepCopyInto(&out.GoodCredentials)
+	if in.PendingRebootSince != nil {
+		in, out := &in.PendingRebootSince, &out.PendingRebootSince
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 
@@ -315,6 +323,10 @@ func (in *NIC) DeepCopy() *NIC {
 func (in *ProvisionStatus) DeepCopyInto(out *ProvisionStatus) {
 	*out = *in
 	out.Image = in.Image
+	if in.LastBooted != nil {
+		in, out := &in.LastBooted, &out.LastBooted
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 

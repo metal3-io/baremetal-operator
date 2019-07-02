@@ -6,7 +6,7 @@ import "fmt"
 var (
 	// Raw is the string representation of the version. This will be replaced
 	// with the calculated version at build time.
-	// set in hack/build.sh
+	// set in the Makefile.
 	Raw = "was not built with version info"
 
 	// String is the human-friendly representation of the version.

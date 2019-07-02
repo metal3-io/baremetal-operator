@@ -25,8 +25,9 @@ data, at least username and password, for the BMC.
 (true) or off (false). Changing this value will trigger a change in
 power state on the physical host.
 
-*machineRef* -- A reference to a Machine to which this host will be
-attached when it is provisioned.
+*consumerRef* -- A reference to another object that is using the
+host. For example, a Machine when the host is being used by the
+machine-api.
 
 *image.url* -- The URL of an image to deploy to the host.
 
@@ -70,7 +71,8 @@ spec:
 
 ### Status Fields
 
-*machineRef* -- The Machine tying this host to a Node.
+*consumerRef* -- The thing using the host. Usually a Machine, linking
+the host to a Node.
 
 *lastUpdated* -- The timestamp of the last time the status for the
 host was updated.

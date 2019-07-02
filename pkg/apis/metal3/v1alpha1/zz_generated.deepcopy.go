@@ -97,11 +97,6 @@ func (in *BareMetalHostSpec) DeepCopyInto(out *BareMetalHostSpec) {
 		}
 	}
 	out.BMC = in.BMC
-	if in.MachineRef != nil {
-		in, out := &in.MachineRef, &out.MachineRef
-		*out = new(v1.ObjectReference)
-		**out = **in
-	}
 	if in.ConsumerRef != nil {
 		in, out := &in.ConsumerRef, &out.ConsumerRef
 		*out = new(v1.ObjectReference)

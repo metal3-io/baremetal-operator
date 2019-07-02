@@ -28,7 +28,11 @@ help:
 	@echo "  DEBUG          -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: unit lint dep-check
+test: generate unit lint dep-check
+
+.PHONY: generate
+generate:
+	operator-sdk generate k8s
 
 .PHONY: travis
 travis: test-verbose lint

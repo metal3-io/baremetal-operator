@@ -80,26 +80,25 @@ spec:
   image:
     url: "{{ .ImageSourceURL }}"
     checksum: "{{ .Checksum }}"
-{{- end }}{{ if .WithMachine }}
-  machineRef:
-    name: {{ .Machine }}
-    namespace: {{ .MachineNamespace }}
+{{- end }}{{ if .Consumer }}
+  consumerRef:
+    name: {{ .Consumer }}
+    namespace: {{ .ConsumerNamespace }}
 {{ end }}
 `
 
 // TemplateArgs holds the arguments to pass to the template.
 type TemplateArgs struct {
-	Domain           string
-	B64UserName      string
-	B64Password      string
-	MAC              string
-	BMCPort          int
-	Checksum         string
-	ImageSourceURL   string
-	WithMachine      bool
-	Machine          string
-	MachineNamespace string
-	WithImage        bool
+	Domain            string
+	B64UserName       string
+	B64Password       string
+	MAC               string
+	BMCPort           int
+	Checksum          string
+	ImageSourceURL    string
+	Consumer          string
+	ConsumerNamespace string
+	WithImage         bool
 }
 
 /*
@@ -122,10 +121,10 @@ type VBMC struct {
 func main() {
 	var provisionNet = flag.String(
 		"provision-net", "provisioning", "use the MAC on this network")
-	var machine = flag.String(
-		"machine", "", "specify name of a related, existing, machine to link")
-	var machineNamespace = flag.String(
-		"machine-namespace", "", "specify namespace of a related, existing, machine to link")
+	var consumer = flag.String(
+		"consumer", "", "specify name of a related, existing, consumer to link")
+	var consumerNamespace = flag.String(
+		"consumer-namespace", "", "specify namespace of a related, existing, consumer to link")
 	var verbose = flag.Bool("v", false, "turn on verbose output")
 	var withImage = flag.Bool("image", false, "include image settings for immediate provisioning")
 	var desiredMAC string
@@ -202,19 +201,16 @@ func main() {
 	}
 
 	args := TemplateArgs{
-		Domain:           strings.Replace(virshDomain, "_", "-", -1),
-		B64UserName:      b64UserName,
-		B64Password:      b64Password,
-		MAC:              desiredMAC,
-		BMCPort:          nameToPort[virshDomain],
-		WithImage:        *withImage,
-		Checksum:         instanceImageChecksumURL,
-		ImageSourceURL:   strings.TrimSpace(instanceImageSource),
-		Machine:          strings.TrimSpace(*machine),
-		MachineNamespace: strings.TrimSpace(*machineNamespace),
-	}
-	if args.Machine != "" {
-		args.WithMachine = true
+		Domain:            strings.Replace(virshDomain, "_", "-", -1),
+		B64UserName:       b64UserName,
+		B64Password:       b64Password,
+		MAC:               desiredMAC,
+		BMCPort:           nameToPort[virshDomain],
+		WithImage:         *withImage,
+		Checksum:          instanceImageChecksumURL,
+		ImageSourceURL:    strings.TrimSpace(instanceImageSource),
+		Consumer:          strings.TrimSpace(*consumer),
+		ConsumerNamespace: strings.TrimSpace(*consumerNamespace),
 	}
 	t := template.Must(template.New("yaml_out").Parse(templateBody))
 	err = t.Execute(os.Stdout, args)
@@ -222,4 +218,3 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 	}
 }
-

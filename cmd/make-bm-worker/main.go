@@ -16,10 +16,10 @@ func main() {
 	var hardwareProfile = flag.String("hardwareprofile", "", "hardwareProfile to be used")
 	var macAddress = flag.String("boot-mac", "", "boot-mac for bootMACAddress")
 	var verbose = flag.Bool("v", false, "turn on verbose output")
-	var machine = flag.String(
-		"machine", "", "specify name of a related, existing, machine to link")
-	var machineNamespace = flag.String(
-		"machine-namespace", "", "specify namespace of a related, existing, machine to link")
+	var consumer = flag.String(
+		"consumer", "", "specify name of a related, existing, consumer to link")
+	var consumerNamespace = flag.String(
+		"consumer-namespace", "", "specify namespace of a related, existing, consumer to link")
 
 	flag.Parse()
 
@@ -42,14 +42,14 @@ func main() {
 	}
 
 	template := templates.Template{
-		Name:             strings.Replace(hostName, "_", "-", -1),
-		BMCAddress:       *bmcAddress,
-		Username:         *username,
-		Password:         *password,
-		HardwareProfile:  *hardwareProfile,
+		Name:              strings.Replace(hostName, "_", "-", -1),
+		BMCAddress:        *bmcAddress,
+		Username:          *username,
+		Password:          *password,
+		HardwareProfile:   *hardwareProfile,
 		BootMacAddress:    *macAddress,
-		Machine:          strings.TrimSpace(*machine),
-		MachineNamespace: strings.TrimSpace(*machineNamespace),
+		Consumer:          strings.TrimSpace(*consumer),
+		ConsumerNamespace: strings.TrimSpace(*consumerNamespace),
 	}
 	if *verbose {
 		fmt.Fprintf(os.Stderr, "%v", template)
@@ -63,4 +63,3 @@ func main() {
 		fmt.Fprintf(os.Stdout, result)
 	}
 }
-

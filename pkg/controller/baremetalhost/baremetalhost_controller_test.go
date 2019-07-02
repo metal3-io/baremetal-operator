@@ -601,7 +601,7 @@ func TestProvision(t *testing.T) {
 func TestExternallyProvisioned(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Spec.Online = true
-	host.Spec.MachineRef = &corev1.ObjectReference{} // it doesn't have to point to a real machine
+	host.Spec.ConsumerRef = &corev1.ObjectReference{} // it doesn't have to point to a real object
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,

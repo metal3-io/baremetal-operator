@@ -129,12 +129,12 @@ The output can be passed directly to `oc apply` like this:
 $ go run cmd/make-virt-host/main.go openshift_worker_1 | oc apply -f -
 ```
 
-When the host is a *master*, include the `-machine` and
-`-machine-namespace` options to associate the host with the existing
+When the host is a *master*, include the `-consumer` and
+`-consumer-namespace` options to associate the host with the existing
 `Machine` object.
 
 ```
-$ go run cmd/make-virt-host/main.go -machine ostest-master-1 -machine-namespace openshift-machine-api  openshift_master_1
+$ go run cmd/make-virt-host/main.go -consumer ostest-master-1 -consumer-namespace openshift-machine-api  openshift_master_1
 ---
 apiVersion: v1
 kind: Secret
@@ -156,7 +156,7 @@ spec:
     address: libvirt://192.168.122.1:6231/
     credentialsName: openshift-master-1-bmc-secret
   bootMACAddress: 00:c9:a0:f2:e0:59
-  machineRef:
+  consumerRef:
     name: ostest-master-1
     namespace: openshift-machine-api
 ```

@@ -25,9 +25,9 @@ spec:
     description: Provisioning status
     name: Provisioning Status
     type: string
-  - JSONPath: .spec.machineRef.name
-    description: Machine using this host
-    name: Machine
+  - JSONPath: .spec.consumerRef.name
+    description: Consumer using this host
+    name: Consumer
     type: string
   - JSONPath: .spec.bmc.address
     description: Address of management controler

@@ -44,7 +44,7 @@ spec:
   bmc:
     address: ipmi://192.168.122.1:6233
     credentialsName: demo-externally-provisioned-secret
-  machineRef:
+  consumerRef:
     name: demo-ostest-worker
     namespace: openshift-machine-api
 

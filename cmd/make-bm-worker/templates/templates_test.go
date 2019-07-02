@@ -96,14 +96,14 @@ spec:
 	}
 }
 
-func TestWithMachine(t *testing.T) {
+func TestWithConsumer(t *testing.T) {
 	template := Template{
-		Name:             "hostname",
-		BMCAddress:       "bmcAddress",
-		Username:         "username",
-		Password:         "password",
-		Machine:          "machine",
-		MachineNamespace: "machineNamespace",
+		Name:              "hostname",
+		BMCAddress:        "bmcAddress",
+		Username:          "username",
+		Password:          "password",
+		Consumer:          "consumer",
+		ConsumerNamespace: "consumerNamespace",
 	}
 	actual, _ := template.Render()
 	expected := `---
@@ -126,9 +126,9 @@ spec:
   bmc:
     address: bmcAddress
     credentialsName: hostname-bmc-secret
-  machineRef:
-    name: machine
-    namespace: machineNamespace
+  consumerRef:
+    name: consumer
+    namespace: consumerNamespace
 `
 	if !compareStrings(t, expected, actual) {
 		t.Fail()

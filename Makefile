@@ -85,6 +85,11 @@ demo:
 docker:
 	docker build . -f build/Dockerfile
 
+.PHONY: build
+build:
+	@echo LDFLAGS=$(LDFLAGS)
+	go build -o build/_output/bin/baremetal-operator cmd/manager/main.go
+
 .PHONY: deploy
 deploy:
 	echo "{ \"kind\": \"Namespace\", \"apiVersion\": \"v1\", \"metadata\": { \"name\": \"$(RUN_NAMESPACE)\", \"labels\": { \"name\": \"$(RUN_NAMESPACE)\" } } }" | kubectl apply -f -

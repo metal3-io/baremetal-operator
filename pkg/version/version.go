@@ -12,7 +12,7 @@ var (
 	// String is the human-friendly representation of the version.
 	String = fmt.Sprintf("metal3-io/baremetal-operator %s", Raw)
 
-	// Commit is the commit hash from which the installer was built.
+	// Commit is the commit hash from which the software was built.
 	// Set via LDFLAGS in Makefile.
 	Commit = ""
 )

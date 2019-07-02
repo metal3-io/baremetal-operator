@@ -130,9 +130,6 @@ type BareMetalHostSpec struct {
 	// Should the server be online?
 	Online bool `json:"online"`
 
-	// MachineRef is a reference to the machine.openshift.io/Machine
-	MachineRef *corev1.ObjectReference `json:"machineRef,omitempty"`
-
 	// ConsumerRef can be used to store information about something
 	// that is using a host. When it is not empty, the host is
 	// considered "in use".
@@ -348,7 +345,7 @@ type BareMetalHost struct {
 
 // Available returns true if the host is available to be provisioned.
 func (host *BareMetalHost) Available() bool {
-	if host.Spec.MachineRef != nil || host.Spec.ConsumerRef != nil {
+	if host.Spec.ConsumerRef != nil {
 		return false
 	}
 	if host.GetDeletionTimestamp() != nil {
@@ -479,7 +476,7 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 // NeedsHardwareInspection looks at the state of the host to determine
 // if hardware inspection should be run.
 func (host *BareMetalHost) NeedsHardwareInspection() bool {
-	if host.Spec.MachineRef != nil || host.Spec.ConsumerRef != nil {
+	if host.Spec.ConsumerRef != nil {
 		// Never perform inspection if we already know something is
 		// using the host.
 		return false
@@ -523,7 +520,7 @@ func (host *BareMetalHost) WasProvisioned() bool {
 // WasExternallyProvisioned returns true when we think something else
 // is managing the image running on the host.
 func (host *BareMetalHost) WasExternallyProvisioned() bool {
-	if host.Spec.Image == nil && (host.Spec.MachineRef != nil || host.Spec.ConsumerRef != nil) {
+	if host.Spec.Image == nil && host.Spec.ConsumerRef != nil {
 		return true
 	}
 	return false
@@ -581,7 +578,7 @@ func (host *BareMetalHost) NewEvent(reason, message string) corev1.Event {
 		Count:               1,
 		Type:                corev1.EventTypeNormal,
 		ReportingController: "metal3.io/baremetal-controller",
-		Related:             host.Spec.MachineRef,
+		Related:             host.Spec.ConsumerRef,
 	}
 }
 

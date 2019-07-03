@@ -28,19 +28,6 @@ const (
 	goModProxyDir = ".gomodproxy"
 )
 
-type envVarsFlag struct {
-	vals []string
-}
-
-func (e *envVarsFlag) String() string {
-	return fmt.Sprintf("%v", e.vals)
-}
-
-func (e *envVarsFlag) Set(v string) error {
-	e.vals = append(e.vals, v)
-	return nil
-}
-
 func main() {
 	os.Exit(main1())
 }
@@ -62,10 +49,8 @@ func mainerr() (retErr error) {
 	fs.Usage = func() {
 		mainUsage(os.Stderr)
 	}
-	var envVars envVarsFlag
 	fWork := fs.Bool("work", false, "print temporary work directory and do not remove when done")
 	fVerbose := fs.Bool("v", false, "run tests verbosely")
-	fs.Var(&envVars, "e", "pass through environment variable to script (can appear multiple times)")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return err
 	}
@@ -92,7 +77,7 @@ func mainerr() (retErr error) {
 		if err := os.Mkdir(runDir, 0777); err != nil {
 			return fmt.Errorf("failed to create a run directory within %v for %v: %v", td, fileName, err)
 		}
-		if err := run(runDir, fileName, *fVerbose, envVars.vals); err != nil {
+		if err := run(runDir, fileName, *fVerbose); err != nil {
 			return err
 		}
 	}
@@ -142,7 +127,7 @@ func (r runner) Verbose() bool {
 	return r.verbose
 }
 
-func run(runDir, fileName string, verbose bool, envVars []string) error {
+func run(runDir, fileName string, verbose bool) error {
 	var ar *txtar.Archive
 	var err error
 
@@ -193,24 +178,6 @@ func run(runDir, fileName string, verbose bool, envVars []string) error {
 		Dir: runDir,
 	}
 
-	if _, err := exec.LookPath("go"); err == nil {
-		if err := gotooltest.Setup(&p); err != nil {
-			return fmt.Errorf("failed to setup go tool for %v run: %v", fileName, err)
-		}
-	}
-
-	addSetup := func(f func(env *testscript.Env) error) {
-		origSetup := p.Setup
-		p.Setup = func(env *testscript.Env) error {
-			if origSetup != nil {
-				if err := origSetup(env); err != nil {
-					return err
-				}
-			}
-			return f(env)
-		}
-	}
-
 	if len(gomodProxy.Files) > 0 {
 		srv, err := goproxytest.NewServer(mods, "")
 		if err != nil {
@@ -218,25 +185,21 @@ func run(runDir, fileName string, verbose bool, envVars []string) error {
 		}
 		defer srv.Close()
 
-		addSetup(func(env *testscript.Env) error {
-			// Add GOPROXY after calling the original setup
-			// so that it overrides any GOPROXY set there.
-			env.Vars = append(env.Vars, "GOPROXY="+srv.URL)
-			return nil
-		})
-	}
+		currSetup := p.Setup
 
-	if len(envVars) > 0 {
-		addSetup(func(env *testscript.Env) error {
-			for _, v := range envVars {
-				if v == "WORK" {
-					// cannot override WORK
-					continue
-				}
-				env.Vars = append(env.Vars, v+"="+os.Getenv(v))
+		p.Setup = func(env *testscript.Env) error {
+			env.Vars = append(env.Vars, "GOPROXY="+srv.URL)
+			if currSetup != nil {
+				return currSetup(env)
 			}
 			return nil
-		})
+		}
+	}
+
+	if _, err := exec.LookPath("go"); err == nil {
+		if err := gotooltest.Setup(&p); err != nil {
+			return fmt.Errorf("failed to setup go tool for %v run: %v", fileName, err)
+		}
 	}
 
 	r := runner{

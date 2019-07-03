@@ -19,15 +19,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/prometheus/procfs/internal/util"
 )
-
-const netclassPath = "class/net"
 
 // NetClassIface contains info from files in /sys/class/net/<iface>
 // for single interface (iface).
@@ -65,42 +62,36 @@ type NetClassIface struct {
 // are interface (iface) names.
 type NetClass map[string]NetClassIface
 
-// NetClassDevices scans /sys/class/net for devices and returns them as a list of names.
-func (fs FS) NetClassDevices() ([]string, error) {
-	var res []string
-	path := fs.sys.Path(netclassPath)
-
-	devices, err := ioutil.ReadDir(path)
-	if err != nil {
-		return res, fmt.Errorf("cannot access %s dir %s", path, err)
-	}
-
-	for _, deviceDir := range devices {
-		if deviceDir.Mode().IsRegular() {
-			continue
-		}
-		res = append(res, deviceDir.Name())
-	}
-
-	return res, nil
-}
-
-// NetClass returns info for all net interfaces (iface) read from /sys/class/net/<iface>.
-func (fs FS) NetClass() (NetClass, error) {
-	devices, err := fs.NetClassDevices()
+// NewNetClass returns info for all net interfaces (iface) read from /sys/class/net/<iface>.
+func NewNetClass() (NetClass, error) {
+	fs, err := NewFS(DefaultMountPoint)
 	if err != nil {
 		return nil, err
 	}
 
-	path := fs.sys.Path(netclassPath)
+	return fs.NewNetClass()
+}
+
+// NewNetClass returns info for all net interfaces (iface) read from /sys/class/net/<iface>.
+func (fs FS) NewNetClass() (NetClass, error) {
+	path := fs.Path("class/net")
+
+	devices, err := ioutil.ReadDir(path)
+	if err != nil {
+		return NetClass{}, fmt.Errorf("cannot access %s dir %s", path, err)
+	}
+
 	netClass := NetClass{}
 	for _, deviceDir := range devices {
-		interfaceClass, err := netClass.parseNetClassIface(filepath.Join(path, deviceDir))
+		if deviceDir.Mode().IsRegular() {
+			continue
+		}
+		interfaceClass, err := netClass.parseNetClassIface(path + "/" + deviceDir.Name())
 		if err != nil {
 			return nil, err
 		}
-		interfaceClass.Name = deviceDir
-		netClass[deviceDir] = *interfaceClass
+		interfaceClass.Name = deviceDir.Name()
+		netClass[deviceDir.Name()] = *interfaceClass
 	}
 	return netClass, nil
 }

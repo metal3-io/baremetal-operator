@@ -17,22 +17,18 @@ limitations under the License.
 package envtest
 
 import (
-	"bufio"
-	"bytes"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/ghodss/yaml"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/yaml"
 )
 
 // CRDInstallOptions are the options for installing CRDs
@@ -110,24 +106,13 @@ func WaitForCRDs(config *rest.Config, crds []*apiextensionsv1beta1.CustomResourc
 	// Add each CRD to a map of GroupVersion to Resource
 	waitingFor := map[schema.GroupVersion]*sets.String{}
 	for _, crd := range crds {
-		gvs := []schema.GroupVersion{}
-		if crd.Spec.Version != "" {
-			gvs = append(gvs, schema.GroupVersion{Group: crd.Spec.Group, Version: crd.Spec.Version})
+		gv := schema.GroupVersion{Group: crd.Spec.Group, Version: crd.Spec.Version}
+		if _, found := waitingFor[gv]; !found {
+			// Initialize the set
+			waitingFor[gv] = &sets.String{}
 		}
-		for _, ver := range crd.Spec.Versions {
-			if ver.Served {
-				gvs = append(gvs, schema.GroupVersion{Group: crd.Spec.Group, Version: ver.Name})
-			}
-		}
-		for _, gv := range gvs {
-			log.V(1).Info("adding API in waitlist", "GV", gv)
-			if _, found := waitingFor[gv]; !found {
-				// Initialize the set
-				waitingFor[gv] = &sets.String{}
-			}
-			// Add the Resource
-			waitingFor[gv].Insert(crd.Spec.Names.Plural)
-		}
+		// Add the Resource
+		waitingFor[gv].Insert(crd.Spec.Names.Plural)
 	}
 
 	// Poll until all resources are found in discovery
@@ -189,7 +174,6 @@ func CreateCRDs(config *rest.Config, crds []*apiextensionsv1beta1.CustomResource
 
 	// Create each CRD
 	for _, crd := range crds {
-		log.V(1).Info("installing CRD", "crd", crd)
 		if _, err := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd); err != nil {
 			return err
 		}
@@ -202,7 +186,6 @@ func readCRDs(path string) ([]*apiextensionsv1beta1.CustomResourceDefinition, er
 	// Get the CRD files
 	var files []os.FileInfo
 	var err error
-	log.V(1).Info("reading CRDs from path", "path", path)
 	if files, err = ioutil.ReadDir(path); err != nil {
 		return nil, err
 	}
@@ -217,52 +200,22 @@ func readCRDs(path string) ([]*apiextensionsv1beta1.CustomResourceDefinition, er
 			continue
 		}
 
-		// Unmarshal CRDs from file into structs
-		docs, err := readDocuments(filepath.Join(path, file.Name()))
+		// Unmarshal the file into a struct
+		b, err := ioutil.ReadFile(filepath.Join(path, file.Name()))
 		if err != nil {
 			return nil, err
 		}
-
-		for _, doc := range docs {
-			crd := &apiextensionsv1beta1.CustomResourceDefinition{}
-			if err = yaml.Unmarshal(doc, crd); err != nil {
-				return nil, err
-			}
-
-			// Check that it is actually a CRD
-			if crd.Spec.Names.Kind == "" || crd.Spec.Group == "" {
-				continue
-			}
-			crds = append(crds, crd)
+		crd := &apiextensionsv1beta1.CustomResourceDefinition{}
+		if err = yaml.Unmarshal(b, crd); err != nil {
+			return nil, err
 		}
 
-		log.V(1).Info("read CRDs from file", "file", file.Name())
+		// Check that it is actually a CRD
+		if crd.Spec.Names.Kind == "" || crd.Spec.Group == "" {
+			continue
+		}
+
+		crds = append(crds, crd)
 	}
 	return crds, nil
-}
-
-// readDocuments reads documents from file
-func readDocuments(fp string) ([][]byte, error) {
-	b, err := ioutil.ReadFile(fp)
-	if err != nil {
-		return nil, err
-	}
-
-	docs := [][]byte{}
-	reader := k8syaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(b)))
-	for {
-		// Read document
-		doc, err := reader.Read()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			return nil, err
-		}
-
-		docs = append(docs, doc)
-	}
-
-	return docs, nil
 }

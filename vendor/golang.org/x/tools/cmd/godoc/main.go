@@ -15,6 +15,8 @@
 //				http://godoc/pkg/compress/zlib)
 //
 
+// +build !golangorg
+
 package main
 
 import (
@@ -92,7 +94,7 @@ type httpResponseRecorder struct {
 }
 
 func (w *httpResponseRecorder) Header() http.Header         { return w.header }
-func (w *httpResponseRecorder) Write(b []byte) (int, error) { return w.body.Write(b) }
+func (w *httpResponseRecorder) Write(b []byte) (int, error) { return len(b), nil }
 func (w *httpResponseRecorder) WriteHeader(code int)        { w.code = code }
 
 func usage() {
@@ -166,8 +168,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, `Unexpected arguments. Use "go doc" for command-line help output instead. For example, "go doc fmt.Printf".`)
 		usage()
 	}
-	if *httpAddr == "" && *urlFlag == "" && !*writeIndex {
-		fmt.Fprintln(os.Stderr, "At least one of -http, -url, or -write_index must be set to a non-zero value.")
+	if *httpAddr != "" && *urlFlag != "" && !*writeIndex {
+		fmt.Fprintln(os.Stderr, "Missing args.")
 		usage()
 	}
 
@@ -226,7 +228,7 @@ func main() {
 	corpus.IndexDirectory = indexDirectoryDefault
 	corpus.IndexThrottle = *indexThrottle
 	corpus.IndexInterval = *indexInterval
-	if *writeIndex || *urlFlag != "" {
+	if *writeIndex {
 		corpus.IndexThrottle = 1.0
 		corpus.IndexEnabled = true
 		initCorpus(corpus)

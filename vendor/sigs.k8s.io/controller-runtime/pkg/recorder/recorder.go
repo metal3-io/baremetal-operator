@@ -14,10 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package recorder defines interfaces for working with Kubernetes event recorders.
-//
-// You can use these to emit Kubernetes events associated with a particular Kubernetes
-// object.
 package recorder
 
 import (

@@ -18,7 +18,6 @@ package credentials
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	gax "github.com/googleapis/gax-go/v2"
@@ -135,8 +134,7 @@ func (c *IamCredentialsClient) setGoogleClientInfo(keyval ...string) {
 
 // GenerateAccessToken generates an OAuth 2.0 access token for a service account.
 func (c *IamCredentialsClient) GenerateAccessToken(ctx context.Context, req *credentialspb.GenerateAccessTokenRequest, opts ...gax.CallOption) (*credentialspb.GenerateAccessTokenResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
-	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
+	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.GenerateAccessToken[0:len(c.CallOptions.GenerateAccessToken):len(c.CallOptions.GenerateAccessToken)], opts...)
 	var resp *credentialspb.GenerateAccessTokenResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -152,8 +150,7 @@ func (c *IamCredentialsClient) GenerateAccessToken(ctx context.Context, req *cre
 
 // GenerateIdToken generates an OpenID Connect ID token for a service account.
 func (c *IamCredentialsClient) GenerateIdToken(ctx context.Context, req *credentialspb.GenerateIdTokenRequest, opts ...gax.CallOption) (*credentialspb.GenerateIdTokenResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
-	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
+	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.GenerateIdToken[0:len(c.CallOptions.GenerateIdToken):len(c.CallOptions.GenerateIdToken)], opts...)
 	var resp *credentialspb.GenerateIdTokenResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -169,8 +166,7 @@ func (c *IamCredentialsClient) GenerateIdToken(ctx context.Context, req *credent
 
 // SignBlob signs a blob using a service account's system-managed private key.
 func (c *IamCredentialsClient) SignBlob(ctx context.Context, req *credentialspb.SignBlobRequest, opts ...gax.CallOption) (*credentialspb.SignBlobResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
-	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
+	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.SignBlob[0:len(c.CallOptions.SignBlob):len(c.CallOptions.SignBlob)], opts...)
 	var resp *credentialspb.SignBlobResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -186,8 +182,7 @@ func (c *IamCredentialsClient) SignBlob(ctx context.Context, req *credentialspb.
 
 // SignJwt signs a JWT using a service account's system-managed private key.
 func (c *IamCredentialsClient) SignJwt(ctx context.Context, req *credentialspb.SignJwtRequest, opts ...gax.CallOption) (*credentialspb.SignJwtResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
-	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
+	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.SignJwt[0:len(c.CallOptions.SignJwt):len(c.CallOptions.SignJwt)], opts...)
 	var resp *credentialspb.SignJwtResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -204,8 +199,7 @@ func (c *IamCredentialsClient) SignJwt(ctx context.Context, req *credentialspb.S
 // GenerateIdentityBindingAccessToken exchange a JWT signed by third party identity provider to an OAuth 2.0
 // access token
 func (c *IamCredentialsClient) GenerateIdentityBindingAccessToken(ctx context.Context, req *credentialspb.GenerateIdentityBindingAccessTokenRequest, opts ...gax.CallOption) (*credentialspb.GenerateIdentityBindingAccessTokenResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
-	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
+	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.GenerateIdentityBindingAccessToken[0:len(c.CallOptions.GenerateIdentityBindingAccessToken):len(c.CallOptions.GenerateIdentityBindingAccessToken)], opts...)
 	var resp *credentialspb.GenerateIdentityBindingAccessTokenResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {

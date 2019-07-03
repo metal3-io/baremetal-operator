@@ -189,7 +189,6 @@ func (c *Client) ListQueues(ctx context.Context, req *taskspb.ListQueuesRequest,
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	it.pageInfo.MaxSize = int(req.PageSize)
-	it.pageInfo.Token = req.PageToken
 	return it
 }
 
@@ -219,9 +218,8 @@ func (c *Client) GetQueue(ctx context.Context, req *taskspb.GetQueueRequest, opt
 // WARNING: Using this method may have unintended side effects if you are
 // using an App Engine queue.yaml or queue.xml file to manage your queues.
 // Read
-// Overview of Queue Management and
-// queue.yaml (at https://cloud.google.com/tasks/docs/queue-yaml) before using
-// this method.
+// Overview of Queue Management and queue.yaml (at https://cloud.google.com/tasks/docs/queue-yaml)
+// before using this method.
 func (c *Client) CreateQueue(ctx context.Context, req *taskspb.CreateQueueRequest, opts ...gax.CallOption) (*taskspb.Queue, error) {
 	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
@@ -250,9 +248,8 @@ func (c *Client) CreateQueue(ctx context.Context, req *taskspb.CreateQueueReques
 // WARNING: Using this method may have unintended side effects if you are
 // using an App Engine queue.yaml or queue.xml file to manage your queues.
 // Read
-// Overview of Queue Management and
-// queue.yaml (at https://cloud.google.com/tasks/docs/queue-yaml) before using
-// this method.
+// Overview of Queue Management and queue.yaml (at https://cloud.google.com/tasks/docs/queue-yaml)
+// before using this method.
 func (c *Client) UpdateQueue(ctx context.Context, req *taskspb.UpdateQueueRequest, opts ...gax.CallOption) (*taskspb.Queue, error) {
 	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "queue.name", req.GetQueue().GetName()))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
@@ -279,9 +276,8 @@ func (c *Client) UpdateQueue(ctx context.Context, req *taskspb.UpdateQueueReques
 // WARNING: Using this method may have unintended side effects if you are
 // using an App Engine queue.yaml or queue.xml file to manage your queues.
 // Read
-// Overview of Queue Management and
-// queue.yaml (at https://cloud.google.com/tasks/docs/queue-yaml) before using
-// this method.
+// Overview of Queue Management and queue.yaml (at https://cloud.google.com/tasks/docs/queue-yaml)
+// before using this method.
 func (c *Client) DeleteQueue(ctx context.Context, req *taskspb.DeleteQueueRequest, opts ...gax.CallOption) error {
 	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
@@ -350,8 +346,7 @@ func (c *Client) PauseQueue(ctx context.Context, req *taskspb.PauseQueueRequest,
 // WARNING: Resuming many high-QPS queues at the same time can
 // lead to target overloading. If you are resuming high-QPS
 // queues, follow the 500/50/5 pattern described in
-// Managing Cloud Tasks Scaling
-// Risks (at https://cloud.google.com/tasks/docs/manage-cloud-task-scaling).
+// Managing Cloud Tasks Scaling Risks (at https://cloud.google.com/tasks/docs/manage-cloud-task-scaling).
 func (c *Client) ResumeQueue(ctx context.Context, req *taskspb.ResumeQueueRequest, opts ...gax.CallOption) (*taskspb.Queue, error) {
 	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
@@ -486,7 +481,6 @@ func (c *Client) ListTasks(ctx context.Context, req *taskspb.ListTasksRequest, o
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	it.pageInfo.MaxSize = int(req.PageSize)
-	it.pageInfo.Token = req.PageToken
 	return it
 }
 
@@ -511,7 +505,8 @@ func (c *Client) GetTask(ctx context.Context, req *taskspb.GetTaskRequest, opts 
 //
 // Tasks cannot be updated after creation; there is no UpdateTask command.
 //
-//   The maximum task size is 100KB.
+//   For [App Engine queues][google.cloud.tasks.v2beta3.AppEngineHttpQueue], the maximum task size is
+//   100KB.
 func (c *Client) CreateTask(ctx context.Context, req *taskspb.CreateTaskRequest, opts ...gax.CallOption) (*taskspb.Task, error) {
 	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)

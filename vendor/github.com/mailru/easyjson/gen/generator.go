@@ -156,9 +156,8 @@ func (g *Generator) printHeader() {
 	fmt.Println("package ", g.pkgName)
 	fmt.Println()
 
-	byAlias := make(map[string]string, len(g.imports))
-	aliases := make([]string, 0, len(g.imports))
-
+	byAlias := map[string]string{}
+	var aliases []string
 	for path, alias := range g.imports {
 		aliases = append(aliases, alias)
 		byAlias[alias] = path
@@ -389,9 +388,9 @@ func (DefaultFieldNamer) GetJSONFieldName(t reflect.Type, f reflect.StructField)
 	jsonName := strings.Split(f.Tag.Get("json"), ",")[0]
 	if jsonName != "" {
 		return jsonName
+	} else {
+		return f.Name
 	}
-
-	return f.Name
 }
 
 // LowerCamelCaseFieldNamer
@@ -428,10 +427,9 @@ func lowerFirst(s string) string {
 	for i := range s {
 		ch := s[i]
 		if isUpper(ch) {
-			switch {
-			case i == 0:
+			if i == 0 {
 				str += string(ch + 32)
-			case !foundLower: // Currently just a stream of capitals, eg JSONRESTS[erver]
+			} else if !foundLower { // Currently just a stream of capitals, eg JSONRESTS[erver]
 				if strlen > (i+1) && isLower(s[i+1]) {
 					// Next char is lower, keep this a capital
 					str += string(ch)
@@ -439,7 +437,7 @@ func lowerFirst(s string) string {
 					// Either at end of string or next char is capital
 					str += string(ch + 32)
 				}
-			default:
+			} else {
 				str += string(ch)
 			}
 		} else {
@@ -455,9 +453,9 @@ func (LowerCamelCaseFieldNamer) GetJSONFieldName(t reflect.Type, f reflect.Struc
 	jsonName := strings.Split(f.Tag.Get("json"), ",")[0]
 	if jsonName != "" {
 		return jsonName
+	} else {
+		return lowerFirst(f.Name)
 	}
-
-	return lowerFirst(f.Name)
 }
 
 // SnakeCaseFieldNamer implements CamelCase to snake_case conversion for fields names.

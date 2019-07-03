@@ -26,11 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/testing_frameworks/integration"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 )
-
-var log = logf.RuntimeLog.WithName("test-env")
 
 // Default binary path for test framework
 const (
@@ -63,7 +59,7 @@ var DefaultKubeAPIServerFlags = []string{
 	"--cert-dir={{ .CertDir }}",
 	"--insecure-port={{ if .URL }}{{ .URL.Port }}{{ end }}",
 	"--insecure-bind-address={{ if .URL }}{{ .URL.Hostname }}{{ end }}",
-	"--secure-port={{ if .SecurePort }}{{ .SecurePort }}{{ end }}",
+	"--secure-port=0",
 	"--admission-control=AlwaysAdmit",
 }
 
@@ -73,9 +69,7 @@ type Environment struct {
 	// ControlPlane is the ControlPlane including the apiserver and etcd
 	ControlPlane integration.ControlPlane
 
-	// Config can be used to talk to the apiserver.  It's automatically
-	// populated if not set using the standard controller-runtime config
-	// loading.
+	// Config can be used to talk to the apiserver
 	Config *rest.Config
 
 	// CRDs is a list of CRDs to install
@@ -123,11 +117,9 @@ func (te Environment) getAPIServerFlags() []string {
 // Start starts a local Kubernetes server and updates te.ApiserverPort with the port it is listening on
 func (te *Environment) Start() (*rest.Config, error) {
 	if te.UseExistingCluster {
-		log.V(1).Info("using existing cluster")
 		if te.Config == nil {
 			// we want to allow people to pass in their own config, so
 			// only load a config if it hasn't already been set.
-			log.V(1).Info("automatically acquiring client configuration")
 
 			var err error
 			te.Config, err = config.GetConfig()
@@ -161,7 +153,6 @@ func (te *Environment) Start() (*rest.Config, error) {
 		te.ControlPlane.APIServer.StartTimeout = te.ControlPlaneStartTimeout
 		te.ControlPlane.APIServer.StopTimeout = te.ControlPlaneStopTimeout
 
-		log.V(1).Info("starting control plane", "api server flags", te.ControlPlane.APIServer.Args)
 		if err := te.startControlPlane(); err != nil {
 			return nil, err
 		}
@@ -169,13 +160,9 @@ func (te *Environment) Start() (*rest.Config, error) {
 		// Create the *rest.Config for creating new clients
 		te.Config = &rest.Config{
 			Host: te.ControlPlane.APIURL().Host,
-			// gotta go fast during tests -- we don't really care about overwhelming our test API server
-			QPS:   1000.0,
-			Burst: 2000.0,
 		}
 	}
 
-	log.V(1).Info("installing CRDs")
 	_, err := InstallCRDs(te.Config, CRDInstallOptions{
 		Paths: te.CRDDirectoryPaths,
 		CRDs:  te.CRDs,
@@ -185,17 +172,15 @@ func (te *Environment) Start() (*rest.Config, error) {
 
 func (te *Environment) startControlPlane() error {
 	numTries, maxRetries := 0, 5
-	var err error
 	for ; numTries < maxRetries; numTries++ {
 		// Start the control plane - retry if it fails
-		err = te.ControlPlane.Start()
+		err := te.ControlPlane.Start()
 		if err == nil {
 			break
 		}
-		log.Error(err, "unable to start the controlplane", "tries", numTries)
 	}
 	if numTries == maxRetries {
-		return fmt.Errorf("failed to start the controlplane. retried %d times: %v", numTries, err)
+		return fmt.Errorf("failed to start the controlplane. retried %d times", numTries)
 	}
 	return nil
 }

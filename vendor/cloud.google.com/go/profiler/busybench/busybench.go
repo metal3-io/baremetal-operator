@@ -21,7 +21,6 @@ import (
 	"flag"
 	"log"
 	"math/rand"
-	"runtime"
 	"sync"
 	"time"
 
@@ -31,7 +30,7 @@ import (
 var (
 	service        = flag.String("service", "", "service name")
 	mutexProfiling = flag.Bool("mutex_profiling", false, "enable mutex profiling")
-	duration       = flag.Int("duration", 150, "duration of the benchmark in seconds")
+	duration       = flag.Int("duration", 600, "duration of the benchmark in seconds")
 	apiAddr        = flag.String("api_address", "", "API address of the profiler (e.g. 'cloudprofiler.googleapis.com:443')")
 	projectID      = flag.String("project_id", "", "cloud project ID")
 )
@@ -46,20 +45,17 @@ func busywork(mu *sync.Mutex) {
 		case <-ticker.C:
 			return
 		default:
-			busyworkOnce(mu)
+			mu.Lock()
+			busyworkOnce()
+			mu.Unlock()
 		}
 	}
 }
 
-func busyworkOnce(mu *sync.Mutex) {
-	data := make([]byte, 128*1024)
+func busyworkOnce() {
+	data := make([]byte, 1024*1024)
 	rand.Read(data)
 
-	// Grab the mutex after the allocation above is done so that
-	// there are a number of outstanding allocations. This makes
-	// the live heap profiles consistently non-empty.
-	mu.Lock()
-	defer mu.Unlock()
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
 	if _, err := gz.Write(data); err != nil {
@@ -78,7 +74,6 @@ func busyworkOnce(mu *sync.Mutex) {
 
 func main() {
 	flag.Parse()
-	log.Printf("busybench using %s.", runtime.Version())
 	defer log.Printf("busybench finished profiling.")
 
 	if *service == "" {
@@ -93,17 +88,13 @@ func main() {
 		log.Printf("Failed to start the profiler: %v", err)
 		return
 	}
-
-	var mu sync.Mutex
+	mu := new(sync.Mutex)
 	var wg sync.WaitGroup
-	const numBusyworkers = 20
-	wg.Add(numBusyworkers)
-	runtime.GOMAXPROCS(numBusyworkers)
-
-	for i := 0; i < numBusyworkers; i++ {
+	wg.Add(5)
+	for i := 0; i < 5; i++ {
 		go func() {
 			defer wg.Done()
-			busywork(&mu)
+			busywork(mu)
 		}()
 	}
 	wg.Wait()

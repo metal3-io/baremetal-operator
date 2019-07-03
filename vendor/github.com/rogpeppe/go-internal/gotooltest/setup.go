@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/rogpeppe/go-internal/imports"
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
@@ -27,7 +28,6 @@ var (
 	goEnv struct {
 		GOROOT      string
 		GOCACHE     string
-		GOPROXY     string
 		goversion   string
 		releaseTags []string
 		once        sync.Once
@@ -56,13 +56,9 @@ func initGoEnv() error {
 	tagStr = strings.Trim(tagStr, "[]")
 	goEnv.releaseTags = strings.Split(tagStr, " ")
 
-	eout, stderr, err := run("go", "env", "-json",
-		"GOROOT",
-		"GOCACHE",
-		"GOPROXY",
-	)
+	eout, stderr, err := run("go", "env", "-json", "GOROOT", "GOCACHE")
 	if err != nil {
-		return fmt.Errorf("failed to determine environment from go command: %v\n%v", err, stderr)
+		return fmt.Errorf("failed to determine GOROOT and GOCACHE tags from go command: %v\n%v", err, stderr)
 	}
 	if err := json.Unmarshal(eout.Bytes(), &goEnv); err != nil {
 		return fmt.Errorf("failed to unmarshal GOROOT and GOCACHE tags from go command out: %v\n%v", err, eout)
@@ -106,11 +102,13 @@ func Setup(p *testscript.Params) error {
 	p.Cmds["go"] = cmdGo
 	origCondition := p.Condition
 	p.Condition = func(cond string) (bool, error) {
-		if cond == "gc" || cond == "gccgo" {
-			// TODO this reflects the compiler that the current
-			// binary was built with but not necessarily the compiler
-			// that will be used.
-			return cond == runtime.Compiler, nil
+		switch cond {
+		case runtime.GOOS, runtime.GOARCH, runtime.Compiler:
+			return true, nil
+		default:
+			if imports.KnownArch[cond] || imports.KnownOS[cond] || cond == "gc" || cond == "gccgo" {
+				return false, nil
+			}
 		}
 		if goVersionRegex.MatchString(cond) {
 			for _, v := range build.Default.ReleaseTags {
@@ -138,7 +136,6 @@ func goEnviron(env0 []string) []string {
 		"GOOS=" + runtime.GOOS,
 		"GOROOT=" + goEnv.GOROOT,
 		"GOCACHE=" + goEnv.GOCACHE,
-		"GOPROXY=" + goEnv.GOPROXY,
 		"goversion=" + goEnv.goversion,
 	}...)
 }

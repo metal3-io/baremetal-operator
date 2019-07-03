@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/klog"
+	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -66,7 +66,7 @@ func NewNamingConditionController(
 		crdClient: crdClient,
 		crdLister: crdInformer.Lister(),
 		crdSynced: crdInformer.Informer().HasSynced,
-		queue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "crd_naming_condition_controller"),
+		queue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "CustomResourceDefinition-NamingConditionController"),
 	}
 
 	informerIndexer := crdInformer.Informer().GetIndexer()
@@ -281,8 +281,8 @@ func (c *NamingConditionController) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting NamingConditionController")
-	defer klog.Infof("Shutting down NamingConditionController")
+	glog.Infof("Starting NamingConditionController")
+	defer glog.Infof("Shutting down NamingConditionController")
 
 	if !cache.WaitForCacheSync(stopCh, c.crdSynced) {
 		return
@@ -331,13 +331,13 @@ func (c *NamingConditionController) enqueue(obj *apiextensions.CustomResourceDef
 
 func (c *NamingConditionController) addCustomResourceDefinition(obj interface{}) {
 	castObj := obj.(*apiextensions.CustomResourceDefinition)
-	klog.V(4).Infof("Adding %s", castObj.Name)
+	glog.V(4).Infof("Adding %s", castObj.Name)
 	c.enqueue(castObj)
 }
 
 func (c *NamingConditionController) updateCustomResourceDefinition(obj, _ interface{}) {
 	castObj := obj.(*apiextensions.CustomResourceDefinition)
-	klog.V(4).Infof("Updating %s", castObj.Name)
+	glog.V(4).Infof("Updating %s", castObj.Name)
 	c.enqueue(castObj)
 }
 
@@ -346,16 +346,16 @@ func (c *NamingConditionController) deleteCustomResourceDefinition(obj interface
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			klog.Errorf("Couldn't get object from tombstone %#v", obj)
+			glog.Errorf("Couldn't get object from tombstone %#v", obj)
 			return
 		}
 		castObj, ok = tombstone.Obj.(*apiextensions.CustomResourceDefinition)
 		if !ok {
-			klog.Errorf("Tombstone contained object that is not expected %#v", obj)
+			glog.Errorf("Tombstone contained object that is not expected %#v", obj)
 			return
 		}
 	}
-	klog.V(4).Infof("Deleting %q", castObj.Name)
+	glog.V(4).Infof("Deleting %q", castObj.Name)
 	c.enqueue(castObj)
 }
 

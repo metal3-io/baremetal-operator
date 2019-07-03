@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -131,11 +132,6 @@ func (c *Converter) convertRequest(req *http.Request) (*Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	// If the body is empty, set it to nil to make sure the proxy sends a
-	// Content-Length header.
-	if len(body) == 0 {
-		req.Body = nil
-	}
 	mediaType, parts, err := parseRequestBody(req.Header.Get("Content-Type"), body)
 	if err != nil {
 		return nil, err
@@ -156,8 +152,11 @@ func (c *Converter) convertRequest(req *http.Request) (*Request, error) {
 // parts if necessary. It returns the media type and the body parts.
 func parseRequestBody(contentType string, body []byte) (string, [][]byte, error) {
 	if contentType == "" {
-		// No content-type header. Treat the body as a single part.
-		return "", [][]byte{body}, nil
+		// No content-type header. There should not be a body.
+		if len(body) != 0 {
+			return "", nil, errors.New("no Content-Type, but body")
+		}
+		return "", nil, nil
 	}
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err != nil {

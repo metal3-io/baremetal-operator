@@ -15,7 +15,5 @@
 package version
 
 var (
-	Version    = "v0.8.0+git"
-	GitVersion = "unknown"
-	GitCommit  = "unknown"
+	Version = "v0.4.0+git"
 )

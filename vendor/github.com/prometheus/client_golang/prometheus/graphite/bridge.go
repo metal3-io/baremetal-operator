@@ -17,7 +17,6 @@ package graphite
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
+	"golang.org/x/net/context"
 
 	dto "github.com/prometheus/client_model/go"
 

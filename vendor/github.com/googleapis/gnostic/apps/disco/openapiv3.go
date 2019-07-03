@@ -285,10 +285,8 @@ func OpenAPIv3(api *discovery.Document) (*openapi3.Document, error) {
 
 	d.Components = &openapi3.Components{}
 	d.Components.Schemas = &openapi3.SchemasOrReferences{}
-	if api.Schemas != nil {
-		for _, pair := range api.Schemas.AdditionalProperties {
-			addOpenAPI3SchemaForSchema(d, pair.Name, pair.Value)
-		}
+	for _, pair := range api.Schemas.AdditionalProperties {
+		addOpenAPI3SchemaForSchema(d, pair.Name, pair.Value)
 	}
 
 	d.Paths = &openapi3.Paths{}

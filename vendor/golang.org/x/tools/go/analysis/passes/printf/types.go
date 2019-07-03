@@ -38,7 +38,7 @@ func matchArgTypeInternal(pass *analysis.Pass, t printfArgType, typ types.Type, 
 		}
 	}
 	// If the type implements fmt.Formatter, we have nothing to check.
-	if isFormatter(typ) {
+	if isFormatter(pass, typ) {
 		return true
 	}
 	// If we can use a string, might arg (dynamically) implement the Stringer or Error interface?

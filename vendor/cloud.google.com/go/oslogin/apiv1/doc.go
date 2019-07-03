@@ -20,17 +20,6 @@
 //   NOTE: This package is in alpha. It is not stable, and is likely to change.
 //
 // Manages OS login configuration for Google account users.
-//
-// Use of Context
-//
-// The ctx passed to NewClient is used for authentication requests and
-// for creating the underlying connection, but is not used for subsequent calls.
-// Individual methods on the client use the ctx given to them.
-//
-// To close the open connection, use the Close() method.
-//
-// For information about setting deadlines, reusing contexts, and more
-// please visit godoc.org/cloud.google.com/go.
 package oslogin // import "cloud.google.com/go/oslogin/apiv1"
 
 import (
@@ -100,4 +89,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190528"
+const versionClient = "20190121"

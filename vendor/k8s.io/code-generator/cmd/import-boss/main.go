@@ -22,13 +22,9 @@ limitations under the License.
 //
 // If an ".import-restrictions" file is found, then all imports of the package
 // are checked against each "rule" in the file. A rule consists of three parts:
-//
-// - A SelectorRegexp, to select the import paths that the rule applies to.
-//
-// - A list of AllowedPrefixes
-//
-// - A list of ForbiddenPrefixes
-//
+// * A SelectorRegexp, to select the import paths that the rule applies to.
+// * A list of AllowedPrefixes
+// * A list of ForbiddenPrefixes
 // An import is allowed if it matches at least one allowed prefix and does not
 // match any forbidden prefix. An example file looks like this:
 //
@@ -67,11 +63,10 @@ import (
 	"k8s.io/gengo/args"
 	"k8s.io/gengo/examples/import-boss/generators"
 
-	"k8s.io/klog"
+	"github.com/golang/glog"
 )
 
 func main() {
-	klog.InitFlags(nil)
 	arguments := args.Default()
 
 	// Override defaults.
@@ -87,8 +82,8 @@ func main() {
 		generators.DefaultNameSystem(),
 		generators.Packages,
 	); err != nil {
-		klog.Errorf("Error: %v", err)
+		glog.Errorf("Error: %v", err)
 		os.Exit(1)
 	}
-	klog.V(2).Info("Completed successfully.")
+	glog.V(2).Info("Completed successfully.")
 }

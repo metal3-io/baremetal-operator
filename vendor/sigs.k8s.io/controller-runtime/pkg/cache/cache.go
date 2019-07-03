@@ -29,33 +29,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache/internal"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-var log = logf.RuntimeLog.WithName("object-cache")
+var log = logf.KBLog.WithName("object-cache")
 
-// Cache knows how to load Kubernetes objects, fetch informers to request
-// to receive events for Kubernetes objects (at a low-level),
-// and add indicies to fields on the objects stored in the cache.
+// Cache implements CacheReader by reading objects from a cache populated by InformersMap
 type Cache interface {
-	// Cache acts as a client to objects stored in the cache.
+	// Cache implements the client CacheReader
 	client.Reader
 
-	// Cache loads informers and adds field indicies.
+	// Cache implements InformersMap
 	Informers
 }
 
-// Informers knows how to create or fetch informers for different
-// group-version-kinds, and add indicies to those informers.  It's safe to call
-// GetInformer from multiple threads.
+// Informers knows how to create or fetch informers for different group-version-kinds.
+// It's safe to call GetInformer from multiple threads.
 type Informers interface {
 	// GetInformer fetches or constructs an informer for the given object that corresponds to a single
 	// API kind and resource.
-	GetInformer(obj runtime.Object) (Informer, error)
+	GetInformer(obj runtime.Object) (toolscache.SharedIndexInformer, error)
 
 	// GetInformerForKind is similar to GetInformer, except that it takes a group-version-kind, instead
 	// of the underlying object.
-	GetInformerForKind(gvk schema.GroupVersionKind) (Informer, error)
+	GetInformerForKind(gvk schema.GroupVersionKind) (toolscache.SharedIndexInformer, error)
 
 	// Start runs all the informers known to this cache until the given channel is closed.
 	// It blocks.
@@ -64,25 +61,12 @@ type Informers interface {
 	// WaitForCacheSync waits for all the caches to sync.  Returns false if it could not sync a cache.
 	WaitForCacheSync(stop <-chan struct{}) bool
 
-	// Informers knows how to add indicies to the caches (informers) that it manages.
-	client.FieldIndexer
-}
-
-// Informer - informer allows you interact with the underlying informer
-type Informer interface {
-	// AddEventHandler adds an event handler to the shared informer using the shared informer's resync
-	// period.  Events to a single handler are delivered sequentially, but there is no coordination
-	// between different handlers.
-	AddEventHandler(handler toolscache.ResourceEventHandler)
-	// AddEventHandlerWithResyncPeriod adds an event handler to the shared informer using the
-	// specified resync period.  Events to a single handler are delivered sequentially, but there is
-	// no coordination between different handlers.
-	AddEventHandlerWithResyncPeriod(handler toolscache.ResourceEventHandler, resyncPeriod time.Duration)
-	// AddIndexers adds more indexers to this store.  If you call this after you already have data
-	// in the store, the results are undefined.
-	AddIndexers(indexers toolscache.Indexers) error
-	//HasSynced return true if the informers underlying store has synced
-	HasSynced() bool
+	// IndexField adds an index with the given field name on the given object type
+	// by using the given function to extract the value for that field.  If you want
+	// compatibility with the Kubernetes API server, only return one key, and only use
+	// fields that the API server supports.  Otherwise, you can return multiple keys,
+	// and "equality" in the field selector means that at least one key matches the value.
+	IndexField(obj runtime.Object, field string, extractValue client.IndexerFunc) error
 }
 
 // Options are the optional arguments for creating a new InformersMap object
@@ -103,7 +87,7 @@ type Options struct {
 
 var defaultResyncTime = 10 * time.Hour
 
-// New initializes and returns a new Cache.
+// New initializes and returns a new Cache
 func New(config *rest.Config, opts Options) (Cache, error) {
 	opts, err := defaultOpts(config, opts)
 	if err != nil {

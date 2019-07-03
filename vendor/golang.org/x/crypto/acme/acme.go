@@ -109,13 +109,6 @@ type Client struct {
 	// The jitter is a random value up to 1 second.
 	RetryBackoff func(n int, r *http.Request, resp *http.Response) time.Duration
 
-	// UserAgent is prepended to the User-Agent header sent to the ACME server,
-	// which by default is this package's name and version.
-	//
-	// Reusable libraries and tools in particular should set this value to be
-	// identifiable by the server, in case they are causing issues.
-	UserAgent string
-
 	dirMu sync.Mutex // guards writes to dir
 	dir   *Directory // cached result of Client's Discover method
 
@@ -135,7 +128,11 @@ func (c *Client) Discover(ctx context.Context) (Directory, error) {
 		return *c.dir, nil
 	}
 
-	res, err := c.get(ctx, c.directoryURL(), wantStatus(http.StatusOK))
+	dirURL := c.DirectoryURL
+	if dirURL == "" {
+		dirURL = LetsEncryptURL
+	}
+	res, err := c.get(ctx, dirURL, wantStatus(http.StatusOK))
 	if err != nil {
 		return Directory{}, err
 	}
@@ -166,13 +163,6 @@ func (c *Client) Discover(ctx context.Context) (Directory, error) {
 		CAA:       v.Meta.CAA,
 	}
 	return *c.dir, nil
-}
-
-func (c *Client) directoryURL() string {
-	if c.DirectoryURL != "" {
-		return c.DirectoryURL
-	}
-	return LetsEncryptURL
 }
 
 // CreateCert requests a new certificate using the Certificate Signing Request csr encoded in DER format.
@@ -333,20 +323,6 @@ func (c *Client) UpdateReg(ctx context.Context, a *Account) (*Account, error) {
 // a valid authorization (Authorization.Status is StatusValid). If so, the caller
 // need not fulfill any challenge and can proceed to requesting a certificate.
 func (c *Client) Authorize(ctx context.Context, domain string) (*Authorization, error) {
-	return c.authorize(ctx, "dns", domain)
-}
-
-// AuthorizeIP is the same as Authorize but requests IP address authorization.
-// Clients which successfully obtain such authorization may request to issue
-// a certificate for IP addresses.
-//
-// See the ACME spec extension for more details about IP address identifiers:
-// https://tools.ietf.org/html/draft-ietf-acme-ip.
-func (c *Client) AuthorizeIP(ctx context.Context, ipaddr string) (*Authorization, error) {
-	return c.authorize(ctx, "ip", ipaddr)
-}
-
-func (c *Client) authorize(ctx context.Context, typ, val string) (*Authorization, error) {
 	if _, err := c.Discover(ctx); err != nil {
 		return nil, err
 	}
@@ -360,7 +336,7 @@ func (c *Client) authorize(ctx context.Context, typ, val string) (*Authorization
 		Identifier authzID `json:"identifier"`
 	}{
 		Resource:   "new-authz",
-		Identifier: authzID{Type: typ, Value: val},
+		Identifier: authzID{Type: "dns", Value: domain},
 	}
 	res, err := c.post(ctx, c.Key, c.dir.AuthzURL, req, wantStatus(http.StatusCreated))
 	if err != nil {
@@ -721,18 +697,12 @@ func (c *Client) doReg(ctx context.Context, url string, typ string, acct *Accoun
 }
 
 // popNonce returns a nonce value previously stored with c.addNonce
-// or fetches a fresh one from a URL by issuing a HEAD request.
-// It first tries c.directoryURL() and then the provided url if the former fails.
+// or fetches a fresh one from the given URL.
 func (c *Client) popNonce(ctx context.Context, url string) (string, error) {
 	c.noncesMu.Lock()
 	defer c.noncesMu.Unlock()
 	if len(c.nonces) == 0 {
-		dirURL := c.directoryURL()
-		v, err := c.fetchNonce(ctx, dirURL)
-		if err != nil && url != dirURL {
-			v, err = c.fetchNonce(ctx, url)
-		}
-		return v, err
+		return c.fetchNonce(ctx, url)
 	}
 	var nonce string
 	for nonce = range c.nonces {

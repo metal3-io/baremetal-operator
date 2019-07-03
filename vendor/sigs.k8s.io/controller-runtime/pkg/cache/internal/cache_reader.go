@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/internal/objectutil"
 )
 
 // CacheReader is a CacheReader
@@ -88,26 +87,23 @@ func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out runtime.O
 }
 
 // List lists items out of the indexer and writes them to out
-func (c *CacheReader) List(_ context.Context, out runtime.Object, opts ...client.ListOptionFunc) error {
+func (c *CacheReader) List(_ context.Context, opts *client.ListOptions, out runtime.Object) error {
 	var objs []interface{}
 	var err error
 
-	listOpts := client.ListOptions{}
-	listOpts.ApplyOptions(opts)
-
-	if listOpts.FieldSelector != nil {
+	if opts != nil && opts.FieldSelector != nil {
 		// TODO(directxman12): support more complicated field selectors by
 		// combining multiple indicies, GetIndexers, etc
-		field, val, requiresExact := requiresExactMatch(listOpts.FieldSelector)
+		field, val, requiresExact := requiresExactMatch(opts.FieldSelector)
 		if !requiresExact {
 			return fmt.Errorf("non-exact field matches are not supported by the cache")
 		}
 		// list all objects by the field selector.  If this is namespaced and we have one, ask for the
 		// namespaced index key.  Otherwise, ask for the non-namespaced variant by using the fake "all namespaces"
 		// namespace.
-		objs, err = c.indexer.ByIndex(FieldIndexName(field), KeyToNamespacedKey(listOpts.Namespace, val))
-	} else if listOpts.Namespace != "" {
-		objs, err = c.indexer.ByIndex(cache.NamespaceIndex, listOpts.Namespace)
+		objs, err = c.indexer.ByIndex(FieldIndexName(field), KeyToNamespacedKey(opts.Namespace, val))
+	} else if opts != nil && opts.Namespace != "" {
+		objs, err = c.indexer.ByIndex(cache.NamespaceIndex, opts.Namespace)
 	} else {
 		objs = c.indexer.List()
 	}
@@ -115,25 +111,37 @@ func (c *CacheReader) List(_ context.Context, out runtime.Object, opts ...client
 		return err
 	}
 	var labelSel labels.Selector
-	if listOpts.LabelSelector != nil {
-		labelSel = listOpts.LabelSelector
+	if opts != nil && opts.LabelSelector != nil {
+		labelSel = opts.LabelSelector
 	}
 
-	runtimeObjs := make([]runtime.Object, 0, len(objs))
-	for _, item := range objs {
-		obj, isObj := item.(runtime.Object)
-		if !isObj {
-			return fmt.Errorf("cache contained %T, which is not an Object", obj)
-		}
-		outObj := obj.DeepCopyObject()
-		outObj.GetObjectKind().SetGroupVersionKind(c.groupVersionKind)
-		runtimeObjs = append(runtimeObjs, outObj)
-	}
-	filteredItems, err := objectutil.FilterWithLabels(runtimeObjs, labelSel)
+	outItems, err := c.getListItems(objs, labelSel)
 	if err != nil {
 		return err
 	}
-	return apimeta.SetList(out, filteredItems)
+	return apimeta.SetList(out, outItems)
+}
+
+func (c *CacheReader) getListItems(objs []interface{}, labelSel labels.Selector) ([]runtime.Object, error) {
+	outItems := make([]runtime.Object, 0, len(objs))
+	for _, item := range objs {
+		obj, isObj := item.(runtime.Object)
+		if !isObj {
+			return nil, fmt.Errorf("cache contained %T, which is not an Object", obj)
+		}
+		meta, err := apimeta.Accessor(obj)
+		if err != nil {
+			return nil, err
+		}
+		if labelSel != nil {
+			lbls := labels.Set(meta.GetLabels())
+			if !labelSel.Matches(lbls) {
+				continue
+			}
+		}
+		outItems = append(outItems, obj.DeepCopyObject())
+	}
+	return outItems, nil
 }
 
 // objectKeyToStorageKey converts an object key to store key.

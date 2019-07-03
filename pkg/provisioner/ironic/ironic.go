@@ -1155,6 +1155,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		result.Dirty = true
 		p.log.Info("power change OK")
 	case gophercloud.ErrDefault409:
+		result.Dirty = true
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
 		return result, nil
 	default:
@@ -1183,6 +1184,7 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 		if ironicNode.TargetPowerState == powerOn {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
+			result.Dirty = true
 			return result, nil
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
@@ -1210,6 +1212,7 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		if ironicNode.TargetPowerState == powerOff {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
+			result.Dirty = true
 			return result, nil
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)

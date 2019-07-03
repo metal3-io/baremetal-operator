@@ -1,7 +1,7 @@
 FROM registry.svc.ci.openshift.org/openshift/release:golang-1.10 AS builder
 WORKDIR /go/src/github.com/metal3-io/baremetal-operator
 COPY . .
-RUN go build -o build/_output/bin/baremetal-operator cmd/manager/main.go
+RUN make build
 
 FROM quay.io/metal3-io/base-image
 

@@ -4,6 +4,10 @@ GO_TEST_FLAGS = $(VERBOSE)
 DEBUG = --debug
 SETUP = --no-setup
 
+# See pkg/version.go for details
+GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
+export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=$(shell git describe --always --abbrev=40 --dirty) -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${GIT_COMMIT}"
+
 # Set some variables the operator expects to have in order to work
 export OPERATOR_NAME=baremetal-operator
 export DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel
@@ -70,18 +74,25 @@ dep:
 .PHONY: run
 run:
 	operator-sdk up local \
+		--go-ldflags=$(LDFLAGS) \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
 
 .PHONY: demo
 demo:
 	operator-sdk up local \
+		--go-ldflags=$(LDFLAGS) \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev -demo-mode"
 
 .PHONY: docker
 docker:
 	docker build . -f build/Dockerfile
+
+.PHONY: build
+build:
+	@echo LDFLAGS=$(LDFLAGS)
+	go build -o build/_output/bin/baremetal-operator cmd/manager/main.go
 
 .PHONY: deploy
 deploy:

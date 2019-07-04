@@ -54,6 +54,11 @@ lint:
 	golint -set_exit_status pkg/... cmd/...
 	go vet ./pkg/... ./cmd/...
 
+.PHONY: test-sec
+test-sec:
+	@which gosec 2> /dev/null >&1 || { echo "gosec must be installed to lint code";  exit 1; }
+	gosec -severity medium --confidence medium -quiet ./...
+
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))
 

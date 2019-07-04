@@ -589,6 +589,8 @@ func (p *ironicProvisioner) getImageChecksum() (string, error) {
 	}
 	if isURL {
 		p.log.Info("looking for checksum for image", "URL", checksum)
+		// #nosec
+		// TODO: Are there more ways to constraint the URL that's given here?
 		resp, err := http.Get(checksum)
 		if err != nil {
 			return "", errors.Wrap(err, "Could not fetch image checksum")

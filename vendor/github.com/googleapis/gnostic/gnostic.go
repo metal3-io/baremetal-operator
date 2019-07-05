@@ -186,10 +186,8 @@ func (p *pluginCall) perform(document proto.Message, sourceFormat int, sourceNam
 			// any logging messages are written to stderr only.
 			return nil, errors.New("Invalid plugin response (plugins must write log messages to stderr, not stdout).")
 		}
-
-		err = plugins.HandleResponse(response, outputLocation)
-
-		return response.Messages, err
+		plugins.HandleResponse(response, outputLocation)
+		return response.Messages, nil
 	}
 	return nil, nil
 }

@@ -58,10 +58,8 @@ func (t *ticketer) WaitForTicket(ticket uint64, f func()) {
 
 // NewIndexerInformerWatcher will create an IndexerInformer and wrap it into watch.Interface
 // so you can use it anywhere where you'd have used a regular Watcher returned from Watch method.
-// it also returns a channel you can use to wait for the informers to fully shutdown.
-func NewIndexerInformerWatcher(lw cache.ListerWatcher, objType runtime.Object) (cache.Indexer, cache.Controller, watch.Interface, <-chan struct{}) {
+func NewIndexerInformerWatcher(lw cache.ListerWatcher, objType runtime.Object) (cache.Indexer, cache.Controller, watch.Interface) {
 	ch := make(chan watch.Event)
-	doneCh := make(chan struct{})
 	w := watch.NewProxyWatcher(ch)
 	t := newTicketer()
 
@@ -109,9 +107,8 @@ func NewIndexerInformerWatcher(lw cache.ListerWatcher, objType runtime.Object) (
 	}, cache.Indexers{})
 
 	go func() {
-		defer close(doneCh)
 		informer.Run(w.StopChan())
 	}()
 
-	return indexer, informer, w, doneCh
+	return indexer, informer, w
 }

@@ -28,9 +28,7 @@ type CollectionRef struct {
 
 	// The full resource path of the collection's parent. Typically Parent.Path,
 	// or c.path if Parent is nil. May be different if this CollectionRef was
-	// created from a stored reference to a different project/DB. Always
-	// includes /documents - that is, the parent is minimally considered to be
-	// "<db>/documents".
+	// created from a stored reference to a different project/DB.
 	//
 	// For example, "projects/P/databases/D/documents/coll-1/doc-1".
 	parentPath string
@@ -57,14 +55,14 @@ func newTopLevelCollRef(c *Client, dbPath, id string) *CollectionRef {
 	return &CollectionRef{
 		c:          c,
 		ID:         id,
-		parentPath: dbPath + "/documents",
+		parentPath: dbPath,
 		selfPath:   id,
 		Path:       dbPath + "/documents/" + id,
 		Query: Query{
 			c:            c,
 			collectionID: id,
 			path:         dbPath + "/documents/" + id,
-			parentPath:   dbPath + "/documents",
+			parentPath:   dbPath,
 		},
 	}
 }

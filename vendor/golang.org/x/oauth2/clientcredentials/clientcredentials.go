@@ -42,11 +42,6 @@ type Config struct {
 
 	// EndpointParams specifies additional parameters for requests to the token endpoint.
 	EndpointParams url.Values
-
-	// AuthStyle optionally specifies how the endpoint wants the
-	// client ID & client secret sent. The zero value means to
-	// auto-detect.
-	AuthStyle oauth2.AuthStyle
 }
 
 // Token uses client credentials to retrieve a token.
@@ -95,15 +90,12 @@ func (c *tokenSource) Token() (*oauth2.Token, error) {
 		v.Set("scope", strings.Join(c.conf.Scopes, " "))
 	}
 	for k, p := range c.conf.EndpointParams {
-		// Allow grant_type to be overridden to allow interoperability with
-		// non-compliant implementations.
-		if _, ok := v[k]; ok && k != "grant_type" {
+		if _, ok := v[k]; ok {
 			return nil, fmt.Errorf("oauth2: cannot overwrite parameter %q", k)
 		}
 		v[k] = p
 	}
-
-	tk, err := internal.RetrieveToken(c.ctx, c.conf.ClientID, c.conf.ClientSecret, c.conf.TokenURL, v, internal.AuthStyle(c.conf.AuthStyle))
+	tk, err := internal.RetrieveToken(c.ctx, c.conf.ClientID, c.conf.ClientSecret, c.conf.TokenURL, v)
 	if err != nil {
 		if rErr, ok := err.(*internal.RetrieveError); ok {
 			return nil, (*oauth2.RetrieveError)(rErr)

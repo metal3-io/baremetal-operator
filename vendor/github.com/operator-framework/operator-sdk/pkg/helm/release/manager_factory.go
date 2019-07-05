@@ -20,20 +20,17 @@ import (
 
 	"github.com/martinlindhe/base36"
 	"github.com/pborman/uuid"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apitypes "k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/typed/core/v1"
 	helmengine "k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/kube"
 	"k8s.io/helm/pkg/storage"
-	"k8s.io/helm/pkg/storage/driver"
 	"k8s.io/helm/pkg/tiller"
 	"k8s.io/helm/pkg/tiller/environment"
-	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/operator-framework/operator-sdk/pkg/helm/client"
 	"github.com/operator-framework/operator-sdk/pkg/helm/engine"
 	"github.com/operator-framework/operator-sdk/pkg/helm/internal/types"
 )
@@ -43,51 +40,38 @@ import (
 // improves decoupling between reconciliation logic and the Helm backend
 // components used to manage releases.
 type ManagerFactory interface {
-	NewManager(r *unstructured.Unstructured) (Manager, error)
+	NewManager(r *unstructured.Unstructured) Manager
 }
 
 type managerFactory struct {
-	mgr      crmanager.Manager
-	chartDir string
+	storageBackend   *storage.Storage
+	tillerKubeClient *kube.Client
+	chartDir         string
 }
 
-// NewManagerFactory returns a new Helm manager factory capable of installing and uninstalling releases.
-func NewManagerFactory(mgr crmanager.Manager, chartDir string) ManagerFactory {
-	return &managerFactory{mgr, chartDir}
+func (f managerFactory) NewManager(r *unstructured.Unstructured) Manager {
+	return f.newManagerForCR(r)
 }
 
-func (f managerFactory) NewManager(cr *unstructured.Unstructured) (Manager, error) {
-	clientv1, err := v1.NewForConfig(f.mgr.GetConfig())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get core/v1 client: %s", err)
-	}
-	storageBackend := storage.Init(driver.NewSecrets(clientv1.Secrets(cr.GetNamespace())))
-	tillerKubeClient, err := client.NewFromManager(f.mgr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client from manager: %s", err)
-	}
-	releaseServer, err := getReleaseServer(cr, storageBackend, tillerKubeClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get helm release server: %s", err)
-	}
+func (f managerFactory) newManagerForCR(r *unstructured.Unstructured) Manager {
 	return &manager{
-		storageBackend:   storageBackend,
-		tillerKubeClient: tillerKubeClient,
+		storageBackend:   f.storageBackend,
+		tillerKubeClient: f.tillerKubeClient,
 		chartDir:         f.chartDir,
 
-		tiller:      releaseServer,
-		releaseName: getReleaseName(cr),
-		namespace:   cr.GetNamespace(),
+		tiller:      f.tillerRendererForCR(r),
+		releaseName: getReleaseName(r),
+		namespace:   r.GetNamespace(),
 
-		spec:   cr.Object["spec"],
-		status: types.StatusFor(cr),
-	}, nil
+		spec:   r.Object["spec"],
+		status: types.StatusFor(r),
+	}
 }
 
-// getReleaseServer creates a ReleaseServer configured with a rendering engine that adds ownerrefs to rendered assets
+// tillerRendererForCR creates a ReleaseServer configured with a rendering engine that adds ownerrefs to rendered assets
 // based on the CR.
-func getReleaseServer(cr *unstructured.Unstructured, storageBackend *storage.Storage, tillerKubeClient *kube.Client) (*tiller.ReleaseServer, error) {
-	controllerRef := metav1.NewControllerRef(cr, cr.GroupVersionKind())
+func (f managerFactory) tillerRendererForCR(r *unstructured.Unstructured) *tiller.ReleaseServer {
+	controllerRef := metav1.NewControllerRef(r, r.GroupVersionKind())
 	ownerRefs := []metav1.OwnerReference{
 		*controllerRef,
 	}
@@ -98,23 +82,17 @@ func getReleaseServer(cr *unstructured.Unstructured, storageBackend *storage.Sto
 	}
 	env := &environment.Environment{
 		EngineYard: ey,
-		Releases:   storageBackend,
-		KubeClient: tillerKubeClient,
+		Releases:   f.storageBackend,
+		KubeClient: f.tillerKubeClient,
 	}
-	kubeconfig, err := tillerKubeClient.ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	cs, err := clientset.NewForConfig(kubeconfig)
-	if err != nil {
-		return nil, err
-	}
+	kubeconfig, _ := f.tillerKubeClient.ToRESTConfig()
+	cs := clientset.NewForConfigOrDie(kubeconfig)
 
-	return tiller.NewReleaseServer(env, cs, false), nil
+	return tiller.NewReleaseServer(env, cs, false)
 }
 
-func getReleaseName(cr *unstructured.Unstructured) string {
-	return fmt.Sprintf("%s-%s", cr.GetName(), shortenUID(cr.GetUID()))
+func getReleaseName(r *unstructured.Unstructured) string {
+	return fmt.Sprintf("%s-%s", r.GetName(), shortenUID(r.GetUID()))
 }
 
 func shortenUID(uid apitypes.UID) string {

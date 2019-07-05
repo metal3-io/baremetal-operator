@@ -22,17 +22,6 @@
 // Examines the call stack and variables of a running application without
 // stopping or slowing it down.
 //
-// Use of Context
-//
-// The ctx passed to NewClient is used for authentication requests and
-// for creating the underlying connection, but is not used for subsequent calls.
-// Individual methods on the client use the ctx given to them.
-//
-// To close the open connection, use the Close() method.
-//
-// For information about setting deadlines, reusing contexts, and more
-// please visit godoc.org/cloud.google.com/go.
-//
 // Use the client at cloud.google.com/go/cmd/go-cloud-debug-agent in preference to this.
 package debugger // import "cloud.google.com/go/debugger/apiv2"
 
@@ -101,4 +90,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190528"
+const versionClient = "20190121"

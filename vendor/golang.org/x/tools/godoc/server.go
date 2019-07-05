@@ -268,10 +268,7 @@ func (h *handlerServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	abspath := pathpkg.Join(h.fsRoot, relpath)
 	mode := h.p.GetPageInfoMode(r)
 	if relpath == builtinPkgPath {
-		// The fake built-in package contains unexported identifiers,
-		// but we want to show them. Also, disable type association,
-		// since it's not helpful for this fake package (see issue 6645).
-		mode |= NoFiltering | NoTypeAssoc
+		mode = NoFiltering | NoTypeAssoc
 	}
 	info := h.GetPageInfo(abspath, relpath, mode, r.FormValue("GOOS"), r.FormValue("GOARCH"))
 	if info.Err != nil {
@@ -359,8 +356,9 @@ const (
 	NoFiltering PageInfoMode = 1 << iota // do not filter exports
 	AllMethods                           // show all embedded methods
 	ShowSource                           // show source code, do not extract documentation
+	NoHTML                               // show result in textual form, do not generate HTML
 	FlatDir                              // show directory in a flat (non-indented) manner
-	NoTypeAssoc                          // don't associate consts, vars, and factory functions with types (not exposed via ?m= query parameter, used for package builtin, see issue 6645)
+	NoTypeAssoc                          // don't associate consts, vars, and factory functions with types
 )
 
 // modeNames defines names for each PageInfoMode flag.
@@ -368,6 +366,7 @@ var modeNames = map[string]PageInfoMode{
 	"all":     NoFiltering,
 	"methods": AllMethods,
 	"src":     ShowSource,
+	"text":    NoHTML,
 	"flat":    FlatDir,
 }
 

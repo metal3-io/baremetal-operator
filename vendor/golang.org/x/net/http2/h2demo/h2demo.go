@@ -46,10 +46,6 @@ var (
 )
 
 func homeOldHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Host == "http1.golang.org" {
-		http.Redirect(w, r, "https://http2.golang.org/", http.StatusFound)
-		return
-	}
 	io.WriteString(w, `<html>
 <body>
 <h1>Go + HTTP/2</h1>
@@ -311,13 +307,13 @@ func newPushHandler() http.Handler {
 		}
 		time.Sleep(100 * time.Millisecond) // fake network latency + parsing time
 		if err := pushTmpl.Execute(w, struct {
-			CacheBust   int64
-			HTTPSHost   string
-			HTTP1Prefix string
+			CacheBust int64
+			HTTPSHost string
+			HTTPHost  string
 		}{
-			CacheBust:   cacheBust,
-			HTTPSHost:   httpsHost(),
-			HTTP1Prefix: http1Prefix(),
+			CacheBust: cacheBust,
+			HTTPSHost: httpsHost(),
+			HTTPHost:  httpHost(),
 		}); err != nil {
 			log.Printf("Executing server push template: %v", err)
 		}
@@ -386,9 +382,9 @@ func newGopherTilesHandler() http.Handler {
 		fmt.Fprintf(w, "A grid of %d tiled images is below. Compare:<p>", xt*yt)
 		for _, ms := range []int{0, 30, 200, 1000} {
 			d := time.Duration(ms) * nanosPerMilli
-			fmt.Fprintf(w, "[<a href='https://%s/gophertiles?latency=%d'>HTTP/2, %v latency</a>] [<a href='%s/gophertiles?latency=%d'>HTTP/1, %v latency</a>]<br>\n",
+			fmt.Fprintf(w, "[<a href='https://%s/gophertiles?latency=%d'>HTTP/2, %v latency</a>] [<a href='http://%s/gophertiles?latency=%d'>HTTP/1, %v latency</a>]<br>\n",
 				httpsHost(), ms, d,
-				http1Prefix(), ms, d,
+				httpHost(), ms, d,
 			)
 		}
 		io.WriteString(w, "<p>\n")
@@ -424,13 +420,6 @@ func httpsHost() string {
 	}
 }
 
-func http1Prefix() string {
-	if *prod {
-		return "https://http1.golang.org"
-	}
-	return "http://" + httpHost()
-}
-
 func httpHost() string {
 	if *hostHTTP != "" {
 		return *hostHTTP
@@ -446,14 +435,6 @@ func serveProdTLS(autocertManager *autocert.Manager) error {
 	srv := &http.Server{
 		TLSConfig: &tls.Config{
 			GetCertificate: autocertManager.GetCertificate,
-			GetConfigForClient: func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
-				if hello.ServerName == "http1.golang.org" {
-					return &tls.Config{
-						GetCertificate: autocertManager.GetCertificate,
-					}, nil
-				}
-				return nil, nil // fallback to other methods
-			},
 		},
 	}
 	http2.ConfigureServer(srv, &http2.Server{
@@ -483,7 +464,7 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 }
 
 func serveProd() error {
-	log.Printf("running in production mode.")
+	log.Printf("running in production mode")
 
 	storageClient, err := storage.NewClient(context.Background())
 	if err != nil {
@@ -491,7 +472,7 @@ func serveProd() error {
 	}
 	autocertManager := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("http1.golang.org", "http2.golang.org"),
+		HostPolicy: autocert.HostWhitelist("http2.golang.org"),
 		Cache:      autocertcache.NewGoogleCloudStorageCache(storageClient, "golang-h2demo-autocert"),
 	}
 

@@ -23,17 +23,6 @@
 // services. The Stackdriver Error Reporting API provides a way to report new
 // errors and read access to error groups and their associated errors.
 //
-// Use of Context
-//
-// The ctx passed to NewClient is used for authentication requests and
-// for creating the underlying connection, but is not used for subsequent calls.
-// Individual methods on the client use the ctx given to them.
-//
-// To close the open connection, use the Close() method.
-//
-// For information about setting deadlines, reusing contexts, and more
-// please visit godoc.org/cloud.google.com/go.
-//
 // Use the client at cloud.google.com/go/errorreporting in preference to this.
 package errorreporting // import "cloud.google.com/go/errorreporting/apiv1beta1"
 
@@ -101,4 +90,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190528"
+const versionClient = "20190121"

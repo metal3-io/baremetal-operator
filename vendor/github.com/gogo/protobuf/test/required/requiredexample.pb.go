@@ -3,15 +3,15 @@
 
 package required
 
-import (
-	encoding_binary "encoding/binary"
-	fmt "fmt"
-	_ "github.com/gogo/protobuf/gogoproto"
-	github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
-	proto "github.com/gogo/protobuf/proto"
-	io "io"
-	math "math"
-)
+import proto "github.com/gogo/protobuf/proto"
+import fmt "fmt"
+import math "math"
+import _ "github.com/gogo/protobuf/gogoproto"
+
+import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
+import encoding_binary "encoding/binary"
+
+import io "io"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,7 +37,7 @@ func (m *RequiredExample) Reset()         { *m = RequiredExample{} }
 func (m *RequiredExample) String() string { return proto.CompactTextString(m) }
 func (*RequiredExample) ProtoMessage()    {}
 func (*RequiredExample) Descriptor() ([]byte, []int) {
-	return fileDescriptor_96043524afb2ed2f, []int{0}
+	return fileDescriptor_requiredexample_2673f47f43fdf851, []int{0}
 }
 func (m *RequiredExample) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -54,8 +54,8 @@ func (m *RequiredExample) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return b[:n], nil
 	}
 }
-func (m *RequiredExample) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RequiredExample.Merge(m, src)
+func (dst *RequiredExample) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequiredExample.Merge(dst, src)
 }
 func (m *RequiredExample) XXX_Size() int {
 	return m.Size()
@@ -112,7 +112,7 @@ func (m *NidOptNative) Reset()         { *m = NidOptNative{} }
 func (m *NidOptNative) String() string { return proto.CompactTextString(m) }
 func (*NidOptNative) ProtoMessage()    {}
 func (*NidOptNative) Descriptor() ([]byte, []int) {
-	return fileDescriptor_96043524afb2ed2f, []int{1}
+	return fileDescriptor_requiredexample_2673f47f43fdf851, []int{1}
 }
 func (m *NidOptNative) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -129,8 +129,8 @@ func (m *NidOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *NidOptNative) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NidOptNative.Merge(m, src)
+func (dst *NidOptNative) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NidOptNative.Merge(dst, src)
 }
 func (m *NidOptNative) XXX_Size() int {
 	return m.Size()
@@ -271,7 +271,7 @@ func (m *NinOptNative) Reset()         { *m = NinOptNative{} }
 func (m *NinOptNative) String() string { return proto.CompactTextString(m) }
 func (*NinOptNative) ProtoMessage()    {}
 func (*NinOptNative) Descriptor() ([]byte, []int) {
-	return fileDescriptor_96043524afb2ed2f, []int{2}
+	return fileDescriptor_requiredexample_2673f47f43fdf851, []int{2}
 }
 func (m *NinOptNative) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -288,8 +288,8 @@ func (m *NinOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *NinOptNative) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NinOptNative.Merge(m, src)
+func (dst *NinOptNative) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NinOptNative.Merge(dst, src)
 }
 func (m *NinOptNative) XXX_Size() int {
 	return m.Size()
@@ -416,7 +416,7 @@ func (m *NestedNinOptNative) Reset()         { *m = NestedNinOptNative{} }
 func (m *NestedNinOptNative) String() string { return proto.CompactTextString(m) }
 func (*NestedNinOptNative) ProtoMessage()    {}
 func (*NestedNinOptNative) Descriptor() ([]byte, []int) {
-	return fileDescriptor_96043524afb2ed2f, []int{3}
+	return fileDescriptor_requiredexample_2673f47f43fdf851, []int{3}
 }
 func (m *NestedNinOptNative) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -433,8 +433,8 @@ func (m *NestedNinOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return b[:n], nil
 	}
 }
-func (m *NestedNinOptNative) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NestedNinOptNative.Merge(m, src)
+func (dst *NestedNinOptNative) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NestedNinOptNative.Merge(dst, src)
 }
 func (m *NestedNinOptNative) XXX_Size() int {
 	return m.Size()
@@ -458,43 +458,6 @@ func init() {
 	proto.RegisterType((*NinOptNative)(nil), "required.NinOptNative")
 	proto.RegisterType((*NestedNinOptNative)(nil), "required.NestedNinOptNative")
 }
-
-func init() { proto.RegisterFile("requiredexample.proto", fileDescriptor_96043524afb2ed2f) }
-
-var fileDescriptor_96043524afb2ed2f = []byte{
-	// 469 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0xd4, 0xdd, 0x8e, 0xd2, 0x40,
-	0x14, 0xc0, 0x71, 0x3b, 0x65, 0xf9, 0x98, 0x05, 0xd9, 0x6d, 0xe2, 0xe4, 0xc4, 0x98, 0x7a, 0xc2,
-	0xd5, 0x5c, 0x68, 0x57, 0x0a, 0xec, 0x47, 0xe2, 0xd5, 0x26, 0x7a, 0xc9, 0x26, 0xf5, 0x09, 0x58,
-	0x19, 0xd9, 0x26, 0x2c, 0xad, 0x30, 0x18, 0xaf, 0x7d, 0x0f, 0xdf, 0x67, 0x2f, 0x7d, 0x00, 0x63,
-	0x94, 0xa7, 0xf0, 0xd2, 0x58, 0xda, 0x33, 0x9c, 0xea, 0x1d, 0x3d, 0xff, 0x33, 0x13, 0xc8, 0x8f,
-	0x54, 0x3e, 0x59, 0x9b, 0x8f, 0xdb, 0x74, 0x6d, 0xe6, 0xe6, 0xf3, 0xec, 0x3e, 0x5f, 0x9a, 0x28,
-	0x5f, 0x67, 0x36, 0x0b, 0xda, 0xd5, 0xf8, 0xe9, 0xcb, 0x45, 0x6a, 0xef, 0xb6, 0xb7, 0xd1, 0xfb,
-	0xec, 0xfe, 0x6c, 0x91, 0x2d, 0xb2, 0xb3, 0x62, 0xe1, 0x76, 0xfb, 0xa1, 0x78, 0x2a, 0x1e, 0x8a,
-	0x4f, 0xfb, 0x83, 0x83, 0xaf, 0x9e, 0xec, 0x27, 0xe5, 0xd9, 0x37, 0xfb, 0x2b, 0x83, 0x17, 0xf2,
-	0xd4, 0xde, 0x99, 0x6a, 0xfa, 0xce, 0xae, 0xd3, 0xd5, 0x02, 0x3c, 0x14, 0xba, 0x93, 0xfc, 0x1b,
-	0xca, 0xed, 0x9b, 0xdc, 0xa6, 0xd9, 0x6a, 0xb6, 0x2c, 0xb7, 0x05, 0x7a, 0xe5, 0x36, 0x0f, 0x41,
-	0x24, 0x83, 0xe2, 0x8a, 0xdc, 0xcc, 0x6c, 0x75, 0xc5, 0x06, 0x7c, 0xf4, 0x75, 0x27, 0xf9, 0x4f,
-	0x19, 0x7c, 0xf7, 0x65, 0x77, 0x9a, 0xce, 0x6f, 0x72, 0x3b, 0x9d, 0xd9, 0xf4, 0x93, 0x09, 0x9e,
-	0xc9, 0xe6, 0xdb, 0xd4, 0x2c, 0xe7, 0xc3, 0xe2, 0x1b, 0x79, 0xd7, 0x8d, 0x87, 0x1f, 0xcf, 0x1f,
-	0x25, 0xe5, 0x8c, 0x6a, 0x0c, 0x02, 0x85, 0x16, 0xac, 0xc6, 0x54, 0x47, 0xe0, 0xa3, 0xd0, 0x47,
-	0xac, 0x8e, 0xa8, 0x8e, 0xa1, 0x81, 0x42, 0xfb, 0xac, 0x8e, 0xa9, 0x4e, 0xe0, 0x08, 0x85, 0xee,
-	0xb1, 0x3a, 0xa1, 0x7a, 0x0e, 0x4d, 0x14, 0xba, 0xc1, 0xea, 0x39, 0xd5, 0x0b, 0x68, 0xa1, 0xd0,
-	0xa7, 0xac, 0x5e, 0x50, 0xbd, 0x84, 0x36, 0x0a, 0x1d, 0xb0, 0x7a, 0x49, 0xf5, 0x0a, 0x3a, 0x28,
-	0x74, 0x8b, 0xd5, 0xab, 0x20, 0x94, 0xad, 0xfd, 0x2f, 0x7f, 0x05, 0x12, 0x85, 0xee, 0x97, 0xb9,
-	0x1a, 0xba, 0x3e, 0x84, 0x63, 0x14, 0xba, 0xc9, 0xfb, 0xd0, 0xf5, 0x18, 0xba, 0x28, 0xf4, 0x09,
-	0xef, 0xb1, 0xeb, 0x23, 0xe8, 0xa1, 0xd0, 0x6d, 0xde, 0x47, 0xae, 0x8f, 0xe1, 0xf1, 0xdf, 0x3f,
-	0x08, 0xef, 0x63, 0xd7, 0x27, 0xd0, 0x47, 0xa1, 0xbb, 0xbc, 0x4f, 0x06, 0x5f, 0x0a, 0xde, 0x95,
-	0xe3, 0x55, 0x9c, 0x97, 0x60, 0x15, 0x87, 0x25, 0x52, 0xc5, 0x49, 0x09, 0x53, 0x71, 0x4c, 0x62,
-	0x54, 0x9c, 0x91, 0x00, 0x15, 0x07, 0x24, 0x3a, 0xc5, 0xe9, 0x08, 0x4d, 0x71, 0x34, 0xe2, 0x52,
-	0x9c, 0x8b, 0xa0, 0xa0, 0x06, 0xe5, 0x88, 0xa0, 0x46, 0xe4, 0x70, 0xa0, 0x86, 0xe3, 0x58, 0xa0,
-	0xc6, 0xe2, 0x40, 0xa0, 0x06, 0xe2, 0x28, 0xa0, 0x46, 0xe1, 0x10, 0x12, 0x19, 0x4c, 0xcd, 0xc6,
-	0x9a, 0x39, 0x93, 0x78, 0x2d, 0x7b, 0x87, 0xd3, 0x0d, 0x78, 0xe8, 0xeb, 0xe3, 0x58, 0x45, 0xd5,
-	0xab, 0x26, 0x3a, 0x5c, 0x4f, 0xf8, 0xf2, 0xf5, 0xc9, 0xef, 0x5f, 0xa1, 0xf7, 0xb0, 0x0b, 0xbd,
-	0x6f, 0xbb, 0xd0, 0xfb, 0xb9, 0x0b, 0xbd, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x03, 0x9e, 0xae,
-	0x5f, 0xba, 0x04, 0x00, 0x00,
-}
-
 func (m *RequiredExample) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1194,7 +1157,7 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= uint64(b&0x7F) << shift
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1222,7 +1185,7 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1232,9 +1195,6 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1256,7 +1216,7 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1266,9 +1226,6 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1289,7 +1246,7 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1299,9 +1256,6 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1314,9 +1268,6 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
-			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRequiredexample
 			}
 			if (iNdEx + skippy) > l {
@@ -1351,7 +1302,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= uint64(b&0x7F) << shift
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1403,7 +1354,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Field3 |= int32(b&0x7F) << shift
+				m.Field3 |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1423,7 +1374,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Field4 |= int64(b&0x7F) << shift
+				m.Field4 |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1443,7 +1394,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Field5 |= uint32(b&0x7F) << shift
+				m.Field5 |= (uint32(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1463,7 +1414,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Field6 |= uint64(b&0x7F) << shift
+				m.Field6 |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1483,7 +1434,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int32(b&0x7F) << shift
+				v |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1505,7 +1456,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= uint64(b&0x7F) << shift
+				v |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1571,7 +1522,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int(b&0x7F) << shift
+				v |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1592,7 +1543,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1602,9 +1553,6 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1625,7 +1573,7 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= int(b&0x7F) << shift
+				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1634,9 +1582,6 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1653,9 +1598,6 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
-			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRequiredexample
 			}
 			if (iNdEx + skippy) > l {
@@ -1732,7 +1674,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= uint64(b&0x7F) << shift
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1786,7 +1728,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int32(b&0x7F) << shift
+				v |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1807,7 +1749,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int64(b&0x7F) << shift
+				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1828,7 +1770,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= uint32(b&0x7F) << shift
+				v |= (uint32(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1849,7 +1791,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= uint64(b&0x7F) << shift
+				v |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1870,7 +1812,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int32(b&0x7F) << shift
+				v |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1892,7 +1834,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= uint64(b&0x7F) << shift
+				v |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1963,7 +1905,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int(b&0x7F) << shift
+				v |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1985,7 +1927,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1995,9 +1937,6 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2019,7 +1958,7 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= int(b&0x7F) << shift
+				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2028,9 +1967,6 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2047,9 +1983,6 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
-			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRequiredexample
 			}
 			if (iNdEx + skippy) > l {
@@ -2125,7 +2058,7 @@ func (m *NestedNinOptNative) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= uint64(b&0x7F) << shift
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -2153,7 +2086,7 @@ func (m *NestedNinOptNative) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2162,9 +2095,6 @@ func (m *NestedNinOptNative) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRequiredexample
 			}
 			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2180,9 +2110,6 @@ func (m *NestedNinOptNative) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
-				return ErrInvalidLengthRequiredexample
-			}
-			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRequiredexample
 			}
 			if (iNdEx + skippy) > l {
@@ -2252,11 +2179,8 @@ func skipRequiredexample(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			if length < 0 {
-				return 0, ErrInvalidLengthRequiredexample
-			}
 			iNdEx += length
-			if iNdEx < 0 {
+			if length < 0 {
 				return 0, ErrInvalidLengthRequiredexample
 			}
 			return iNdEx, nil
@@ -2287,9 +2211,6 @@ func skipRequiredexample(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthRequiredexample
-				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -2308,3 +2229,41 @@ var (
 	ErrInvalidLengthRequiredexample = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowRequiredexample   = fmt.Errorf("proto: integer overflow")
 )
+
+func init() {
+	proto.RegisterFile("requiredexample.proto", fileDescriptor_requiredexample_2673f47f43fdf851)
+}
+
+var fileDescriptor_requiredexample_2673f47f43fdf851 = []byte{
+	// 469 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0xd4, 0xdd, 0x8e, 0xd2, 0x40,
+	0x14, 0xc0, 0x71, 0x3b, 0x65, 0xf9, 0x98, 0x05, 0xd9, 0x6d, 0xe2, 0xe4, 0xc4, 0x98, 0x7a, 0xc2,
+	0xd5, 0x5c, 0x68, 0x57, 0x0a, 0xec, 0x47, 0xe2, 0xd5, 0x26, 0x7a, 0xc9, 0x26, 0xf5, 0x09, 0x58,
+	0x19, 0xd9, 0x26, 0x2c, 0xad, 0x30, 0x18, 0xaf, 0x7d, 0x0f, 0xdf, 0x67, 0x2f, 0x7d, 0x00, 0x63,
+	0x94, 0xa7, 0xf0, 0xd2, 0x58, 0xda, 0x33, 0x9c, 0xea, 0x1d, 0x3d, 0xff, 0x33, 0x13, 0xc8, 0x8f,
+	0x54, 0x3e, 0x59, 0x9b, 0x8f, 0xdb, 0x74, 0x6d, 0xe6, 0xe6, 0xf3, 0xec, 0x3e, 0x5f, 0x9a, 0x28,
+	0x5f, 0x67, 0x36, 0x0b, 0xda, 0xd5, 0xf8, 0xe9, 0xcb, 0x45, 0x6a, 0xef, 0xb6, 0xb7, 0xd1, 0xfb,
+	0xec, 0xfe, 0x6c, 0x91, 0x2d, 0xb2, 0xb3, 0x62, 0xe1, 0x76, 0xfb, 0xa1, 0x78, 0x2a, 0x1e, 0x8a,
+	0x4f, 0xfb, 0x83, 0x83, 0xaf, 0x9e, 0xec, 0x27, 0xe5, 0xd9, 0x37, 0xfb, 0x2b, 0x83, 0x17, 0xf2,
+	0xd4, 0xde, 0x99, 0x6a, 0xfa, 0xce, 0xae, 0xd3, 0xd5, 0x02, 0x3c, 0x14, 0xba, 0x93, 0xfc, 0x1b,
+	0xca, 0xed, 0x9b, 0xdc, 0xa6, 0xd9, 0x6a, 0xb6, 0x2c, 0xb7, 0x05, 0x7a, 0xe5, 0x36, 0x0f, 0x41,
+	0x24, 0x83, 0xe2, 0x8a, 0xdc, 0xcc, 0x6c, 0x75, 0xc5, 0x06, 0x7c, 0xf4, 0x75, 0x27, 0xf9, 0x4f,
+	0x19, 0x7c, 0xf7, 0x65, 0x77, 0x9a, 0xce, 0x6f, 0x72, 0x3b, 0x9d, 0xd9, 0xf4, 0x93, 0x09, 0x9e,
+	0xc9, 0xe6, 0xdb, 0xd4, 0x2c, 0xe7, 0xc3, 0xe2, 0x1b, 0x79, 0xd7, 0x8d, 0x87, 0x1f, 0xcf, 0x1f,
+	0x25, 0xe5, 0x8c, 0x6a, 0x0c, 0x02, 0x85, 0x16, 0xac, 0xc6, 0x54, 0x47, 0xe0, 0xa3, 0xd0, 0x47,
+	0xac, 0x8e, 0xa8, 0x8e, 0xa1, 0x81, 0x42, 0xfb, 0xac, 0x8e, 0xa9, 0x4e, 0xe0, 0x08, 0x85, 0xee,
+	0xb1, 0x3a, 0xa1, 0x7a, 0x0e, 0x4d, 0x14, 0xba, 0xc1, 0xea, 0x39, 0xd5, 0x0b, 0x68, 0xa1, 0xd0,
+	0xa7, 0xac, 0x5e, 0x50, 0xbd, 0x84, 0x36, 0x0a, 0x1d, 0xb0, 0x7a, 0x49, 0xf5, 0x0a, 0x3a, 0x28,
+	0x74, 0x8b, 0xd5, 0xab, 0x20, 0x94, 0xad, 0xfd, 0x2f, 0x7f, 0x05, 0x12, 0x85, 0xee, 0x97, 0xb9,
+	0x1a, 0xba, 0x3e, 0x84, 0x63, 0x14, 0xba, 0xc9, 0xfb, 0xd0, 0xf5, 0x18, 0xba, 0x28, 0xf4, 0x09,
+	0xef, 0xb1, 0xeb, 0x23, 0xe8, 0xa1, 0xd0, 0x6d, 0xde, 0x47, 0xae, 0x8f, 0xe1, 0xf1, 0xdf, 0x3f,
+	0x08, 0xef, 0x63, 0xd7, 0x27, 0xd0, 0x47, 0xa1, 0xbb, 0xbc, 0x4f, 0x06, 0x5f, 0x0a, 0xde, 0x95,
+	0xe3, 0x55, 0x9c, 0x97, 0x60, 0x15, 0x87, 0x25, 0x52, 0xc5, 0x49, 0x09, 0x53, 0x71, 0x4c, 0x62,
+	0x54, 0x9c, 0x91, 0x00, 0x15, 0x07, 0x24, 0x3a, 0xc5, 0xe9, 0x08, 0x4d, 0x71, 0x34, 0xe2, 0x52,
+	0x9c, 0x8b, 0xa0, 0xa0, 0x06, 0xe5, 0x88, 0xa0, 0x46, 0xe4, 0x70, 0xa0, 0x86, 0xe3, 0x58, 0xa0,
+	0xc6, 0xe2, 0x40, 0xa0, 0x06, 0xe2, 0x28, 0xa0, 0x46, 0xe1, 0x10, 0x12, 0x19, 0x4c, 0xcd, 0xc6,
+	0x9a, 0x39, 0x93, 0x78, 0x2d, 0x7b, 0x87, 0xd3, 0x0d, 0x78, 0xe8, 0xeb, 0xe3, 0x58, 0x45, 0xd5,
+	0xab, 0x26, 0x3a, 0x5c, 0x4f, 0xf8, 0xf2, 0xf5, 0xc9, 0xef, 0x5f, 0xa1, 0xf7, 0xb0, 0x0b, 0xbd,
+	0x6f, 0xbb, 0xd0, 0xfb, 0xb9, 0x0b, 0xbd, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x03, 0x9e, 0xae,
+	0x5f, 0xba, 0x04, 0x00, 0x00,
+}

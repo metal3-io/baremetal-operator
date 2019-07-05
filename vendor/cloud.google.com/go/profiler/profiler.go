@@ -67,7 +67,7 @@ import (
 
 var (
 	config       Config
-	startOnce    allowUntilSuccess
+	startOnce    sync.Once
 	mutexEnabled bool
 	// The functions below are stubbed to be overrideable for testing.
 	getProjectID     = gcemd.ProjectID
@@ -156,51 +156,21 @@ type Config struct {
 	// for testing.
 	APIAddr string
 
-	// Instance is the name of Compute Engine instance the profiler agent runs
-	// on. This is normally determined from the Compute Engine metadata server
-	// and doesn't need to be initialized. It needs to be set in rare cases where
-	// the metadata server is present but is flaky or otherwise misbehave.
-	Instance string
-
-	// Zone is the zone of Compute Engine instance the profiler agent runs
-	// on. This is normally determined from the Compute Engine metadata server
-	// and doesn't need to be initialized. It needs to be set in rare cases where
-	// the metadata server is present but is flaky or otherwise misbehave.
-	Zone string
+	instance string
+	zone     string
 }
 
-// allowUntilSuccess is an object that will perform action till
-// it succeeds once.
-// This is a modified form of Go's sync.Once
-type allowUntilSuccess struct {
-	m    sync.Mutex
-	done uint32
-}
-
-// do calls function f only if it hasnt returned nil previously.
-// Once f returns nil, do will not call function f any more.
-// This is a modified form of Go's sync.Once.Do
-func (o *allowUntilSuccess) do(f func() error) (err error) {
-	o.m.Lock()
-	defer o.m.Unlock()
-	if o.done == 0 {
-		if err = f(); err == nil {
-			o.done = 1
-		}
-	} else {
-		log.Printf("profiler.Start() called again after it was previously called")
-		err = nil
-	}
-	return err
-}
+// startError represents the error occurred during the
+// initializating and starting of the agent.
+var startError error
 
 // Start starts a goroutine to collect and upload profiles. The
 // caller must provide the service string in the config. See
 // Config for details. Start should only be called once. Any
 // additional calls will be ignored.
 func Start(cfg Config, options ...option.ClientOption) error {
-	startError := startOnce.do(func() error {
-		return start(cfg, options...)
+	startOnce.Do(func() {
+		startError = start(cfg, options...)
 	})
 	return startError
 }
@@ -451,8 +421,8 @@ func withXGoogHeader(ctx context.Context, keyval ...string) context.Context {
 
 func initializeAgent(c pb.ProfilerServiceClient) *agent {
 	labels := map[string]string{languageLabel: "go"}
-	if config.Zone != "" {
-		labels[zoneNameLabel] = config.Zone
+	if config.zone != "" {
+		labels[zoneNameLabel] = config.zone
 	}
 	if config.ServiceVersion != "" {
 		labels[versionLabel] = config.ServiceVersion
@@ -465,8 +435,8 @@ func initializeAgent(c pb.ProfilerServiceClient) *agent {
 
 	profileLabels := map[string]string{}
 
-	if config.Instance != "" {
-		profileLabels[instanceLabel] = config.Instance
+	if config.instance != "" {
+		profileLabels[instanceLabel] = config.instance
 	}
 
 	profileTypes := []pb.ProfileType{pb.ProfileType_CPU}
@@ -495,12 +465,7 @@ func initializeConfig(cfg Config) error {
 	config = cfg
 
 	if config.Service == "" {
-		for _, ev := range []string{"GAE_SERVICE", "K_SERVICE"} {
-			if val := os.Getenv(ev); val != "" {
-				config.Service = val
-				break
-			}
-		}
+		config.Service = os.Getenv("GAE_SERVICE")
 	}
 	if config.Service == "" {
 		return errors.New("service name must be configured")
@@ -510,12 +475,7 @@ func initializeConfig(cfg Config) error {
 	}
 
 	if config.ServiceVersion == "" {
-		for _, ev := range []string{"GAE_VERSION", "K_REVISION"} {
-			if val := os.Getenv(ev); val != "" {
-				config.ServiceVersion = val
-				break
-			}
-		}
+		config.ServiceVersion = os.Getenv("GAE_VERSION")
 	}
 
 	if projectID := os.Getenv("GOOGLE_CLOUD_PROJECT"); config.ProjectID == "" && projectID != "" {
@@ -535,20 +495,17 @@ func initializeConfig(cfg Config) error {
 			}
 		}
 
-		if config.Zone == "" {
-			if config.Zone, err = getZone(); err != nil {
-				return fmt.Errorf("failed to get zone from Compute Engine metadata: %v", err)
-			}
+		if config.zone, err = getZone(); err != nil {
+			return fmt.Errorf("failed to get zone from Compute Engine metadata: %v", err)
 		}
 
-		if config.Instance == "" {
-			if config.Instance, err = getInstanceName(); err != nil {
-				if _, ok := err.(gcemd.NotDefinedError); !ok {
-					return fmt.Errorf("failed to get instance name from Compute Engine metadata: %v", err)
-				}
-				debugLog("failed to get instance name from Compute Engine metadata, will use empty name: %v", err)
+		if config.instance, err = getInstanceName(); err != nil {
+			if _, ok := err.(gcemd.NotDefinedError); !ok {
+				return fmt.Errorf("failed to get instance name from Compute Engine metadata: %v", err)
 			}
+			debugLog("failed to get instance name from Compute Engine metadata, will use empty name: %v", err)
 		}
+
 	} else {
 		if config.ProjectID == "" {
 			return fmt.Errorf("project ID must be specified in the configuration if running outside of GCP")

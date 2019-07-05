@@ -220,25 +220,9 @@ func (c *Container) dispatch(httpWriter http.ResponseWriter, httpRequest *http.R
 		}()
 	}
 
-	// Find best match Route ; err is non nil if no match was found
-	var webService *WebService
-	var route *Route
-	var err error
-	func() {
-		c.webServicesLock.RLock()
-		defer c.webServicesLock.RUnlock()
-		webService, route, err = c.router.SelectRoute(
-			c.webServices,
-			httpRequest)
-	}()
-
 	// Detect if compression is needed
 	// assume without compression, test for override
-	contentEncodingEnabled := c.contentEncodingEnabled
-	if route != nil && route.contentEncodingEnabled != nil {
-		contentEncodingEnabled = *route.contentEncodingEnabled
-	}
-	if contentEncodingEnabled {
+	if c.contentEncodingEnabled {
 		doCompress, encoding := wantsCompressedResponse(httpRequest)
 		if doCompress {
 			var err error
@@ -250,7 +234,17 @@ func (c *Container) dispatch(httpWriter http.ResponseWriter, httpRequest *http.R
 			}
 		}
 	}
-
+	// Find best match Route ; err is non nil if no match was found
+	var webService *WebService
+	var route *Route
+	var err error
+	func() {
+		c.webServicesLock.RLock()
+		defer c.webServicesLock.RUnlock()
+		webService, route, err = c.router.SelectRoute(
+			c.webServices,
+			httpRequest)
+	}()
 	if err != nil {
 		// a non-200 response has already been written
 		// run container filters anyway ; they should not touch the response...
@@ -272,13 +266,16 @@ func (c *Container) dispatch(httpWriter http.ResponseWriter, httpRequest *http.R
 	pathParams := pathProcessor.ExtractParameters(route, webService, httpRequest.URL.Path)
 	wrappedRequest, wrappedResponse := route.wrapRequestResponse(writer, httpRequest, pathParams)
 	// pass through filters (if any)
-	if size := len(c.containerFilters) + len(webService.filters) + len(route.Filters); size > 0 {
+	if len(c.containerFilters)+len(webService.filters)+len(route.Filters) > 0 {
 		// compose filter chain
-		allFilters := make([]FilterFunction, 0, size)
+		allFilters := []FilterFunction{}
 		allFilters = append(allFilters, c.containerFilters...)
 		allFilters = append(allFilters, webService.filters...)
 		allFilters = append(allFilters, route.Filters...)
-		chain := FilterChain{Filters: allFilters, Target: route.Function}
+		chain := FilterChain{Filters: allFilters, Target: func(req *Request, resp *Response) {
+			// handle request by route after passing all filters
+			route.Function(wrappedRequest, wrappedResponse)
+		}}
 		chain.ProcessFilter(wrappedRequest, wrappedResponse)
 	} else {
 		// no filters, handle request by route

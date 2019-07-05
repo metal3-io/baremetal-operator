@@ -29,7 +29,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/martian"
@@ -99,38 +98,28 @@ func (t *hideTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return (*http.Transport)(t).RoundTrip(req)
 }
 
-var (
-	configOnce sync.Once
-	cert       *x509.Certificate
-	config     *mitm.Config
-	configErr  error
-)
-
 func newProxy(filename string) (*Proxy, error) {
-	configOnce.Do(func() {
-		// Set up a man-in-the-middle configuration with a CA certificate so the proxy can
-		// participate in TLS.
-		x509c, priv, err := mitm.NewAuthority("cloud.google.com/go/httpreplay", "HTTPReplay Authority", 100*time.Hour)
-		if err != nil {
-			configErr = err
-			return
-		}
-		cert = x509c
-		config, configErr = mitm.NewConfig(x509c, priv)
-		if config != nil {
-			config.SetValidity(100 * time.Hour)
-			config.SetOrganization("cloud.google.com/go/httpreplay")
-			config.SkipTLSVerify(false)
-		}
-	})
-	if configErr != nil {
-		return nil, configErr
-	}
 	mproxy := martian.NewProxy()
-	mproxy.SetMITM(config)
+	// Set up a man-in-the-middle configuration with a CA certificate so the proxy can
+	// participate in TLS.
+	x509c, priv, err := mitm.NewAuthority("cloud.google.com/go/httpreplay", "HTTPReplay Authority", time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	mc, err := mitm.NewConfig(x509c, priv)
+	if err != nil {
+		return nil, err
+	}
+	mc.SetValidity(time.Hour)
+	mc.SetOrganization("cloud.google.com/go/httpreplay")
+	mc.SkipTLSVerify(false)
+	if err != nil {
+		return nil, err
+	}
+	mproxy.SetMITM(mc)
 	return &Proxy{
 		mproxy:        mproxy,
-		CACert:        cert,
+		CACert:        x509c,
 		filename:      filename,
 		ignoreHeaders: map[string]bool{},
 	}, nil

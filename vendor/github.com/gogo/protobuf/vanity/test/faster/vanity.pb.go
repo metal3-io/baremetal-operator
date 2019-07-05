@@ -3,13 +3,12 @@
 
 package vanity
 
-import (
-	fmt "fmt"
-	github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
-	proto "github.com/gogo/protobuf/proto"
-	io "io"
-	math "math"
-)
+import proto "github.com/gogo/protobuf/proto"
+import fmt "fmt"
+import math "math"
+
+import io "io"
+import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -31,7 +30,7 @@ func (m *A) Reset()         { *m = A{} }
 func (m *A) String() string { return proto.CompactTextString(m) }
 func (*A) ProtoMessage()    {}
 func (*A) Descriptor() ([]byte, []int) {
-	return fileDescriptor_d4f40d14cd1329d6, []int{0}
+	return fileDescriptor_vanity_c8a9a949a2e14347, []int{0}
 }
 func (m *A) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -48,8 +47,8 @@ func (m *A) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *A) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_A.Merge(m, src)
+func (dst *A) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_A.Merge(dst, src)
 }
 func (m *A) XXX_Size() int {
 	return m.Size()
@@ -77,21 +76,6 @@ func (m *A) GetInt() int64 {
 func init() {
 	proto.RegisterType((*A)(nil), "vanity.A")
 }
-
-func init() { proto.RegisterFile("vanity.proto", fileDescriptor_d4f40d14cd1329d6) }
-
-var fileDescriptor_d4f40d14cd1329d6 = []byte{
-	// 117 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x29, 0x4b, 0xcc, 0xcb,
-	0x2c, 0xa9, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0, 0x94, 0xac, 0xb9, 0x18,
-	0x1d, 0x85, 0xe4, 0xb8, 0xd8, 0x83, 0x4b, 0x8a, 0x32, 0xf3, 0xd2, 0x8b, 0x25, 0x18, 0x15, 0x18,
-	0x35, 0x38, 0x9d, 0x58, 0x4e, 0xdc, 0x93, 0x67, 0x08, 0x82, 0x09, 0x0a, 0x89, 0x71, 0x31, 0x7b,
-	0xe6, 0x95, 0x48, 0x30, 0x29, 0x30, 0x69, 0x30, 0x43, 0xe5, 0x40, 0x02, 0x4e, 0x12, 0x27, 0x1e,
-	0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x84, 0xc7, 0x72, 0x0c, 0x17,
-	0x1e, 0xcb, 0x31, 0xdc, 0x78, 0x2c, 0xc7, 0x00, 0x08, 0x00, 0x00, 0xff, 0xff, 0x8b, 0x2e, 0x6a,
-	0x0c, 0x6d, 0x00, 0x00, 0x00,
-}
-
 func (m *A) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -167,7 +151,7 @@ func (m *A) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= uint64(b&0x7F) << shift
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -195,7 +179,7 @@ func (m *A) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -205,9 +189,6 @@ func (m *A) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthVanity
 			}
 			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthVanity
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -227,7 +208,7 @@ func (m *A) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Int |= int64(b&0x7F) << shift
+				m.Int |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -240,9 +221,6 @@ func (m *A) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
-				return ErrInvalidLengthVanity
-			}
-			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthVanity
 			}
 			if (iNdEx + skippy) > l {
@@ -314,11 +292,8 @@ func skipVanity(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			if length < 0 {
-				return 0, ErrInvalidLengthVanity
-			}
 			iNdEx += length
-			if iNdEx < 0 {
+			if length < 0 {
 				return 0, ErrInvalidLengthVanity
 			}
 			return iNdEx, nil
@@ -349,9 +324,6 @@ func skipVanity(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthVanity
-				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -370,3 +342,17 @@ var (
 	ErrInvalidLengthVanity = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowVanity   = fmt.Errorf("proto: integer overflow")
 )
+
+func init() { proto.RegisterFile("vanity.proto", fileDescriptor_vanity_c8a9a949a2e14347) }
+
+var fileDescriptor_vanity_c8a9a949a2e14347 = []byte{
+	// 117 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x29, 0x4b, 0xcc, 0xcb,
+	0x2c, 0xa9, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0, 0x94, 0xac, 0xb9, 0x18,
+	0x1d, 0x85, 0xe4, 0xb8, 0xd8, 0x83, 0x4b, 0x8a, 0x32, 0xf3, 0xd2, 0x8b, 0x25, 0x18, 0x15, 0x18,
+	0x35, 0x38, 0x9d, 0x58, 0x4e, 0xdc, 0x93, 0x67, 0x08, 0x82, 0x09, 0x0a, 0x89, 0x71, 0x31, 0x7b,
+	0xe6, 0x95, 0x48, 0x30, 0x29, 0x30, 0x69, 0x30, 0x43, 0xe5, 0x40, 0x02, 0x4e, 0x12, 0x27, 0x1e,
+	0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x84, 0xc7, 0x72, 0x0c, 0x17,
+	0x1e, 0xcb, 0x31, 0xdc, 0x78, 0x2c, 0xc7, 0x00, 0x08, 0x00, 0x00, 0xff, 0xff, 0x8b, 0x2e, 0x6a,
+	0x0c, 0x6d, 0x00, 0x00, 0x00,
+}

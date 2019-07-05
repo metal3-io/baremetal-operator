@@ -20,8 +20,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/prometheus/procfs/internal/util"
 )
 
@@ -37,7 +35,7 @@ type SystemCPUCpufreqStats struct {
 	ScalingMaximumFrequency  *uint64
 	AvailableGovernors       string
 	Driver                   string
-	Governor                 string
+	Govenor                  string
 	RelatedCpus              string
 	SetSpeed                 string
 }
@@ -46,43 +44,44 @@ type SystemCPUCpufreqStats struct {
 
 // TODO: Add thermal_throttle support.
 
-// SystemCpufreq returns CPU frequency metrics for all CPUs.
-func (fs FS) SystemCpufreq() ([]SystemCPUCpufreqStats, error) {
-	var g errgroup.Group
-
-	cpus, err := filepath.Glob(fs.sys.Path("devices/system/cpu/cpu[0-9]*"))
+// NewSystemCpufreq returns CPU frequency metrics for all CPUs.
+func NewSystemCpufreq() ([]SystemCPUCpufreqStats, error) {
+	fs, err := NewFS(DefaultMountPoint)
 	if err != nil {
-		return nil, err
+		return []SystemCPUCpufreqStats{}, err
 	}
 
-	systemCpufreq := make([]SystemCPUCpufreqStats, len(cpus))
-	for i, cpu := range cpus {
-		cpuName := strings.TrimPrefix(filepath.Base(cpu), "cpu")
+	return fs.NewSystemCpufreq()
+}
+
+// NewSystemCpufreq returns CPU frequency metrics for all CPUs.
+func (fs FS) NewSystemCpufreq() ([]SystemCPUCpufreqStats, error) {
+	var cpufreq = &SystemCPUCpufreqStats{}
+
+	cpus, err := filepath.Glob(fs.Path("devices/system/cpu/cpu[0-9]*"))
+	if err != nil {
+		return []SystemCPUCpufreqStats{}, err
+	}
+
+	systemCpufreq := []SystemCPUCpufreqStats{}
+	for _, cpu := range cpus {
+		cpuName := filepath.Base(cpu)
+		cpuNum := strings.TrimPrefix(cpuName, "cpu")
 
 		cpuCpufreqPath := filepath.Join(cpu, "cpufreq")
-		_, err = os.Stat(cpuCpufreqPath)
-		if os.IsNotExist(err) {
+		if _, err := os.Stat(cpuCpufreqPath); os.IsNotExist(err) {
 			continue
-		} else if err != nil {
-			return nil, err
+		}
+		if err != nil {
+			return []SystemCPUCpufreqStats{}, err
 		}
 
-		// Execute the parsing of each CPU in parallel.
-		// This is done because the kernel intentionally delays access to each CPU by
-		// 50 milliseconds to avoid DDoSing possibly expensive functions.
-		i := i // https://golang.org/doc/faq#closures_and_goroutines
-		g.Go(func() error {
-			cpufreq, err := parseCpufreqCpuinfo(cpuCpufreqPath)
-			if err == nil {
-				cpufreq.Name = cpuName
-				systemCpufreq[i] = *cpufreq
-			}
-			return err
-		})
-	}
-
-	if err = g.Wait(); err != nil {
-		return nil, err
+		cpufreq, err = parseCpufreqCpuinfo(cpuCpufreqPath)
+		if err != nil {
+			return []SystemCPUCpufreqStats{}, err
+		}
+		cpufreq.Name = cpuNum
+		systemCpufreq = append(systemCpufreq, *cpufreq)
 	}
 
 	return systemCpufreq, nil
@@ -139,7 +138,7 @@ func parseCpufreqCpuinfo(cpuPath string) (*SystemCPUCpufreqStats, error) {
 		ScalingMinimumFrequency:  uintOut[6],
 		AvailableGovernors:       stringOut[0],
 		Driver:                   stringOut[1],
-		Governor:                 stringOut[2],
+		Govenor:                  stringOut[2],
 		RelatedCpus:              stringOut[3],
 		SetSpeed:                 stringOut[4],
 	}, nil

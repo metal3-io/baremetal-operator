@@ -9,6 +9,7 @@ import (
 
 	"github.com/metal3-io/baremetal-operator/pkg/apis"
 	"github.com/metal3-io/baremetal-operator/pkg/controller"
+	"github.com/metal3-io/baremetal-operator/pkg/version"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -25,6 +26,7 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+	log.Info(fmt.Sprintf("Component version: %s", version.String))
 }
 
 func main() {

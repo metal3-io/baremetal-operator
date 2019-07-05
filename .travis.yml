@@ -10,7 +10,6 @@ go:
 
 before_install:
   - go get golang.org/x/lint/golint
-  - go get github.com/operator-framework/operator-sdk/cmd/operator-sdk
 
 env:
   - TARGET=test-verbose

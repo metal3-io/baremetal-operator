@@ -125,6 +125,7 @@ type BareMetalHostSpec struct {
 
 	// Which MAC address will PXE boot? This is optional for some
 	// types, but required for libvirt VMs driven by vbmc.
+	// +kubebuilder:validation:Pattern=[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}
 	BootMACAddress string `json:"bootMACAddress,omitempty"`
 
 	// Should the server be online?
@@ -237,7 +238,10 @@ type VLANID int32
 
 // VLAN represents the name and ID of a VLAN
 type VLAN struct {
-	ID   VLANID `json:"id"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4094
+	ID VLANID `json:"id"`
+
 	Name string `json:"name,omitempty"`
 }
 
@@ -250,6 +254,7 @@ type NIC struct {
 	Model string `json:"model"`
 
 	// The device MAC addr
+	// +kubebuilder:validation:Pattern=[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}
 	MAC string `json:"mac"`
 
 	// The IP address of the device
@@ -262,6 +267,8 @@ type NIC struct {
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// The untagged VLAN ID
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4094
 	VLANID VLANID `json:"vlanId"`
 
 	// Whether the NIC is PXE Bootable

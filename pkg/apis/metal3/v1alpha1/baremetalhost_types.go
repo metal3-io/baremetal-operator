@@ -116,16 +116,16 @@ type BareMetalHostSpec struct {
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
 	// How do we connect to the BMC?
-	BMC BMCDetails `json:"bmc"`
+	BMC BMCDetails `json:"bmc,omitempty"`
 
 	// What is the name of the hardware profile for this host? It
 	// should only be necessary to set this when inspection cannot
 	// automatically determine the profile.
-	HardwareProfile string `json:"hardwareProfile"`
+	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
 	// Which MAC address will PXE boot? This is optional for some
 	// types, but required for libvirt VMs driven by vbmc.
-	BootMACAddress string `json:"bootMACAddress"`
+	BootMACAddress string `json:"bootMACAddress,omitempty"`
 
 	// Should the server be online?
 	Online bool `json:"online"`
@@ -143,13 +143,13 @@ type BareMetalHostSpec struct {
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
 	// Description is a human-entered text used to help identify the host
-	Description string `json:"description"`
+	Description string `json:"description,omitempty"`
 
 	// ExternallyProvisioned means something else is managing the
 	// image running on the host and the operator should only manage
 	// the power status and hardware inventory inspection. If the
 	// Image field is filled in, this field is ignored.
-	ExternallyProvisioned bool `json:"externallyProvisioned"`
+	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 }
 
 // Image holds the details of an image either to provisioned or that

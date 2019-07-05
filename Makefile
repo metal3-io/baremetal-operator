@@ -49,10 +49,14 @@ unit:
 test-verbose:
 	VERBOSE=-v make unit
 
+crd_file=deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
+crd_tmp=.crd.yaml.tmp
+
 .PHONY: lint
 lint:
 	golint -set_exit_status pkg/... cmd/...
 	go vet ./pkg/... ./cmd/...
+	cp $(crd_file) $(crd_tmp); make crd; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
 
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))
@@ -70,6 +74,10 @@ e2e-local:
 .PHONY: dep
 dep:
 	dep ensure
+
+.PHONY: crd
+crd:
+	operator-sdk generate openapi
 
 .PHONY: run
 run:

@@ -3,19 +3,6 @@ kind: CustomResourceDefinition
 metadata:
   name: baremetalhosts.metal3.io
 spec:
-  group: metal3.io
-  names:
-    kind: BareMetalHost
-    listKind: BareMetalHostList
-    plural: baremetalhosts
-    singular: baremetalhost
-    shortNames:
-     - bmh
-     - bmhost
-  scope: Namespaced
-  version: v1alpha1
-  subresources:
-    status: {}
   additionalPrinterColumns:
   - JSONPath: .status.operationalStatus
     description: Operational status
@@ -30,7 +17,7 @@ spec:
     name: Consumer
     type: string
   - JSONPath: .spec.bmc.address
-    description: Address of management controler
+    description: Address of management controller
     name: BMC
     type: string
   - JSONPath: .status.hardwareProfile
@@ -45,3 +32,307 @@ spec:
     description: Most recent error
     name: Error
     type: string
+  group: metal3.io
+  names:
+    kind: BareMetalHost
+    listKind: BareMetalHostList
+    plural: baremetalhosts
+    shortNames:
+    - bmh
+    - bmhost
+    singular: baremetalhost
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            bmc:
+              description: How do we connect to the BMC?
+              properties:
+                address:
+                  description: Address holds the URL for accessing the controller
+                    on the network.
+                  type: string
+                credentialsName:
+                  description: The name of the secret containing the BMC credentials
+                    (requires keys "username" and "password").
+                  type: string
+              required:
+              - address
+              - credentialsName
+              type: object
+            bootMACAddress:
+              description: Which MAC address will PXE boot? This is optional for some
+                types, but required for libvirt VMs driven by vbmc.
+              type: string
+            consumerRef:
+              description: ConsumerRef can be used to store information about something
+                that is using a host. When it is not empty, the host is considered
+                "in use".
+              type: object
+            description:
+              description: Description is a human-entered text used to help identify
+                the host
+              type: string
+            hardwareProfile:
+              description: What is the name of the hardware profile for this host?
+                It should only be necessary to set this when inspection cannot automatically
+                determine the profile.
+              type: string
+            image:
+              description: Image holds the details of the image to be provisioned.
+              properties:
+                checksum:
+                  description: Checksum is the checksum for the image.
+                  type: string
+                url:
+                  description: URL is a location of an image to deploy.
+                  type: string
+              required:
+              - url
+              - checksum
+              type: object
+            online:
+              description: Should the server be online?
+              type: boolean
+            taints:
+              description: Taints is the full, authoritative list of taints to apply
+                to the corresponding Machine. This list will overwrite any modifications
+                made to the Machine on an ongoing basis.
+              items:
+                type: object
+              type: array
+            userData:
+              description: UserData holds the reference to the Secret containing the
+                user data to be passed to the host before it boots.
+              type: object
+          required:
+          - bmc
+          - hardwareProfile
+          - bootMACAddress
+          - online
+          - description
+          type: object
+        status:
+          properties:
+            errorMessage:
+              description: the last error message reported by the provisioning subsystem
+              type: string
+            goodCredentials:
+              description: the last credentials we were able to validate as working
+              properties:
+                credentials:
+                  type: object
+                credentialsVersion:
+                  type: string
+              type: object
+            hardware:
+              description: The hardware discovered to exist on the host.
+              properties:
+                cpu:
+                  properties:
+                    arch:
+                      type: string
+                    clockMegahertz:
+                      format: double
+                      type: number
+                    count:
+                      format: int64
+                      type: integer
+                    flags:
+                      items:
+                        type: string
+                      type: array
+                    model:
+                      type: string
+                  required:
+                  - arch
+                  - model
+                  - clockMegahertz
+                  - flags
+                  - count
+                  type: object
+                hostname:
+                  type: string
+                nics:
+                  items:
+                    properties:
+                      ip:
+                        description: The IP address of the device
+                        type: string
+                      mac:
+                        description: The device MAC addr
+                        type: string
+                      model:
+                        description: The name of the model, e.g. "virt-io"
+                        type: string
+                      name:
+                        description: The name of the NIC, e.g. "nic-1"
+                        type: string
+                      pxe:
+                        description: Whether the NIC is PXE Bootable
+                        type: boolean
+                      speedGbps:
+                        description: The speed of the device
+                        format: int64
+                        type: integer
+                      vlanId:
+                        description: The untagged VLAN ID
+                        type: int16
+                      vlans:
+                        description: The VLANs available
+                        items:
+                          properties:
+                            id:
+                              type: int16
+                            name:
+                              type: string
+                          required:
+                          - id
+                          type: object
+                        type: array
+                    required:
+                    - name
+                    - model
+                    - mac
+                    - ip
+                    - speedGbps
+                    - vlanId
+                    - pxe
+                    type: object
+                  type: array
+                ramMebibytes:
+                  format: int64
+                  type: integer
+                storage:
+                  items:
+                    properties:
+                      hctl:
+                        description: The SCSI location of the device
+                        type: string
+                      model:
+                        description: Hardware model
+                        type: string
+                      name:
+                        description: A name for the disk, e.g. "disk 1 (boot)"
+                        type: string
+                      rotational:
+                        description: Whether this disk represents rotational storage
+                        type: boolean
+                      serialNumber:
+                        description: The serial number of the device
+                        type: string
+                      sizeBytes:
+                        description: The size of the disk in Bytes
+                        format: int64
+                        type: integer
+                      vendor:
+                        description: The name of the vendor of the device
+                        type: string
+                      wwn:
+                        description: The WWN of the device
+                        type: string
+                      wwnVendorExtension:
+                        description: The WWN Vendor extension of the device
+                        type: string
+                      wwnWithExtension:
+                        description: The WWN with the extension
+                        type: string
+                    required:
+                    - name
+                    - rotational
+                    - sizeBytes
+                    - serialNumber
+                    type: object
+                  type: array
+                systemVendor:
+                  properties:
+                    manufacturer:
+                      type: string
+                    productName:
+                      type: string
+                    serialNumber:
+                      type: string
+                  required:
+                  - manufacturer
+                  - productName
+                  - serialNumber
+                  type: object
+              required:
+              - systemVendor
+              - ramMebibytes
+              - nics
+              - storage
+              - cpu
+              - hostname
+              type: object
+            hardwareProfile:
+              description: The name of the profile matching the hardware details.
+              type: string
+            lastUpdated:
+              description: LastUpdated identifies when this status was last observed.
+              format: date-time
+              type: string
+            operationalStatus:
+              description: OperationalStatus holds the status of the host
+              type: string
+            poweredOn:
+              description: indicator for whether or not the host is powered on
+              type: boolean
+            provisioning:
+              description: Information tracked by the provisioner.
+              properties:
+                ID:
+                  description: The machine's UUID from the underlying provisioning
+                    tool
+                  type: string
+                image:
+                  description: Image holds the details of the last image successfully
+                    provisioned to the host.
+                  properties:
+                    checksum:
+                      description: Checksum is the checksum for the image.
+                      type: string
+                    url:
+                      description: URL is a location of an image to deploy.
+                      type: string
+                  required:
+                  - url
+                  - checksum
+                  type: object
+                state:
+                  description: An indiciator for what the provisioner is doing with
+                    the host.
+                  type: string
+              required:
+              - state
+              - ID
+              type: object
+          required:
+          - operationalStatus
+          - hardwareProfile
+          - provisioning
+          - goodCredentials
+          - errorMessage
+          - poweredOn
+          type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

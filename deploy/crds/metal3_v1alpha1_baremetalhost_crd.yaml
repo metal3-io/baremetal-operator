@@ -79,6 +79,7 @@ spec:
             bootMACAddress:
               description: Which MAC address will PXE boot? This is optional for some
                 types, but required for libvirt VMs driven by vbmc.
+              pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
               type: string
             consumerRef:
               description: ConsumerRef can be used to store information about something
@@ -201,6 +202,7 @@ spec:
                         type: string
                       mac:
                         description: The device MAC addr
+                        pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                         type: string
                       model:
                         description: The name of the model, e.g. "virt-io"
@@ -218,6 +220,8 @@ spec:
                       vlanId:
                         description: The untagged VLAN ID
                         format: int32
+                        maximum: 4094
+                        minimum: 0
                         type: integer
                       vlans:
                         description: The VLANs available
@@ -225,6 +229,8 @@ spec:
                           properties:
                             id:
                               format: int32
+                              maximum: 4094
+                              minimum: 0
                               type: integer
                             name:
                               type: string

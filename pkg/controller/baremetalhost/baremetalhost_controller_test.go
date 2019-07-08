@@ -596,6 +596,74 @@ func TestProvision(t *testing.T) {
 	)
 }
 
+// TestDeprovision ensures that removing the image setting from a host
+// causes it to be marked as deprovisioned.
+func TestDeprovision(t *testing.T) {
+	logger := log.WithValues("test", t.Name())
+
+	// Start by driving the host through the flow to "provision" it
+	host := newDefaultHost(t)
+	host.Spec.Image = &metal3v1alpha1.Image{
+		URL:      "https://example.com/image-name",
+		Checksum: "12345",
+	}
+	host.Spec.Online = true
+	// we don't need a real consumer
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			logger.Info("details",
+				"Image", host.Spec.Image,
+				"Provisioning.Image", host.Status.Provisioning.Image,
+				"State", host.Status.Provisioning.State,
+			)
+			return host.Status.Provisioning.State == metal3v1alpha1.StateProvisioned
+		},
+	)
+
+	// Now remove the image setting and wait for it to be deprovisioned
+
+	logger.Info("*** starting to deprovision")
+	host.Spec.Image = nil
+	err := r.client.Update(goctx.TODO(), host)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			logger.Info("details",
+				"Image", host.Spec.Image,
+				"Provisioning.Image", host.Status.Provisioning.Image,
+				"State", host.Status.Provisioning.State,
+			)
+			return host.Status.Provisioning.State == metal3v1alpha1.StateReady
+		},
+	)
+
+	// Finally remove the consumer setting and ensure it stays ready
+
+	logger.Info("*** removing consumer")
+	host.Spec.ConsumerRef = nil
+	err = r.client.Update(goctx.TODO(), host)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			logger.Info("details",
+				"Image", host.Spec.Image,
+				"Provisioning.Image", host.Status.Provisioning.Image,
+				"State", host.Status.Provisioning.State,
+			)
+			return host.Status.Provisioning.State == metal3v1alpha1.StateReady
+		},
+	)
+}
+
 // TestExternallyProvisioned ensures that host enters the expected
 // state when it looks like it has been provisioned by another tool.
 func TestExternallyProvisioned(t *testing.T) {

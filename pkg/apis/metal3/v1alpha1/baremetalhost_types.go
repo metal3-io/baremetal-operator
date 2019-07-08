@@ -520,6 +520,16 @@ func (host *BareMetalHost) WasProvisioned() bool {
 // WasExternallyProvisioned returns true when we think something else
 // is managing the image running on the host.
 func (host *BareMetalHost) WasExternallyProvisioned() bool {
+	// We do not want provisioned hosts to appear to be externally
+	// provisioned when we start deprovisioning them.
+	if host.Status.Provisioning.State == StateProvisioned {
+		return false
+	}
+	if host.Status.Provisioning.State == StateDeprovisioning {
+		return false
+	}
+	// Truly externally provisioned hosts have an image and no
+	// consumer.
 	if host.Spec.Image == nil && host.Spec.ConsumerRef != nil {
 		return true
 	}

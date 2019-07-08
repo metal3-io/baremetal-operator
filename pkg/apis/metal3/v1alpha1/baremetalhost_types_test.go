@@ -374,6 +374,18 @@ func TestHostWasExternallyProvisioned(t *testing.T) {
 			},
 			Expected: false,
 		},
+
+		{
+			Scenario: "deprovisioning state",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						State: StateDeprovisioning,
+					},
+				},
+			},
+			Expected: false,
+		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			if tc.Expected && !tc.Host.WasExternallyProvisioned() {

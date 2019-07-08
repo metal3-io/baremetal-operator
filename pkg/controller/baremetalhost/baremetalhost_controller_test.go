@@ -350,77 +350,105 @@ func TestDiscoveredHost(t *testing.T) {
 // of the required BMC settings is put into an error state.
 func TestMissingBMCParameters(t *testing.T) {
 
-	// test bmc data populated with a secret that itself contains
-	// invalid or null parameters
-	secretNoUser := newSecret("bmc-creds-no-user", "", "Pass")
-	noUsername := newHost("missing-bmc-username",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "ipmi://192.168.122.1:6233",
-				CredentialsName: "bmc-creds-no-user",
-			},
-		})
-	r := newTestReconciler(noUsername, secretNoUser)
-	waitForError(t, r, noUsername)
+	type HostFactory func() *metal3v1alpha1.BareMetalHost
 
-	secretNoPassword := newSecret("bmc-creds-no-pass", "User", "")
-	noPassword := newHost("missing-bmc-password",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "ipmi://192.168.122.1:6233",
-				CredentialsName: "bmc-creds-no-pass",
+	testCases := []struct {
+		Scenario string
+		Secret   *corev1.Secret
+		Factory  HostFactory
+	}{
+		{
+			Scenario: "secret without username",
+			Secret:   newSecret("bmc-creds-no-user", "", "Pass"),
+			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
+				return newHost("missing-bmc-username",
+					&metal3v1alpha1.BareMetalHostSpec{
+						BMC: metal3v1alpha1.BMCDetails{
+							Address:         "ipmi://192.168.122.1:6233",
+							CredentialsName: "bmc-creds-no-user",
+						},
+					})
 			},
-		})
-	r = newTestReconciler(noPassword, secretNoPassword)
-	waitForError(t, r, noPassword)
+		},
 
-	// test we set an error message when the address
-	// is malformed - bmc access tests do more exhaustive
-	// type checking tests
-	secretOk := newSecret("bmc-creds-ok", "User", "Pass")
-	invalidAddress := newHost("invalid-bmc-address",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "unknown://notAvalidIPMIURL",
-				CredentialsName: "bmc-creds-ok",
+		{
+			Scenario: "secret without password",
+			Secret:   newSecret("bmc-creds-no-pass", "User", ""),
+			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
+				return newHost("missing-bmc-password",
+					&metal3v1alpha1.BareMetalHostSpec{
+						BMC: metal3v1alpha1.BMCDetails{
+							Address:         "ipmi://192.168.122.1:6233",
+							CredentialsName: "bmc-creds-no-pass",
+						},
+					})
 			},
-		})
-	r = newTestReconciler(invalidAddress, secretOk)
-	waitForError(t, r, invalidAddress)
+		},
 
-	// test we set an error message when BMCDetails are missing
-	secretOk = newSecret("bmc-creds-ok", "User", "Pass")
-	noAddress := newHost("missing-bmc-address",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "",
-				CredentialsName: "bmc-creds-ok",
+		{
+			Scenario: "malformed address",
+			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
+				return newHost("invalid-bmc-address",
+					&metal3v1alpha1.BareMetalHostSpec{
+						BMC: metal3v1alpha1.BMCDetails{
+							Address:         "unknown://notAvalidIPMIURL",
+							CredentialsName: "bmc-creds-ok",
+						},
+					})
 			},
-		})
-	r = newTestReconciler(noAddress, secretOk)
-	waitForError(t, r, noAddress)
+		},
 
-	noSecretRef := newHost("missing-bmc-credentials-ref",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "ipmi://192.168.122.1:6233",
-				CredentialsName: "",
+		{
+			Scenario: "missing address",
+			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
+				return newHost("missing-bmc-address",
+					&metal3v1alpha1.BareMetalHostSpec{
+						BMC: metal3v1alpha1.BMCDetails{
+							Address:         "",
+							CredentialsName: "bmc-creds-ok",
+						},
+					})
 			},
-		})
-	r = newTestReconciler(noSecretRef)
-	waitForError(t, r, noSecretRef)
+		},
 
-	// test we set an error message when the CredentialsName
-	// defined does not exist in kubernetes
-	NonExistentSecretRef := newHost("non-existent-bmc-secret-ref",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "ipmi://192.168.122.1:6233",
-				CredentialsName: "this-secret-does-not-exist",
+		{
+			Scenario: "missing secret",
+			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
+				return newHost("missing-bmc-credentials-ref",
+					&metal3v1alpha1.BareMetalHostSpec{
+						BMC: metal3v1alpha1.BMCDetails{
+							Address:         "ipmi://192.168.122.1:6233",
+							CredentialsName: "",
+						},
+					})
 			},
+		},
+
+		{
+			Scenario: "no such secret",
+			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
+				return newHost("non-existent-bmc-secret-ref",
+					&metal3v1alpha1.BareMetalHostSpec{
+						BMC: metal3v1alpha1.BMCDetails{
+							Address:         "ipmi://192.168.122.1:6233",
+							CredentialsName: "this-secret-does-not-exist",
+						},
+					})
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := tc.Factory()
+			r := newTestReconciler(tc.Secret, host)
+			waitForError(t, r, host)
 		})
-	r = newTestReconciler(NonExistentSecretRef)
-	waitForError(t, r, NonExistentSecretRef)
+	}
 }
 
 // TestFixSecret ensures that when the secret for a host is updated to

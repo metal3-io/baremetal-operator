@@ -39,14 +39,14 @@ generate:
 	operator-sdk generate k8s
 
 .PHONY: travis
-travis: test-verbose lint
+travis: unit-verbose lint
 
 .PHONY: unit
 unit:
 	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
 
 .PHONY: unit-verbose
-test-verbose:
+unit-verbose:
 	VERBOSE=-v make unit
 
 .PHONY: lint

@@ -12,7 +12,7 @@ before_install:
   - go get golang.org/x/lint/golint
 
 env:
-  - TARGET=test-verbose
+  - TARGET=unit-verbose
   - TARGET=lint
   - TARGET=docker
 

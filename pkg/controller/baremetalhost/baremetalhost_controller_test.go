@@ -771,16 +771,18 @@ func TestDeleteHost(t *testing.T) {
 
 	for _, factory := range testCases {
 		host := factory()
-		host.DeletionTimestamp = &now
-		host.Status.Provisioning.ID = "made-up-id"
-		badSecret := newSecret("bmc-creds-no-user", "", "Pass")
-		r := newTestReconciler(host, badSecret)
+		t.Run(host.Name, func(t *testing.T) {
+			host.DeletionTimestamp = &now
+			host.Status.Provisioning.ID = "made-up-id"
+			badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+			r := newTestReconciler(host, badSecret)
 
-		tryReconcile(t, r, host,
-			func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-				t.Logf("provisioning id: %q", host.Status.Provisioning.ID)
-				return host.Status.Provisioning.ID == ""
-			},
-		)
+			tryReconcile(t, r, host,
+				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+					t.Logf("provisioning id: %q", host.Status.Provisioning.ID)
+					return host.Status.Provisioning.ID == ""
+				},
+			)
+		})
 	}
 }

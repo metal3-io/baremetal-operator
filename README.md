@@ -17,8 +17,6 @@ for more information on work in progress.
 For more information about Metal³, the Bare Metal Operator, and other related
 components, see the [Metal³ docs](https://github.com/metal3-io/metal3-docs).
 
-#### Bare Metal Management Pods
-
 ## Resources
 
 * [API documentation](docs/api.md)

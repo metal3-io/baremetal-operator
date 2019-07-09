@@ -79,14 +79,15 @@ host was updated.
 
 *operationalStatus* -- The status of the server. Value is one of the
 following:
-  * *OK* -- The host is configured correctly and not actively being
-  managed.
+  * *OK* -- The host is configured correctly and is manageable.
   * *discovered* -- The host is only partially configured, such as
-  when a few values are loaded from Ironic.
+  when the BMC address is known but the login credentials are not.
   * *error* -- There is an error with the configuration data for the
   host or there is a problem with the host itself. Refer to the
   *errorMessage* field in the status section for more details about
   the error condition.
+
+*errorMessage* -- Details for any error.
 
 *hardware* -- The details for hardware capabilities discovered on the
 host. These are filled in by the provisioning agent when the host is
@@ -116,6 +117,34 @@ the host.
 hardware discovered on the host. Details about the hardware are saved
 to the *hardware* section of the status. If the hardware does not
 match a known profile, the value "unknown" is used.
+
+*poweredOn* -- Boolean indicating whether the host is powered on. See
+*online*.
+
+*provisioning* -- Settings related to deploying an image to the host.
+
+*provisioning.state* -- The current state of any ongoing provisioning
+operation.  One of:
+  * *<empty string>* -- No provisioning is happening.
+  * *registration error* -- The details for the BMC for the host are
+    incorrect or incomplete and the host could not be managed.
+  * *registering* -- The details for the BMC for the host are being
+    checked.
+  * *match profile* -- The details for the hardware found on the host
+    are being compared against known profiles.
+  * *ready* -- The host is available to be consumed.
+  * *validation error* -- The details for the BMC for the host are
+    incorrect or incomplete and the host could not be managed.
+  * *provisioning* -- An image is being written to the host.
+  * *provisioning error* -- The image could not be written to the host.
+  * *provisioned* -- An image has been written to the host completely.
+  * *externally provisioned* -- The host has a consumer, but metal3
+    did not write an image to the host.
+  * *deprovisioning* -- The host storage is being wiped.
+  * *inspecting* -- The hardware details for the host are being
+    collected.
+  * *power management error* -- The host could not be powered on or
+    off, as requested through the *online* field setting.
 
 ```
 apiVersion: metal3.io/v1alpha1

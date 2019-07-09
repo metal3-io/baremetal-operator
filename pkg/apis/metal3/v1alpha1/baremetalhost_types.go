@@ -144,6 +144,11 @@ type BareMetalHostSpec struct {
 
 	// Description is a human-entered text used to help identify the host
 	Description string `json:"description"`
+
+	// ExternallyProvisioned means something else is managing the
+	// image running on the host and the operator should only manage
+	// the power status and hardware inventory inspection.
+	ExternallyProvisioned bool `json:"externallyProvisioned"`
 }
 
 // Image holds the details of an image either to provisioned or that
@@ -476,7 +481,7 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 // NeedsHardwareInspection looks at the state of the host to determine
 // if hardware inspection should be run.
 func (host *BareMetalHost) NeedsHardwareInspection() bool {
-	if host.Spec.ConsumerRef != nil {
+	if host.WasExternallyProvisioned() || host.Spec.ConsumerRef != nil {
 		// Never perform inspection if we already know something is
 		// using the host.
 		return false
@@ -520,10 +525,7 @@ func (host *BareMetalHost) WasProvisioned() bool {
 // WasExternallyProvisioned returns true when we think something else
 // is managing the image running on the host.
 func (host *BareMetalHost) WasExternallyProvisioned() bool {
-	if host.Spec.Image == nil && host.Spec.ConsumerRef != nil {
-		return true
-	}
-	return false
+	return host.Spec.ExternallyProvisioned && host.Spec.Image == nil
 }
 
 // NeedsDeprovisioning compares the settings with the provisioning

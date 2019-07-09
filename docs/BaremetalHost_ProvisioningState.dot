@@ -11,7 +11,7 @@ digraph BaremetalHost {
 
     ExternallyProvisioned [label="Externally\nProvisioned"]
 
-    Registering -> Inspecting [label="NeedsHardwareInspection()"]
+    Registering -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
     Registering -> ExternallyProvisioned [label="externallyProvisioned"]
     Registering -> RegistrationError [shape=doublecircle label="registration error"]
     Registering -> Deleted2 [label="!DeletionTimestamp.IsZero()"]

@@ -16,7 +16,8 @@ Specifying the port is optional; the default port is 623. Dell iDRAC is also
 supported, by using the scheme `idrac://` (or `idrac+http://` to disable TLS)
 in place of `https://` in the iDRAC URL; only the hostname or IP address is
 required - `idrac://host.example` is equivalent to
-`idrac+https://host.example:443/wsman`.
+`idrac+https://host.example:443/wsman`. Fujitsu iRMC is also supported,
+by using the scheme `irmc://<host>:<port>` with `<port>` is optional.
 
 *bmc.credentials* -- A reference to a Secret containing the connection
 data, at least username and password, for the BMC.

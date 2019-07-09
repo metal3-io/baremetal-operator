@@ -23,12 +23,12 @@ type OperationalStatus string
 
 const (
 	// OperationalStatusOK is the status value for when the host is
-	// configured correctly and not actively being managed.
+	// configured correctly and is manageable.
 	OperationalStatusOK OperationalStatus = "OK"
 
 	// OperationalStatusDiscovered is the status value for when the
-	// host is only partially configured, such as when a few values
-	// are loaded from Ironic.
+	// host is only partially configured, such as when when the BMC
+	// address is known but the login credentials are not.
 	OperationalStatusDiscovered OperationalStatus = "discovered"
 
 	// OperationalStatusError is the status value for when the host

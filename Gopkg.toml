@@ -48,7 +48,7 @@ required = [
 
 [[constraint]]
   name = "github.com/gophercloud/gophercloud"
-  revision = "157432124aab520975efedb5e54b95287785578d"
+  revision = "2d40ff7a3874e2b376ff245d549e7757048cd65c"
 
 [[constraint]]
   name = "github.com/operator-framework/operator-sdk"

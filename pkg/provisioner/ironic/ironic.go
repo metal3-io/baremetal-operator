@@ -465,8 +465,38 @@ func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	return cpu
 }
 
+func getFirmwareDetails(firmwaredata introspection.ExtraHardwareDataSection) metal3v1alpha1.Firmware {
+
+	// handle bios optionally
+	var bios metal3v1alpha1.BIOS
+
+	if _, ok := firmwaredata["bios"]; ok {
+
+		// we do not know if all fields will be supplied
+		// as this is not a structured response
+		// so we must handle each field conditionally
+		if _, ok := firmwaredata["bios"]["vendor"]; ok {
+			bios.Vendor = firmwaredata["bios"]["vendor"].(string)
+		}
+
+		if _, ok := firmwaredata["bios"]["version"]; ok {
+			bios.Version = firmwaredata["bios"]["version"].(string)
+		}
+
+		if _, ok := firmwaredata["bios"]["date"]; ok {
+			bios.Date = firmwaredata["bios"]["date"].(string)
+		}
+	}
+
+	return metal3v1alpha1.Firmware{
+		BIOS: bios,
+	}
+
+}
+
 func getHardwareDetails(data *introspection.Data) *metal3v1alpha1.HardwareDetails {
 	details := new(metal3v1alpha1.HardwareDetails)
+	details.Firmware = getFirmwareDetails(data.Extra.Firmware)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
 	details.RAMMebibytes = data.MemoryMB
 	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces, data.Extra.Network)

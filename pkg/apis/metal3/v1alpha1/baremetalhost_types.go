@@ -147,7 +147,8 @@ type BareMetalHostSpec struct {
 
 	// ExternallyProvisioned means something else is managing the
 	// image running on the host and the operator should only manage
-	// the power status and hardware inventory inspection.
+	// the power status and hardware inventory inspection. If the
+	// Image field is filled in, this field is ignored.
 	ExternallyProvisioned bool `json:"externallyProvisioned"`
 }
 
@@ -525,6 +526,21 @@ func (host *BareMetalHost) WasProvisioned() bool {
 // WasExternallyProvisioned returns true when we think something else
 // is managing the image running on the host.
 func (host *BareMetalHost) WasExternallyProvisioned() bool {
+	// NOTE(dhellmann): The Image setting takes precedent over the
+	// ExternallyProvisioned flag.
+	//
+	// The user can change the ExternallyProvisioned field at any
+	// time. So, they could start to provision a host in the normal
+	// way and then while it's in the middle of provisioning set
+	// ExternallyProvisioned=true. At that point, the logic managing
+	// the provisioning workflow would be circumvented and the host
+	// status would never update properly.
+	//
+	// We could allow that, but it's easier to reason about the host
+	// if we say that giving an image and saying a host is externally
+	// provisioned are mutually exclusive, but the image has
+	// precedence if both are provided. We end up with fewer overall
+	// transitions in the state diagram that way.
 	return host.Spec.ExternallyProvisioned && host.Spec.Image == nil
 }
 

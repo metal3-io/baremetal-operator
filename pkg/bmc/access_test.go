@@ -469,6 +469,150 @@ func TestIDRACBootInterface(t *testing.T) {
 	}
 }
 
+func TestParseIRMCURL(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("irmc://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "irmc" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestParseIRMCURLIPv6(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("irmc://[fe80::fc33:62ff:fe83:8a76]")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "irmc" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestParseIRMCURLNoSep(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("irmc:192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "irmc" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestIRMCNeedsMAC(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.NeedsMAC() {
+		t.Fatal("expected to not need a MAC")
+	}
+}
+
+func TestIRMCDriver(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	driver := acc.Driver()
+	if driver != "irmc" {
+		t.Fatal("unexpected driver for irmc")
+	}
+}
+
+func TestIRMCDriverInfo(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["irmc_address"] != "192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["irmc_address"])
+	}
+	if _, present := di["irmc_port"]; present {
+		t.Fatalf("unexpected port: %v", di["irmc_port"])
+	}
+}
+
+func TestIRMCDriverInfoPort(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://192.168.122.1:8080")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["irmc_address"] != "192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["irmc_address"])
+	}
+	if di["irmc_port"] != "8080" {
+		t.Fatalf("unexpected port: %v", di["irmc_port"])
+	}
+}
+
+func TestIRMCDriverInfoIPv6(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://[fe80::fc33:62ff:fe83:8a76]")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["irmc_address"] != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected address: %v", di["irmc_address"])
+	}
+	if _, present := di["irmc_port"]; present {
+		t.Fatalf("unexpected port: %v", di["irmc_port"])
+	}
+}
+
+func TestIRMCDriverInfoIPv6Port(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://[fe80::fc33:62ff:fe83:8a76]:8080")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["irmc_address"] != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected address: %v", di["irmc_address"])
+	}
+	if di["irmc_port"] != "8080" {
+		t.Fatalf("unexpected port: %v", di["irmc_port"])
+	}
+}
+
+func TestIRMCBootInterface(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.BootInterface() != "pxe" {
+		t.Fatal("expected boot interface to be pxe")
+	}
+}
+
 func TestUnknownType(t *testing.T) {
 	acc, err := NewAccessDetails("foo://192.168.122.1")
 	if err == nil || acc != nil {

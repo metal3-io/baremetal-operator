@@ -299,3 +299,64 @@ func TestHostNeedsDeprovisioning(t *testing.T) {
 		t.Error("expected to need deprovisioning")
 	}
 }
+
+func TestHostWasExternallyProvisioned(t *testing.T) {
+
+	for _, tc := range []struct {
+		Scenario string
+		Host     BareMetalHost
+		Expected bool
+	}{
+
+		{
+			Scenario: "set with image",
+			Host: BareMetalHost{
+				Spec: BareMetalHostSpec{
+					ExternallyProvisioned: true,
+					Image: &Image{
+						URL: "with-image",
+					},
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "set without image",
+			Host: BareMetalHost{
+				Spec: BareMetalHostSpec{
+					ExternallyProvisioned: true,
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "set with consumer",
+			Host: BareMetalHost{
+				Spec: BareMetalHostSpec{
+					ExternallyProvisioned: true,
+					ConsumerRef:           &corev1.ObjectReference{},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "not set without image or consumer",
+			Host: BareMetalHost{
+				Spec: BareMetalHostSpec{},
+			},
+			Expected: false,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			if tc.Expected && !tc.Host.WasExternallyProvisioned() {
+				t.Error("expected to find externally provisioned host")
+			}
+			if !tc.Expected && tc.Host.WasExternallyProvisioned() {
+				t.Error("did not expect to find externally provisioned host")
+			}
+		})
+	}
+}

@@ -9,12 +9,18 @@ digraph BaremetalHost {
 
     Deleted1 [shape=point]
 
-    Registering -> Inspecting [label="NeedsHardwareInspection()"]
-    Registering -> ExternallyProvisioned [label="image.URL = '' && consumerRef != nil"]
+    ExternallyProvisioned [label="Externally\nProvisioned"]
+
+    Registering -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
+    Registering -> ExternallyProvisioned [label="externallyProvisioned"]
     Registering -> RegistrationError [shape=doublecircle label="registration error"]
     Registering -> Deleted2 [label="!DeletionTimestamp.IsZero()"]
 
     Deleted2 [shape=point]
+
+    ExternallyProvisioned -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
+    ExternallyProvisioned -> Ready [label="!externallyProvisioned"]
+    Ready -> ExternallyProvisioned [label="externallyProvisioned"]
 
     Inspecting -> Ready [label="done"]
     Inspecting -> Deleted3 [label="!DeletionTimestamp.IsZero()"]

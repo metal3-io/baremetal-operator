@@ -30,6 +30,12 @@ power state on the physical host.
 host. For example, a Machine when the host is being used by the
 machine-api.
 
+*externallyProvisioned* -- A boolean indicating whether something else
+is managing the image running on the host. When set, if no image is
+provided, the host's power status and hardware inventory will be
+monitored. If the *image* contains image parameters, this field is
+ignored.
+
 *image.url* -- The URL of an image to deploy to the host.
 
 *image.checksum* -- An md5 checksum or URL to a file with a checksum

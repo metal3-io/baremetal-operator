@@ -175,6 +175,15 @@ func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha
 	)
 }
 
+func waitForProvisioningState(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost, desiredState metal3v1alpha1.ProvisioningState) {
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("Waiting for state %q have state %q", desiredState, host.Status.Provisioning.State)
+			return host.Status.Provisioning.State == desiredState
+		},
+	)
+}
+
 // TestAddFinalizers ensures that the finalizers for the host are
 // updated as part of reconciling it.
 func TestAddFinalizers(t *testing.T) {
@@ -596,23 +605,56 @@ func TestProvision(t *testing.T) {
 	)
 }
 
-// TestExternallyProvisioned ensures that host enters the expected
-// state when it looks like it has been provisioned by another tool.
-func TestExternallyProvisioned(t *testing.T) {
-	host := newDefaultHost(t)
-	host.Spec.Online = true
-	host.Spec.ConsumerRef = &corev1.ObjectReference{} // it doesn't have to point to a real object
-	r := newTestReconciler(host)
+// TestExternallyProvisionedTransitions ensures that host enters the
+// expected states when it looks like it has been provisioned by
+// another tool.
+func TestExternallyProvisionedTransitions(t *testing.T) {
 
-	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
-			if host.Status.Provisioning.State == metal3v1alpha1.StateExternallyProvisioned {
-				return true
-			}
-			return false
-		},
-	)
+	t.Run("registered to externally provisioned", func(t *testing.T) {
+		host := newDefaultHost(t)
+		host.Spec.Online = true
+		host.Spec.ConsumerRef = &corev1.ObjectReference{} // it doesn't have to point to a real object
+		host.Spec.ExternallyProvisioned = true
+		r := newTestReconciler(host)
+
+		waitForProvisioningState(t, r, host, metal3v1alpha1.StateExternallyProvisioned)
+	})
+
+	t.Run("externally provisioned to inspecting", func(t *testing.T) {
+		host := newDefaultHost(t)
+		host.Spec.Online = true
+		host.Spec.ExternallyProvisioned = true
+		r := newTestReconciler(host)
+
+		waitForProvisioningState(t, r, host, metal3v1alpha1.StateExternallyProvisioned)
+
+		host.Spec.ExternallyProvisioned = false
+		err := r.client.Update(goctx.TODO(), host)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log("set externally provisioned to false")
+
+		waitForProvisioningState(t, r, host, metal3v1alpha1.StateInspecting)
+	})
+
+	t.Run("ready to externally provisioned", func(t *testing.T) {
+		host := newDefaultHost(t)
+		host.Spec.Online = true
+		r := newTestReconciler(host)
+
+		waitForProvisioningState(t, r, host, metal3v1alpha1.StateReady)
+
+		host.Spec.ExternallyProvisioned = true
+		err := r.client.Update(goctx.TODO(), host)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log("set externally provisioned to true")
+
+		waitForProvisioningState(t, r, host, metal3v1alpha1.StateExternallyProvisioned)
+	})
+
 }
 
 // TestPowerOn verifies that the controller turns the host on when it

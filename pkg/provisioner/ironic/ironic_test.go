@@ -422,3 +422,39 @@ func TestGetNICSpeedGbps(t *testing.T) {
 		t.Errorf("Expected speed 0, got %d", s4)
 	}
 }
+
+func TestGetFirmwareDetails(t *testing.T) {
+
+	// Test full (known) firmware payload
+	firmware := getFirmwareDetails(introspection.ExtraHardwareDataSection{
+		"bios": {
+			"vendor":  "foobar",
+			"version": "1.2.3",
+			"date":    "2019-07-10",
+		},
+	})
+
+	if firmware.BIOS.Vendor != "foobar" {
+		t.Errorf("Expected firmware BIOS vendor to be foobar, but got: %s", firmware)
+	}
+
+	// Ensure we can handle partial firmware/bios data
+	firmware = getFirmwareDetails(introspection.ExtraHardwareDataSection{
+		"bios": {
+			"vendor":  "foobar",
+			"version": "1.2.3",
+		},
+	})
+
+	if firmware.BIOS.Date != "" {
+		t.Errorf("Expected firmware BIOS date to be empty but got: %s", firmware)
+	}
+
+	// Finally, ensure we can handle completely empty firmware data
+	firmware = getFirmwareDetails(introspection.ExtraHardwareDataSection{})
+
+	if (firmware != metal3v1alpha1.Firmware{}) {
+		t.Errorf("Expected firmware data to be empty but got: %s", firmware)
+	}
+
+}

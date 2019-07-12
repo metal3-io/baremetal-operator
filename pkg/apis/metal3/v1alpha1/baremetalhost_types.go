@@ -268,10 +268,29 @@ type NIC struct {
 	PXE bool `json:"pxe"`
 }
 
+// Firmware describes the firmware on the host.
+type Firmware struct {
+	// The BIOS for this firmware
+	BIOS BIOS `json:"bios"`
+}
+
+// BIOS describes the BIOS version on the host.
+type BIOS struct {
+	// The release/build date for this BIOS
+	Date string `json:"date"`
+
+	// The vendor name for this BIOS
+	Vendor string `json:"vendor"`
+
+	// The version of the BIOS
+	Version string `json:"version"`
+}
+
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
 	SystemVendor HardwareSystemVendor `json:"systemVendor"`
+	Firmware     Firmware             `json:"firmware"`
 	RAMMebibytes int                  `json:"ramMebibytes"`
 	NIC          []NIC                `json:"nics"`
 	Storage      []Storage            `json:"storage"`

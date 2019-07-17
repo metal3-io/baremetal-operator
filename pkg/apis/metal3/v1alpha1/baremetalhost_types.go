@@ -233,7 +233,7 @@ type Storage struct {
 }
 
 // VLANID is a 12-bit 802.1Q VLAN identifier
-type VLANID int16
+type VLANID int32
 
 // VLAN represents the name and ID of a VLAN
 type VLAN struct {

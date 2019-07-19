@@ -2,6 +2,12 @@ package ironic
 
 import (
 	"fmt"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
+	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
+	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -9,13 +15,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
-	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	nodeutils "github.com/gophercloud/utils/openstack/baremetal/v1/nodes"
 
@@ -214,6 +213,12 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 
+	properties := make(map[string]interface{})
+
+	if p.host.Spec.BootUEFI {
+		properties["capabilities"] = "boot_mode:uefi"
+	}
+
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
@@ -235,6 +240,7 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 				BootInterface: p.bmcAccess.BootInterface(),
 				Name:          p.host.Name,
 				DriverInfo:    driverInfo,
+				Properties:    properties,
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
 		if err != nil {

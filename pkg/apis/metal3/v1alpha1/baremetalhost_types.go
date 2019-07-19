@@ -142,6 +142,9 @@ type BareMetalHostSpec struct {
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
+	// Whether or not use UEFI boot mode (efiboot ipmitool option)
+	BootUEFI bool `json:"bootUEFI,omitempty"`
+
 	// Description is a human-entered text used to help identify the host
 	Description string `json:"description"`
 

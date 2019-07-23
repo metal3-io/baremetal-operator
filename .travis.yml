@@ -10,6 +10,7 @@ go:
 
 before_install:
   - go get golang.org/x/lint/golint
+  - go get -u github.com/securego/gosec/cmd/gosec
 
 env:
   - TARGET=test-verbose

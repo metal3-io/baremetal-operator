@@ -50,7 +50,7 @@ test-verbose:
 	VERBOSE=-v make unit
 
 .PHONY: lint
-lint:
+lint: test-sec
 	golint -set_exit_status pkg/... cmd/...
 	go vet ./pkg/... ./cmd/...
 

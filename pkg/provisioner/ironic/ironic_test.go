@@ -450,6 +450,15 @@ func TestGetFirmwareDetails(t *testing.T) {
 		t.Errorf("Expected firmware BIOS date to be empty but got: %s", firmware)
 	}
 
+	// Ensure we can handle unexpected types
+	firmware = getFirmwareDetails(introspection.ExtraHardwareDataSection{
+		"bios": {
+			"vendor":  3,
+			"version": []int{2, 1},
+			"date":    map[string]string{"year": "2019", "month": "07", "day": "10"},
+		},
+	})
+
 	// Finally, ensure we can handle completely empty firmware data
 	firmware = getFirmwareDetails(introspection.ExtraHardwareDataSection{})
 

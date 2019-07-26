@@ -470,22 +470,13 @@ func getFirmwareDetails(firmwaredata introspection.ExtraHardwareDataSection) met
 	// handle bios optionally
 	var bios metal3v1alpha1.BIOS
 
-	if _, ok := firmwaredata["bios"]; ok {
-
+	if biosdata, ok := firmwaredata["bios"]; ok {
 		// we do not know if all fields will be supplied
 		// as this is not a structured response
 		// so we must handle each field conditionally
-		if _, ok := firmwaredata["bios"]["vendor"]; ok {
-			bios.Vendor = firmwaredata["bios"]["vendor"].(string)
-		}
-
-		if _, ok := firmwaredata["bios"]["version"]; ok {
-			bios.Version = firmwaredata["bios"]["version"].(string)
-		}
-
-		if _, ok := firmwaredata["bios"]["date"]; ok {
-			bios.Date = firmwaredata["bios"]["date"].(string)
-		}
+		bios.Vendor, _ = biosdata["vendor"].(string)
+		bios.Version, _ = biosdata["version"].(string)
+		bios.Date, _ = biosdata["date"].(string)
 	}
 
 	return metal3v1alpha1.Firmware{

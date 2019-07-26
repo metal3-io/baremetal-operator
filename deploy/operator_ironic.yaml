@@ -55,7 +55,7 @@ spec:
                   name: ironic-bmo-configmap
                   key: ironic_inspector_endpoint
         - name: ironic-dnsmasq
-          image: quay.io/metalkube/metalkube-ironic
+          image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           securityContext:
             privileged: true
@@ -86,7 +86,7 @@ spec:
                   name: ironic-bmo-configmap
                   key: interface
         - name: mariadb
-          image: quay.io/metalkube/metalkube-ironic
+          image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           securityContext:
             privileged: true
@@ -102,7 +102,7 @@ spec:
                   name: mariadb-password
                   key: password
         - name: ironic-httpd
-          image: quay.io/metalkube/metalkube-ironic
+          image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           securityContext:
             privileged: true
@@ -123,7 +123,7 @@ spec:
                   name: ironic-bmo-configmap
                   key: http_ip
         - name: ironic
-          image: quay.io/metalkube/metalkube-ironic
+          image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           securityContext:
             privileged: true
@@ -154,7 +154,7 @@ spec:
                   name: ironic-bmo-configmap
                   key: interface
         - name: ironic-inspector
-          image: quay.io/metalkube/metalkube-ironic-inspector
+          image: quay.io/metal3-io/ironic-inspector
           imagePullPolicy: Always
           securityContext:
             privileged: true

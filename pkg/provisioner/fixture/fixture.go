@@ -26,6 +26,8 @@ type fixtureProvisioner struct {
 	log logr.Logger
 	// an event publisher for recording significant events
 	publisher provisioner.EventPublisher
+	// state to manage the two-step adopt process
+	adopted bool
 }
 
 // New returns a new Ironic Provisioner
@@ -131,6 +133,17 @@ func (p *fixtureProvisioner) UpdateHardwareState() (result provisioner.Result, e
 		result.Dirty = false
 	}
 	return result, nil
+}
+
+// Adopt allows an externally-provisioned server to be adopted.
+func (p *fixtureProvisioner) Adopt() (result provisioner.Result, err error) {
+	p.log.Info("adopting host")
+	if p.host.WasExternallyProvisioned() && !p.adopted {
+		p.adopted = true
+		result.Dirty = true
+		result.RequeueAfter = provisionRequeueDelay
+	}
+	return
 }
 
 // Provision writes the image from the host spec to the host. It may

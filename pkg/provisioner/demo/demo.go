@@ -182,6 +182,13 @@ func (p *demoProvisioner) UpdateHardwareState() (result provisioner.Result, err 
 	return result, nil
 }
 
+// Adopt allows an externally-provisioned server to be adopted.
+func (p *demoProvisioner) Adopt() (result provisioner.Result, err error) {
+	p.log.Info("adopting host")
+	result.Dirty = false
+	return
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.

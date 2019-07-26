@@ -320,7 +320,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	case metal3v1alpha1.StateReady:
 		result, err = r.actionManageHostPower(prov, info)
 	case metal3v1alpha1.StateExternallyProvisioned:
-		result, err = r.actionManageHostPower(prov, info)
+		result, err = r.actionManageExternallyProvisioned(prov, info)
 	default:
 		// Probably a provisioning error state?
 		return reconcile.Result{}, fmt.Errorf("Unrecognized action %q", actionName)
@@ -747,6 +747,23 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 
 	return result, nil
 
+}
+
+// Adopt the host if necessary and manage the current power status.
+func (r *ReconcileBareMetalHost) actionManageExternallyProvisioned(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+	provResult, err := prov.Adopt()
+	if err != nil {
+		return
+	}
+	if provResult.Dirty {
+		info.host.ClearError()
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
+		return
+	}
+
+	result, err = r.actionManageHostPower(prov, info)
+	return
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) error {

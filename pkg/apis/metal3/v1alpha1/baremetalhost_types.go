@@ -116,16 +116,17 @@ type BareMetalHostSpec struct {
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
 	// How do we connect to the BMC?
-	BMC BMCDetails `json:"bmc"`
+	BMC BMCDetails `json:"bmc,omitempty"`
 
 	// What is the name of the hardware profile for this host? It
 	// should only be necessary to set this when inspection cannot
 	// automatically determine the profile.
-	HardwareProfile string `json:"hardwareProfile"`
+	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
 	// Which MAC address will PXE boot? This is optional for some
 	// types, but required for libvirt VMs driven by vbmc.
-	BootMACAddress string `json:"bootMACAddress"`
+	// +kubebuilder:validation:Pattern=[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}
+	BootMACAddress string `json:"bootMACAddress,omitempty"`
 
 	// Should the server be online?
 	Online bool `json:"online"`
@@ -143,13 +144,13 @@ type BareMetalHostSpec struct {
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
 	// Description is a human-entered text used to help identify the host
-	Description string `json:"description"`
+	Description string `json:"description,omitempty"`
 
 	// ExternallyProvisioned means something else is managing the
 	// image running on the host and the operator should only manage
 	// the power status and hardware inventory inspection. If the
 	// Image field is filled in, this field is ignored.
-	ExternallyProvisioned bool `json:"externallyProvisioned"`
+	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 }
 
 // Image holds the details of an image either to provisioned or that
@@ -233,11 +234,14 @@ type Storage struct {
 }
 
 // VLANID is a 12-bit 802.1Q VLAN identifier
-type VLANID int16
+type VLANID int32
 
 // VLAN represents the name and ID of a VLAN
 type VLAN struct {
-	ID   VLANID `json:"id"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4094
+	ID VLANID `json:"id"`
+
 	Name string `json:"name,omitempty"`
 }
 
@@ -250,6 +254,7 @@ type NIC struct {
 	Model string `json:"model"`
 
 	// The device MAC addr
+	// +kubebuilder:validation:Pattern=[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}
 	MAC string `json:"mac"`
 
 	// The IP address of the device
@@ -262,6 +267,8 @@ type NIC struct {
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// The untagged VLAN ID
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4094
 	VLANID VLANID `json:"vlanId"`
 
 	// Whether the NIC is PXE Bootable
@@ -360,6 +367,15 @@ type ProvisionStatus struct {
 
 // BareMetalHost is the Schema for the baremetalhosts API
 // +k8s:openapi-gen=true
+// +kubebuilder:resource:shortName=bmh;bmhost
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status"
+// +kubebuilder:printcolumn:name="Provisioning Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
+// +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller"
+// +kubebuilder:printcolumn:name="Hardware Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected"
+// +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"
+// +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".status.errorMessage",description="Most recent error"
 type BareMetalHost struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

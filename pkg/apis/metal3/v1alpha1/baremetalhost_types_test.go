@@ -74,229 +74,320 @@ func TestHostAvailable(t *testing.T) {
 }
 
 func TestHostNeedsHardwareInspection(t *testing.T) {
-	hostYes := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
+
+	testCases := []struct {
+		Scenario string
+		Host     BareMetalHost
+		Expected bool
+	}{
+		{
+			Scenario: "no hardware details",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+			},
+			Expected: true,
 		},
-	}
-	if !hostYes.NeedsHardwareInspection() {
-		t.Error("expected to need hardware inspection")
+
+		{
+			Scenario: "host with details",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Status: BareMetalHostStatus{
+					HardwareDetails: &HardwareDetails{},
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "host with consumer",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					ConsumerRef: &corev1.ObjectReference{},
+				},
+			},
+			Expected: false,
+		},
 	}
 
-	hostWithDetails := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Status: BareMetalHostStatus{
-			HardwareDetails: &HardwareDetails{},
-		},
-	}
-	if hostWithDetails.NeedsHardwareInspection() {
-		t.Error("expected to not need hardware inspection")
-	}
-
-	hostWithConsumer := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			ConsumerRef: &corev1.ObjectReference{},
-		},
-	}
-	if hostWithConsumer.NeedsHardwareInspection() {
-		t.Error("expected to not need hardware inspection")
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Host.NeedsHardwareInspection()
+			if tc.Expected && !actual {
+				t.Error("expected to need hardware inspection")
+			}
+			if !tc.Expected && actual {
+				t.Error("did not expect to need hardware inspection")
+			}
+		})
 	}
 }
 
 func TestHostNeedsProvisioning(t *testing.T) {
-	hostYes := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image: &Image{
-				URL: "not-empty",
-			},
-			Online: true,
-		},
-	}
-	if !hostYes.NeedsProvisioning() {
-		t.Error("expected to need provisioning")
-	}
+	testCases := []struct {
+		Scenario string
+		Host     BareMetalHost
+		Expected bool
+	}{
 
-	hostNoURL := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image:  &Image{},
-			Online: true,
-		},
-	}
-	if hostNoURL.NeedsProvisioning() {
-		t.Error("expected to not need provisioning")
-	}
-
-	hostNoImage := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Online: true,
-		},
-	}
-	if hostNoImage.NeedsProvisioning() {
-		t.Error("expected to not need provisioning")
-	}
-
-	hostOffline := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image: &Image{
-				URL: "not-empty",
-			},
-		},
-	}
-	if hostOffline.NeedsProvisioning() {
-		t.Error("expected to not need provisioning")
-	}
-
-	hostAlreadyProvisioned := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image: &Image{
-				URL: "not-empty",
-			},
-			Online: true,
-		},
-		Status: BareMetalHostStatus{
-			Provisioning: ProvisionStatus{
-				Image: Image{
-					URL: "also-not-empty",
+		{
+			Scenario: "without image",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Online: true,
 				},
 			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "without image url",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image:  &Image{},
+					Online: true,
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "with image url, online",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "not-empty",
+					},
+					Online: true,
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "with image url, offline",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "not-empty",
+					},
+					Online: false,
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "already provisioned",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "not-empty",
+					},
+					Online: true,
+				},
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						Image: Image{
+							URL: "also-not-empty",
+						},
+					},
+				},
+			},
+			Expected: false,
 		},
 	}
-	if hostAlreadyProvisioned.NeedsProvisioning() {
-		t.Error("expected to not need provisioning")
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Host.NeedsProvisioning()
+			if tc.Expected && !actual {
+				t.Error("expected to need provisioning")
+			}
+			if !tc.Expected && actual {
+				t.Error("did not expect to need provisioning")
+			}
+		})
 	}
 }
 
 func TestHostNeedsDeprovisioning(t *testing.T) {
-	hostYes := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image: &Image{
-				URL: "not-empty",
-			},
-			Online: true,
-		},
-	}
-	if hostYes.NeedsDeprovisioning() {
-		t.Error("expected to not need deprovisioning")
-	}
-
-	hostNoURL := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image:  &Image{},
-			Online: true,
-		},
-	}
-	if hostNoURL.NeedsDeprovisioning() {
-		t.Error("expected to not need deprovisioning")
-	}
-
-	hostNoImage := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Online: true,
-		},
-	}
-	if hostNoImage.NeedsDeprovisioning() {
-		t.Error("expected to not need deprovisioning")
-	}
-
-	hostOffline := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image: &Image{
-				URL: "not-empty",
-			},
-		},
-	}
-	if hostOffline.NeedsDeprovisioning() {
-		t.Error("expected to not need deprovisioning")
-	}
-
-	hostAlreadyProvisioned := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image: &Image{
-				URL: "same",
-			},
-			Online: true,
-		},
-		Status: BareMetalHostStatus{
-			Provisioning: ProvisionStatus{
-				Image: Image{
-					URL: "same",
+	testCases := []struct {
+		Scenario string
+		Host     BareMetalHost
+		Expected bool
+	}{
+		{
+			Scenario: "with image url, unprovisioned",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "not-empty",
+					},
+					Online: true,
 				},
 			},
+			Expected: false,
 		},
-	}
-	if hostAlreadyProvisioned.NeedsDeprovisioning() {
-		t.Error("expected to not need deprovisioning")
-	}
 
-	hostChangedImage := BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myhost",
-			Namespace: "myns",
-		},
-		Spec: BareMetalHostSpec{
-			Image: &Image{
-				URL: "not-empty",
-			},
-			Online: true,
-		},
-		Status: BareMetalHostStatus{
-			Provisioning: ProvisionStatus{
-				Image: Image{
-					URL: "also-not-empty",
+		{
+			Scenario: "with image, unprovisioned",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image:  &Image{},
+					Online: true,
 				},
 			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "without, unprovisioned",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Online: true,
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "with image url, offline",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "not-empty",
+					},
+					Online: false,
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "provisioned",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "same",
+					},
+					Online: true,
+				},
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						Image: Image{
+							URL: "same",
+						},
+					},
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "removed image",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Online: true,
+				},
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						Image: Image{
+							URL: "same",
+						},
+					},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "changed image",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "not-empty",
+					},
+					Online: true,
+				},
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						Image: Image{
+							URL: "also-not-empty",
+						},
+					},
+				},
+			},
+			Expected: true,
 		},
 	}
-	if !hostChangedImage.NeedsDeprovisioning() {
-		t.Error("expected to need deprovisioning")
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Host.NeedsDeprovisioning()
+			if tc.Expected && !actual {
+				t.Error("expected to need provisioning")
+			}
+			if !tc.Expected && actual {
+				t.Error("did not expect to need provisioning")
+			}
+		})
 	}
 }
 

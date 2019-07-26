@@ -106,7 +106,7 @@ func TestHostNeedsHardwareInspection(t *testing.T) {
 		},
 
 		{
-			Scenario: "host with consumer",
+			Scenario: "unprovisioned host with consumer",
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
@@ -114,6 +114,24 @@ func TestHostNeedsHardwareInspection(t *testing.T) {
 				},
 				Spec: BareMetalHostSpec{
 					ConsumerRef: &corev1.ObjectReference{},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "provisioned host",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						Image: Image{
+							URL: "not-empty",
+						},
+					},
 				},
 			},
 			Expected: false,

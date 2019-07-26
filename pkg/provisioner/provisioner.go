@@ -42,6 +42,10 @@ type Provisioner interface {
 	// if any state information has changed.
 	UpdateHardwareState() (result Result, err error)
 
+	// Adopt brings an externally-provisioned host under management by
+	// the provisioner.
+	Adopt() (result Result, err error)
+
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.

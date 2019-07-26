@@ -834,6 +834,43 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum s
 	return p.changeNodeProvisionState(ironicNode, opts)
 }
 
+// Adopt allows an externally-provisioned server to be adopted by Ironic.
+func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
+	var ironicNode *nodes.Node
+
+	if ironicNode, err = p.findExistingHost(); err != nil {
+		err = errors.Wrap(err, "could not find host to adpot")
+		return
+	}
+	if ironicNode == nil {
+		err = fmt.Errorf("no ironic node for host")
+		return
+	}
+
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.Enroll, nodes.Verifying:
+		err = fmt.Errorf("Invalid state for adopt: %s",
+			ironicNode.ProvisionState)
+	case nodes.Manageable:
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{
+				Target: nodes.TargetAdopt,
+			},
+		)
+	case nodes.Adopting:
+		result.RequeueAfter = provisionRequeueDelay
+		result.Dirty = true
+	case nodes.AdoptFail:
+		result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
+			ironicNode.LastError)
+		result.Dirty = true
+	case nodes.Active:
+	default:
+	}
+	return
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.

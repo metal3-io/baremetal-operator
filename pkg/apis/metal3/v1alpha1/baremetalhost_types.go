@@ -517,9 +517,14 @@ func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret
 // NeedsHardwareInspection looks at the state of the host to determine
 // if hardware inspection should be run.
 func (host *BareMetalHost) NeedsHardwareInspection() bool {
-	if host.WasExternallyProvisioned() || host.Spec.ConsumerRef != nil {
+	if host.WasExternallyProvisioned() {
 		// Never perform inspection if we already know something is
-		// using the host.
+		// using the host and we didn't provision it.
+		return false
+	}
+	if host.WasProvisioned() {
+		// Never perform inspection if we have already provisioned
+		// this host, because we don't want to reboot it.
 		return false
 	}
 	return host.Status.HardwareDetails == nil

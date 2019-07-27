@@ -541,7 +541,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 		return
 	}
 
-	// Introspection is ongoing
+	// Introspection is done
 	p.log.Info("getting hardware details from inspection")
 	introData := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
 	data, err := introData.Extract()

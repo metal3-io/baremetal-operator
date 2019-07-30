@@ -219,10 +219,6 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		p.log.Info("registering host in ironic")
 
 		driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
-		// FIXME(dhellmann): The names of the images are tied
-		// to the version of ironic we are using and are
-		// likely to change.
-		//
 		// FIXME(dhellmann): We need to get our IP on the
 		// provisioning network from somewhere.
 		driverInfo["deploy_kernel"] = deployKernelURL

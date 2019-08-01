@@ -319,6 +319,20 @@ type CredentialsStatus struct {
 	Version   string                  `json:"credentialsVersion,omitempty"`
 }
 
+// Match compares the saved status information with the name and
+// content of a secret object.
+func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
+	switch {
+	case cs.Reference == nil:
+		return false
+	case cs.Reference.Name != secret.ObjectMeta.Name:
+		return false
+	case cs.Version != secret.ObjectMeta.ResourceVersion:
+		return false
+	}
+	return true
+}
+
 // BareMetalHostStatus defines the observed state of BareMetalHost
 type BareMetalHostStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code
@@ -342,6 +356,9 @@ type BareMetalHostStatus struct {
 
 	// the last credentials we were able to validate as working
 	GoodCredentials CredentialsStatus `json:"goodCredentials"`
+
+	// the last credentials we sent to the provisioning backend
+	TriedCredentials CredentialsStatus `json:"triedCredentials"`
 
 	// the last error message reported by the provisioning subsystem
 	ErrorMessage string `json:"errorMessage"`
@@ -496,24 +513,6 @@ func (host *BareMetalHost) CredentialsKey() types.NamespacedName {
 	}
 }
 
-// CredentialsNeedValidation compares the secret with the last one
-// known to work and report if the new ones need to be checked.
-func (host *BareMetalHost) CredentialsNeedValidation(currentSecret corev1.Secret) bool {
-	currentRef := host.Status.GoodCredentials.Reference
-	currentVersion := host.Status.GoodCredentials.Version
-	newName := host.Spec.BMC.CredentialsName
-
-	switch {
-	case currentRef == nil:
-		return true
-	case currentRef.Name != newName:
-		return true
-	case currentVersion != currentSecret.ObjectMeta.ResourceVersion:
-		return true
-	}
-	return false
-}
-
 // NeedsHardwareInspection looks at the state of the host to determine
 // if hardware inspection should be run.
 func (host *BareMetalHost) NeedsHardwareInspection() bool {
@@ -605,6 +604,17 @@ func (host *BareMetalHost) NeedsDeprovisioning() bool {
 func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
 	host.Status.GoodCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
 	host.Status.GoodCredentials.Reference = &corev1.SecretReference{
+		Name:      currentSecret.ObjectMeta.Name,
+		Namespace: currentSecret.ObjectMeta.Namespace,
+	}
+}
+
+// UpdateTriedCredentials modifies the TriedCredentials portion of the
+// Status struct to record the details of the secret containing
+// credentials known to work.
+func (host *BareMetalHost) UpdateTriedCredentials(currentSecret corev1.Secret) {
+	host.Status.TriedCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
+	host.Status.TriedCredentials.Reference = &corev1.SecretReference{
 		Name:      currentSecret.ObjectMeta.Name,
 		Namespace: currentSecret.ObjectMeta.Namespace,
 	}

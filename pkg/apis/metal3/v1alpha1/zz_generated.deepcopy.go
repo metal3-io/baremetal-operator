@@ -155,6 +155,7 @@ func (in *BareMetalHostStatus) DeepCopyInto(out *BareMetalHostStatus) {
 	}
 	out.Provisioning = in.Provisioning
 	in.GoodCredentials.DeepCopyInto(&out.GoodCredentials)
+	in.TriedCredentials.DeepCopyInto(&out.TriedCredentials)
 	return
 }
 

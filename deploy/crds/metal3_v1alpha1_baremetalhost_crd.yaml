@@ -356,11 +356,20 @@ spec:
               - state
               - ID
               type: object
+            triedCredentials:
+              description: the last credentials we sent to the provisioning backend
+              properties:
+                credentials:
+                  type: object
+                credentialsVersion:
+                  type: string
+              type: object
           required:
           - operationalStatus
           - hardwareProfile
           - provisioning
           - goodCredentials
+          - triedCredentials
           - errorMessage
           - poweredOn
           type: object

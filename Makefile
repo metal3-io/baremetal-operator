@@ -59,9 +59,11 @@ lint: test-sec
 	cp $(crd_file) $(crd_tmp); make crd; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
 
 .PHONY: test-sec
-test-sec:
-	@which gosec 2> /dev/null >&1 || { echo "gosec must be installed to lint code";  exit 1; }
+test-sec: $GOPATH/bin/gosec
 	gosec -severity medium --confidence medium -quiet ./...
+
+$GOPATH/bin/gosec:
+	go get -u github.com/securego/gosec/cmd/gosec
 
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))

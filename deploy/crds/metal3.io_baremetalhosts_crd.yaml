@@ -401,6 +401,47 @@ spec:
               description: LastUpdated identifies when this status was last observed.
               format: date-time
               type: string
+            operationHistory:
+              description: OperationHistory holds information about operations performed
+                on this host.
+              properties:
+                deprovision:
+                  properties:
+                    end:
+                      format: date-time
+                      type: string
+                    start:
+                      format: date-time
+                      type: string
+                  type: object
+                inspect:
+                  properties:
+                    end:
+                      format: date-time
+                      type: string
+                    start:
+                      format: date-time
+                      type: string
+                  type: object
+                provision:
+                  properties:
+                    end:
+                      format: date-time
+                      type: string
+                    start:
+                      format: date-time
+                      type: string
+                  type: object
+                register:
+                  properties:
+                    end:
+                      format: date-time
+                      type: string
+                    start:
+                      format: date-time
+                      type: string
+                  type: object
+              type: object
             operationalStatus:
               description: OperationalStatus holds the status of the host
               type: string
@@ -459,6 +500,7 @@ spec:
           - errorMessage
           - hardwareProfile
           - operationalStatus
+          - operationHistory
           - poweredOn
           - provisioning
           type: object

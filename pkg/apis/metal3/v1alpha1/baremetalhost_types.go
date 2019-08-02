@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -335,6 +337,31 @@ func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
 	return true
 }
 
+// OperationMetric contains metadata about an operation (inspection,
+// provisioning, etc.) used for tracking metrics.
+type OperationMetric struct {
+	Start metav1.Time `json:"start,omitempty"`
+	End   metav1.Time `json:"end,omitempty"`
+}
+
+// Duration returns the length of time that was spent on the
+// operation. If the operation is not finished, it returns 0.
+func (om OperationMetric) Duration() time.Duration {
+	if om.Start.IsZero() {
+		return 0
+	}
+	return om.End.Time.Sub(om.Start.Time)
+}
+
+// OperationHistory holds information about operations performed on a
+// host.
+type OperationHistory struct {
+	Register    OperationMetric `json:"register,omitempty"`
+	Inspect     OperationMetric `json:"inspect,omitempty"`
+	Provision   OperationMetric `json:"provision,omitempty"`
+	Deprovision OperationMetric `json:"deprovision,omitempty"`
+}
+
 // BareMetalHostStatus defines the observed state of BareMetalHost
 type BareMetalHostStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code
@@ -367,6 +394,10 @@ type BareMetalHostStatus struct {
 
 	// indicator for whether or not the host is powered on
 	PoweredOn bool `json:"poweredOn"`
+
+	// OperationHistory holds information about operations performed
+	// on this host.
+	OperationHistory OperationHistory `json:"operationHistory"`
 }
 
 // ProvisionStatus holds the state information for a single target.

@@ -20,6 +20,8 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	corev1 "k8s.io/api/core/v1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -43,11 +46,17 @@ const (
 
 var runInTestMode bool
 var runInDemoMode bool
+var reconcileCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "metal3_reconcile_total",
+	Help: "The number of times hosts have been reconciled",
+}, []string{"host"})
 
 func init() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
+
+	metrics.Registry.MustRegister(reconcileCounters)
 }
 
 var log = logf.Log.WithName("baremetalhost")
@@ -141,6 +150,8 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // is true, otherwise upon completion it will remove the work from the
 // queue.
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result reconcile.Result, err error) {
+
+	reconcileCounters.WithLabelValues(request.Name).Inc()
 
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)

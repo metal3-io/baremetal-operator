@@ -71,6 +71,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		provisionerFactory = demo.New
 	default:
 		provisionerFactory = ironic.New
+		ironic.LogStartup()
 	}
 	return &ReconcileBareMetalHost{
 		client:             mgr.GetClient(),

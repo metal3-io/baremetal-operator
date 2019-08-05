@@ -341,103 +341,88 @@ func TestDiscoveredHost(t *testing.T) {
 // of the required BMC settings is put into an error state.
 func TestMissingBMCParameters(t *testing.T) {
 
-	type HostFactory func() *metal3v1alpha1.BareMetalHost
-
 	testCases := []struct {
 		Scenario string
 		Secret   *corev1.Secret
-		Factory  HostFactory
+		Host     *metal3v1alpha1.BareMetalHost
 	}{
 		{
 			Scenario: "secret without username",
 			Secret:   newSecret("bmc-creds-no-user", "", "Pass"),
-			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
-				return newHost("missing-bmc-username",
-					&metal3v1alpha1.BareMetalHostSpec{
-						BMC: metal3v1alpha1.BMCDetails{
-							Address:         "ipmi://192.168.122.1:6233",
-							CredentialsName: "bmc-creds-no-user",
-						},
-					})
-			},
+			Host: newHost("missing-bmc-username",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: "bmc-creds-no-user",
+					},
+				}),
 		},
 
 		{
 			Scenario: "secret without password",
 			Secret:   newSecret("bmc-creds-no-pass", "User", ""),
-			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
-				return newHost("missing-bmc-password",
-					&metal3v1alpha1.BareMetalHostSpec{
-						BMC: metal3v1alpha1.BMCDetails{
-							Address:         "ipmi://192.168.122.1:6233",
-							CredentialsName: "bmc-creds-no-pass",
-						},
-					})
-			},
+			Host: newHost("missing-bmc-password",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: "bmc-creds-no-pass",
+					},
+				}),
 		},
 
 		{
 			Scenario: "malformed address",
 			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
-			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
-				return newHost("invalid-bmc-address",
-					&metal3v1alpha1.BareMetalHostSpec{
-						BMC: metal3v1alpha1.BMCDetails{
-							Address:         "unknown://notAvalidIPMIURL",
-							CredentialsName: "bmc-creds-ok",
-						},
-					})
-			},
+			Host: newHost("invalid-bmc-address",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "unknown://notAvalidIPMIURL",
+						CredentialsName: "bmc-creds-ok",
+					},
+				}),
 		},
 
 		{
 			Scenario: "missing address",
 			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
-			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
-				return newHost("missing-bmc-address",
-					&metal3v1alpha1.BareMetalHostSpec{
-						BMC: metal3v1alpha1.BMCDetails{
-							Address:         "",
-							CredentialsName: "bmc-creds-ok",
-						},
-					})
-			},
+			Host: newHost("missing-bmc-address",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "",
+						CredentialsName: "bmc-creds-ok",
+					},
+				}),
 		},
 
 		{
 			Scenario: "missing secret",
 			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
-			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
-				return newHost("missing-bmc-credentials-ref",
-					&metal3v1alpha1.BareMetalHostSpec{
-						BMC: metal3v1alpha1.BMCDetails{
-							Address:         "ipmi://192.168.122.1:6233",
-							CredentialsName: "",
-						},
-					})
-			},
+			Host: newHost("missing-bmc-credentials-ref",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: "",
+					},
+				}),
 		},
 
 		{
 			Scenario: "no such secret",
 			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
-			Factory: func() (host *metal3v1alpha1.BareMetalHost) {
-				return newHost("non-existent-bmc-secret-ref",
-					&metal3v1alpha1.BareMetalHostSpec{
-						BMC: metal3v1alpha1.BMCDetails{
-							Address:         "ipmi://192.168.122.1:6233",
-							CredentialsName: "this-secret-does-not-exist",
-						},
-					})
-			},
+			Host: newHost("non-existent-bmc-secret-ref",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: "this-secret-does-not-exist",
+					},
+				}),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			host := tc.Factory()
-			r := newTestReconciler(tc.Secret, host)
-			waitForError(t, r, host)
+			r := newTestReconciler(tc.Secret, tc.Host)
+			waitForError(t, r, tc.Host)
 		})
 	}
 }

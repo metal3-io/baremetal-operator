@@ -1205,9 +1205,15 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {
 	p.log.Info("changing power state")
 
-	// If we're here, we're going to change the state and we should
-	// wait to try that again.
-	result.RequeueAfter = powerRequeueDelay
+	if ironicNode.TargetProvisionState != "" {
+		p.log.Info("host in state that does not allow power change, try again after delay",
+			"state", ironicNode.ProvisionState,
+			"target state", ironicNode.TargetProvisionState,
+		)
+		result.Dirty = true
+		result.RequeueAfter = powerRequeueDelay
+		return result, nil
+	}
 
 	changeResult := nodes.ChangePowerState(
 		p.client,
@@ -1222,10 +1228,12 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		p.log.Info("power change OK")
 	case gophercloud.ErrDefault409:
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
+		result.Dirty = true
+		result.RequeueAfter = powerRequeueDelay
 		return result, nil
 	default:
-		p.log.Info("power change error")
-		return result, errors.Wrap(err, "failed to change power state")
+		p.log.Info("power change error", "message", changeResult.Err)
+		return result, errors.Wrap(changeResult.Err, "failed to change power state")
 	}
 
 	return result, nil

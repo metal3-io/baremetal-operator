@@ -53,10 +53,17 @@ crd_file=deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
 crd_tmp=.crd.yaml.tmp
 
 .PHONY: lint
-lint:
+lint: test-sec
 	golint -set_exit_status pkg/... cmd/...
 	go vet ./pkg/... ./cmd/...
 	cp $(crd_file) $(crd_tmp); make crd; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
+
+.PHONY: test-sec
+test-sec: $GOPATH/bin/gosec
+	gosec -severity medium --confidence medium -quiet ./...
+
+$GOPATH/bin/gosec:
+	go get -u github.com/securego/gosec/cmd/gosec
 
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))

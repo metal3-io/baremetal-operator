@@ -204,7 +204,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	p.log.Info("validating management access")
@@ -214,19 +214,25 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 
+	// Some BMC types require a MAC address, so ensure we have one
+	// when we need it. If not, place the host in an error state.
+	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
+		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
+		p.log.Info(msg)
+		result.ErrorMessage = msg
+		result.Dirty = true
+		return result, nil
+	}
+
+	driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
+	// FIXME(dhellmann): We need to get our IP on the
+	// provisioning network from somewhere.
+	driverInfo["deploy_kernel"] = deployKernelURL
+	driverInfo["deploy_ramdisk"] = deployRamdiskURL
+
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
-
-		driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
-		// FIXME(dhellmann): The names of the images are tied
-		// to the version of ironic we are using and are
-		// likely to change.
-		//
-		// FIXME(dhellmann): We need to get our IP on the
-		// provisioning network from somewhere.
-		driverInfo["deploy_kernel"] = deployKernelURL
-		driverInfo["deploy_ramdisk"] = deployRamdiskURL
 
 		ironicNode, err = nodes.Create(
 			p.client,
@@ -277,41 +283,64 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 			result.Dirty = true
 			p.log.Info("setting provisioning id", "ID", p.status.ID)
 		}
+
+		// Look for the case where we previously enrolled this node
+		// and now the credentials have changed.
+		if credentialsChanged {
+			updates := nodes.UpdateOpts{
+				nodes.UpdateOperation{
+					Op:    nodes.ReplaceOp,
+					Path:  "/driver_info",
+					Value: driverInfo,
+				},
+			}
+			ironicNode, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+			switch err.(type) {
+			case nil:
+			case gophercloud.ErrDefault409:
+				p.log.Info("could not update host driver settings, busy")
+				result.RequeueAfter = provisionRequeueDelay
+				return result, nil
+			default:
+				return result, errors.Wrap(err, "failed to update host driver settings")
+			}
+			p.log.Info("updated host driver settings")
+			// We don't return here because we also have to set the
+			// target provision state to manageable, which happens
+			// below.
+		}
 	}
 
-	// Some BMC types require a MAC address, so ensure we have one
-	// when we need it. If not, place the host in an error state.
-	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
-		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
-		p.log.Info(msg)
-		result.ErrorMessage = msg
-		result.Dirty = true
-		return result, nil
-	}
+	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
+	// if err != nil {
+	// 	return result, errors.Wrap(err, "failed to get provisioning state in ironic")
+	// }
 
-	ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
-	if err != nil {
-		return result, errors.Wrap(err, "failed to get provisioning state in ironic")
-	}
-
-	// If we tried to update the node status already and it has an
-	// error, store that value and stop trying to manipulate it.
-	if ironicNode.LastError != "" {
-		// If ironic is reporting an error that probably means it
-		// cannot see the BMC or the credentials are wrong. Set the
-		// error message and return dirty, if we've changed something,
-		// so the status is stored.
-		result.ErrorMessage = ironicNode.LastError
-		result.Dirty = true
-		return result, nil
-	}
+	p.log.Info("current provision state",
+		"lastError", ironicNode.LastError,
+		"current", ironicNode.ProvisionState,
+		"target", ironicNode.TargetProvisionState,
+	)
 
 	// Ensure the node is marked manageable.
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 
-	// NOTE(dhellmann): gophercloud bug? The Enroll value is the only
-	// one not a string.
 	case nodes.Enroll:
+
+		// If ironic is reporting an error, stop working on the node.
+		if ironicNode.LastError != "" && !credentialsChanged {
+			result.ErrorMessage = ironicNode.LastError
+			return result, nil
+		}
+
+		if ironicNode.TargetProvisionState == string(nodes.TargetManage) {
+			// We have already tried to manage the node and did not
+			// get an error, so do nothing and keep trying.
+			result.Dirty = true
+			result.RequeueAfter = provisionRequeueDelay
+			return result, nil
+		}
+
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
@@ -336,11 +365,6 @@ func (p *ironicProvisioner) ValidateManagementAccess() (result provisioner.Resul
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
-		p.log.Info("waiting for  provision state",
-			"lastError", ironicNode.LastError,
-			"current", ironicNode.ProvisionState,
-			"target", ironicNode.TargetProvisionState,
-		)
 		result.Dirty = true
 		return result, nil
 	}

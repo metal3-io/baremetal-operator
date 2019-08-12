@@ -262,7 +262,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	// Pick the action to perform
 	var actionName metal3v1alpha1.ProvisioningState
 	switch {
-	case host.CredentialsNeedValidation(*bmcCredsSecret):
+	case !host.Status.GoodCredentials.Match(*bmcCredsSecret):
 		actionName = metal3v1alpha1.StateRegistering
 	case host.WasExternallyProvisioned():
 		actionName = metal3v1alpha1.StateExternallyProvisioned
@@ -448,12 +448,21 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
 
-	info.log.Info("registering and validating access to management controller")
+	info.log.Info("registering and validating access to management controller",
+		"credentials", info.host.Status.TriedCredentials)
 
-	provResult, err = prov.ValidateManagementAccess()
+	credsChanged := !info.host.Status.TriedCredentials.Match(*info.bmcCredsSecret)
+	if credsChanged {
+		info.log.Info("new credentials")
+		info.host.UpdateTriedCredentials(*info.bmcCredsSecret)
+	}
+
+	provResult, err = prov.ValidateManagementAccess(credsChanged)
 	if err != nil {
 		return result, errors.Wrap(err, "failed to validate BMC access")
 	}
+
+	info.log.Info("response from validate", "provResult", provResult)
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
@@ -467,7 +476,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	if provResult.Dirty {
 		// Set Requeue true as well as RequeueAfter in case the delay
 		// is 0.
-		info.log.Info("host not ready")
+		info.log.Info("host not ready", "wait", provResult.RequeueAfter)
 		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter

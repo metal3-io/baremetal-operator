@@ -93,15 +93,20 @@ type ironicProvisioner struct {
 	publisher provisioner.EventPublisher
 }
 
-// A private function to construct an ironicProvisioner (rather than a
-// Provisioner interface) in a consistent way for tests.
-func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+// LogStartup produces useful logging information that we only want to
+// emit once on startup but that is interal to this package.
+func LogStartup() {
 	log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
 		"inspectorEndpoint", inspectorEndpoint,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
 	)
+}
+
+// A private function to construct an ironicProvisioner (rather than a
+// Provisioner interface) in a consistent way for tests.
+func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
 	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
 		IronicEndpoint: ironicEndpoint,
 	})

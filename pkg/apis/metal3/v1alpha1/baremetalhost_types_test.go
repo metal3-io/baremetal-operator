@@ -469,3 +469,79 @@ func TestHostWasExternallyProvisioned(t *testing.T) {
 		})
 	}
 }
+
+func TestCredentialStatusMatch(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario   string
+		CredStat   CredentialsStatus
+		SecretName string
+		Secret     corev1.Secret
+		Expected   bool
+	}{
+		{
+			Scenario: "not set",
+			Secret:   corev1.Secret{},
+			Expected: false,
+		},
+
+		{
+			Scenario: "new name",
+			CredStat: CredentialsStatus{
+				Reference: &corev1.SecretReference{
+					Name:      "old name",
+					Namespace: "namespace",
+				},
+				Version: "1",
+			},
+			Secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "new name",
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "match",
+			CredStat: CredentialsStatus{
+				Reference: &corev1.SecretReference{
+					Name:      "match",
+					Namespace: "namespace",
+				},
+				Version: "1",
+			},
+			Secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "match",
+					ResourceVersion: "1",
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "new version",
+			CredStat: CredentialsStatus{
+				Reference: &corev1.SecretReference{
+					Name:      "new version",
+					Namespace: "namespace",
+				},
+				Version: "1",
+			},
+			Secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "new version",
+					ResourceVersion: "2",
+				},
+			},
+			Expected: false,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.CredStat.Match(tc.Secret)
+			if actual != tc.Expected {
+				t.Errorf("expected %v but got %v", tc.Expected, actual)
+			}
+		})
+	}
+}

@@ -37,6 +37,7 @@ test: generate unit lint dep-check
 .PHONY: generate
 generate:
 	operator-sdk generate k8s
+	operator-sdk generate openapi
 
 .PHONY: travis
 travis: test-verbose lint
@@ -56,7 +57,7 @@ crd_tmp=.crd.yaml.tmp
 lint: test-sec
 	golint -set_exit_status pkg/... cmd/...
 	go vet ./pkg/... ./cmd/...
-	cp $(crd_file) $(crd_tmp); make crd; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
+	cp $(crd_file) $(crd_tmp); make generate; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
 
 .PHONY: test-sec
 test-sec:
@@ -79,10 +80,6 @@ e2e-local:
 .PHONY: dep
 dep:
 	dep ensure
-
-.PHONY: crd
-crd:
-	operator-sdk generate openapi
 
 .PHONY: run
 run:

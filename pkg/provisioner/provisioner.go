@@ -25,9 +25,13 @@ type UserDataSource func() (string, error)
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
-	// ValidateManagementAccess tests the connection information for the
-	// host to verify that the location and credentials work.
-	ValidateManagementAccess() (result Result, err error)
+	// ValidateManagementAccess tests the connection information for
+	// the host to verify that the location and credentials work. The
+	// boolean argument tells the provisioner whether the current set
+	// of credentials it has are different from the credentials it has
+	// previously been using, without implying that either set of
+	// credentials is correct.
+	ValidateManagementAccess(credentialsChanged bool) (result Result, err error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called

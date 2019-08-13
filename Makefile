@@ -40,14 +40,14 @@ generate:
 	operator-sdk generate openapi
 
 .PHONY: travis
-travis: test-verbose lint
+travis: unit-verbose lint
 
 .PHONY: unit
 unit:
 	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
 
 .PHONY: unit-verbose
-test-verbose:
+unit-verbose:
 	VERBOSE=-v make unit
 
 crd_file=deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml

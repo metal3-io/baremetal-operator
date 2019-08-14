@@ -726,7 +726,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 	if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
 		op = nodes.AddOp
 		p.log.Info("adding root_gb")
-	} else if ironicNode.InstanceInfo["root_gb"] != 10 {
+	} else {
 		op = nodes.ReplaceOp
 		p.log.Info("updating root_gb")
 	}

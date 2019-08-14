@@ -883,7 +883,7 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 	}
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
-	case nodes.Enroll, nodes.Verifying:
+	case nodes.Enroll:
 		err = fmt.Errorf("Invalid state for adopt: %s",
 			ironicNode.ProvisionState)
 	case nodes.Manageable:
@@ -893,7 +893,7 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 				Target: nodes.TargetAdopt,
 			},
 		)
-	case nodes.Adopting:
+	case nodes.Adopting, nodes.Verifying:
 		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 	case nodes.AdoptFail:

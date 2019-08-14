@@ -761,9 +761,18 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 
 // Adopt the host if necessary and manage the current power status.
 func (r *ReconcileBareMetalHost) actionManageExternallyProvisioned(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+
 	provResult, err := prov.Adopt()
 	if err != nil {
 		return
+	}
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("RegistrationError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
+		return result, nil
 	}
 	if provResult.Dirty {
 		info.host.ClearError()

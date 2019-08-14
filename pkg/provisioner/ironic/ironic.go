@@ -872,8 +872,14 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		return
 	}
 	if ironicNode == nil {
-		err = fmt.Errorf("no ironic node for host")
-		return
+		// The node does not exist, but we were called so the
+		// controller thinks that the node existed at one time. That
+		// likely means data loss from restarting the database, so
+		// pass through the validation process to register the node
+		// again. Pass true to indicate that we need to re-test the
+		// credentials, just in case.
+		p.log.Info("re-registering host")
+		return p.ValidateManagementAccess(true)
 	}
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {

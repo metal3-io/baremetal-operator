@@ -276,6 +276,51 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				return result, errors.Wrap(err, "failed to create port in ironic")
 			}
 		}
+
+		if p.host.Spec.Image.URL != "" {
+			// FIXME(dhellmann): The Stein version of Ironic supports passing
+			// a URL. When we upgrade, we can stop doing this work ourself.
+			checksum, err := p.getImageChecksum()
+			if err != nil {
+				return result, errors.Wrap(err, "failed to retrieve image checksum")
+			}
+
+			p.log.Info("setting instance info",
+				"image_source", p.host.Spec.Image.URL,
+				"checksum", checksum,
+			)
+
+			updates := nodes.UpdateOpts{
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_source",
+					Value: p.host.Spec.Image.URL,
+				},
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_checksum",
+					Value: checksum,
+				},
+				// NOTE(dhellmann): We must fill in *some* value so that
+				// Ironic will monitor the host. We don't have a nova
+				// instance at all, so just give the node it's UUID again.
+				nodes.UpdateOperation{
+					Op:    nodes.ReplaceOp,
+					Path:  "/instance_uuid",
+					Value: p.host.Status.Provisioning.ID,
+				},
+			}
+			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+			switch err.(type) {
+			case nil:
+			case gophercloud.ErrDefault409:
+				p.log.Info("could not update host settings in ironic, busy")
+				result.Dirty = true
+				return result, nil
+			default:
+				return result, errors.Wrap(err, "failed to update host settings in ironic")
+			}
+		}
 	} else {
 		// FIXME(dhellmann): At this point we have found an existing
 		// node in ironic by looking it up. We need to check its

@@ -882,6 +882,11 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		return p.ValidateManagementAccess(true)
 	}
 
+	p.log.Info("waiting for adoption to complete",
+		"current", ironicNode.ProvisionState,
+		"target", ironicNode.TargetProvisionState,
+	)
+
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Enroll:
 		err = fmt.Errorf("Invalid state for adopt: %s",

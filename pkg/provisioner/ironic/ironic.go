@@ -893,7 +893,6 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 	case nodes.AdoptFail:
 		result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
 			ironicNode.LastError)
-		result.Dirty = true
 	case nodes.Active:
 	default:
 	}

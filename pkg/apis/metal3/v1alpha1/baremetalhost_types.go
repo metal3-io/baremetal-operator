@@ -104,6 +104,49 @@ type BMCDetails struct {
 	CredentialsName string `json:"credentialsName"`
 }
 
+type RAIDVolume struct {
+	// Size (Integer) of the logical disk to be created in GiB.  If unspecified, "MAX" will be used.
+	SizeGB *int `json:"sizeGB"`
+
+	// RAID level for the logical disk.
+	RAIDLevel string `json:"raidLevel" required:"true"`
+
+	// Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+	VolumeName string `json:"volumeName,omitempty"`
+
+	// Set to true if this logical disk can share physical disks with other logical disks.
+	SharePhysicalDisks *bool `json:"sharePhysicalDisks,omitempty"`
+
+	// If this is not specified, disk type will not be a criterion to find backing physical disks
+	DiskType string `json:"diskType,omitempty"`
+
+	// If this is not specified, interface type will not be a criterion to find backing physical disks.
+	InterfaceType string `json:"interfaceType,omitempty"`
+
+	// Integer, number of disks to use for the logical disk. Defaults to minimum number of disks required
+	// for the particular RAID level.
+	NumberOfPhysicalDisks int `json:"numberOfPhysicalDisks,omitempty"`
+
+	// The name of the controller as read by the RAID interface.
+	Controller string `json:"controller,omitempty"`
+
+	// A list of physical disks to use as read by the RAID interface.
+	PhysicalDisks []string `json:"physicalDisks,omitempty"`
+}
+
+// RAIDConfig contains the configuration that are required to config RAID in Bare Metal server
+type RAIDConfig struct {
+
+	// The logical disk that will be root volume
+	RootVolume *RAIDVolume `json:"rootVolume,omitempty"`
+
+	// The list of logical disks
+	Volumes []RAIDVolume `json:"volumes,omitempty"`
+}
+
+// BIOSConfig contains the configuration that are required to config BIOS in Bare Metal server
+type BIOSConfig map[string]interface{}
+
 // BareMetalHostSpec defines the desired state of BareMetalHost
 type BareMetalHostSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code
@@ -117,6 +160,12 @@ type BareMetalHostSpec struct {
 
 	// How do we connect to the BMC?
 	BMC BMCDetails `json:"bmc,omitempty"`
+
+	// RAID configuration for bare metal server
+	RAID RAIDConfig `json:"raid,omitempty"`
+
+	// BIOS configurations for bare metal server
+	BIOS BIOSConfig `json:"bios,omitempty"`
 
 	// What is the name of the hardware profile for this host? It
 	// should only be necessary to set this when inspection cannot

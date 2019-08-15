@@ -277,7 +277,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			}
 		}
 
-		if p.host.Spec.Image.URL != "" {
+		if p.host.Spec.Image != nil && p.host.Spec.Image.URL != "" {
 			// FIXME(dhellmann): The Stein version of Ironic supports passing
 			// a URL. When we upgrade, we can stop doing this work ourself.
 			checksum, err := p.getImageChecksum()

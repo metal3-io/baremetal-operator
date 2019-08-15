@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -85,6 +86,10 @@ const (
 	// StateInspecting means we are running the agent on the host to
 	// learn about the hardware components available there
 	StateInspecting ProvisioningState = "inspecting"
+
+	// StateCleaning means Ironic are running the referenced CleanSteps via
+	// manual cleaning for RAID and BIOS configuration
+	StateCleaning ProvisioningState = "cleaning"
 
 	// StatePowerManagementError means something went wrong trying to
 	// power the server on or off.
@@ -400,6 +405,9 @@ type BareMetalHostStatus struct {
 	// The hardware discovered to exist on the host.
 	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 
+	// The executed CleanSteps on the host.
+	CleanSteps []nodes.CleanStep `json:"cleanSteps,omitempty"`
+
 	// Information tracked by the provisioner.
 	Provisioning ProvisionStatus `json:"provisioning"`
 
@@ -576,6 +584,18 @@ func (host *BareMetalHost) NeedsHardwareInspection() bool {
 		return false
 	}
 	return host.Status.HardwareDetails == nil
+}
+
+// NeedManualCleaning looks at the state of the host to determine
+// if Clean Steps are needed to be run
+func (host *BareMetalHost) NeedsManualCleaning(cleanSteps []nodes.CleanStep) bool {
+	if host.Status.CleanSteps != nil {
+		return false
+	} else if len(cleanSteps) > 0 {
+		// Never run manual cleaning if RAID or BIOS is not configured
+		return true
+	}
+	return false
 }
 
 // NeedsProvisioning compares the settings with the provisioning

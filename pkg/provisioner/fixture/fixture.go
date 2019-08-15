@@ -1,6 +1,8 @@
 package fixture
 
 import (
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,12 +16,15 @@ import (
 var log = logf.Log.WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
+var requeueDelay = time.Second * 10
 
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
 type fixtureProvisioner struct {
 	// the host to be managed by this provisioner
 	host *metal3v1alpha1.BareMetalHost
+	// access parameters for the BMC
+	bmcAccess bmc.AccessDetails
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -32,8 +37,13 @@ type fixtureProvisioner struct {
 
 // New returns a new Ironic Provisioner
 func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BMC address information")
+	}
 	p := &fixtureProvisioner{
 		host:      host,
+		bmcAccess: bmcAccess,
 		bmcCreds:  bmcCreds,
 		log:       log.WithValues("host", host.Name),
 		publisher: publisher,
@@ -120,6 +130,23 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, detai
 	}
 
 	return
+}
+
+func (p *fixtureProvisioner) ManualCleaning(cleanSteps []nodes.CleanStep) (result provisioner.Result, err error) {
+	p.log.Info("Manual cleaning with ", "steps", cleanSteps)
+
+	if p.host.Status.CleanSteps == nil {
+		p.publisher("ManualCleaningComplete", "ManualCleaning completed")
+		p.log.Info("moving to done")
+		p.host.Status.CleanSteps = cleanSteps
+		result.Dirty = true
+		result.RequeueAfter = requeueDelay
+	}
+	return result, nil
+}
+
+func (p *fixtureProvisioner) GetAccessDetails() (bmc.AccessDetails){
+	return p.bmcAccess
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

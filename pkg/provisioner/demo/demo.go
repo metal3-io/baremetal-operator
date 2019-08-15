@@ -1,6 +1,8 @@
 package demo
 
 import (
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -47,6 +49,8 @@ const (
 type demoProvisioner struct {
 	// the host to be managed by this provisioner
 	host *metal3v1alpha1.BareMetalHost
+	// access parameters for the BMC
+	bmcAccess bmc.AccessDetails
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -57,8 +61,13 @@ type demoProvisioner struct {
 
 // New returns a new Ironic Provisioner
 func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BMC address information")
+	}
 	p := &demoProvisioner{
 		host:      host,
+		bmcAccess: bmcAccess,
 		bmcCreds:  bmcCreds,
 		log:       log.WithValues("host", host.Name),
 		publisher: publisher,
@@ -169,6 +178,19 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 	}
 
 	return
+}
+
+func (p *demoProvisioner) ManualCleaning(cleanSteps []nodes.CleanStep) (result provisioner.Result, err error) {
+	hostName := p.host.ObjectMeta.Name
+	switch hostName {
+	default:
+		p.host.Status.CleanSteps = cleanSteps
+		return result,nil
+	}
+}
+
+func (p *demoProvisioner) GetAccessDetails() (bmc.AccessDetails){
+	return p.bmcAccess
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

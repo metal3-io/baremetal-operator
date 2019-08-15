@@ -375,6 +375,10 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	}
 }
 
+func (p *ironicProvisioner) GetAccessDetails()(bmc.AccessDetails){
+	return p.bmcAccess
+}
+
 func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (result provisioner.Result, err error) {
 	p.log.Info("changing provisioning state",
 		"current", ironicNode.ProvisionState,
@@ -583,6 +587,54 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 	details = getHardwareDetails(data)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 	return
+}
+
+//Enter cleaning state via manual cleaning
+func (p *ironicProvisioner) ManualCleaning(cleanSteps []nodes.CleanStep) (result provisioner.Result, error error){
+	p.log.Info("Manual cleaning ", "status", p.host.OperationalStatus())
+
+	ironicNode, err := p.findExistingHost()
+	if err != nil {
+		err = errors.Wrap(err, "failed to find existing host")
+		return
+	}
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
+	}
+
+	result.RequeueAfter = provisionRequeueDelay
+
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.Manageable:
+		return p.startManualCleaning(ironicNode, cleanSteps)
+
+	case nodes.CleanFail:
+		if ironicNode.LastError == "" {
+			p.log.Info("failed but error message not available")
+			result.Dirty = true
+			return result, nil
+		}
+		p.log.Info("found error", "msg", ironicNode.LastError)
+		result.ErrorMessage = fmt.Sprintf("Manual Cleaning failed")
+		return result, nil
+		//p.log.Info("Reconfiguration from previous failure")
+		//return p.startManualCleaning(ironicNode, cleanSteps)
+	default:
+		// wait states like cleaning and clean wait
+		p.log.Info("Cleaning is still in process",
+			"state", ironicNode.ProvisionState,
+			"CleanSteps", cleanSteps)
+		result.Dirty = true
+		return result, nil
+	}
+	return
+}
+
+func (p *ironicProvisioner) startManualCleaning(
+	ironicNode *nodes.Node, cleanSteps []nodes.CleanStep) (result provisioner.Result, err error){
+	p.log.Info("Manual cleaning with ", "steps", cleanSteps)
+	cleanOpts := nodes.ProvisionStateOpts{Target: nodes.TargetClean, CleanSteps: cleanSteps}
+	return p.changeNodeProvisionState(ironicNode, cleanOpts)
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"testing"
 	"time"
 
@@ -146,6 +147,107 @@ func TestHostNeedsHardwareInspection(t *testing.T) {
 			}
 			if !tc.Expected && actual {
 				t.Error("did not expect to need hardware inspection")
+			}
+		})
+	}
+}
+
+func TestHostNeedsManualCleaning(t *testing.T) {
+	testCases := []struct {
+		Scenario   string
+		Host       BareMetalHost
+		CleanSteps [] nodes.CleanStep
+		Expected   bool
+	}{
+
+		{
+			Scenario: "without cleanSteps in host status and incoming cleanSteps",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+			},
+			CleanSteps: []nodes.CleanStep{
+				{
+					Interface: "fakeInterface",
+					Step: "fakeStep",
+					Args: map[string]interface{}{
+						"fakeKey": "fakeValue",
+					},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "with cleanSteps in host status and incoming cleanSteps",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Status: BareMetalHostStatus{
+					CleanSteps: []nodes.CleanStep{
+						{
+							Interface: "myInterface",
+							Step:      "myStep",
+						},
+					},
+				},
+			},
+			CleanSteps: []nodes.CleanStep{
+				{
+					Interface: "fakeInterface",
+					Step: "fakeStep",
+					Args: map[string]interface{}{
+						"fakeKey": "fakeValue",
+					},
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "with cleanSteps in host status and no incoming cleanSteps",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Status: BareMetalHostStatus{
+					CleanSteps: []nodes.CleanStep{
+						{
+							Interface: "myInterface",
+							Step:      "myStep",
+						},
+					},
+				},
+			},
+			CleanSteps: []nodes.CleanStep{},
+			Expected: false,
+		},
+
+		{
+			Scenario: "without cleanSteps in host status and no incoming cleanSteps",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+			},
+			CleanSteps: []nodes.CleanStep{},
+			Expected: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Host.NeedsManualCleaning(tc.CleanSteps)
+			if tc.Expected && !actual {
+				t.Error("expected to need manual cleaning")
+			}
+			if !tc.Expected && actual {
+				t.Error("did not expect to need manual cleaning")
 			}
 		})
 	}

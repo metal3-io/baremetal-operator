@@ -1,6 +1,7 @@
 package provisioner
 
 import (
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"time"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
@@ -33,11 +34,17 @@ type Provisioner interface {
 	// credentials is correct.
 	ValidateManagementAccess(credentialsChanged bool) (result Result, err error)
 
+	// Get AccessDetails from provisioner
+	GetAccessDetails() (bmc.AccessDetails)
+
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
 	InspectHardware() (result Result, details *metal3v1alpha1.HardwareDetails, err error)
+
+	// ManualCleaning execute the Clean Steps for extra configuration such as RAID, BIOS.
+	ManualCleaning(cleanSteps []nodes.CleanStep) (result Result, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with

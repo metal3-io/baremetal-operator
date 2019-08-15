@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"reflect"
 	"strings"
 	"time"
 
@@ -123,6 +125,7 @@ type reconcileInfo struct {
 	host           *metal3v1alpha1.BareMetalHost
 	request        reconcile.Request
 	bmcCredsSecret *corev1.Secret
+	cleanSteps     []nodes.CleanStep
 	events         []corev1.Event
 	errorMessage   string
 }
@@ -260,6 +263,19 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		}
 	}
 
+	info := &reconcileInfo{
+		host:           host,
+		request:        request,
+		bmcCredsSecret: bmcCredsSecret,
+	}
+
+	prov, err := r.provisionerFactory(host, *bmcCreds, info.publishEvent)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
+	}
+
+	info.cleanSteps = r.buildAndValidateCleanSteps(request, host, prov)
+
 	// Pick the action to perform
 	var actionName metal3v1alpha1.ProvisioningState
 	switch {
@@ -267,6 +283,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		actionName = metal3v1alpha1.StateRegistering
 	case host.WasExternallyProvisioned():
 		actionName = metal3v1alpha1.StateExternallyProvisioned
+	case host.NeedsManualCleaning(info.cleanSteps):
+		actionName = metal3v1alpha1.StateCleaning
 	case host.NeedsHardwareInspection():
 		actionName = metal3v1alpha1.StateInspecting
 	case host.NeedsHardwareProfile():
@@ -294,20 +312,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	info := &reconcileInfo{
-		log:            reqLogger.WithValues("provisioningState", actionName),
-		host:           host,
-		request:        request,
-		bmcCredsSecret: bmcCredsSecret,
-	}
-	prov, err := r.provisionerFactory(host, *bmcCreds, info.publishEvent)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
-	}
+	// Update info object with log for provisioningState
+	info.log = reqLogger.WithValues("provisioningState", actionName)
 
 	switch actionName {
 	case metal3v1alpha1.StateRegistering:
 		result, err = r.actionRegistering(prov, info)
+	case metal3v1alpha1.StateCleaning:
+		result, err = r.actionCleaning(prov, info)
 	case metal3v1alpha1.StateInspecting:
 		result, err = r.actionInspecting(prov, info)
 	case metal3v1alpha1.StateMatchProfile:
@@ -501,6 +513,44 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 
 	result.Requeue = true
 	result.RequeueAfter = provResult.RequeueAfter
+	return result, nil
+}
+
+// Run manual cleaning to execute configured Clean Steps for RAID and BIOS
+func (r *ReconcileBareMetalHost) actionCleaning(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+	var provResult provisioner.Result
+
+	info.log.Info("Manual cleaning")
+	provResult, err = prov.ManualCleaning(info.cleanSteps)
+	if err != nil {
+		return result, errors.Wrap(err, "Manual cleaning failed")
+	}
+
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("RegistrationError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
+		return result, nil
+	}
+
+	if provResult.Dirty {
+		// Go back into the queue and wait for the ManualCleaning() method
+		// to return false, indicating that it has no more work to
+		// do.
+		info.host.ClearError()
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
+		return result, nil
+	}
+
+	// If the provisioner had no work, ensure the CleanSteps has been saved into host status.
+	if reflect.DeepEqual(info.host.Status.CleanSteps, info.cleanSteps) {
+		info.log.Info("updating CleanSteps in status")
+		info.host.Status.CleanSteps = info.cleanSteps
+	}
+
 	return result, nil
 }
 
@@ -899,4 +949,159 @@ func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, event c
 
 func hostHasFinalizer(host *metal3v1alpha1.BareMetalHost) bool {
 	return utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
+}
+
+func(r *ReconcileBareMetalHost) buildAndValidateCleanSteps(
+	request reconcile.Request, host *metal3v1alpha1.BareMetalHost, prov provisioner.Provisioner) (cleanSteps []nodes.CleanStep) {
+	reqLogger := log.WithValues(
+		"Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	// Retrieve RAID configuration in form of provisioner's clean step
+	raidCleanStep, err := r.ValidateAndBuildRAIDCleanStep(&host.Spec.RAID)
+	if err != nil {
+		reqLogger.Info("Failed to retrieve RAID configuration", err)
+	} else if raidCleanStep != nil {
+		// ‘create_configuration’ doesn’t remove existing disks. It is recommended
+		// to add ‘delete_configuration’ before ‘create_configuration’ to make sure
+		// that only the desired logical disks exist in the system after manual cleaning.
+		cleanSteps = append(
+			cleanSteps,
+			nodes.CleanStep{
+				Interface: "raid",
+				Step:      "delete_configuration",
+				Args:      nil,
+			},
+			*raidCleanStep,
+		)
+	}
+
+	// Retrieve BIOS settings in form of provisioner's clean step
+	biosCleanStep, err := r.ValidateAndBuildBIOSCleanStep(prov, host.Spec.BIOS)
+	if err != nil {
+		reqLogger.Info("Failed to retrieve BIOS configuration")
+	} else if biosCleanStep != nil {
+		cleanSteps = append(cleanSteps, *biosCleanStep)
+	}
+	return cleanSteps
+}
+
+// ValidateAndBuildRAIDCleanSteps verify the given RAID configuration
+func (r *ReconcileBareMetalHost) ValidateAndBuildRAIDCleanStep(raidConfig *metal3v1alpha1.RAIDConfig) (cleanStep *nodes.CleanStep, err error){
+	if &raidConfig == nil {
+		return nil, nil
+	}
+	logicalDisks := []map[string]interface{}{}
+	if raidConfig.RootVolume != nil {
+		err = r.validateRAIDVolumeConfig(raidConfig.RootVolume)
+		if err != nil {
+			return nil, err
+		}
+		logicalDisks = append(logicalDisks, r.buildRAIDVolumeArgs(raidConfig.RootVolume, true))
+	}
+	for _, volume := range raidConfig.Volumes {
+		err = r.validateRAIDVolumeConfig(&volume)
+		if err != nil {
+			return nil, err
+		}
+		logicalDisks = append(logicalDisks, r.buildRAIDVolumeArgs(&volume, false))
+	}
+	if len(logicalDisks) > 0 {
+		cleanStep = &nodes.CleanStep{
+			Interface: "raid",
+			Step: "create_configuration",
+			Args: map[string]interface{}{"logical_disks": logicalDisks},
+		}
+	}
+	return cleanStep, nil
+}
+
+// A private method to validate incoming RAID configuration.
+func (r *ReconcileBareMetalHost) validateRAIDVolumeConfig(volumeConfig *metal3v1alpha1.RAIDVolume) (err error) {
+	// The config without RAIDLevel will be marked as invalid
+	if volumeConfig.RAIDLevel == "" {
+		return errors.New("Missing the RAID level of disk 'raidLevel' in RAID config")
+	}
+	return nil
+}
+
+// A private method to build the Args in CleanStep for RAID configuration
+func (r *ReconcileBareMetalHost) buildRAIDVolumeArgs(
+	volumeConfig *metal3v1alpha1.RAIDVolume, isRootVolume bool) map[string]interface{} {
+	volume := map[string]interface{}{}
+	if isRootVolume {
+		volume["is_root_volume"] = isRootVolume
+	}
+	if volumeConfig.SizeGB != nil {
+		volume["size_gb"] = volumeConfig.SizeGB
+	} else {
+		volume["size_gb"] = "MAX"
+	}
+	if volumeConfig.RAIDLevel != "" {
+		volume["raid_level"] = volumeConfig.RAIDLevel
+	}
+	if volumeConfig.VolumeName != "" {
+		volume["volume_name"] = volumeConfig.VolumeName
+	}
+	if volumeConfig.SharePhysicalDisks != nil {
+		volume["share_physical_disks"] = volumeConfig.SharePhysicalDisks
+	}
+	if volumeConfig.DiskType != "" {
+		volume["disk_type"] = volumeConfig.DiskType
+	}
+	if volumeConfig.InterfaceType != "" {
+		volume["interface_type"] = volumeConfig.InterfaceType
+	}
+	if volumeConfig.NumberOfPhysicalDisks > 0 {
+		volume["number_of_physical_disks"] = volumeConfig.NumberOfPhysicalDisks
+	}
+	if volumeConfig.Controller != "" {
+		volume["controller"] = volumeConfig.Controller
+	}
+	if volumeConfig.PhysicalDisks != nil {
+		volume["physical_disks"] = volumeConfig.PhysicalDisks
+	}
+	return volume
+}
+
+// ValidateAndBuildBIOSCleanSteps verify the given BIOS configuration
+func (r *ReconcileBareMetalHost) ValidateAndBuildBIOSCleanStep(
+	prov provisioner.Provisioner, biosConfig metal3v1alpha1.BIOSConfig) (cleanStep *nodes.CleanStep, err error){
+	if biosConfig == nil {
+		return nil, nil
+	}
+	accessDetails := prov.GetAccessDetails()
+	biosConfigDetails := accessDetails.GetBIOSConfigDetails()
+	if biosConfigDetails == nil {
+		return nil, errors.New(fmt.Sprintf(
+			"'%s' driver does not support BIOS configuration", accessDetails.Driver()))
+	}
+	biosSettings := []map[string]interface{}{}
+	for key, value := range biosConfig{
+		valueType := reflect.TypeOf(value).Kind()
+		configSpec, ok := biosConfigDetails[key]
+		if !ok || value == nil {
+			return nil, errors.New(fmt.Sprintf(
+				"Invalid BIOS configuration: {%s: %v}", key, value))
+		} else if configSpec.ValueType != valueType {
+			return nil, errors.New(fmt.Sprintf(
+				"Expected value to be '%s' but got type '%s' with value '%v'", configSpec.ValueType.String(), valueType, value))
+		} else if !configSpec.IsSupportedConfigValue(value){
+			return nil, errors.New(fmt.Sprintf(
+				"The BIOS config '%s' does not support value '%v'", key, value))
+		} else {
+			biosSettings = append(biosSettings, map[string]interface{} {
+				"name":  configSpec.VendorKey,
+				"value": value,
+			})
+		}
+	}
+	if len(biosSettings) > 0 {
+		cleanStep = &nodes.CleanStep{
+			Interface: "bios",
+			Step: "apply_configuration",
+			Args: map[string]interface{}{"settings": biosSettings},
+		}
+	}
+
+	return cleanStep, nil
 }

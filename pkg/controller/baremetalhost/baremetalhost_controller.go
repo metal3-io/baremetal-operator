@@ -317,11 +317,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	case metal3v1alpha1.StateDeprovisioning:
 		result, err = r.actionDeprovisioning(prov, info)
 	case metal3v1alpha1.StateProvisioned:
-		result, err = r.actionManageHostPower(prov, info)
+		result, err = r.actionManageSteadyState(prov, info)
 	case metal3v1alpha1.StateReady:
-		result, err = r.actionManageHostPower(prov, info)
+		result, err = r.actionManageSteadyState(prov, info)
 	case metal3v1alpha1.StateExternallyProvisioned:
-		result, err = r.actionManageExternallyProvisioned(prov, info)
+		result, err = r.actionManageSteadyState(prov, info)
 	default:
 		// Probably a provisioning error state?
 		return reconcile.Result{}, fmt.Errorf("Unrecognized action %q", actionName)
@@ -687,12 +687,12 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 }
 
 // Check the current power status against the desired power status.
-func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	// Check the current status and save it before trying to update it.
 	if provResult, err = prov.UpdateHardwareState(); err != nil {
-		return result, errors.Wrap(err, "failed to update the hardware status")
+		return result, errors.Wrap(err, "failed to update the host power status")
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -759,8 +759,13 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 
 }
 
-// Adopt the host if necessary and manage the current power status.
-func (r *ReconcileBareMetalHost) actionManageExternallyProvisioned(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+// A host reaching this action handler should be provisioned,
+// externally provisioned, or ready -- a state that it will stay in
+// until the user takes further action. All of those states mean that
+// it has been registered with the provisioner once, so we use the
+// Adopt() API to ensure that is still true. Then we monitor its
+// power status.
+func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 
 	provResult, err := prov.Adopt()
 	if err != nil {
@@ -778,11 +783,10 @@ func (r *ReconcileBareMetalHost) actionManageExternallyProvisioned(prov provisio
 		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
-		return
+		return result, nil
 	}
 
-	result, err = r.actionManageHostPower(prov, info)
-	return
+	return r.manageHostPower(prov, info)
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) error {

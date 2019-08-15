@@ -49,3 +49,10 @@ func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfac
 func (a *ipmiAccessDetails) BootInterface() string {
 	return "ipxe"
 }
+
+// GetBIOSConfigDetails return the mapping of supported BIOS configuration keys between Metal3 and IPMI.
+// If the user use the key that does not belong to this map, this key wil be marked as unsupported in IPMI.
+func (a *ipmiAccessDetails) GetBIOSConfigDetails() map[string] VendorBIOSConfigSpec {
+	return nil
+}
+

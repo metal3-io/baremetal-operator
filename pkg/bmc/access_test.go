@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"reflect"
 	"testing"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -211,6 +212,16 @@ func TestIPMIBootInterface(t *testing.T) {
 	}
 }
 
+func TestIPMIBiosConfigDetails(t *testing.T) {
+	acc, err := NewAccessDetails("ipmi://192.168.122.1:6233")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.GetBIOSConfigDetails() != nil {
+		t.Fatal("expected BIOS configuration details to be nil")
+	}
+}
+
 func TestLibvirtNeedsMAC(t *testing.T) {
 	acc, err := NewAccessDetails("libvirt://192.168.122.1:6233/")
 	if err != nil {
@@ -239,6 +250,16 @@ func TestLibvirtBootInterface(t *testing.T) {
 	}
 	if acc.BootInterface() != "ipxe" {
 		t.Fatal("expected boot interface to be ipxe")
+	}
+}
+
+func TestLibvirtBiosConfigDetails(t *testing.T) {
+	acc, err := NewAccessDetails("libvirt://192.168.122.1:6233/")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.GetBIOSConfigDetails() != nil {
+		t.Fatal("expected BIOS configuration details to be nil")
 	}
 }
 
@@ -469,6 +490,17 @@ func TestIDRACBootInterface(t *testing.T) {
 	}
 }
 
+func TestIRACBiosConfigDetails(t *testing.T) {
+	acc, err := NewAccessDetails("idrac://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if acc.GetBIOSConfigDetails() != nil {
+		t.Fatal("expected BIOS configuration details to be nil")
+	}
+}
+
+
 func TestParseIRMCURL(t *testing.T) {
 	T, H, P, A, err := getTypeHostPort("irmc://192.168.122.1")
 	if err != nil {
@@ -612,6 +644,17 @@ func TestIRMCBootInterface(t *testing.T) {
 		t.Fatal("expected boot interface to be pxe")
 	}
 }
+
+func TestIRMCBiosConfigDetails(t *testing.T) {
+	acc, err := NewAccessDetails("irmc://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !reflect.DeepEqual(acc.GetBIOSConfigDetails(), iRMCBiosConfigDetails) {
+		t.Fatal("unexpected BIOS configuration details")
+	}
+}
+
 
 func TestUnknownType(t *testing.T) {
 	acc, err := NewAccessDetails("foo://192.168.122.1")

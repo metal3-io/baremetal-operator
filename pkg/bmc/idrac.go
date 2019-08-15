@@ -54,3 +54,9 @@ func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfa
 func (a *iDracAccessDetails) BootInterface() string {
 	return "ipxe"
 }
+
+// GetBIOSConfigDetails return the mapping of supported BIOS configuration keys between Metal3 and iDRAC.
+// If the user use the key that does not belong to this map, this key wil be marked as unsupported in iDRAC.
+func (a *iDracAccessDetails) GetBIOSConfigDetails() map[string]VendorBIOSConfigSpec {
+	return nil
+}

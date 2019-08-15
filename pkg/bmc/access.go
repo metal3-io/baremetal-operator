@@ -3,6 +3,7 @@ package bmc
 import (
 	"net"
 	"net/url"
+	"reflect"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -34,6 +35,28 @@ type AccessDetails interface {
 	
 	// Boot interface to set
 	BootInterface() string
+
+	// Return the map of supported BIOS configuration keys
+	GetBIOSConfigDetails() map[string]VendorBIOSConfigSpec
+}
+
+type VendorBIOSConfigSpec struct {
+	VendorKey string
+	ValueType reflect.Kind
+	SupportedValues []interface{}
+}
+
+func (v *VendorBIOSConfigSpec) IsSupportedConfigValue (value interface{}) (isSupport bool) {
+	if v.SupportedValues == nil {
+		return true
+	} else {
+		for _, supportedValue := range v.SupportedValues {
+			if value == supportedValue {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func getTypeHostPort(address string) (bmcType, host, port, path string, err error) {

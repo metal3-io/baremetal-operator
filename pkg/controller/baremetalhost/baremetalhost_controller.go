@@ -319,7 +319,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	case metal3v1alpha1.StateProvisioned:
 		result, err = r.actionManageSteadyState(prov, info)
 	case metal3v1alpha1.StateReady:
-		result, err = r.actionManageSteadyState(prov, info)
+		result, err = r.actionManageReady(prov, info)
 	case metal3v1alpha1.StateExternallyProvisioned:
 		result, err = r.actionManageSteadyState(prov, info)
 	default:
@@ -759,15 +759,47 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 
 }
 
-// A host reaching this action handler should be provisioned,
-// externally provisioned, or ready -- a state that it will stay in
-// until the user takes further action. All of those states mean that
-// it has been registered with the provisioner once, so we use the
-// Adopt() API to ensure that is still true. Then we monitor its
-// power status.
+// A host reaching this action handler should be provisioned or
+// externally provisioned -- a state that it will stay in until the
+// user takes further action. Both of those states mean that it has
+// been registered with the provisioner once, so we use the Adopt()
+// API to ensure that is still true. Then we monitor its power status.
 func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 
 	provResult, err := prov.Adopt()
+	if err != nil {
+		return
+	}
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("RegistrationError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
+		return result, nil
+	}
+	if provResult.Dirty {
+		info.host.ClearError()
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
+		return result, nil
+	}
+
+	return r.manageHostPower(prov, info)
+}
+
+// A host reaching this action handler should be ready -- a state that
+// it will stay in until the user takes further action. It has been
+// registered with the provisioner once, so we use
+// ValidateManagementAccess() to ensure that is still true. We don't
+// use Adopt() because we don't want Ironic to treat the host as
+// having been provisioned. Then we monitor its power status.
+func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+
+	// We always pass false for credentialsChanged because if they had
+	// changed we would have ended up in actionRegister() instead of
+	// here.
+	provResult, err := prov.ValidateManagementAccess(false)
 	if err != nil {
 		return
 	}

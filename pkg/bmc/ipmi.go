@@ -1,5 +1,18 @@
 package bmc
 
+func init() {
+	registerFactory("ipmi", newIPMIAccessDetails)
+	registerFactory("libvirt", newIPMIAccessDetails)
+}
+
+func newIPMIAccessDetails(bmcType, portNum, hostname, path string) (AccessDetails, error) {
+	return &ipmiAccessDetails{
+		bmcType:  bmcType,
+		portNum:  portNum,
+		hostname: hostname,
+	}, nil
+}
+
 type ipmiAccessDetails struct {
 	bmcType  string
 	portNum  string

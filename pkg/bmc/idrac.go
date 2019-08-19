@@ -4,6 +4,21 @@ import (
 	"strings"
 )
 
+func init() {
+	registerFactory("idrac", newIDRACAccessDetails)
+	registerFactory("idrac+http", newIDRACAccessDetails)
+	registerFactory("idrac+https", newIDRACAccessDetails)
+}
+
+func newIDRACAccessDetails(bmcType, portNum, hostname, path string) (AccessDetails, error) {
+	return &iDracAccessDetails{
+		bmcType:  bmcType,
+		portNum:  portNum,
+		hostname: hostname,
+		path:     path,
+	}, nil
+}
+
 type iDracAccessDetails struct {
 	bmcType  string
 	portNum  string

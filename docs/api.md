@@ -33,8 +33,8 @@ machine-api.
 *externallyProvisioned* -- A boolean indicating whether something else
 is managing the image running on the host. When set, if no image is
 provided, the host's power status and hardware inventory will be
-monitored. If the *image* contains image parameters, this field is
-ignored.
+monitored. If this flag is set, no provisioning or deprovisioning
+operations are performed for the host.
 
 *image.url* -- The URL of an image to deploy to the host.
 

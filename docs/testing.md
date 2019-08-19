@@ -30,3 +30,8 @@ The tests can also be run via `make`
 ```
 make test
 ```
+
+Run linters test before pushing your commit
+```
+make lint
+```

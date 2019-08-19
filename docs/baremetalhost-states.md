@@ -19,9 +19,9 @@ for registration.
 ## Externally Provisioned
 
 An Externally Provisioned host was deployed using another tool and
-then a host object was created with a link to an existing Machine
-object and without an Image setting. Hosts in this state are
-monitored, and only their power status is managed.
+then a host object was created with the externallyProvisioned flag
+set. Hosts in this state are monitored, and only their power status is
+managed.
 
 ## Registering
 

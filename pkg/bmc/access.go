@@ -8,6 +8,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+// AccessDetailsFactory describes a callable that returns a new
+// AccessDetails based on the input parameters.
+type AccessDetailsFactory func(bmcType, portNum, hostname, path string) (AccessDetails, error)
+
+var factories = map[string]AccessDetailsFactory{}
+
+// We could make this function public if we want to support
+// out-of-tree factories.
+func registerFactory(name string, factory AccessDetailsFactory) {
+	factories[name] = factory
+}
+
 // AccessDetails contains the information about how to get to a BMC.
 //
 // NOTE(dhellmann): This structure is very likely to change as we
@@ -31,7 +43,7 @@ type AccessDetails interface {
 	// expected to add any other information that might be needed
 	// (such as the kernel and ramdisk locations).
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
-	
+
 	// Boot interface to set
 	BootInterface() string
 }
@@ -93,30 +105,10 @@ func NewAccessDetails(address string) (AccessDetails, error) {
 		return nil, err
 	}
 
-	var addr AccessDetails
-	switch bmcType {
-	case "ipmi", "libvirt":
-		addr = &ipmiAccessDetails{
-			bmcType:  bmcType,
-			portNum:  port,
-			hostname: host,
-		}
-	case "irmc":
-		addr = &iRMCAccessDetails{
-			bmcType:  bmcType,
-			portNum:  port,
-			hostname: host,
-		}
-	case "idrac", "idrac+http", "idrac+https":
-		addr = &iDracAccessDetails{
-			bmcType:  bmcType,
-			portNum:  port,
-			hostname: host,
-			path:     path,
-		}
-	default:
-		err = &UnknownBMCTypeError{address, bmcType}
+	factory, ok := factories[bmcType]
+	if !ok {
+		return nil, &UnknownBMCTypeError{address, bmcType}
 	}
 
-	return addr, err
+	return factory(bmcType, port, host, path)
 }

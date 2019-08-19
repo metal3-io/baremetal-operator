@@ -516,7 +516,7 @@ func (host *BareMetalHost) CredentialsKey() types.NamespacedName {
 // NeedsHardwareInspection looks at the state of the host to determine
 // if hardware inspection should be run.
 func (host *BareMetalHost) NeedsHardwareInspection() bool {
-	if host.WasExternallyProvisioned() {
+	if host.Spec.ExternallyProvisioned {
 		// Never perform inspection if we already know something is
 		// using the host and we didn't provision it.
 		return false
@@ -533,6 +533,9 @@ func (host *BareMetalHost) NeedsHardwareInspection() bool {
 // status and returns true when more work is needed or false
 // otherwise.
 func (host *BareMetalHost) NeedsProvisioning() bool {
+	if host.Spec.ExternallyProvisioned {
+		return false
+	}
 	if !host.Spec.Online {
 		// The host is not supposed to be powered on.
 		return false
@@ -555,6 +558,9 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 // WasProvisioned returns true when we think we have placed an image
 // on the host.
 func (host *BareMetalHost) WasProvisioned() bool {
+	if host.Spec.ExternallyProvisioned {
+		return false
+	}
 	if host.Status.Provisioning.Image.URL != "" {
 		// We have an image provisioned.
 		return true
@@ -562,30 +568,12 @@ func (host *BareMetalHost) WasProvisioned() bool {
 	return false
 }
 
-// WasExternallyProvisioned returns true when we think something else
-// is managing the image running on the host.
-func (host *BareMetalHost) WasExternallyProvisioned() bool {
-	// NOTE(dhellmann): The Image setting takes precedent over the
-	// ExternallyProvisioned flag.
-	//
-	// The user can change the ExternallyProvisioned field at any
-	// time. So, they could start to provision a host in the normal
-	// way and then while it's in the middle of provisioning set
-	// ExternallyProvisioned=true. At that point, the logic managing
-	// the provisioning workflow would be circumvented and the host
-	// status would never update properly.
-	//
-	// We could allow that, but it's easier to reason about the host
-	// if we say that giving an image and saying a host is externally
-	// provisioned are mutually exclusive, but the image has
-	// precedence if both are provided. We end up with fewer overall
-	// transitions in the state diagram that way.
-	return host.Spec.ExternallyProvisioned && host.Spec.Image == nil
-}
-
 // NeedsDeprovisioning compares the settings with the provisioning
 // status and returns true when the host should be deprovisioned.
 func (host *BareMetalHost) NeedsDeprovisioning() bool {
+	if host.Spec.ExternallyProvisioned {
+		return false
+	}
 	if host.Status.Provisioning.Image.URL == "" {
 		return false
 	}

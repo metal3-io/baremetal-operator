@@ -265,7 +265,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	switch {
 	case !host.Status.GoodCredentials.Match(*bmcCredsSecret):
 		actionName = metal3v1alpha1.StateRegistering
-	case host.WasExternallyProvisioned():
+	case host.Spec.ExternallyProvisioned:
 		actionName = metal3v1alpha1.StateExternallyProvisioned
 	case host.NeedsHardwareInspection():
 		actionName = metal3v1alpha1.StateInspecting
@@ -317,11 +317,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	case metal3v1alpha1.StateDeprovisioning:
 		result, err = r.actionDeprovisioning(prov, info)
 	case metal3v1alpha1.StateProvisioned:
-		result, err = r.actionManageHostPower(prov, info)
+		result, err = r.actionManageSteadyState(prov, info)
 	case metal3v1alpha1.StateReady:
-		result, err = r.actionManageHostPower(prov, info)
+		result, err = r.actionManageReady(prov, info)
 	case metal3v1alpha1.StateExternallyProvisioned:
-		result, err = r.actionManageExternallyProvisioned(prov, info)
+		result, err = r.actionManageSteadyState(prov, info)
 	default:
 		// Probably a provisioning error state?
 		return reconcile.Result{}, fmt.Errorf("Unrecognized action %q", actionName)
@@ -494,7 +494,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 
 	info.publishEvent("BMCAccessValidated", "Verified access to BMC")
 
-	if info.host.WasExternallyProvisioned() {
+	if info.host.Spec.ExternallyProvisioned {
 		info.publishEvent("ExternallyProvisioned",
 			"Registered host that was externally provisioned")
 	}
@@ -687,12 +687,12 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 }
 
 // Check the current power status against the desired power status.
-func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
 	var provResult provisioner.Result
 
 	// Check the current status and save it before trying to update it.
 	if provResult, err = prov.UpdateHardwareState(); err != nil {
-		return result, errors.Wrap(err, "failed to update the hardware status")
+		return result, errors.Wrap(err, "failed to update the host power status")
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -759,21 +759,66 @@ func (r *ReconcileBareMetalHost) actionManageHostPower(prov provisioner.Provisio
 
 }
 
-// Adopt the host if necessary and manage the current power status.
-func (r *ReconcileBareMetalHost) actionManageExternallyProvisioned(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+// A host reaching this action handler should be provisioned or
+// externally provisioned -- a state that it will stay in until the
+// user takes further action. Both of those states mean that it has
+// been registered with the provisioner once, so we use the Adopt()
+// API to ensure that is still true. Then we monitor its power status.
+func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+
 	provResult, err := prov.Adopt()
 	if err != nil {
 		return
+	}
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("RegistrationError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
+		return result, nil
 	}
 	if provResult.Dirty {
 		info.host.ClearError()
 		result.Requeue = true
 		result.RequeueAfter = provResult.RequeueAfter
-		return
+		return result, nil
 	}
 
-	result, err = r.actionManageHostPower(prov, info)
-	return
+	return r.manageHostPower(prov, info)
+}
+
+// A host reaching this action handler should be ready -- a state that
+// it will stay in until the user takes further action. It has been
+// registered with the provisioner once, so we use
+// ValidateManagementAccess() to ensure that is still true. We don't
+// use Adopt() because we don't want Ironic to treat the host as
+// having been provisioned. Then we monitor its power status.
+func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+
+	// We always pass false for credentialsChanged because if they had
+	// changed we would have ended up in actionRegister() instead of
+	// here.
+	provResult, err := prov.ValidateManagementAccess(false)
+	if err != nil {
+		return
+	}
+	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("RegistrationError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
+		return result, nil
+	}
+	if provResult.Dirty {
+		info.host.ClearError()
+		result.Requeue = true
+		result.RequeueAfter = provResult.RequeueAfter
+		return result, nil
+	}
+
+	return r.manageHostPower(prov, info)
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) error {

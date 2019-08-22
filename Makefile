@@ -18,18 +18,20 @@ export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
 .PHONY: help
 help:
 	@echo "Targets:"
-	@echo "  test         -- run unit tests and linter"
-	@echo "  unit         -- run the unit tests"
-	@echo "  unit-verbose -- run unit tests with verbose flag enabled"
-	@echo "  lint         -- run the linter"
-	@echo "  e2e-local    -- run end-to-end tests locally"
-	@echo "  help         -- this help output"
+	@echo "  test             -- run unit tests and linter"
+	@echo "  unit             -- run the unit tests"
+	@echo "  unit-cover       -- run the unit tests and write code coverage statistics to console"
+	@echo "  unit-cover-html  -- run the unit tests and open code coverage statistics in a browser"
+	@echo "  unit-verbose     -- run unit tests with verbose flag enabled"
+	@echo "  lint             -- run the linter"
+	@echo "  e2e-local        -- run end-to-end tests locally"
+	@echo "  help             -- this help output"
 	@echo
 	@echo "Variables:"
-	@echo "  TEST_NAMESPACE -- project name to use ($(TEST_NAMESPACE))"
-	@echo "  SETUP          -- controls the --no-setup flag ($(SETUP))"
-	@echo "  GO_TEST_FLAGS  -- flags to pass to --go-test-flags ($(GO_TEST_FLAGS))"
-	@echo "  DEBUG          -- debug flag, if any ($(DEBUG))"
+	@echo "  TEST_NAMESPACE   -- project name to use ($(TEST_NAMESPACE))"
+	@echo "  SETUP            -- controls the --no-setup flag ($(SETUP))"
+	@echo "  GO_TEST_FLAGS    -- flags to pass to --go-test-flags ($(GO_TEST_FLAGS))"
+	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
 test: generate unit lint dep-check
@@ -45,6 +47,16 @@ travis: unit-verbose lint
 .PHONY: unit
 unit:
 	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
+
+.PHONY: unit-cover
+unit-cover:
+	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
+	go tool cover -func=cover.out
+
+.PHONY: unit-cover-html
+unit-cover-html:
+	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
+	go tool cover -html=cover.out
 
 .PHONY: unit-verbose
 unit-verbose:

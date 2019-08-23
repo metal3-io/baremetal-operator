@@ -613,6 +613,198 @@ func TestIRMCBootInterface(t *testing.T) {
 	}
 }
 
+func TestParserRedfishURL(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("redfish://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "redfish" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestParseRedfishURLPath(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("redfish://192.168.122.1:6233/foo")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "redfish" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "6233" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "/foo" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestParseRedfishURLIPv6(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("redfish://[fe80::fc33:62ff:fe83:8a76]")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "redfish" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestParseRedfishURLNoSep(t *testing.T) {
+	T, H, P, A, err := getTypeHostPort("redfish:192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if T != "redfish" {
+		t.Fatalf("unexpected type: %q", T)
+	}
+	if H != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", H)
+	}
+	if P != "" {
+		t.Fatalf("unexpected port: %q", P)
+	}
+	if A != "" {
+		t.Fatalf("unexpected path: %q", A)
+	}
+}
+
+func TestRedfishNeedsMAC(t *testing.T) {
+	acc, err := NewAccessDetails("redfish://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if ! acc.NeedsMAC() {
+		t.Fatal("expected to need a MAC")
+	}
+}
+
+func TestRedfishDriver(t *testing.T) {
+	acc, err := NewAccessDetails("redfish://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	driver := acc.Driver()
+	if driver != "redfish" {
+		t.Fatal("unexpected driver for redfish")
+	}
+}
+
+func TestRedfishDriverInfo(t *testing.T) {
+	acc, err := NewAccessDetails("redfish://192.168.122.1/foo/bar")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["redfish_address"] != "https://192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["redfish_address"])
+	}
+	if di["redfish_system_id"] != "/foo/bar" {
+		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
+	}
+}
+
+func TestRedfishDriverInfoHTTP(t *testing.T) {
+	acc, err := NewAccessDetails("redfish+http://192.168.122.1/foo/bar")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["redfish_address"] != "http://192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["redfish_address"])
+	}
+	if di["redfish_system_id"] != "/foo/bar" {
+		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
+	}
+}
+
+func TestRedfishDriverInfoHTTPS(t *testing.T) {
+	acc, err := NewAccessDetails("redfish+https://192.168.122.1/foo/bar")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["redfish_address"] != "https://192.168.122.1" {
+		t.Fatalf("unexpected address: %v", di["redfish_address"])
+	}
+	if di["redfish_system_id"] != "/foo/bar" {
+		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
+	}
+}
+
+func TestRedfishDriverInfoPort(t *testing.T) {
+	acc, err := NewAccessDetails("redfish://192.168.122.1:8080/foo/bar")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["redfish_address"] != "https://192.168.122.1:8080" {
+		t.Fatalf("unexpected address: %v", di["redfish_address"])
+	}
+	if di["redfish_system_id"] != "/foo/bar" {
+		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
+	}
+}
+
+func TestRedfishDriverInfoIPv6(t *testing.T) {
+	acc, err := NewAccessDetails("redfish://[fe80::fc33:62ff:fe83:8a76]/foo/bar")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["redfish_address"] != "https://[fe80::fc33:62ff:fe83:8a76]" {
+		t.Fatalf("unexpected address: %v", di["redfish_address"])
+	}
+	if di["redfish_system_id"] != "/foo/bar" {
+		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
+	}
+}
+
+func TestRedfishDriverInfoIPv6Port(t *testing.T) {
+	acc, err := NewAccessDetails("redfish://[fe80::fc33:62ff:fe83:8a76]:8080/foo")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	di := acc.DriverInfo(Credentials{})
+	if di["redfish_address"] != "https://[fe80::fc33:62ff:fe83:8a76]:8080" {
+		t.Fatalf("unexpected address: %v", di["redfish_address"])
+	}
+	if di["redfish_system_id"] != "/foo" {
+		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
+	}
+}
+
+func TestRedfishBootInterface(t *testing.T) {
+	acc, err := NewAccessDetails("redfish://192.168.122.1")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	// TODO: Change to ipxe
+	if acc.BootInterface() != "pxe" {
+		t.Fatal("expected boot interface to be pxe")
+	}
+}
+
 func TestUnknownType(t *testing.T) {
 	acc, err := NewAccessDetails("foo://192.168.122.1")
 	if err == nil || acc != nil {

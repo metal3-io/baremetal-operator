@@ -584,7 +584,6 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
 		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
 	}
 
@@ -615,7 +614,6 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
 		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
 	}
 

@@ -786,7 +786,7 @@ func TestRedfishDriver(t *testing.T) {
 }
 
 func TestRedfishDriverInfo(t *testing.T) {
-	acc, err := NewAccessDetails("redfish://192.168.122.1/foo/bar")
+	acc, err := NewAccessDetails("redfish://192.168.122.1/foo/bar?abc=def&ghi=jkl")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -797,10 +797,16 @@ func TestRedfishDriverInfo(t *testing.T) {
 	if di["redfish_system_id"] != "/foo/bar" {
 		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
 	}
+	if di["abc"] != "def" {
+		t.Fatalf("unexpected query parameter: %v=%v", "abc", di["abc"])
+	}
+	if di["ghi"] != "jkl" {
+		t.Fatalf("unexpected query parameter: %v=%v", "ghi", di["jkl"])
+	}
 }
 
 func TestRedfishDriverInfoHTTP(t *testing.T) {
-	acc, err := NewAccessDetails("redfish+http://192.168.122.1/foo/bar")
+	acc, err := NewAccessDetails("redfish+http://192.168.122.1/foo/bar?abc=def&ghi=jkl")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -811,10 +817,16 @@ func TestRedfishDriverInfoHTTP(t *testing.T) {
 	if di["redfish_system_id"] != "/foo/bar" {
 		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
 	}
+	if di["abc"] != "def" {
+		t.Fatalf("unexpected query parameter: %v=%v", "abc", di["abc"])
+	}
+	if di["ghi"] != "jkl" {
+		t.Fatalf("unexpected query parameter: %v=%v", "ghi", di["jkl"])
+	}
 }
 
 func TestRedfishDriverInfoHTTPS(t *testing.T) {
-	acc, err := NewAccessDetails("redfish+https://192.168.122.1/foo/bar")
+	acc, err := NewAccessDetails("redfish+https://192.168.122.1/foo/bar?abc=def&ghi=jkl")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -825,10 +837,16 @@ func TestRedfishDriverInfoHTTPS(t *testing.T) {
 	if di["redfish_system_id"] != "/foo/bar" {
 		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
 	}
+	if di["abc"] != "def" {
+		t.Fatalf("unexpected query parameter: %v=%v", "abc", di["abc"])
+	}
+	if di["ghi"] != "jkl" {
+		t.Fatalf("unexpected query parameter: %v=%v", "ghi", di["jkl"])
+	}
 }
 
 func TestRedfishDriverInfoPort(t *testing.T) {
-	acc, err := NewAccessDetails("redfish://192.168.122.1:8080/foo/bar")
+	acc, err := NewAccessDetails("redfish://192.168.122.1:8080/foo/bar?abc=def&ghi=jkl")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -839,10 +857,16 @@ func TestRedfishDriverInfoPort(t *testing.T) {
 	if di["redfish_system_id"] != "/foo/bar" {
 		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
 	}
+	if di["abc"] != "def" {
+		t.Fatalf("unexpected query parameter: %v=%v", "abc", di["abc"])
+	}
+	if di["ghi"] != "jkl" {
+		t.Fatalf("unexpected query parameter: %v=%v", "ghi", di["jkl"])
+	}
 }
 
 func TestRedfishDriverInfoIPv6(t *testing.T) {
-	acc, err := NewAccessDetails("redfish://[fe80::fc33:62ff:fe83:8a76]/foo/bar")
+	acc, err := NewAccessDetails("redfish://[fe80::fc33:62ff:fe83:8a76]/foo/bar?abc=def&ghi=jkl")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -853,10 +877,16 @@ func TestRedfishDriverInfoIPv6(t *testing.T) {
 	if di["redfish_system_id"] != "/foo/bar" {
 		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
 	}
+	if di["abc"] != "def" {
+		t.Fatalf("unexpected query parameter: %v=%v", "abc", di["abc"])
+	}
+	if di["ghi"] != "jkl" {
+		t.Fatalf("unexpected query parameter: %v=%v", "ghi", di["jkl"])
+	}
 }
 
 func TestRedfishDriverInfoIPv6Port(t *testing.T) {
-	acc, err := NewAccessDetails("redfish://[fe80::fc33:62ff:fe83:8a76]:8080/foo")
+	acc, err := NewAccessDetails("redfish://[fe80::fc33:62ff:fe83:8a76]:8080/foo?abc=def&ghi=jkl")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -866,6 +896,12 @@ func TestRedfishDriverInfoIPv6Port(t *testing.T) {
 	}
 	if di["redfish_system_id"] != "/foo" {
 		t.Fatalf("unexpected system ID: %v", di["redfish_system_id"])
+	}
+	if di["abc"] != "def" {
+		t.Fatalf("unexpected query parameter: %v=%v", "abc", di["abc"])
+	}
+	if di["ghi"] != "jkl" {
+		t.Fatalf("unexpected query parameter: %v=%v", "ghi", di["jkl"])
 	}
 }
 

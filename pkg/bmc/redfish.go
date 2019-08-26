@@ -2,8 +2,8 @@ package bmc
 
 import (
 	"net"
-	"strings"
 	"net/url"
+	"strings"
 )
 
 func init() {
@@ -41,6 +41,7 @@ func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 		bmcType:  parsedURL.Scheme,
 		address:  strings.Join(redfishAddress, ""),
 		path:     parsedURL.Path,
+		query:    parsedURL.Query(),
 	}, nil
 }
 
@@ -48,6 +49,7 @@ type redfishAccessDetails struct {
 	bmcType  string
 	address  string
 	path     string
+	query    url.Values
 }
 
 func (a *redfishAccessDetails) Type() string {
@@ -79,6 +81,12 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 		"redfish_username": bmcCreds.Username,
 		"redfish_password": bmcCreds.Password,
 		"redfish_address": a.address,
+	}
+
+	for k, v := range a.query {
+		for _, queryValue := range v {
+			result[k] = queryValue
+		}
 	}
 
 	return result

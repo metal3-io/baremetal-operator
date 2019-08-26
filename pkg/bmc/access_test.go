@@ -11,162 +11,192 @@ func init() {
 }
 
 func TestParseLibvirtURL(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("libvirt://192.168.122.1:6233/")
+	url, err := getParsedURL("libvirt://192.168.122.1:6233/?abc=def")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "libvirt" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "libvirt" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if P != "6233" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "6233" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if A != "/" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "/" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 1 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
+	}
+	if len(url.Query()["abc"]) != 1 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()["abc"]))
+	}
+	if url.Query()["abc"][0] != "def" {
+		t.Fatalf("unexpected query: %q=%q", "abc", url.Query()["abc"])
 	}
 }
 
 func TestParseIPMIDefaultSchemeAndPort(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("192.168.122.1")
+	url, err := getParsedURL("192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "ipmi" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "ipmi" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if P != "" { // default is set in DriverInfo() method
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" { // default is set in DriverInfo() method
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIPMIDefaultSchemeAndPortHostname(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("my.favoritebmc.com")
+	url, err := getParsedURL("my.favoritebmc.com")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "ipmi" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "ipmi" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if P != "" { // default is set in DriverInfo() method
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" { // default is set in DriverInfo() method
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if H != "my.favoritebmc.com" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "my.favoritebmc.com" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseHostPort(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("192.168.122.1:6233")
+	url, err := getParsedURL("192.168.122.1:6233")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "ipmi" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "ipmi" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "6233" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "6233" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseHostPortIPv6(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("[fe80::fc33:62ff:fe83:8a76]:6233")
+	url, err := getParsedURL("[fe80::fc33:62ff:fe83:8a76]:6233")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "ipmi" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "ipmi" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "fe80::fc33:62ff:fe83:8a76" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "6233" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "6233" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseHostNoPortIPv6(t *testing.T) {
-	// They either have to give us a port or a URL scheme with IPv6.
-	_, _, _, _, err := getTypeHostPort("[fe80::fc33:62ff:fe83:8a76]")
+	// TBy default we fallback to IPMI, also with IPv6.
+	_, err := getParsedURL("[fe80::fc33:62ff:fe83:8a76]")
 	if err == nil {
 		t.Fatal("expected parse error")
 	}
 }
 
 func TestParseIPMIURL(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("ipmi://192.168.122.1:6233")
+	url, err := getParsedURL("ipmi://192.168.122.1:6233")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "ipmi" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "ipmi" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "6233" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "6233" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIPMIURLNoSep(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("ipmi:192.168.122.1")
+	url, err := getParsedURL("ipmi:192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "ipmi" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "ipmi" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIPMIURLNoSepPort(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("ipmi:192.168.122.1:6233")
+	url, err := getParsedURL("ipmi:192.168.122.1:6233")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "ipmi" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "ipmi" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "6233" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "6233" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
@@ -243,78 +273,90 @@ func TestLibvirtBootInterface(t *testing.T) {
 }
 
 func TestParseIDRACURL(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("idrac://192.168.122.1")
+	url, err := getParsedURL("idrac://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "idrac" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "idrac" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIDRACURLPath(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("idrac://192.168.122.1:6233/foo")
+	url, err := getParsedURL("idrac://192.168.122.1:6233/foo")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "idrac" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "idrac" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "6233" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "6233" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "/foo" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "/foo" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIDRACURLIPv6(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("idrac://[fe80::fc33:62ff:fe83:8a76]")
+	url, err := getParsedURL("idrac://[fe80::fc33:62ff:fe83:8a76]")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "idrac" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "idrac" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "fe80::fc33:62ff:fe83:8a76" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIDRACURLNoSep(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("idrac:192.168.122.1")
+	url, err := getParsedURL("idrac:192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "idrac" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "idrac" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
@@ -470,59 +512,68 @@ func TestIDRACBootInterface(t *testing.T) {
 }
 
 func TestParseIRMCURL(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("irmc://192.168.122.1")
+	url, err := getParsedURL("irmc://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "irmc" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "irmc" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIRMCURLIPv6(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("irmc://[fe80::fc33:62ff:fe83:8a76]")
+	url, err := getParsedURL("irmc://[fe80::fc33:62ff:fe83:8a76]")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "irmc" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "irmc" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "fe80::fc33:62ff:fe83:8a76" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseIRMCURLNoSep(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("irmc:192.168.122.1")
+	url, err := getParsedURL("irmc:192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "irmc" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "irmc" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
@@ -614,78 +665,102 @@ func TestIRMCBootInterface(t *testing.T) {
 }
 
 func TestParserRedfishURL(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("redfish://192.168.122.1")
+	url, err := getParsedURL("redfish://192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "redfish" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "redfish" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseRedfishURLPath(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("redfish://192.168.122.1:6233/foo")
+	url, err := getParsedURL("redfish://192.168.122.1:6233/foo?abc=def&ghi=jkl")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "redfish" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "redfish" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "6233" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "6233" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "/foo" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "/foo" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 2 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
+	}
+	if len(url.Query()["abc"]) != 1 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()["abc"]))
+	}
+	if url.Query()["abc"][0] != "def" {
+		t.Fatalf("unexpected query: %q=%q", "abc", url.Query()["abc"])
+	}
+	if len(url.Query()["ghi"]) != 1 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()["ghi"]))
+	}
+	if url.Query()["ghi"][0] != "jkl" {
+		t.Fatalf("unexpected query: %q=%q", "ghi", url.Query()["jkl"])
 	}
 }
 
 func TestParseRedfishURLIPv6(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("redfish://[fe80::fc33:62ff:fe83:8a76]")
+	url, err := getParsedURL("redfish://[fe80::fc33:62ff:fe83:8a76]")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "redfish" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "redfish" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "fe80::fc33:62ff:fe83:8a76" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "fe80::fc33:62ff:fe83:8a76" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 
 func TestParseRedfishURLNoSep(t *testing.T) {
-	T, H, P, A, err := getTypeHostPort("redfish:192.168.122.1")
+	url, err := getParsedURL("redfish:192.168.122.1")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
-	if T != "redfish" {
-		t.Fatalf("unexpected type: %q", T)
+	if url.Scheme != "redfish" {
+		t.Fatalf("unexpected type: %q", url.Scheme)
 	}
-	if H != "192.168.122.1" {
-		t.Fatalf("unexpected hostname: %q", H)
+	if url.Hostname() != "192.168.122.1" {
+		t.Fatalf("unexpected hostname: %q", url.Hostname())
 	}
-	if P != "" {
-		t.Fatalf("unexpected port: %q", P)
+	if url.Port() != "" {
+		t.Fatalf("unexpected port: %q", url.Port())
 	}
-	if A != "" {
-		t.Fatalf("unexpected path: %q", A)
+	if url.Path != "" {
+		t.Fatalf("unexpected path: %q", url.Path)
+	}
+	if len(url.Query()) != 0 {
+		t.Fatalf("unexpected query length: %q", len(url.Query()))
 	}
 }
 

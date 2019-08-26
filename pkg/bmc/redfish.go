@@ -3,6 +3,7 @@ package bmc
 import (
 	"net"
 	"strings"
+	"net/url"
 )
 
 func init() {
@@ -11,9 +12,12 @@ func init() {
 	registerFactory("redfish+https", newRedfishAccessDetails)
 }
 
-func newRedfishAccessDetails(bmcType, portNum, hostname, path string) (AccessDetails, error) {
+const redfishDefaultScheme = "https"
+
+func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 	// If the hostname is an ipv6 address, it needs to be in square brackets
 	// as we are forming a URL out of it.
+	hostname := parsedURL.Hostname()
 	addresses, err := net.LookupIP(hostname)
 	if err == nil {
 		for _, address := range addresses {
@@ -22,22 +26,29 @@ func newRedfishAccessDetails(bmcType, portNum, hostname, path string) (AccessDet
 			}
 		}
 	}
+	// Create redfish URL following the proper conventions scheme://hostname:port
+	redfishAddress := []string{}
+	schemes := strings.Split(parsedURL.Scheme, "+")
+	if len(schemes) > 1 {
+		redfishAddress = append(redfishAddress, schemes[1])
+	} else {
+		redfishAddress = append(redfishAddress, redfishDefaultScheme)
+	}
+	redfishAddress = append(redfishAddress, "://")
+	redfishAddress = append(redfishAddress, parsedURL.Host)
+
 	return &redfishAccessDetails{
-		bmcType:  bmcType,
-		portNum:  portNum,
-		hostname: hostname,
-		path: path,
+		bmcType:  parsedURL.Scheme,
+		address:  strings.Join(redfishAddress, ""),
+		path:     parsedURL.Path,
 	}, nil
 }
 
 type redfishAccessDetails struct {
 	bmcType  string
-	portNum  string
-	hostname string
+	address  string
 	path     string
 }
-
-const redfishDefaultScheme = "https"
 
 func (a *redfishAccessDetails) Type() string {
 	return a.bmcType
@@ -61,26 +72,13 @@ func (a *redfishAccessDetails) Driver() string {
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
 func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-	redfishAddress := []string{}
-	schemes := strings.Split(a.bmcType, "+")
-	if len(schemes) > 1 {
-		redfishAddress = append(redfishAddress, schemes[1])
-	} else {
-		redfishAddress = append(redfishAddress, redfishDefaultScheme)
-	}
-	redfishAddress = append(redfishAddress, "://")
-	redfishAddress = append(redfishAddress, a.hostname)
 
-	if a.portNum != "" {
-		redfishAddress = append(redfishAddress, ":")
-		redfishAddress = append(redfishAddress, a.portNum)
-	}
 
 	result := map[string]interface{}{
 		"redfish_system_id":     a.path,
 		"redfish_username": bmcCreds.Username,
 		"redfish_password": bmcCreds.Password,
-		"redfish_address": strings.Join(redfishAddress, ""),
+		"redfish_address": a.address,
 	}
 
 	return result

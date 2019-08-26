@@ -1,15 +1,19 @@
 package bmc
 
+import (
+	"net/url"
+)
+
 func init() {
 	registerFactory("ipmi", newIPMIAccessDetails)
 	registerFactory("libvirt", newIPMIAccessDetails)
 }
 
-func newIPMIAccessDetails(bmcType, portNum, hostname, path string) (AccessDetails, error) {
+func newIPMIAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 	return &ipmiAccessDetails{
-		bmcType:  bmcType,
-		portNum:  portNum,
-		hostname: hostname,
+		bmcType:  parsedURL.Scheme,
+		portNum:  parsedURL.Port(),
+		hostname: parsedURL.Hostname(),
 	}, nil
 }
 

@@ -1066,7 +1066,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 
-	case nodes.Error, nodes.CleanFail:
+	case nodes.Error, nodes.DeployFail:
 		if !ironicNode.Maintenance {
 			p.log.Info("setting host maintenance flag to force image delete")
 			return p.setMaintenanceFlag(ironicNode, true)
@@ -1076,6 +1076,17 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
+
+	case nodes.CleanFail:
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+		if ironicNode.Maintenance {
+			p.log.Info("unset host maintenance flag to make host ready again")
+			p.setMaintenanceFlag(ironicNode, false)
+		}
+		return result, err
 
 	case nodes.Available:
 		// Move back to manageable

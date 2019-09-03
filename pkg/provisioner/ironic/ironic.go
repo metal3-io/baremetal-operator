@@ -1307,6 +1307,7 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 		if ironicNode.TargetPowerState == powerOn {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
+			result.Dirty = true
 			return result, nil
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
@@ -1334,6 +1335,7 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		if ironicNode.TargetPowerState == powerOff {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
+			result.Dirty = true
 			return result, nil
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)

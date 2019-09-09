@@ -402,8 +402,11 @@ type BareMetalHostStatus struct {
 
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
-	// An indiciator for what the provisioner is doing with the host.
+	// An indicator for what the provisioner is doing with the host.
 	State ProvisioningState `json:"state"`
+
+	// An indicator of the ongoing Step under the current State.
+	Step string `json:"step"`
 
 	// The machine's UUID from the underlying provisioning tool
 	ID string `json:"ID"`
@@ -421,6 +424,7 @@ type ProvisionStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status"
 // +kubebuilder:printcolumn:name="Provisioning Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Provisioning Step",type="string",JSONPath=".status.provisioning.step",description="Provisioning step"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller"
 // +kubebuilder:printcolumn:name="Hardware Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected"

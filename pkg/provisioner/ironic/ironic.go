@@ -848,7 +848,6 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum s
 		"lastError", ironicNode.LastError,
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
-		"deploy step", ironicNode.DeployStep,
 	)
 	p.publisher("ProvisioningStarted",
 		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
@@ -1047,6 +1046,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
+	p.host.Status.Provisioning.Step = ""
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
 		return result, errors.Wrap(err, "failed to find existing host")
@@ -1061,7 +1061,6 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		"lastError", ironicNode.LastError,
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
-		"deploy step", ironicNode.DeployStep,
 	)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
@@ -1112,12 +1111,26 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
+		stepClean, stepCleanOk := ironicNode.CleanStep["step"]
+
+		if stepCleanOk == true {
+			p.host.Status.Provisioning.Step = fmt.Sprintf("%v", stepClean)
+		} else {
+			p.host.Status.Provisioning.Step = ""
+		}
 		result.Dirty = true
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
 	case nodes.CleanWait:
-		p.log.Info("cleaning")
+		p.log.Info("clean wait")
+		stepClean, stepCleanOk := ironicNode.CleanStep["step"]
+
+		if stepCleanOk == true {
+			p.host.Status.Provisioning.Step = fmt.Sprintf("%v", stepClean)
+		} else {
+			p.host.Status.Provisioning.Step = ""
+		}
 		result.Dirty = true
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
@@ -1155,7 +1168,6 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		"lastError", ironicNode.LastError,
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
-		"deploy step", ironicNode.DeployStep,
 	)
 
 	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Available {

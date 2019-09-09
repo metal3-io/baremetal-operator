@@ -205,7 +205,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 
 	initialState := host.Status.Provisioning.State
 	info := &reconcileInfo{
-		log:            reqLogger.WithValues("provisioningState", initialState),
+		log:            reqLogger.WithValues("provisioningState", initialState, "provisioningStep", host.Status.Provisioning.Step),
 		host:           host,
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
@@ -231,7 +231,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	if actResult.Dirty() {
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
-			"provisioning state", host.Status.Provisioning.State)
+			"provisioning state", host.Status.Provisioning.State,
+			"provisioning step", host.Status.Provisioning.Step)
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", initialState))

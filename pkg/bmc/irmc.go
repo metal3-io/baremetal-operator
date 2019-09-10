@@ -1,14 +1,18 @@
 package bmc
 
+import (
+	"net/url"
+)
+
 func init() {
 	registerFactory("irmc", newIRMCAccessDetails)
 }
 
-func newIRMCAccessDetails(bmcType, portNum, hostname, path string) (AccessDetails, error) {
+func newIRMCAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 	return &iRMCAccessDetails{
-		bmcType:  bmcType,
-		portNum:  portNum,
-		hostname: hostname,
+		bmcType:  parsedURL.Scheme,
+		portNum:  parsedURL.Port(),
+		hostname: parsedURL.Hostname(),
 	}, nil
 }
 

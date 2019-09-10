@@ -427,7 +427,7 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 	return actionFailed{}
 }
 
-func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 
 	var hardwareProfile string
 
@@ -438,10 +438,10 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 		info.log.Info("using spec value for profile name",
 			"name", info.host.Spec.HardwareProfile)
 		hardwareProfile = info.host.Spec.HardwareProfile
-		_, err = hardware.GetProfile(hardwareProfile)
+		_, err := hardware.GetProfile(hardwareProfile)
 		if err != nil {
 			info.log.Info("invalid hardware profile", "profile", hardwareProfile)
-			return result, err
+			return actionError{err}
 		}
 	}
 
@@ -465,15 +465,9 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
-		info.host.ClearError()
-		result.Requeue = true
-		return result, nil
 	}
-
-	// Line up a requeue if we could provision
-	result.Requeue = info.host.NeedsProvisioning()
-
-	return result, nil
+	info.host.ClearError()
+	return actionComplete{}
 }
 
 // Start/continue provisioning if we need to.

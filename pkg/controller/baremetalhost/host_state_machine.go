@@ -182,11 +182,11 @@ func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) (result recon
 }
 
 func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
-	if hsm.Host.Status.HardwareProfile != "" {
+	actResult := hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
+	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateReady
 	}
-	return
+	return actResult.Result()
 }
 
 func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) (result reconcile.Result, err error) {

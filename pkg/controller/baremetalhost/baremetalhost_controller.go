@@ -547,37 +547,31 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 }
 
 // Check the current power status against the desired power status.
-func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	var provResult provisioner.Result
 
 	// Check the current status and save it before trying to update it.
-	if provResult, err = prov.UpdateHardwareState(); err != nil {
-		return result, errors.Wrap(err, "failed to update the host power status")
+	provResult, err := prov.UpdateHardwareState()
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to update the host power status")}
 	}
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("PowerManagementError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "PowerManagementError", provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
 	// Power state needs to be monitored regularly, so if we leave
 	// this function without an error we always want to requeue after
 	// a delay.
-	result.RequeueAfter = time.Second * 60
-
+	steadyStateResult := actionContinue{time.Second * 60}
 	if info.host.Status.PoweredOn == info.host.Spec.Online {
-		return result, nil
+		return steadyStateResult
 	}
 
 	info.log.Info("power state change needed",
@@ -590,33 +584,24 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 		provResult, err = prov.PowerOff()
 	}
 	if err != nil {
-		return result, errors.Wrap(err, "failed to manage power state of host")
+		return actionError{errors.Wrap(err, "failed to manage power state of host")}
 	}
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("PowerManagementError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "PowerManagementError", provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
 	// The provisioner did not have to do anything to change the power
 	// state and there were no errors, so reflect the new state in the
 	// host status field.
 	info.host.Status.PoweredOn = info.host.Spec.Online
-	result.Requeue = true
-
-	return result, nil
-
+	return steadyStateResult
 }
 
 // A host reaching this action handler should be provisioned or
@@ -645,7 +630,7 @@ func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provis
 		return result, nil
 	}
 
-	return r.manageHostPower(prov, info)
+	return r.manageHostPower(prov, info).Result()
 }
 
 // A host reaching this action handler should be ready -- a state that
@@ -678,7 +663,7 @@ func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner,
 		return result, nil
 	}
 
-	return r.manageHostPower(prov, info)
+	return r.manageHostPower(prov, info).Result()
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) error {

@@ -609,28 +609,22 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 // user takes further action. Both of those states mean that it has
 // been registered with the provisioner once, so we use the Adopt()
 // API to ensure that is still true. Then we monitor its power status.
-func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 
 	provResult, err := prov.Adopt()
 	if err != nil {
-		return
+		return actionError{err}
 	}
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("RegistrationError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "RegistrationError", provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
-	return r.manageHostPower(prov, info).Result()
+	return r.manageHostPower(prov, info)
 }
 
 // A host reaching this action handler should be ready -- a state that

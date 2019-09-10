@@ -191,7 +191,7 @@ func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) (result rec
 
 func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) (result reconcile.Result, err error) {
 	if hsm.Host.Spec.ExternallyProvisioned {
-		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info).Result()
 	} else {
 		switch {
 		case hsm.Host.NeedsHardwareInspection():
@@ -248,7 +248,7 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) (result reco
 	if hsm.Host.NeedsDeprovisioning() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
 	} else {
-		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info).Result()
 	}
 	return
 }

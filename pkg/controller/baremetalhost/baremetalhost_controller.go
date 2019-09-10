@@ -633,31 +633,25 @@ func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provis
 // ValidateManagementAccess() to ensure that is still true. We don't
 // use Adopt() because we don't want Ironic to treat the host as
 // having been provisioned. Then we monitor its power status.
-func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 
 	// We always pass false for credentialsChanged because if they had
 	// changed we would have ended up in actionRegister() instead of
 	// here.
 	provResult, err := prov.ValidateManagementAccess(false)
 	if err != nil {
-		return
+		return actionError{err}
 	}
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("RegistrationError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "RegistrationError", provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
-	return r.manageHostPower(prov, info).Result()
+	return r.manageHostPower(prov, info)
 }
 
 func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) error {

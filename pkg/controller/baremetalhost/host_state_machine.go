@@ -212,7 +212,7 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) (result reconcile.
 	case hsm.Host.NeedsProvisioning():
 		hsm.NextState = metal3v1alpha1.StateProvisioning
 	default:
-		result, err = hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
+		result, err = hsm.Reconciler.actionManageReady(hsm.Provisioner, info).Result()
 	}
 	return
 }

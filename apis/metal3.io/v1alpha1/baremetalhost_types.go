@@ -150,10 +150,6 @@ const (
 	// register the host
 	StateUnmanaged ProvisioningState = "unmanaged"
 
-	// StateRegistrationError means there was an error registering the
-	// host with the backend
-	StateRegistrationError ProvisioningState = "registration error"
-
 	// StateRegistering means we are telling the backend about the host
 	StateRegistering ProvisioningState = "registering"
 
@@ -171,10 +167,6 @@ const (
 	// disk(s)
 	StateProvisioning ProvisioningState = "provisioning"
 
-	// StateProvisioningError means we are writing an image to the
-	// host's disk(s)
-	StateProvisioningError ProvisioningState = "provisioning error"
-
 	// StateProvisioned means we have written an image to the host's
 	// disk(s)
 	StateProvisioned ProvisioningState = "provisioned"
@@ -190,10 +182,6 @@ const (
 	// StateInspecting means we are running the agent on the host to
 	// learn about the hardware components available there
 	StateInspecting ProvisioningState = "inspecting"
-
-	// StatePowerManagementError means something went wrong trying to
-	// power the server on or off.
-	StatePowerManagementError ProvisioningState = "power management error"
 
 	// StateDeleting means we are in the process of cleaning up the host
 	// ready for deletion

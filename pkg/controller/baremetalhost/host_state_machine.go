@@ -223,13 +223,14 @@ func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) (result rec
 		return
 	}
 
-	result, err = hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
-	if hsm.Host.Status.Provisioning.Image.URL != "" {
+	actResult := hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
+	switch actResult.(type) {
+	case actionComplete:
 		hsm.NextState = metal3v1alpha1.StateProvisioned
-	} else if hsm.Host.HasError() {
+	case actionFailed:
 		hsm.NextState = metal3v1alpha1.StateProvisioningError
 	}
-	return
+	return actResult.Result()
 }
 
 func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) (result reconcile.Result, err error) {

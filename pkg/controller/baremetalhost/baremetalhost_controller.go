@@ -471,9 +471,7 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 }
 
 // Start/continue provisioning if we need to.
-func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
-	var provResult provisioner.Result
-
+func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	getUserData := func() (string, error) {
 		if info.host.Spec.UserData == nil {
 			info.log.Info("no user data for host")
@@ -485,7 +483,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 			Name:      info.host.Spec.UserData.Name,
 			Namespace: info.host.Spec.UserData.Namespace,
 		}
-		err = r.client.Get(context.TODO(), key, userDataSecret)
+		err := r.client.Get(context.TODO(), key, userDataSecret)
 		if err != nil {
 			return "", errors.Wrap(err,
 				"failed to fetch user data from secret reference")
@@ -495,18 +493,14 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 
 	info.log.Info("provisioning")
 
-	provResult, err = prov.Provision(getUserData)
+	provResult, err := prov.Provision(getUserData)
 	if err != nil {
-		return result, errors.Wrap(err, "failed to provision")
+		return actionError{errors.Wrap(err, "failed to provision")}
 	}
 
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling provisioning error in controller")
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "ProvisioningError", provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
@@ -514,9 +508,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 		// to return false, indicating that it has no more work to
 		// do.
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
@@ -527,9 +519,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 
 	// After provisioning we always requeue to ensure we enter the
 	// "provisioned" state and start monitoring power status.
-	result.Requeue = true
-
-	return result, nil
+	return actionComplete{}
 }
 
 func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {

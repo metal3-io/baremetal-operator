@@ -267,14 +267,16 @@ func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) (re
 }
 
 func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
-	if hsm.Host.Status.Provisioning.Image.URL == "" {
+	actResult := hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
+
+	switch actResult.(type) {
+	case actionComplete:
 		if !hsm.Host.DeletionTimestamp.IsZero() {
 			hsm.NextState = metal3v1alpha1.StateDeleting
 		} else {
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
-	} else if hsm.Host.HasError() {
+	case actionFailed:
 		if !hsm.Host.DeletionTimestamp.IsZero() {
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
@@ -287,7 +289,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result r
 			hsm.NextState = metal3v1alpha1.StateProvisioningError
 		}
 	}
-	return
+	return actResult.Result()
 }
 
 func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) (result reconcile.Result, err error) {

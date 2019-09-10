@@ -522,39 +522,28 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 	return actionComplete{}
 }
 
-func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
-	var provResult provisioner.Result
-
+func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("deprovisioning")
 
-	if provResult, err = prov.Deprovision(); err != nil {
-		return result, errors.Wrap(err, "failed to deprovision")
+	provResult, err := prov.Deprovision()
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to deprovision")}
 	}
 
 	if provResult.ErrorMessage != "" {
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "ProvisioningError", provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
 	// After the provisioner is done, clear the image settings so we
 	// transition to the next state.
 	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
 
-	// After deprovisioning we always requeue to ensure we enter the
-	// "ready" state and start monitoring power status.
-	result.Requeue = true
-
-	return result, nil
+	return actionComplete{}
 }
 
 // Check the current power status against the desired power status.

@@ -500,7 +500,6 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	}
 
 	result.Requeue = true
-	result.RequeueAfter = provResult.RequeueAfter
 	return result, nil
 }
 

@@ -316,6 +316,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update host settings in ironic, busy")
 				result.Dirty = true
+				result.RequeueAfter = provisionRequeueDelay
 				return result, nil
 			default:
 				return result, errors.Wrap(err, "failed to update host settings in ironic")
@@ -349,6 +350,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update host driver settings, busy")
+				result.Dirty = true
 				result.RequeueAfter = provisionRequeueDelay
 				return result, nil
 			default:

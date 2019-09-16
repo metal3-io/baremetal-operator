@@ -2,9 +2,6 @@ package ironic
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -278,12 +275,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		}
 
 		if p.host.Spec.Image != nil && p.host.Spec.Image.URL != "" {
-			// FIXME(dhellmann): The Stein version of Ironic supports passing
-			// a URL. When we upgrade, we can stop doing this work ourself.
-			checksum, err := p.getImageChecksum()
-			if err != nil {
-				return result, errors.Wrap(err, "failed to retrieve image checksum")
-			}
+			checksum := p.host.Spec.Image.Checksum
 
 			p.log.Info("setting instance info",
 				"image_source", p.host.Spec.Image.URL,
@@ -668,42 +660,6 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	return result, nil
 }
 
-func checksumIsURL(checksumURL string) (bool, error) {
-	parsedChecksumURL, err := url.Parse(checksumURL)
-	if err != nil {
-		return false, errors.Wrap(err, "Could not parse image checksum")
-	}
-	return parsedChecksumURL.Scheme != "", nil
-}
-
-func (p *ironicProvisioner) getImageChecksum() (string, error) {
-	checksum := p.host.Spec.Image.Checksum
-	isURL, err := checksumIsURL(checksum)
-	if err != nil {
-		return "", errors.Wrap(err, "Could not understand image checksum")
-	}
-	if isURL {
-		p.log.Info("looking for checksum for image", "URL", checksum)
-		// #nosec
-		// TODO: Are there more ways to constraint the URL that's given here?
-		resp, err := http.Get(checksum)
-		if err != nil {
-			return "", errors.Wrap(err, "Could not fetch image checksum")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return "", fmt.Errorf("Failed to fetch image checksum from %s: [%d] %s",
-				checksum, resp.StatusCode, resp.Status)
-		}
-		checksumBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return "", errors.Wrap(err, "Could not read image checksum")
-		}
-		checksum = strings.TrimSpace(string(checksumBody))
-	}
-	return checksum, nil
-}
-
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksum string) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
@@ -965,12 +921,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	// FIXME(dhellmann): The Stein version of Ironic supports passing
-	// a URL. When we upgrade, we can stop doing this work ourself.
-	checksum, err := p.getImageChecksum()
-	if err != nil {
-		return result, errors.Wrap(err, "failed to retrieve image checksum")
-	}
+	checksum := p.host.Spec.Image.Checksum
 
 	// Local variable to make it easier to test if ironic is
 	// configured with the same image we are trying to provision to

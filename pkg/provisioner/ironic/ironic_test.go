@@ -18,26 +18,6 @@ func init() {
 	logf.SetLogger(logf.ZapLogger(true))
 }
 
-func TestChecksumIsURLNo(t *testing.T) {
-	isURL, err := checksumIsURL("checksum-goes-here")
-	if isURL {
-		t.Fail()
-	}
-	if err != nil {
-		t.Fail()
-	}
-}
-
-func TestChecksumIsURLYes(t *testing.T) {
-	isURL, err := checksumIsURL("http://checksum-goes-here")
-	if !isURL {
-		t.Fail()
-	}
-	if err != nil {
-		t.Fail()
-	}
-}
-
 func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	host := &metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{

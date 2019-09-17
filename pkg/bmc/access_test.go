@@ -180,6 +180,57 @@ func TestParse(t *testing.T) {
 			Hostname: "192.168.122.1",
 			Path:     "",
 		},
+
+		{
+			Scenario: "redfish url",
+			Address:  "redfish://192.168.122.1",
+			Type:     "redfish",
+			Port:     "",
+			Host:     "192.168.122.1",
+			Hostname: "192.168.122.1",
+			Path:     "",
+		},
+
+		{
+			Scenario: "redfish url path",
+			Address:  "redfish://192.168.122.1:6233/foo",
+			Type:     "redfish",
+			Port:     "6233",
+			Host:     "192.168.122.1",
+			Hostname: "192.168.122.1:6233",
+			Path:     "/foo",
+		},
+
+		{
+			Scenario: "redfish url ipv6",
+			Address:  "redfish://[fe80::fc33:62ff:fe83:8a76]",
+			Type:     "redfish",
+			Port:     "",
+			Host:     "fe80::fc33:62ff:fe83:8a76",
+			Hostname: "[fe80::fc33:62ff:fe83:8a76]",
+			Path:     "",
+		},
+
+		{
+			Scenario: "redfish url path ipv6",
+			Address:  "redfish://[fe80::fc33:62ff:fe83:8a76]:6233/foo",
+			Type:     "redfish",
+			Port:     "6233",
+			Host:     "fe80::fc33:62ff:fe83:8a76",
+			Hostname: "[fe80::fc33:62ff:fe83:8a76]:6233",
+			Path:     "/foo",
+		},
+
+		{
+			Scenario: "redfish url no sep",
+			Address:  "redfish:192.168.122.1",
+			Type:     "redfish",
+			Port:     "",
+			Host:     "192.168.122.1",
+			Hostname: "192.168.122.1",
+			Path:     "",
+		},
+
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			url, err := getParsedURL(tc.Address)
@@ -277,6 +328,15 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "irmc",
 			boot:     "pxe",
 		},
+
+		{
+			Scenario: "redfish",
+			input:    "redfish://192.168.122.1",
+			needsMac: true,
+			driver:   "redfish",
+			boot:     "pxe",
+		},
+
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			acc, err := NewAccessDetails(tc.input)
@@ -422,6 +482,73 @@ func TestDriverInfo(t *testing.T) {
 				"irmc_username": "",
 			},
 		},
+
+		{
+			Scenario: "Redfish",
+			input: "redfish://192.168.122.1/foo/bar",
+			expects: map[string]string{
+				"redfish_address":  	"https://192.168.122.1",
+				"redfish_system_id":	"/foo/bar",
+				"redfish_password": "",
+				"redfish_username": "",
+			},
+		},
+
+		{
+			Scenario: "Redfish http",
+			input: "redfish+http://192.168.122.1/foo/bar",
+			expects: map[string]string{
+				"redfish_address":  	"http://192.168.122.1",
+				"redfish_system_id":	"/foo/bar",
+				"redfish_password": "",
+				"redfish_username": "",
+			},
+		},
+
+		{
+			Scenario: "Redfish https",
+			input: "redfish+https://192.168.122.1/foo/bar",
+			expects: map[string]string{
+				"redfish_address":  	"https://192.168.122.1",
+				"redfish_system_id":	"/foo/bar",
+				"redfish_password": "",
+				"redfish_username": "",
+			},
+		},
+
+		{
+			Scenario: "Redfish port",
+			input: "redfish://192.168.122.1:8080/foo/bar",
+			expects: map[string]string{
+				"redfish_address":  	"https://192.168.122.1:8080",
+				"redfish_system_id":	"/foo/bar",
+				"redfish_password": "",
+				"redfish_username": "",
+			},
+		},
+
+		{
+			Scenario: "Redfish ipv6",
+			input: "redfish://[fe80::fc33:62ff:fe83:8a76]/foo/bar",
+			expects: map[string]string{
+				"redfish_address":  	"https://[fe80::fc33:62ff:fe83:8a76]",
+				"redfish_system_id":	"/foo/bar",
+				"redfish_password": "",
+				"redfish_username": "",
+			},
+		},
+
+		{
+			Scenario: "Redfish ipv6 port",
+			input: "redfish://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
+			expects: map[string]string{
+				"redfish_address":  	"https://[fe80::fc33:62ff:fe83:8a76]:8080",
+				"redfish_system_id":	"/foo",
+				"redfish_password": "",
+				"redfish_username": "",
+			},
+		},
+
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			acc, err := NewAccessDetails(tc.input)
@@ -444,6 +571,7 @@ func TestDriverInfo(t *testing.T) {
 		})
 	}
 }
+
 
 func TestUnknownType(t *testing.T) {
 	acc, err := NewAccessDetails("foo://192.168.122.1")

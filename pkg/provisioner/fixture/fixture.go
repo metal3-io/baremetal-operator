@@ -236,3 +236,20 @@ func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 
 	return result, nil
 }
+
+// SoftPowerOff ensures the server shutdown gracefully
+func (p *fixtureProvisioner) SoftPowerOff() (result provisioner.Result, err error) {
+	p.log.Info("ensuring host is powered off")
+
+	// This needs a re-work when test cases for soft power off are added.
+	// For now, the end result, which is power off, is enough.
+	if p.host.Status.PoweredOn {
+		p.publisher("PowerOff", "Host powered off")
+		p.log.Info("changing status")
+		p.host.Status.PoweredOn = false
+		result.Dirty = true
+		return result, nil
+	}
+
+	return result, nil
+}

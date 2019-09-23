@@ -42,9 +42,12 @@ var inspectorEndpoint string
 
 const (
 	// See nodes.Node.PowerState for details
-	powerOn   = "power on"
-	powerOff  = "power off"
-	powerNone = "None"
+	powerOn                   = "power on"
+	powerOff                  = "power off"
+	powerNone                 = "None"
+	softPowerOff              = "soft power off"
+	// SoftPowerOffToleranceTime specifies the treshold interval before invoking hard power off
+	SoftPowerOffToleranceTime = 30 //seconds
 )
 
 func init() {
@@ -650,7 +653,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	switch ironicNode.PowerState {
 	case powerOn:
 		discoveredVal = true
-	case powerOff:
+	case powerOff, softPowerOff:
 		discoveredVal = false
 	case powerNone:
 		p.log.Info("could not determine power state", "value", ironicNode.PowerState)
@@ -1264,14 +1267,20 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		result.RequeueAfter = powerRequeueDelay
 		return result, nil
 	}
-
+	options := nodes.PowerStateOpts{
+		Target: target,
+	}
+	if target == softPowerOff {
+		options = nodes.PowerStateOpts{
+			Target:  target,
+			Timeout: SoftPowerOffToleranceTime,
+		}
+	}
 	changeResult := nodes.ChangePowerState(
 		p.client,
 		ironicNode.UUID,
-		nodes.PowerStateOpts{
-			Target: target,
-		})
-
+		options,
+	)
 	switch changeResult.Err.(type) {
 	case nil:
 		result.Dirty = true
@@ -1343,6 +1352,37 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 			result.RequeueAfter = powerRequeueDelay
 			return result, errors.Wrap(err, "failed to power off host")
 		}
+		p.publisher("PowerOff", "Host powered off")
+	}
+
+	return result, nil
+}
+
+// SoftPowerOff ensures the server is shutdown gracefully.
+// If Soft Power Off is not supported, then Power off is used.
+func (p *ironicProvisioner) SoftPowerOff() (result provisioner.Result, err error) {
+	p.log.Info("ensuring host is soft powered off")
+
+	ironicNode, err := p.findExistingHost()
+	if err != nil {
+		return result, errors.Wrap(err, "failed to find existing host")
+	}
+
+	if ironicNode.PowerState != powerOff {
+		switch ironicNode.TargetPowerState {
+		// If soft power is not supported, it goes to power off
+		case softPowerOff, powerOff:
+			p.log.Info("waiting for power status to change")
+			result.RequeueAfter = powerRequeueDelay
+			result.Dirty = true
+			return result, nil
+		}
+		result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
+		if err != nil {
+			result.RequeueAfter = powerRequeueDelay
+			return result, errors.Wrap(err, "failed to soft power off host")
+		}
+
 		p.publisher("PowerOff", "Host powered off")
 	}
 

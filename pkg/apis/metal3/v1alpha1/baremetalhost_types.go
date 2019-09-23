@@ -345,6 +345,10 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
+	// LastSoftPowerOff marks the last time a soft power off command was sent.
+	// +optional
+	LastSoftPowerOff *metav1.Time `json:"LastSoftPowerOff,omitempty"`
+
 	// The name of the profile matching the hardware details.
 	HardwareProfile string `json:"hardwareProfile"`
 

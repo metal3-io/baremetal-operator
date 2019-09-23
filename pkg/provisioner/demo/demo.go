@@ -303,3 +303,23 @@ func (p *demoProvisioner) PowerOff() (result provisioner.Result, err error) {
 
 	// return result, nil
 }
+
+// SoftPowerOff ensures the server is shutdown gracefully
+func (p *demoProvisioner) SoftPowerOff() (result provisioner.Result, err error) {
+
+	hostName := p.host.ObjectMeta.Name
+	switch hostName {
+	default:
+		return result, nil
+	}
+
+	// p.log.Info("ensuring host is powered off")
+
+	// if p.host.Status.PoweredOn {
+	// 	p.host.Status.PoweredOn = false
+	// 	result.Dirty = true
+	// 	return result, nil
+	// }
+
+	// return result, nil
+}

@@ -72,6 +72,9 @@ type Provisioner interface {
 	// PowerOff ensures the server is powered off independently of any image
 	// provisioning operation.
 	PowerOff() (result Result, err error)
+
+	// SofPowerOff ensures the server is shutdown gracefully, if supported
+	SoftPowerOff() (result Result, err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

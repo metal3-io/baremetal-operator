@@ -133,6 +133,11 @@ spec:
           type: object
         status:
           properties:
+            LastSoftPowerOff:
+              description: LastSoftPowerOff marks the last time a soft power off command
+                was sent.
+              format: date-time
+              type: string
             errorMessage:
               description: the last error message reported by the provisioning subsystem
               type: string

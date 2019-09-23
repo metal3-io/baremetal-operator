@@ -726,8 +726,21 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 
 	if info.host.Spec.Online {
 		provResult, err = prov.PowerOn()
+		if err = r.unMarkLastSoftPowerOff(info.host); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("failed to mark last soft power off time %q", err.Error()))
+		}
+
 	} else {
-		provResult, err = prov.PowerOff()
+		if r.softPowerOffTimeoutNotReached(info.host) {
+			provResult, err = prov.SoftPowerOff()
+			if err = r.markLastSoftPowerOff(info.host); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("failed to mark last soft power off time %q", err.Error()))
+			}
+		} else {
+			provResult, err = prov.PowerOff()
+
+		}
+
 	}
 	if err != nil {
 		return result, errors.Wrap(err, "failed to manage power state of host")
@@ -825,6 +838,41 @@ func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) 
 	t := metav1.Now()
 	host.Status.LastUpdated = &t
 	return r.client.Status().Update(context.TODO(), host)
+}
+
+// Add time stamp at which soft power off command was sent to this host.
+func (r *ReconcileBareMetalHost) markLastSoftPowerOff(host *metal3v1alpha1.BareMetalHost) error {
+
+	if host.Status.LastSoftPowerOff == nil {
+		t := metav1.Now()
+		host.Status.LastSoftPowerOff = &t
+	}
+	return r.client.Status().Update(context.TODO(), host)
+}
+
+// Remove soft power off time stamp
+func (r *ReconcileBareMetalHost) unMarkLastSoftPowerOff(host *metal3v1alpha1.BareMetalHost) error {
+	host.Status.LastSoftPowerOff = nil
+	return r.client.Status().Update(context.TODO(), host)
+}
+
+// Check if Soft Power Off takes longer than timeout treshold, for any reason.
+func (r *ReconcileBareMetalHost) softPowerOffTimeoutNotReached(host *metal3v1alpha1.BareMetalHost) bool {
+
+	// For the first round
+	if host.Status.LastSoftPowerOff == nil {
+		return true
+	}
+	t1 := host.Status.LastSoftPowerOff
+	t2 := metav1.Now()
+	t3 := t2.Time.Sub(t1.Time)
+
+	if t3 > ironic.SoftPowerOffToleranceTime*time.Second {
+
+		return false
+	}
+
+	return true
 }
 
 func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, message string) error {

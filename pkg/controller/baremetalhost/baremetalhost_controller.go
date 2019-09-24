@@ -314,7 +314,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 }
 
 // Manage deletion of the host
-func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info(
 		"marked to be deleted",
 		"timestamp", info.host.DeletionTimestamp,
@@ -323,23 +323,19 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 	// no-op if finalizer has been removed.
 	if !utils.StringInList(info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
 		info.log.Info("ready to be deleted")
-		// There is nothing to save and no reason to requeue since we
-		// are being deleted.
-		return reconcile.Result{}, nil
+		return deleteComplete{}
 	}
 
 	provResult, err := prov.Delete()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to delete")
+		return actionError{errors.Wrap(err, "failed to delete")}
 	}
 	if provResult.Dirty {
 		err = r.saveStatus(info.host)
 		if err != nil {
-			return result, errors.Wrap(err, "failed to save host after deleting")
+			return actionError{errors.Wrap(err, "failed to save host after deleting")}
 		}
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
 	// Remove finalizer to allow deletion
@@ -348,10 +344,10 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 	info.log.Info("cleanup is complete, removed finalizer",
 		"remaining", info.host.Finalizers)
 	if err := r.client.Update(context.Background(), info.host); err != nil {
-		return result, errors.Wrap(err, "failed to remove finalizer")
+		return actionError{errors.Wrap(err, "failed to remove finalizer")}
 	}
 
-	return result, nil
+	return deleteComplete{}
 }
 
 // Test the credentials by connecting to the management controller.

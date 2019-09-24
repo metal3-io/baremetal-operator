@@ -37,6 +37,19 @@ func (r actionComplete) Dirty() bool {
 	return true
 }
 
+type deleteComplete struct {
+	actionComplete
+}
+
+func (r deleteComplete) Result() (result reconcile.Result, err error) {
+	// Don't requeue, since the CR has been successfully deleted
+	return
+}
+
+func (r deleteComplete) Dirty() bool {
+	return false
+}
+
 type actionError struct {
 	err error
 }

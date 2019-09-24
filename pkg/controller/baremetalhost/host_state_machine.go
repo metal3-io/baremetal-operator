@@ -293,6 +293,5 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result r
 }
 
 func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionDeleting(hsm.Provisioner, info)
-	return
+	return hsm.Reconciler.actionDeleting(hsm.Provisioner, info).Result()
 }

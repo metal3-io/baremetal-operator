@@ -34,7 +34,7 @@ func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
 	return &r
 }
 
-type stateHandler func(*reconcileInfo) (reconcile.Result, error)
+type stateHandler func(*reconcileInfo) actionResult
 
 func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]stateHandler {
 	return map[metal3v1alpha1.ProvisioningState]stateHandler{
@@ -82,7 +82,7 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (result reconci
 	}
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
-		result, err = stateHandler(info)
+		result, err = stateHandler(info).Result()
 	} else {
 		info.log.Info("No handler found for state", "state", initialState)
 		err = fmt.Errorf("No handler found for state \"%s\"", initialState)
@@ -131,15 +131,15 @@ func (hsm *hostStateMachine) shouldInitiateRegister(info *reconcileInfo) bool {
 	return changeState
 }
 
-func (hsm *hostStateMachine) handleNone(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
 	// Running the state machine at all means we have successfully validated
 	// the BMC credentials once, so we can move to the Registering state.
 	hsm.Host.ClearError()
 	hsm.NextState = metal3v1alpha1.StateRegistering
-	return
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
 
 	switch actResult.(type) {
@@ -161,66 +161,67 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) (result reco
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
 	}
-	return actResult.Result()
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) actionResult {
 	if !hsm.Host.Status.TriedCredentials.Match(*info.bmcCredsSecret) {
 		info.log.Info("Modified credentials detected; will retry registration")
 		hsm.RequeueDespiteError = true
 		hsm.NextState = metal3v1alpha1.StateRegistering
+		return actionComplete{}
 	}
-	return
+	return actionFailed{}
 }
 
-func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
 	}
-	return actResult.Result()
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateReady
 	}
-	return actResult.Result()
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
-		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info).Result()
-	} else {
-		switch {
-		case hsm.Host.NeedsHardwareInspection():
-			hsm.NextState = metal3v1alpha1.StateInspecting
-		case hsm.Host.NeedsHardwareProfile():
-			hsm.NextState = metal3v1alpha1.StateMatchProfile
-		default:
-			hsm.NextState = metal3v1alpha1.StateReady
-		}
+		return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
 	}
-	return
+
+	switch {
+	case hsm.Host.NeedsHardwareInspection():
+		hsm.NextState = metal3v1alpha1.StateInspecting
+	case hsm.Host.NeedsHardwareProfile():
+		hsm.NextState = metal3v1alpha1.StateMatchProfile
+	default:
+		hsm.NextState = metal3v1alpha1.StateReady
+	}
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleReady(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 	switch {
 	case hsm.Host.Spec.ExternallyProvisioned:
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
 	case hsm.Host.NeedsProvisioning():
 		hsm.NextState = metal3v1alpha1.StateProvisioning
 	default:
-		result, err = hsm.Reconciler.actionManageReady(hsm.Provisioner, info).Result()
+		return hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
 	}
-	return
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResult {
 	if hsm.Host.NeedsDeprovisioning() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
-		return
+		return actionComplete{}
 	}
 
 	actResult := hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
@@ -230,10 +231,10 @@ func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) (result rec
 	case actionFailed:
 		hsm.NextState = metal3v1alpha1.StateProvisioningError
 	}
-	return actResult.Result()
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) actionResult {
 	hsm.RequeueDespiteError = true
 	switch {
 	case hsm.Host.Spec.ExternallyProvisioned:
@@ -241,19 +242,19 @@ func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) (resul
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
 	}
-	return
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult {
 	if hsm.Host.NeedsDeprovisioning() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
-	} else {
-		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info).Result()
+		return actionComplete{}
 	}
-	return
+
+	return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
 }
 
-func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) actionResult {
 	hsm.RequeueDespiteError = true
 	switch {
 	case hsm.Host.Spec.ExternallyProvisioned:
@@ -263,10 +264,10 @@ func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) (re
 	default:
 		hsm.NextState = metal3v1alpha1.StateReady
 	}
-	return
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
 
 	switch actResult.(type) {
@@ -285,13 +286,14 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result r
 			// trying to deprovision.
 			hsm.RequeueDespiteError = true
 			hsm.NextState = metal3v1alpha1.StateDeleting
+			actResult = actionComplete{}
 		} else {
 			hsm.NextState = metal3v1alpha1.StateProvisioningError
 		}
 	}
-	return actResult.Result()
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) (result reconcile.Result, err error) {
-	return hsm.Reconciler.actionDeleting(hsm.Provisioner, info).Result()
+func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) actionResult {
+	return hsm.Reconciler.actionDeleting(hsm.Provisioner, info)
 }

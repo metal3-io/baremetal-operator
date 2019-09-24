@@ -516,9 +516,10 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
-		info.host.SetErrorMessage(provResult.ErrorMessage)
-		info.publishEvent("RegistrationError", provResult.ErrorMessage)
+		if info.host.SetErrorMessage(provResult.ErrorMessage) {
+			info.publishEvent("InspectionError", provResult.ErrorMessage)
+			result.Requeue = true
+		}
 		return result, nil
 	}
 

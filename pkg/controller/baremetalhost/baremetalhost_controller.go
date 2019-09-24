@@ -209,17 +209,19 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	}
 
 	stateMachine := newHostStateMachine(host, r, prov)
-	result, err = stateMachine.ReconcileState(info)
+	actResult := stateMachine.ReconcileState(info)
+	result, err = actResult.Result()
 
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
+		err = errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
+		return
 	}
 
-	// Only save status when we're told to requeue, otherwise we
+	// Only save status when we're told to, otherwise we
 	// introduce an infinite loop reconciling the same object over and
 	// over when there is an unrecoverable error (tracked through the
 	// error state of the host).
-	if result.Requeue {
+	if actResult.Dirty() {
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
 			"provisioning state", host.Status.Provisioning.State)
@@ -233,19 +235,18 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		r.publishEvent(request, e)
 	}
 
-	if host.HasError() && !stateMachine.RequeueDespiteError {
+	if _, isFailure := actResult.(actionFailed); isFailure {
 		// We have tried to do something that failed in a way we
 		// assume is not retryable, so do not proceed to any other
 		// steps.
 		info.log.Info("stopping on host error", "message", host.Status.ErrorMessage)
-		return reconcile.Result{}, nil
+	} else {
+		info.log.Info("done",
+			"requeue", result.Requeue,
+			"after", result.RequeueAfter,
+		)
 	}
-
-	info.log.Info("done",
-		"requeue", result.Requeue,
-		"after", result.RequeueAfter,
-	)
-	return result, nil
+	return
 }
 
 func recordActionFailure(info *reconcileInfo, eventType string, errorMessage string) actionFailed {

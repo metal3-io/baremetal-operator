@@ -7,18 +7,15 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
 	"github.com/go-logr/logr"
-
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // hostStateMachine is a finite state machine that manages transitions between
 // the states of a BareMetalHost.
 type hostStateMachine struct {
-	Host                *metal3v1alpha1.BareMetalHost
-	NextState           metal3v1alpha1.ProvisioningState
-	Reconciler          *ReconcileBareMetalHost
-	Provisioner         provisioner.Provisioner
-	RequeueDespiteError bool
+	Host        *metal3v1alpha1.BareMetalHost
+	NextState   metal3v1alpha1.ProvisioningState
+	Reconciler  *ReconcileBareMetalHost
+	Provisioner provisioner.Provisioner
 }
 
 func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
@@ -55,41 +52,36 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 }
 
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
-	result *reconcile.Result,
 	log logr.Logger) {
 	if hsm.NextState != initialState {
 		log.Info("changing provisioning state",
 			"old", initialState,
 			"new", hsm.NextState)
 		hsm.Host.Status.Provisioning.State = hsm.NextState
-		result.Requeue = true
 	}
 }
 
-func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 	initialState := hsm.Host.Status.Provisioning.State
-	defer hsm.updateHostStateFrom(initialState, &result, info.log)
+	defer hsm.updateHostStateFrom(initialState, info.log)
 
 	if hsm.shouldInitiateDelete() {
 		info.log.Info("Initiating host deletion")
-		return
+		return actionComplete{}
 	}
 	// TODO: In future we should always re-register the host if required,
 	// rather than initiate a transistion back to the Registering state.
 	if hsm.shouldInitiateRegister(info) {
 		info.log.Info("Initiating host registration")
-		return
+		return actionComplete{}
 	}
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
-		result, err = stateHandler(info).Result()
-	} else {
-		info.log.Info("No handler found for state", "state", initialState)
-		err = fmt.Errorf("No handler found for state \"%s\"", initialState)
-		return
+		return stateHandler(info)
 	}
 
-	return
+	info.log.Info("No handler found for state", "state", initialState)
+	return actionError{fmt.Errorf("No handler found for state \"%s\"", initialState)}
 }
 
 func (hsm *hostStateMachine) shouldInitiateDelete() bool {
@@ -98,7 +90,6 @@ func (hsm *hostStateMachine) shouldInitiateDelete() bool {
 		return false
 	}
 
-	hsm.RequeueDespiteError = true
 	switch hsm.NextState {
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeleting
@@ -167,7 +158,6 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) actionResult {
 	if !hsm.Host.Status.TriedCredentials.Match(*info.bmcCredsSecret) {
 		info.log.Info("Modified credentials detected; will retry registration")
-		hsm.RequeueDespiteError = true
 		hsm.NextState = metal3v1alpha1.StateRegistering
 		return actionComplete{}
 	}
@@ -235,7 +225,6 @@ func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResul
 }
 
 func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) actionResult {
-	hsm.RequeueDespiteError = true
 	switch {
 	case hsm.Host.Spec.ExternallyProvisioned:
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
@@ -255,7 +244,6 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult
 }
 
 func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) actionResult {
-	hsm.RequeueDespiteError = true
 	switch {
 	case hsm.Host.Spec.ExternallyProvisioned:
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
@@ -284,7 +272,6 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 			// Note that this is entirely theoretical, as the
 			// Ironic provisioner currently never gives up
 			// trying to deprovision.
-			hsm.RequeueDespiteError = true
 			hsm.NextState = metal3v1alpha1.StateDeleting
 			actResult = actionComplete{}
 		} else {

@@ -68,16 +68,6 @@ type actionFailed struct {
 }
 
 func (r actionFailed) Result() (result reconcile.Result, err error) {
-	// We don't actually want to requeue after a failure, but the Requeue
-	// field is overloaded since it's also used to determine whether the
-	// Host object needs to be written to the database.
-	// Once we've written the Host object, we ignore the Requeue flag when
-	// returning the final response if the Host is in an operational error
-	// state, unless it's needed to transition the Host out of that state
-	// despite the error (e.g. to delete it).
-	// We should be able to eliminate all of these extra layers of meaning
-	// in the future by using the Dirty() method at the top level.
-	result.Requeue = r.dirty
 	return
 }
 

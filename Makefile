@@ -123,7 +123,9 @@ deploy:
 	kubectl apply -f deploy/role.yaml -n $(RUN_NAMESPACE)
 	kubectl apply -f deploy/role_binding.yaml
 	kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
-	kubectl apply -f deploy/operator.yaml -n $(RUN_NAMESPACE)
+	kubectl apply -f deploy/ironic_bmo_configmap.yaml -n $(RUN_NAMESPACE)
+	kubectl apply -f deploy/mariadb-password.yaml -n $(RUN_NAMESPACE)
+	kubectl apply -f deploy/operator_ironic.yaml -n $(RUN_NAMESPACE)
 
 .PHONY: dep-check
 dep-check:

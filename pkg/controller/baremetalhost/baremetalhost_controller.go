@@ -263,14 +263,22 @@ func logResult(info *reconcileInfo, result reconcile.Result) {
 	}
 }
 
-func recordActionFailure(info *reconcileInfo, eventType string, errorMessage string) actionFailed {
+func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType, errorMessage string) actionFailed {
 	dirty := info.host.SetErrorMessage(errorMessage)
 	if dirty {
+		eventType := map[metal3v1alpha1.ErrorType]string{
+			metal3v1alpha1.RegistrationError:    "RegistrationError",
+			metal3v1alpha1.InspectionError:      "InspectionError",
+			metal3v1alpha1.ProvisioningError:    "ProvisioningError",
+			metal3v1alpha1.PowerManagementError: "PowerManagementError",
+		}[errorType]
+
 		counter := actionFailureCounters.WithLabelValues(eventType)
 		info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
+
 		info.publishEvent(eventType, errorMessage)
 	}
-	return actionFailed{dirty}
+	return actionFailed{dirty: dirty, ErrorType: errorType}
 }
 
 func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (reconcile.Result, error) {
@@ -393,7 +401,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
-		return recordActionFailure(info, "RegistrationError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
@@ -430,7 +438,7 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 	}
 
 	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, "InspectionError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
 	}
 
 	if details != nil {
@@ -519,7 +527,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling provisioning error in controller")
-		return recordActionFailure(info, "ProvisioningError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.ProvisioningError, provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
@@ -550,7 +558,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	}
 
 	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, "ProvisioningError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.ProvisioningError, provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
@@ -577,7 +585,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
-		return recordActionFailure(info, "PowerManagementError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
@@ -608,7 +616,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StatePowerManagementError
-		return recordActionFailure(info, "PowerManagementError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
@@ -645,7 +653,7 @@ func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provis
 	}
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
-		return recordActionFailure(info, "RegistrationError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
 		info.host.ClearError()
@@ -672,7 +680,7 @@ func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner,
 	}
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
-		return recordActionFailure(info, "RegistrationError", provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
 		info.host.ClearError()

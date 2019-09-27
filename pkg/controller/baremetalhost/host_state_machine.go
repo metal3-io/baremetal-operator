@@ -180,6 +180,8 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 		default:
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
+	case actionFailed:
+		hsm.NextState = metal3v1alpha1.StateRegistrationError
 	}
 	return actResult
 }
@@ -216,6 +218,8 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 			switch r.ErrorType {
 			case metal3v1alpha1.PowerManagementError:
 				hsm.NextState = metal3v1alpha1.StatePowerManagementError
+			case metal3v1alpha1.RegistrationError:
+				hsm.NextState = metal3v1alpha1.StateRegistrationError
 			}
 		}
 		return actResult
@@ -244,6 +248,8 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 			switch r.ErrorType {
 			case metal3v1alpha1.PowerManagementError:
 				hsm.NextState = metal3v1alpha1.StatePowerManagementError
+			case metal3v1alpha1.RegistrationError:
+				hsm.NextState = metal3v1alpha1.StateRegistrationError
 			}
 		}
 		return actResult
@@ -288,6 +294,8 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult
 		switch r.ErrorType {
 		case metal3v1alpha1.PowerManagementError:
 			hsm.NextState = metal3v1alpha1.StatePowerManagementError
+		case metal3v1alpha1.RegistrationError:
+			hsm.NextState = metal3v1alpha1.StateRegistrationError
 		}
 	}
 	return actResult

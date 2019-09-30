@@ -2,6 +2,7 @@ package bmc
 
 import (
 	"strings"
+	"net/url"
 )
 
 func init() {
@@ -10,12 +11,12 @@ func init() {
 	registerFactory("idrac+https", newIDRACAccessDetails)
 }
 
-func newIDRACAccessDetails(bmcType, portNum, hostname, path string) (AccessDetails, error) {
+func newIDRACAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 	return &iDracAccessDetails{
-		bmcType:  bmcType,
-		portNum:  portNum,
-		hostname: hostname,
-		path:     path,
+		bmcType:  parsedURL.Scheme,
+		portNum:  parsedURL.Port(),
+		hostname: parsedURL.Hostname(),
+		path:     parsedURL.Path,
 	}, nil
 }
 

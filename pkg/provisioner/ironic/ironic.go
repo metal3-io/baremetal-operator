@@ -316,6 +316,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update host settings in ironic, busy")
 				result.Dirty = true
+				result.RequeueAfter = provisionRequeueDelay
 				return result, nil
 			default:
 				return result, errors.Wrap(err, "failed to update host settings in ironic")
@@ -349,6 +350,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update host driver settings, busy")
+				result.Dirty = true
 				result.RequeueAfter = provisionRequeueDelay
 				return result, nil
 			default:
@@ -927,11 +929,6 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		return p.ValidateManagementAccess(true)
 	}
 
-	p.log.Info("waiting for adoption to complete",
-		"current", ironicNode.ProvisionState,
-		"target", ironicNode.TargetProvisionState,
-	)
-
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Enroll:
 		err = fmt.Errorf("Invalid state for adopt: %s",
@@ -1312,6 +1309,7 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 		if ironicNode.TargetPowerState == powerOn {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
+			result.Dirty = true
 			return result, nil
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
@@ -1339,6 +1337,7 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		if ironicNode.TargetPowerState == powerOff {
 			p.log.Info("waiting for power status to change")
 			result.RequeueAfter = powerRequeueDelay
+			result.Dirty = true
 			return result, nil
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)

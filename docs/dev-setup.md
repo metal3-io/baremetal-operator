@@ -7,7 +7,7 @@ Follow the instructions in the Quick Start section of
 https://github.com/operator-framework/operator-sdk to check out and
 install the operator-sdk tools.
 
-## With minkube
+## With minikube
 
 1. Install and launch minikube
 
@@ -47,7 +47,7 @@ install the operator-sdk tools.
 6. Create the CR
 
     ```
-    kubectl apply -f deploy/crds/example-host.yaml
+    kubectl apply -f deploy/crds/example-host.yaml -n metal3
     ```
 
 ## Running without Ironic

@@ -18,6 +18,10 @@ in place of `https://` in the iDRAC URL; only the hostname or IP address is
 required - `idrac://host.example` is equivalent to
 `idrac+https://host.example:443/wsman`. Fujitsu iRMC is also supported,
 by using the scheme `irmc://<host>:<port>` with `<port>` is optional.
+Redfish is also supported, by using the scheme `redfish://` (or
+`redfish+http://` to disable TLS) in place of `https://` in the Redfish URL;
+the hostname or IP address, and the path to the system ID are required -
+for example `redfish://myhost.example/redfish/v1/Systems/MySystemExample`
 
 *bmc.credentials* -- A reference to a Secret containing the connection
 data, at least username and password, for the BMC.

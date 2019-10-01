@@ -218,14 +218,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:dc38c10fcce749fddc805b8fb3d7db639cc776e36b85ddf2dfe1cba533f10fd7"
-  name = "github.com/gophercloud/utils"
-  packages = ["openstack/baremetal/v1/nodes"]
-  pruneopts = "NT"
-  revision = "0bcc8e728cb54c9dce9ed46924688b817ab14f31"
-
-[[projects]]
-  branch = "master"
   digest = "1:97972f03fbf34ec4247ddc78ddb681389c468c020492aa32b109744a54fc0c14"
   name = "github.com/gregjones/httpcache"
   packages = [
@@ -932,7 +924,6 @@
     "github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports",
     "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth",
     "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection",
-    "github.com/gophercloud/utils/openstack/baremetal/v1/nodes",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/test",

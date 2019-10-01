@@ -9,8 +9,6 @@ go:
   - "1.11.5"
 
 before_install:
-  - go get golang.org/x/lint/golint
-  - go get -u github.com/securego/gosec/cmd/gosec
   - go get github.com/golang/dep/cmd/dep
   - git clone --branch=v0.8.x --depth=1 https://github.com/operator-framework/operator-sdk $GOPATH/src/github.com/operator-framework/operator-sdk && pushd $GOPATH/src/github.com/operator-framework/operator-sdk && make dep && make install && popd
 

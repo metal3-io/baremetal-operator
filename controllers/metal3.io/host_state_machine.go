@@ -114,12 +114,10 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 		info.log.Info("Initiating host deletion")
 		return actionComplete{}
 	}
-	// TODO: In future we should always re-register the host if required,
-	// rather than initiate a transistion back to the Registering state.
-	if hsm.shouldInitiateRegister(info) {
-		info.log.Info("Initiating host registration")
+
+	if registerResult := hsm.ensureRegistered(info); registerResult != nil {
 		hostRegistrationRequired.Inc()
-		return actionComplete{}
+		return registerResult
 	}
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
@@ -161,21 +159,43 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	return true
 }
 
-func (hsm *hostStateMachine) shouldInitiateRegister(info *reconcileInfo) bool {
-	changeState := false
-	if hsm.Host.DeletionTimestamp.IsZero() {
-		switch hsm.NextState {
-		default:
-			changeState = !hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
-		case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
-		case metal3v1alpha1.StateRegistering:
-		case metal3v1alpha1.StateDeleting:
+func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actionResult) {
+	switch hsm.NextState {
+	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
+		// We haven't yet reached the Registration state, so don't attempt
+		// to register the Host.
+		return
+	}
+	if !hsm.Host.DeletionTimestamp.IsZero() {
+		// BUG(zaneb) We currently don't attempt to re-register the Host
+		// if we find it missing once a delete has been requested (in
+		// part because we are also willing to pass empty credentials
+		// after this point), but this means that we may not be able to
+		// deprovision a Host if the Ironic database pod is rescheduled
+		// during deprovisioning, or if the credentials need to be
+		// modified.
+		return
+	}
+
+	if hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
+		// Credentials are unchanged since we verified them.
+		return
+	}
+
+	recordStateBegin(hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+	if hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError {
+		if hsm.Host.Status.TriedCredentials.Match(*info.bmcCredsSecret) {
+			// Already tried with these credentials; no point retrying
+			info.log.Info("Unmodified credentials; not retrying")
+			return actionFailed{ErrorType: metal3v1alpha1.RegistrationError}
 		}
+		info.log.Info("Modified credentials detected; will retry registration")
 	}
-	if changeState {
-		hsm.NextState = metal3v1alpha1.StateRegistering
+	result = hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
+	if _, complete := result.(actionComplete); complete && hsm.Host.Status.Provisioning.State != metal3v1alpha1.StateRegistering {
+		recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
 	}
-	return changeState
+	return
 }
 
 func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
@@ -200,36 +220,17 @@ func (hsm *hostStateMachine) handleUnmanaged(info *reconcileInfo) actionResult {
 }
 
 func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult {
-	if hsm.Host.HasError() {
-		if hsm.Host.Status.TriedCredentials.Match(*info.bmcCredsSecret) {
-			// Already tried with these credentials; no point retrying
-			info.log.Info("Unmodified credentials; not retrying")
-			return actionFailed{ErrorType: metal3v1alpha1.RegistrationError}
-		}
-		info.log.Info("Modified credentials detected; will retry registration")
+	// Getting to the state handler at all means we have successfully
+	// registered using the current BMC credentials, so we can move to the
+	// next state. We will not return to the Registering state, even
+	// if the credentials change and the Host must be re-registered.
+	hsm.Host.ClearError()
+	if hsm.Host.Spec.ExternallyProvisioned {
+		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
+	} else {
+		hsm.NextState = metal3v1alpha1.StateInspecting
 	}
-
-	actResult := hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
-
-	if _, complete := actResult.(actionComplete); complete {
-		// TODO: In future this state should only occur before the host is
-		// registered the first time (though we must always check and
-		// re-register the host regardless of the current state). That will
-		// eliminate the need to determine which state we came from here.
-		switch {
-		case hsm.Host.Spec.ExternallyProvisioned:
-			hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
-		case hsm.Host.WasProvisioned():
-			hsm.NextState = metal3v1alpha1.StateProvisioned
-		case hsm.Host.NeedsHardwareInspection():
-			hsm.NextState = metal3v1alpha1.StateInspecting
-		case hsm.Host.NeedsHardwareProfile():
-			hsm.NextState = metal3v1alpha1.StateMatchProfile
-		default:
-			hsm.NextState = metal3v1alpha1.StateReady
-		}
-	}
-	return actResult
+	return actionComplete{}
 }
 
 func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult {

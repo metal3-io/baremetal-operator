@@ -182,10 +182,6 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 		Host     *metal3v1alpha1.BareMetalHost
 	}{
 		{
-			Scenario: "registering",
-			Host:     host(metal3v1alpha1.StateRegistering).build(),
-		},
-		{
 			Scenario: "inspecting",
 			Host:     host(metal3v1alpha1.StateInspecting).build(),
 		},
@@ -219,6 +215,20 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 			assert.True(t, result.Dirty())
 		})
 	}
+}
+
+func TestErrorCountIncreasedWhenRegistrationFails(t *testing.T) {
+	bmh := host(metal3v1alpha1.StateRegistering).build()
+	prov := &mockProvisioner{}
+	hsm := newHostStateMachine(bmh, &BareMetalHostReconciler{}, prov)
+	info := makeDefaultReconcileInfo(bmh)
+	bmh.Status.GoodCredentials = metal3v1alpha1.CredentialsStatus{}
+
+	prov.setNextError("some error")
+	result := hsm.ReconcileState(info)
+
+	assert.Greater(t, bmh.Status.ErrorCount, 0)
+	assert.True(t, result.Dirty())
 }
 
 func TestErrorCountCleared(t *testing.T) {

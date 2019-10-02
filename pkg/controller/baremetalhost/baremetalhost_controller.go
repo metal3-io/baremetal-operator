@@ -683,6 +683,10 @@ func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner,
 		return actionContinue{provResult.RequeueAfter}
 	}
 
+	if info.host.NeedsProvisioning() {
+		info.host.ClearError()
+		return actionComplete{}
+	}
 	return r.manageHostPower(prov, info)
 }
 

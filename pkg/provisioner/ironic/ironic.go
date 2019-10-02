@@ -17,8 +17,6 @@ import (
 	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
-	nodeutils "github.com/gophercloud/utils/openstack/baremetal/v1/nodes"
-
 	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
@@ -126,7 +124,7 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 	}
 	// Ensure we have a microversion high enough to get the features
 	// we need.
-	client.Microversion = "1.50"
+	client.Microversion = "1.56"
 	p := &ironicProvisioner{
 		host:      host,
 		status:    &(host.Status.Provisioning),
@@ -1020,26 +1018,20 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 		// setting the state to "active".
 		p.log.Info("making host active")
 
-		// Build the config drive image using the userData we've been
-		// given so we can pass it to Ironic.
-		//
-		// FIXME(dhellmann): The Stein version of Ironic should be
-		// able to accept the user data string directly, without
-		// building the ISO image first.
-		var configDriveData string
 		userData, err := getUserData()
 		if err != nil {
 			return result, errors.Wrap(err, "could not retrieve user data")
 		}
+
+		var configDrive nodes.ConfigDrive
 		if userData != "" {
-			configDrive := nodeutils.ConfigDrive{
-				UserData: nodeutils.UserDataString(userData),
+			configDrive = nodes.ConfigDrive{
+				UserData: userData,
 				// cloud-init requires that meta_data.json exists and
 				// that the "uuid" field is present to process
 				// any of the config drive contents.
 				MetaData: map[string]interface{}{"uuid": p.host.Status.Provisioning.ID},
 			}
-			configDriveData, err = configDrive.ToConfigDrive()
 			if err != nil {
 				return result, errors.Wrap(err, "failed to build config drive")
 			}
@@ -1052,7 +1044,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 			ironicNode,
 			nodes.ProvisionStateOpts{
 				Target:      nodes.TargetActive,
-				ConfigDrive: configDriveData,
+				ConfigDrive: configDrive,
 			},
 		)
 

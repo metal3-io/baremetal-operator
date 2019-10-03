@@ -248,6 +248,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	return result, nil
 }
 
+func recordActionFailure(info *reconcileInfo, eventType string, errorMessage string) actionFailed {
+	dirty := info.host.SetErrorMessage(errorMessage)
+	if dirty {
+		info.publishEvent(eventType, errorMessage)
+	}
+	return actionFailed{dirty}
+}
+
 func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (reconcile.Result, error) {
 	switch err.(type) {
 	// We treat an empty bmc address and empty bmc credentials fields as a

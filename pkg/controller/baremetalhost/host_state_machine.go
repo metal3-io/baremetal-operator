@@ -140,9 +140,10 @@ func (hsm *hostStateMachine) handleNone(info *reconcileInfo) (result reconcile.R
 }
 
 func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
+	actResult := hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
 
-	if hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
+	switch actResult.(type) {
+	case actionComplete:
 		// TODO: In future this state should only occur before the host is
 		// registered the first time (though we must always check and
 		// re-register the host regardless of the current state). That will
@@ -160,7 +161,7 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) (result reco
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
 	}
-	return
+	return actResult.Result()
 }
 
 func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) (result reconcile.Result, err error) {

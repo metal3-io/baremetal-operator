@@ -355,9 +355,7 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 }
 
 // Test the credentials by connecting to the management controller.
-func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
-	var provResult provisioner.Result
-
+func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
 		"credentials", info.host.Status.TriedCredentials)
 
@@ -367,30 +365,22 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 		info.host.UpdateTriedCredentials(*info.bmcCredsSecret)
 	}
 
-	provResult, err = prov.ValidateManagementAccess(credsChanged)
+	provResult, err := prov.ValidateManagementAccess(credsChanged)
 	if err != nil {
-		return result, errors.Wrap(err, "failed to validate BMC access")
+		return actionError{errors.Wrap(err, "failed to validate BMC access")}
 	}
 
 	info.log.Info("response from validate", "provResult", provResult)
 
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.State = metal3v1alpha1.StateRegistrationError
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("RegistrationError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "RegistrationError", provResult.ErrorMessage)
 	}
 
 	if provResult.Dirty {
-		// Set Requeue true as well as RequeueAfter in case the delay
-		// is 0.
 		info.log.Info("host not ready", "wait", provResult.RequeueAfter)
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
-		return result, nil
+		return actionContinue{provResult.RequeueAfter}
 	}
 
 	// Reaching this point means the credentials are valid and worked,
@@ -408,8 +398,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 			"Registered host that was externally provisioned")
 	}
 
-	result.Requeue = true
-	return result, nil
+	return actionComplete{}
 }
 
 // Ensure we have the information about the hardware on the host.

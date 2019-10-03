@@ -195,56 +195,26 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Handle delete operations
-	if !host.DeletionTimestamp.IsZero() {
-		result, err := r.deleteHost(request, host)
-		return result, err
-	}
-
-	// Retrieve the BMC details from the host spec and validate host
-	// BMC details and build the credentials for talking to the
-	// management controller.
-	bmcCreds, bmcCredsSecret, err := r.buildAndValidateBMCCredentials(request, host)
-	if err != nil {
-		return r.credentialsErrorResult(err, request, host)
-	}
-
-	// Pick the action to perform
-	var actionName metal3v1alpha1.ProvisioningState
-	switch {
-	case !host.Status.GoodCredentials.Match(*bmcCredsSecret):
-		actionName = metal3v1alpha1.StateRegistering
-	case host.Spec.ExternallyProvisioned:
-		actionName = metal3v1alpha1.StateExternallyProvisioned
-	case host.NeedsHardwareInspection():
-		actionName = metal3v1alpha1.StateInspecting
-	case host.NeedsHardwareProfile():
-		actionName = metal3v1alpha1.StateMatchProfile
-	case host.NeedsProvisioning():
-		actionName = metal3v1alpha1.StateProvisioning
-	case host.NeedsDeprovisioning():
-		actionName = metal3v1alpha1.StateDeprovisioning
-	case host.WasProvisioned():
-		actionName = metal3v1alpha1.StateProvisioned
-	default:
-		actionName = metal3v1alpha1.StateReady
-	}
-
-	if actionName != host.Status.Provisioning.State {
-		reqLogger.Info("changing provisioning state",
-			"old", host.Status.Provisioning.State,
-			"new", actionName,
-		)
-		host.Status.Provisioning.State = actionName
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
-				fmt.Sprintf("failed to save host status after handling %q", actionName))
+	var bmcCreds *bmc.Credentials
+	var bmcCredsSecret *corev1.Secret
+	if host.DeletionTimestamp.IsZero() {
+		// Retrieve the BMC details from the host spec and validate host
+		// BMC details and build the credentials for talking to the
+		// management controller.
+		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(request, host)
+		if err != nil {
+			return r.credentialsErrorResult(err, request, host)
 		}
-		return reconcile.Result{Requeue: true}, nil
+	} else {
+		// If we are in the process of deletion, these creds will be ignored.
+		// The deleteHost() method will build its own creds.
+		bmcCreds = &bmc.Credentials{}
+		bmcCredsSecret = &corev1.Secret{}
 	}
 
+	initialState := host.Status.Provisioning.State
 	info := &reconcileInfo{
-		log:            reqLogger.WithValues("provisioningState", actionName),
+		log:            reqLogger.WithValues("provisioningState", initialState),
 		host:           host,
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
@@ -254,30 +224,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	switch actionName {
-	case metal3v1alpha1.StateRegistering:
-		result, err = r.actionRegistering(prov, info)
-	case metal3v1alpha1.StateInspecting:
-		result, err = r.actionInspecting(prov, info)
-	case metal3v1alpha1.StateMatchProfile:
-		result, err = r.actionMatchProfile(prov, info)
-	case metal3v1alpha1.StateProvisioning:
-		result, err = r.actionProvisioning(prov, info)
-	case metal3v1alpha1.StateDeprovisioning:
-		result, err = r.actionDeprovisioning(prov, info)
-	case metal3v1alpha1.StateProvisioned:
-		result, err = r.actionManageSteadyState(prov, info)
-	case metal3v1alpha1.StateReady:
-		result, err = r.actionManageReady(prov, info)
-	case metal3v1alpha1.StateExternallyProvisioned:
-		result, err = r.actionManageSteadyState(prov, info)
-	default:
-		// Probably a provisioning error state?
-		return reconcile.Result{}, fmt.Errorf("Unrecognized action %q", actionName)
-	}
+	stateMachine := newHostStateMachine(host, r, prov)
+	result, err = stateMachine.ReconcileState(info)
 
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("action %q failed", actionName))
+		return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
 	}
 
 	// Only save status when we're told to requeue, otherwise we
@@ -290,7 +241,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 			"provisioning state", host.Status.Provisioning.State)
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
-				fmt.Sprintf("failed to save host status after %q", actionName))
+				fmt.Sprintf("failed to save host status after %q", initialState))
 		}
 	}
 
@@ -298,7 +249,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		r.publishEvent(request, e)
 	}
 
-	if host.HasError() {
+	if host.HasError() && !stateMachine.RequeueDespiteError {
 		// We have tried to do something that failed in a way we
 		// assume is not retryable, so do not proceed to any other
 		// steps.

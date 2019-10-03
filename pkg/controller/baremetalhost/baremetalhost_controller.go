@@ -233,13 +233,15 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		// we requeue the host as we will not know if they create the secret
 		// at some point in the future.
 		case *ResolveBMCSecretRefError:
-			saveErr := r.setErrorCondition(request, host, err.Error())
+			changed, saveErr := r.setErrorCondition(request, host, err.Error())
 			if saveErr != nil {
 				return reconcile.Result{Requeue: true}, saveErr
 			}
-			// Only publish the event if we do not have an error
-			// after saving so that we only publish one time.
-			r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+			if changed {
+				// Only publish the event if we do not have an error
+				// after saving so that we only publish one time.
+				r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+			}
 			return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
 		// If we have found the secret but it is missing the required fields
 		// or the BMC address is defined but malformed we set the
@@ -247,7 +249,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		// as fixing the secret or the host BMC info will trigger
 		// the host to be reconciled again
 		case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
-			saveErr := r.setErrorCondition(request, host, err.Error())
+			_, saveErr := r.setErrorCondition(request, host, err.Error())
 			if saveErr != nil {
 				return reconcile.Result{Requeue: true}, saveErr
 			}
@@ -827,21 +829,23 @@ func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) 
 	return r.client.Status().Update(context.TODO(), host)
 }
 
-func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, message string) error {
+func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, message string) (changed bool, err error) {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 
-	if host.SetErrorMessage(message) {
+	changed = host.SetErrorMessage(message)
+	if changed {
 		reqLogger.Info(
 			"adding error message",
 			"message", message,
 		)
-		if err := r.saveStatus(host); err != nil {
-			return errors.Wrap(err, "failed to update error message")
+		err = r.saveStatus(host)
+		if err != nil {
+			err = errors.Wrap(err, "failed to update error message")
 		}
 	}
 
-	return nil
+	return
 }
 
 // Retrieve the secret containing the credentials for talking to the BMC.

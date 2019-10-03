@@ -402,38 +402,29 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 }
 
 // Ensure we have the information about the hardware on the host.
-func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
-	var provResult provisioner.Result
-	var details *metal3v1alpha1.HardwareDetails
-
+func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("inspecting hardware")
 
-	provResult, details, err = prov.InspectHardware()
+	provResult, details, err := prov.InspectHardware()
 	if err != nil {
-		return result, errors.Wrap(err, "hardware inspection failed")
+		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
 
 	if provResult.ErrorMessage != "" {
-		if info.host.SetErrorMessage(provResult.ErrorMessage) {
-			info.publishEvent("InspectionError", provResult.ErrorMessage)
-			result.Requeue = true
-		}
-		return result, nil
+		return recordActionFailure(info, "InspectionError", provResult.ErrorMessage)
 	}
 
 	if details != nil {
 		info.host.Status.HardwareDetails = details
-		result.Requeue = true
-		return result, nil
+		return actionComplete{}
 	}
 
 	if provResult.Dirty {
 		info.host.ClearError()
-		result.Requeue = true
-		result.RequeueAfter = provResult.RequeueAfter
+		return actionContinue{provResult.RequeueAfter}
 	}
 
-	return result, nil
+	return actionFailed{}
 }
 
 func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {

@@ -174,11 +174,11 @@ func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) (resul
 }
 
 func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
-	if hsm.Host.Status.HardwareDetails != nil {
+	actResult := hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
+	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
 	}
-	return
+	return actResult.Result()
 }
 
 func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) (result reconcile.Result, err error) {

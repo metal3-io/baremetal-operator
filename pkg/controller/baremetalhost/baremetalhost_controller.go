@@ -132,19 +132,6 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, info.host.NewEvent(reason, message))
 }
 
-// Action for one step of reconciliation.
-//
-// - Return a result if the host should be saved and requeued without error.
-// - Return error if there was an error.
-// - Return double nil if nothing was done and processing should continue.
-type reconcileAction func(info *reconcileInfo) (*reconcile.Result, error)
-
-// One step of reconciliation
-type reconcilePhase struct {
-	name   string
-	action reconcileAction
-}
-
 // Reconcile reads that state of the cluster for a BareMetalHost
 // object and makes changes based on the state read and what is in the
 // BareMetalHost.Spec TODO(user): Modify this Reconcile function to

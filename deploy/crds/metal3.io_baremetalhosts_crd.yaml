@@ -453,6 +453,11 @@ spec:
               type: object
             operationalStatus:
               description: OperationalStatus holds the status of the host
+              enum:
+              - ""
+              - OK
+              - discovered
+              - error
               type: string
             poweredOn:
               description: indicator for whether or not the host is powered on

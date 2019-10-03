@@ -195,21 +195,18 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	var bmcCreds *bmc.Credentials
-	var bmcCredsSecret *corev1.Secret
-	if host.DeletionTimestamp.IsZero() {
-		// Retrieve the BMC details from the host spec and validate host
-		// BMC details and build the credentials for talking to the
-		// management controller.
-		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(request, host)
-		if err != nil {
+	// Retrieve the BMC details from the host spec and validate host
+	// BMC details and build the credentials for talking to the
+	// management controller.
+	bmcCreds, bmcCredsSecret, err := r.buildAndValidateBMCCredentials(request, host)
+	if err != nil || bmcCreds == nil {
+		if !host.DeletionTimestamp.IsZero() {
+			// If we are in the process of deletion, try with empty credentials
+			bmcCreds = &bmc.Credentials{}
+			bmcCredsSecret = &corev1.Secret{}
+		} else {
 			return r.credentialsErrorResult(err, request, host)
 		}
-	} else {
-		// If we are in the process of deletion, these creds will be ignored.
-		// The deleteHost() method will build its own creds.
-		bmcCreds = &bmc.Credentials{}
-		bmcCredsSecret = &corev1.Secret{}
 	}
 
 	initialState := host.Status.Provisioning.State
@@ -323,15 +320,8 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 
 // Manage deletion of the host
 func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
-	return r.deleteHost(info.request, info.host)
-}
-
-// Handle all delete cases
-func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (result reconcile.Result, err error) {
-
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-
+	host := info.host
+	reqLogger := info.log
 	reqLogger.Info(
 		"marked to be deleted",
 		"timestamp", host.DeletionTimestamp,
@@ -344,25 +334,6 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 		// are being deleted.
 		return reconcile.Result{}, nil
 	}
-
-	// Retrieve the BMC secret from Kubernetes for this host and
-	// try and build credentials.  If we fail, resort to an empty
-	// credentials object to give the provisioner
-	bmcCreds, _, err := r.buildAndValidateBMCCredentials(request, host)
-	if err != nil || bmcCreds == nil {
-		bmcCreds = &bmc.Credentials{}
-	}
-
-	eventPublisher := func(reason, message string) {
-		r.publishEvent(request, host.NewEvent(reason, message))
-	}
-
-	prov, err := r.provisionerFactory(host, *bmcCreds, eventPublisher)
-	if err != nil {
-		return result, errors.Wrap(err, "failed to create provisioner")
-	}
-
-	host.Status.Provisioning.State = metal3v1alpha1.StateDeleting
 
 	if host.NeedsDeprovisioning() {
 		reqLogger.Info("deprovisioning before deleting")

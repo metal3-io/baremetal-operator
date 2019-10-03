@@ -333,25 +333,6 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 		return reconcile.Result{}, nil
 	}
 
-	if info.host.NeedsDeprovisioning() {
-		info.log.Info("deprovisioning before deleting")
-		provResult, err := prov.Deprovision()
-		if err != nil {
-			return result, errors.Wrap(err, "failed to deprovision")
-		}
-		if provResult.Dirty {
-			err = r.saveStatus(info.host)
-			if err != nil {
-				return result, errors.Wrap(err, "failed to save host after deprovisioning")
-			}
-			result.Requeue = true
-			result.RequeueAfter = provResult.RequeueAfter
-			return result, nil
-		}
-	} else {
-		info.log.Info("no need to deprovision before deleting")
-	}
-
 	provResult, err := prov.Delete()
 	if err != nil {
 		return result, errors.Wrap(err, "failed to delete")

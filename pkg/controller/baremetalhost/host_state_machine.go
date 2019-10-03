@@ -103,10 +103,10 @@ func (hsm *hostStateMachine) shouldInitiateDelete() bool {
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeleting
 	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateProvisioningError, metal3v1alpha1.StateProvisioned:
-		// TODO: change this to StateDeprovisioning once we can handle
-		// registration errors appropriately (by trying with empty creds)
-		// in that state.
-		hsm.NextState = metal3v1alpha1.StateDeleting
+		hsm.NextState = metal3v1alpha1.StateDeprovisioning
+	case metal3v1alpha1.StateDeprovisioning:
+		// Allow state machine to run to continue deprovisioning.
+		return false
 	case metal3v1alpha1.StateDeleting:
 		// Already in deleting state. Allow state machine to run.
 		return false
@@ -115,14 +115,15 @@ func (hsm *hostStateMachine) shouldInitiateDelete() bool {
 }
 
 func (hsm *hostStateMachine) shouldInitiateRegister(info *reconcileInfo) bool {
-	// TODO: handle case where we are deprovisioning due to a delete
 	changeState := false
-	switch hsm.NextState {
-	default:
-		changeState = !hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
-	case metal3v1alpha1.StateNone:
-	case metal3v1alpha1.StateRegistering, metal3v1alpha1.StateRegistrationError:
-	case metal3v1alpha1.StateDeleting:
+	if hsm.Host.DeletionTimestamp.IsZero() {
+		switch hsm.NextState {
+		default:
+			changeState = !hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
+		case metal3v1alpha1.StateNone:
+		case metal3v1alpha1.StateRegistering, metal3v1alpha1.StateRegistrationError:
+		case metal3v1alpha1.StateDeleting:
+		}
 	}
 	if changeState {
 		hsm.NextState = metal3v1alpha1.StateRegistering
@@ -272,7 +273,17 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result r
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
 	} else if hsm.Host.HasError() {
-		hsm.NextState = metal3v1alpha1.StateProvisioningError
+		if !hsm.Host.DeletionTimestamp.IsZero() {
+			// If the provisioner gives up deprovisioning and
+			// deletion has been requested, continue to delete.
+			// Note that this is entirely theoretical, as the
+			// Ironic provisioner currently never gives up
+			// trying to deprovision.
+			hsm.RequeueDespiteError = true
+			hsm.NextState = metal3v1alpha1.StateDeleting
+		} else {
+			hsm.NextState = metal3v1alpha1.StateProvisioningError
+		}
 	}
 	return
 }

@@ -224,6 +224,8 @@ func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) (result rec
 	result, err = hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
 	if hsm.Host.Status.Provisioning.Image.URL != "" {
 		hsm.NextState = metal3v1alpha1.StateProvisioned
+	} else if hsm.Host.HasError() {
+		hsm.NextState = metal3v1alpha1.StateProvisioningError
 	}
 	return
 }
@@ -269,6 +271,8 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result r
 		} else {
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
+	} else if hsm.Host.HasError() {
+		hsm.NextState = metal3v1alpha1.StateProvisioningError
 	}
 	return
 }

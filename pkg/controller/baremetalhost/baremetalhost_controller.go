@@ -552,7 +552,6 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling provisioning error in controller")
-		info.host.Status.Provisioning.State = metal3v1alpha1.StateProvisioningError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
 			result.Requeue = true
@@ -593,7 +592,6 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metal3v1alpha1.StateProvisioningError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
 			result.Requeue = true

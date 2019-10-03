@@ -264,7 +264,7 @@ func logResult(info *reconcileInfo, result reconcile.Result) {
 }
 
 func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType, errorMessage string) actionFailed {
-	dirty := info.host.SetErrorMessage(errorMessage)
+	dirty := info.host.SetErrorMessage(errorType, errorMessage)
 	if dirty {
 		eventType := map[metal3v1alpha1.ErrorType]string{
 			metal3v1alpha1.RegistrationError:    "RegistrationError",
@@ -296,6 +296,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 			// as we cannot use SetErrorCondition which
 			// overwrites our discovered state
 			host.Status.ErrorMessage = err.Error()
+			host.Status.ErrorType = ""
 			saveErr := r.saveStatus(host)
 			if saveErr != nil {
 				return reconcile.Result{Requeue: true}, saveErr
@@ -311,7 +312,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// at some point in the future.
 	case *ResolveBMCSecretRefError:
 		credentialsMissing.Inc()
-		changed, saveErr := r.setErrorCondition(request, host, err.Error())
+		changed, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
 		}
@@ -328,7 +329,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// the host to be reconciled again
 	case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
 		credentialsInvalid.Inc()
-		_, saveErr := r.setErrorCondition(request, host, err.Error())
+		_, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
 		}
@@ -691,11 +692,11 @@ func (r *ReconcileBareMetalHost) saveStatus(host *metal3v1alpha1.BareMetalHost) 
 	return r.client.Status().Update(context.TODO(), host)
 }
 
-func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, message string) (changed bool, err error) {
+func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (changed bool, err error) {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 
-	changed = host.SetErrorMessage(message)
+	changed = host.SetErrorMessage(errType, message)
 	if changed {
 		reqLogger.Info(
 			"adding error message",

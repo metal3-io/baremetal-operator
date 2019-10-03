@@ -320,29 +320,27 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 
 // Manage deletion of the host
 func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
-	host := info.host
-	reqLogger := info.log
-	reqLogger.Info(
+	info.log.Info(
 		"marked to be deleted",
-		"timestamp", host.DeletionTimestamp,
+		"timestamp", info.host.DeletionTimestamp,
 	)
 
 	// no-op if finalizer has been removed.
-	if !utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
-		reqLogger.Info("ready to be deleted")
+	if !utils.StringInList(info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
+		info.log.Info("ready to be deleted")
 		// There is nothing to save and no reason to requeue since we
 		// are being deleted.
 		return reconcile.Result{}, nil
 	}
 
-	if host.NeedsDeprovisioning() {
-		reqLogger.Info("deprovisioning before deleting")
+	if info.host.NeedsDeprovisioning() {
+		info.log.Info("deprovisioning before deleting")
 		provResult, err := prov.Deprovision()
 		if err != nil {
 			return result, errors.Wrap(err, "failed to deprovision")
 		}
 		if provResult.Dirty {
-			err = r.saveStatus(host)
+			err = r.saveStatus(info.host)
 			if err != nil {
 				return result, errors.Wrap(err, "failed to save host after deprovisioning")
 			}
@@ -351,7 +349,7 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 			return result, nil
 		}
 	} else {
-		reqLogger.Info("no need to deprovision before deleting")
+		info.log.Info("no need to deprovision before deleting")
 	}
 
 	provResult, err := prov.Delete()
@@ -359,7 +357,7 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 		return result, errors.Wrap(err, "failed to delete")
 	}
 	if provResult.Dirty {
-		err = r.saveStatus(host)
+		err = r.saveStatus(info.host)
 		if err != nil {
 			return result, errors.Wrap(err, "failed to save host after deleting")
 		}
@@ -369,11 +367,11 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 	}
 
 	// Remove finalizer to allow deletion
-	host.Finalizers = utils.FilterStringFromList(
-		host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
-	reqLogger.Info("cleanup is complete, removed finalizer",
-		"remaining", host.Finalizers)
-	if err := r.client.Update(context.Background(), host); err != nil {
+	info.host.Finalizers = utils.FilterStringFromList(
+		info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
+	info.log.Info("cleanup is complete, removed finalizer",
+		"remaining", info.host.Finalizers)
+	if err := r.client.Update(context.Background(), info.host); err != nil {
 		return result, errors.Wrap(err, "failed to remove finalizer")
 	}
 

@@ -327,6 +327,8 @@ func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
 		return false
 	case cs.Reference.Name != secret.ObjectMeta.Name:
 		return false
+	case cs.Reference.Namespace != secret.ObjectMeta.Namespace:
+		return false
 	case cs.Version != secret.ObjectMeta.ResourceVersion:
 		return false
 	}

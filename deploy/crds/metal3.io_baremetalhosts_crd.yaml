@@ -46,6 +46,7 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
+      description: BareMetalHost is the Schema for the baremetalhosts API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -60,6 +61,7 @@ spec:
         metadata:
           type: object
         spec:
+          description: BareMetalHostSpec defines the desired state of BareMetalHost
           properties:
             bmc:
               description: How do we connect to the BMC?
@@ -85,6 +87,39 @@ spec:
               description: ConsumerRef can be used to store information about something
                 that is using a host. When it is not empty, the host is considered
                 "in use".
+              properties:
+                apiVersion:
+                  description: API version of the referent.
+                  type: string
+                fieldPath:
+                  description: 'If referring to a piece of an object instead of an
+                    entire object, this string should contain a valid JSON/Go field
+                    access statement, such as desiredState.manifest.containers[2].
+                    For example, if the object reference is to a container within
+                    a pod, this would take on a value like: "spec.containers{name}"
+                    (where "name" refers to the name of the container that triggered
+                    the event) or if no container name is specified "spec.containers[2]"
+                    (container with index 2 in this pod). This syntax is chosen only
+                    to have some well-defined way of referencing a part of an object.
+                    TODO: this design is not final and this field is subject to change
+                    in the future.'
+                  type: string
+                kind:
+                  description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+                resourceVersion:
+                  description: 'Specific resourceVersion to which this reference is
+                    made, if any. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#concurrency-control-and-consistency'
+                  type: string
+                uid:
+                  description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                  type: string
               type: object
             description:
               description: Description is a human-entered text used to help identify
@@ -111,8 +146,8 @@ spec:
                   description: URL is a location of an image to deploy.
                   type: string
               required:
-              - url
               - checksum
+              - url
               type: object
             online:
               description: Should the server be online?
@@ -122,16 +157,49 @@ spec:
                 to the corresponding Machine. This list will overwrite any modifications
                 made to the Machine on an ongoing basis.
               items:
+                description: The node this Taint is attached to has the "effect" on
+                  any pod that does not tolerate the Taint.
+                properties:
+                  effect:
+                    description: Required. The effect of the taint on pods that do
+                      not tolerate the taint. Valid effects are NoSchedule, PreferNoSchedule
+                      and NoExecute.
+                    type: string
+                  key:
+                    description: Required. The taint key to be applied to a node.
+                    type: string
+                  timeAdded:
+                    description: TimeAdded represents the time at which the taint
+                      was added. It is only written for NoExecute taints.
+                    format: date-time
+                    type: string
+                  value:
+                    description: Required. The taint value corresponding to the taint
+                      key.
+                    type: string
+                required:
+                - effect
+                - key
                 type: object
               type: array
             userData:
               description: UserData holds the reference to the Secret containing the
                 user data to be passed to the host before it boots.
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
               type: object
           required:
           - online
           type: object
         status:
+          description: BareMetalHostStatus defines the observed state of BareMetalHost
           properties:
             errorMessage:
               description: the last error message reported by the provisioning subsystem
@@ -140,6 +208,17 @@ spec:
               description: the last credentials we were able to validate as working
               properties:
                 credentials:
+                  description: SecretReference represents a Secret Reference. It has
+                    enough information to retrieve secret in any namespace
+                  properties:
+                    name:
+                      description: Name is unique within a namespace to reference
+                        a secret resource.
+                      type: string
+                    namespace:
+                      description: Namespace defines the space within which the secret
+                        name must be unique.
+                      type: string
                   type: object
                 credentialsVersion:
                   type: string
@@ -148,14 +227,15 @@ spec:
               description: The hardware discovered to exist on the host.
               properties:
                 cpu:
+                  description: CPU describes one processor on the host.
                   properties:
                     arch:
                       type: string
                     clockMegahertz:
-                      format: double
-                      type: number
-                    count:
+                      description: ClockSpeed is a clock speed in MHz
                       format: int64
+                      type: integer
+                    count:
                       type: integer
                     flags:
                       items:
@@ -165,12 +245,13 @@ spec:
                       type: string
                   required:
                   - arch
-                  - model
                   - clockMegahertz
-                  - flags
                   - count
+                  - flags
+                  - model
                   type: object
                 firmware:
+                  description: Firmware describes the firmware on the host.
                   properties:
                     bios:
                       description: The BIOS for this firmware
@@ -196,6 +277,7 @@ spec:
                   type: string
                 nics:
                   items:
+                    description: NIC describes one network interface on the host.
                     properties:
                       ip:
                         description: The IP address of the device
@@ -215,7 +297,6 @@ spec:
                         type: boolean
                       speedGbps:
                         description: The speed of the device
-                        format: int64
                         type: integer
                       vlanId:
                         description: The untagged VLAN ID
@@ -226,8 +307,10 @@ spec:
                       vlans:
                         description: The VLANs available
                         items:
+                          description: VLAN represents the name and ID of a VLAN
                           properties:
                             id:
+                              description: VLANID is a 12-bit 802.1Q VLAN identifier
                               format: int32
                               maximum: 4094
                               minimum: 0
@@ -239,20 +322,21 @@ spec:
                           type: object
                         type: array
                     required:
-                    - name
-                    - model
-                    - mac
                     - ip
+                    - mac
+                    - model
+                    - name
+                    - pxe
                     - speedGbps
                     - vlanId
-                    - pxe
                     type: object
                   type: array
                 ramMebibytes:
-                  format: int64
                   type: integer
                 storage:
                   items:
+                    description: Storage describes one storage device (disk, SSD,
+                      etc.) on the host.
                     properties:
                       hctl:
                         description: The SCSI location of the device
@@ -288,11 +372,13 @@ spec:
                     required:
                     - name
                     - rotational
-                    - sizeBytes
                     - serialNumber
+                    - sizeBytes
                     type: object
                   type: array
                 systemVendor:
+                  description: HardwareSystemVendor stores details about the whole
+                    hardware system.
                   properties:
                     manufacturer:
                       type: string
@@ -306,13 +392,13 @@ spec:
                   - serialNumber
                   type: object
               required:
-              - systemVendor
-              - firmware
-              - ramMebibytes
-              - nics
-              - storage
               - cpu
+              - firmware
               - hostname
+              - nics
+              - ramMebibytes
+              - storage
+              - systemVendor
               type: object
             hardwareProfile:
               description: The name of the profile matching the hardware details.
@@ -345,34 +431,46 @@ spec:
                       description: URL is a location of an image to deploy.
                       type: string
                   required:
-                  - url
                   - checksum
+                  - url
                   type: object
                 state:
                   description: An indiciator for what the provisioner is doing with
                     the host.
                   type: string
               required:
-              - state
               - ID
+              - state
               type: object
             triedCredentials:
               description: the last credentials we sent to the provisioning backend
               properties:
                 credentials:
+                  description: SecretReference represents a Secret Reference. It has
+                    enough information to retrieve secret in any namespace
+                  properties:
+                    name:
+                      description: Name is unique within a namespace to reference
+                        a secret resource.
+                      type: string
+                    namespace:
+                      description: Namespace defines the space within which the secret
+                        name must be unique.
+                      type: string
                   type: object
                 credentialsVersion:
                   type: string
               type: object
           required:
-          - operationalStatus
-          - hardwareProfile
-          - provisioning
-          - goodCredentials
-          - triedCredentials
           - errorMessage
+          - goodCredentials
+          - hardwareProfile
+          - operationalStatus
           - poweredOn
+          - provisioning
+          - triedCredentials
           type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1

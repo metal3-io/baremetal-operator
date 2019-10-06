@@ -38,8 +38,10 @@ test: generate unit lint dep-check
 
 .PHONY: generate
 generate:
+	mv ./deploy/crds/demo-hosts.yaml ./deploy/demo-hosts.yaml
 	operator-sdk generate k8s
 	operator-sdk generate openapi
+	mv ./deploy/demo-hosts.yaml ./deploy/crds/demo-hosts.yaml
 
 .PHONY: travis
 travis: unit-verbose lint
@@ -62,7 +64,7 @@ unit-cover-html:
 unit-verbose:
 	VERBOSE=-v make unit
 
-crd_file=deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
+crd_file=deploy/crds/metal3.io_baremetalhosts.yaml
 crd_tmp=.crd.yaml.tmp
 
 .PHONY: lint
@@ -127,7 +129,7 @@ deploy:
 	kubectl apply -f deploy/service_account.yaml -n $(RUN_NAMESPACE)
 	kubectl apply -f deploy/role.yaml -n $(RUN_NAMESPACE)
 	kubectl apply -f deploy/role_binding.yaml
-	kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
+	kubectl apply -f deploy/crds/metal3.io_baremetalhosts.yaml
 	kubectl apply -f deploy/ironic_bmo_configmap.yaml -n $(RUN_NAMESPACE)
 	kubectl apply -f deploy/mariadb-password.yaml -n $(RUN_NAMESPACE)
 	kubectl apply -f deploy/operator_ironic.yaml -n $(RUN_NAMESPACE)

@@ -2,202 +2,266 @@
 
 ## BareMetalHost
 
-The BareMetalHost resource defines the properties of a physical host
-necessary to manage and provision it.
+**Metal³** introduces the concept of **BareMetalHost** resource, which
+defines a physical host and its properties. The **BareMetalHost** embeds
+two well differentiated sections, the bare metal host specification
+and its current status.
 
-### Spec Fields
+### BareMetalHost spec
 
-*bmc* -- The connection information for the BMC controller on the host.
+The *BareMetalHost's* *spec* defines the desire state of the host. It contains
+mainly, but not only, provisioning details.
 
-*bmc.address* -- The URL for communicating with the BMC controller. When
-communicating over IPMI, this should be a URL of the form
-`ipmi://<host>:<port>` (an unadorned `<host>:<port>` is also accepted).
-Specifying the port is optional; the default port is 623. Dell iDRAC is also
-supported, by using the scheme `idrac://` (or `idrac+http://` to disable TLS)
-in place of `https://` in the iDRAC URL; only the hostname or IP address is
-required - `idrac://host.example` is equivalent to
-`idrac+https://host.example:443/wsman`. Fujitsu iRMC is also supported,
-by using the scheme `irmc://<host>:<port>` with `<port>` is optional.
-Redfish is also supported, by using the scheme `redfish://` (or
-`redfish+http://` to disable TLS) in place of `https://` in the Redfish URL;
-the hostname or IP address, and the path to the system ID are required -
-for example `redfish://myhost.example/redfish/v1/Systems/MySystemExample`
+#### Spec fields
 
-*bmc.credentials* -- A reference to a Secret containing the connection
-data, at least username and password, for the BMC.
+* *bmc* -- The connection information for the BMC (Baseboard Management
+  Controller) on the host.
+  * *address* -- The URL for communicating with the BMC controller, based
+    on the provider being used, the URL will look as follows:
+    * IPMI
+      * `ipmi://<host>:<port>`, an unadorned `<host>:<port>` is also accepted
+        and the port is optional, if using the default one (623).
+    * Dell iDRAC
+      * `idrac://` (or `idrac+http://` to disable TLS).
+    * Fujitsu iRMC
+      * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
+    * Redfish
+      * `redfish://` (or `redfish+http://` to disable TLS), the hostname
+        or IP address, and the path to the system ID are required,
+        for example `redfish://myhost.example/redfish/v1/Systems/MySystemExample`
 
-*online* -- A boolean indicating whether the host should be powered on
-(true) or off (false). Changing this value will trigger a change in
-power state on the physical host.
+  * *credentialsName* -- A reference to a *secret* containing the
+    username and password for the BMC.
 
-*consumerRef* -- A reference to another object that is using the
-host. For example, a Machine when the host is being used by the
-machine-api.
+* *online* -- A boolean indicating whether the host should be powered on
+  (true) or off (false). Changing this value will trigger a change in
+  power state on the physical host.
 
-*externallyProvisioned* -- A boolean indicating whether something else
-is managing the image running on the host. When set, if no image is
-provided, the host's power status and hardware inventory will be
-monitored. If this flag is set, no provisioning or deprovisioning
-operations are performed for the host.
+* *consumerRef* -- A reference to another resource that is using the
+  host, it could be empty if the host is not being currently used.
+  For example, a *Machine* resource when the host is being used by the
+  [*machine-api*](https://github.com/kubernetes-sigs/cluster-api).
 
-*image.url* -- The URL of an image to deploy to the host.
+* *externallyProvisioned* -- A boolean indicating whether the host
+  provisioning and deprovisioning are managed externally. When set,
+  the host's power status and hardware inventory will be monitored
+  but no provisioning or deprovisioning operations are performed
+  on the host.
 
-*image.checksum* -- An md5 checksum or URL to a file with a checksum
-for the image at *image.url*.
+* *image* -- Holds details for the image to be deployed on a given host.
+  * *url* -- The URL of an image to deploy to the host.
+  * *checksum* -- The actual checksum or a URL to a file containing
+    the checksum for the image at *image.url*.
 
-*userData* -- A reference to the Secret containing the user data to be
-passed to the host before it boots.
+* *userData* -- A reference to the Secret containing the cloudinit user data
+  and its namespace, so it can be attached to the host before it boots
+  for configuring different aspects of the OS (like networking, storage, ...).
 
-*description* -- A human-provided string to help identify the host.
+* *description* -- A human-provided string to help identify the host.
 
+### BareMetalHost status
+
+Moving onto the next block, the *BareMetalHost's* *status* which represents
+the host's current state. Including tested credentials, current hardware
+details, etc.
+
+#### Status fields
+
+* *goodCredentials* -- A reference to the secret and its namespace
+  holding the last set of BMC credentials the system was able to validate
+  as working.
+
+* *triedCredentials* -- A reference to the secret and its namespace
+  holding the last set of BMC credentials that were sent to
+  the provisioning backend.
+
+* *lastUpdated* -- The timestamp of the last time the status of the
+  host was updated.
+
+* *operationalStatus* -- The status of the server. Value is one of the
+  following:
+  * *OK* -- Indicates all the details for the host are known and working,
+    meaning the host is correctly configured and manageable.
+  * *discovered* -- Implies some of the host's details are either
+    not working correctly or missing. For example, the BMC address is known
+    but the login credentials are not.
+  * *error* -- Indicates the system found some sort of irrecuperable error.
+    Refer to the *errorMessage* field in the status section for more details.
+
+* *errorMessage* -- Details of the last error reported by the provisioning
+  backend, if any.
+
+* *hardware* -- The details for hardware capabilities discovered on the
+  host. These are filled in by the provisioning agent when the host is
+  registered.
+  * *nics* -- List of network interfaces for the host.
+    * *name* -- A string identifying the network device,
+      e.g. *nic-1*.
+    * *mac* -- The MAC address of the NIC.
+    * *ip* -- The IP address of the NIC, if one was assigned
+      when the discovery agent ran.
+    * *speedGbps* -- The speed of the device in Gbps.
+    * *vlans* -- A list holding all the VLANs available for this NIC.
+    * *vlanId* -- The untagged VLAN ID.
+    * *pxe* -- Whether the NIC is able to boot using PXE.
+  * *storage* -- List of storage (disk, SSD, etc.) available to the host.
+    * *name* -- A string identifying the storage device,
+      e.g. *disk 1 (boot)*.
+    * *rotational* -- Either true or false, indicates whether the disk
+      is rotational.
+    * *sizeBytes* -- Size of the storage device.
+    * *serialNumber* -- The device's serial number.
+  * *cpu* -- Details of the CPU(s) in the system.
+    * *arch* -- The architecture of the CPU.
+    * *model* -- The model string.
+    * *clockMegahertz* -- The speed in GHz of the CPU.
+    * *flags* -- List of CPU flags, e.g. 'mmx','sse','sse2','vmx', ...
+    * *count* -- Amount of these CPUs available in the system.
+  * *firmware* -- Contains BIOS information like for instance its *vendor*
+    and *version*.
+  * *systemVendor* -- Contains information about the host's *manufacturer*,
+    the *productName* and *serialNumber*.
+  * *ramMebibytes* -- The host's amount of memory in Mebibytes.
+* *hardwareProfile* -- The name of the hardware profile that matches the
+  hardware discovered on the host. These details are saved
+  to the *Hardware* section. If the hardware does not match any
+  known profile, the value `unknown` will be set on this field
+  and is used by default. In practice, this only affects which device
+  the OS image will be written to. The following are the current
+  supported `hardwareProfile` settings and their corresponding root devices.
+
+  | **hardwareProfile** | **Root Device** |
+  |---------------------|-----------------|
+  | `unknown`           | /dev/sda        |
+  | `libvirt`           | /dev/vda        |
+  | `dell`              | HCTL: 0:0:0:0   |
+  | `dell-raid`         | HCTL: 0:2:0:0   |
+
+  **NOTE:** These are subject to change.
+
+* *poweredOn* -- Boolean indicating whether the host is powered on.
+  See *online* on the *BareMetalHost's* *Spec*.
+* *provisioning* -- Settings related to deploying an image to the host.
+  * *state* -- The current state of any ongoing provisioning operation.
+    The following are the currently supported ones:
+    * *\<empty string\>* -- There is no provisioning happening, at the moment.
+    * *registration error* -- The details for the host's BMC are
+      either incorrect or incomplete therfore the host could not be managed.
+    * *registering* -- The host's BMC details are being checked.
+    * *match profile* -- The discovered hardware details on the host
+      are being compared against known profiles.
+    * *ready* -- The host is available to be consumed.
+    * *validation error* -- The provisioning steps found an error.
+    * *provisioning* -- An image is being written to the host's disk(s).
+    * *provisioning error* -- The image could not be written to the host.
+    * *provisioned* -- An image has been completely written to the host's disk(s). 
+    * *externally provisioned* -- Metal³ does not manage the image on the host.
+    * *deprovisioning* -- The image is being wiped from the host's disk(s).
+    * *inspecting* -- The hardware details for the host are being collected
+      by an agent.
+    * *power management error* -- An error was found while trying to power
+      the host either on or off.
+
+### BareMetalHost Example
+
+The following is a complete example from a running cluster of a *BareMetalHost*
+resource (in YAML), it includes its specification and status sections:
+
+```yaml
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  creationTimestamp: "2019-09-20T06:33:35Z"
+  finalizers:
+  - baremetalhost.metal3.io
+  generation: 2
+  name: bmo-master-0
+  namespace: bmo-project
+  resourceVersion: "22642"
+  selfLink: /apis/metal3.io/v1alpha1/namespaces/bmo-project/baremetalhosts/bmo-master-0
+  uid: 92b2f77a-db70-11e9-9db1-525400764849
+spec:
+  bmc:
+    address: ipmi://10.10.57.19
+    credentialsName: bmo-master-0-bmc-secret
+  bootMACAddress: 98:03:9b:61:80:48
+  consumerRef:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: bmo-master-0
+    namespace: bmo-project
+  externallyProvisioned: true
+  hardwareProfile: default
+  image:
+    checksum: http://172.16.1.100/images/myOSv1/myOS.qcow2.md5sum
+    url: http://172.16.1.100/images/myOSv1/myOS.qcow2
+  online: true
+  userData:
+    name: bmo-master-user-data
+    namespace: bmo-project
+status:
+  errorMessage: ""
+  goodCredentials:
+    credentials:
+      name: bmo-master-0-bmc-secret
+      namespace: bmo-project
+    credentialsVersion: "5562"
+  hardware:
+    cpu:
+      arch: x86_64
+      clockMegahertz: 2000
+      count: 40
+      flags: []
+      model: Intel(R) Xeon(R) Gold 6138 CPU @ 2.00GHz
+    firmware:
+      bios:
+        date: 12/17/2018
+        vendor: Dell Inc.
+        version: 1.6.13
+    hostname: bmo-master-0.localdomain
+    nics:
+    - ip: 172.22.135.105
+      mac: "00:00:00:00:00:00"
+      model: unknown
+      name: eno1
+      pxe: true
+      speedGbps: 25
+      vlanId: 0
+    ramMebibytes: 0
+    storage: []
+    systemVendor:
+      manufacturer: Dell Inc.
+      productName: PowerEdge r460
+      serialNumber: ""
+  hardwareProfile: ""
+  lastUpdated: "2019-09-20T07:03:23Z"
+  operationalStatus: OK
+  poweredOn: true
+  provisioning:
+    ID: a4438010-3fc6-4c5c-b570-900bbe85da57
+    image:
+      checksum: ""
+      url: ""
+    state: externally provisioned
+  triedCredentials:
+    credentials:
+      name: bmo-master-0-bmc-secret
+      namespace: bmo-project
+    credentialsVersion: "5562"
 ```
+
+And here it is the secret `bmo-master-0-bmc-secret` holding the host's BMC credentials:
+
+```yaml
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: openshift-worker-1-bmc-secret
+  name: bmo-master-0-bmc-secret
 type: Opaque
 data:
   username: YWRtaW4=
   password: cGFzc3dvcmQ=
-
----
-apiVersion: metal3.io/v1alpha1
-kind: BareMetalHost
-metadata:
-  name: openshift-worker-1
-spec:
-  online: true
-  bmc:
-    address: libvirt://192.168.122.1:6234/
-    credentialsName: openshift-worker-1-bmc-secret
-  bootMACAddress: 00:11:55:9e:1d:f7
-  userData:
-    namespace: openshift-machine-api
-    name: worker-user-data
-  image:
-    url: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2"
-    checksum: "http://172.22.0.1/images/rhcos-ootpa-latest.qcow2.md5sum"
-```
-
-### Status Fields
-
-*consumerRef* -- The thing using the host. Usually a Machine, linking
-the host to a Node.
-
-*lastUpdated* -- The timestamp of the last time the status for the
-host was updated.
-
-*operationalStatus* -- The status of the server. Value is one of the
-following:
-  * *OK* -- The host is configured correctly and is manageable.
-  * *discovered* -- The host is only partially configured, such as
-  when the BMC address is known but the login credentials are not.
-  * *error* -- There is an error with the configuration data for the
-  host or there is a problem with the host itself. Refer to the
-  *errorMessage* field in the status section for more details about
-  the error condition.
-
-*errorMessage* -- Details for any error.
-
-*hardware* -- The details for hardware capabilities discovered on the
-host. These are filled in by the provisioning agent when the host is
-registered.
-
-*hardware.nics* -- List of network interfaces for the host.
-
-*hardware.nics.mac* -- The MAC address of the NIC.
-
-*hardware.nics.ip* -- The IP address of the NIC, if one was assigned
-when the discovery agent ran.
-
-*hardware.storage* -- List of storage (disk, SSD, etc.) available to
-the host.
-
-*hardware.storage.size* -- Size in GB of the storage location.
-
-*hardware.storage.info* -- Information string about the storage.
-
-*hardware.cpus* -- List of CPUs in the system.
-
-*hardware.cpus.type* -- The type of the CPU.
-
-*hardware.cpus.speed* -- The speed in GHz of the CPU.
-
-*hardwareProfile* -- The name of the hardware profile that matches the
-hardware discovered on the host. Details about the hardware are saved
-to the *hardware* section of the status. If the hardware does not
-match a known profile, the value "unknown" is used.  In practice, so far
-this affects which device the deployed OS image is written to.  The
-following `hardwareProfile` settings and the corresponding root device
-are listed here, and are definitely subject to change.  (Note that the
-default is `unknown`.)
-
-| **hardwareProfile** | **Root Device** |
-|---------------------|-----------------|
-| `unknown`           | /dev/sda        |
-|  `libvirt`          |  /dev/vda       |
-| `dell`              | HCTL: 0:0:0:0   |
-| `dell-raid`         | HCTL: 0:2:0:0   |
-
-*poweredOn* -- Boolean indicating whether the host is powered on. See
-*online*.
-
-*provisioning* -- Settings related to deploying an image to the host.
-
-*provisioning.state* -- The current state of any ongoing provisioning
-operation.  One of:
-  * *<empty string>* -- No provisioning is happening.
-  * *registration error* -- The details for the BMC for the host are
-    incorrect or incomplete and the host could not be managed.
-  * *registering* -- The details for the BMC for the host are being
-    checked.
-  * *match profile* -- The details for the hardware found on the host
-    are being compared against known profiles.
-  * *ready* -- The host is available to be consumed.
-  * *validation error* -- The details for the BMC for the host are
-    incorrect or incomplete and the host could not be managed.
-  * *provisioning* -- An image is being written to the host.
-  * *provisioning error* -- The image could not be written to the host.
-  * *provisioned* -- An image has been written to the host completely.
-  * *externally provisioned* -- The host has a consumer, but metal3
-    did not write an image to the host.
-  * *deprovisioning* -- The host storage is being wiped.
-  * *inspecting* -- The hardware details for the host are being
-    collected.
-  * *power management error* -- The host could not be powered on or
-    off, as requested through the *online* field setting.
-
-```
-apiVersion: metal3.io/v1alpha1
-kind: BareMetalHost
-metadata:
-  creationTimestamp: 2019-02-08T20:10:32Z
-  finalizers:
-  - baremetalhost.metal3.io
-  generation: 9
-  name: example-baremetalhost
-  namespace: bmo-project
-  resourceVersion: "1750818"
-  selfLink: /apis/metal3.io/v1alpha1/namespaces/bmo-project/baremetalhosts/example-baremetalhost
-  uid: 96837048-2bdd-11e9-8df7-525400f68198
-spec:
-  bmc:
-    credentials:
-      name: bmc1-secret
-    address: ipmi://192.168.122.1:6233
-  online: true
-status:
-  errorMessage: ""
-  hardware:
-    cpus: null
-    nics: null
-    storage: null
-  hardwareProfile: unknown
-  image: ""
-  lastUpdated: 2019-02-11T17:44:30Z
-  operationalStatus: OK
-  provisioningID: ""
 ```
 
 ## Triggering Provisioning

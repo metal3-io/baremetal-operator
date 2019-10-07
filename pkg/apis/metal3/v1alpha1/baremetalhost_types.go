@@ -205,6 +205,9 @@ type Storage struct {
 	// A name for the disk, e.g. "disk 1 (boot)"
 	Name string `json:"name"`
 
+	// Disk path, e.g. /dev/disk/by-path/pci-0000:00:07.0
+	ByPath string `json:"by_path"`
+
 	// Whether this disk represents rotational storage
 	Rotational bool `json:"rotational"`
 

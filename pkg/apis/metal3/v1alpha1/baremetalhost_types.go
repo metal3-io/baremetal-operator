@@ -85,6 +85,10 @@ const (
 	// StatePowerManagementError means something went wrong trying to
 	// power the server on or off.
 	StatePowerManagementError ProvisioningState = "power management error"
+
+	// StateDeleting means we are in the process of cleaning up the host
+	// ready for deletion
+	StateDeleting ProvisioningState = "deleting"
 )
 
 // BMCDetails contains the information necessary to communicate with

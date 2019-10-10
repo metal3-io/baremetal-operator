@@ -65,8 +65,8 @@ If an error occurs during one of the processing states (Registering,
 Inspecting, Provisioning, Deprovisioning) the host will enter the
 Error state.
 
-## Deleted
+## Deleting
 
 When the host is marked to be deleted, it will move from its current
-state to Deleted, at which point the resource record is deleted from
+state to Deleting, at which point the resource record is deleted from
 kubernetes.

@@ -366,6 +366,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	return result, nil
 }
 
+// Manage deletion of the host
+func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+	return r.deleteHost(info.request, info.host)
+}
+
 // Handle all delete cases
 func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (result reconcile.Result, err error) {
 
@@ -401,6 +406,8 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 	if err != nil {
 		return result, errors.Wrap(err, "failed to create provisioner")
 	}
+
+	host.Status.Provisioning.State = metal3v1alpha1.StateDeleting
 
 	if host.NeedsDeprovisioning() {
 		reqLogger.Info("deprovisioning before deleting")

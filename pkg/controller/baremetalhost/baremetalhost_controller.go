@@ -206,60 +206,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	// management controller.
 	bmcCreds, bmcCredsSecret, err := r.buildAndValidateBMCCredentials(request, host)
 	if err != nil {
-		switch err.(type) {
-		// We treat an empty bmc address and empty bmc credentials fields as a
-		// trigger the host needs to be put into a discovered status. We also set
-		// an error message (but not an error state) on the host so we can understand
-		// what we may be waiting on.  Editing the host to set these values will
-		// cause the host to be reconciled again so we do not Requeue.
-		case *EmptyBMCAddressError, *EmptyBMCSecretError:
-			dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
-			if dirty {
-				// Set the host error message directly
-				// as we cannot use SetErrorCondition which
-				// overwrites our discovered state
-				host.Status.ErrorMessage = err.Error()
-				saveErr := r.saveStatus(host)
-				if saveErr != nil {
-					return reconcile.Result{Requeue: true}, saveErr
-				}
-				// Only publish the event if we do not have an error
-				// after saving so that we only publish one time.
-				r.publishEvent(request,
-					host.NewEvent("Discovered", fmt.Sprintf("Discovered host with unusable BMC details: %s", err.Error())))
-			}
-			return reconcile.Result{}, nil
-		// In the event a credential secret is defined, but we cannot find it
-		// we requeue the host as we will not know if they create the secret
-		// at some point in the future.
-		case *ResolveBMCSecretRefError:
-			changed, saveErr := r.setErrorCondition(request, host, err.Error())
-			if saveErr != nil {
-				return reconcile.Result{Requeue: true}, saveErr
-			}
-			if changed {
-				// Only publish the event if we do not have an error
-				// after saving so that we only publish one time.
-				r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-			}
-			return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
-		// If we have found the secret but it is missing the required fields
-		// or the BMC address is defined but malformed we set the
-		// host into an error state but we do not Requeue it
-		// as fixing the secret or the host BMC info will trigger
-		// the host to be reconciled again
-		case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
-			_, saveErr := r.setErrorCondition(request, host, err.Error())
-			if saveErr != nil {
-				return reconcile.Result{Requeue: true}, saveErr
-			}
-			// Only publish the event if we do not have an error
-			// after saving so that we only publish one time.
-			r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-			return reconcile.Result{}, nil
-		default:
-			return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
-		}
+		return r.credentialsErrorResult(err, request, host)
 	}
 
 	// Pick the action to perform
@@ -364,6 +311,63 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		"after", result.RequeueAfter,
 	)
 	return result, nil
+}
+
+func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (reconcile.Result, error) {
+	switch err.(type) {
+	// We treat an empty bmc address and empty bmc credentials fields as a
+	// trigger the host needs to be put into a discovered status. We also set
+	// an error message (but not an error state) on the host so we can understand
+	// what we may be waiting on.  Editing the host to set these values will
+	// cause the host to be reconciled again so we do not Requeue.
+	case *EmptyBMCAddressError, *EmptyBMCSecretError:
+		dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
+		if dirty {
+			// Set the host error message directly
+			// as we cannot use SetErrorCondition which
+			// overwrites our discovered state
+			host.Status.ErrorMessage = err.Error()
+			saveErr := r.saveStatus(host)
+			if saveErr != nil {
+				return reconcile.Result{Requeue: true}, saveErr
+			}
+			// Only publish the event if we do not have an error
+			// after saving so that we only publish one time.
+			r.publishEvent(request,
+				host.NewEvent("Discovered", fmt.Sprintf("Discovered host with unusable BMC details: %s", err.Error())))
+		}
+		return reconcile.Result{}, nil
+	// In the event a credential secret is defined, but we cannot find it
+	// we requeue the host as we will not know if they create the secret
+	// at some point in the future.
+	case *ResolveBMCSecretRefError:
+		changed, saveErr := r.setErrorCondition(request, host, err.Error())
+		if saveErr != nil {
+			return reconcile.Result{Requeue: true}, saveErr
+		}
+		if changed {
+			// Only publish the event if we do not have an error
+			// after saving so that we only publish one time.
+			r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+		}
+		return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
+	// If we have found the secret but it is missing the required fields
+	// or the BMC address is defined but malformed we set the
+	// host into an error state but we do not Requeue it
+	// as fixing the secret or the host BMC info will trigger
+	// the host to be reconciled again
+	case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
+		_, saveErr := r.setErrorCondition(request, host, err.Error())
+		if saveErr != nil {
+			return reconcile.Result{Requeue: true}, saveErr
+		}
+		// Only publish the event if we do not have an error
+		// after saving so that we only publish one time.
+		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+		return reconcile.Result{}, nil
+	default:
+		return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
+	}
 }
 
 // Manage deletion of the host

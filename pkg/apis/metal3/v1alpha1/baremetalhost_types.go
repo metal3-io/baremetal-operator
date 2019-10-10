@@ -58,10 +58,6 @@ const (
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
 
-	// StateValidationError means the provisioning instructions had an
-	// error
-	StateValidationError ProvisioningState = "validation error"
-
 	// StateProvisioning means we are writing an image to the host's
 	// disk(s)
 	StateProvisioning ProvisioningState = "provisioning"

@@ -1,8 +1,8 @@
 package bmc
 
 import (
-	"strings"
 	"net/url"
+	"strings"
 )
 
 func init() {

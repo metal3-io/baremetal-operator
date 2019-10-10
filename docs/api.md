@@ -154,7 +154,8 @@ details, etc.
     * *validation error* -- The provisioning steps found an error.
     * *provisioning* -- An image is being written to the host's disk(s).
     * *provisioning error* -- The image could not be written to the host.
-    * *provisioned* -- An image has been completely written to the host's disk(s). 
+    * *provisioned* -- An image has been completely written to the host's
+      disk(s).
     * *externally provisioned* -- Metal³ does not manage the image on the host.
     * *deprovisioning* -- The image is being wiped from the host's disk(s).
     * *inspecting* -- The hardware details for the host are being collected

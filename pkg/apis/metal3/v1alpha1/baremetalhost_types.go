@@ -357,10 +357,10 @@ type BareMetalHostStatus struct {
 	Provisioning ProvisionStatus `json:"provisioning"`
 
 	// the last credentials we were able to validate as working
-	GoodCredentials CredentialsStatus `json:"goodCredentials"`
+	GoodCredentials CredentialsStatus `json:"goodCredentials,omitempty"`
 
 	// the last credentials we sent to the provisioning backend
-	TriedCredentials CredentialsStatus `json:"triedCredentials"`
+	TriedCredentials CredentialsStatus `json:"triedCredentials,omitempty"`
 
 	// the last error message reported by the provisioning subsystem
 	ErrorMessage string `json:"errorMessage"`

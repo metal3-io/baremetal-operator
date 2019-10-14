@@ -368,8 +368,6 @@ spec:
           - operationalStatus
           - hardwareProfile
           - provisioning
-          - goodCredentials
-          - triedCredentials
           - errorMessage
           - poweredOn
           type: object

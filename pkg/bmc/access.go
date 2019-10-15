@@ -67,7 +67,7 @@ func getParsedURL(address string) (parsedURL *url.URL, err error) {
 		}
 		parsedURL = &url.URL{
 			Scheme: "ipmi",
-			Host: address,
+			Host:   address,
 		}
 	} else {
 		// Successfully parsed the URL

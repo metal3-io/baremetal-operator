@@ -1,27 +1,26 @@
-Setup Development Environment
-=============================
+# Setup Development Environment
 
 ## Install the operator-sdk
 
 Follow the instructions in the Quick Start section of
-https://github.com/operator-framework/operator-sdk to check out and
+<https://github.com/operator-framework/operator-sdk> to check out and
 install the operator-sdk tools.
 
 ## With minikube
 
 1. Install and launch minikube
 
-   https://kubernetes.io/docs/setup/minikube/
+   <https://kubernetes.io/docs/setup/minikube/>
 
-3. Create a namespace to host the operator
+1. Create a namespace to host the operator
 
-    ```
+    ```bash
     kubectl create namespace metal3
     ```
 
-4. Install operator-sdk
+1. Install operator-sdk
 
-    ```
+    ```bash
     eval $(go env)
     mkdir -p $GOPATH/src/github.com/metal3-io
     cd $GOPATH/src/github.com/metal3-io
@@ -33,9 +32,9 @@ install the operator-sdk tools.
     kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
     ```
 
-5. Launch the operator locally
+1. Launch the operator locally
 
-    ```
+    ```bash
     export OPERATOR_NAME=baremetal-operator
     export DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel
     export DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs
@@ -44,9 +43,9 @@ install the operator-sdk tools.
     operator-sdk up local --namespace=metal3
     ```
 
-6. Create the CR
+1. Create the CR
 
-    ```
+    ```bash
     kubectl apply -f deploy/crds/example-host.yaml -n metal3
     ```
 
@@ -57,7 +56,7 @@ is to be able to have some test data, use the test fixture provisioner
 instead of the real Ironic provisioner by passing `-test-mode` to the
 operator when launching it.
 
-```
+```bash
 operator-sdk up local --operator-flags "-test-mode"
 ```
 
@@ -74,8 +73,9 @@ your environment.
 
 ## Using libvirt VMs with Ironic
 
-In order to use VMs as hosts, they need to be connected to [vbmc](https://docs.openstack.org/tripleo-docs/latest/install/environments/virtualbmc.html) and
-the `bootMACAddress` field needs to be set to the MAC address of the
+In order to use VMs as hosts, they need to be connected to
+[vbmc](https://docs.openstack.org/tripleo-docs/latest/install/environments/virtualbmc.html)
+and the `bootMACAddress` field needs to be set to the MAC address of the
 network interface that will PXE boot.
 
 For example:
@@ -98,7 +98,7 @@ registering a host. It takes as input the name of the `virsh` domain
 and produces as output the basic YAML to register that host properly,
 with the boot MAC address and BMC address filled in.
 
-```
+```bash
 $ go run cmd/make-virt-host/main.go openshift_worker_1
 ---
 apiVersion: v1
@@ -125,16 +125,17 @@ spec:
 
 The output can be passed directly to `oc apply` like this:
 
-```
-$ go run cmd/make-virt-host/main.go openshift_worker_1 | oc apply -f -
+```bash
+go run cmd/make-virt-host/main.go openshift_worker_1 | oc apply -f -
 ```
 
 When the host is a *master*, include the `-consumer` and
 `-consumer-namespace` options to associate the host with the existing
 `Machine` object.
 
-```
-$ go run cmd/make-virt-host/main.go -consumer ostest-master-1 -consumer-namespace openshift-machine-api  openshift_master_1
+```bash
+$ go run cmd/make-virt-host/main.go -consumer ostest-master-1 \
+  -consumer-namespace openshift-machine-api  openshift_master_1
 ---
 apiVersion: v1
 kind: Secret
@@ -166,8 +167,9 @@ spec:
 The `make-bm-worker` tool may be a more convenient way of creating
 YAML definitions for workers than editing the files directly.
 
-```
-$ go run cmd/make-bm-worker/main.go -address 1.2.3.4 -password password -user admin worker-99
+```bash
+$ go run cmd/make-bm-worker/main.go -address 1.2.3.4 \
+  -password password -user admin worker-99
 ---
 apiVersion: v1
 kind: Secret

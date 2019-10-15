@@ -13,16 +13,16 @@ func init() {
 
 func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 	return &redfishAccessDetails{
-		bmcType:  parsedURL.Scheme,
-		host:     parsedURL.Host,
-		path:     parsedURL.Path,
+		bmcType: parsedURL.Scheme,
+		host:    parsedURL.Host,
+		path:    parsedURL.Path,
 	}, nil
 }
 
 type redfishAccessDetails struct {
-	bmcType  string
-	host     string
-	path     string
+	bmcType string
+	host    string
+	path    string
 }
 
 const redfishDefaultScheme = "https"
@@ -60,10 +60,10 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 	redfishAddress = append(redfishAddress, a.host)
 
 	result := map[string]interface{}{
-		"redfish_system_id":     a.path,
-		"redfish_username": bmcCreds.Username,
-		"redfish_password": bmcCreds.Password,
-		"redfish_address": strings.Join(redfishAddress, ""),
+		"redfish_system_id": a.path,
+		"redfish_username":  bmcCreds.Username,
+		"redfish_password":  bmcCreds.Password,
+		"redfish_address":   strings.Join(redfishAddress, ""),
 	}
 
 	return result

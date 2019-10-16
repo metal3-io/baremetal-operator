@@ -495,10 +495,30 @@ func TestCredentialStatusMatch(t *testing.T) {
 			Secret: corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "match",
+					Namespace:       "namespace",
 					ResourceVersion: "1",
 				},
 			},
 			Expected: true,
+		},
+
+		{
+			Scenario: "wrong namespace",
+			CredStat: CredentialsStatus{
+				Reference: &corev1.SecretReference{
+					Name:      "match",
+					Namespace: "namespace",
+				},
+				Version: "1",
+			},
+			Secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "match",
+					Namespace:       "namespace2",
+					ResourceVersion: "1",
+				},
+			},
+			Expected: false,
 		},
 
 		{

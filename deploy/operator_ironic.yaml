@@ -70,17 +70,12 @@ spec:
                 configMapKeyRef:
                   name: ironic-bmo-configmap
                   key: http_port
-            - name: IP
-              valueFrom:
-                configMapKeyRef:
-                  name: ironic-bmo-configmap
-                  key: http_ip
             - name: DHCP_RANGE
               valueFrom:
                 configMapKeyRef:
                   name: ironic-bmo-configmap
                   key: dhcp_range
-            - name: INTERFACE
+            - name: PROVISIONING_INTERFACE
               valueFrom:
                 configMapKeyRef:
                   name: ironic-bmo-configmap
@@ -112,16 +107,16 @@ spec:
             - mountPath: /shared
               name: ironic-data-volume
           env:
+            - name: PROVISIONING_INTERFACE
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: interface
             - name: HTTP_PORT
               valueFrom:
                 configMapKeyRef:
                   name: ironic-bmo-configmap
                   key: http_port
-            - name: IP
-              valueFrom:
-                configMapKeyRef:
-                  name: ironic-bmo-configmap
-                  key: http_ip
         - name: ironic
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
@@ -143,12 +138,7 @@ spec:
                 configMapKeyRef:
                   name: ironic-bmo-configmap
                   key: http_port
-            - name: IP
-              valueFrom:
-                configMapKeyRef:
-                  name: ironic-bmo-configmap
-                  key: http_ip
-            - name: INTERFACE
+            - name: PROVISIONING_INTERFACE
               valueFrom:
                 configMapKeyRef:
                   name: ironic-bmo-configmap
@@ -159,11 +149,28 @@ spec:
           securityContext:
             privileged: true
           env:
-            - name: INTERFACE
+            - name: PROVISIONING_INTERFACE
               valueFrom:
                 configMapKeyRef:
                   name: ironic-bmo-configmap
                   key: interface
+      initContainers:
+        - name: ironic-ipa-downloader
+          image: quay.io/metal3-io/ironic-ipa-downloader
+          imagePullPolicy: Always
+          command:
+            - /usr/local/bin/get-resource.sh
+          securityContext:
+            privileged: true
+          env:
+            - name: CACHEURL
+              valueFrom:
+                configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: cacheurl
+          volumeMounts:
+            - mountPath: /shared
+              name: ironic-data-volume
       volumes:
         - name: ironic-data-volume
           emptyDir: {}

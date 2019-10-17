@@ -230,7 +230,6 @@ func TestParse(t *testing.T) {
 			Hostname: "192.168.122.1",
 			Path:     "",
 		},
-
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			url, err := getParsedURL(tc.Address)
@@ -336,7 +335,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			boot:     "pxe",
 		},
-
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			acc, err := NewAccessDetails(tc.input)
@@ -359,13 +357,13 @@ func TestStaticDriverInfo(t *testing.T) {
 
 func TestDriverInfo(t *testing.T) {
 	for _, tc := range []struct {
-		Scenario	string
-		input   	string
-		expects 	map[string]string
+		Scenario string
+		input    string
+		expects  map[string]string
 	}{
 		{
 			Scenario: "ipmi default port",
-			input: "ipmi://192.168.122.1",
+			input:    "ipmi://192.168.122.1",
 			expects: map[string]string{
 				"ipmi_port":     ipmiDefaultPort,
 				"ipmi_password": "",
@@ -376,7 +374,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "idrac",
-			input: "idrac://192.168.122.1",
+			input:    "idrac://192.168.122.1",
 			expects: map[string]string{
 				"drac_address":  "192.168.122.1",
 				"drac_password": "",
@@ -386,7 +384,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "idrac http",
-			input: "idrac+http://192.168.122.1",
+			input:    "idrac+http://192.168.122.1",
 			expects: map[string]string{
 				"drac_address":  "192.168.122.1",
 				"drac_protocol": "http",
@@ -397,7 +395,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "idrac https",
-			input: "idrac+https://192.168.122.1",
+			input:    "idrac+https://192.168.122.1",
 			expects: map[string]string{
 				"drac_address":  "192.168.122.1",
 				"drac_protocol": "https",
@@ -408,7 +406,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "idrac port and path http",
-			input: "idrac://192.168.122.1:8080/foo",
+			input:    "idrac://192.168.122.1:8080/foo",
 			expects: map[string]string{
 				"drac_address":  "192.168.122.1",
 				"drac_port":     "8080",
@@ -420,7 +418,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "idrac ipv6",
-			input: "idrac://[fe80::fc33:62ff:fe83:8a76]/foo",
+			input:    "idrac://[fe80::fc33:62ff:fe83:8a76]/foo",
 			expects: map[string]string{
 				"drac_address":  "fe80::fc33:62ff:fe83:8a76",
 				"drac_path":     "/foo",
@@ -431,7 +429,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "idrac ipv6 port and path",
-			input: "idrac://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
+			input:    "idrac://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
 			expects: map[string]string{
 				"drac_address":  "fe80::fc33:62ff:fe83:8a76",
 				"drac_port":     "8080",
@@ -443,7 +441,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "irmc",
-			input: "irmc://192.168.122.1",
+			input:    "irmc://192.168.122.1",
 			expects: map[string]string{
 				"irmc_address":  "192.168.122.1",
 				"irmc_password": "",
@@ -453,7 +451,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "irmc port",
-			input: "irmc://192.168.122.1:8080",
+			input:    "irmc://192.168.122.1:8080",
 			expects: map[string]string{
 				"irmc_address":  "192.168.122.1",
 				"irmc_port":     "8080",
@@ -464,7 +462,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "irmc ipv6",
-			input: "irmc://[fe80::fc33:62ff:fe83:8a76]",
+			input:    "irmc://[fe80::fc33:62ff:fe83:8a76]",
 			expects: map[string]string{
 				"irmc_address":  "fe80::fc33:62ff:fe83:8a76",
 				"irmc_password": "",
@@ -474,7 +472,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "irmc ipv6 port",
-			input: "irmc://[fe80::fc33:62ff:fe83:8a76]:8080",
+			input:    "irmc://[fe80::fc33:62ff:fe83:8a76]:8080",
 			expects: map[string]string{
 				"irmc_address":  "fe80::fc33:62ff:fe83:8a76",
 				"irmc_port":     "8080",
@@ -485,70 +483,69 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "Redfish",
-			input: "redfish://192.168.122.1/foo/bar",
+			input:    "redfish://192.168.122.1/foo/bar",
 			expects: map[string]string{
-				"redfish_address":  	"https://192.168.122.1",
-				"redfish_system_id":	"/foo/bar",
-				"redfish_password": "",
-				"redfish_username": "",
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
 			},
 		},
 
 		{
 			Scenario: "Redfish http",
-			input: "redfish+http://192.168.122.1/foo/bar",
+			input:    "redfish+http://192.168.122.1/foo/bar",
 			expects: map[string]string{
-				"redfish_address":  	"http://192.168.122.1",
-				"redfish_system_id":	"/foo/bar",
-				"redfish_password": "",
-				"redfish_username": "",
+				"redfish_address":   "http://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
 			},
 		},
 
 		{
 			Scenario: "Redfish https",
-			input: "redfish+https://192.168.122.1/foo/bar",
+			input:    "redfish+https://192.168.122.1/foo/bar",
 			expects: map[string]string{
-				"redfish_address":  	"https://192.168.122.1",
-				"redfish_system_id":	"/foo/bar",
-				"redfish_password": "",
-				"redfish_username": "",
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
 			},
 		},
 
 		{
 			Scenario: "Redfish port",
-			input: "redfish://192.168.122.1:8080/foo/bar",
+			input:    "redfish://192.168.122.1:8080/foo/bar",
 			expects: map[string]string{
-				"redfish_address":  	"https://192.168.122.1:8080",
-				"redfish_system_id":	"/foo/bar",
-				"redfish_password": "",
-				"redfish_username": "",
+				"redfish_address":   "https://192.168.122.1:8080",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
 			},
 		},
 
 		{
 			Scenario: "Redfish ipv6",
-			input: "redfish://[fe80::fc33:62ff:fe83:8a76]/foo/bar",
+			input:    "redfish://[fe80::fc33:62ff:fe83:8a76]/foo/bar",
 			expects: map[string]string{
-				"redfish_address":  	"https://[fe80::fc33:62ff:fe83:8a76]",
-				"redfish_system_id":	"/foo/bar",
-				"redfish_password": "",
-				"redfish_username": "",
+				"redfish_address":   "https://[fe80::fc33:62ff:fe83:8a76]",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
 			},
 		},
 
 		{
 			Scenario: "Redfish ipv6 port",
-			input: "redfish://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
+			input:    "redfish://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
 			expects: map[string]string{
-				"redfish_address":  	"https://[fe80::fc33:62ff:fe83:8a76]:8080",
-				"redfish_system_id":	"/foo",
-				"redfish_password": "",
-				"redfish_username": "",
+				"redfish_address":   "https://[fe80::fc33:62ff:fe83:8a76]:8080",
+				"redfish_system_id": "/foo",
+				"redfish_password":  "",
+				"redfish_username":  "",
 			},
 		},
-
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			acc, err := NewAccessDetails(tc.input)
@@ -571,7 +568,6 @@ func TestDriverInfo(t *testing.T) {
 		})
 	}
 }
-
 
 func TestUnknownType(t *testing.T) {
 	acc, err := NewAccessDetails("foo://192.168.122.1")

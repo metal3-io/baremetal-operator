@@ -128,6 +128,30 @@ spec:
               description: UserData holds the reference to the Secret containing the
                 user data to be passed to the host before it boots.
               type: object
+            userDataInput:
+              description: UserDataInput holds the input user data when programatically
+                generating the content of UserData
+              properties:
+                type:
+                  description: Type is the type of userdata
+                  enum:
+                  - cloud-init
+                  type: string
+                userDataAppend:
+                  description: UserDataAppend references the Secret that holds user
+                    data that will be appended to the CABPK output. The Namespace
+                    is optional; it will default to the Machine's namespace if not
+                    specified.
+                  type: object
+                userDataPrepend:
+                  description: UserDataPrepend references the Secret that holds user
+                    data that will be prepended to the CABPK output. The Namespace
+                    is optional; it will default to the Machine's namespace if not
+                    specified.
+                  type: object
+              required:
+              - type
+              type: object
           required:
           - online
           type: object

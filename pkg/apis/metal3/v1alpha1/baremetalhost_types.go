@@ -143,6 +143,10 @@ type BareMetalHostSpec struct {
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
+	// UserDataInput holds the input user data when programatically generating the
+	// content of UserData
+	UserDataInput *UserDataInput `json:"userDataInput,omitempty"`
+
 	// Description is a human-entered text used to help identify the host
 	Description string `json:"description,omitempty"`
 
@@ -151,6 +155,26 @@ type BareMetalHostSpec struct {
 	// the power status and hardware inventory inspection. If the
 	// Image field is filled in, this field is ignored.
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
+}
+
+// UserDataInput contains the userdata given by the user as a secret and
+// the type and strategy of merge.
+type UserDataInput struct {
+	//Type is the type of userdata
+	// +kubebuilder:validation:Enum=cloud-init
+	Type string `json:"type"`
+
+	// UserDataAppend references the Secret that holds user data that will be
+	// appended to the CABPK output. The Namespace is optional; it will default to
+	// the Machine's namespace if not specified.
+	// +optional
+	UserDataAppend *corev1.SecretReference `json:"userDataAppend,omitempty"`
+
+	// UserDataPrepend references the Secret that holds user data that will be
+	// prepended to the CABPK output. The Namespace is optional; it will default to
+	// the Machine's namespace if not specified.
+	// +optional
+	UserDataPrepend *corev1.SecretReference `json:"userDataPrepend,omitempty"`
 }
 
 // Image holds the details of an image either to provisioned or that

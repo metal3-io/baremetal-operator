@@ -27,7 +27,7 @@ func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
 	currentState := host.Status.Provisioning.State
 	r := hostStateMachine{
 		Host:        host,
-		NextState:   currentState,
+		NextState:   currentState, // Remain in current state by default
 		Reconciler:  reconciler,
 		Provisioner: provisioner,
 	}
@@ -70,7 +70,7 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (result reconci
 	initialState := hsm.Host.Status.Provisioning.State
 	defer hsm.updateHostStateFrom(initialState, &result, info.log)
 
-	if hsm.shouldInitiateDelete() {
+	if hsm.checkInitiateDelete() {
 		info.log.Info("Initiating host deletion")
 		return
 	}
@@ -92,7 +92,7 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (result reconci
 	return
 }
 
-func (hsm *hostStateMachine) shouldInitiateDelete() bool {
+func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	if hsm.Host.DeletionTimestamp.IsZero() {
 		// Delete not requested
 		return false

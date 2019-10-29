@@ -42,25 +42,30 @@ fi
 
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
 # https://github.com/metal3-io/ironic/blob/master/rundnsmasq.sh
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq  "${POD}"\
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq  ${POD}\
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
 # For available env vars, see:
 # https://github.com/metal3-io/ironic/blob/master/runhttpd.sh
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd "${POD}"\
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd ${POD}\
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
 # https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb "${POD}"\
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb ${POD}\
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runmariadb \
      --env "MARIADB_PASSWORD=$mariadb_password" "${IRONIC_IMAGE}"
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
 # https://github.com/metal3-io/ironic/blob/master/runironic.sh
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic "${POD}"\
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic ${POD}\
      --env "MARIADB_PASSWORD=$mariadb_password" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start Ironic Inspector
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector "${POD}"\
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector ${POD}\
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"

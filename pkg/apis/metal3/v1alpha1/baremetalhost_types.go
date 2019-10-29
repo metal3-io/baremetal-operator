@@ -58,10 +58,6 @@ const (
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
 
-	// StateValidationError means the provisioning instructions had an
-	// error
-	StateValidationError ProvisioningState = "validation error"
-
 	// StateProvisioning means we are writing an image to the host's
 	// disk(s)
 	StateProvisioning ProvisioningState = "provisioning"
@@ -89,6 +85,10 @@ const (
 	// StatePowerManagementError means something went wrong trying to
 	// power the server on or off.
 	StatePowerManagementError ProvisioningState = "power management error"
+
+	// StateDeleting means we are in the process of cleaning up the host
+	// ready for deletion
+	StateDeleting ProvisioningState = "deleting"
 )
 
 // BMCDetails contains the information necessary to communicate with

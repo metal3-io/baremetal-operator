@@ -291,13 +291,10 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 					Path:  "/instance_info/image_checksum",
 					Value: checksum,
 				},
-				// NOTE(dhellmann): We must fill in *some* value so that
-				// Ironic will monitor the host. We don't have a nova
-				// instance at all, so just give the node it's UUID again.
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
 					Path:  "/instance_uuid",
-					Value: p.host.Status.Provisioning.ID,
+					Value: string(p.host.ObjectMeta.UID),
 				},
 			}
 			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
@@ -705,17 +702,13 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 	)
 
 	// instance_uuid
-	//
-	// NOTE(dhellmann): We must fill in *some* value so that Ironic
-	// will monitor the host. We don't have a nova instance at all, so
-	// just give the node it's UUID again.
 	p.log.Info("setting instance_uuid")
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
 			Op:    nodes.ReplaceOp,
 			Path:  "/instance_uuid",
-			Value: p.host.Status.Provisioning.ID,
+			Value: string(p.host.ObjectMeta.UID),
 		},
 	)
 
@@ -981,7 +974,11 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 				// cloud-init requires that meta_data.json exists and
 				// that the "uuid" field is present to process
 				// any of the config drive contents.
-				MetaData: map[string]interface{}{"uuid": p.host.Status.Provisioning.ID},
+				MetaData: map[string]interface{}{
+					"uuid":             string(p.host.ObjectMeta.UID),
+					"metal3-namespace": p.host.ObjectMeta.Namespace,
+					"metal3-name":      p.host.ObjectMeta.Name,
+				},
 			}
 			if err != nil {
 				return result, errors.Wrap(err, "failed to build config drive")

@@ -62,12 +62,12 @@ unit-cover-html:
 unit-verbose:
 	VERBOSE=-v make unit
 
-crd_file=deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
+crd_file=deploy/crds/metal3.io_baremetalhosts_crd.yaml
 crd_tmp=.crd.yaml.tmp
 
 .PHONY: lint
 lint: test-sec $GOPATH/bin/golint
-	golint -set_exit_status pkg/... cmd/...
+	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
 	go vet ./pkg/... ./cmd/...
 	cp $(crd_file) $(crd_tmp); make generate; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
 
@@ -96,7 +96,7 @@ e2e-local:
 
 .PHONY: dep
 dep:
-	dep ensure
+	dep ensure -v
 
 .PHONY: run
 run:
@@ -126,6 +126,10 @@ deploy:
 	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
 	kustomize build deploy | kubectl apply -f -
 
-.PHONY: dep-check
-dep-check:
-	dep check
+.PHONY: dep-status
+dep-status:
+	dep status
+
+.PHONY: dep-prune
+dep-prune:
+	dep prune -v

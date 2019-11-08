@@ -1,0 +1,470 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: baremetalhosts.metal3.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.operationalStatus
+    description: Operational status
+    name: Status
+    type: string
+  - JSONPath: .status.provisioning.state
+    description: Provisioning status
+    name: Provisioning Status
+    type: string
+  - JSONPath: .spec.consumerRef.name
+    description: Consumer using this host
+    name: Consumer
+    type: string
+  - JSONPath: .spec.bmc.address
+    description: Address of management controller
+    name: BMC
+    type: string
+  - JSONPath: .status.hardwareProfile
+    description: The type of hardware detected
+    name: Hardware Profile
+    type: string
+  - JSONPath: .spec.online
+    description: Whether the host is online or not
+    name: Online
+    type: string
+  - JSONPath: .status.errorMessage
+    description: Most recent error
+    name: Error
+    type: string
+  group: metal3.io
+  names:
+    kind: BareMetalHost
+    listKind: BareMetalHostList
+    plural: baremetalhosts
+    shortNames:
+    - bmh
+    - bmhost
+    singular: baremetalhost
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: BareMetalHost is the Schema for the baremetalhosts API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: BareMetalHostSpec defines the desired state of BareMetalHost
+          properties:
+            bmc:
+              description: How do we connect to the BMC?
+              properties:
+                address:
+                  description: Address holds the URL for accessing the controller
+                    on the network.
+                  type: string
+                credentialsName:
+                  description: The name of the secret containing the BMC credentials
+                    (requires keys "username" and "password").
+                  type: string
+              required:
+              - address
+              - credentialsName
+              type: object
+            bootMACAddress:
+              description: Which MAC address will PXE boot? This is optional for some
+                types, but required for libvirt VMs driven by vbmc.
+              pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+              type: string
+            consumerRef:
+              description: ConsumerRef can be used to store information about something
+                that is using a host. When it is not empty, the host is considered
+                "in use".
+              properties:
+                apiVersion:
+                  description: API version of the referent.
+                  type: string
+                fieldPath:
+                  description: 'If referring to a piece of an object instead of an
+                    entire object, this string should contain a valid JSON/Go field
+                    access statement, such as desiredState.manifest.containers[2].
+                    For example, if the object reference is to a container within
+                    a pod, this would take on a value like: "spec.containers{name}"
+                    (where "name" refers to the name of the container that triggered
+                    the event) or if no container name is specified "spec.containers[2]"
+                    (container with index 2 in this pod). This syntax is chosen only
+                    to have some well-defined way of referencing a part of an object.
+                    TODO: this design is not final and this field is subject to change
+                    in the future.'
+                  type: string
+                kind:
+                  description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+                resourceVersion:
+                  description: 'Specific resourceVersion to which this reference is
+                    made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                  type: string
+                uid:
+                  description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                  type: string
+              type: object
+            description:
+              description: Description is a human-entered text used to help identify
+                the host
+              type: string
+            externallyProvisioned:
+              description: ExternallyProvisioned means something else is managing
+                the image running on the host and the operator should only manage
+                the power status and hardware inventory inspection. If the Image field
+                is filled in, this field is ignored.
+              type: boolean
+            hardwareProfile:
+              description: What is the name of the hardware profile for this host?
+                It should only be necessary to set this when inspection cannot automatically
+                determine the profile.
+              type: string
+            image:
+              description: Image holds the details of the image to be provisioned.
+              properties:
+                checksum:
+                  description: Checksum is the checksum for the image.
+                  type: string
+                url:
+                  description: URL is a location of an image to deploy.
+                  type: string
+              required:
+              - checksum
+              - url
+              type: object
+            online:
+              description: Should the server be online?
+              type: boolean
+            taints:
+              description: Taints is the full, authoritative list of taints to apply
+                to the corresponding Machine. This list will overwrite any modifications
+                made to the Machine on an ongoing basis.
+              items:
+                description: The node this Taint is attached to has the "effect" on
+                  any pod that does not tolerate the Taint.
+                properties:
+                  effect:
+                    description: Required. The effect of the taint on pods that do
+                      not tolerate the taint. Valid effects are NoSchedule, PreferNoSchedule
+                      and NoExecute.
+                    type: string
+                  key:
+                    description: Required. The taint key to be applied to a node.
+                    type: string
+                  timeAdded:
+                    description: TimeAdded represents the time at which the taint
+                      was added. It is only written for NoExecute taints.
+                    format: date-time
+                    type: string
+                  value:
+                    description: Required. The taint value corresponding to the taint
+                      key.
+                    type: string
+                required:
+                - effect
+                - key
+                type: object
+              type: array
+            userData:
+              description: UserData holds the reference to the Secret containing the
+                user data to be passed to the host before it boots.
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
+              type: object
+          required:
+          - online
+          type: object
+        status:
+          description: BareMetalHostStatus defines the observed state of BareMetalHost
+          properties:
+            errorMessage:
+              description: the last error message reported by the provisioning subsystem
+              type: string
+            goodCredentials:
+              description: the last credentials we were able to validate as working
+              properties:
+                credentials:
+                  description: SecretReference represents a Secret Reference. It has
+                    enough information to retrieve secret in any namespace
+                  properties:
+                    name:
+                      description: Name is unique within a namespace to reference
+                        a secret resource.
+                      type: string
+                    namespace:
+                      description: Namespace defines the space within which the secret
+                        name must be unique.
+                      type: string
+                  type: object
+                credentialsVersion:
+                  type: string
+              type: object
+            hardware:
+              description: The hardware discovered to exist on the host.
+              properties:
+                cpu:
+                  description: CPU describes one processor on the host.
+                  properties:
+                    arch:
+                      type: string
+                    clockMegahertz:
+                      description: ClockSpeed is a clock speed in MHz
+                    count:
+                      type: integer
+                    flags:
+                      items:
+                        type: string
+                      type: array
+                    model:
+                      type: string
+                  required:
+                  - arch
+                  - clockMegahertz
+                  - count
+                  - flags
+                  - model
+                  type: object
+                firmware:
+                  description: Firmware describes the firmware on the host.
+                  properties:
+                    bios:
+                      description: The BIOS for this firmware
+                      properties:
+                        date:
+                          description: The release/build date for this BIOS
+                          type: string
+                        vendor:
+                          description: The vendor name for this BIOS
+                          type: string
+                        version:
+                          description: The version of the BIOS
+                          type: string
+                      required:
+                      - date
+                      - vendor
+                      - version
+                      type: object
+                  required:
+                  - bios
+                  type: object
+                hostname:
+                  type: string
+                nics:
+                  items:
+                    description: NIC describes one network interface on the host.
+                    properties:
+                      ip:
+                        description: The IP address of the device
+                        type: string
+                      mac:
+                        description: The device MAC addr
+                        pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                        type: string
+                      model:
+                        description: The name of the model, e.g. "virt-io"
+                        type: string
+                      name:
+                        description: The name of the NIC, e.g. "nic-1"
+                        type: string
+                      pxe:
+                        description: Whether the NIC is PXE Bootable
+                        type: boolean
+                      speedGbps:
+                        description: The speed of the device
+                        type: integer
+                      vlanId:
+                        description: The untagged VLAN ID
+                        format: int32
+                        type: integer
+                      vlans:
+                        description: The VLANs available
+                        items:
+                          description: VLAN represents the name and ID of a VLAN
+                          properties:
+                            id:
+                              description: VLANID is a 12-bit 802.1Q VLAN identifier
+                              format: int32
+                              type: integer
+                            name:
+                              type: string
+                          required:
+                          - id
+                          type: object
+                        type: array
+                    required:
+                    - ip
+                    - mac
+                    - model
+                    - name
+                    - pxe
+                    - speedGbps
+                    - vlanId
+                    type: object
+                  type: array
+                ramMebibytes:
+                  type: integer
+                storage:
+                  items:
+                    description: Storage describes one storage device (disk, SSD,
+                      etc.) on the host.
+                    properties:
+                      hctl:
+                        description: The SCSI location of the device
+                        type: string
+                      model:
+                        description: Hardware model
+                        type: string
+                      name:
+                        description: A name for the disk, e.g. "disk 1 (boot)"
+                        type: string
+                      rotational:
+                        description: Whether this disk represents rotational storage
+                        type: boolean
+                      serialNumber:
+                        description: The serial number of the device
+                        type: string
+                      sizeBytes:
+                        description: The size of the disk in Bytes
+                        format: int64
+                        type: integer
+                      vendor:
+                        description: The name of the vendor of the device
+                        type: string
+                      wwn:
+                        description: The WWN of the device
+                        type: string
+                      wwnVendorExtension:
+                        description: The WWN Vendor extension of the device
+                        type: string
+                      wwnWithExtension:
+                        description: The WWN with the extension
+                        type: string
+                    required:
+                    - name
+                    - rotational
+                    - serialNumber
+                    - sizeBytes
+                    type: object
+                  type: array
+                systemVendor:
+                  description: HardwareSystemVendor stores details about the whole
+                    hardware system.
+                  properties:
+                    manufacturer:
+                      type: string
+                    productName:
+                      type: string
+                    serialNumber:
+                      type: string
+                  required:
+                  - manufacturer
+                  - productName
+                  - serialNumber
+                  type: object
+              required:
+              - cpu
+              - firmware
+              - hostname
+              - nics
+              - ramMebibytes
+              - storage
+              - systemVendor
+              type: object
+            hardwareProfile:
+              description: The name of the profile matching the hardware details.
+              type: string
+            lastUpdated:
+              description: LastUpdated identifies when this status was last observed.
+              format: date-time
+              type: string
+            operationalStatus:
+              description: OperationalStatus holds the status of the host
+              type: string
+            poweredOn:
+              description: indicator for whether or not the host is powered on
+              type: boolean
+            provisioning:
+              description: Information tracked by the provisioner.
+              properties:
+                ID:
+                  description: The machine's UUID from the underlying provisioning
+                    tool
+                  type: string
+                image:
+                  description: Image holds the details of the last image successfully
+                    provisioned to the host.
+                  properties:
+                    checksum:
+                      description: Checksum is the checksum for the image.
+                      type: string
+                    url:
+                      description: URL is a location of an image to deploy.
+                      type: string
+                  required:
+                  - checksum
+                  - url
+                  type: object
+                state:
+                  description: An indiciator for what the provisioner is doing with
+                    the host.
+                  type: string
+              required:
+              - ID
+              - state
+              type: object
+            triedCredentials:
+              description: the last credentials we sent to the provisioning backend
+              properties:
+                credentials:
+                  description: SecretReference represents a Secret Reference. It has
+                    enough information to retrieve secret in any namespace
+                  properties:
+                    name:
+                      description: Name is unique within a namespace to reference
+                        a secret resource.
+                      type: string
+                    namespace:
+                      description: Namespace defines the space within which the secret
+                        name must be unique.
+                      type: string
+                  type: object
+                credentialsVersion:
+                  type: string
+              type: object
+          required:
+          - errorMessage
+          - hardwareProfile
+          - operationalStatus
+          - poweredOn
+          - provisioning
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

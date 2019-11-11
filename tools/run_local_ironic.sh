@@ -4,7 +4,8 @@ set -ex
 
 IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
 IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic-inspector"}
-IRONIC_DATA_DIR="$PWD/ironic"
+IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:master"}
+IRONIC_DATA_DIR=${IRONIC_DATA_DIR:-"/opt/metal3-dev-env/ironic"}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
@@ -16,8 +17,10 @@ pushd "$IRONIC_DATA_DIR/html/images"
 # The images directory should contain images and an associated md5sum.
 #   - image.qcow2
 #   - image.qcow2.md5sum
+# By default, image directory points to dir having needed images when metal3-dev-env environment in use.
+# In other cases user has to store images beforehand.
 
-for name in ironic ironic-inspector dnsmasq httpd mariadb; do
+for name in ironic ironic-inspector dnsmasq httpd mariadb ipa-downloader; do
     sudo "${CONTAINER_RUNTIME}" ps | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" kill "$name"
     sudo "${CONTAINER_RUNTIME}" ps --all | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" rm "$name" -f
 done
@@ -37,6 +40,12 @@ if [[ "${CONTAINER_RUNTIME}" == "podman" ]]; then
   POD="--pod ironic-pod "
 fi
 
+# Start image downloader container
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader ${POD} \
+     -v "$IRONIC_DATA_DIR:/shared" "${IPA_DOWNLOADER_IMAGE}" /usr/local/bin/get-resource.sh
+
+sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
 
 # Start dnsmasq, http, mariadb, and ironic containers using same image
 

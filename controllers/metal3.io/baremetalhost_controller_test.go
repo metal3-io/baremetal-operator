@@ -1635,7 +1635,7 @@ func TestErrorCountIncrementsAlways(t *testing.T) {
 	}
 }
 
-func TestGetImageReady(t *testing.T) {
+func TestGetImageAvailable(t *testing.T) {
 	host := metal3v1alpha1.BareMetalHost{
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
@@ -1644,7 +1644,7 @@ func TestGetImageReady(t *testing.T) {
 		},
 		Status: metal3v1alpha1.BareMetalHostStatus{
 			Provisioning: metal3v1alpha1.ProvisionStatus{
-				State: metal3v1alpha1.StateReady,
+				State: metal3v1alpha1.StateAvailable,
 			},
 		},
 	}

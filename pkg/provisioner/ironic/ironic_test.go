@@ -23,6 +23,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
+			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
@@ -67,7 +68,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		},
 		{
 			Path:  "/instance_uuid",
-			Value: "provisioning-id",
+			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		{
 			Path:  "/instance_info/root_gb",
@@ -108,6 +109,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
+			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
@@ -152,7 +154,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		},
 		{
 			Path:  "/instance_uuid",
-			Value: "provisioning-id",
+			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		{
 			Path:  "/instance_info/root_gb",

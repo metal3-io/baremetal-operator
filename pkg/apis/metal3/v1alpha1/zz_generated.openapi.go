@@ -20,7 +20,6 @@ func schema_pkg_apis_metal3_v1alpha1_BareMetalHost(ref common.ReferenceCallback)
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "BareMetalHost is the Schema for the baremetalhosts API",
-				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{

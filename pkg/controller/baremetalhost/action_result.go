@@ -5,11 +5,16 @@ import (
 	"time"
 )
 
+// actionResult is an interface that encapsulates the result of a Reconcile
+// call, as returned by the action corresponding to the current state.
 type actionResult interface {
 	Result() (reconcile.Result, error)
 	Dirty() bool
 }
 
+// actionContinue is a result indicating that the current action is still
+// in progress, and that the resource should remain in the same provisioning
+// state.
 type actionContinue struct {
 	delay time.Duration
 }
@@ -25,6 +30,8 @@ func (r actionContinue) Dirty() bool {
 	return true
 }
 
+// actionComplete is a result indicating that the current action has completed,
+// and that the resource should transition to the next state.
 type actionComplete struct {
 }
 
@@ -37,6 +44,8 @@ func (r actionComplete) Dirty() bool {
 	return true
 }
 
+// deleteComplete is a result indicating that the deletion action has
+// completed, and that the resource has now been deleted.
 type deleteComplete struct {
 	actionComplete
 }
@@ -50,6 +59,8 @@ func (r deleteComplete) Dirty() bool {
 	return false
 }
 
+// actionError is a result indicating that an error occurred while attempting
+// to advance the current action, and that reconciliation should be retried.
 type actionError struct {
 	err error
 }
@@ -63,6 +74,8 @@ func (r actionError) Dirty() bool {
 	return false
 }
 
+// actionFailed is a result indicating that the current action has failed,
+// and that the resource should be marked as in error.
 type actionFailed struct {
 	dirty bool
 }

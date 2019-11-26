@@ -235,18 +235,21 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		r.publishEvent(request, e)
 	}
 
-	if _, isFailure := actResult.(actionFailed); isFailure {
-		// We have tried to do something that failed in a way we
-		// assume is not retryable, so do not proceed to any other
-		// steps.
-		info.log.Info("stopping on host error", "message", host.Status.ErrorMessage)
-	} else {
+	logResult(info, result)
+	return
+}
+
+func logResult(info *reconcileInfo, result reconcile.Result) {
+	if result.Requeue || result.RequeueAfter != 0 ||
+		!utils.StringInList(info.host.Finalizers,
+			metal3v1alpha1.BareMetalHostFinalizer) {
 		info.log.Info("done",
 			"requeue", result.Requeue,
-			"after", result.RequeueAfter,
-		)
+			"after", result.RequeueAfter)
+	} else {
+		info.log.Info("stopping on host error",
+			"message", info.host.Status.ErrorMessage)
 	}
-	return
 }
 
 func recordActionFailure(info *reconcileInfo, eventType string, errorMessage string) actionFailed {

@@ -155,6 +155,67 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, info.host.NewEvent(reason, message))
 }
 
+// hostConfigData imaplementation of cons configuration data interface
+// Object is able to retrive data from Screts referenced in host spec
+type hostConfigData struct {
+	host         *metal3v1alpha1.BareMetalHost
+	log          logr.Logger
+	bmReconciler *ReconcileBareMetalHost
+}
+
+// Generic method for data extraction from a Secret. Function uses dataKey
+// parameter to detirmine which data to return in case secret contins multiple
+// keys
+func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) ([]byte, error) {
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	if err := hcd.bmReconciler.client.Get(context.TODO(), key, secret); err != nil {
+		return nil, errors.Wrap(err,
+			"failed to fetch user data from secret reference")
+	}
+
+	data, ok := secret.Data[dataKey]
+	if !ok {
+		return nil, NoDataInSecretError{secret: name, key: dataKey}
+	}
+
+	return data, nil
+}
+
+// UserData get Operating System configuration data
+func (hcd *hostConfigData) UserData() (string, error) {
+	if hcd.host.Spec.UserData == nil {
+		hcd.log.Info("UserData is not set return empty string")
+		return "", nil
+	}
+	userData, err := hcd.getSecretData(
+		hcd.host.Spec.UserData.Name,
+		hcd.host.Spec.UserData.Namespace,
+		"userData",
+	)
+	if err != nil {
+		return "", err
+	}
+	return string(userData), nil
+
+}
+
+// NetworkData get network configuration
+func (hcd *hostConfigData) NetworkData() ([]byte, error) {
+	if hcd.host.Spec.NetworkData == nil {
+		hcd.log.Info("NetworkData is not set returning epmty(nil) data")
+		return nil, nil
+	}
+	return hcd.getSecretData(
+		hcd.host.Spec.NetworkData.Name,
+		hcd.host.Spec.NetworkData.Namespace,
+		"networkData",
+	)
+}
+
 // Reconcile reads that state of the cluster for a BareMetalHost
 // object and makes changes based on the state read and what is in the
 // BareMetalHost.Spec TODO(user): Modify this Reconcile function to
@@ -529,34 +590,14 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 
 // Start/continue provisioning if we need to.
 func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	getUserData := func() (string, error) {
-		if info.host.Spec.UserData == nil {
-			info.log.Info("no user data for host")
-			return "", nil
-		}
-		info.log.Info("fetching user data before provisioning")
-		userDataSecret := &corev1.Secret{}
-		key := types.NamespacedName{
-			Name:      info.host.Spec.UserData.Name,
-			Namespace: info.host.Spec.UserData.Namespace,
-		}
-		err := r.client.Get(context.TODO(), key, userDataSecret)
-		if err != nil {
-			return "", errors.Wrap(err,
-				"failed to fetch user data from secret reference")
-		}
-		if content, ok := userDataSecret.Data["userData"]; ok {
-			return string(content), nil
-		} else if content, ok := userDataSecret.Data["value"]; ok {
-			return string(content), nil
-		} else {
-			return "", errors.New("userData or value key not found in secret")
-		}
+	hostConf := &hostConfigData{
+		host:         info.host,
+		log:          info.log,
+		bmReconciler: r,
 	}
-
 	info.log.Info("provisioning")
 
-	provResult, err := prov.Provision(getUserData)
+	provResult, err := prov.Provision(hostConf)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
 	}

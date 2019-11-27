@@ -35,10 +35,11 @@ func init() {
 	metal3apis.AddToScheme(scheme.Scheme)
 }
 
-func newSecret(name, username, password string) *corev1.Secret {
-	data := make(map[string][]byte)
-	data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte(username)))
-	data["password"] = []byte(base64.StdEncoding.EncodeToString([]byte(password)))
+func newSecret(name string, data map[string]string) *corev1.Secret {
+	secretData := make(map[string][]byte)
+	for k, v := range data {
+		secretData[k] = []byte(base64.StdEncoding.EncodeToString([]byte(v)))
+	}
 
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -50,7 +51,7 @@ func newSecret(name, username, password string) *corev1.Secret {
 			Namespace:       namespace,
 			ResourceVersion: "1",
 		},
-		Data: data,
+		Data: secretData,
 	}
 
 	return secret
@@ -90,7 +91,8 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	c := fakeclient.NewFakeClient(initObjs...)
 
 	// Add a default secret that can be used by most hosts.
-	c.Create(goctx.TODO(), newSecret(defaultSecretName, "User", "Pass"))
+	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
+	c.Create(goctx.TODO(), bmcSecret)
 
 	return &ReconcileBareMetalHost{
 		client:             c,
@@ -276,7 +278,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	)
 
 	// Define a second valid secret and update the host to use it.
-	secret2 := newSecret("bmc-creds-valid2", "User", "Pass")
+	secret2 := newSecret("bmc-creds-valid2", map[string]string{"username": "User", "password": "Pass"})
 	err := r.client.Create(goctx.TODO(), secret2)
 	if err != nil {
 		t.Fatal(err)
@@ -305,7 +307,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 // to one that is missing data.
 func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	host := newDefaultHost(t)
-	badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+	badSecret := newSecret("bmc-creds-no-user", map[string]string{"username": "", "password": "Pass"})
 	r := newTestReconciler(host, badSecret)
 
 	tryReconcile(t, r, host,
@@ -376,7 +378,7 @@ func TestMissingBMCParameters(t *testing.T) {
 	}{
 		{
 			Scenario: "secret without username",
-			Secret:   newSecret("bmc-creds-no-user", "", "Pass"),
+			Secret:   newSecret("bmc-creds-no-user", map[string]string{"username": "", "password": "Pass"}),
 			Host: newHost("missing-bmc-username",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -388,7 +390,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "secret without password",
-			Secret:   newSecret("bmc-creds-no-pass", "User", ""),
+			Secret:   newSecret("bmc-creds-no-pass", map[string]string{"username": "User", "password": ""}),
 			Host: newHost("missing-bmc-password",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -400,7 +402,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "malformed address",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newSecret("bmc-creds-ok", map[string]string{"username": "User", "password": "Pass"}),
 			Host: newHost("invalid-bmc-address",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -412,7 +414,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "missing address",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newSecret("bmc-creds-ok", map[string]string{"username": "User", "password": "Pass"}),
 			Host: newHost("missing-bmc-address",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -424,7 +426,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "missing secret",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newSecret("bmc-creds-ok", map[string]string{"username": "User", "password": "Pass"}),
 			Host: newHost("missing-bmc-credentials-ref",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -436,7 +438,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "no such secret",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newSecret("bmc-creds-ok", map[string]string{"username": "User", "password": "Pass"}),
 			Host: newHost("non-existent-bmc-secret-ref",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -459,7 +461,7 @@ func TestMissingBMCParameters(t *testing.T) {
 // be correct the status of the host moves out of the error state.
 func TestFixSecret(t *testing.T) {
 
-	secret := newSecret("bmc-creds-no-user", "", "Pass")
+	secret := newSecret("bmc-creds-no-user", map[string]string{"username": "", "password": "Pass"})
 	host := newHost("fix-secret",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
@@ -496,7 +498,7 @@ func TestBreakThenFixSecret(t *testing.T) {
 
 	// Create the host without any errors and wait for it to be
 	// registered and get a provisioning ID.
-	secret := newSecret("bmc-creds-toggle-user", "User", "Pass")
+	secret := newSecret("bmc-creds-toggle-user", map[string]string{"username": "User", "password": "Pass"})
 	host := newHost("break-then-fix-secret",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
@@ -635,6 +637,166 @@ func TestProvision(t *testing.T) {
 			return false
 		},
 	)
+}
+
+func TestProvisionWithHostConfig(t *testing.T) {
+	testBMCSecret := newSecret(defaultSecretName,
+		map[string]string{
+			"username": "User",
+			"password": "Pass",
+		},
+	)
+
+	testCases := []struct {
+		Scenario          string
+		Host              *metal3v1alpha1.BareMetalHost
+		UserDataSecret    *corev1.Secret
+		NetworkDataSecret *corev1.Secret
+		AssertF           func(*testing.T, *hostConfigData)
+	}{
+		{
+			Scenario: "host with user data only",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					UserData: &corev1.SecretReference{
+						Name:      "user-data",
+						Namespace: namespace,
+					},
+				}),
+			UserDataSecret: newSecret("user-data", map[string]string{"userData": "somedata"}),
+			AssertF: func(t *testing.T, hcd *hostConfigData) {
+				if _, err := hcd.UserData(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := hcd.NetworkData(); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			Scenario: "host with network data only",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "net-data",
+						Namespace: namespace,
+					},
+				}),
+			NetworkDataSecret: newSecret("net-data", map[string]string{"networkData": "key: value"}),
+			AssertF: func(t *testing.T, hcd *hostConfigData) {
+				if _, err := hcd.UserData(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := hcd.NetworkData(); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			Scenario: "host with non-existent network data",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "net-data",
+						Namespace: namespace,
+					},
+				}),
+			AssertF: func(t *testing.T, hcd *hostConfigData) {
+				if _, err := hcd.UserData(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := hcd.NetworkData(); err == nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			Scenario: "host with wrong key in network data secret",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "net-data",
+						Namespace: namespace,
+					},
+				}),
+			NetworkDataSecret: newSecret("net-data", map[string]string{"wrong": "key: value"}),
+			AssertF: func(t *testing.T, hcd *hostConfigData) {
+				if _, err := hcd.UserData(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := hcd.NetworkData(); err == nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			Scenario: "host without keys in user data secret",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					UserData: &corev1.SecretReference{
+						Name:      "user-data",
+						Namespace: namespace,
+					},
+				}),
+			UserDataSecret: newSecret("user-data", map[string]string{}),
+			AssertF: func(t *testing.T, hcd *hostConfigData) {
+				if _, err := hcd.UserData(); err == nil {
+					t.Fatal(err)
+				}
+
+				if _, err := hcd.NetworkData(); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			tc.Host.Spec.Image = &metal3v1alpha1.Image{
+				URL:      "https://example.com/image-name",
+				Checksum: "12345",
+			}
+			tc.Host.Spec.Online = true
+
+			c := fakeclient.NewFakeClient(tc.Host)
+			c.Create(goctx.TODO(), testBMCSecret)
+			c.Create(goctx.TODO(), tc.UserDataSecret)
+			c.Create(goctx.TODO(), tc.NetworkDataSecret)
+			r := &ReconcileBareMetalHost{
+				client:             c,
+				scheme:             scheme.Scheme,
+				provisionerFactory: fixture.New,
+			}
+			hcd := &hostConfigData{
+				host:         tc.Host,
+				log:          log.WithValues("Test", "test"),
+				bmReconciler: r,
+			}
+
+			tc.AssertF(t, hcd)
+		})
+	}
 }
 
 // TestExternallyProvisionedTransitions ensures that host enters the
@@ -778,7 +940,7 @@ func TestDeleteHost(t *testing.T) {
 		t.Run(host.Name, func(t *testing.T) {
 			host.DeletionTimestamp = &now
 			host.Status.Provisioning.ID = "made-up-id"
-			badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+			badSecret := newSecret("bmc-creds-no-user", map[string]string{"username": "", "password": "Pass"})
 			r := newTestReconciler(host, badSecret)
 
 			tryReconcile(t, r, host,

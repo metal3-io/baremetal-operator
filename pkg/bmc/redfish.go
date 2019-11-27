@@ -28,7 +28,7 @@ type redfishAccessDetails struct {
 const redfishDefaultScheme = "https"
 
 func (a *redfishAccessDetails) Type() string {
-	return a.bmcType
+	return "redfish"
 }
 
 // NeedsMAC returns true when the host is going to need a separate

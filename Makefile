@@ -81,6 +81,10 @@ $GOPATH/bin/gosec:
 $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint
 
+.PHONY: install-operator-sdk
+install-operator-sdk:
+	@sh hack/install.sh
+
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))
 
@@ -88,7 +92,7 @@ docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))
 	dot -Tpng $< >$@
 
 .PHONY: e2e-local
-e2e-local:
+e2e-local: install-operator-sdk
 	operator-sdk test local ./test/e2e \
 		--namespace $(TEST_NAMESPACE) \
 		--up-local $(SETUP) \
@@ -99,14 +103,14 @@ dep:
 	dep ensure
 
 .PHONY: run
-run:
+run: install-operator-sdk
 	operator-sdk up local \
 		--go-ldflags=$(LDFLAGS) \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
 
 .PHONY: demo
-demo:
+demo: install-operator-sdk
 	operator-sdk up local \
 		--go-ldflags=$(LDFLAGS) \
 		--namespace=$(RUN_NAMESPACE) \

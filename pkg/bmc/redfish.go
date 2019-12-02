@@ -9,6 +9,7 @@ func init() {
 	registerFactory("redfish", newRedfishAccessDetails)
 	registerFactory("redfish+http", newRedfishAccessDetails)
 	registerFactory("redfish+https", newRedfishAccessDetails)
+	registerFactory("redfish+virtualmedia", newRedfishVirtualMediaAccessDetails)
 }
 
 func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
@@ -19,10 +20,21 @@ func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 	}, nil
 }
 
+func newRedfishVirtualMediaAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
+	bmcType := strings.Replace(parsedURL.Scheme, "+virtualmedia", "", 1)
+	return &redfishAccessDetails{
+		bmcType:        bmcType,
+		host:           parsedURL.Host,
+		path:           parsedURL.Path,
+		isVirtualMedia: true,
+	}, nil
+}
+
 type redfishAccessDetails struct {
-	bmcType string
-	host    string
-	path    string
+	bmcType        string
+	host           string
+	path           string
+	isVirtualMedia bool
 }
 
 const redfishDefaultScheme = "https"
@@ -71,5 +83,9 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 
 // That can be either pxe or redfish-virtual-media
 func (a *redfishAccessDetails) BootInterface() string {
+	if a.isVirtualMedia {
+		return "redfish-virtual-media"
+	}
+
 	return "pxe"
 }

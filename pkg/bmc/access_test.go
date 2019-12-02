@@ -335,6 +335,14 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			boot:     "pxe",
 		},
+
+		{
+			Scenario: "redfish virtual media",
+			input:    "redfish+virtualmedia://192.168.122.1",
+			needsMac: true,
+			driver:   "redfish",
+			boot:     "redfish-virtual-media",
+		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			acc, err := NewAccessDetails(tc.input)
@@ -542,6 +550,17 @@ func TestDriverInfo(t *testing.T) {
 			expects: map[string]string{
 				"redfish_address":   "https://[fe80::fc33:62ff:fe83:8a76]:8080",
 				"redfish_system_id": "/foo",
+				"redfish_password":  "",
+				"redfish_username":  "",
+			},
+		},
+
+		{
+			Scenario: "Redfish virtual media",
+			input:    "redfish+virtualmedia://192.168.122.1/foo/bar",
+			expects: map[string]string{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
 				"redfish_password":  "",
 				"redfish_username":  "",
 			},

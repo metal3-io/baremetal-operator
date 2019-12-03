@@ -333,7 +333,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:    "redfish://192.168.122.1",
 			needsMac: true,
 			driver:   "redfish",
-			boot:     "pxe",
+			boot:     "ipxe",
 		},
 
 		{

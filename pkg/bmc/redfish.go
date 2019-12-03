@@ -87,5 +87,5 @@ func (a *redfishAccessDetails) BootInterface() string {
 		return "redfish-virtual-media"
 	}
 
-	return "pxe"
+	return "ipxe"
 }

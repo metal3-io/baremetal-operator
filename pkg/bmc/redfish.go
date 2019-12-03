@@ -10,6 +10,7 @@ func init() {
 	registerFactory("redfish+http", newRedfishAccessDetails)
 	registerFactory("redfish+https", newRedfishAccessDetails)
 	registerFactory("redfish+virtualmedia", newRedfishVirtualMediaAccessDetails)
+	registerFactory("ilo5+virtualmedia", newRedfishVirtualMediaAccessDetails)
 }
 
 func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {

@@ -338,7 +338,7 @@ func TestStaticDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "redfish virtual media",
-			input:    "redfish+virtualmedia://192.168.122.1",
+			input:    "redfish-virtualmedia://192.168.122.1",
 			needsMac: true,
 			driver:   "redfish",
 			boot:     "redfish-virtual-media",
@@ -346,7 +346,7 @@ func TestStaticDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "ilo5 virtual media",
-			input:    "ilo5+virtualmedia://192.168.122.1",
+			input:    "ilo5-virtualmedia://192.168.122.1",
 			needsMac: true,
 			driver:   "redfish",
 			boot:     "redfish-virtual-media",
@@ -565,7 +565,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "Redfish virtual media",
-			input:    "redfish+virtualmedia://192.168.122.1/foo/bar",
+			input:    "redfish-virtualmedia://192.168.122.1/foo/bar",
 			expects: map[string]string{
 				"redfish_address":   "https://192.168.122.1",
 				"redfish_system_id": "/foo/bar",
@@ -576,7 +576,7 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "ilo5 virtual media",
-			input:    "ilo5+virtualmedia://192.168.122.1/foo/bar",
+			input:    "ilo5-virtualmedia://192.168.122.1/foo/bar",
 			expects: map[string]string{
 				"redfish_address":   "https://192.168.122.1",
 				"redfish_system_id": "/foo/bar",

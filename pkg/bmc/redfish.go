@@ -9,7 +9,8 @@ func init() {
 	registerFactory("redfish", newRedfishAccessDetails)
 	registerFactory("redfish+http", newRedfishAccessDetails)
 	registerFactory("redfish+https", newRedfishAccessDetails)
-	registerFactory("redfish+virtualmedia", newRedfishVirtualMediaAccessDetails)
+	registerFactory("redfish-virtualmedia", newRedfishVirtualMediaAccessDetails)
+	registerFactory("ilo5-virtualmedia", newRedfishVirtualMediaAccessDetails)
 }
 
 func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
@@ -21,9 +22,8 @@ func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
 }
 
 func newRedfishVirtualMediaAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
-	bmcType := strings.Replace(parsedURL.Scheme, "+virtualmedia", "", 1)
 	return &redfishAccessDetails{
-		bmcType:        bmcType,
+		bmcType:        parsedURL.Scheme,
 		host:           parsedURL.Host,
 		path:           parsedURL.Path,
 		isVirtualMedia: true,

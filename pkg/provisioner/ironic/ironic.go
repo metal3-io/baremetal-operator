@@ -240,10 +240,15 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
-				Driver:        p.bmcAccess.Driver(),
-				BootInterface: p.bmcAccess.BootInterface(),
-				Name:          p.host.Name,
-				DriverInfo:    driverInfo,
+				Driver:              p.bmcAccess.Driver(),
+				BootInterface:       p.bmcAccess.BootInterface(),
+				Name:                p.host.Name,
+				DriverInfo:          driverInfo,
+				InspectInterface:    "inspector",
+				ManagementInterface: p.bmcAccess.ManagementInterface(),
+				PowerInterface:      p.bmcAccess.PowerInterface(),
+				RAIDInterface:       p.bmcAccess.RAIDInterface(),
+				VendorInterface:     p.bmcAccess.VendorInterface(),
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
 		if err != nil {

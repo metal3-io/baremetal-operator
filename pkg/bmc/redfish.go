@@ -89,3 +89,19 @@ func (a *redfishAccessDetails) BootInterface() string {
 
 	return "ipxe"
 }
+
+func (a *redfishAccessDetails) ManagementInterface() string {
+	return ""
+}
+
+func (a *redfishAccessDetails) PowerInterface() string {
+	return ""
+}
+
+func (a *redfishAccessDetails) RAIDInterface() string {
+	return ""
+}
+
+func (a *redfishAccessDetails) VendorInterface() string {
+	return ""
+}

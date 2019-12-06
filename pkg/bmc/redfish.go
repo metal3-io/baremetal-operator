@@ -11,6 +11,7 @@ func init() {
 	registerFactory("redfish+https", newRedfishAccessDetails)
 	registerFactory("redfish-virtualmedia", newRedfishVirtualMediaAccessDetails)
 	registerFactory("ilo5-virtualmedia", newRedfishVirtualMediaAccessDetails)
+	registerFactory("idrac-virtualmedia", newiDracRedfishVirtualMediaAccessDetails)
 }
 
 func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
@@ -30,11 +31,22 @@ func newRedfishVirtualMediaAccessDetails(parsedURL *url.URL) (AccessDetails, err
 	}, nil
 }
 
+func newiDracRedfishVirtualMediaAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
+	return &redfishAccessDetails{
+		bmcType:        parsedURL.Scheme,
+		host:           parsedURL.Host,
+		path:           parsedURL.Path,
+		isVirtualMedia: true,
+		isiDrac:        true,
+	}, nil
+}
+
 type redfishAccessDetails struct {
 	bmcType        string
 	host           string
 	path           string
 	isVirtualMedia bool
+	isiDrac        bool
 }
 
 const redfishDefaultScheme = "https"
@@ -52,6 +64,9 @@ func (a *redfishAccessDetails) NeedsMAC() bool {
 }
 
 func (a *redfishAccessDetails) Driver() string {
+	if a.isiDrac {
+		return "idrac"
+	}
 	return "redfish"
 }
 
@@ -83,6 +98,10 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 
 // That can be either pxe or redfish-virtual-media
 func (a *redfishAccessDetails) BootInterface() string {
+	if a.isiDrac {
+		return "idrac-redfish-virtual-media"
+	}
+
 	if a.isVirtualMedia {
 		return "redfish-virtual-media"
 	}
@@ -91,17 +110,29 @@ func (a *redfishAccessDetails) BootInterface() string {
 }
 
 func (a *redfishAccessDetails) ManagementInterface() string {
+	if a.isiDrac {
+		return "idrac-redfish"
+	}
 	return ""
 }
 
 func (a *redfishAccessDetails) PowerInterface() string {
+	if a.isiDrac {
+		return "idrac-redfish"
+	}
 	return ""
 }
 
 func (a *redfishAccessDetails) RAIDInterface() string {
+	if a.isiDrac {
+		return "no-raid"
+	}
 	return ""
 }
 
 func (a *redfishAccessDetails) VendorInterface() string {
+	if a.isiDrac {
+		return "no-vendor"
+	}
 	return ""
 }

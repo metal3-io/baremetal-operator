@@ -671,6 +671,23 @@ func (host *BareMetalHost) NewEvent(reason, message string) corev1.Event {
 	}
 }
 
+// OperationMetricForState returns a pointer to the metric for the given
+// provisioning state.
+func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) (metric *OperationMetric) {
+	history := &host.Status.OperationHistory
+	switch operation {
+	case StateRegistering:
+		metric = &history.Register
+	case StateInspecting:
+		metric = &history.Inspect
+	case StateProvisioning:
+		metric = &history.Provision
+	case StateDeprovisioning:
+		metric = &history.Deprovision
+	}
+	return
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // BareMetalHostList contains a list of BareMetalHost

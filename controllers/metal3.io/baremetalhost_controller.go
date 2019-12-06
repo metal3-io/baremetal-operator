@@ -455,17 +455,14 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
 	}
 
-	if details != nil {
-		info.host.Status.HardwareDetails = details
-		return actionComplete{}
-	}
+	info.host.ClearError()
 
-	if provResult.Dirty {
-		info.host.ClearError()
+	if provResult.Dirty || details == nil {
 		return actionContinue{provResult.RequeueAfter}
 	}
 
-	return actionFailed{}
+	info.host.Status.HardwareDetails = details
+	return actionComplete{}
 }
 
 func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {

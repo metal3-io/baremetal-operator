@@ -7,7 +7,41 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
 	"github.com/go-logr/logr"
+
+	"github.com/prometheus/client_golang/prometheus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
+
+var slowOperationBuckets = []float64{30, 90, 180, 360, 720, 1440}
+var stateTime = map[metal3v1alpha1.ProvisioningState]*prometheus.HistogramVec{
+	metal3v1alpha1.StateRegistering: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "metal3_operation_register_duration_seconds",
+		Help: "Length of time per registration per host",
+	}, []string{"host"}),
+	metal3v1alpha1.StateInspecting: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "metal3_operation_inspect_duration_seconds",
+		Help:    "Length of time per hardware inspection per host",
+		Buckets: slowOperationBuckets,
+	}, []string{"host"}),
+	metal3v1alpha1.StateProvisioning: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "metal3_operation_provision_duration_seconds",
+		Help:    "Length of time per hardware provision operation per host",
+		Buckets: slowOperationBuckets,
+	}, []string{"host"}),
+	metal3v1alpha1.StateDeprovisioning: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "metal3_operation_deprovision_duration_seconds",
+		Help:    "Length of time per hardware deprovision operation per host",
+		Buckets: slowOperationBuckets,
+	}, []string{"host"}),
+}
+
+func init() {
+	for _, collector := range stateTime {
+		metrics.Registry.MustRegister(collector)
+	}
+}
 
 // hostStateMachine is a finite state machine that manages transitions between
 // the states of a BareMetalHost.
@@ -51,12 +85,35 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 	}
 }
 
+func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+	if nextMetric := host.OperationMetricForState(state); nextMetric != nil {
+		if nextMetric.Start.IsZero() || !nextMetric.End.IsZero() {
+			*nextMetric = metal3v1alpha1.OperationMetric{
+				Start: time,
+			}
+		}
+	}
+}
+
+func recordStateEnd(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
+		if !prevMetric.Start.IsZero() {
+			prevMetric.End = time
+			stateTime[state].WithLabelValues(host.Name).Observe(
+				prevMetric.Duration().Seconds())
+		}
+	}
+}
+
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
 	log logr.Logger) {
 	if hsm.NextState != initialState {
 		log.Info("changing provisioning state",
 			"old", initialState,
 			"new", hsm.NextState)
+		now := metav1.Now()
+		recordStateEnd(hsm.Host, initialState, now)
+		recordStateBegin(hsm.Host, hsm.NextState, now)
 		hsm.Host.Status.Provisioning.State = hsm.NextState
 	}
 }

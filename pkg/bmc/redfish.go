@@ -11,42 +11,45 @@ func init() {
 	registerFactory("redfish+https", newRedfishAccessDetails)
 	registerFactory("redfish-virtualmedia", newRedfishVirtualMediaAccessDetails)
 	registerFactory("ilo5-virtualmedia", newRedfishVirtualMediaAccessDetails)
-	registerFactory("idrac-virtualmedia", newiDracRedfishVirtualMediaAccessDetails)
+	registerFactory("idrac-virtualmedia", newRedfishiDracVirtualMediaAccessDetails)
 }
 
-func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
+func redfishDetails(parsedURL *url.URL) *redfishAccessDetails {
 	return &redfishAccessDetails{
 		bmcType: parsedURL.Scheme,
 		host:    parsedURL.Host,
 		path:    parsedURL.Path,
-	}, nil
+	}
+}
+
+func newRedfishAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
+	return redfishDetails(parsedURL), nil
 }
 
 func newRedfishVirtualMediaAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
-	return &redfishAccessDetails{
-		bmcType:        parsedURL.Scheme,
-		host:           parsedURL.Host,
-		path:           parsedURL.Path,
-		isVirtualMedia: true,
+	return &redfishVirtualMediaAccessDetails{
+		*redfishDetails(parsedURL),
 	}, nil
 }
 
-func newiDracRedfishVirtualMediaAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
-	return &redfishAccessDetails{
-		bmcType:        parsedURL.Scheme,
-		host:           parsedURL.Host,
-		path:           parsedURL.Path,
-		isVirtualMedia: true,
-		isiDrac:        true,
+func newRedfishiDracVirtualMediaAccessDetails(parsedURL *url.URL) (AccessDetails, error) {
+	return &redfishiDracVirtualMediaAccessDetails{
+		*redfishDetails(parsedURL),
 	}, nil
 }
 
 type redfishAccessDetails struct {
-	bmcType        string
-	host           string
-	path           string
-	isVirtualMedia bool
-	isiDrac        bool
+	bmcType string
+	host    string
+	path    string
+}
+
+type redfishVirtualMediaAccessDetails struct {
+	redfishAccessDetails
+}
+
+type redfishiDracVirtualMediaAccessDetails struct {
+	redfishAccessDetails
 }
 
 const redfishDefaultScheme = "https"
@@ -64,9 +67,6 @@ func (a *redfishAccessDetails) NeedsMAC() bool {
 }
 
 func (a *redfishAccessDetails) Driver() string {
-	if a.isiDrac {
-		return "idrac"
-	}
 	return "redfish"
 }
 
@@ -98,41 +98,53 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 
 // That can be either pxe or redfish-virtual-media
 func (a *redfishAccessDetails) BootInterface() string {
-	if a.isiDrac {
-		return "idrac-redfish-virtual-media"
-	}
-
-	if a.isVirtualMedia {
-		return "redfish-virtual-media"
-	}
-
 	return "ipxe"
 }
 
 func (a *redfishAccessDetails) ManagementInterface() string {
-	if a.isiDrac {
-		return "idrac-redfish"
-	}
 	return ""
 }
 
 func (a *redfishAccessDetails) PowerInterface() string {
-	if a.isiDrac {
-		return "idrac-redfish"
-	}
 	return ""
 }
 
 func (a *redfishAccessDetails) RAIDInterface() string {
-	if a.isiDrac {
-		return "no-raid"
-	}
 	return ""
 }
 
 func (a *redfishAccessDetails) VendorInterface() string {
-	if a.isiDrac {
-		return "no-vendor"
-	}
 	return ""
+}
+
+// Virtual Media Overrides
+
+func (a *redfishVirtualMediaAccessDetails) BootInterface() string {
+	return "redfish-virtual-media"
+}
+
+// iDrac Virtual Media Overrides
+
+func (a *redfishiDracVirtualMediaAccessDetails) Driver() string {
+	return "idrac"
+}
+
+func (a *redfishiDracVirtualMediaAccessDetails) BootInterface() string {
+	return "idrac-redfish-virtual-media"
+}
+
+func (a *redfishiDracVirtualMediaAccessDetails) ManagementInterface() string {
+	return "idrac-redfish"
+}
+
+func (a *redfishiDracVirtualMediaAccessDetails) PowerInterface() string {
+	return "idrac-redfish"
+}
+
+func (a *redfishiDracVirtualMediaAccessDetails) RAIDInterface() string {
+	return "no-raid"
+}
+
+func (a *redfishiDracVirtualMediaAccessDetails) VendorInterface() string {
+	return "no-vendor"
 }

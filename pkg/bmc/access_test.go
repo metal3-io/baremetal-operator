@@ -333,7 +333,31 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:    "redfish://192.168.122.1",
 			needsMac: true,
 			driver:   "redfish",
-			boot:     "pxe",
+			boot:     "ipxe",
+		},
+
+		{
+			Scenario: "redfish virtual media",
+			input:    "redfish-virtualmedia://192.168.122.1",
+			needsMac: true,
+			driver:   "redfish",
+			boot:     "redfish-virtual-media",
+		},
+
+		{
+			Scenario: "ilo5 virtual media",
+			input:    "ilo5-virtualmedia://192.168.122.1",
+			needsMac: true,
+			driver:   "redfish",
+			boot:     "redfish-virtual-media",
+		},
+
+		{
+			Scenario: "idrac virtual media",
+			input:    "idrac-virtualmedia://192.168.122.1",
+			needsMac: true,
+			driver:   "idrac",
+			boot:     "idrac-redfish-virtual-media",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
@@ -542,6 +566,39 @@ func TestDriverInfo(t *testing.T) {
 			expects: map[string]string{
 				"redfish_address":   "https://[fe80::fc33:62ff:fe83:8a76]:8080",
 				"redfish_system_id": "/foo",
+				"redfish_password":  "",
+				"redfish_username":  "",
+			},
+		},
+
+		{
+			Scenario: "Redfish virtual media",
+			input:    "redfish-virtualmedia://192.168.122.1/foo/bar",
+			expects: map[string]string{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
+			},
+		},
+
+		{
+			Scenario: "ilo5 virtual media",
+			input:    "ilo5-virtualmedia://192.168.122.1/foo/bar",
+			expects: map[string]string{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
+			},
+		},
+
+		{
+			Scenario: "idrac virtual media",
+			input:    "idrac-virtualmedia://192.168.122.1/foo/bar",
+			expects: map[string]string{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
 				"redfish_password":  "",
 				"redfish_username":  "",
 			},

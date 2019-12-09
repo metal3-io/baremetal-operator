@@ -70,3 +70,19 @@ func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfa
 func (a *iDracAccessDetails) BootInterface() string {
 	return "ipxe"
 }
+
+func (a *iDracAccessDetails) ManagementInterface() string {
+	return ""
+}
+
+func (a *iDracAccessDetails) PowerInterface() string {
+	return ""
+}
+
+func (a *iDracAccessDetails) RAIDInterface() string {
+	return ""
+}
+
+func (a *iDracAccessDetails) VendorInterface() string {
+	return ""
+}

@@ -46,6 +46,11 @@ type AccessDetails interface {
 
 	// Boot interface to set
 	BootInterface() string
+
+	ManagementInterface() string
+	PowerInterface() string
+	RAIDInterface() string
+	VendorInterface() string
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {

@@ -93,12 +93,14 @@ func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.P
 	}
 }
 
-func recordStateEnd(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
 	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
 		if !prevMetric.Start.IsZero() {
 			prevMetric.End = time
-			stateTime[state].WithLabelValues(host.Name).Observe(
-				prevMetric.Duration().Seconds())
+			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+				stateTime[state].WithLabelValues(host.Name).Observe(
+					prevMetric.Duration().Seconds())
+			})
 		}
 	}
 }
@@ -110,7 +112,7 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 			"old", initialState,
 			"new", hsm.NextState)
 		now := metav1.Now()
-		recordStateEnd(hsm.Host, initialState, now)
+		recordStateEnd(info, hsm.Host, initialState, now)
 		recordStateBegin(hsm.Host, hsm.NextState, now)
 		hsm.Host.Status.Provisioning.State = hsm.NextState
 	}

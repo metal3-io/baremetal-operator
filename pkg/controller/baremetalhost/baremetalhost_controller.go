@@ -128,12 +128,13 @@ type ReconcileBareMetalHost struct {
 // Instead of passing a zillion arguments to the action of a phase,
 // hold them in a context
 type reconcileInfo struct {
-	log            logr.Logger
-	host           *metal3v1alpha1.BareMetalHost
-	request        reconcile.Request
-	bmcCredsSecret *corev1.Secret
-	events         []corev1.Event
-	errorMessage   string
+	log               logr.Logger
+	host              *metal3v1alpha1.BareMetalHost
+	request           reconcile.Request
+	bmcCredsSecret    *corev1.Secret
+	events            []corev1.Event
+	errorMessage      string
+	postSaveCallbacks []func()
 }
 
 // match the provisioner.EventPublisher interface
@@ -239,6 +240,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", initialState))
+		}
+
+		for _, cb := range info.postSaveCallbacks {
+			cb()
 		}
 	}
 

@@ -50,13 +50,17 @@ var reconcileCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "metal3_reconcile_total",
 	Help: "The number of times hosts have been reconciled",
 }, []string{"host"})
+var powerChangeAttempts = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "metal3_operation_power_change_total",
+	Help: "Number of times a host has been powered on or off",
+}, []string{"host", "on_off"})
 
 func init() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
 
-	metrics.Registry.MustRegister(reconcileCounters)
+	metrics.Registry.MustRegister(reconcileCounters, powerChangeAttempts)
 }
 
 var log = logf.Log.WithName("baremetalhost")
@@ -609,6 +613,13 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	}
 
 	if provResult.Dirty {
+		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+			if info.host.Spec.Online {
+				powerChangeAttempts.WithLabelValues(info.host.Name, "on").Inc()
+			} else {
+				powerChangeAttempts.WithLabelValues(info.host.Name, "off").Inc()
+			}
+		})
 		info.host.ClearError()
 		return actionContinue{provResult.RequeueAfter}
 	}

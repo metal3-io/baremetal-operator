@@ -6,8 +6,6 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
-	"github.com/go-logr/logr"
-
 	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -106,9 +104,9 @@ func recordStateEnd(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.Pro
 }
 
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
-	log logr.Logger) {
+	info *reconcileInfo) {
 	if hsm.NextState != initialState {
-		log.Info("changing provisioning state",
+		info.log.Info("changing provisioning state",
 			"old", initialState,
 			"new", hsm.NextState)
 		now := metav1.Now()
@@ -120,7 +118,7 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 
 func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 	initialState := hsm.Host.Status.Provisioning.State
-	defer hsm.updateHostStateFrom(initialState, info.log)
+	defer hsm.updateHostStateFrom(initialState, info)
 
 	if hsm.checkInitiateDelete() {
 		info.log.Info("Initiating host deletion")

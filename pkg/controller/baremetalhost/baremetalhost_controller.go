@@ -50,6 +50,10 @@ var reconcileCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "metal3_reconcile_total",
 	Help: "The number of times hosts have been reconciled",
 }, []string{"host"})
+var reconcileErrorCounter = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_reconcile_error_total",
+	Help: "The number of times the operator has failed to reconcile a host",
+})
 var powerChangeAttempts = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "metal3_operation_power_change_total",
 	Help: "Number of times a host has been powered on or off",
@@ -60,7 +64,10 @@ func init() {
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
 
-	metrics.Registry.MustRegister(reconcileCounters, powerChangeAttempts)
+	metrics.Registry.MustRegister(
+		reconcileCounters,
+		reconcileErrorCounter,
+		powerChangeAttempts)
 }
 
 var log = logf.Log.WithName("baremetalhost")
@@ -157,6 +164,11 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result reconcile.Result, err error) {
 
 	reconcileCounters.WithLabelValues(request.Name).Inc()
+	defer func() {
+		if err != nil {
+			reconcileErrorCounter.Inc()
+		}
+	}()
 
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)

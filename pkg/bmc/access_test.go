@@ -295,6 +295,10 @@ func TestStaticDriverInfo(t *testing.T) {
 		needsMac bool
 		driver   string
 		boot     string
+		management string
+		power string
+		raid string
+		vendor string
 	}{
 		{
 			Scenario: "ipmi",
@@ -302,6 +306,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac: false,
 			driver:   "ipmi",
 			boot:     "ipxe",
+			management: "",
+			power: "",
+			raid: "",
+			vendor: "",
 		},
 
 		{
@@ -310,6 +318,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac: true,
 			driver:   "ipmi",
 			boot:     "ipxe",
+			management: "",
+			power: "",
+			raid: "",
+			vendor: "",
 		},
 
 		{
@@ -318,6 +330,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac: false,
 			driver:   "idrac",
 			boot:     "ipxe",
+			management: "",
+			power: "",
+			raid: "",
+			vendor: "",
 		},
 
 		{
@@ -326,6 +342,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac: false,
 			driver:   "irmc",
 			boot:     "pxe",
+			management: "",
+			power: "",
+			raid: "irmc",
+			vendor: "",
 		},
 
 		{
@@ -334,6 +354,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac: true,
 			driver:   "redfish",
 			boot:     "ipxe",
+			management: "",
+			power: "",
+			raid: "",
+			vendor: "",
 		},
 
 		{
@@ -342,6 +366,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac: true,
 			driver:   "redfish",
 			boot:     "redfish-virtual-media",
+			management: "",
+			power: "",
+			raid: "",
+			vendor: "",
 		},
 
 		{
@@ -358,6 +386,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac: true,
 			driver:   "idrac",
 			boot:     "idrac-redfish-virtual-media",
+			management: "idrac-redfish",
+			power: "idrac-redfish",
+			raid: "no-raid",
+			vendor: "no-vendor",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {

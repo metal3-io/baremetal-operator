@@ -42,6 +42,10 @@ import (
 
 const (
 	hostErrorRetryDelay = time.Second * 10
+
+	labelHostNamespace = "namespace"
+	labelHostName      = "host"
+	labelPowerOnOff    = "on_off"
 )
 
 var runInTestMode bool
@@ -49,7 +53,7 @@ var runInDemoMode bool
 var reconcileCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "metal3_reconcile_total",
 	Help: "The number of times hosts have been reconciled",
-}, []string{"host"})
+}, []string{labelHostNamespace, labelHostName})
 var reconcileErrorCounter = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "metal3_reconcile_error_total",
 	Help: "The number of times the operator has failed to reconcile a host",
@@ -57,7 +61,7 @@ var reconcileErrorCounter = prometheus.NewCounter(prometheus.CounterOpts{
 var powerChangeAttempts = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "metal3_operation_power_change_total",
 	Help: "Number of times a host has been powered on or off",
-}, []string{"host", "on_off"})
+}, []string{labelHostNamespace, labelHostName, labelPowerOnOff})
 
 func init() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
@@ -162,8 +166,10 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // is true, otherwise upon completion it will remove the work from the
 // queue.
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result reconcile.Result, err error) {
-
-	reconcileCounters.WithLabelValues(request.Name).Inc()
+	reconcileCounters.With(prometheus.Labels{
+		labelHostNamespace: request.Namespace,
+		labelHostName:      request.Name,
+	}).Inc()
 	defer func() {
 		if err != nil {
 			reconcileErrorCounter.Inc()
@@ -626,11 +632,16 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 
 	if provResult.Dirty {
 		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
-			if info.host.Spec.Online {
-				powerChangeAttempts.WithLabelValues(info.host.Name, "on").Inc()
-			} else {
-				powerChangeAttempts.WithLabelValues(info.host.Name, "off").Inc()
+			metricLabels := prometheus.Labels{
+				labelHostNamespace: info.host.Namespace,
+				labelHostName:      info.host.Name,
 			}
+			if info.host.Spec.Online {
+				metricLabels[labelPowerOnOff] = "on"
+			} else {
+				metricLabels[labelPowerOnOff] = "off"
+			}
+			powerChangeAttempts.With(metricLabels).Inc()
 		})
 		info.host.ClearError()
 		return actionContinue{provResult.RequeueAfter}

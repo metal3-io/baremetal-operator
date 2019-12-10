@@ -17,22 +17,22 @@ var stateTime = map[metal3v1alpha1.ProvisioningState]*prometheus.HistogramVec{
 	metal3v1alpha1.StateRegistering: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "metal3_operation_register_duration_seconds",
 		Help: "Length of time per registration per host",
-	}, []string{"host"}),
+	}, []string{labelHostNamespace, labelHostName}),
 	metal3v1alpha1.StateInspecting: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "metal3_operation_inspect_duration_seconds",
 		Help:    "Length of time per hardware inspection per host",
 		Buckets: slowOperationBuckets,
-	}, []string{"host"}),
+	}, []string{labelHostNamespace, labelHostName}),
 	metal3v1alpha1.StateProvisioning: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "metal3_operation_provision_duration_seconds",
 		Help:    "Length of time per hardware provision operation per host",
 		Buckets: slowOperationBuckets,
-	}, []string{"host"}),
+	}, []string{labelHostNamespace, labelHostName}),
 	metal3v1alpha1.StateDeprovisioning: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "metal3_operation_deprovision_duration_seconds",
 		Help:    "Length of time per hardware deprovision operation per host",
 		Buckets: slowOperationBuckets,
-	}, []string{"host"}),
+	}, []string{labelHostNamespace, labelHostName}),
 }
 
 func init() {
@@ -98,8 +98,10 @@ func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, sta
 		if !prevMetric.Start.IsZero() {
 			prevMetric.End = time
 			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
-				stateTime[state].WithLabelValues(host.Name).Observe(
-					prevMetric.Duration().Seconds())
+				stateTime[state].With(prometheus.Labels{
+					labelHostNamespace: host.Namespace,
+					labelHostName:      host.Name,
+				}).Observe(prevMetric.Duration().Seconds())
 			})
 		}
 	}

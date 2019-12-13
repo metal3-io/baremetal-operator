@@ -82,6 +82,9 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 		now := metav1.Now()
 		recordStateEnd(info, hsm.Host, initialState, now)
 		recordStateBegin(hsm.Host, hsm.NextState, now)
+		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+			stateChanges.With(stateChangeMetricLabels(initialState, hsm.NextState)).Inc()
+		})
 		hsm.Host.Status.Provisioning.State = hsm.NextState
 	}
 }

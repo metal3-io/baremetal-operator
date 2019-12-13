@@ -13,6 +13,8 @@ const (
 	labelHostNamespace = "namespace"
 	labelHostName      = "host"
 	labelPowerOnOff    = "on_off"
+	labelPrevState     = "prev_state"
+	labelNewState      = "new_state"
 )
 
 var reconcileCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -53,6 +55,11 @@ var stateTime = map[metal3v1alpha1.ProvisioningState]*prometheus.HistogramVec{
 	}, []string{labelHostNamespace, labelHostName}),
 }
 
+var stateChanges = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "metal3_provisioning_state_change_total",
+	Help: "Number of times a state transition has occurred",
+}, []string{labelPrevState, labelNewState})
+
 func init() {
 	metrics.Registry.MustRegister(
 		reconcileCounters,
@@ -62,11 +69,19 @@ func init() {
 	for _, collector := range stateTime {
 		metrics.Registry.MustRegister(collector)
 	}
+	metrics.Registry.MustRegister(stateChanges)
 }
 
 func hostMetricLabels(request reconcile.Request) prometheus.Labels {
 	return prometheus.Labels{
 		labelHostNamespace: request.Namespace,
 		labelHostName:      request.Name,
+	}
+}
+
+func stateChangeMetricLabels(prevState, newState metal3v1alpha1.ProvisioningState) prometheus.Labels {
+	return prometheus.Labels{
+		labelPrevState: string(prevState),
+		labelNewState:  string(newState),
 	}
 }

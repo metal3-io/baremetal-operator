@@ -123,10 +123,10 @@ spec:
   bootMACAddress: 00:1a:74:74:e5:cf
 ```
 
-The output can be passed directly to `oc apply` like this:
+The output can be passed directly to `kubectl apply` like this:
 
 ```bash
-go run cmd/make-virt-host/main.go openshift_worker_1 | oc apply -f -
+go run cmd/make-virt-host/main.go openshift_worker_1 | kubectl apply -f -
 ```
 
 When the host is a *master*, include the `-consumer` and

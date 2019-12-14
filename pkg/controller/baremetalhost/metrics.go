@@ -86,6 +86,11 @@ var hostRegistrationRequired = prometheus.NewCounter(prometheus.CounterOpts{
 	Help: "Number of times a host is found to be unregistered",
 })
 
+var deleteWithoutDeprov = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_delete_without_deprovisioning_total",
+	Help: "Number of times a host is deleted despite deprovisioning failing",
+})
+
 func init() {
 	metrics.Registry.MustRegister(
 		reconcileCounters,
@@ -105,7 +110,8 @@ func init() {
 
 	metrics.Registry.MustRegister(
 		stateChanges,
-		hostRegistrationRequired)
+		hostRegistrationRequired,
+		deleteWithoutDeprov)
 }
 
 func hostMetricLabels(request reconcile.Request) prometheus.Labels {

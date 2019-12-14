@@ -302,6 +302,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 			// Ironic provisioner currently never gives up
 			// trying to deprovision.
 			hsm.NextState = metal3v1alpha1.StateDeleting
+			info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutDeprov.Inc)
 			actResult = actionComplete{}
 		} else {
 			hsm.NextState = metal3v1alpha1.StateProvisioningError

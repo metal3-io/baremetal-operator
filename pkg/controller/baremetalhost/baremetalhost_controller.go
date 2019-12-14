@@ -279,6 +279,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// what we may be waiting on.  Editing the host to set these values will
 	// cause the host to be reconciled again so we do not Requeue.
 	case *EmptyBMCAddressError, *EmptyBMCSecretError:
+		credentialsInvalid.Inc()
 		dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
 		if dirty {
 			// Set the host error message directly
@@ -299,6 +300,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *ResolveBMCSecretRefError:
+		credentialsMissing.Inc()
 		changed, saveErr := r.setErrorCondition(request, host, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
@@ -315,6 +317,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// as fixing the secret or the host BMC info will trigger
 	// the host to be reconciled again
 	case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
+		credentialsInvalid.Inc()
 		_, saveErr := r.setErrorCondition(request, host, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
@@ -324,6 +327,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
 		return reconcile.Result{}, nil
 	default:
+		unhandledCredentialsError.Inc()
 		return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
 	}
 }
@@ -374,10 +378,12 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	if credsChanged {
 		info.log.Info("new credentials")
 		info.host.UpdateTriedCredentials(*info.bmcCredsSecret)
+		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
 	}
 
 	provResult, err := prov.ValidateManagementAccess(credsChanged)
 	if err != nil {
+		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
 	}
 

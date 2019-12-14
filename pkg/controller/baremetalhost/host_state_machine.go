@@ -101,6 +101,7 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 	// rather than initiate a transistion back to the Registering state.
 	if hsm.shouldInitiateRegister(info) {
 		info.log.Info("Initiating host registration")
+		hostRegistrationRequired.Inc()
 		return actionComplete{}
 	}
 

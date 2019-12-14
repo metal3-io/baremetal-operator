@@ -31,6 +31,27 @@ var powerChangeAttempts = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of times a host has been powered on or off",
 }, []string{labelHostNamespace, labelHostName, labelPowerOnOff})
 
+var credentialsMissing = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_credentials_missing_total",
+	Help: "Number of times a host's credentials are found to be missing",
+})
+var credentialsInvalid = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_credentials_invalid_total",
+	Help: "Number of times a host's credentials are found to be invalid",
+})
+var unhandledCredentialsError = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_credentials_unhandled_error_total",
+	Help: "Number of times getting a host's credentials fails in an unexpected way",
+})
+var updatedCredentials = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_credentials_updated_total",
+	Help: "Number of times a host's credentials change",
+})
+var noManagementAccess = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_credentials_no_management_access_total",
+	Help: "Number of times a host management interface is unavailable",
+})
+
 var slowOperationBuckets = []float64{30, 90, 180, 360, 720, 1440}
 
 var stateTime = map[metal3v1alpha1.ProvisioningState]*prometheus.HistogramVec{
@@ -60,6 +81,11 @@ var stateChanges = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of times a state transition has occurred",
 }, []string{labelPrevState, labelNewState})
 
+var hostRegistrationRequired = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_host_registration_required_total",
+	Help: "Number of times a host is found to be unregistered",
+})
+
 func init() {
 	metrics.Registry.MustRegister(
 		reconcileCounters,
@@ -69,7 +95,17 @@ func init() {
 	for _, collector := range stateTime {
 		metrics.Registry.MustRegister(collector)
 	}
-	metrics.Registry.MustRegister(stateChanges)
+
+	metrics.Registry.MustRegister(
+		credentialsMissing,
+		credentialsInvalid,
+		unhandledCredentialsError,
+		updatedCredentials,
+		noManagementAccess)
+
+	metrics.Registry.MustRegister(
+		stateChanges,
+		hostRegistrationRequired)
 }
 
 func hostMetricLabels(request reconcile.Request) prometheus.Labels {

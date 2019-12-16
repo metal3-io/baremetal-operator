@@ -12,6 +12,7 @@ import (
 const (
 	labelHostNamespace = "namespace"
 	labelHostName      = "host"
+	labelErrorType     = "error_type"
 	labelPowerOnOff    = "on_off"
 	labelPrevState     = "prev_state"
 	labelNewState      = "new_state"
@@ -25,6 +26,10 @@ var reconcileErrorCounter = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "metal3_reconcile_error_total",
 	Help: "The number of times the operator has failed to reconcile a host",
 })
+var actionFailureCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "metal3_host_error_total",
+	Help: "The number of times hosts have entered an error state",
+}, []string{labelErrorType})
 
 var powerChangeAttempts = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "metal3_operation_power_change_total",
@@ -95,6 +100,7 @@ func init() {
 	metrics.Registry.MustRegister(
 		reconcileCounters,
 		reconcileErrorCounter,
+		actionFailureCounters,
 		powerChangeAttempts)
 
 	for _, collector := range stateTime {

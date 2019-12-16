@@ -266,6 +266,8 @@ func logResult(info *reconcileInfo, result reconcile.Result) {
 func recordActionFailure(info *reconcileInfo, eventType string, errorMessage string) actionFailed {
 	dirty := info.host.SetErrorMessage(errorMessage)
 	if dirty {
+		counter := actionFailureCounters.WithLabelValues(eventType)
+		info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
 		info.publishEvent(eventType, errorMessage)
 	}
 	return actionFailed{dirty}

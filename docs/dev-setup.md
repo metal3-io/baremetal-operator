@@ -29,7 +29,7 @@ install the operator-sdk tools.
     kubectl apply -f deploy/service_account.yaml -n metal3
     kubectl apply -f deploy/role.yaml -n metal3
     kubectl apply -f deploy/role_binding.yaml
-    kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
+    kubectl apply -f deploy/crds/metal3.io_baremetalhosts_crd.yaml
     ```
 
 1. Launch the operator locally

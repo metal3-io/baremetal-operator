@@ -9,14 +9,24 @@ rules:
   resources:
   - configmaps
   verbs:
-  - "*"
+  - list
+  - get
+  - create
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - watch
+  - list
+  - update
 - apiGroups:
   - ""
   resources:
   - events
-  - secrets
   verbs:
-  - "*"
+  - create
 - apiGroups:
   - ""
   resources:

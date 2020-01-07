@@ -6,7 +6,7 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
-	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // hostStateMachine is a finite state machine that manages transitions between
@@ -51,19 +51,47 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 	}
 }
 
+func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+	if nextMetric := host.OperationMetricForState(state); nextMetric != nil {
+		if nextMetric.Start.IsZero() || !nextMetric.End.IsZero() {
+			*nextMetric = metal3v1alpha1.OperationMetric{
+				Start: time,
+			}
+		}
+	}
+}
+
+func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
+		if !prevMetric.Start.IsZero() {
+			prevMetric.End = time
+			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+				observer := stateTime[state].With(hostMetricLabels(info.request))
+				observer.Observe(prevMetric.Duration().Seconds())
+			})
+		}
+	}
+}
+
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
-	log logr.Logger) {
+	info *reconcileInfo) {
 	if hsm.NextState != initialState {
-		log.Info("changing provisioning state",
+		info.log.Info("changing provisioning state",
 			"old", initialState,
 			"new", hsm.NextState)
+		now := metav1.Now()
+		recordStateEnd(info, hsm.Host, initialState, now)
+		recordStateBegin(hsm.Host, hsm.NextState, now)
+		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+			stateChanges.With(stateChangeMetricLabels(initialState, hsm.NextState)).Inc()
+		})
 		hsm.Host.Status.Provisioning.State = hsm.NextState
 	}
 }
 
 func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 	initialState := hsm.Host.Status.Provisioning.State
-	defer hsm.updateHostStateFrom(initialState, info.log)
+	defer hsm.updateHostStateFrom(initialState, info)
 
 	if hsm.checkInitiateDelete() {
 		info.log.Info("Initiating host deletion")
@@ -73,6 +101,7 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 	// rather than initiate a transistion back to the Registering state.
 	if hsm.shouldInitiateRegister(info) {
 		info.log.Info("Initiating host registration")
+		hostRegistrationRequired.Inc()
 		return actionComplete{}
 	}
 
@@ -273,6 +302,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 			// Ironic provisioner currently never gives up
 			// trying to deprovision.
 			hsm.NextState = metal3v1alpha1.StateDeleting
+			info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutDeprov.Inc)
 			actResult = actionComplete{}
 		} else {
 			hsm.NextState = metal3v1alpha1.StateProvisioningError

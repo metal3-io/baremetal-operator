@@ -119,12 +119,13 @@ type ReconcileBareMetalHost struct {
 // Instead of passing a zillion arguments to the action of a phase,
 // hold them in a context
 type reconcileInfo struct {
-	log            logr.Logger
-	host           *metal3v1alpha1.BareMetalHost
-	request        reconcile.Request
-	bmcCredsSecret *corev1.Secret
-	events         []corev1.Event
-	errorMessage   string
+	log               logr.Logger
+	host              *metal3v1alpha1.BareMetalHost
+	request           reconcile.Request
+	bmcCredsSecret    *corev1.Secret
+	events            []corev1.Event
+	errorMessage      string
+	postSaveCallbacks []func()
 }
 
 // match the provisioner.EventPublisher interface
@@ -141,6 +142,12 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // is true, otherwise upon completion it will remove the work from the
 // queue.
 func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result reconcile.Result, err error) {
+	reconcileCounters.With(hostMetricLabels(request)).Inc()
+	defer func() {
+		if err != nil {
+			reconcileErrorCounter.Inc()
+		}
+	}()
 
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
@@ -229,6 +236,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", initialState))
 		}
+
+		for _, cb := range info.postSaveCallbacks {
+			cb()
+		}
 	}
 
 	for _, e := range info.events {
@@ -255,6 +266,8 @@ func logResult(info *reconcileInfo, result reconcile.Result) {
 func recordActionFailure(info *reconcileInfo, eventType string, errorMessage string) actionFailed {
 	dirty := info.host.SetErrorMessage(errorMessage)
 	if dirty {
+		counter := actionFailureCounters.WithLabelValues(eventType)
+		info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
 		info.publishEvent(eventType, errorMessage)
 	}
 	return actionFailed{dirty}
@@ -268,6 +281,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// what we may be waiting on.  Editing the host to set these values will
 	// cause the host to be reconciled again so we do not Requeue.
 	case *EmptyBMCAddressError, *EmptyBMCSecretError:
+		credentialsInvalid.Inc()
 		dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
 		if dirty {
 			// Set the host error message directly
@@ -288,6 +302,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *ResolveBMCSecretRefError:
+		credentialsMissing.Inc()
 		changed, saveErr := r.setErrorCondition(request, host, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
@@ -304,6 +319,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// as fixing the secret or the host BMC info will trigger
 	// the host to be reconciled again
 	case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
+		credentialsInvalid.Inc()
 		_, saveErr := r.setErrorCondition(request, host, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
@@ -313,6 +329,7 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
 		return reconcile.Result{}, nil
 	default:
+		unhandledCredentialsError.Inc()
 		return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
 	}
 }
@@ -363,10 +380,12 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	if credsChanged {
 		info.log.Info("new credentials")
 		info.host.UpdateTriedCredentials(*info.bmcCredsSecret)
+		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
 	}
 
 	provResult, err := prov.ValidateManagementAccess(credsChanged)
 	if err != nil {
+		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
 	}
 
@@ -593,6 +612,15 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	}
 
 	if provResult.Dirty {
+		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+			metricLabels := hostMetricLabels(info.request)
+			if info.host.Spec.Online {
+				metricLabels[labelPowerOnOff] = "on"
+			} else {
+				metricLabels[labelPowerOnOff] = "off"
+			}
+			powerChangeAttempts.With(metricLabels).Inc()
+		})
 		info.host.ClearError()
 		return actionContinue{provResult.RequeueAfter}
 	}

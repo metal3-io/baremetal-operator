@@ -406,39 +406,55 @@ spec:
                 on this host.
               properties:
                 deprovision:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
                   properties:
                     end:
                       format: date-time
+                      nullable: true
                       type: string
                     start:
                       format: date-time
+                      nullable: true
                       type: string
                   type: object
                 inspect:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
                   properties:
                     end:
                       format: date-time
+                      nullable: true
                       type: string
                     start:
                       format: date-time
+                      nullable: true
                       type: string
                   type: object
                 provision:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
                   properties:
                     end:
                       format: date-time
+                      nullable: true
                       type: string
                     start:
                       format: date-time
+                      nullable: true
                       type: string
                   type: object
                 register:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
                   properties:
                     end:
                       format: date-time
+                      nullable: true
                       type: string
                     start:
                       format: date-time
+                      nullable: true
                       type: string
                   type: object
               type: object
@@ -499,8 +515,8 @@ spec:
           required:
           - errorMessage
           - hardwareProfile
-          - operationalStatus
           - operationHistory
+          - operationalStatus
           - poweredOn
           - provisioning
           type: object

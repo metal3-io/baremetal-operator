@@ -9,9 +9,10 @@ GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
 export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=$(shell git describe --always --abbrev=40 --dirty) -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${GIT_COMMIT}"
 
 # Set some variables the operator expects to have in order to work
+# Those need to be the same as in deploy/ironic_ci.env
 export OPERATOR_NAME=baremetal-operator
-export DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel
-export DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs
+export DEPLOY_KERNEL_URL=http://172.22.0.1:6180/images/ironic-python-agent.kernel
+export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.initramfs
 export IRONIC_ENDPOINT=http://localhost:6385/v1/
 export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
 

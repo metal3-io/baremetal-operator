@@ -55,7 +55,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info(fmt.Sprintf("gather metrics at http://%s/metrics", *metricsAddr))
 	opts := manager.Options{
 		LeaderElection:          true,
 		LeaderElectionID:        "baremetal-operator",

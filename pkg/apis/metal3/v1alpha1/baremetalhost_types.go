@@ -340,8 +340,10 @@ func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
 // OperationMetric contains metadata about an operation (inspection,
 // provisioning, etc.) used for tracking metrics.
 type OperationMetric struct {
+	// +nullable
 	Start metav1.Time `json:"start,omitempty"`
-	End   metav1.Time `json:"end,omitempty"`
+	// +nullable
+	End metav1.Time `json:"end,omitempty"`
 }
 
 // Duration returns the length of time that was spent on the

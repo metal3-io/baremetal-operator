@@ -644,11 +644,14 @@ func (host *BareMetalHost) NeedsDeprovisioning() bool {
 	if host.Spec.ExternallyProvisioned {
 		return false
 	}
-	if host.Status.Provisioning.Image.URL == "" {
-		return false
-	}
 	if host.Spec.Image == nil {
 		return true
+	}
+	if host.Spec.Image.URL == "" {
+		return true
+	}
+	if host.Status.Provisioning.Image.URL == "" {
+		return false
 	}
 	if host.Spec.Image.URL != host.Status.Provisioning.Image.URL {
 		return true

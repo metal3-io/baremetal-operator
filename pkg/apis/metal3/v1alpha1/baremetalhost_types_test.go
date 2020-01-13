@@ -318,7 +318,7 @@ func TestHostNeedsDeprovisioning(t *testing.T) {
 					Online: true,
 				},
 			},
-			Expected: false,
+			Expected: true,
 		},
 
 		{
@@ -332,7 +332,7 @@ func TestHostNeedsDeprovisioning(t *testing.T) {
 					Online: true,
 				},
 			},
-			Expected: false,
+			Expected: true,
 		},
 
 		{
@@ -443,10 +443,10 @@ func TestHostNeedsDeprovisioning(t *testing.T) {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			actual := tc.Host.NeedsDeprovisioning()
 			if tc.Expected && !actual {
-				t.Error("expected to need provisioning")
+				t.Error("expected to need deprovisioning")
 			}
 			if !tc.Expected && actual {
-				t.Error("did not expect to need provisioning")
+				t.Error("did not expect to need deprovisioning")
 			}
 		})
 	}

@@ -149,6 +149,14 @@ spec:
                 checksum:
                   description: Checksum is the checksum for the image.
                   type: string
+                checksumType:
+                  description: ChecksumType is the checksum algorithm for the image.
+                    e.g md5, sha256, sha512
+                  enum:
+                  - md5
+                  - sha256
+                  - sha512
+                  type: string
                 url:
                   description: URL is a location of an image to deploy.
                   type: string
@@ -529,6 +537,14 @@ spec:
                   properties:
                     checksum:
                       description: Checksum is the checksum for the image.
+                      type: string
+                    checksumType:
+                      description: ChecksumType is the checksum algorithm for the
+                        image. e.g md5, sha256, sha512
+                      enum:
+                      - md5
+                      - sha256
+                      - sha512
                       type: string
                     url:
                       description: URL is a location of an image to deploy.

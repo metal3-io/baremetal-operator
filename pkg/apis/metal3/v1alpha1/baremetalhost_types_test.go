@@ -377,24 +377,6 @@ func TestHostNeedsDeprovisioning(t *testing.T) {
 		},
 
 		{
-			Scenario: "externally provisioned",
-			Host: BareMetalHost{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "myhost",
-					Namespace: "myns",
-				},
-				Spec: BareMetalHostSpec{
-					ExternallyProvisioned: true,
-					Image: &Image{
-						URL: "same",
-					},
-					Online: true,
-				},
-			},
-			Expected: false,
-		},
-
-		{
 			Scenario: "removed image",
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{

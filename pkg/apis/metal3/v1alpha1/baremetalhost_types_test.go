@@ -15,7 +15,7 @@ func TestHostAvailable(t *testing.T) {
 			Namespace: "myns",
 		},
 	}
-	hostWithError.SetErrorMessage("oops something went wrong")
+	hostWithError.SetErrorMessage(RegistrationError, "oops something went wrong")
 
 	testCases := []struct {
 		Host        BareMetalHost

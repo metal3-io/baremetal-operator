@@ -180,6 +180,8 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 		default:
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
+	case actionFailed:
+		hsm.NextState = metal3v1alpha1.StateRegistrationError
 	}
 	return actResult
 }
@@ -211,7 +213,16 @@ func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResul
 
 func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
-		return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+		actResult := hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+		if r, f := actResult.(actionFailed); f {
+			switch r.ErrorType {
+			case metal3v1alpha1.PowerManagementError:
+				hsm.NextState = metal3v1alpha1.StatePowerManagementError
+			case metal3v1alpha1.RegistrationError:
+				hsm.NextState = metal3v1alpha1.StateRegistrationError
+			}
+		}
+		return actResult
 	}
 
 	switch {
@@ -226,15 +237,25 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 }
 
 func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
-	switch {
-	case hsm.Host.Spec.ExternallyProvisioned:
+	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
-	case hsm.Host.NeedsProvisioning():
-		hsm.NextState = metal3v1alpha1.StateProvisioning
-	default:
-		return hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
+		return actionComplete{}
 	}
-	return actionComplete{}
+
+	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
+
+	switch r := actResult.(type) {
+	case actionComplete:
+		hsm.NextState = metal3v1alpha1.StateProvisioning
+	case actionFailed:
+		switch r.ErrorType {
+		case metal3v1alpha1.PowerManagementError:
+			hsm.NextState = metal3v1alpha1.StatePowerManagementError
+		case metal3v1alpha1.RegistrationError:
+			hsm.NextState = metal3v1alpha1.StateRegistrationError
+		}
+	}
+	return actResult
 }
 
 func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResult {
@@ -269,7 +290,16 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult
 		return actionComplete{}
 	}
 
-	return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+	actResult := hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+	if r, f := actResult.(actionFailed); f {
+		switch r.ErrorType {
+		case metal3v1alpha1.PowerManagementError:
+			hsm.NextState = metal3v1alpha1.StatePowerManagementError
+		case metal3v1alpha1.RegistrationError:
+			hsm.NextState = metal3v1alpha1.StateRegistrationError
+		}
+	}
+	return actResult
 }
 
 func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) actionResult {

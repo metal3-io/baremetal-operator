@@ -1,6 +1,8 @@
 package baremetalhost
 
 import (
+	metal3 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 )
@@ -77,7 +79,8 @@ func (r actionError) Dirty() bool {
 // actionFailed is a result indicating that the current action has failed,
 // and that the resource should be marked as in error.
 type actionFailed struct {
-	dirty bool
+	dirty     bool
+	ErrorType metal3.ErrorType
 }
 
 func (r actionFailed) Result() (result reconcile.Result, err error) {

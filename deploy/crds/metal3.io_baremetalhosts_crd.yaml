@@ -204,6 +204,15 @@ spec:
             errorMessage:
               description: the last error message reported by the provisioning subsystem
               type: string
+            errorType:
+              description: ErrorType indicates the type of failure encountered when
+                the OperationalStatus is OperationalStatusError
+              enum:
+              - registration error
+              - inspection error
+              - provisioning error
+              - power management error
+              type: string
             goodCredentials:
               description: the last credentials we were able to validate as working
               properties:
@@ -460,6 +469,11 @@ spec:
               type: object
             operationalStatus:
               description: OperationalStatus holds the status of the host
+              enum:
+              - ""
+              - OK
+              - discovered
+              - error
               type: string
             poweredOn:
               description: indicator for whether or not the host is powered on

@@ -38,6 +38,26 @@ const (
 	OperationalStatusError OperationalStatus = "error"
 )
 
+// ErrorType indicates the class of problem that has caused the Host resource
+// to enter an error state.
+type ErrorType string
+
+const (
+	// RegistrationError is an error condition occurring when the
+	// controller is unable to connect to the Host's baseboard management
+	// controller.
+	RegistrationError ErrorType = "registration error"
+	// InspectionError is an error condition occurring when an attempt to
+	// obtain hardware details from the Host fails.
+	InspectionError ErrorType = "inspection error"
+	// ProvisioningError is an error condition occuring when the controller
+	// fails to provision or deprovision the Host.
+	ProvisioningError ErrorType = "provisioning error"
+	// PowerManagementError is an error condition occurring when the
+	// controller is unable to modify the power state of the Host.
+	PowerManagementError ErrorType = "power management error"
+)
+
 // ProvisioningState defines the states the provisioner will report
 // the host has having.
 type ProvisioningState string
@@ -370,7 +390,13 @@ type BareMetalHostStatus struct {
 	// after modifying this file
 
 	// OperationalStatus holds the status of the host
+	// +kubebuilder:validation:Enum=,OK,discovered,error
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
+
+	// ErrorType indicates the type of failure encountered when the
+	// OperationalStatus is OperationalStatusError
+	// +kubebuilder:validation:Enum=registration error,inspection error,provisioning error,power management error
+	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// LastUpdated identifies when this status was last observed.
 	// +optional
@@ -453,9 +479,13 @@ func (host *BareMetalHost) Available() bool {
 // SetErrorMessage updates the ErrorMessage in the host Status struct
 // when necessary and returns true when a change is made or false when
 // no change is made.
-func (host *BareMetalHost) SetErrorMessage(message string) (dirty bool) {
+func (host *BareMetalHost) SetErrorMessage(errType ErrorType, message string) (dirty bool) {
 	if host.Status.OperationalStatus != OperationalStatusError {
 		host.Status.OperationalStatus = OperationalStatusError
+		dirty = true
+	}
+	if host.Status.ErrorType != errType {
+		host.Status.ErrorType = errType
 		dirty = true
 	}
 	if host.Status.ErrorMessage != message {
@@ -468,6 +498,11 @@ func (host *BareMetalHost) SetErrorMessage(message string) (dirty bool) {
 // ClearError removes any existing error message.
 func (host *BareMetalHost) ClearError() (dirty bool) {
 	dirty = host.SetOperationalStatus(OperationalStatusOK)
+	var emptyErrType ErrorType = ""
+	if host.Status.ErrorType != emptyErrType {
+		host.Status.ErrorType = emptyErrType
+		dirty = true
+	}
 	if host.Status.ErrorMessage != "" {
 		host.Status.ErrorMessage = ""
 		dirty = true

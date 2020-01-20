@@ -603,9 +603,6 @@ func (host *BareMetalHost) NeedsHardwareInspection() bool {
 // status and returns true when more work is needed or false
 // otherwise.
 func (host *BareMetalHost) NeedsProvisioning() bool {
-	if host.Spec.ExternallyProvisioned {
-		return false
-	}
 	if !host.Spec.Online {
 		// The host is not supposed to be powered on.
 		return false
@@ -641,14 +638,14 @@ func (host *BareMetalHost) WasProvisioned() bool {
 // NeedsDeprovisioning compares the settings with the provisioning
 // status and returns true when the host should be deprovisioned.
 func (host *BareMetalHost) NeedsDeprovisioning() bool {
-	if host.Spec.ExternallyProvisioned {
-		return false
+	if host.Spec.Image == nil {
+		return true
+	}
+	if host.Spec.Image.URL == "" {
+		return true
 	}
 	if host.Status.Provisioning.Image.URL == "" {
 		return false
-	}
-	if host.Spec.Image == nil {
-		return true
 	}
 	if host.Spec.Image.URL != host.Status.Provisioning.Image.URL {
 		return true

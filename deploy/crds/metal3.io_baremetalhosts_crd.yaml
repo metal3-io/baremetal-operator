@@ -470,6 +470,7 @@ spec:
             operationalStatus:
               description: OperationalStatus holds the status of the host
               enum:
+              - ""
               - OK
               - discovered
               - error

@@ -74,6 +74,9 @@ spec:
                   description: The name of the secret containing the BMC credentials
                     (requires keys "username" and "password").
                   type: string
+                disableCertificateVerification:
+                  description: Will skip certificate validation when true
+                type:boolean
               required:
               - address
               - credentialsName

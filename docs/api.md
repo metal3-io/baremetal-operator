@@ -33,6 +33,8 @@ mainly, but not only, provisioning details.
   * *credentialsName* -- A reference to a *secret* containing the
     username and password for the BMC.
 
+  * *disableCertificateVerification* -- A boolean to skip certificate validation when true.
+
 * *online* -- A boolean indicating whether the host should be powered on
   (true) or off (false). Changing this value will trigger a change in
   power state on the physical host.

@@ -190,4 +190,5 @@ spec:
   bmc:
     address: 1.2.3.4
     credentialsName: worker-99-bmc-secret
+    disableCertificateVerification: true
 ```

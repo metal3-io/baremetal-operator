@@ -783,15 +783,10 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			c.Create(goctx.TODO(), testBMCSecret)
 			c.Create(goctx.TODO(), tc.UserDataSecret)
 			c.Create(goctx.TODO(), tc.NetworkDataSecret)
-			r := &ReconcileBareMetalHost{
-				client:             c,
-				scheme:             scheme.Scheme,
-				provisionerFactory: fixture.New,
-			}
 			hcd := &hostConfigData{
-				host:         tc.Host,
-				log:          log.WithValues("Test", "test"),
-				bmReconciler: r,
+				host:   tc.Host,
+				log:    log.WithValues("Test", "test"),
+				client: c,
 			}
 
 			tc.AssertF(t, hcd)

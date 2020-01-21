@@ -155,12 +155,12 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, info.host.NewEvent(reason, message))
 }
 
-// hostConfigData imaplementation of cons configuration data interface
-// Object is able to retrive data from Screts referenced in host spec
+// hostConfigData is an implementation of host configuration data interface.
+// Object is able to retrive data from secrets referenced in a host spec
 type hostConfigData struct {
-	host         *metal3v1alpha1.BareMetalHost
-	log          logr.Logger
-	bmReconciler *ReconcileBareMetalHost
+	host   *metal3v1alpha1.BareMetalHost
+	log    logr.Logger
+	client client.Client
 }
 
 // Generic method for data extraction from a Secret. Function uses dataKey
@@ -172,9 +172,9 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) ([]byt
 		Name:      name,
 		Namespace: namespace,
 	}
-	if err := hcd.bmReconciler.client.Get(context.TODO(), key, secret); err != nil {
-		return nil, errors.Wrap(err,
-			"failed to fetch user data from secret reference")
+	if err := hcd.client.Get(context.TODO(), key, secret); err != nil {
+		errMsg := fmt.Sprintf("failed to fetch user data from secret %s defined in namespace %s", name, namespace)
+		return nil, errors.Wrap(err, errMsg)
 	}
 
 	data, ok := secret.Data[dataKey]
@@ -591,9 +591,9 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 // Start/continue provisioning if we need to.
 func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	hostConf := &hostConfigData{
-		host:         info.host,
-		log:          info.log,
-		bmReconciler: r,
+		host:   info.host,
+		log:    info.log,
+		client: r.client,
 	}
 	info.log.Info("provisioning")
 

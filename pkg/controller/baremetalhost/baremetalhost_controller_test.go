@@ -1,6 +1,7 @@
 package baremetalhost
 
 import (
+	"bytes"
 	goctx "context"
 	"encoding/base64"
 	"fmt"
@@ -648,11 +649,14 @@ func TestProvisionWithHostConfig(t *testing.T) {
 	)
 
 	testCases := []struct {
-		Scenario          string
-		Host              *metal3v1alpha1.BareMetalHost
-		UserDataSecret    *corev1.Secret
-		NetworkDataSecret *corev1.Secret
-		AssertF           func(*testing.T, *hostConfigData)
+		Scenario            string
+		Host                *metal3v1alpha1.BareMetalHost
+		UserDataSecret      *corev1.Secret
+		NetworkDataSecret   *corev1.Secret
+		ExpectedUserData    string
+		ErrUserData         bool
+		ExpectedNetworkData []byte
+		ErrNetworkData      bool
 	}{
 		{
 			Scenario: "host with user data only",
@@ -667,15 +671,11 @@ func TestProvisionWithHostConfig(t *testing.T) {
 						Namespace: namespace,
 					},
 				}),
-			UserDataSecret: newSecret("user-data", map[string]string{"userData": "somedata"}),
-			AssertF: func(t *testing.T, hcd *hostConfigData) {
-				if _, err := hcd.UserData(); err != nil {
-					t.Fatal(err)
-				}
-				if _, err := hcd.NetworkData(); err != nil {
-					t.Fatal(err)
-				}
-			},
+			UserDataSecret:      newSecret("user-data", map[string]string{"userData": "somedata"}),
+			ExpectedUserData:    base64.StdEncoding.EncodeToString([]byte("somedata")),
+			ErrUserData:         false,
+			ExpectedNetworkData: nil,
+			ErrNetworkData:      false,
 		},
 		{
 			Scenario: "host with network data only",
@@ -690,15 +690,11 @@ func TestProvisionWithHostConfig(t *testing.T) {
 						Namespace: namespace,
 					},
 				}),
-			NetworkDataSecret: newSecret("net-data", map[string]string{"networkData": "key: value"}),
-			AssertF: func(t *testing.T, hcd *hostConfigData) {
-				if _, err := hcd.UserData(); err != nil {
-					t.Fatal(err)
-				}
-				if _, err := hcd.NetworkData(); err != nil {
-					t.Fatal(err)
-				}
-			},
+			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),
+			ExpectedUserData:    "",
+			ErrUserData:         false,
+			ExpectedNetworkData: []byte(base64.StdEncoding.EncodeToString([]byte("key: value"))),
+			ErrNetworkData:      false,
 		},
 		{
 			Scenario: "host with non-existent network data",
@@ -713,14 +709,10 @@ func TestProvisionWithHostConfig(t *testing.T) {
 						Namespace: namespace,
 					},
 				}),
-			AssertF: func(t *testing.T, hcd *hostConfigData) {
-				if _, err := hcd.UserData(); err != nil {
-					t.Fatal(err)
-				}
-				if _, err := hcd.NetworkData(); err == nil {
-					t.Fatal(err)
-				}
-			},
+			ExpectedUserData:    "",
+			ErrUserData:         true,
+			ExpectedNetworkData: nil,
+			ErrNetworkData:      true,
 		},
 		{
 			Scenario: "host with wrong key in network data secret",
@@ -735,15 +727,11 @@ func TestProvisionWithHostConfig(t *testing.T) {
 						Namespace: namespace,
 					},
 				}),
-			NetworkDataSecret: newSecret("net-data", map[string]string{"wrong": "key: value"}),
-			AssertF: func(t *testing.T, hcd *hostConfigData) {
-				if _, err := hcd.UserData(); err != nil {
-					t.Fatal(err)
-				}
-				if _, err := hcd.NetworkData(); err == nil {
-					t.Fatal(err)
-				}
-			},
+			NetworkDataSecret:   newSecret("net-data", map[string]string{"wrong": "key: value"}),
+			ExpectedUserData:    "",
+			ErrUserData:         false,
+			ExpectedNetworkData: nil,
+			ErrNetworkData:      true,
 		},
 		{
 			Scenario: "host without keys in user data secret",
@@ -758,16 +746,11 @@ func TestProvisionWithHostConfig(t *testing.T) {
 						Namespace: namespace,
 					},
 				}),
-			UserDataSecret: newSecret("user-data", map[string]string{}),
-			AssertF: func(t *testing.T, hcd *hostConfigData) {
-				if _, err := hcd.UserData(); err == nil {
-					t.Fatal(err)
-				}
-
-				if _, err := hcd.NetworkData(); err != nil {
-					t.Fatal(err)
-				}
-			},
+			UserDataSecret:      newSecret("user-data", map[string]string{}),
+			ExpectedUserData:    "",
+			ErrUserData:         true,
+			ExpectedNetworkData: nil,
+			ErrNetworkData:      true,
 		},
 	}
 
@@ -789,7 +772,23 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				client: c,
 			}
 
-			tc.AssertF(t, hcd)
+			actualUserData, err := hcd.UserData()
+			if err != nil && !tc.ErrUserData {
+				t.Fatal(err)
+			}
+
+			if actualUserData != tc.ExpectedUserData {
+				t.Fatal(fmt.Errorf("Failed to assert UserData. Expected '%s' got '%s'", tc.ExpectedUserData, actualUserData))
+			}
+
+			actualNetworkData, err := hcd.NetworkData()
+			if err != nil && !tc.ErrNetworkData {
+				t.Fatal(err)
+			}
+
+			if !bytes.Equal(actualNetworkData, tc.ExpectedNetworkData) {
+				t.Fatal(fmt.Errorf("Failed to assert NetworkData. Expected '%s' got '%s'", actualNetworkData, tc.ExpectedNetworkData))
+			}
 		})
 	}
 }

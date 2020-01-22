@@ -390,12 +390,12 @@ type BareMetalHostStatus struct {
 	// after modifying this file
 
 	// OperationalStatus holds the status of the host
-	// +kubebuilder:validation:Enum=,OK,discovered,error
+	// +kubebuilder:validation:Enum="";OK;discovered;error
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
-	// +kubebuilder:validation:Enum=registration error,inspection error,provisioning error,power management error
+	// +kubebuilder:validation:Enum=registration error;inspection error;provisioning error;power management error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// LastUpdated identifies when this status was last observed.

@@ -4,6 +4,7 @@ set -eux
 
 IS_CONTAINER=${IS_CONTAINER:-false}
 ARTIFACTS=${ARTIFACTS:-/tmp}
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
   eval "$(go env)"
@@ -11,7 +12,7 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   export XDG_CACHE_HOME="/tmp/.cache"
   go test -v ./pkg/... ./cmd/... -coverprofile "${ARTIFACTS}"/cover.out
 else
-  podman run --rm \
+  "${CONTAINER_RUNTIME}" run --rm \
     --env IS_CONTAINER=TRUE \
     --env DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel \
     --env DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs \

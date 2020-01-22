@@ -2,9 +2,6 @@ package ironic
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -281,12 +278,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		}
 
 		if p.host.Spec.Image != nil && p.host.Spec.Image.URL != "" {
-			// FIXME(dhellmann): The Stein version of Ironic supports passing
-			// a URL. When we upgrade, we can stop doing this work ourself.
-			checksum, err := p.getImageChecksum()
-			if err != nil {
-				return result, errors.Wrap(err, "failed to retrieve image checksum")
-			}
+			checksum := p.host.Spec.Image.Checksum
 
 			p.log.Info("setting instance info",
 				"image_source", p.host.Spec.Image.URL,
@@ -304,13 +296,10 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 					Path:  "/instance_info/image_checksum",
 					Value: checksum,
 				},
-				// NOTE(dhellmann): We must fill in *some* value so that
-				// Ironic will monitor the host. We don't have a nova
-				// instance at all, so just give the node it's UUID again.
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
 					Path:  "/instance_uuid",
-					Value: p.host.Status.Provisioning.ID,
+					Value: string(p.host.ObjectMeta.UID),
 				},
 			}
 			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
@@ -673,42 +662,6 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	return result, nil
 }
 
-func checksumIsURL(checksumURL string) (bool, error) {
-	parsedChecksumURL, err := url.Parse(checksumURL)
-	if err != nil {
-		return false, errors.Wrap(err, "Could not parse image checksum")
-	}
-	return parsedChecksumURL.Scheme != "", nil
-}
-
-func (p *ironicProvisioner) getImageChecksum() (string, error) {
-	checksum := p.host.Spec.Image.Checksum
-	isURL, err := checksumIsURL(checksum)
-	if err != nil {
-		return "", errors.Wrap(err, "Could not understand image checksum")
-	}
-	if isURL {
-		p.log.Info("looking for checksum for image", "URL", checksum)
-		// #nosec
-		// TODO: Are there more ways to constraint the URL that's given here?
-		resp, err := http.Get(checksum)
-		if err != nil {
-			return "", errors.Wrap(err, "Could not fetch image checksum")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return "", fmt.Errorf("Failed to fetch image checksum from %s: [%d] %s",
-				checksum, resp.StatusCode, resp.Status)
-		}
-		checksumBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return "", errors.Wrap(err, "Could not read image checksum")
-		}
-		checksum = strings.TrimSpace(string(checksumBody))
-	}
-	return checksum, nil
-}
-
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksum string) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
@@ -754,17 +707,13 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 	)
 
 	// instance_uuid
-	//
-	// NOTE(dhellmann): We must fill in *some* value so that Ironic
-	// will monitor the host. We don't have a nova instance at all, so
-	// just give the node it's UUID again.
 	p.log.Info("setting instance_uuid")
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
 			Op:    nodes.ReplaceOp,
 			Path:  "/instance_uuid",
-			Value: p.host.Status.Provisioning.ID,
+			Value: string(p.host.ObjectMeta.UID),
 		},
 	)
 
@@ -970,12 +919,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	// FIXME(dhellmann): The Stein version of Ironic supports passing
-	// a URL. When we upgrade, we can stop doing this work ourself.
-	checksum, err := p.getImageChecksum()
-	if err != nil {
-		return result, errors.Wrap(err, "failed to retrieve image checksum")
-	}
+	checksum := p.host.Spec.Image.Checksum
 
 	// Local variable to make it easier to test if ironic is
 	// configured with the same image we are trying to provision to
@@ -1035,7 +979,11 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 				// cloud-init requires that meta_data.json exists and
 				// that the "uuid" field is present to process
 				// any of the config drive contents.
-				MetaData: map[string]interface{}{"uuid": p.host.Status.Provisioning.ID},
+				MetaData: map[string]interface{}{
+					"uuid":             string(p.host.ObjectMeta.UID),
+					"metal3-namespace": p.host.ObjectMeta.Namespace,
+					"metal3-name":      p.host.ObjectMeta.Name,
+				},
 			}
 			if err != nil {
 				return result, errors.Wrap(err, "failed to build config drive")

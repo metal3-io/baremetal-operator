@@ -36,6 +36,11 @@ using a ramdisk. The agent collects information about the available
 hardware components, and this process is called "inspection." The host
 will stay in the Inspecting state until this process is completed.
 
+## Match Profile
+
+A host in the Match Profile state is being matched against a hardware
+profile.
+
 ## Ready
 
 A host in the Ready state is available to be provisioned.
@@ -61,8 +66,8 @@ If an error occurs during one of the processing states (Registering,
 Inspecting, Provisioning, Deprovisioning) the host will enter the
 Error state.
 
-## Deleted
+## Deleting
 
 When the host is marked to be deleted, it will move from its current
-state to Deleted, at which point the resource record is deleted from
+state to Deleting, at which point the resource record is deleted from
 kubernetes.

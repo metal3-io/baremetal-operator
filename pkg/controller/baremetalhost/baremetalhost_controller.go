@@ -195,109 +195,23 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Handle delete operations
-	if !host.DeletionTimestamp.IsZero() {
-		result, err := r.deleteHost(request, host)
-		return result, err
-	}
-
 	// Retrieve the BMC details from the host spec and validate host
 	// BMC details and build the credentials for talking to the
 	// management controller.
 	bmcCreds, bmcCredsSecret, err := r.buildAndValidateBMCCredentials(request, host)
-	if err != nil {
-		switch err.(type) {
-		// We treat an empty bmc address and empty bmc credentials fields as a
-		// trigger the host needs to be put into a discovered status. We also set
-		// an error message (but not an error state) on the host so we can understand
-		// what we may be waiting on.  Editing the host to set these values will
-		// cause the host to be reconciled again so we do not Requeue.
-		case *EmptyBMCAddressError, *EmptyBMCSecretError:
-			dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
-			if dirty {
-				// Set the host error message directly
-				// as we cannot use SetErrorCondition which
-				// overwrites our discovered state
-				host.Status.ErrorMessage = err.Error()
-				saveErr := r.saveStatus(host)
-				if saveErr != nil {
-					return reconcile.Result{Requeue: true}, saveErr
-				}
-				// Only publish the event if we do not have an error
-				// after saving so that we only publish one time.
-				r.publishEvent(request,
-					host.NewEvent("Discovered", fmt.Sprintf("Discovered host with unusable BMC details: %s", err.Error())))
-			}
-			return reconcile.Result{}, nil
-		// In the event a credential secret is defined, but we cannot find it
-		// we requeue the host as we will not know if they create the secret
-		// at some point in the future.
-		case *ResolveBMCSecretRefError:
-			changed, saveErr := r.setErrorCondition(request, host, err.Error())
-			if saveErr != nil {
-				return reconcile.Result{Requeue: true}, saveErr
-			}
-			if changed {
-				// Only publish the event if we do not have an error
-				// after saving so that we only publish one time.
-				r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-			}
-			return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
-		// If we have found the secret but it is missing the required fields
-		// or the BMC address is defined but malformed we set the
-		// host into an error state but we do not Requeue it
-		// as fixing the secret or the host BMC info will trigger
-		// the host to be reconciled again
-		case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
-			_, saveErr := r.setErrorCondition(request, host, err.Error())
-			if saveErr != nil {
-				return reconcile.Result{Requeue: true}, saveErr
-			}
-			// Only publish the event if we do not have an error
-			// after saving so that we only publish one time.
-			r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-			return reconcile.Result{}, nil
-		default:
-			return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
+	if err != nil || bmcCreds == nil {
+		if !host.DeletionTimestamp.IsZero() {
+			// If we are in the process of deletion, try with empty credentials
+			bmcCreds = &bmc.Credentials{}
+			bmcCredsSecret = &corev1.Secret{}
+		} else {
+			return r.credentialsErrorResult(err, request, host)
 		}
 	}
 
-	// Pick the action to perform
-	var actionName metal3v1alpha1.ProvisioningState
-	switch {
-	case !host.Status.GoodCredentials.Match(*bmcCredsSecret):
-		actionName = metal3v1alpha1.StateRegistering
-	case host.Spec.ExternallyProvisioned:
-		actionName = metal3v1alpha1.StateExternallyProvisioned
-	case host.NeedsHardwareInspection():
-		actionName = metal3v1alpha1.StateInspecting
-	case host.NeedsHardwareProfile():
-		actionName = metal3v1alpha1.StateMatchProfile
-	case host.NeedsProvisioning():
-		actionName = metal3v1alpha1.StateProvisioning
-	case host.NeedsDeprovisioning():
-		actionName = metal3v1alpha1.StateDeprovisioning
-	case host.WasProvisioned():
-		actionName = metal3v1alpha1.StateProvisioned
-	default:
-		actionName = metal3v1alpha1.StateReady
-	}
-
-	if actionName != host.Status.Provisioning.State {
-		reqLogger.Info("changing provisioning state",
-			"old", host.Status.Provisioning.State,
-			"new", actionName,
-		)
-		host.Status.Provisioning.State = actionName
-		if err := r.saveStatus(host); err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
-				fmt.Sprintf("failed to save host status after handling %q", actionName))
-		}
-		return reconcile.Result{Requeue: true}, nil
-	}
-
+	initialState := host.Status.Provisioning.State
 	info := &reconcileInfo{
-		log:            reqLogger.WithValues("provisioningState", actionName),
+		log:            reqLogger.WithValues("provisioningState", initialState),
 		host:           host,
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
@@ -307,30 +221,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	switch actionName {
-	case metal3v1alpha1.StateRegistering:
-		result, err = r.actionRegistering(prov, info)
-	case metal3v1alpha1.StateInspecting:
-		result, err = r.actionInspecting(prov, info)
-	case metal3v1alpha1.StateMatchProfile:
-		result, err = r.actionMatchProfile(prov, info)
-	case metal3v1alpha1.StateProvisioning:
-		result, err = r.actionProvisioning(prov, info)
-	case metal3v1alpha1.StateDeprovisioning:
-		result, err = r.actionDeprovisioning(prov, info)
-	case metal3v1alpha1.StateProvisioned:
-		result, err = r.actionManageSteadyState(prov, info)
-	case metal3v1alpha1.StateReady:
-		result, err = r.actionManageReady(prov, info)
-	case metal3v1alpha1.StateExternallyProvisioned:
-		result, err = r.actionManageSteadyState(prov, info)
-	default:
-		// Probably a provisioning error state?
-		return reconcile.Result{}, fmt.Errorf("Unrecognized action %q", actionName)
-	}
+	stateMachine := newHostStateMachine(host, r, prov)
+	result, err = stateMachine.ReconcileState(info)
 
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("action %q failed", actionName))
+		return reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
 	}
 
 	// Only save status when we're told to requeue, otherwise we
@@ -343,7 +238,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 			"provisioning state", host.Status.Provisioning.State)
 		if err = r.saveStatus(host); err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
-				fmt.Sprintf("failed to save host status after %q", actionName))
+				fmt.Sprintf("failed to save host status after %q", initialState))
 		}
 	}
 
@@ -351,7 +246,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		r.publishEvent(request, e)
 	}
 
-	if host.HasError() {
+	if host.HasError() && !stateMachine.RequeueDespiteError {
 		// We have tried to do something that failed in a way we
 		// assume is not retryable, so do not proceed to any other
 		// steps.
@@ -366,59 +261,76 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	return result, nil
 }
 
-// Handle all delete cases
-func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (result reconcile.Result, err error) {
+func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (reconcile.Result, error) {
+	switch err.(type) {
+	// We treat an empty bmc address and empty bmc credentials fields as a
+	// trigger the host needs to be put into a discovered status. We also set
+	// an error message (but not an error state) on the host so we can understand
+	// what we may be waiting on.  Editing the host to set these values will
+	// cause the host to be reconciled again so we do not Requeue.
+	case *EmptyBMCAddressError, *EmptyBMCSecretError:
+		dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
+		if dirty {
+			// Set the host error message directly
+			// as we cannot use SetErrorCondition which
+			// overwrites our discovered state
+			host.Status.ErrorMessage = err.Error()
+			saveErr := r.saveStatus(host)
+			if saveErr != nil {
+				return reconcile.Result{Requeue: true}, saveErr
+			}
+			// Only publish the event if we do not have an error
+			// after saving so that we only publish one time.
+			r.publishEvent(request,
+				host.NewEvent("Discovered", fmt.Sprintf("Discovered host with unusable BMC details: %s", err.Error())))
+		}
+		return reconcile.Result{}, nil
+	// In the event a credential secret is defined, but we cannot find it
+	// we requeue the host as we will not know if they create the secret
+	// at some point in the future.
+	case *ResolveBMCSecretRefError:
+		changed, saveErr := r.setErrorCondition(request, host, err.Error())
+		if saveErr != nil {
+			return reconcile.Result{Requeue: true}, saveErr
+		}
+		if changed {
+			// Only publish the event if we do not have an error
+			// after saving so that we only publish one time.
+			r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+		}
+		return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
+	// If we have found the secret but it is missing the required fields
+	// or the BMC address is defined but malformed we set the
+	// host into an error state but we do not Requeue it
+	// as fixing the secret or the host BMC info will trigger
+	// the host to be reconciled again
+	case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
+		_, saveErr := r.setErrorCondition(request, host, err.Error())
+		if saveErr != nil {
+			return reconcile.Result{Requeue: true}, saveErr
+		}
+		// Only publish the event if we do not have an error
+		// after saving so that we only publish one time.
+		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+		return reconcile.Result{}, nil
+	default:
+		return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
+	}
+}
 
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-
-	reqLogger.Info(
+// Manage deletion of the host
+func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) (result reconcile.Result, err error) {
+	info.log.Info(
 		"marked to be deleted",
-		"timestamp", host.DeletionTimestamp,
+		"timestamp", info.host.DeletionTimestamp,
 	)
 
 	// no-op if finalizer has been removed.
-	if !utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
-		reqLogger.Info("ready to be deleted")
+	if !utils.StringInList(info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
+		info.log.Info("ready to be deleted")
 		// There is nothing to save and no reason to requeue since we
 		// are being deleted.
 		return reconcile.Result{}, nil
-	}
-
-	// Retrieve the BMC secret from Kubernetes for this host and
-	// try and build credentials.  If we fail, resort to an empty
-	// credentials object to give the provisioner
-	bmcCreds, _, err := r.buildAndValidateBMCCredentials(request, host)
-	if err != nil || bmcCreds == nil {
-		bmcCreds = &bmc.Credentials{}
-	}
-
-	eventPublisher := func(reason, message string) {
-		r.publishEvent(request, host.NewEvent(reason, message))
-	}
-
-	prov, err := r.provisionerFactory(host, *bmcCreds, eventPublisher)
-	if err != nil {
-		return result, errors.Wrap(err, "failed to create provisioner")
-	}
-
-	if host.NeedsDeprovisioning() {
-		reqLogger.Info("deprovisioning before deleting")
-		provResult, err := prov.Deprovision()
-		if err != nil {
-			return result, errors.Wrap(err, "failed to deprovision")
-		}
-		if provResult.Dirty {
-			err = r.saveStatus(host)
-			if err != nil {
-				return result, errors.Wrap(err, "failed to save host after deprovisioning")
-			}
-			result.Requeue = true
-			result.RequeueAfter = provResult.RequeueAfter
-			return result, nil
-		}
-	} else {
-		reqLogger.Info("no need to deprovision before deleting")
 	}
 
 	provResult, err := prov.Delete()
@@ -426,7 +338,7 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 		return result, errors.Wrap(err, "failed to delete")
 	}
 	if provResult.Dirty {
-		err = r.saveStatus(host)
+		err = r.saveStatus(info.host)
 		if err != nil {
 			return result, errors.Wrap(err, "failed to save host after deleting")
 		}
@@ -436,11 +348,11 @@ func (r *ReconcileBareMetalHost) deleteHost(request reconcile.Request, host *met
 	}
 
 	// Remove finalizer to allow deletion
-	host.Finalizers = utils.FilterStringFromList(
-		host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
-	reqLogger.Info("cleanup is complete, removed finalizer",
-		"remaining", host.Finalizers)
-	if err := r.client.Update(context.Background(), host); err != nil {
+	info.host.Finalizers = utils.FilterStringFromList(
+		info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
+	info.log.Info("cleanup is complete, removed finalizer",
+		"remaining", info.host.Finalizers)
+	if err := r.client.Update(context.Background(), info.host); err != nil {
 		return result, errors.Wrap(err, "failed to remove finalizer")
 	}
 
@@ -621,7 +533,6 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling provisioning error in controller")
-		info.host.Status.Provisioning.State = metal3v1alpha1.StateProvisioningError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
 			result.Requeue = true
@@ -662,7 +573,6 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.host.Status.Provisioning.State = metal3v1alpha1.StateProvisioningError
 		if info.host.SetErrorMessage(provResult.ErrorMessage) {
 			info.publishEvent("ProvisioningError", provResult.ErrorMessage)
 			result.Requeue = true

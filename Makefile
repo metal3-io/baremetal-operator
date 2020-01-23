@@ -16,6 +16,19 @@ export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.init
 export IRONIC_ENDPOINT=http://localhost:6385/v1/
 export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
 
+# Define Docker related variables. Releases should modify and double check these vars.
+# REGISTRY ?= gcr.io/$(shell gcloud config get-value project)
+REGISTRY ?= quay.io/metal3-io
+STAGING_REGISTRY := quay.io/metal3-io
+PROD_REGISTRY := quay.io/metal3-io
+IMAGE_NAME = $(OPERATOR_NAME)
+CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
+TAG ?= dev
+ARCH ?= amd64
+ALL_ARCH = amd64 arm arm64 ppc64le s390x
+# Allow overriding the imagePullPolicy
+PULL_POLICY ?= IfNotPresent
+
 .PHONY: help
 help:
 	@echo "Targets:"
@@ -134,3 +147,63 @@ dep-status:
 .PHONY: dep-prune
 dep-prune:
 	dep prune -v
+
+## --------------------------------------
+## Docker
+## --------------------------------------
+
+.PHONY: docker-build
+docker-build: ## Build the docker image for controller-manager
+	docker build --pull --build-arg ARCH=$(ARCH) -f build/Dockerfile -t $(CONTROLLER_IMG)-$(ARCH):$(TAG) .
+	MANIFEST_IMG=$(CONTROLLER_IMG)-$(ARCH) MANIFEST_TAG=$(TAG) $(MAKE) set-manifest-image
+	$(MAKE) set-manifest-pull-policy
+
+.PHONY: docker-push
+docker-push: ## Push the docker image
+	docker push $(CONTROLLER_IMG)-$(ARCH):$(TAG)
+
+.PHONY: set-manifest-image
+set-manifest-image:
+	$(info Updating kustomize image patch file for manager resource)
+	sed -i'' -e 's@image: .*@image: '"${MANIFEST_IMG}:$(MANIFEST_TAG)"'@' ./deploy/manager_image_patch.yaml
+
+.PHONY: set-manifest-pull-policy
+set-manifest-pull-policy:
+	$(info Updating kustomize pull policy file for manager resource)
+	sed -i'' -e 's@imagePullPolicy: .*@imagePullPolicy: '"$(PULL_POLICY)"'@' ./deploy/manager_pull_policy.yaml
+
+
+## --------------------------------------
+## Release
+## --------------------------------------
+
+RELEASE_TAG := $(shell git describe --abbrev=0 2>/dev/null)
+RELEASE_DIR := out
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)/
+
+.PHONY: release
+release: clean-release  ## Builds and push container images using the latest git tag for the commit.
+	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
+	git checkout "${RELEASE_TAG}"
+	
+	# Set the manifest image to the production bucket.
+	MANIFEST_IMG=$(PROD_REGISTRY)/$(IMAGE_NAME) MANIFEST_TAG=$(RELEASE_TAG) \
+		$(MAKE) set-manifest-image
+	PULL_POLICY=IfNotPresent $(MAKE) set-manifest-pull-policy
+
+	$(MAKE) release-manifests
+
+.PHONY: release-manifests
+release-manifests: $(RELEASE_DIR) ## Builds the manifests to publish with a release
+	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
+	kustomize build deploy > $(RELEASE_DIR)/infrastructure-components.yaml
+
+## --------------------------------------
+## Cleanup / Verification
+## --------------------------------------
+
+.PHONY: clean-release
+clean-release: ## Remove the release folder
+	rm -rf $(RELEASE_DIR)

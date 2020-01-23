@@ -6,7 +6,7 @@ resources:
 - service_account.yaml
 - role.yaml
 - role_binding.yaml
-- crds/metal3_v1alpha1_baremetalhost_crd.yaml
+- crds/metal3.io_baremetalhosts_crd.yaml
 - operator_ironic.yaml
 configMapGenerator:
 - envs:

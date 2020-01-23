@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/listeners"
 	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/loadbalancers"
@@ -20,12 +21,14 @@ const LoadbalancersListBody = `
 	         {
 			"id": "c331058c-6a40-4144-948e-b9fb1df9db4b",
 			"project_id": "54030507-44f7-473c-9342-b4d14a95f692",
+			"created_at": "2019-06-30T04:15:37",
+			"updated_at": "2019-06-30T05:18:49",
 			"name": "web_lb",
 			"description": "lb config for the web tier",
 			"vip_subnet_id": "8a49c438-848f-467b-9655-ea1548708154",
 			"vip_address": "10.30.176.47",
 			"vip_port_id": "2a22e552-a347-44fd-b530-1f2b1b2a6735",
-			"flavor": "small",
+			"flavor_id": "60df399a-ee85-11e9-81b4-2a2ae2dbcce4",
 			"provider": "haproxy",
 			"admin_state_up": true,
 			"provisioning_status": "ACTIVE",
@@ -35,12 +38,14 @@ const LoadbalancersListBody = `
 		{
 			"id": "36e08a3e-a78f-4b40-a229-1e7e23eee1ab",
 			"project_id": "54030507-44f7-473c-9342-b4d14a95f692",
+			"created_at": "2019-06-30T04:15:37",
+			"updated_at": "2019-06-30T05:18:49",
 			"name": "db_lb",
 			"description": "lb config for the db tier",
 			"vip_subnet_id": "9cedb85d-0759-4898-8a4b-fa5a5ea10086",
 			"vip_address": "10.30.176.48",
 			"vip_port_id": "2bf413c8-41a9-4477-b505-333d5cbe8b55",
-			"flavor": "medium",
+			"flavor_id": "bba40eb2-ee8c-11e9-81b4-2a2ae2dbcce4",
 			"provider": "haproxy",
 			"admin_state_up": true,
 			"provisioning_status": "PENDING_CREATE",
@@ -57,12 +62,14 @@ const SingleLoadbalancerBody = `
 	"loadbalancer": {
 		"id": "36e08a3e-a78f-4b40-a229-1e7e23eee1ab",
 		"project_id": "54030507-44f7-473c-9342-b4d14a95f692",
+		"created_at": "2019-06-30T04:15:37",
+		"updated_at": "2019-06-30T05:18:49",
 		"name": "db_lb",
 		"description": "lb config for the db tier",
 		"vip_subnet_id": "9cedb85d-0759-4898-8a4b-fa5a5ea10086",
 		"vip_address": "10.30.176.48",
 		"vip_port_id": "2bf413c8-41a9-4477-b505-333d5cbe8b55",
-		"flavor": "medium",
+		"flavor_id": "bba40eb2-ee8c-11e9-81b4-2a2ae2dbcce4",
 		"provider": "haproxy",
 		"admin_state_up": true,
 		"provisioning_status": "PENDING_CREATE",
@@ -78,12 +85,14 @@ const PostUpdateLoadbalancerBody = `
 	"loadbalancer": {
 		"id": "36e08a3e-a78f-4b40-a229-1e7e23eee1ab",
 		"project_id": "54030507-44f7-473c-9342-b4d14a95f692",
+		"created_at": "2019-06-30T04:15:37",
+		"updated_at": "2019-06-30T05:18:49",
 		"name": "NewLoadbalancerName",
 		"description": "lb config for the db tier",
 		"vip_subnet_id": "9cedb85d-0759-4898-8a4b-fa5a5ea10086",
 		"vip_address": "10.30.176.48",
 		"vip_port_id": "2bf413c8-41a9-4477-b505-333d5cbe8b55",
-		"flavor": "medium",
+		"flavor_id": "bba40eb2-ee8c-11e9-81b4-2a2ae2dbcce4",
 		"provider": "haproxy",
 		"admin_state_up": true,
 		"provisioning_status": "PENDING_CREATE",
@@ -143,16 +152,21 @@ const GetLoadbalancerStatsBody = `
 }
 `
 
+var createdTime, _ = time.Parse(time.RFC3339, "2019-06-30T04:15:37Z")
+var updatedTime, _ = time.Parse(time.RFC3339, "2019-06-30T05:18:49Z")
+
 var (
 	LoadbalancerWeb = loadbalancers.LoadBalancer{
 		ID:                 "c331058c-6a40-4144-948e-b9fb1df9db4b",
 		ProjectID:          "54030507-44f7-473c-9342-b4d14a95f692",
+		CreatedAt:          createdTime,
+		UpdatedAt:          updatedTime,
 		Name:               "web_lb",
 		Description:        "lb config for the web tier",
 		VipSubnetID:        "8a49c438-848f-467b-9655-ea1548708154",
 		VipAddress:         "10.30.176.47",
 		VipPortID:          "2a22e552-a347-44fd-b530-1f2b1b2a6735",
-		Flavor:             "small",
+		FlavorID:           "60df399a-ee85-11e9-81b4-2a2ae2dbcce4",
 		Provider:           "haproxy",
 		AdminStateUp:       true,
 		ProvisioningStatus: "ACTIVE",
@@ -162,12 +176,14 @@ var (
 	LoadbalancerDb = loadbalancers.LoadBalancer{
 		ID:                 "36e08a3e-a78f-4b40-a229-1e7e23eee1ab",
 		ProjectID:          "54030507-44f7-473c-9342-b4d14a95f692",
+		CreatedAt:          createdTime,
+		UpdatedAt:          updatedTime,
 		Name:               "db_lb",
 		Description:        "lb config for the db tier",
 		VipSubnetID:        "9cedb85d-0759-4898-8a4b-fa5a5ea10086",
 		VipAddress:         "10.30.176.48",
 		VipPortID:          "2bf413c8-41a9-4477-b505-333d5cbe8b55",
-		Flavor:             "medium",
+		FlavorID:           "bba40eb2-ee8c-11e9-81b4-2a2ae2dbcce4",
 		Provider:           "haproxy",
 		AdminStateUp:       true,
 		ProvisioningStatus: "PENDING_CREATE",
@@ -177,12 +193,14 @@ var (
 	LoadbalancerUpdated = loadbalancers.LoadBalancer{
 		ID:                 "36e08a3e-a78f-4b40-a229-1e7e23eee1ab",
 		ProjectID:          "54030507-44f7-473c-9342-b4d14a95f692",
+		CreatedAt:          createdTime,
+		UpdatedAt:          updatedTime,
 		Name:               "NewLoadbalancerName",
 		Description:        "lb config for the db tier",
 		VipSubnetID:        "9cedb85d-0759-4898-8a4b-fa5a5ea10086",
 		VipAddress:         "10.30.176.48",
 		VipPortID:          "2bf413c8-41a9-4477-b505-333d5cbe8b55",
-		Flavor:             "medium",
+		FlavorID:           "bba40eb2-ee8c-11e9-81b4-2a2ae2dbcce4",
 		Provider:           "haproxy",
 		AdminStateUp:       true,
 		ProvisioningStatus: "PENDING_CREATE",
@@ -261,7 +279,7 @@ func HandleLoadbalancerCreationSuccessfully(t *testing.T, response string) {
 				"vip_port_id": "2bf413c8-41a9-4477-b505-333d5cbe8b55",
 				"vip_subnet_id": "9cedb85d-0759-4898-8a4b-fa5a5ea10086",
 				"vip_address": "10.30.176.48",
-				"flavor": "medium",
+				"flavor_id": "bba40eb2-ee8c-11e9-81b4-2a2ae2dbcce4",
 				"provider": "haproxy",
 				"admin_state_up": true,
 				"tags": ["test", "stage"]

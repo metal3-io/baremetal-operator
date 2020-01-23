@@ -131,6 +131,9 @@ type CreateOpts struct {
 
 	// A dictionary of optional headers to insert into the request before it is sent to the backend member.
 	InsertHeaders map[string]string `json:"insert_headers,omitempty"`
+
+	// A list of IPv4, IPv6 or mix of both CIDRs
+	AllowedCIDRs []string `json:"allowed_cidrs,omitempty"`
 }
 
 // ToListenerCreateMap builds a request body from CreateOpts.
@@ -182,10 +185,10 @@ type UpdateOpts struct {
 	ConnLimit *int `json:"connection_limit,omitempty"`
 
 	// A reference to a Barbican container of TLS secrets.
-	DefaultTlsContainerRef string `json:"default_tls_container_ref,omitempty"`
+	DefaultTlsContainerRef *string `json:"default_tls_container_ref,omitempty"`
 
 	// A list of references to TLS secrets.
-	SniContainerRefs []string `json:"sni_container_refs,omitempty"`
+	SniContainerRefs *[]string `json:"sni_container_refs,omitempty"`
 
 	// The administrative state of the Listener. A valid value is true (UP)
 	// or false (DOWN).
@@ -202,6 +205,9 @@ type UpdateOpts struct {
 
 	// Time, in milliseconds, to wait for additional TCP packets for content inspection
 	TimeoutTCPInspect *int `json:"timeout_tcp_inspect,omitempty"`
+
+	// A list of IPv4, IPv6 or mix of both CIDRs
+	AllowedCIDRs *[]string `json:"allowed_cidrs,omitempty"`
 }
 
 // ToListenerUpdateMap builds a request body from UpdateOpts.

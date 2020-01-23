@@ -85,11 +85,11 @@ If you have a []byte of JSON, wrap it in json.RawMessage:
 	lg.Log(logging.Entry{Payload: json.RawMessage(j)})
 
 
-The Standard Logger Interface
+The Standard Logger
 
 You may want use a standard log.Logger in your program.
 
-	// stdlg implements log.Logger
+	// stdlg is an instance of *log.Logger.
 	stdlg := lg.StandardLogger(logging.Info)
 	stdlg.Println("some info")
 
@@ -117,7 +117,7 @@ Grouping Logs by Request
 
 To group all the log entries written during a single HTTP request, create two
 Loggers, a "parent" and a "child," with different log IDs. Both should be in the same
-project, and have the same MonitoredResouce type and labels.
+project, and have the same MonitoredResource type and labels.
 
 - Parent entries must have HTTPRequest.Request populated. (Strictly speaking, only the URL is necessary.)
 

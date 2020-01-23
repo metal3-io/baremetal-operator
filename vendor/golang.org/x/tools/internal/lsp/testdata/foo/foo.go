@@ -1,13 +1,13 @@
-package foo //@mark(PackageFoo, "foo")
+package foo //@mark(PackageFoo, "foo"),item(PackageFoo, "foo", "\"golang.org/x/tools/internal/lsp/foo\"", "package")
 
 type StructFoo struct { //@item(StructFoo, "StructFoo", "struct{...}", "struct")
 	Value int //@item(Value, "Value", "int", "field")
 }
 
 // Pre-set this marker, as we don't have a "source" for it in this package.
-/* Error() */ //@item(Error, "Error()", "string", "method")
+/* Error() */ //@item(Error, "Error", "func() string", "method")
 
-func Foo() { //@item(Foo, "Foo()", "", "func")
+func Foo() { //@item(Foo, "Foo", "func()", "func")
 	var err error
 	err.Error() //@complete("E", Error)
 }

@@ -6,26 +6,31 @@ package source
 
 import (
 	"context"
-	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
 	"strconv"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/trace"
+	errors "golang.org/x/xerrors"
 )
 
 // IdentifierInfo holds information about an identifier in Go source.
 type IdentifierInfo struct {
-	Name  string
-	Range span.Range
-	File  GoFile
-	Type  struct {
-		Range  span.Range
+	Name     string
+	File     ParseGoHandle
+	Snapshot Snapshot
+	mappedRange
+
+	Type struct {
+		mappedRange
 		Object types.Object
 	}
-	decl declaration
+
+	Declaration Declaration
 
 	pkg              Package
 	ident            *ast.Ident
@@ -33,63 +38,92 @@ type IdentifierInfo struct {
 	qf               types.Qualifier
 }
 
-type declaration struct {
-	rng         span.Range
+type Declaration struct {
+	mappedRange
 	node        ast.Node
 	obj         types.Object
 	wasImplicit bool
 }
 
-func (i *IdentifierInfo) DeclarationRange() span.Range {
-	return i.decl.rng
-}
-
 // Identifier returns identifier information for a position
 // in a file, accounting for a potentially incomplete selector.
-func Identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*IdentifierInfo, error) {
-	if result, err := identifier(ctx, view, f, pos); err != nil || result != nil {
+func Identifier(ctx context.Context, view View, f File, pos protocol.Position) (*IdentifierInfo, error) {
+	snapshot, cphs, err := view.CheckPackageHandles(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := WidestCheckPackageHandle(cphs)
+	if err != nil {
+		return nil, err
+	}
+	pkg, err := cph.Check(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ph, err := pkg.File(f.URI())
+	if err != nil {
+		return nil, err
+	}
+	file, m, _, err := ph.Cached()
+	if err != nil {
+		return nil, err
+	}
+	spn, err := m.PointSpan(pos)
+	if err != nil {
+		return nil, err
+	}
+	rng, err := spn.Range(m.Converter)
+	if err != nil {
+		return nil, err
+	}
+	return findIdentifier(ctx, snapshot, pkg, file, rng.Start)
+}
+
+func findIdentifier(ctx context.Context, snapshot Snapshot, pkg Package, file *ast.File, pos token.Pos) (*IdentifierInfo, error) {
+	if result, err := identifier(ctx, snapshot, pkg, file, pos); err != nil || result != nil {
 		return result, err
 	}
 	// If the position is not an identifier but immediately follows
 	// an identifier or selector period (as is common when
 	// requesting a completion), use the path to the preceding node.
-	result, err := identifier(ctx, view, f, pos-1)
-	if result == nil && err == nil {
-		err = fmt.Errorf("no identifier found")
+	ident, err := identifier(ctx, snapshot, pkg, file, pos-1)
+	if ident == nil && err == nil {
+		err = errors.New("no identifier found")
 	}
-	return result, err
+	return ident, err
 }
 
 // identifier checks a single position for a potential identifier.
-func identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*IdentifierInfo, error) {
-	file := f.GetAST(ctx)
-	if file == nil {
-		return nil, fmt.Errorf("no AST for %s", f.URI())
-	}
-	pkg := f.GetPackage(ctx)
-	if pkg == nil || pkg.IsIllTyped() {
-		return nil, fmt.Errorf("pkg for %s is ill-typed", f.URI())
-	}
+func identifier(ctx context.Context, snapshot Snapshot, pkg Package, file *ast.File, pos token.Pos) (*IdentifierInfo, error) {
+	ctx, done := trace.StartSpan(ctx, "source.identifier")
+	defer done()
+
+	var err error
+
 	// Handle import specs separately, as there is no formal position for a package declaration.
-	if result, err := importSpec(ctx, f, file, pkg, pos); result != nil || err != nil {
+	if result, err := importSpec(ctx, snapshot, pkg, file, pos); result != nil || err != nil {
 		return result, err
 	}
 	path, _ := astutil.PathEnclosingInterval(file, pos, pos)
 	if path == nil {
-		return nil, fmt.Errorf("can't find node enclosing position")
+		return nil, errors.Errorf("can't find node enclosing position")
+	}
+	view := snapshot.View()
+	uri := span.FileURI(view.Session().Cache().FileSet().Position(pos).Filename)
+	var ph ParseGoHandle
+	for _, h := range pkg.Files() {
+		if h.File().Identity().URI == uri {
+			ph = h
+		}
 	}
 	result := &IdentifierInfo{
-		File: f,
-		qf:   qualifier(file, pkg.GetTypes(), pkg.GetTypesInfo()),
-		pkg:  pkg,
+		File:     ph,
+		Snapshot: snapshot,
+		qf:       qualifier(file, pkg.GetTypes(), pkg.GetTypesInfo()),
+		pkg:      pkg,
+		ident:    searchForIdent(path[0]),
 	}
-
-	switch node := path[0].(type) {
-	case *ast.Ident:
-		result.ident = node
-	case *ast.SelectorExpr:
-		result.ident = node.Sel
-	}
+	// No identifier at the given position.
 	if result.ident == nil {
 		return nil, nil
 	}
@@ -100,9 +134,11 @@ func identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*Ident
 		}
 	}
 	result.Name = result.ident.Name
-	result.Range = span.NewRange(f.FileSet(), result.ident.Pos(), result.ident.End())
-	result.decl.obj = pkg.GetTypesInfo().ObjectOf(result.ident)
-	if result.decl.obj == nil {
+	if result.mappedRange, err = posToMappedRange(ctx, view, pkg, result.ident.Pos(), result.ident.End()); err != nil {
+		return nil, err
+	}
+	result.Declaration.obj = pkg.GetTypesInfo().ObjectOf(result.ident)
+	if result.Declaration.obj == nil {
 		// If there was no types.Object for the declaration, there might be an implicit local variable
 		// declaration in a type switch.
 		if objs := typeSwitchVar(pkg.GetTypesInfo(), path); len(objs) > 0 {
@@ -110,24 +146,26 @@ func identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*Ident
 			// but all of the types.Objects associated with the usages of this variable can be
 			// used to connect it back to the declaration.
 			// Preserve the first of these objects and treat it as if it were the declaring object.
-			result.decl.obj = objs[0]
-			result.decl.wasImplicit = true
+			result.Declaration.obj = objs[0]
+			result.Declaration.wasImplicit = true
 		} else {
 			// Probably a type error.
-			return nil, fmt.Errorf("no object for ident %v", result.Name)
+			return nil, errors.Errorf("no object for ident %v", result.Name)
 		}
 	}
 
-	var err error
-
 	// Handle builtins separately.
-	if result.decl.obj.Parent() == types.Universe {
-		decl, ok := lookupBuiltinDecl(f.View(), result.Name).(ast.Node)
-		if !ok {
-			return nil, fmt.Errorf("no declaration for %s", result.Name)
+	if result.Declaration.obj.Parent() == types.Universe {
+		obj := view.BuiltinPackage().Lookup(result.Name)
+		if obj == nil {
+			return result, nil
 		}
-		result.decl.node = decl
-		if result.decl.rng, err = posToRange(ctx, f.FileSet(), result.Name, decl.Pos()); err != nil {
+		decl, ok := obj.Decl.(ast.Node)
+		if !ok {
+			return nil, errors.Errorf("no declaration for %s", result.Name)
+		}
+		result.Declaration.node = decl
+		if result.Declaration.mappedRange, err = nameToMappedRange(ctx, view, pkg, decl.Pos(), result.Name); err != nil {
 			return nil, err
 		}
 		return result, nil
@@ -136,26 +174,26 @@ func identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*Ident
 	if result.wasEmbeddedField {
 		// The original position was on the embedded field declaration, so we
 		// try to dig out the type and jump to that instead.
-		if v, ok := result.decl.obj.(*types.Var); ok {
+		if v, ok := result.Declaration.obj.(*types.Var); ok {
 			if typObj := typeToObject(v.Type()); typObj != nil {
-				result.decl.obj = typObj
+				result.Declaration.obj = typObj
 			}
 		}
 	}
 
 	for _, obj := range pkg.GetTypesInfo().Implicits {
-		if obj.Pos() == result.decl.obj.Pos() {
+		if obj.Pos() == result.Declaration.obj.Pos() {
 			// Mark this declaration as implicit, since it will not
 			// appear in a (*types.Info).Defs map.
-			result.decl.wasImplicit = true
+			result.Declaration.wasImplicit = true
 			break
 		}
 	}
 
-	if result.decl.rng, err = objToRange(ctx, f.FileSet(), result.decl.obj); err != nil {
+	if result.Declaration.mappedRange, err = objToMappedRange(ctx, view, pkg, result.Declaration.obj); err != nil {
 		return nil, err
 	}
-	if result.decl.node, err = objToNode(ctx, view, pkg.GetTypes(), result.decl.obj, result.decl.rng); err != nil {
+	if result.Declaration.node, err = objToNode(ctx, snapshot.View(), pkg, result.Declaration.obj); err != nil {
 		return nil, err
 	}
 	typ := pkg.GetTypesInfo().TypeOf(result.ident)
@@ -169,11 +207,23 @@ func identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*Ident
 		if hasErrorType(result.Type.Object) {
 			return result, nil
 		}
-		if result.Type.Range, err = objToRange(ctx, f.FileSet(), result.Type.Object); err != nil {
+		if result.Type.mappedRange, err = objToMappedRange(ctx, view, pkg, result.Type.Object); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
+}
+
+func searchForIdent(n ast.Node) *ast.Ident {
+	switch node := n.(type) {
+	case *ast.Ident:
+		return node
+	case *ast.SelectorExpr:
+		return node.Sel
+	case *ast.StarExpr:
+		return searchForIdent(node.X)
+	}
+	return nil
 }
 
 func typeToObject(typ types.Type) types.Object {
@@ -191,59 +241,22 @@ func hasErrorType(obj types.Object) bool {
 	return types.IsInterface(obj.Type()) && obj.Pkg() == nil && obj.Name() == "error"
 }
 
-func objToRange(ctx context.Context, fset *token.FileSet, obj types.Object) (span.Range, error) {
-	if pkgName, ok := obj.(*types.PkgName); ok {
-		// An imported Go package has a package-local, unqualified name.
-		// When the name matches the imported package name, there is no
-		// identifier in the import spec with the local package name.
-		//
-		// For example:
-		// 		import "go/ast" 	// name "ast" matches package name
-		// 		import a "go/ast"  	// name "a" does not match package name
-		//
-		// When the identifier does not appear in the source, have the range
-		// of the object be the point at the beginning of the declaration.
-		if pkgName.Imported().Name() == pkgName.Name() {
-			return posToRange(ctx, fset, "", obj.Pos())
-		}
-	}
-	return posToRange(ctx, fset, obj.Name(), obj.Pos())
-}
-
-func posToRange(ctx context.Context, fset *token.FileSet, name string, pos token.Pos) (span.Range, error) {
-	if !pos.IsValid() {
-		return span.Range{}, fmt.Errorf("invalid position for %v", name)
-	}
-	return span.NewRange(fset, pos, pos+token.Pos(len(name))), nil
-}
-
-func objToNode(ctx context.Context, view View, originPkg *types.Package, obj types.Object, rng span.Range) (ast.Decl, error) {
-	s, err := rng.Span()
+func objToNode(ctx context.Context, v View, pkg Package, obj types.Object) (ast.Decl, error) {
+	uri := span.FileURI(v.Session().Cache().FileSet().Position(obj.Pos()).Filename)
+	ph, _, err := v.FindFileInPackage(ctx, uri, pkg)
 	if err != nil {
 		return nil, err
 	}
-	f, err := view.GetFile(ctx, s.URI())
-	if err != nil {
-		return nil, err
-	}
-	declFile, ok := f.(GoFile)
-	if !ok {
-		return nil, fmt.Errorf("%s is not a Go file", s.URI())
-	}
-	// If the object is exported from a different package,
-	// we don't need its full AST to find the definition.
-	var declAST *ast.File
-	if obj.Exported() && obj.Pkg() != originPkg {
-		declAST = declFile.GetAnyAST(ctx)
-	} else {
-		declAST = declFile.GetAST(ctx)
-	}
+	declAST, _, _, err := ph.Cached()
 	if declAST == nil {
-		return nil, fmt.Errorf("no AST for %s", f.URI())
+		return nil, err
 	}
-	path, _ := astutil.PathEnclosingInterval(declAST, rng.Start, rng.End)
+	if !(declAST.Pos() <= obj.Pos() && obj.Pos() <= declAST.End()) {
+		return nil, errors.Errorf("no file for %s", obj.Name())
+	}
+	path, _ := astutil.PathEnclosingInterval(declAST, obj.Pos(), obj.Pos())
 	if path == nil {
-		return nil, fmt.Errorf("no path for range %v", rng)
+		return nil, errors.Errorf("no path for object %v", obj.Name())
 	}
 	for _, node := range path {
 		switch node := node.(type) {
@@ -264,10 +277,10 @@ func objToNode(ctx context.Context, view View, originPkg *types.Package, obj typ
 }
 
 // importSpec handles positions inside of an *ast.ImportSpec.
-func importSpec(ctx context.Context, f GoFile, fAST *ast.File, pkg Package, pos token.Pos) (*IdentifierInfo, error) {
+func importSpec(ctx context.Context, snapshot Snapshot, pkg Package, file *ast.File, pos token.Pos) (*IdentifierInfo, error) {
 	var imp *ast.ImportSpec
-	for _, spec := range fAST.Imports {
-		if spec.Pos() <= pos && pos < spec.End() {
+	for _, spec := range file.Imports {
+		if spec.Path.Pos() <= pos && pos < spec.Path.End() {
 			imp = spec
 		}
 	}
@@ -276,21 +289,31 @@ func importSpec(ctx context.Context, f GoFile, fAST *ast.File, pkg Package, pos 
 	}
 	importPath, err := strconv.Unquote(imp.Path.Value)
 	if err != nil {
-		return nil, fmt.Errorf("import path not quoted: %s (%v)", imp.Path.Value, err)
+		return nil, errors.Errorf("import path not quoted: %s (%v)", imp.Path.Value, err)
+	}
+	uri := span.FileURI(snapshot.View().Session().Cache().FileSet().Position(pos).Filename)
+	var ph ParseGoHandle
+	for _, h := range pkg.Files() {
+		if h.File().Identity().URI == uri {
+			ph = h
+		}
 	}
 	result := &IdentifierInfo{
-		File:  f,
-		Name:  importPath,
-		Range: span.NewRange(f.FileSet(), imp.Pos(), imp.End()),
-		pkg:   pkg,
+		File:     ph,
+		Snapshot: snapshot,
+		Name:     importPath,
+		pkg:      pkg,
+	}
+	if result.mappedRange, err = posToMappedRange(ctx, snapshot.View(), pkg, imp.Path.Pos(), imp.Path.End()); err != nil {
+		return nil, err
 	}
 	// Consider the "declaration" of an import spec to be the imported package.
-	importedPkg := pkg.GetImport(importPath)
-	if importedPkg == nil {
-		return nil, fmt.Errorf("no import for %q", importPath)
+	importedPkg, err := pkg.GetImport(importPath)
+	if err != nil {
+		return nil, err
 	}
 	if importedPkg.GetSyntax() == nil {
-		return nil, fmt.Errorf("no syntax for for %q", importPath)
+		return nil, errors.Errorf("no syntax for for %q", importPath)
 	}
 	// Heuristic: Jump to the longest (most "interesting") file of the package.
 	var dest *ast.File
@@ -300,9 +323,12 @@ func importSpec(ctx context.Context, f GoFile, fAST *ast.File, pkg Package, pos 
 		}
 	}
 	if dest == nil {
-		return nil, fmt.Errorf("package %q has no files", importPath)
+		return nil, errors.Errorf("package %q has no files", importPath)
 	}
-	result.decl.rng = span.NewRange(f.FileSet(), dest.Name.Pos(), dest.Name.End())
+	if result.Declaration.mappedRange, err = posToMappedRange(ctx, snapshot.View(), pkg, dest.Pos(), dest.End()); err != nil {
+		return nil, err
+	}
+	result.Declaration.node = imp
 	return result, nil
 }
 

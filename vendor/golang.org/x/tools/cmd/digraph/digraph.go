@@ -1,18 +1,85 @@
-// The digraph command performs queries over unlabelled directed graphs
-// represented in text form.  It is intended to integrate nicely with
-// typical UNIX command pipelines.
-//
-// Since directed graphs (import graphs, reference graphs, call graphs,
-// etc) often arise during software tool development and debugging, this
-// command is included in the go.tools repository.
-//
+// Copyright 2019 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+/*
+The digraph command performs queries over unlabelled directed graphs
+represented in text form.  It is intended to integrate nicely with
+typical UNIX command pipelines.
+
+Usage:
+
+	your-application | digraph [command]
+
+The support commands are:
+
+	nodes
+		the set of all nodes
+	degree
+		the in-degree and out-degree of each node
+	transpose
+		the reverse of the input edges
+	preds <node> ...
+		the set of immediate predecessors of the specified nodes
+	succs <node> ...
+		the set of immediate successors of the specified nodes
+	forward <node> ...
+		the set of nodes transitively reachable from the specified nodes
+	reverse <node> ...
+		the set of nodes that transitively reach the specified nodes
+	somepath <node> <node>
+		the list of nodes on some arbitrary path from the first node to the second
+	allpaths <node> <node>
+		the set of nodes on all paths from the first node to the second
+	sccs
+		all strongly connected components (one per line)
+	scc <node>
+		the set of nodes nodes strongly connected to the specified one
+
+Input format:
+
+Each line contains zero or more words. Words are separated by unquoted
+whitespace; words may contain Go-style double-quoted portions, allowing spaces
+and other characters to be expressed.
+
+Each word declares a node, and if there are more than one, an edge from the
+first to each subsequent one. The graph is provided on the standard input.
+
+For instance, the following (acyclic) graph specifies a partial order among the
+subtasks of getting dressed:
+
+	$ cat clothes.txt
+	socks shoes
+	"boxer shorts" pants
+	pants belt shoes
+	shirt tie sweater
+	sweater jacket
+	hat
+
+The line "shirt tie sweater" indicates the two edges shirt -> tie and
+shirt -> sweater, not shirt -> tie -> sweater.
+
+Example usage:
+
+Using digraph with existing Go tools:
+
+	$ go mod graph | digraph nodes # Operate on the Go module graph.
+	$ go list -m all | digraph nodes # Operate on the Go package graph.
+
+Show the transitive closure of imports of the digraph tool itself:
+	$ go list -f '{{.ImportPath}} {{join .Imports " "}}' ... | digraph forward golang.org/x/tools/cmd/digraph
+
+Show which clothes (see above) must be donned before a jacket:
+	$ digraph reverse jacket
+
+*/
+package main // import "golang.org/x/tools/cmd/digraph"
+
 // TODO(adonovan):
 // - support input files other than stdin
 // - support alternative formats (AT&T GraphViz, CSV, etc),
 //   a comment syntax, etc.
 // - allow queries to nest, like Blaze query language.
-//
-package main // import "golang.org/x/tools/cmd/digraph"
 
 import (
 	"bufio"
@@ -28,74 +95,43 @@ import (
 	"unicode/utf8"
 )
 
-const Usage = `digraph: queries over directed graphs in text form.
+func usage() {
+	fmt.Fprintf(os.Stderr, `Usage: your-application | digraph [command]
 
-Graph format:
-
-  Each line contains zero or more words.  Words are separated by
-  unquoted whitespace; words may contain Go-style double-quoted portions,
-  allowing spaces and other characters to be expressed.
-
-  Each field declares a node, and if there are more than one,
-  an edge from the first to each subsequent one.
-  The graph is provided on the standard input.
-
-  For instance, the following (acyclic) graph specifies a partial order
-  among the subtasks of getting dressed:
-
-	% cat clothes.txt
-	socks shoes
-	"boxer shorts" pants
-	pants belt shoes
-	shirt tie sweater
-	sweater jacket
-	hat
-
-  The line "shirt tie sweater" indicates the two edges shirt -> tie and
-  shirt -> sweater, not shirt -> tie -> sweater.
-
-Supported queries:
-
-  nodes
-	the set of all nodes
-  degree
-	the in-degree and out-degree of each node.
-  preds <label> ...
-	the set of immediate predecessors of the specified nodes
-  succs <label> ...
-	the set of immediate successors of the specified nodes
-  forward <label> ...
-	the set of nodes transitively reachable from the specified nodes
-  reverse <label> ...
-	the set of nodes that transitively reach the specified nodes
-  somepath <label> <label>
-	the list of nodes on some arbitrary path from the first node to the second
-  allpaths <label> <label>
-	the set of nodes on all paths from the first node to the second
-  sccs
-	all strongly connected components (one per line)
-  scc <label>
-	the set of nodes nodes strongly connected to the specified one
-
-Example usage:
-
-   Show the transitive closure of imports of the digraph tool itself:
-   % go list -f '{{.ImportPath}}{{.Imports}}' ... | tr '[]' '  ' |
-         digraph forward golang.org/x/tools/cmd/digraph
-
-   Show which clothes (see above) must be donned before a jacket:
-   %  digraph reverse jacket <clothes.txt
-
-`
+The support commands are:
+	nodes
+		the set of all nodes
+	degree
+		the in-degree and out-degree of each node
+	transpose
+		the reverse of the input edges
+	preds <node> ...
+		the set of immediate predecessors of the specified nodes
+	succs <node> ...
+		the set of immediate successors of the specified nodes
+	forward <node> ...
+		the set of nodes transitively reachable from the specified nodes
+	reverse <node> ...
+		the set of nodes that transitively reach the specified nodes
+	somepath <node> <node>
+		the list of nodes on some arbitrary path from the first node to the second
+	allpaths <node> <node>
+		the set of nodes on all paths from the first node to the second
+	sccs
+		all strongly connected components (one per line)
+	scc <node>
+		the set of nodes nodes strongly connected to the specified one
+`)
+	os.Exit(2)
+}
 
 func main() {
-	flag.Usage = func() { fmt.Fprintln(os.Stderr, Usage) }
+	flag.Usage = usage
 	flag.Parse()
 
 	args := flag.Args()
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, Usage)
-		return
+		usage()
 	}
 
 	if err := digraph(args[0], args[1:]); err != nil {
@@ -107,11 +143,11 @@ func main() {
 type nodelist []string
 
 func (l nodelist) println(sep string) {
-	for i, label := range l {
+	for i, node := range l {
 		if i > 0 {
 			fmt.Fprint(stdout, sep)
 		}
-		fmt.Fprint(stdout, label)
+		fmt.Fprint(stdout, node)
 	}
 	fmt.Fprintln(stdout)
 }
@@ -119,30 +155,30 @@ func (l nodelist) println(sep string) {
 type nodeset map[string]bool
 
 func (s nodeset) sort() nodelist {
-	labels := make(nodelist, len(s))
+	nodes := make(nodelist, len(s))
 	var i int
-	for label := range s {
-		labels[i] = label
+	for node := range s {
+		nodes[i] = node
 		i++
 	}
-	sort.Strings(labels)
-	return labels
+	sort.Strings(nodes)
+	return nodes
 }
 
 func (s nodeset) addAll(x nodeset) {
-	for label := range x {
-		s[label] = true
+	for node := range x {
+		s[node] = true
 	}
 }
 
 // A graph maps nodes to the non-nil set of their immediate successors.
 type graph map[string]nodeset
 
-func (g graph) addNode(label string) nodeset {
-	edges := g[label]
+func (g graph) addNode(node string) nodeset {
+	edges := g[node]
 	if edges == nil {
 		edges = make(nodeset)
-		g[label] = edges
+		g[node] = edges
 	}
 	return edges
 }
@@ -157,11 +193,11 @@ func (g graph) addEdges(from string, to ...string) {
 
 func (g graph) reachableFrom(roots nodeset) nodeset {
 	seen := make(nodeset)
-	var visit func(label string)
-	visit = func(label string) {
-		if !seen[label] {
-			seen[label] = true
-			for e := range g[label] {
+	var visit func(node string)
+	visit = func(node string) {
+		if !seen[node] {
+			seen[node] = true
+			for e := range g[node] {
 				visit(e)
 			}
 		}
@@ -174,10 +210,10 @@ func (g graph) reachableFrom(roots nodeset) nodeset {
 
 func (g graph) transpose() graph {
 	rev := make(graph)
-	for label, edges := range g {
-		rev.addNode(label)
+	for node, edges := range g {
+		rev.addNode(node)
 		for succ := range edges {
-			rev.addEdges(succ, label)
+			rev.addEdges(succ, node)
 		}
 	}
 	return rev
@@ -189,30 +225,30 @@ func (g graph) sccs() []nodeset {
 	// Forward pass.
 	S := make(nodelist, 0, len(g)) // postorder stack
 	seen := make(nodeset)
-	var visit func(label string)
-	visit = func(label string) {
-		if !seen[label] {
-			seen[label] = true
-			for e := range g[label] {
+	var visit func(node string)
+	visit = func(node string) {
+		if !seen[node] {
+			seen[node] = true
+			for e := range g[node] {
 				visit(e)
 			}
-			S = append(S, label)
+			S = append(S, node)
 		}
 	}
-	for label := range g {
-		visit(label)
+	for node := range g {
+		visit(node)
 	}
 
 	// Reverse pass.
 	rev := g.transpose()
 	var scc nodeset
 	seen = make(nodeset)
-	var rvisit func(label string)
-	rvisit = func(label string) {
-		if !seen[label] {
-			seen[label] = true
-			scc[label] = true
-			for e := range rev[label] {
+	var rvisit func(node string)
+	rvisit = func(node string) {
+		if !seen[node] {
+			seen[node] = true
+			scc[node] = true
+			for e := range rev[node] {
 				rvisit(e)
 			}
 		}
@@ -228,6 +264,77 @@ func (g graph) sccs() []nodeset {
 		}
 	}
 	return sccs
+}
+
+func (g graph) allpaths(from, to string) error {
+	// Mark all nodes to "to".
+	seen := make(nodeset) // value of seen[x] indicates whether x is on some path to "to"
+	var visit func(node string) bool
+	visit = func(node string) bool {
+		reachesTo, ok := seen[node]
+		if !ok {
+			reachesTo = node == to
+			seen[node] = reachesTo
+			for e := range g[node] {
+				if visit(e) {
+					reachesTo = true
+				}
+			}
+			if reachesTo && node != to {
+				seen[node] = true
+			}
+		}
+		return reachesTo
+	}
+	visit(from)
+
+	// For each marked node, collect its marked successors.
+	var edges []string
+	for n := range seen {
+		for succ := range g[n] {
+			if seen[succ] {
+				edges = append(edges, n+" "+succ)
+			}
+		}
+	}
+
+	// Sort (so that this method is deterministic) and print edges.
+	sort.Strings(edges)
+	for _, e := range edges {
+		fmt.Fprintln(stdout, e)
+	}
+
+	return nil
+}
+
+func (g graph) somepath(from, to string) error {
+	type edge struct{ from, to string }
+	seen := make(nodeset)
+	var dfs func(path []edge, from string) bool
+	dfs = func(path []edge, from string) bool {
+		if !seen[from] {
+			seen[from] = true
+			if from == to {
+				// fmt.Println(path, len(path), cap(path))
+				// Print and unwind.
+				for _, e := range path {
+					fmt.Fprintln(stdout, e.from+" "+e.to)
+				}
+				return true
+			}
+			for e := range g[from] {
+				if dfs(append(path, edge{from: from, to: e}), e) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	maxEdgesInGraph := len(g) * (len(g) - 1)
+	if !dfs(make([]edge, 0, maxEdgesInGraph), from) {
+		return fmt.Errorf("no path from %q to %q", from, to)
+	}
+	return nil
 }
 
 func parse(rd io.Reader) (graph, error) {
@@ -252,6 +359,7 @@ func parse(rd io.Reader) (graph, error) {
 	return g, nil
 }
 
+// Overridable for testing purposes.
 var stdin io.Reader = os.Stdin
 var stdout io.Writer = os.Stdout
 
@@ -269,8 +377,8 @@ func digraph(cmd string, args []string) error {
 			return fmt.Errorf("usage: digraph nodes")
 		}
 		nodes := make(nodeset)
-		for label := range g {
-			nodes[label] = true
+		for node := range g {
+			nodes[node] = true
 		}
 		nodes.sort().println("\n")
 
@@ -279,17 +387,32 @@ func digraph(cmd string, args []string) error {
 			return fmt.Errorf("usage: digraph degree")
 		}
 		nodes := make(nodeset)
-		for label := range g {
-			nodes[label] = true
+		for node := range g {
+			nodes[node] = true
 		}
 		rev := g.transpose()
-		for _, label := range nodes.sort() {
-			fmt.Fprintf(stdout, "%d\t%d\t%s\n", len(rev[label]), len(g[label]), label)
+		for _, node := range nodes.sort() {
+			fmt.Fprintf(stdout, "%d\t%d\t%s\n", len(rev[node]), len(g[node]), node)
+		}
+
+	case "transpose":
+		if len(args) != 0 {
+			return fmt.Errorf("usage: digraph transpose")
+		}
+		var revEdges []string
+		for node, succs := range g.transpose() {
+			for succ := range succs {
+				revEdges = append(revEdges, fmt.Sprintf("%s %s", node, succ))
+			}
+		}
+		sort.Strings(revEdges) // make output deterministic
+		for _, e := range revEdges {
+			fmt.Fprintln(stdout, e)
 		}
 
 	case "succs", "preds":
 		if len(args) == 0 {
-			return fmt.Errorf("usage: digraph %s <label> ...", cmd)
+			return fmt.Errorf("usage: digraph %s <node> ...", cmd)
 		}
 		g := g
 		if cmd == "preds" {
@@ -307,7 +430,7 @@ func digraph(cmd string, args []string) error {
 
 	case "forward", "reverse":
 		if len(args) == 0 {
-			return fmt.Errorf("usage: digraph %s <label> ...", cmd)
+			return fmt.Errorf("usage: digraph %s <node> ...", cmd)
 		}
 		roots := make(nodeset)
 		for _, root := range args {
@@ -333,26 +456,8 @@ func digraph(cmd string, args []string) error {
 		if g[to] == nil {
 			return fmt.Errorf("no such 'to' node %q", to)
 		}
-
-		seen := make(nodeset)
-		var visit func(path nodelist, label string) bool
-		visit = func(path nodelist, label string) bool {
-			if !seen[label] {
-				seen[label] = true
-				if label == to {
-					append(path, label).println("\n")
-					return true // unwind
-				}
-				for e := range g[label] {
-					if visit(append(path, label), e) {
-						return true
-					}
-				}
-			}
-			return false
-		}
-		if !visit(make(nodelist, 0, 100), from) {
-			return fmt.Errorf("no path from %q to %q", args[0], args[1])
+		if err := g.somepath(from, to); err != nil {
+			return err
 		}
 
 	case "allpaths":
@@ -366,33 +471,9 @@ func digraph(cmd string, args []string) error {
 		if g[to] == nil {
 			return fmt.Errorf("no such 'to' node %q", to)
 		}
-
-		seen := make(nodeset) // value of seen[x] indicates whether x is on some path to 'to'
-		var visit func(label string) bool
-		visit = func(label string) bool {
-			reachesTo, ok := seen[label]
-			if !ok {
-				reachesTo = label == to
-
-				seen[label] = reachesTo
-				for e := range g[label] {
-					if visit(e) {
-						reachesTo = true
-					}
-				}
-				seen[label] = reachesTo
-			}
-			return reachesTo
+		if err := g.allpaths(from, to); err != nil {
+			return err
 		}
-		if !visit(from) {
-			return fmt.Errorf("no path from %q to %q", from, to)
-		}
-		for label, reachesTo := range seen {
-			if !reachesTo {
-				delete(seen, label)
-			}
-		}
-		seen.sort().println("\n")
 
 	case "sccs":
 		if len(args) != 0 {
@@ -404,14 +485,14 @@ func digraph(cmd string, args []string) error {
 
 	case "scc":
 		if len(args) != 1 {
-			return fmt.Errorf("usage: digraph scc <label>")
+			return fmt.Errorf("usage: digraph scc <node>")
 		}
-		label := args[0]
-		if g[label] == nil {
-			return fmt.Errorf("no such node %q", label)
+		node := args[0]
+		if g[node] == nil {
+			return fmt.Errorf("no such node %q", node)
 		}
 		for _, scc := range g.sccs() {
-			if scc[label] {
+			if scc[node] {
 				scc.sort().println("\n")
 				break
 			}

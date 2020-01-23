@@ -42,7 +42,7 @@ type Options struct {
 // Work typically is reads and writes Kubernetes objects to make the system state match the state specified
 // in the object Spec.
 type Controller interface {
-	// Reconciler is called to Reconciler an object by Namespace/Name
+	// Reconciler is called to reconcile an object by Namespace/Name
 	reconcile.Reconciler
 
 	// Watch takes events provided by a Source and uses the EventHandler to
@@ -80,13 +80,15 @@ func New(name string, mgr manager.Manager, options Options) (Controller, error) 
 
 	// Create controller with dependencies set
 	c := &controller.Controller{
-		Do:                      options.Reconciler,
-		Cache:                   mgr.GetCache(),
-		Config:                  mgr.GetConfig(),
-		Scheme:                  mgr.GetScheme(),
-		Client:                  mgr.GetClient(),
-		Recorder:                mgr.GetEventRecorderFor(name),
-		Queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
+		Do:       options.Reconciler,
+		Cache:    mgr.GetCache(),
+		Config:   mgr.GetConfig(),
+		Scheme:   mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Recorder: mgr.GetEventRecorderFor(name),
+		MakeQueue: func() workqueue.RateLimitingInterface {
+			return workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
+		},
 		MaxConcurrentReconciles: options.MaxConcurrentReconciles,
 		Name:                    name,
 	}

@@ -1,71 +1,37 @@
-# Force dep to vendor the code generators, which aren't imported just used at dev time.
-required = [
-  "k8s.io/code-generator/cmd/defaulter-gen",
-  "k8s.io/code-generator/cmd/deepcopy-gen",
-  "k8s.io/code-generator/cmd/conversion-gen",
-  "k8s.io/code-generator/cmd/client-gen",
-  "k8s.io/code-generator/cmd/lister-gen",
-  "k8s.io/code-generator/cmd/informer-gen",
-  "k8s.io/kube-openapi/cmd/openapi-gen",
-  "k8s.io/gengo/args",
-  "github.com/pkg/errors",
-  "github.com/gophercloud/gophercloud",
-]
-
-[[override]]
-  name = "k8s.io/kube-openapi"
-  revision = "0cf8f7e6ed1d2e3d47d02e3b6e559369af24d803"
-
-[[override]]
-  name = "k8s.io/code-generator"
-  version = "kubernetes-1.14.0"
-
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.14.0"
+  # revision for tag "kubernetes-1.16.2"
+  revision = "35e52d86657aba06859dd22099bfa14faf1effb2"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.14.0"
+  # revision for tag "kubernetes-1.16.2"
+  revision = "5357c4baaf6562e4d37c9afc9fef99bd16d76a9f"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.14.0"
+  # revision for tag "kubernetes-1.16.2"
+  revision = "a2eda9f80ab8a454a81bdde16d62a1afe5f931c0"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.14.0"
+  # revision for tag "kubernetes-1.16.2"
+  revision = "bec269661e48cb1e5fbb0d037f356ffe9e9978a0"
 
 [[override]]
   name = "github.com/coreos/prometheus-operator"
-  version = "=v0.26.0"
+  version = "=v0.34.0"
 
 [[override]]
   name = "sigs.k8s.io/controller-runtime"
-  # Pin the latest master HEAD to get support webhooks
-  # which are not yet released
-  revision="96b67f231945a8e8550dbdd8bfbd550a0c68097b"
-
-[[constraint]]
-  name = "github.com/gophercloud/gophercloud"
-  revision = "2d40ff7a3874e2b376ff245d549e7757048cd65c"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/operator-framework/operator-sdk"
-  # The version rule is used for a specific release and the master branch for in between releases.
-  branch = "master" #osdk_branch_annotation
-  # version = "=v0.4.0" #osdk_version_annotation
+  version = "=v0.12.0"
 
 # We need to specify fsnotify source to avoid dep panic
 # https://github.com/golang/dep/issues/1799
 [[override]]
   name = "gopkg.in/fsnotify.v1"
   source = "https://github.com/fsnotify/fsnotify.git"
-
-[prune]
-  go-tests = true
-  non-go = true
-
-  [[prune.project]]
-    name = "k8s.io/code-generator"
-    non-go = false

@@ -204,6 +204,15 @@ spec:
             errorMessage:
               description: the last error message reported by the provisioning subsystem
               type: string
+            errorType:
+              description: ErrorType indicates the type of failure encountered when
+                the OperationalStatus is OperationalStatusError
+              enum:
+              - registration error
+              - inspection error
+              - provisioning error
+              - power management error
+              type: string
             goodCredentials:
               description: the last credentials we were able to validate as working
               properties:
@@ -401,8 +410,70 @@ spec:
               description: LastUpdated identifies when this status was last observed.
               format: date-time
               type: string
+            operationHistory:
+              description: OperationHistory holds information about operations performed
+                on this host.
+              properties:
+                deprovision:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
+                  properties:
+                    end:
+                      format: date-time
+                      nullable: true
+                      type: string
+                    start:
+                      format: date-time
+                      nullable: true
+                      type: string
+                  type: object
+                inspect:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
+                  properties:
+                    end:
+                      format: date-time
+                      nullable: true
+                      type: string
+                    start:
+                      format: date-time
+                      nullable: true
+                      type: string
+                  type: object
+                provision:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
+                  properties:
+                    end:
+                      format: date-time
+                      nullable: true
+                      type: string
+                    start:
+                      format: date-time
+                      nullable: true
+                      type: string
+                  type: object
+                register:
+                  description: OperationMetric contains metadata about an operation
+                    (inspection, provisioning, etc.) used for tracking metrics.
+                  properties:
+                    end:
+                      format: date-time
+                      nullable: true
+                      type: string
+                    start:
+                      format: date-time
+                      nullable: true
+                      type: string
+                  type: object
+              type: object
             operationalStatus:
               description: OperationalStatus holds the status of the host
+              enum:
+              - ""
+              - OK
+              - discovered
+              - error
               type: string
             poweredOn:
               description: indicator for whether or not the host is powered on
@@ -458,6 +529,7 @@ spec:
           required:
           - errorMessage
           - hardwareProfile
+          - operationHistory
           - operationalStatus
           - poweredOn
           - provisioning

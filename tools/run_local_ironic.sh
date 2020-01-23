@@ -2,6 +2,8 @@
 
 set -ex
 
+SCRIPTPATH="$(dirname "$(readlink -f "${0}")")"
+
 IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
 IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic-inspector"}
 IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:master"}
@@ -42,7 +44,8 @@ fi
 
 # Start image downloader container
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader ${POD} \
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
      -v "$IRONIC_DATA_DIR:/shared" "${IPA_DOWNLOADER_IMAGE}" /usr/local/bin/get-resource.sh
 
 sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
@@ -52,29 +55,34 @@ sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
 # https://github.com/metal3-io/ironic/blob/master/rundnsmasq.sh
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq  ${POD}\
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
 # For available env vars, see:
 # https://github.com/metal3-io/ironic/blob/master/runhttpd.sh
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd ${POD}\
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
 # https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb ${POD}\
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runmariadb \
      --env "MARIADB_PASSWORD=$mariadb_password" "${IRONIC_IMAGE}"
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
 # https://github.com/metal3-io/ironic/blob/master/runironic.sh
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic ${POD}\
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
      --env "MARIADB_PASSWORD=$mariadb_password" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start Ironic Inspector
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector ${POD}\
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"

@@ -6,19 +6,16 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
-	"github.com/go-logr/logr"
-
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // hostStateMachine is a finite state machine that manages transitions between
 // the states of a BareMetalHost.
 type hostStateMachine struct {
-	Host                *metal3v1alpha1.BareMetalHost
-	NextState           metal3v1alpha1.ProvisioningState
-	Reconciler          *ReconcileBareMetalHost
-	Provisioner         provisioner.Provisioner
-	RequeueDespiteError bool
+	Host        *metal3v1alpha1.BareMetalHost
+	NextState   metal3v1alpha1.ProvisioningState
+	Reconciler  *ReconcileBareMetalHost
+	Provisioner provisioner.Provisioner
 }
 
 func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
@@ -34,7 +31,7 @@ func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
 	return &r
 }
 
-type stateHandler func(*reconcileInfo) (reconcile.Result, error)
+type stateHandler func(*reconcileInfo) actionResult
 
 func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]stateHandler {
 	return map[metal3v1alpha1.ProvisioningState]stateHandler{
@@ -54,42 +51,66 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 	}
 }
 
-func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
-	result *reconcile.Result,
-	log logr.Logger) {
-	if hsm.NextState != initialState {
-		log.Info("changing provisioning state",
-			"old", initialState,
-			"new", hsm.NextState)
-		hsm.Host.Status.Provisioning.State = hsm.NextState
-		result.Requeue = true
+func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+	if nextMetric := host.OperationMetricForState(state); nextMetric != nil {
+		if nextMetric.Start.IsZero() || !nextMetric.End.IsZero() {
+			*nextMetric = metal3v1alpha1.OperationMetric{
+				Start: time,
+			}
+		}
 	}
 }
 
-func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (result reconcile.Result, err error) {
+func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
+		if !prevMetric.Start.IsZero() {
+			prevMetric.End = time
+			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+				observer := stateTime[state].With(hostMetricLabels(info.request))
+				observer.Observe(prevMetric.Duration().Seconds())
+			})
+		}
+	}
+}
+
+func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
+	info *reconcileInfo) {
+	if hsm.NextState != initialState {
+		info.log.Info("changing provisioning state",
+			"old", initialState,
+			"new", hsm.NextState)
+		now := metav1.Now()
+		recordStateEnd(info, hsm.Host, initialState, now)
+		recordStateBegin(hsm.Host, hsm.NextState, now)
+		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+			stateChanges.With(stateChangeMetricLabels(initialState, hsm.NextState)).Inc()
+		})
+		hsm.Host.Status.Provisioning.State = hsm.NextState
+	}
+}
+
+func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 	initialState := hsm.Host.Status.Provisioning.State
-	defer hsm.updateHostStateFrom(initialState, &result, info.log)
+	defer hsm.updateHostStateFrom(initialState, info)
 
 	if hsm.checkInitiateDelete() {
 		info.log.Info("Initiating host deletion")
-		return
+		return actionComplete{}
 	}
 	// TODO: In future we should always re-register the host if required,
 	// rather than initiate a transistion back to the Registering state.
 	if hsm.shouldInitiateRegister(info) {
 		info.log.Info("Initiating host registration")
-		return
+		hostRegistrationRequired.Inc()
+		return actionComplete{}
 	}
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
-		result, err = stateHandler(info)
-	} else {
-		info.log.Info("No handler found for state", "state", initialState)
-		err = fmt.Errorf("No handler found for state \"%s\"", initialState)
-		return
+		return stateHandler(info)
 	}
 
-	return
+	info.log.Info("No handler found for state", "state", initialState)
+	return actionError{fmt.Errorf("No handler found for state \"%s\"", initialState)}
 }
 
 func (hsm *hostStateMachine) checkInitiateDelete() bool {
@@ -98,7 +119,6 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 		return false
 	}
 
-	hsm.RequeueDespiteError = true
 	switch hsm.NextState {
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeleting
@@ -131,18 +151,19 @@ func (hsm *hostStateMachine) shouldInitiateRegister(info *reconcileInfo) bool {
 	return changeState
 }
 
-func (hsm *hostStateMachine) handleNone(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
 	// Running the state machine at all means we have successfully validated
 	// the BMC credentials once, so we can move to the Registering state.
 	hsm.Host.ClearError()
 	hsm.NextState = metal3v1alpha1.StateRegistering
-	return
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
+func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
 
-	if hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
+	switch actResult.(type) {
+	case actionComplete:
 		// TODO: In future this state should only occur before the host is
 		// registered the first time (though we must always check and
 		// re-register the host regardless of the current state). That will
@@ -159,100 +180,129 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) (result reco
 		default:
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
+	case actionFailed:
+		hsm.NextState = metal3v1alpha1.StateRegistrationError
 	}
-	return
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) actionResult {
 	if !hsm.Host.Status.TriedCredentials.Match(*info.bmcCredsSecret) {
 		info.log.Info("Modified credentials detected; will retry registration")
-		hsm.RequeueDespiteError = true
 		hsm.NextState = metal3v1alpha1.StateRegistering
+		return actionComplete{}
 	}
-	return
+	return actionFailed{}
 }
 
-func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
-	if hsm.Host.Status.HardwareDetails != nil {
+func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
+	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
 	}
-	return
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
-	if hsm.Host.Status.HardwareProfile != "" {
+func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
+	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateReady
 	}
-	return
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
-		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
-	} else {
-		switch {
-		case hsm.Host.NeedsHardwareInspection():
-			hsm.NextState = metal3v1alpha1.StateInspecting
-		case hsm.Host.NeedsHardwareProfile():
-			hsm.NextState = metal3v1alpha1.StateMatchProfile
-		default:
-			hsm.NextState = metal3v1alpha1.StateReady
+		actResult := hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+		if r, f := actResult.(actionFailed); f {
+			switch r.ErrorType {
+			case metal3v1alpha1.PowerManagementError:
+				hsm.NextState = metal3v1alpha1.StatePowerManagementError
+			case metal3v1alpha1.RegistrationError:
+				hsm.NextState = metal3v1alpha1.StateRegistrationError
+			}
+		}
+		return actResult
+	}
+
+	switch {
+	case hsm.Host.NeedsHardwareInspection():
+		hsm.NextState = metal3v1alpha1.StateInspecting
+	case hsm.Host.NeedsHardwareProfile():
+		hsm.NextState = metal3v1alpha1.StateMatchProfile
+	default:
+		hsm.NextState = metal3v1alpha1.StateReady
+	}
+	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
+	if hsm.Host.Spec.ExternallyProvisioned {
+		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
+		return actionComplete{}
+	}
+
+	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
+
+	switch r := actResult.(type) {
+	case actionComplete:
+		hsm.NextState = metal3v1alpha1.StateProvisioning
+	case actionFailed:
+		switch r.ErrorType {
+		case metal3v1alpha1.PowerManagementError:
+			hsm.NextState = metal3v1alpha1.StatePowerManagementError
+		case metal3v1alpha1.RegistrationError:
+			hsm.NextState = metal3v1alpha1.StateRegistrationError
 		}
 	}
-	return
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleReady(info *reconcileInfo) (result reconcile.Result, err error) {
-	switch {
-	case hsm.Host.Spec.ExternallyProvisioned:
-		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
-	case hsm.Host.NeedsProvisioning():
-		hsm.NextState = metal3v1alpha1.StateProvisioning
-	default:
-		result, err = hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
-	}
-	return
-}
-
-func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResult {
 	if hsm.Host.NeedsDeprovisioning() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
-		return
+		return actionComplete{}
 	}
 
-	result, err = hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
-	if hsm.Host.Status.Provisioning.Image.URL != "" {
+	actResult := hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
+	switch actResult.(type) {
+	case actionComplete:
 		hsm.NextState = metal3v1alpha1.StateProvisioned
-	} else if hsm.Host.HasError() {
+	case actionFailed:
 		hsm.NextState = metal3v1alpha1.StateProvisioningError
 	}
-	return
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) (result reconcile.Result, err error) {
-	hsm.RequeueDespiteError = true
+func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) actionResult {
 	switch {
 	case hsm.Host.Spec.ExternallyProvisioned:
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
 	}
-	return
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) (result reconcile.Result, err error) {
+func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult {
 	if hsm.Host.NeedsDeprovisioning() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
-	} else {
-		result, err = hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+		return actionComplete{}
 	}
-	return
+
+	actResult := hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+	if r, f := actResult.(actionFailed); f {
+		switch r.ErrorType {
+		case metal3v1alpha1.PowerManagementError:
+			hsm.NextState = metal3v1alpha1.StatePowerManagementError
+		case metal3v1alpha1.RegistrationError:
+			hsm.NextState = metal3v1alpha1.StateRegistrationError
+		}
+	}
+	return actResult
 }
 
-func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) (result reconcile.Result, err error) {
-	hsm.RequeueDespiteError = true
+func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) actionResult {
 	switch {
 	case hsm.Host.Spec.ExternallyProvisioned:
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
@@ -261,34 +311,36 @@ func (hsm *hostStateMachine) handlePowerManagementError(info *reconcileInfo) (re
 	default:
 		hsm.NextState = metal3v1alpha1.StateReady
 	}
-	return
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
-	if hsm.Host.Status.Provisioning.Image.URL == "" {
+func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
+
+	switch actResult.(type) {
+	case actionComplete:
 		if !hsm.Host.DeletionTimestamp.IsZero() {
 			hsm.NextState = metal3v1alpha1.StateDeleting
 		} else {
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
-	} else if hsm.Host.HasError() {
+	case actionFailed:
 		if !hsm.Host.DeletionTimestamp.IsZero() {
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
 			// Note that this is entirely theoretical, as the
 			// Ironic provisioner currently never gives up
 			// trying to deprovision.
-			hsm.RequeueDespiteError = true
 			hsm.NextState = metal3v1alpha1.StateDeleting
+			info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutDeprov.Inc)
+			actResult = actionComplete{}
 		} else {
 			hsm.NextState = metal3v1alpha1.StateProvisioningError
 		}
 	}
-	return
+	return actResult
 }
 
-func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) (result reconcile.Result, err error) {
-	result, err = hsm.Reconciler.actionDeleting(hsm.Provisioner, info)
-	return
+func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) actionResult {
+	return hsm.Reconciler.actionDeleting(hsm.Provisioner, info)
 }

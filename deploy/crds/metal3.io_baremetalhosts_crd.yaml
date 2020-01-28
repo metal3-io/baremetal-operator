@@ -158,7 +158,7 @@ spec:
               type: object
             networkData:
               description: NetworkData holds the reference to the Secret containing
-                content of network_data.json which is plased to Config Drive
+                content of network_data.json which is passed to Config Drive
               properties:
                 name:
                   description: Name is unique within a namespace to reference a secret

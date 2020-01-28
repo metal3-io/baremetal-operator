@@ -180,7 +180,7 @@ type BareMetalHostSpec struct {
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
 	// NetworkData holds the reference to the Secret containing content
-	// of network_data.json which is plased to Config Drive
+	// of network_data.json which is passed to Config Drive
 	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
 
 	// Description is a human-entered text used to help identify the host

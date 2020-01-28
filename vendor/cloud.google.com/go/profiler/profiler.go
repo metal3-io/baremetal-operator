@@ -188,7 +188,7 @@ func (o *allowUntilSuccess) do(f func() error) (err error) {
 			o.done = 1
 		}
 	} else {
-		log.Printf("profiler.Start() called again after it was previously called")
+		debugLog("profiler.Start() called again after it was previously called")
 		err = nil
 	}
 	return err
@@ -221,6 +221,7 @@ func start(cfg Config, options ...option.ClientOption) error {
 	opts := []option.ClientOption{
 		option.WithEndpoint(config.APIAddr),
 		option.WithScopes(scope),
+		option.WithUserAgent(fmt.Sprintf("gcloud-go-profiler/%s", version.Repo)),
 	}
 	opts = append(opts, options...)
 
@@ -565,6 +566,7 @@ func initializeConfig(cfg Config) error {
 // server for instructions, and collects and uploads profiles as
 // requested.
 func pollProfilerService(ctx context.Context, a *agent) {
+	debugLog("Stackdriver Profiler Go Agent version: %s", version.Repo)
 	debugLog("profiler has started")
 	for {
 		p := a.createProfile(ctx)

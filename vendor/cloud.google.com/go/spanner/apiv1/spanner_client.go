@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/url"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -36,6 +37,7 @@ import (
 // CallOptions contains the retry settings for each method of Client.
 type CallOptions struct {
 	CreateSession       []gax.CallOption
+	BatchCreateSessions []gax.CallOption
 	GetSession          []gax.CallOption
 	ListSessions        []gax.CallOption
 	DeleteSession       []gax.CallOption
@@ -55,6 +57,8 @@ func defaultClientOptions() []option.ClientOption {
 	return []option.ClientOption{
 		option.WithEndpoint("spanner.googleapis.com:443"),
 		option.WithScopes(DefaultAuthScopes()...),
+		option.WithGRPCDialOption(grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(math.MaxInt32))),
 	}
 }
 
@@ -65,7 +69,7 @@ func defaultCallOptions() *CallOptions {
 				return gax.OnCodes([]codes.Code{
 					codes.Unavailable,
 				}, gax.Backoff{
-					Initial:    1000 * time.Millisecond,
+					Initial:    250 * time.Millisecond,
 					Max:        32000 * time.Millisecond,
 					Multiplier: 1.3,
 				})
@@ -76,7 +80,7 @@ func defaultCallOptions() *CallOptions {
 				return gax.OnCodes([]codes.Code{
 					codes.Unavailable,
 				}, gax.Backoff{
-					Initial:    1000 * time.Millisecond,
+					Initial:    250 * time.Millisecond,
 					Max:        32000 * time.Millisecond,
 					Multiplier: 1.3,
 				})
@@ -85,6 +89,7 @@ func defaultCallOptions() *CallOptions {
 	}
 	return &CallOptions{
 		CreateSession:       retry[[2]string{"default", "idempotent"}],
+		BatchCreateSessions: retry[[2]string{"default", "idempotent"}],
 		GetSession:          retry[[2]string{"default", "idempotent"}],
 		ListSessions:        retry[[2]string{"default", "idempotent"}],
 		DeleteSession:       retry[[2]string{"default", "idempotent"}],
@@ -179,7 +184,7 @@ func (c *Client) SetGoogleClientInfo(keyval ...string) {
 // Idle sessions can be kept alive by sending a trivial SQL query
 // periodically, e.g., "SELECT 1".
 func (c *Client) CreateSession(ctx context.Context, req *spannerpb.CreateSessionRequest, opts ...gax.CallOption) (*spannerpb.Session, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "database", req.GetDatabase()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "database", url.QueryEscape(req.GetDatabase())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateSession[0:len(c.CallOptions.CreateSession):len(c.CallOptions.CreateSession)], opts...)
 	var resp *spannerpb.Session
@@ -194,11 +199,31 @@ func (c *Client) CreateSession(ctx context.Context, req *spannerpb.CreateSession
 	return resp, nil
 }
 
+// BatchCreateSessions creates multiple new sessions.
+//
+// This API can be used to initialize a session cache on the clients.
+// See https://goo.gl/TgSFN2 for best practices on session cache management.
+func (c *Client) BatchCreateSessions(ctx context.Context, req *spannerpb.BatchCreateSessionsRequest, opts ...gax.CallOption) (*spannerpb.BatchCreateSessionsResponse, error) {
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "database", url.QueryEscape(req.GetDatabase())))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
+	opts = append(c.CallOptions.BatchCreateSessions[0:len(c.CallOptions.BatchCreateSessions):len(c.CallOptions.BatchCreateSessions)], opts...)
+	var resp *spannerpb.BatchCreateSessionsResponse
+	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+		var err error
+		resp, err = c.client.BatchCreateSessions(ctx, req, settings.GRPC...)
+		return err
+	}, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // GetSession gets a session. Returns NOT_FOUND if the session does not exist.
 // This is mainly useful for determining whether a session is still
 // alive.
 func (c *Client) GetSession(ctx context.Context, req *spannerpb.GetSessionRequest, opts ...gax.CallOption) (*spannerpb.Session, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetSession[0:len(c.CallOptions.GetSession):len(c.CallOptions.GetSession)], opts...)
 	var resp *spannerpb.Session
@@ -215,7 +240,7 @@ func (c *Client) GetSession(ctx context.Context, req *spannerpb.GetSessionReques
 
 // ListSessions lists all sessions in a given database.
 func (c *Client) ListSessions(ctx context.Context, req *spannerpb.ListSessionsRequest, opts ...gax.CallOption) *SessionIterator {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "database", req.GetDatabase()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "database", url.QueryEscape(req.GetDatabase())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ListSessions[0:len(c.CallOptions.ListSessions):len(c.CallOptions.ListSessions)], opts...)
 	it := &SessionIterator{}
@@ -256,7 +281,7 @@ func (c *Client) ListSessions(ctx context.Context, req *spannerpb.ListSessionsRe
 // asynchronously trigger cancellation of any operations that are running with
 // this session.
 func (c *Client) DeleteSession(ctx context.Context, req *spannerpb.DeleteSessionRequest, opts ...gax.CallOption) error {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.DeleteSession[0:len(c.CallOptions.DeleteSession):len(c.CallOptions.DeleteSession)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -281,7 +306,7 @@ func (c *Client) DeleteSession(ctx context.Context, req *spannerpb.DeleteSession
 // [ExecuteStreamingSql][google.spanner.v1.Spanner.ExecuteStreamingSql]
 // instead.
 func (c *Client) ExecuteSql(ctx context.Context, req *spannerpb.ExecuteSqlRequest, opts ...gax.CallOption) (*spannerpb.ResultSet, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ExecuteSql[0:len(c.CallOptions.ExecuteSql):len(c.CallOptions.ExecuteSql)], opts...)
 	var resp *spannerpb.ResultSet
@@ -302,7 +327,7 @@ func (c *Client) ExecuteSql(ctx context.Context, req *spannerpb.ExecuteSqlReques
 // the size of the returned result set. However, no individual row in the
 // result set can exceed 100 MiB, and no column value can exceed 10 MiB.
 func (c *Client) ExecuteStreamingSql(ctx context.Context, req *spannerpb.ExecuteSqlRequest, opts ...gax.CallOption) (spannerpb.Spanner_ExecuteStreamingSqlClient, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ExecuteStreamingSql[0:len(c.CallOptions.ExecuteStreamingSql):len(c.CallOptions.ExecuteStreamingSql)], opts...)
 	var resp spannerpb.Spanner_ExecuteStreamingSqlClient
@@ -323,8 +348,9 @@ func (c *Client) ExecuteStreamingSql(ctx context.Context, req *spannerpb.Execute
 //
 // Statements are executed in order, sequentially.
 // [ExecuteBatchDmlResponse][Spanner.ExecuteBatchDmlResponse] will contain a
-// [ResultSet][google.spanner.v1.ResultSet] for each DML statement that has successfully executed. If a
-// statement fails, its error status will be returned as part of the
+// [ResultSet][google.spanner.v1.ResultSet] for each DML statement that has
+// successfully executed. If a statement fails, its error status will be
+// returned as part of the
 // [ExecuteBatchDmlResponse][Spanner.ExecuteBatchDmlResponse]. Execution will
 // stop at the first failed statement; the remaining statements will not run.
 //
@@ -337,7 +363,7 @@ func (c *Client) ExecuteStreamingSql(ctx context.Context, req *spannerpb.Execute
 // [ExecuteBatchDmlRequest][Spanner.ExecuteBatchDmlRequest] and
 // [ExecuteBatchDmlResponse][Spanner.ExecuteBatchDmlResponse].
 func (c *Client) ExecuteBatchDml(ctx context.Context, req *spannerpb.ExecuteBatchDmlRequest, opts ...gax.CallOption) (*spannerpb.ExecuteBatchDmlResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ExecuteBatchDml[0:len(c.CallOptions.ExecuteBatchDml):len(c.CallOptions.ExecuteBatchDml)], opts...)
 	var resp *spannerpb.ExecuteBatchDmlResponse
@@ -367,7 +393,7 @@ func (c *Client) ExecuteBatchDml(ctx context.Context, req *spannerpb.ExecuteBatc
 // Larger result sets can be yielded in streaming fashion by calling
 // [StreamingRead][google.spanner.v1.Spanner.StreamingRead] instead.
 func (c *Client) Read(ctx context.Context, req *spannerpb.ReadRequest, opts ...gax.CallOption) (*spannerpb.ResultSet, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.Read[0:len(c.CallOptions.Read):len(c.CallOptions.Read)], opts...)
 	var resp *spannerpb.ResultSet
@@ -388,7 +414,7 @@ func (c *Client) Read(ctx context.Context, req *spannerpb.ReadRequest, opts ...g
 // the result set can exceed 100 MiB, and no column value can exceed
 // 10 MiB.
 func (c *Client) StreamingRead(ctx context.Context, req *spannerpb.ReadRequest, opts ...gax.CallOption) (spannerpb.Spanner_StreamingReadClient, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.StreamingRead[0:len(c.CallOptions.StreamingRead):len(c.CallOptions.StreamingRead)], opts...)
 	var resp spannerpb.Spanner_StreamingReadClient
@@ -409,7 +435,7 @@ func (c *Client) StreamingRead(ctx context.Context, req *spannerpb.ReadRequest, 
 // [Commit][google.spanner.v1.Spanner.Commit] can begin a new transaction as a
 // side-effect.
 func (c *Client) BeginTransaction(ctx context.Context, req *spannerpb.BeginTransactionRequest, opts ...gax.CallOption) (*spannerpb.Transaction, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.BeginTransaction[0:len(c.CallOptions.BeginTransaction):len(c.CallOptions.BeginTransaction)], opts...)
 	var resp *spannerpb.Transaction
@@ -433,7 +459,7 @@ func (c *Client) BeginTransaction(ctx context.Context, req *spannerpb.BeginTrans
 // reasons. If Commit returns ABORTED, the caller should re-attempt
 // the transaction from the beginning, re-using the same session.
 func (c *Client) Commit(ctx context.Context, req *spannerpb.CommitRequest, opts ...gax.CallOption) (*spannerpb.CommitResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.Commit[0:len(c.CallOptions.Commit):len(c.CallOptions.Commit)], opts...)
 	var resp *spannerpb.CommitResponse
@@ -458,7 +484,7 @@ func (c *Client) Commit(ctx context.Context, req *spannerpb.CommitRequest, opts 
 // transaction was already aborted, or the transaction is not
 // found. Rollback never returns ABORTED.
 func (c *Client) Rollback(ctx context.Context, req *spannerpb.RollbackRequest, opts ...gax.CallOption) error {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.Rollback[0:len(c.CallOptions.Rollback):len(c.CallOptions.Rollback)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -482,7 +508,7 @@ func (c *Client) Rollback(ctx context.Context, req *spannerpb.RollbackRequest, o
 // old.  When any of these happen, it is not possible to resume the query, and
 // the whole operation must be restarted from the beginning.
 func (c *Client) PartitionQuery(ctx context.Context, req *spannerpb.PartitionQueryRequest, opts ...gax.CallOption) (*spannerpb.PartitionResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.PartitionQuery[0:len(c.CallOptions.PartitionQuery):len(c.CallOptions.PartitionQuery)], opts...)
 	var resp *spannerpb.PartitionResponse
@@ -512,7 +538,7 @@ func (c *Client) PartitionQuery(ctx context.Context, req *spannerpb.PartitionQue
 // old.  When any of these happen, it is not possible to resume the read, and
 // the whole operation must be restarted from the beginning.
 func (c *Client) PartitionRead(ctx context.Context, req *spannerpb.PartitionReadRequest, opts ...gax.CallOption) (*spannerpb.PartitionResponse, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", url.QueryEscape(req.GetSession())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.PartitionRead[0:len(c.CallOptions.PartitionRead):len(c.CallOptions.PartitionRead)], opts...)
 	var resp *spannerpb.PartitionResponse

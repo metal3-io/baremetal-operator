@@ -84,8 +84,8 @@ func PrintfTests() {
 	fmt.Printf("%T %T", 3, i)
 	fmt.Printf("%U %U", 3, i)
 	fmt.Printf("%v %v", 3, i)
-	fmt.Printf("%x %x %x %x", 3, i, "hi", s)
-	fmt.Printf("%X %X %X %X", 3, i, "hi", s)
+	fmt.Printf("%x %x %x %x %x %x %x", 3, i, "hi", s, x, c, fslice)
+	fmt.Printf("%X %X %X %X %X %X %X", 3, i, "hi", s, x, c, fslice)
 	fmt.Printf("%.*s %d %g", 3, "hi", 23, 2.3)
 	fmt.Printf("%s", &stringerv)
 	fmt.Printf("%v", &stringerv)
@@ -97,7 +97,6 @@ func PrintfTests() {
 	fmt.Printf("%T", notstringerv)
 	fmt.Printf("%q", stringerarrayv)
 	fmt.Printf("%v", stringerarrayv)
-	fmt.Printf("%w", err)
 	fmt.Printf("%s", stringerarrayv)
 	fmt.Printf("%v", notstringerarrayv)
 	fmt.Printf("%T", notstringerarrayv)
@@ -129,7 +128,6 @@ func PrintfTests() {
 	fmt.Printf("%t", 23)                        // want "Printf format %t has arg 23 of wrong type int"
 	fmt.Printf("%U", x)                         // want "Printf format %U has arg x of wrong type float64"
 	fmt.Printf("%x", nil)                       // want "Printf format %x has arg nil of wrong type untyped nil"
-	fmt.Printf("%X", 2.3)                       // want "Printf format %X has arg 2.3 of wrong type float64"
 	fmt.Printf("%s", stringerv)                 // want "Printf format %s has arg stringerv of wrong type a.ptrStringer"
 	fmt.Printf("%t", stringerv)                 // want "Printf format %t has arg stringerv of wrong type a.ptrStringer"
 	fmt.Printf("%s", embeddedStringerv)         // want "Printf format %s has arg embeddedStringerv of wrong type a.embeddedStringer"
@@ -162,6 +160,7 @@ func PrintfTests() {
 	fmt.Printf("%*% x", 0.22)                   // want `Printf format %\*% uses non-int 0.22 as argument of \*`
 	fmt.Printf("%q %q", multi()...)             // ok
 	fmt.Printf("%#q", `blah`)                   // ok
+	fmt.Printf("%#b", 3)                        // ok
 	// printf("now is the time", "buddy")          // no error "printf call has arguments but no formatting directives"
 	Printf("now is the time", "buddy") // want "Printf call has arguments but no formatting directives"
 	Printf("hi")                       // ok
@@ -323,6 +322,16 @@ func PrintfTests() {
 
 	// Issue 26486
 	dbg("", 1) // no error "call has arguments but no formatting directive"
+
+	// %w
+	_ = fmt.Errorf("%w", err)
+	_ = fmt.Errorf("%#w", err)
+	_ = fmt.Errorf("%[2]w %[1]s", "x", err)
+	_ = fmt.Errorf("%[2]w %[1]s", e, "x") // want `Errorf format %\[2\]w has arg "x" of wrong type string`
+	_ = fmt.Errorf("%w", "x")             // want `Errorf format %w has arg "x" of wrong type string`
+	_ = fmt.Errorf("%w %w", err, err)     // want `Errorf call has more than one error-wrapping directive %w`
+	fmt.Printf("%w", err)                 // want `Printf call has error-wrapping directive %w`
+	Errorf(0, "%w", err)
 }
 
 func someString() string { return "X" }
@@ -367,13 +376,13 @@ func printf(format string, args ...interface{}) { // want printf:"printfWrapper"
 
 // Errorf is used by the test for a case in which the first parameter
 // is not a format string.
-func Errorf(i int, format string, args ...interface{}) { // want Errorf:"printfWrapper"
+func Errorf(i int, format string, args ...interface{}) { // want Errorf:"errorfWrapper"
 	_ = fmt.Errorf(format, args...)
 }
 
 // errorf is used by the test for a case in which the function accepts multiple
 // string parameters before variadic arguments
-func errorf(level, format string, args ...interface{}) { // want errorf:"printfWrapper"
+func errorf(level, format string, args ...interface{}) { // want errorf:"errorfWrapper"
 	_ = fmt.Errorf(format, args...)
 }
 

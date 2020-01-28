@@ -29,7 +29,7 @@ install the operator-sdk tools.
     kubectl apply -f deploy/service_account.yaml -n metal3
     kubectl apply -f deploy/role.yaml -n metal3
     kubectl apply -f deploy/role_binding.yaml
-    kubectl apply -f deploy/crds/metal3_v1alpha1_baremetalhost_crd.yaml
+    kubectl apply -f deploy/crds/metal3.io_baremetalhosts_crd.yaml
     ```
 
 1. Launch the operator locally
@@ -123,10 +123,10 @@ spec:
   bootMACAddress: 00:1a:74:74:e5:cf
 ```
 
-The output can be passed directly to `oc apply` like this:
+The output can be passed directly to `kubectl apply` like this:
 
 ```bash
-go run cmd/make-virt-host/main.go openshift_worker_1 | oc apply -f -
+go run cmd/make-virt-host/main.go openshift_worker_1 | kubectl apply -f -
 ```
 
 When the host is a *master*, include the `-consumer` and

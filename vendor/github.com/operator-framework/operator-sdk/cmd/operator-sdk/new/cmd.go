@@ -22,17 +22,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"k8s.io/client-go/discovery"
-
-	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold"
-	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold/ansible"
-	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold/helm"
-	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold/input"
+	"github.com/operator-framework/operator-sdk/internal/scaffold"
+	"github.com/operator-framework/operator-sdk/internal/scaffold/ansible"
+	"github.com/operator-framework/operator-sdk/internal/scaffold/helm"
+	"github.com/operator-framework/operator-sdk/internal/scaffold/input"
 	"github.com/operator-framework/operator-sdk/internal/util/projutil"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -57,11 +56,10 @@ generates a skeletal app-operator application in $HOME/projects/example.com/app-
 	newCmd.Flags().StringVar(&apiVersion, "api-version", "", "Kubernetes apiVersion and has a format of $GROUP_NAME/$VERSION (e.g app.example.com/v1alpha1) - used with \"ansible\" or \"helm\" types")
 	newCmd.Flags().StringVar(&kind, "kind", "", "Kubernetes CustomResourceDefintion kind. (e.g AppService) - used with \"ansible\" or \"helm\" types")
 	newCmd.Flags().StringVar(&operatorType, "type", "go", "Type of operator to initialize (choices: \"go\", \"ansible\" or \"helm\")")
-	newCmd.Flags().StringVar(&depManager, "dep-manager", "modules", `Dependency manager the new project will use (choices: "dep", "modules")`)
-	newCmd.Flags().StringVar(&repo, "repo", "", "Project repository path for Go operators. Used as the project's Go import path. This must be set if outside of $GOPATH/src with Go modules, and cannot be set if --dep-manager=dep")
-	newCmd.Flags().BoolVar(&skipGit, "skip-git-init", false, "Do not init the directory as a git repository")
+	newCmd.Flags().StringVar(&repo, "repo", "", "Project repository path for Go operators. Used as the project's Go import path. This must be set if outside of $GOPATH/src (e.g. github.com/example-inc/my-operator)")
+	newCmd.Flags().BoolVar(&gitInit, "git-init", false, "Initialize the project directory as a git repository (default false)")
 	newCmd.Flags().StringVar(&headerFile, "header-file", "", "Path to file containing headers for generated Go files. Copied to hack/boilerplate.go.txt")
-	newCmd.Flags().BoolVar(&makeVendor, "vendor", false, "Use a vendor directory for dependencies. This flag only applies when --dep-manager=modules (the default)")
+	newCmd.Flags().BoolVar(&makeVendor, "vendor", false, "Use a vendor directory for dependencies")
 	newCmd.Flags().BoolVar(&skipValidation, "skip-validation", false, "Do not validate the resulting project's structure and dependencies. (Only used for --type go)")
 	newCmd.Flags().BoolVar(&generatePlaybook, "generate-playbook", false, "Generate a playbook skeleton. (Only used for --type ansible)")
 
@@ -77,10 +75,9 @@ var (
 	kind             string
 	operatorType     string
 	projectName      string
-	depManager       string
 	headerFile       string
 	repo             string
-	skipGit          bool
+	gitInit          bool
 	makeVendor       bool
 	skipValidation   bool
 	generatePlaybook bool
@@ -128,8 +125,10 @@ func newFunc(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if err := initGit(); err != nil {
-		return err
+	if gitInit {
+		if err := initGit(); err != nil {
+			return err
+		}
 	}
 
 	log.Info("Project creation complete.")
@@ -179,26 +178,13 @@ func doGoScaffold() error {
 		s.BoilerplatePath = headerFile
 	}
 
-	var err error
-	switch m := projutil.DepManagerType(depManager); m {
-	case projutil.DepManagerDep:
-		err = s.Execute(cfg, &scaffold.GopkgToml{})
-	case projutil.DepManagerGoMod:
-		if goModOn, merr := projutil.GoModOn(); merr != nil {
-			return merr
-		} else if !goModOn {
-			return errors.New(`dependency manager "modules" requires working directory to be in $GOPATH/src` +
-				` and GO111MODULE=on, or outside of $GOPATH/src and GO111MODULE="on", "auto", or unset`)
-		}
-		err = s.Execute(cfg, &scaffold.GoMod{}, &scaffold.Tools{})
-	default:
-		err = projutil.ErrNoDepManager
-	}
-	if err != nil {
-		return fmt.Errorf("dependency manager file scaffold failed: (%v)", err)
+	if err := projutil.CheckGoModules(); err != nil {
+		return err
 	}
 
-	err = s.Execute(cfg,
+	err := s.Execute(cfg,
+		&scaffold.GoMod{},
+		&scaffold.Tools{},
 		&scaffold.Cmd{},
 		&scaffold.Dockerfile{},
 		&scaffold.Entrypoint{},
@@ -324,19 +310,13 @@ func doHelmScaffold() error {
 	valuesPath := filepath.Join("<project_dir>", helm.HelmChartsDir, chart.GetMetadata().GetName(), "values.yaml")
 	crSpec := fmt.Sprintf("# Default values copied from %s\n\n%s", valuesPath, chart.GetValues().GetRaw())
 
-	k8sCfg, err := config.GetConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes config: %s", err)
-	}
-
-	dc, err := discovery.NewDiscoveryClientForConfig(k8sCfg)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes discovery client: %s", err)
-	}
-
-	roleScaffold, err := helm.CreateRoleScaffold(dc, chart)
-	if err != nil {
-		return fmt.Errorf("failed to generate role scaffold: %s", err)
+	roleScaffold := helm.DefaultRoleScaffold
+	if k8sCfg, err := config.GetConfig(); err != nil {
+		log.Warnf("Using default RBAC rules: failed to get Kubernetes config: %s", err)
+	} else if dc, err := discovery.NewDiscoveryClientForConfig(k8sCfg); err != nil {
+		log.Warnf("Using default RBAC rules: failed to create Kubernetes discovery client: %s", err)
+	} else {
+		roleScaffold = helm.GenerateRoleScaffold(dc, chart)
 	}
 
 	s := &scaffold.Scaffold{}
@@ -347,7 +327,7 @@ func doHelmScaffold() error {
 			ChartName: chart.GetMetadata().GetName(),
 		},
 		&scaffold.ServiceAccount{},
-		roleScaffold,
+		&roleScaffold,
 		&scaffold.RoleBinding{IsClusterScoped: roleScaffold.IsClusterScoped},
 		&helm.Operator{},
 		&scaffold.CRD{Resource: resource},
@@ -389,12 +369,7 @@ func verifyFlags() error {
 			return fmt.Errorf("operators of type Go do not use --api-version or --kind")
 		}
 
-		dm := projutil.DepManagerType(depManager)
-		if !makeVendor && dm == projutil.DepManagerDep {
-			log.Warnf("--dep-manager=dep requires a vendor directory; ignoring --vendor=false")
-		}
-		err := projutil.CheckDepManagerWithRepo(dm, repo)
-		if err != nil {
+		if err := projutil.CheckRepo(repo); err != nil {
 			return err
 		}
 	}
@@ -429,72 +404,49 @@ func execProjCmd(cmd string, args ...string) error {
 }
 
 func getDeps() error {
-	switch m := projutil.DepManagerType(depManager); m {
-	case projutil.DepManagerDep:
-		log.Info("Running dep ensure")
-		if err := execProjCmd("dep", "ensure", "-v"); err != nil {
-			return err
-		}
-	case projutil.DepManagerGoMod:
-		// Only when a user requests a vendor directory be created should
-		// "go mod vendor" be run during project initialization.
-		if makeVendor {
-			log.Info("Running go mod vendor")
-			opts := projutil.GoCmdOptions{
-				Args: []string{"-v"},
-				Dir:  filepath.Join(projutil.MustGetwd(), projectName),
-			}
-			if err := projutil.GoCmd("mod vendor", opts); err != nil {
-				return err
-			}
-		} else {
-			// Avoid done message.
-			return nil
-		}
-	default:
-		return projutil.ErrInvalidDepManager(depManager)
+
+	// Only when a user requests a vendor directory be created should
+	// "go mod vendor" be run during project initialization.
+	if !makeVendor {
+		return nil
+	}
+
+	log.Info("Running go mod vendor")
+	opts := projutil.GoCmdOptions{
+		Args: []string{"-v"},
+		Dir:  filepath.Join(projutil.MustGetwd(), projectName),
+	}
+	if err := projutil.GoCmd("mod vendor", opts); err != nil {
+		return err
 	}
 	log.Info("Done getting dependencies")
 	return nil
 }
 
 func initGit() error {
-	if skipGit {
-		return nil
-	}
 	log.Info("Running git init")
 	if err := execProjCmd("git", "init"); err != nil {
-		return err
-	}
-	if err := execProjCmd("git", "add", "--all"); err != nil {
-		return err
-	}
-	if err := execProjCmd("git", "commit", "-q", "-m", "INITIAL COMMIT"); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to run git init")
 	}
 	log.Info("Run git init done")
 	return nil
 }
 
 func validateProject() error {
-	switch projutil.DepManagerType(depManager) {
-	case projutil.DepManagerGoMod:
-		log.Info("Validating project")
-		// Run "go build ./..." to make sure all packages can be built
-		// correctly. From "go help build":
-		//
-		//	When compiling multiple packages or a single non-main package,
-		//	build compiles the packages but discards the resulting object,
-		//	serving only as a check that the packages can be built.
-		opts := projutil.GoCmdOptions{
-			PackagePath: "./...",
-			Dir:         filepath.Join(projutil.MustGetwd(), projectName),
-		}
-		if err := projutil.GoBuild(opts); err != nil {
-			return err
-		}
-		log.Info("Project validation successful.")
+	log.Info("Validating project")
+	// Run "go build ./..." to make sure all packages can be built
+	// correctly. From "go help build":
+	//
+	//	When compiling multiple packages or a single non-main package,
+	//	build compiles the packages but discards the resulting object,
+	//	serving only as a check that the packages can be built.
+	opts := projutil.GoCmdOptions{
+		PackagePath: "./...",
+		Dir:         filepath.Join(projutil.MustGetwd(), projectName),
 	}
-
+	if err := projutil.GoBuild(opts); err != nil {
+		return err
+	}
+	log.Info("Project validation successful.")
 	return nil
 }

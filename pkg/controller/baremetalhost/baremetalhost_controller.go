@@ -179,6 +179,7 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) ([]byt
 
 	data, ok := secret.Data[dataKey]
 	if !ok {
+		hostConfigDataError.WithLabelValues(dataKey).Inc()
 		return nil, NoDataInSecretError{secret: name, key: dataKey}
 	}
 

@@ -282,6 +282,9 @@ spec:
                   type: object
                 hostname:
                   type: string
+                currentbootmode:
+                  description: CurrentBootMode describes the current boot mode of the host. [Uefi/bios]
+                  type: string
                 nics:
                   items:
                     description: NIC describes one network interface on the host.
@@ -398,6 +401,7 @@ spec:
               - cpu
               - firmware
               - hostname
+              - currentbootmode
               - nics
               - ramMebibytes
               - storage

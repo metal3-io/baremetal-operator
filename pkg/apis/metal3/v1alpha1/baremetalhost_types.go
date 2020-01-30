@@ -318,13 +318,14 @@ type BIOS struct {
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
-	SystemVendor HardwareSystemVendor `json:"systemVendor"`
-	Firmware     Firmware             `json:"firmware"`
-	RAMMebibytes int                  `json:"ramMebibytes"`
-	NIC          []NIC                `json:"nics"`
-	Storage      []Storage            `json:"storage"`
-	CPU          CPU                  `json:"cpu"`
-	Hostname     string               `json:"hostname"`
+	SystemVendor    HardwareSystemVendor `json:"systemVendor"`
+	Firmware        Firmware             `json:"firmware"`
+	RAMMebibytes    int                  `json:"ramMebibytes"`
+	NIC             []NIC                `json:"nics"`
+	Storage         []Storage            `json:"storage"`
+	CPU             CPU                  `json:"cpu"`
+	Hostname        string               `json:"hostname"`
+	CurrentBootMode string               `json:"currentbootmode"`
 }
 
 // HardwareSystemVendor stores details about the whole hardware system.

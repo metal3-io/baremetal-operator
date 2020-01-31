@@ -983,11 +983,10 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			return result, errors.Wrap(err, "could not retrieve user data")
 		}
 
-		var networkDataRaw []byte
-		networkDataRaw, err = hostConf.NetworkData()
+		networkDataRaw, err := hostConf.NetworkData()
 
 		var networkData map[string]interface{}
-		if err = yaml.Unmarshal(networkDataRaw, &networkData); err != nil {
+		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
 			return result, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
 		}
 

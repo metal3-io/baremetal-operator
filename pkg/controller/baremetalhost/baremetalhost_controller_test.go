@@ -1,7 +1,6 @@
 package baremetalhost
 
 import (
-	"bytes"
 	goctx "context"
 	"encoding/base64"
 	"fmt"
@@ -654,7 +653,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 		NetworkDataSecret   *corev1.Secret
 		ExpectedUserData    string
 		ErrUserData         bool
-		ExpectedNetworkData []byte
+		ExpectedNetworkData string
 		ErrNetworkData      bool
 	}{
 		{
@@ -673,7 +672,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			UserDataSecret:      newSecret("user-data", map[string]string{"userData": "somedata"}),
 			ExpectedUserData:    base64.StdEncoding.EncodeToString([]byte("somedata")),
 			ErrUserData:         false,
-			ExpectedNetworkData: nil,
+			ExpectedNetworkData: "",
 			ErrNetworkData:      false,
 		},
 		{
@@ -692,7 +691,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),
 			ExpectedUserData:    "",
 			ErrUserData:         false,
-			ExpectedNetworkData: []byte(base64.StdEncoding.EncodeToString([]byte("key: value"))),
+			ExpectedNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
 			ErrNetworkData:      false,
 		},
 		{
@@ -710,7 +709,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				}),
 			ExpectedUserData:    "",
 			ErrUserData:         true,
-			ExpectedNetworkData: nil,
+			ExpectedNetworkData: "",
 			ErrNetworkData:      true,
 		},
 		{
@@ -729,7 +728,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			NetworkDataSecret:   newSecret("net-data", map[string]string{"wrong": "key: value"}),
 			ExpectedUserData:    "",
 			ErrUserData:         false,
-			ExpectedNetworkData: nil,
+			ExpectedNetworkData: "",
 			ErrNetworkData:      true,
 		},
 		{
@@ -748,7 +747,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			UserDataSecret:      newSecret("user-data", map[string]string{}),
 			ExpectedUserData:    "",
 			ErrUserData:         true,
-			ExpectedNetworkData: nil,
+			ExpectedNetworkData: "",
 			ErrNetworkData:      true,
 		},
 	}
@@ -785,7 +784,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if !bytes.Equal(actualNetworkData, tc.ExpectedNetworkData) {
+			if actualNetworkData != tc.ExpectedNetworkData {
 				t.Fatal(fmt.Errorf("Failed to assert NetworkData. Expected '%s' got '%s'", actualNetworkData, tc.ExpectedNetworkData))
 			}
 		})

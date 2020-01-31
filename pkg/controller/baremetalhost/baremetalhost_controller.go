@@ -166,7 +166,7 @@ type hostConfigData struct {
 // Generic method for data extraction from a Secret. Function uses dataKey
 // parameter to detirmine which data to return in case secret contins multiple
 // keys
-func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) ([]byte, error) {
+func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (string, error) {
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{
 		Name:      name,
@@ -174,16 +174,16 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) ([]byt
 	}
 	if err := hcd.client.Get(context.TODO(), key, secret); err != nil {
 		errMsg := fmt.Sprintf("failed to fetch user data from secret %s defined in namespace %s", name, namespace)
-		return nil, errors.Wrap(err, errMsg)
+		return "", errors.Wrap(err, errMsg)
 	}
 
 	data, ok := secret.Data[dataKey]
 	if !ok {
 		hostConfigDataError.WithLabelValues(dataKey).Inc()
-		return nil, NoDataInSecretError{secret: name, key: dataKey}
+		return "", NoDataInSecretError{secret: name, key: dataKey}
 	}
 
-	return data, nil
+	return string(data), nil
 }
 
 // UserData get Operating System configuration data
@@ -192,23 +192,19 @@ func (hcd *hostConfigData) UserData() (string, error) {
 		hcd.log.Info("UserData is not set return empty string")
 		return "", nil
 	}
-	userData, err := hcd.getSecretData(
+	return hcd.getSecretData(
 		hcd.host.Spec.UserData.Name,
 		hcd.host.Spec.UserData.Namespace,
 		"userData",
 	)
-	if err != nil {
-		return "", err
-	}
-	return string(userData), nil
 
 }
 
 // NetworkData get network configuration
-func (hcd *hostConfigData) NetworkData() ([]byte, error) {
+func (hcd *hostConfigData) NetworkData() (string, error) {
 	if hcd.host.Spec.NetworkData == nil {
 		hcd.log.Info("NetworkData is not set returning epmty(nil) data")
-		return nil, nil
+		return "", nil
 	}
 	return hcd.getSecretData(
 		hcd.host.Spec.NetworkData.Name,

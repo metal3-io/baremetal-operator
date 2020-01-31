@@ -26,7 +26,7 @@ type HostConfigData interface {
 
 	// NetworkData is the interface for a function to retrieve netwok
 	// configuration for a host.
-	NetworkData() ([]byte, error)
+	NetworkData() (string, error)
 
 	// TODO add MetaDataSource method
 }

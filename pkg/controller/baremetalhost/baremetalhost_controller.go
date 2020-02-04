@@ -41,6 +41,7 @@ import (
 const (
 	hostErrorRetryDelay = time.Second * 10
 	pauseRetryDelay     = time.Second * 30
+	rebootAnnotation    = "host.metal3.io/reboot"
 )
 
 var runInTestMode bool
@@ -218,6 +219,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	if checkUpdatedRebootRequest(host) {
+		if err = r.saveStatus(host); err != nil {
+			return reconcile.Result{}, errors.Wrap(err,
+				fmt.Sprintf("failed to save host status after reboot request"))
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	// Retrieve the BMC details from the host spec and validate host
 	// BMC details and build the credentials for talking to the
 	// management controller.
@@ -372,6 +381,30 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	}
 }
 
+// checks if reboot is required
+func checkUpdatedRebootRequest(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
+	if host.Annotations == nil {
+		return
+	}
+
+	if _, exists := host.Annotations[rebootAnnotation]; !exists {
+		return 
+	}
+
+	poweredOn := host.Status.PoweredOn
+	pendingRebootSince := host.Status.Provisioning.PendingRebootSince
+	lastPoweredOn := host.Status.Provisioning.LastPoweredOn
+
+	if poweredOn && (lastPoweredOn.IsZero() || pendingRebootSince.Before(lastPoweredOn)) {
+		now := metav1.Now()
+		host.Status.Provisioning.PendingRebootSince = &now
+		dirty = true
+	}
+
+	return
+}
+
+
 // Manage deletion of the host
 func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info(
@@ -452,6 +485,10 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	if info.host.Spec.ExternallyProvisioned {
 		info.publishEvent("ExternallyProvisioned",
 			"Registered host that was externally provisioned")
+
+		if info.host.Status.Provisioning.LastPoweredOn.IsZero() {
+			info.host.RecordPoweredOn()
+		}
 	}
 
 	return actionComplete{}
@@ -550,6 +587,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 		// to return false, indicating that it has no more work to
 		// do.
 		info.host.ClearError()
+		info.host.RecordPoweredOn()
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -584,6 +622,11 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	// After the provisioner is done, clear the image settings so we
 	// transition to the next state.
 	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
+	info.host.Status.Provisioning.LastPoweredOn = nil
+	info.host.Status.Provisioning.PendingRebootSince = nil
+	if info.host.Annotations != nil{
+		delete(info.host.Annotations, rebootAnnotation)
+	}
 
 	return actionComplete{}
 }
@@ -607,19 +650,34 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 		return actionContinue{provResult.RequeueAfter}
 	}
 
+	pendingRebootSince := info.host.Status.Provisioning.PendingRebootSince
+	lastPoweredOn := info.host.Status.Provisioning.LastPoweredOn
+
+	desiredPowerOnState := info.host.Spec.Online
+	isInRebootProcess := lastPoweredOn.Before(pendingRebootSince)
+
+	if isInRebootProcess {
+		if _, rebootAnnotationExists := info.host.Annotations[rebootAnnotation]; rebootAnnotationExists {
+			// Keep the host powered off, until annotation removal
+			// which signals that it is safe to power it back on
+			desiredPowerOnState = false
+		}
+	}
+
 	// Power state needs to be monitored regularly, so if we leave
 	// this function without an error we always want to requeue after
 	// a delay.
 	steadyStateResult := actionContinue{time.Second * 60}
-	if info.host.Status.PoweredOn == info.host.Spec.Online {
+	if info.host.Status.PoweredOn == desiredPowerOnState {
 		return steadyStateResult
 	}
 
 	info.log.Info("power state change needed",
-		"expected", info.host.Spec.Online,
-		"actual", info.host.Status.PoweredOn)
+				"expected", desiredPowerOnState,
+				"actual", info.host.Status.PoweredOn,
+				"reboot process", isInRebootProcess)
 
-	if info.host.Spec.Online {
+	if desiredPowerOnState {
 		provResult, err = prov.PowerOn()
 	} else {
 		provResult, err = prov.PowerOff()
@@ -635,7 +693,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	if provResult.Dirty {
 		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
 			metricLabels := hostMetricLabels(info.request)
-			if info.host.Spec.Online {
+			if info.host.Spec.Online { //todo nir should I change this to desiredPowerOnState?
 				metricLabels[labelPowerOnOff] = "on"
 			} else {
 				metricLabels[labelPowerOnOff] = "off"
@@ -643,6 +701,9 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 			powerChangeAttempts.With(metricLabels).Inc()
 		})
 		info.host.ClearError()
+		if desiredPowerOnState {
+			info.host.RecordPoweredOn()
+		}
 		return actionContinue{provResult.RequeueAfter}
 	}
 

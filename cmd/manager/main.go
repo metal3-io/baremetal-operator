@@ -12,12 +12,15 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 
+	"go.uber.org/zap"
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	zaplog "sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("cmd")
@@ -29,16 +32,38 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Component version: %s", version.String))
 }
 
-func main() {
-	devLogging := flag.Bool("dev", false, "enable dev logging")
-	metricsAddr := flag.String("metrics-addr", "127.0.0.1:8085", "The address the metric endpoint binds to.")
-	flag.Parse()
-
+func setupLogger(devLogging bool, logLevel string) {
 	// The logger instantiated here can be changed to any logger
 	// implementing the logr.Logger interface. This logger will
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
-	logf.SetLogger(logf.ZapLogger(*devLogging))
+	var level zap.AtomicLevel
+	switch logLevel {
+	case "debug":
+		level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	case "info":
+		level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	case "warn":
+		level = zap.NewAtomicLevelAt(zap.WarnLevel)
+	case "error":
+		level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	default:
+		level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	}
+	logOptions := []zaplog.Opts{
+		zaplog.UseDevMode(devLogging),
+		zaplog.Level(&level),
+	}
+	logf.SetLogger(zaplog.New(logOptions...))
+}
+
+func main() {
+	devLogging := flag.Bool("dev", false, "enable dev logging")
+	logLevel := flag.String("log-level", "info", "set log level. Must be one of [debug info warn error]")
+	metricsAddr := flag.String("metrics-addr", "127.0.0.1:8085", "The address the metric endpoint binds to.")
+	flag.Parse()
+
+	setupLogger(*devLogging, *logLevel)
 
 	printVersion()
 

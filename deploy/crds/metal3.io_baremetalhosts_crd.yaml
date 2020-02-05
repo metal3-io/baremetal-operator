@@ -76,7 +76,7 @@ spec:
                   type: string
                 disableCertificateVerification:
                   description: Will skip certificate validation when true
-                type:boolean
+                  type: boolean
               required:
               - address
               - credentialsName

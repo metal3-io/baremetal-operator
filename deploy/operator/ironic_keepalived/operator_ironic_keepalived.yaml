@@ -22,7 +22,7 @@ spec:
                add: ["NET_ADMIN"]
           envFrom:
             - configMapRef:
-                name: ironic-bmo-configmap  
+                name: ironic-bmo-configmap
         - name: baremetal-operator
           image: quay.io/metal3-io/baremetal-operator
           ports:
@@ -49,7 +49,8 @@ spec:
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           securityContext:
-            privileged: true
+             capabilities:
+               add: ["NET_ADMIN"]
           command:
             - /bin/rundnsmasq
           volumeMounts:
@@ -61,8 +62,6 @@ spec:
         - name: mariadb
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
-          securityContext:
-            privileged: true
           command:
             - /bin/runmariadb
           volumeMounts:
@@ -78,7 +77,8 @@ spec:
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           securityContext:
-            privileged: true
+             capabilities:
+               add: ["NET_ADMIN"]
           command:
             - /bin/runhttpd
           volumeMounts:
@@ -90,8 +90,6 @@ spec:
         - name: ironic
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
-          securityContext:
-            privileged: true
           command:
             - /bin/runironic
           volumeMounts:
@@ -109,8 +107,6 @@ spec:
         - name: ironic-inspector
           image: quay.io/metal3-io/ironic-inspector
           imagePullPolicy: Always
-          securityContext:
-            privileged: true
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap
@@ -120,8 +116,6 @@ spec:
           imagePullPolicy: Always
           command:
             - /usr/local/bin/get-resource.sh
-          securityContext:
-            privileged: true
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap

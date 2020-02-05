@@ -41,7 +41,7 @@ import (
 const (
 	hostErrorRetryDelay = time.Second * 10
 	pauseRetryDelay     = time.Second * 30
-	rebootAnnotation    = "host.metal3.io/reboot"
+	rebootAnnotationPrefix    = "reboot.metal3.io"
 )
 
 var runInTestMode bool
@@ -381,13 +381,33 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	}
 }
 
+// check for existence of reboot annotations and returns two booleans indicating
+// the existence of suffix-less reboot annotation and suffixed reboot annotations
+func getRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (suffixlessExist bool , withSuffixExist bool){
+	if host.Annotations == nil {
+		return
+	}
+
+	 _, suffixlessExist = host.Annotations[rebootAnnotationPrefix]
+
+	for annotation := range host.Annotations{
+		if strings.HasPrefix(annotation, rebootAnnotationPrefix) && annotation != rebootAnnotationPrefix{
+			withSuffixExist = true
+			return
+		}
+	}
+	return
+}
+
 // checks if reboot is required
 func checkUpdatedRebootRequest(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	if host.Annotations == nil {
 		return
 	}
 
-	if _, exists := host.Annotations[rebootAnnotation]; !exists {
+	suffixlessExist ,withSuffixExist := getRebootAnnotations(host)
+
+	if !(suffixlessExist || withSuffixExist) {
 		return 
 	}
 
@@ -395,7 +415,7 @@ func checkUpdatedRebootRequest(host *metal3v1alpha1.BareMetalHost) (dirty bool) 
 	pendingRebootSince := host.Status.Provisioning.PendingRebootSince
 	lastPoweredOn := host.Status.Provisioning.LastPoweredOn
 
-	if poweredOn && (lastPoweredOn.IsZero() || pendingRebootSince.Before(lastPoweredOn)) {
+	if poweredOn && (pendingRebootSince.IsZero() || pendingRebootSince.Before(lastPoweredOn)) {
 		now := metav1.Now()
 		host.Status.Provisioning.PendingRebootSince = &now
 		dirty = true
@@ -624,8 +644,12 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
 	info.host.Status.Provisioning.LastPoweredOn = nil
 	info.host.Status.Provisioning.PendingRebootSince = nil
-	if info.host.Annotations != nil{
-		delete(info.host.Annotations, rebootAnnotation)
+	if info.host.Annotations != nil {
+		for annotation := range info.host.Annotations {
+			if strings.HasPrefix(annotation, rebootAnnotationPrefix) {
+				delete(info.host.Annotations, annotation)
+			}
+		}
 	}
 
 	return actionComplete{}
@@ -657,10 +681,18 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	isInRebootProcess := lastPoweredOn.Before(pendingRebootSince)
 
 	if isInRebootProcess {
-		if _, rebootAnnotationExists := info.host.Annotations[rebootAnnotation]; rebootAnnotationExists {
-			// Keep the host powered off, until annotation removal
-			// which signals that it is safe to power it back on
+		suffixlessAnnotationExists, shouldHoldPowerOff := getRebootAnnotations(info.host)
+
+		if info.host.Status.PoweredOn || shouldHoldPowerOff {
 			desiredPowerOnState = false
+		} else {
+			if suffixlessAnnotationExists {
+				delete(info.host.Annotations, rebootAnnotationPrefix)
+
+				if err = r.client.Update(context.TODO(), info.host); err != nil {
+					return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+				}
+			}
 		}
 	}
 
@@ -693,7 +725,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	if provResult.Dirty {
 		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
 			metricLabels := hostMetricLabels(info.request)
-			if info.host.Spec.Online { //todo nir should I change this to desiredPowerOnState?
+			if desiredPowerOnState {
 				metricLabels[labelPowerOnOff] = "on"
 			} else {
 				metricLabels[labelPowerOnOff] = "off"

@@ -243,6 +243,29 @@ func TestSetLastUpdated(t *testing.T) {
 	)
 }
 
+func TestRebootPowerOff(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations["metal3.io/reboot"] = ""
+	host.RecordPoweredOn()
+	host.Status.PoweredOn = true
+
+	r := newTestReconciler(host)
+	tryReconcile(t, r, host,
+			func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+				if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+					return false
+				}
+
+				if host.Status.PoweredOn {
+					return false
+				}
+				return true
+			},
+		)
+}
+
+
 // TestUpdateCredentialsSecretSuccessFields ensures that the
 // GoodCredentials fields are updated in the status block of a host
 // when the secret used exists and has all of the right fields.

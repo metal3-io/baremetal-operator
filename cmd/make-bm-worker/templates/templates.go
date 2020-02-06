@@ -37,18 +37,22 @@ spec:
     name: {{ .Consumer }}
     namespace: {{ .ConsumerNamespace }}
 {{- end }}
+{{- if .DisableCertificateVerification }}
+  disableCertificateVerification: true
+{{- end}}
 `
 
 // Template holds the arguments to pass to the template.
 type Template struct {
-	Name              string
-	BMCAddress        string
-	Username          string
-	Password          string
-	HardwareProfile   string
-	BootMacAddress    string
-	Consumer          string
-	ConsumerNamespace string
+	Name                           string
+	BMCAddress                     string
+	DisableCertificateVerification bool
+	Username                       string
+	Password                       string
+	HardwareProfile                string
+	BootMacAddress                 string
+	Consumer                       string
+	ConsumerNamespace              string
 }
 
 // EncodedUsername returns the username in the format needed to store

@@ -74,6 +74,13 @@ spec:
                   description: The name of the secret containing the BMC credentials
                     (requires keys "username" and "password").
                   type: string
+                disableCertificateVerification:
+                  description: DisableCertificateVerification disables verification
+                    of server certificates when using HTTPS to connect to the BMC.
+                    This is required when the server certificate is self-signed, but
+                    is insecure because it allows a man-in-the-middle to intercept
+                    the connection.
+                  type: boolean
               required:
               - address
               - credentialsName

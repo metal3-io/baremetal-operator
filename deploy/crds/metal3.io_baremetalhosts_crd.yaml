@@ -75,7 +75,11 @@ spec:
                     (requires keys "username" and "password").
                   type: string
                 disableCertificateVerification:
-                  description: Will skip certificate validation when true
+                  description: DisableCertificateVerification disables verification
+                    of server certificates when using HTTPS to connect to the BMC.
+                    This is required when the server certificate is self-signed, but
+                    is insecure because it allows a man-in-the-middle to intercept
+                    the connection.
                   type: boolean
               required:
               - address

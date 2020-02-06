@@ -125,7 +125,11 @@ type BMCDetails struct {
 	// keys "username" and "password").
 	CredentialsName string `json:"credentialsName"`
 
-	// A boolean to skip certificate validation when true
+	// DisableCertificateVerification disables verification of server
+	// certificates when using HTTPS to connect to the BMC. This is
+	// required when the server certificate is self-signed, but is
+	// insecure because it allows a man-in-the-middle to intercept the
+	// connection.
 	DisableCertificateVerification bool `json:"disableCertificateVerification,omitempty"`
 }
 
@@ -454,7 +458,6 @@ type ProvisionStatus struct {
 // +kubebuilder:printcolumn:name="Provisioning Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller"
-// +kubebuilder:printcolumn:name="DisableCertificateVerification",type="bool",JSONPath=".spec.bmc.disableCertificateVerification",description="Skip certificate validation when true"
 // +kubebuilder:printcolumn:name="Hardware Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected"
 // +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"
 // +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".status.errorMessage",description="Most recent error"

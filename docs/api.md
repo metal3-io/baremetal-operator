@@ -23,6 +23,10 @@ mainly, but not only, provisioning details.
         and the port is optional, if using the default one (623).
     * Dell iDRAC
       * `idrac://` (or `idrac+http://` to disable TLS).
+      * `idrac-redfish://` may be used to manage iDRAC controller with the
+        Redfish protocol over HTTPS. The URL must also contain a path to
+        the Redfish API system endpoint.
+        `idrac-redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
     * Fujitsu iRMC
       * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
     * Redfish

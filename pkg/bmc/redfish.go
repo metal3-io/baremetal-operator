@@ -12,6 +12,7 @@ func init() {
 	registerFactory("redfish-virtualmedia", newRedfishVirtualMediaAccessDetails)
 	registerFactory("ilo5-virtualmedia", newRedfishVirtualMediaAccessDetails)
 	registerFactory("idrac-virtualmedia", newRedfishiDracVirtualMediaAccessDetails)
+	registerFactory("idrac-redfish", newRedfishiDracAccessDetails)
 }
 
 func redfishDetails(parsedURL *url.URL, disableCertificateVerification bool) *redfishAccessDetails {
@@ -39,6 +40,12 @@ func newRedfishiDracVirtualMediaAccessDetails(parsedURL *url.URL, disableCertifi
 	}, nil
 }
 
+func newRedfishiDracAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	return &redfishiDracAccessDetails{
+		*redfishDetails(parsedURL, disableCertificateVerification),
+	}, nil
+}
+
 type redfishAccessDetails struct {
 	bmcType                        string
 	host                           string
@@ -47,6 +54,10 @@ type redfishAccessDetails struct {
 }
 
 type redfishVirtualMediaAccessDetails struct {
+	redfishAccessDetails
+}
+
+type redfishiDracAccessDetails struct {
 	redfishAccessDetails
 }
 
@@ -125,6 +136,32 @@ func (a *redfishAccessDetails) RAIDInterface() string {
 
 func (a *redfishAccessDetails) VendorInterface() string {
 	return ""
+}
+
+// iDrac Redfish Overrides
+
+func (a *redfishiDracAccessDetails) Driver() string {
+	return "idrac"
+}
+
+func (a *redfishiDracAccessDetails) BootInterface() string {
+	return "ipxe"
+}
+
+func (a *redfishiDracAccessDetails) ManagementInterface() string {
+	return "idrac-redfish"
+}
+
+func (a *redfishiDracAccessDetails) PowerInterface() string {
+	return "idrac-redfish"
+}
+
+func (a *redfishiDracAccessDetails) RAIDInterface() string {
+	return "no-raid"
+}
+
+func (a *redfishiDracAccessDetails) VendorInterface() string {
+	return "no-vendor"
 }
 
 // Virtual Media Overrides

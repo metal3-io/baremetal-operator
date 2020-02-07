@@ -28,7 +28,8 @@ mainly, but not only, provisioning details.
     * Redfish
       * `redfish://` (or `redfish+http://` to disable TLS), the hostname
         or IP address, and the path to the system ID are required,
-        for example `redfish://myhost.example/redfish/v1/Systems/MySystemExample`
+        for example `redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
+        or `redfish://myhost.example/redfish/v1/Systems/1`
 
   * *credentialsName* -- A reference to a *secret* containing the
     username and password for the BMC.

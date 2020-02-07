@@ -48,7 +48,7 @@ func setupLogger(devLogging bool, logLevel string) {
 	case "error":
 		level = zap.NewAtomicLevelAt(zap.ErrorLevel)
 	default:
-		level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
 	logOptions := []zaplog.Opts{
 		zaplog.UseDevMode(devLogging),

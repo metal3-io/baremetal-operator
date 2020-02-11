@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -243,28 +244,223 @@ func TestSetLastUpdated(t *testing.T) {
 	)
 }
 
-func TestRebootPowerOff(t *testing.T) {
+
+// TestGetRebootAnnotations verifies that getRebootAnnotations function
+// returns the correct values in all possible cases
+func TestGetRebootAnnotations(t *testing.T){
 	host := newDefaultHost(t)
 	host.Annotations = make(map[string]string)
-	host.Annotations["metal3.io/reboot"] = ""
+
+	suffixless, suffixed := getRebootAnnotations(host)
+
+	if suffixed || suffixless {
+		t.Fail()
+	}
+
+	host.Annotations = make(map[string]string)
+	suffixedAnnotation := rebootAnnotationPrefix + "/foo"
+	host.Annotations[suffixedAnnotation] = ""
+
+	suffixless, suffixed = getRebootAnnotations(host)
+
+	if suffixless {
+		t.Fail()
+	}
+
+	if !suffixed{
+		t.Fail()
+	}
+
+	delete(host.Annotations,suffixedAnnotation)
+	host.Annotations[rebootAnnotationPrefix] = ""
+
+	suffixless, suffixed = getRebootAnnotations(host)
+
+	if suffixed {
+		t.Fail()
+	}
+
+	if !suffixless {
+		t.Fail()
+	}
+
+	host.Annotations[suffixedAnnotation] = ""
+
+	suffixless, suffixed = getRebootAnnotations(host)
+
+	if !(suffixed && suffixless) {
+		t.Fail()
+	}
+
+}
+
+
+// TestRebootWithSuffixlessAnnotation tests full reboot cycle with suffixless
+// annotation which doesn't wait for annotation removal before power on
+func TestRebootWithSuffixlessAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[rebootAnnotationPrefix] = ""
 	host.RecordPoweredOn()
+	time.Sleep(time.Second)
 	host.Status.PoweredOn = true
+	host.Spec.Online = true
 
 	r := newTestReconciler(host)
 	tryReconcile(t, r, host,
 			func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-				if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				if host.Status.Provisioning.PendingRebootSince == nil {
 					return false
 				}
 
-				if host.Status.PoweredOn {
+				if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
 					return false
 				}
 				return true
 			},
 		)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if host.Status.PoweredOn {
+						return false
+					}
+
+			return true
+		},
+	)
+	time.Sleep(time.Second)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			//todo n1r1 - should be uncommented
+			//if _, exists := host.Annotations[rebootAnnotationPrefix]; exists {
+			//	return false
+			//}
+
+			return true
+		},
+	)
+
+	time.Sleep(time.Second)
+	//make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
 }
 
+// TestRebootWithSuffixedAnnotation tests a full reboot cycle, with suffixed annotation
+// to verify that controller holds power off until annotation removal
+func TestRebootWithSuffixedAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	annotation := rebootAnnotationPrefix + "/foo"
+	host.Annotations[annotation] = ""
+	host.RecordPoweredOn()
+	time.Sleep(time.Second)
+	host.Status.PoweredOn = true
+	host.Spec.Online = true
+
+	r := newTestReconciler(host)
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.Provisioning.PendingRebootSince == nil {
+				return false
+			}
+
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+	time.Sleep(time.Second)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if host.Status.PoweredOn { //we expect that the machine will be powered off until we remove annotation
+				return false
+			}
+
+			return true
+		},
+	)
+
+	time.Sleep(time.Second)
+	delete(host.Annotations, annotation)
+	r.client.Update(goctx.TODO(), host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	time.Sleep(time.Second)
+	//make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+}
 
 // TestUpdateCredentialsSecretSuccessFields ensures that the
 // GoodCredentials fields are updated in the status block of a host

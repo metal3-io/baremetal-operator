@@ -80,6 +80,9 @@ const (
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
 
+	// StateAvailable means the host can be consumed
+	StateAvailable ProvisioningState = "available"
+
 	// StateProvisioning means we are writing an image to the host's
 	// disk(s)
 	StateProvisioning ProvisioningState = "provisioning"

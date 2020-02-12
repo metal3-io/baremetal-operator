@@ -29,13 +29,10 @@ in more detail.
     │   ├── image_patch.yaml
     │   ├── ironic_bmo_configmap.env
     │   └── kustomization.yaml
--   ├── ironic_bmo_configmap.env
--   ├── ironic_ci.env
--   ├── kustomization.yaml
+    ├── ironic_ci.env
     ├── namespace
     │   ├── kustomization.yaml
     │   └── namespace.yaml
--   ├── namespace.yaml
     ├── operator
     │   ├── ironic
     │   │   ├── kustomization.yaml
@@ -46,8 +43,6 @@ in more detail.
     │   └── no_ironic
     │       ├── kustomization.yaml
     │       └── operator.yaml
--   ├── operator.yaml
--   ├── operator_ironic.yaml
     ├── rbac
 
 ```
@@ -71,10 +66,6 @@ In addition, `crds`, `namespace` and `rbac` directories have their own
 kuztomization and yaml files. As the name implies,
 `ironic-keepalived-config/image_patch.yaml` patches the default image URL
 through kustomization.
-
-**Note:** The files marked in red in the directory structure are the current
-files which are already reorganized in the new directory structure and the
-files should be deleted once the new directory structure is merged upstream.
 
 ### Command to deploy baremetal operator
 

@@ -678,7 +678,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	lastPoweredOn := info.host.Status.Provisioning.LastPoweredOn
 
 	desiredPowerOnState := info.host.Spec.Online
-	isInRebootProcess := lastPoweredOn.Before(pendingRebootSince)
+	isInRebootProcess := lastPoweredOn.Before(pendingRebootSince) || (pendingRebootSince != nil && lastPoweredOn == nil)
 
 	if isInRebootProcess {
 		suffixlessAnnotationExists, shouldHoldPowerOff := getRebootAnnotations(info.host)

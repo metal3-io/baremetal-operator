@@ -685,6 +685,11 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 
 		if suffixlessAnnotationExists && !info.host.Status.PoweredOn {
 			delete(info.host.Annotations, rebootAnnotationPrefix)
+
+			if err = r.client.Update(context.TODO(), info.host); err != nil {
+				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+			}
+
 			return actionContinue{}
 		}
 

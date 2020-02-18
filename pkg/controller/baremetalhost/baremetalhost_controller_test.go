@@ -292,6 +292,16 @@ func TestGetRebootAnnotations(t *testing.T){
 		t.Fail()
 	}
 
+	//two suffixed annotations to simulate multiple clients
+
+	host.Annotations[suffixedAnnotation + "bar"] = ""
+
+	suffixless, suffixed = getRebootAnnotations(host)
+
+	if !(suffixed && suffixless) {
+		t.Fail()
+	}
+
 }
 
 

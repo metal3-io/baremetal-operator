@@ -391,7 +391,7 @@ func getRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (suffixlessExist b
 	 _, suffixlessExist = host.Annotations[rebootAnnotationPrefix]
 
 	for annotation := range host.Annotations{
-		if strings.HasPrefix(annotation, rebootAnnotationPrefix) && annotation != rebootAnnotationPrefix{
+		if strings.HasPrefix(annotation, rebootAnnotationPrefix + "/") {
 			withSuffixExist = true
 			return
 		}
@@ -646,7 +646,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	info.host.Status.Provisioning.PendingRebootSince = nil
 	if info.host.Annotations != nil {
 		for annotation := range info.host.Annotations {
-			if strings.HasPrefix(annotation, rebootAnnotationPrefix) {
+			if annotation == rebootAnnotationPrefix || strings.HasPrefix(annotation, rebootAnnotationPrefix + "/") {
 				delete(info.host.Annotations, annotation)
 			}
 		}
@@ -678,21 +678,18 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	lastPoweredOn := info.host.Status.Provisioning.LastPoweredOn
 
 	desiredPowerOnState := info.host.Spec.Online
-	isInRebootProcess := lastPoweredOn.Before(pendingRebootSince) || (pendingRebootSince != nil && lastPoweredOn == nil)
+	isInRebootProcess := lastPoweredOn.Before(pendingRebootSince) || (!pendingRebootSince.IsZero() && lastPoweredOn.IsZero())
 
 	if isInRebootProcess {
 		suffixlessAnnotationExists, shouldHoldPowerOff := getRebootAnnotations(info.host)
 
+		if suffixlessAnnotationExists && !info.host.Status.PoweredOn {
+			delete(info.host.Annotations, rebootAnnotationPrefix)
+			return actionContinue{}
+		}
+
 		if info.host.Status.PoweredOn || shouldHoldPowerOff {
 			desiredPowerOnState = false
-		} else {
-			if suffixlessAnnotationExists {
-				delete(info.host.Annotations, rebootAnnotationPrefix)
-
-				if err = r.client.Update(context.TODO(), info.host); err != nil {
-					return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
-				}
-			}
 		}
 	}
 

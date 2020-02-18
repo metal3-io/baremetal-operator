@@ -158,7 +158,7 @@ details, etc.
 * *provisioning* -- Settings related to deploying an image to the host.
   * *LastPoweredOn* -- The time that the server was last powered on
     with the specified image
-  * *PendingRebootSince* -- The time after which the server must be rebooted 
+  * *PendingRebootSince* -- The time after which the server must be rebooted
     (should not be set by other users/operators)
   * *state* -- The current state of any ongoing provisioning operation.
     The following are the currently supported ones:

@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"strconv" 
 	"strings"
 	"time"
 
@@ -43,11 +45,28 @@ const (
 
 var runInTestMode bool
 var runInDemoMode bool
+var maxConcurrentReconciles int = 3
 
 func init() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
+
+	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
+		mcr, err := strconv.Atoi(mcrEnv)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
+			os.Exit(1) 
+		}
+		if mcr > 0 {
+			log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
+			maxConcurrentReconciles = mcr
+		} else {
+			log.Info(fmt.Sprintf("Invalid BMO_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+		}
+	} else {
+		log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+	}
 }
 
 var log = logf.Log.WithName("baremetalhost")
@@ -84,7 +103,9 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New("metal3-baremetalhost-controller", mgr,
-		controller.Options{Reconciler: r})
+		controller.Options{MaxConcurrentReconciles: maxConcurrentReconciles,
+			Reconciler: r,
+		}) 
 	if err != nil {
 		return err
 	}

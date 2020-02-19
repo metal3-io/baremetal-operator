@@ -15,3 +15,6 @@ Ironic.
 
 `IRONIC_INSPECTOR_ENDPOINT` -- The URL for the operator to use when talking to
 Ironic Inspector.
+
+`BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
+Operator. Default is 3.

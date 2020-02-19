@@ -37,6 +37,9 @@ mainly, but not only, provisioning details.
   * *disableCertificateVerification* -- A boolean to skip certificate
     validation when true.
 
+* *bootMode* -- An enum indicating the boot mode of the system (UEFI or
+  legacy). When not set, it takes the default boot mode (legacy).
+
 * *online* -- A boolean indicating whether the host should be powered on
   (true) or off (false). Changing this value will trigger a change in
   power state on the physical host.

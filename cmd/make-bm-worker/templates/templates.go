@@ -40,12 +40,16 @@ spec:
 {{- if .DisableCertificateVerification }}
   disableCertificateVerification: true
 {{- end}}
+{{- if .BootMode }}
+  bootMode: {{ .BootMode }}
+{{- end}}
 `
 
 // Template holds the arguments to pass to the template.
 type Template struct {
 	Name                           string
 	BMCAddress                     string
+	BootMode                       string
 	DisableCertificateVerification bool
 	Username                       string
 	Password                       string

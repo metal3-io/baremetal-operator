@@ -234,6 +234,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
+		properties := map[string]interface{}{}
+
+		if p.host.Spec.BootMode == metal3v1alpha1.Legacy {
+			properties["capabilities"] = "boot_mode:bios"
+		} else if p.host.Spec.BootMode == metal3v1alpha1.UEFI {
+			properties["capabilities"] = "boot_mode:uefi"
+		}
+
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
@@ -244,6 +252,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				InspectInterface:    "inspector",
 				ManagementInterface: p.bmcAccess.ManagementInterface(),
 				PowerInterface:      p.bmcAccess.PowerInterface(),
+				Properties:          properties,
 				RAIDInterface:       p.bmcAccess.RAIDInterface(),
 				VendorInterface:     p.bmcAccess.VendorInterface(),
 			}).Extract()

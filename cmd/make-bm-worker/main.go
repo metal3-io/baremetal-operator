@@ -7,12 +7,14 @@ import (
 	"strings"
 
 	"github.com/metal3-io/baremetal-operator/cmd/make-bm-worker/templates"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 )
 
 func main() {
 	var username = flag.String("user", "", "username for BMC")
 	var password = flag.String("password", "", "password for BMC")
 	var bmcAddress = flag.String("address", "", "address URL for BMC")
+	var bootMode = flag.String("bootMode", "UEFI", "Select the boot mode of the system. Can be UEFI or legacy")
 	var disableCertificateVerification = flag.Bool("disableCertificateVerification", false, "will skip certificate validation when true")
 	var hardwareProfile = flag.String("hardwareprofile", "", "hardwareProfile to be used")
 	var macAddress = flag.String("boot-mac", "", "boot-mac for bootMACAddress")
@@ -42,9 +44,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *bootMode != string(metal3v1alpha1.UEFI) && *bootMode != string(metal3v1alpha1.Legacy) {
+		fmt.Fprint(os.Stderr, "Boot mode needs to be UEFI or legacy\n")
+		os.Exit(1)
+	}
+
 	template := templates.Template{
 		Name:                           strings.Replace(hostName, "_", "-", -1),
 		BMCAddress:                     *bmcAddress,
+		BootMode:                       *bootMode,
 		DisableCertificateVerification: *disableCertificateVerification,
 		Username:                       *username,
 		Password:                       *password,

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv" 
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,7 +56,7 @@ func init() {
 		mcr, err := strconv.Atoi(mcrEnv)
 		if err != nil {
 			log.Error(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
-			os.Exit(1) 
+			os.Exit(1)
 		}
 		if mcr > 0 {
 			log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
@@ -105,7 +105,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	c, err := controller.New("metal3-baremetalhost-controller", mgr,
 		controller.Options{MaxConcurrentReconciles: maxConcurrentReconciles,
 			Reconciler: r,
-		}) 
+		})
 	if err != nil {
 		return err
 	}
@@ -536,7 +536,13 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 			return "", errors.Wrap(err,
 				"failed to fetch user data from secret reference")
 		}
-		return string(userDataSecret.Data["userData"]), nil
+		if content, ok := userDataSecret.Data["userData"]; ok {
+			return string(content), nil
+		} else if content, ok := userDataSecret.Data["value"]; ok {
+			return string(content), nil
+		} else {
+			return "", errors.New("userData or value key not found in secret")
+		}
 	}
 
 	info.log.Info("provisioning")

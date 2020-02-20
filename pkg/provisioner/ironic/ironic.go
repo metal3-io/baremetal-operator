@@ -584,15 +584,24 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
 	if err != nil {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
-			p.log.Info("starting new hardware inspection")
-			result, err = p.changeNodeProvisionState(
-				ironicNode,
-				nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
-			)
-			if err == nil {
-				p.publisher("InspectionStarted", "Hardware inspection started")
+			switch nodes.ProvisionState(ironicNode.ProvisionState) {
+			case nodes.Inspecting, nodes.InspectWait:
+				p.log.Info("inspection already started")
+				result.Dirty = true
+				result.RequeueAfter = introspectionRequeueDelay
+				err = nil
+				return
+			default:
+				p.log.Info("starting new hardware inspection")
+				result, err = p.changeNodeProvisionState(
+					ironicNode,
+					nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
+				)
+				if err == nil {
+					p.publisher("InspectionStarted", "Hardware inspection started")
+				}
+				return
 			}
-			return
 		}
 		err = errors.Wrap(err, "failed to extract hardware inspection status")
 		return

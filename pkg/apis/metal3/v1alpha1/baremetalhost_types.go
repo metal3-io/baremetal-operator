@@ -18,6 +18,10 @@ const (
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
 	BareMetalHostFinalizer string = "baremetalhost.metal3.io"
+
+	// PausedAnnotation is the annotation that pauses the reconciliation (triggers
+	// an immediate requeue)
+	PausedAnnotation = "baremetalhost.metal3.io/paused"
 )
 
 // OperationalStatus represents the state of the host

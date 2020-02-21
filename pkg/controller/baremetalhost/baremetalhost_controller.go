@@ -41,6 +41,7 @@ import (
 
 const (
 	hostErrorRetryDelay = time.Second * 10
+	pauseRetryDelay     = time.Second * 30
 )
 
 var runInTestMode bool
@@ -187,6 +188,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, errors.Wrap(err, "could not load host data")
+	}
+
+	// If the reconciliation is paused, requeue
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[metal3v1alpha1.PausedAnnotation]; ok {
+			return reconcile.Result{Requeue: true, RequeueAfter: pauseRetryDelay}, nil
+		}
 	}
 
 	// NOTE(dhellmann): Handle a few steps outside of the phase

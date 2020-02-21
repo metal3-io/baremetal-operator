@@ -184,6 +184,25 @@ func waitForProvisioningState(t *testing.T, r *ReconcileBareMetalHost, host *met
 	)
 }
 
+// TestPause ensures that the requeue happens when the pause annotation is there.
+func TestPause(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		metal3v1alpha1.PausedAnnotation: "true",
+	}
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if result.Requeue && result.RequeueAfter == pauseRetryDelay &&
+				len(host.Finalizers) == 0 {
+				return true
+			}
+			return false
+		},
+	)
+}
+
 // TestAddFinalizers ensures that the finalizers for the host are
 // updated as part of reconciling it.
 func TestAddFinalizers(t *testing.T) {

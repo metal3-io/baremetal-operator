@@ -7,6 +7,12 @@ defines a physical host and its properties. The **BareMetalHost** embeds
 two well differentiated sections, the bare metal host specification
 and its current status.
 
+### Pausing reconciliation
+
+It is possible to pause the reconciliation of a BareMetalHost object by adding
+an annotation `baremetalhost.metal3.io/paused`. The value of the annotation does
+not matter. Removing the annotation will enable the reconciliation again.
+
 ### BareMetalHost spec
 
 The *BareMetalHost's* *spec* defines the desire state of the host. It contains

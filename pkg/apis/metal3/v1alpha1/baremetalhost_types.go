@@ -162,6 +162,8 @@ type BareMetalHostSpec struct {
 	// automatically determine the profile.
 	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
+	RootDeviceHints RootDeviceHints `json:"rootDeviceHints,omitempty"`
+
 	// Which MAC address will PXE boot? This is optional for some
 	// types, but required for libvirt VMs driven by vbmc.
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
@@ -433,6 +435,9 @@ type BareMetalHostStatus struct {
 	// The hardware discovered to exist on the host.
 	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 
+	// The RootDevicehints set by the user
+	RootDeviceHints RootDeviceHints `json: "rootDeviceHints,omitempty"`
+
 	// Information tracked by the provisioner.
 	Provisioning ProvisionStatus `json:"provisioning"`
 
@@ -624,6 +629,40 @@ func (host *BareMetalHost) NeedsHardwareInspection() bool {
 	return host.Status.HardwareDetails == nil
 }
 
+// RootDeviceHints holds the hints for specifying the storage location
+// for the root filesystem for the image.
+type RootDeviceHints struct {
+	// A device name like "/dev/vda"
+	DeviceName string `json:"deviceName,omitempty"`
+
+	// A SCSI bus address like 0:0:0:0
+	HCTL string `json:"hctl,omitempty"`
+
+	// Device identifier
+	Model string `json:"model,omitempty"`
+
+	// Device vendor
+	Vendor string `json:"vendor,omitempty"`
+
+	// Disk serial number
+	Serial string `json:"serial,omitempty"`
+
+	// Size of the device in Gigabytes
+	SizeGigaBytes int `json:"sizeBytes,omitempty"`
+
+	// Unique storage identifier
+	WWN string `json:"wwn,omitempty"`
+
+	// Unique storage identifier with the vendor extension appended
+	WWNWithExtension string `json:"wwnWithExtension,omitempty"`
+
+	// Uunique vendor storage identifier
+	WWNVendorExtension string `json:"wwnVendorExtension,omitempty"`
+
+	// Device rotational type
+	Rotational bool `json:"rotational,omitempty"`
+}
+
 // NeedsProvisioning compares the settings with the provisioning
 // status and returns true when more work is needed or false
 // otherwise.
@@ -645,6 +684,34 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		return true
 	}
 	return false
+}
+
+// SetRootDeviceHints updates hints as part of status and return
+// true when a change is made or false when no change is made.
+func (host *BareMetalHost) SetRootDeviceHints(hints RootDeviceHints) (dirty bool) {
+       if hints.DeviceName != "" {
+               host.Status.RootDeviceHints.DeviceName = hints.DeviceName
+               dirty = true
+       }
+       if hints.WWN != "" {
+               host.Status.RootDeviceHints.WWN = hints.WWN
+               dirty = true
+       }
+       if hints.WWNWithExtension != "" {
+               host.Status.RootDeviceHints.WWNWithExtension = hints.WWNWithExtension
+	       dirty = true
+       }
+
+       if hints.WWNVendorExtension != "" {
+               host.Status.RootDeviceHints.WWNVendorExtension = hints.WWNVendorExtension
+	       dirty = true
+       }
+
+       if hints.HCTL != "" {
+               host.Status.RootDeviceHints.HCTL = hints.HCTL
+               dirty = true
+       }
+       return dirty
 }
 
 // WasProvisioned returns true when we think we have placed an image

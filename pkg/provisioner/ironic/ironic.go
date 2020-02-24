@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -679,6 +680,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksum string) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+
 	if err != nil {
 		return updates, errors.Wrap(err,
 			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
@@ -765,13 +767,59 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 		op = nodes.ReplaceOp
 		p.log.Info("updating root_device")
 	}
+
+	// hints
 	hints := map[string]string{}
-	switch {
-	case hwProf.RootDeviceHints.DeviceName != "":
-		hints["name"] = hwProf.RootDeviceHints.DeviceName
-	case hwProf.RootDeviceHints.HCTL != "":
-		hints["hctl"] = hwProf.RootDeviceHints.HCTL
+        if p.host.Status.RootDeviceHints != (metal3v1alpha1.RootDeviceHints{}) {
+                if p.host.Status.RootDeviceHints.DeviceName != "" {
+                        hints["name"] = p.host.Status.RootDeviceHints.DeviceName
+                }
+                if p.host.Status.RootDeviceHints.HCTL != "" {
+                        hints["hctl"] = p.host.Status.RootDeviceHints.HCTL
+                }
+                p.log.Info("hint selection based on spec root device hints")
+        } else {
+                if hwProf.RootDeviceHints.HCTL != "" {
+                        hints["hctl"] = hwProf.RootDeviceHints.HCTL
+                }
+                if hwProf.RootDeviceHints.DeviceName != "" {
+                        hints["name"] = hwProf.RootDeviceHints.DeviceName
+                }
+                p.log.Info("hint selection based on the hw profile")
+        }
+
+	if p.host.Status.RootDeviceHints.Model != "" {
+		hints["model"] = p.host.Status.RootDeviceHints.Model
 	}
+
+	if p.host.Status.RootDeviceHints.Vendor != "" {
+		hints["vendor"] = p.host.Status.RootDeviceHints.Vendor
+	}
+
+	if p.host.Status.RootDeviceHints.Serial != "" {
+		hints["serial"] = p.host.Status.RootDeviceHints.Serial
+	}
+
+	if p.host.Status.RootDeviceHints.SizeGigaBytes != 0 {
+		hints["size"] = strconv.Itoa(p.host.Status.RootDeviceHints.SizeGigaBytes)
+	}
+
+	if p.host.Status.RootDeviceHints.WWN != "" {
+		hints["wwn"] = p.host.Status.RootDeviceHints.WWN
+	}
+
+	if p.host.Status.RootDeviceHints.WWNWithExtension != "" {
+		hints["wwn_with_extension"] = p.host.Status.RootDeviceHints.WWNWithExtension
+	}
+
+	if p.host.Status.RootDeviceHints.WWNVendorExtension != "" {
+		hints["wwn_vendor_extension"] = p.host.Status.RootDeviceHints.WWNVendorExtension
+	}
+
+	if p.host.Status.RootDeviceHints.Rotational == true {
+		hints["rotational"] = "true"
+	}
+
 	p.log.Info("using root device", "hints", hints)
 	updates = append(
 		updates,

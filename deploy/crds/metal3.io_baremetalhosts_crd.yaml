@@ -186,6 +186,42 @@ spec:
             online:
               description: Should the server be online?
               type: boolean
+            rootDeviceHints:
+              description: RootDeviceHints holds the hints for specifying the storage
+                location for the root filesystem for the image.
+              properties:
+                deviceName:
+                  description: A device name like "/dev/vda"
+                  type: string
+                hctl:
+                  description: A SCSI bus address like 0:0:0:0
+                  type: string
+                model:
+                  description: Device identifier
+                  type: string
+                rotational:
+                  description: Device rotational type
+                  type: boolean
+                serial:
+                  description: Disk serial number
+                  type: string
+                sizeBytes:
+                  description: Size of the device in Gigabytes
+                  type: integer
+                vendor:
+                  description: Device vendor
+                  type: string
+                wwn:
+                  description: Unique storage identifier
+                  type: string
+                wwnVendorExtension:
+                  description: Uunique vendor storage identifier
+                  type: string
+                wwnWithExtension:
+                  description: Unique storage identifier with the vendor extension
+                    appended
+                  type: string
+              type: object
             taints:
               description: Taints is the full, authoritative list of taints to apply
                 to the corresponding Machine. This list will overwrite any modifications

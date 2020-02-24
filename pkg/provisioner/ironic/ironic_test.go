@@ -18,6 +18,206 @@ func init() {
 	logf.SetLogger(logf.ZapLogger(true))
 }
 
+func TestGetUpdateOptsForNodeVirtualWithRootHints(t *testing.T) {
+	host := &metal3v1alpha1.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "not-empty",
+			},
+			Online: true,
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			HardwareProfile: "libvirt",
+			RootDeviceHints: metal3v1alpha1.RootDeviceHints{
+				DeviceName:           "userd_devicename",
+				HCTL:                 "1:2:3:4",
+				WWN:                  "userd_wwn",
+				WWNWithExtension:     "userd_with_extension",
+				WWNVendorExtension:   "userd_vendor_extension",
+			},
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				ID: "provisioning-id",
+			},
+		},
+	}
+
+	eventPublisher := func(reason, message string) {}
+
+	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
+	ironicNode := &nodes.Node{}
+
+	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("patches: %v", patches)
+
+	var update nodes.UpdateOperation
+
+	expected := []struct {
+		Path  string            // the node property path
+		Map   map[string]string // Expected roothdevicehint map
+		Value interface{}       // the value being passed to ironic (or value associated with the key)
+	}{
+		{
+			Path:  "/instance_info/image_source",
+			Value: "not-empty",
+		},
+		{
+			Path:  "/instance_info/image_checksum",
+			Value: "checksum",
+		},
+		{
+			Path:  "/instance_uuid",
+			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		{
+			Path:  "/instance_info/root_gb",
+			Value: 10,
+		},
+		{
+			Path: "/instance_info/root_device",
+			Map: map[string]string{
+				"name":                 "userd_devicename",
+				"hctl":                 "1:2:3:4",
+				"wwn":                  "userd_wwn",
+				"wwn_with_extension":   "userd_with_extension",
+				"wwn_vendor_extension": "userd_vendor_extension",
+			},
+		},
+		{
+			Path:  "/properties/cpu_arch",
+			Value: "x86_64",
+		},
+		{
+			Path:  "/properties/local_gb",
+			Value: 50,
+		},
+	}
+
+	for i, e := range expected {
+		update = patches[i].(nodes.UpdateOperation)
+		if e.Map != nil {
+			m := update.Value.(map[string]string)
+			for k, v := range e.Map {
+				if v != m[k] {
+					t.Errorf("expected %s=%q got %s=%q", k, v, k, m[k])
+				}
+			}
+		} else {
+			if update.Value != e.Value {
+				t.Errorf("expected %s=%q got %s=%q", e.Path, e.Value, update.Path, update.Value)
+			}
+		}
+	}
+}
+
+func TestGetUpdateOptsForNodeDellWithRootHints(t *testing.T) {
+	host := &metal3v1alpha1.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "not-empty",
+			},
+		Online: true,
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			HardwareProfile: "dell",
+			RootDeviceHints: metal3v1alpha1.RootDeviceHints{
+				DeviceName:           "userd_devicename",
+				HCTL:                 "1:2:3:4",
+				WWN:                  "userd_wwn",
+				WWNWithExtension:     "userd_with_extension",
+				WWNVendorExtension:   "userd_vendor_extension",
+			},
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				ID: "provisioning-id",
+			},
+		},
+	}
+
+	eventPublisher := func(reason, message string) {}
+
+	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
+	ironicNode := &nodes.Node{}
+
+	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("patches: %v", patches)
+
+	var update nodes.UpdateOperation
+
+	expected := []struct {
+		Path  string            // the node property path
+		Map   map[string]string // Expected roothdevicehint map
+		Value interface{}       // the value being passed to ironic (or value associated with the key)
+	}{
+		{
+			Path:  "/instance_info/image_source",
+			Value: "not-empty",
+		},
+		{
+			Path:  "/instance_info/image_checksum",
+			Value: "checksum",
+		},
+		{
+			Path:  "/instance_uuid",
+			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		{
+			Path:  "/instance_info/root_gb",
+			Value: 10,
+		},
+		{
+			Path:  "/instance_info/root_device",
+			Value: "userdefined_devicename",
+			Map: map[string]string{
+				"name":                 "userd_devicename",
+				"hctl":                 "1:2:3:4",
+				"wwn":                  "userd_wwn",
+				"wwn_with_extension":   "userd_with_extension",
+				"wwn_vendor_extension": "userd_vendor_extension",
+			},
+		},
+		{
+			Path:  "/properties/cpu_arch",
+			Value: "x86_64",
+		},
+		{
+			Path:  "/properties/local_gb",
+			Value: 50,
+		},
+	}
+
+	for i, e := range expected {
+		update = patches[i].(nodes.UpdateOperation)
+		if e.Map != nil {
+			m := update.Value.(map[string]string)
+			for k, v := range e.Map {
+				if v != m[k] {
+					t.Errorf("expected %s=%q got %s=%q", k, v, k, m[k])
+				}
+			}
+		} else {
+			if update.Value != e.Value {
+				t.Errorf("expected %s=%q got %s=%q", e.Path, e.Value, update.Path, update.Value)
+			}
+		}
+	}
+}
 func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	host := &metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{

@@ -42,7 +42,7 @@ test: generate unit lint
 .PHONY: generate
 generate:
 	operator-sdk generate $(VERBOSE) k8s
-	operator-sdk generate $(VERBOSE) crds
+	operator-sdk generate $(VERBOSE) openapi
 	openapi-gen \
 		--input-dirs ./pkg/apis/metal3/v1alpha1 \
 		--output-package ./pkg/apis/metal3/v1alpha1 \

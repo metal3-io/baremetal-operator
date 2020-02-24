@@ -570,6 +570,12 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 	}
+
+	if info.host.Spec.RootDeviceHints != (metal3v1alpha1.RootDeviceHints{}) {
+		if info.host.SetRootDeviceHints(info.host.Spec.RootDeviceHints) {
+			info.log.Info("updating root device hints")
+		}
+	}
 	info.host.ClearError()
 	return actionComplete{}
 }

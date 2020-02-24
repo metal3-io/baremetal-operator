@@ -30,6 +30,41 @@ const (
 	StatusAnnotation = "baremetalhost.metal3.io/status"
 )
 
+// RootDeviceHints holds the hints for specifying the storage location
+// for the root filesystem for the image.
+type RootDeviceHints struct {
+	// A Linux device name like "/dev/vda"
+	DeviceName string `json:"deviceName,omitempty"`
+
+	// A SCSI bus address like 0:0:0:0
+	HCTL string `json:"hctl,omitempty"`
+
+	// A vendor-specific device identifier
+	Model string `json:"model,omitempty"`
+
+	// The name of the vendor or manufacturer of the device. Must
+	// match the results found through inspection.
+	Vendor string `json:"vendor,omitempty"`
+
+	// Device serial number
+	SerialNumber string `json:"serialNumber,omitempty"`
+
+	// Size of the device in Gigabytes
+	SizeGigabytes int `json:"sizeGigabytes,omitempty"`
+
+	// Unique storage identifier
+	WWN string `json:"wwn,omitempty"`
+
+	// Unique storage identifier with the vendor extension appended
+	WWNWithExtension string `json:"wwnWithExtension,omitempty"`
+
+	// Unique vendor storage identifier
+	WWNVendorExtension string `json:"wwnVendorExtension,omitempty"`
+
+	// Device rotational type
+	Rotational *bool `json:"rotational,omitempty"`
+}
+
 // OperationalStatus represents the state of the host
 type OperationalStatus string
 
@@ -164,6 +199,10 @@ type BareMetalHostSpec struct {
 	// should only be necessary to set this when inspection cannot
 	// automatically determine the profile.
 	HardwareProfile string `json:"hardwareProfile,omitempty"`
+
+	// Provide guidance about how to find the device for the image
+	// being provisioned.
+	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
 	// Which MAC address will PXE boot? This is optional for some
 	// types, but required for libvirt VMs driven by vbmc.
@@ -491,6 +530,9 @@ type ProvisionStatus struct {
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
+
+	// The RootDevicehints set by the user
+	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

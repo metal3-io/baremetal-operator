@@ -16,6 +16,7 @@ require (
 	github.com/prometheus/client_golang v1.5.1
 	github.com/securego/gosec v0.0.0-20200401082031-e946c8c39989 // indirect
 	github.com/spf13/cobra v0.0.6 // indirect
+	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
@@ -28,7 +29,6 @@ require (
 	k8s.io/utils v0.0.0-20200229041039-0a110f9eb7ab
 	sigs.k8s.io/controller-runtime v0.5.2
 	sigs.k8s.io/yaml v1.2.0
-
 )
 
 replace (

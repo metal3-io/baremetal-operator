@@ -35,7 +35,7 @@ help:
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: generate unit lint dep-check
+test: generate unit lint dep
 
 .PHONY: generate
 generate:

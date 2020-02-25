@@ -136,7 +136,9 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 		// The FakeClient keeps a copy of the object we update, so we
 		// need to replace the one we have with the updated data in
 		// order to test it.
-		r.client.Get(goctx.TODO(), request.NamespacedName, host)
+		updatedHost := &metal3v1alpha1.BareMetalHost{}
+		r.client.Get(goctx.TODO(), request.NamespacedName, updatedHost)
+		updatedHost.DeepCopyInto(host)
 
 		if isDone(host, result) {
 			logger.Info("tryReconcile: loop done")
@@ -244,10 +246,9 @@ func TestSetLastUpdated(t *testing.T) {
 	)
 }
 
-
 // TestGetRebootAnnotations verifies that getRebootAnnotations function
 // returns the correct values in all possible cases
-func TestGetRebootAnnotations(t *testing.T){
+func TestGetRebootAnnotations(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = make(map[string]string)
 
@@ -267,11 +268,11 @@ func TestGetRebootAnnotations(t *testing.T){
 		t.Fail()
 	}
 
-	if !suffixed{
+	if !suffixed {
 		t.Fail()
 	}
 
-	delete(host.Annotations,suffixedAnnotation)
+	delete(host.Annotations, suffixedAnnotation)
 	host.Annotations[rebootAnnotationPrefix] = ""
 
 	suffixless, suffixed = getRebootAnnotations(host)
@@ -294,7 +295,7 @@ func TestGetRebootAnnotations(t *testing.T){
 
 	//two suffixed annotations to simulate multiple clients
 
-	host.Annotations[suffixedAnnotation + "bar"] = ""
+	host.Annotations[suffixedAnnotation+"bar"] = ""
 
 	suffixless, suffixed = getRebootAnnotations(host)
 
@@ -304,7 +305,6 @@ func TestGetRebootAnnotations(t *testing.T){
 
 }
 
-
 // TestRebootWithSuffixlessAnnotation tests full reboot cycle with suffixless
 // annotation which doesn't wait for annotation removal before power on
 func TestRebootWithSuffixlessAnnotation(t *testing.T) {
@@ -312,84 +312,8 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	host.Annotations = make(map[string]string)
 	host.Annotations[rebootAnnotationPrefix] = ""
 	host.RecordPoweredOn()
-	time.Sleep(time.Second)
-	host.Status.PoweredOn = true
-	host.Spec.Online = true
-
-	r := newTestReconciler(host)
-	tryReconcile(t, r, host,
-			func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-				if host.Status.Provisioning.PendingRebootSince == nil {
-					return false
-				}
-
-				if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
-					return false
-				}
-				return true
-			},
-		)
-
-	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
-				return false
-			}
-
-			if host.Status.PoweredOn {
-						return false
-					}
-
-			return true
-		},
-	)
-	time.Sleep(time.Second)
-
-	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
-				return false
-			}
-
-			if !host.Status.PoweredOn {
-				return false
-			}
-
-			//todo n1r1 - should be uncommented
-			//if _, exists := host.Annotations[rebootAnnotationPrefix]; exists {
-			//	return false
-			//}
-
-			return true
-		},
-	)
-
-	time.Sleep(time.Second)
-	//make sure we don't go into another reboot
-	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
-				return false
-			}
-
-			if !host.Status.PoweredOn {
-				return false
-			}
-
-			return true
-		},
-	)
-}
-
-// TestRebootWithSuffixedAnnotation tests a full reboot cycle, with suffixed annotation
-// to verify that controller holds power off until annotation removal
-func TestRebootWithSuffixedAnnotation(t *testing.T) {
-	host := newDefaultHost(t)
-	host.Annotations = make(map[string]string)
-	annotation := rebootAnnotationPrefix + "/foo"
-	host.Annotations[annotation] = ""
-	host.RecordPoweredOn()
-	time.Sleep(time.Second)
+	secondAgo := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(-time.Second))
+	host.Status.Provisioning.LastPoweredOn = &secondAgo
 	host.Status.PoweredOn = true
 	host.Spec.Online = true
 
@@ -420,7 +344,100 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 			return true
 		},
 	)
-	time.Sleep(time.Second)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			return true
+		},
+	)
+
+	secondLater := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(time.Second))
+	host.Status.Provisioning.LastPoweredOn = &secondLater
+
+	secondAgo = metav1.NewTime(host.Status.Provisioning.PendingRebootSince.Add(-time.Second))
+	host.Status.Provisioning.PendingRebootSince = &secondAgo
+
+	r.client.Update(goctx.TODO(), host)
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			if _, exists := host.Annotations[rebootAnnotationPrefix]; exists {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	//make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+}
+
+// TestRebootWithSuffixedAnnotation tests a full reboot cycle, with suffixed annotation
+// to verify that controller holds power off until annotation removal
+func TestRebootWithSuffixedAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	annotation := rebootAnnotationPrefix + "/foo"
+	host.Annotations[annotation] = ""
+	host.RecordPoweredOn()
+	secondAgo := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(-time.Second))
+	host.Status.Provisioning.LastPoweredOn = &secondAgo
+	host.Status.PoweredOn = true
+	host.Spec.Online = true
+
+	r := newTestReconciler(host)
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.Provisioning.PendingRebootSince == nil {
+				return false
+			}
+
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+				return false
+			}
+
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	secondLater := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(time.Second))
+	host.Status.Provisioning.LastPoweredOn = &secondLater
+
+	secondAgo = metav1.NewTime(host.Status.Provisioning.PendingRebootSince.Add(-time.Second))
+	host.Status.Provisioning.PendingRebootSince = &secondAgo
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
@@ -436,7 +453,12 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 		},
 	)
 
-	time.Sleep(time.Second)
+	secondLater = metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(time.Second))
+	host.Status.Provisioning.LastPoweredOn = &secondLater
+
+	secondAgo = metav1.NewTime(host.Status.Provisioning.PendingRebootSince.Add(-time.Second))
+	host.Status.Provisioning.PendingRebootSince = &secondAgo
+
 	delete(host.Annotations, annotation)
 	r.client.Update(goctx.TODO(), host)
 
@@ -455,7 +477,6 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 		},
 	)
 
-	time.Sleep(time.Second)
 	//make sure we don't go into another reboot
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {

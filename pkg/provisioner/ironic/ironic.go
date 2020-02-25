@@ -992,6 +992,8 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 					"uuid":             string(p.host.ObjectMeta.UID),
 					"metal3-namespace": p.host.ObjectMeta.Namespace,
 					"metal3-name":      p.host.ObjectMeta.Name,
+					"local-hostname":   p.host.ObjectMeta.Name,
+					"local_hostname":   p.host.ObjectMeta.Name,
 				},
 			}
 			if err != nil {

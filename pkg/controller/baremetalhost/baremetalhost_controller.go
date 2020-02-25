@@ -383,15 +383,15 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 
 // check for existence of reboot annotations and returns two booleans indicating
 // the existence of suffix-less reboot annotation and suffixed reboot annotations
-func getRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (suffixlessExist bool , withSuffixExist bool){
+func getRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (suffixlessExist bool, withSuffixExist bool) {
 	if host.Annotations == nil {
 		return
 	}
 
-	 _, suffixlessExist = host.Annotations[rebootAnnotationPrefix]
+	_, suffixlessExist = host.Annotations[rebootAnnotationPrefix]
 
-	for annotation := range host.Annotations{
-		if strings.HasPrefix(annotation, rebootAnnotationPrefix + "/") {
+	for annotation := range host.Annotations {
+		if strings.HasPrefix(annotation, rebootAnnotationPrefix+"/") {
 			withSuffixExist = true
 			return
 		}
@@ -405,10 +405,10 @@ func checkUpdatedRebootRequest(host *metal3v1alpha1.BareMetalHost) (dirty bool) 
 		return
 	}
 
-	suffixlessExist ,withSuffixExist := getRebootAnnotations(host)
+	suffixlessExist, withSuffixExist := getRebootAnnotations(host)
 
 	if !(suffixlessExist || withSuffixExist) {
-		return 
+		return
 	}
 
 	poweredOn := host.Status.PoweredOn
@@ -423,7 +423,6 @@ func checkUpdatedRebootRequest(host *metal3v1alpha1.BareMetalHost) (dirty bool) 
 
 	return
 }
-
 
 // Manage deletion of the host
 func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -646,7 +645,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	info.host.Status.Provisioning.PendingRebootSince = nil
 	if info.host.Annotations != nil {
 		for annotation := range info.host.Annotations {
-			if annotation == rebootAnnotationPrefix || strings.HasPrefix(annotation, rebootAnnotationPrefix + "/") {
+			if annotation == rebootAnnotationPrefix || strings.HasPrefix(annotation, rebootAnnotationPrefix+"/") {
 				delete(info.host.Annotations, annotation)
 			}
 		}
@@ -707,9 +706,9 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	}
 
 	info.log.Info("power state change needed",
-				"expected", desiredPowerOnState,
-				"actual", info.host.Status.PoweredOn,
-				"reboot process", isInRebootProcess)
+		"expected", desiredPowerOnState,
+		"actual", info.host.Status.PoweredOn,
+		"reboot process", isInRebootProcess)
 
 	if desiredPowerOnState {
 		provResult, err = prov.PowerOn()

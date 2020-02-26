@@ -7,6 +7,7 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
   TOP_DIR="${1:-.}"
+  export XDG_CACHE_HOME="/tmp/.cache"
   go fmt "${TOP_DIR}"/pkg/... "${TOP_DIR}"/cmd/...
 else
   "${CONTAINER_RUNTIME}" run --rm \

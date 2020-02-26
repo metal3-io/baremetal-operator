@@ -755,7 +755,6 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 	return
 }
 
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // BareMetalHostList contains a list of BareMetalHost

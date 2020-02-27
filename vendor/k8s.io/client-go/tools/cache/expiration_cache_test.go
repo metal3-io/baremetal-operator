@@ -34,7 +34,7 @@ func TestTTLExpirationBasic(t *testing.T) {
 		&FakeExpirationPolicy{
 			NeverExpire: sets.NewString(),
 			RetrieveKeyFunc: func(obj interface{}) (string, error) {
-				return obj.(*TimestampedEntry).Obj.(testStoreObject).id, nil
+				return obj.(*timestampedEntry).obj.(testStoreObject).id, nil
 			},
 		},
 		clock.RealClock{},
@@ -67,7 +67,7 @@ func TestReAddExpiredItem(t *testing.T) {
 	exp := &FakeExpirationPolicy{
 		NeverExpire: sets.NewString(),
 		RetrieveKeyFunc: func(obj interface{}) (string, error) {
-			return obj.(*TimestampedEntry).Obj.(testStoreObject).id, nil
+			return obj.(*timestampedEntry).obj.(testStoreObject).id, nil
 		},
 	}
 	ttlStore := NewFakeExpirationStore(
@@ -130,7 +130,7 @@ func TestTTLList(t *testing.T) {
 		&FakeExpirationPolicy{
 			NeverExpire: sets.NewString(testObjs[1].id),
 			RetrieveKeyFunc: func(obj interface{}) (string, error) {
-				return obj.(*TimestampedEntry).Obj.(testStoreObject).id, nil
+				return obj.(*timestampedEntry).obj.(testStoreObject).id, nil
 			},
 		},
 		clock.RealClock{},
@@ -168,22 +168,20 @@ func TestTTLPolicy(t *testing.T) {
 	expiredTime := fakeTime.Add(-(ttl + 1))
 
 	policy := TTLPolicy{ttl, clock.NewFakeClock(fakeTime)}
-	item := testStoreObject{id: "foo", val: "bar"}
-	itemkey, _ := testStoreKeyFunc(item)
-	fakeTimestampedEntry := &TimestampedEntry{Obj: item, Timestamp: exactlyOnTTL, key: itemkey}
+	fakeTimestampedEntry := &timestampedEntry{obj: struct{}{}, timestamp: exactlyOnTTL}
 	if policy.IsExpired(fakeTimestampedEntry) {
 		t.Errorf("TTL cache should not expire entries exactly on ttl")
 	}
-	fakeTimestampedEntry.Timestamp = fakeTime
+	fakeTimestampedEntry.timestamp = fakeTime
 	if policy.IsExpired(fakeTimestampedEntry) {
 		t.Errorf("TTL Cache should not expire entries before ttl")
 	}
-	fakeTimestampedEntry.Timestamp = expiredTime
+	fakeTimestampedEntry.timestamp = expiredTime
 	if !policy.IsExpired(fakeTimestampedEntry) {
 		t.Errorf("TTL Cache should expire entries older than ttl")
 	}
 	for _, ttl = range []time.Duration{0, -1} {
-		policy.TTL = ttl
+		policy.Ttl = ttl
 		if policy.IsExpired(fakeTimestampedEntry) {
 			t.Errorf("TTL policy should only expire entries when initialized with a ttl > 0")
 		}

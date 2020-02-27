@@ -1,23 +1,3 @@
-## 1.1.0 / 2019-08-01
-
-* [CHANGE] API client: Format time as UTC rather than RFC3339Nano. #617
-* [CHANGE] API client: Add warnings to `LabelValues` and `LabelNames` calls. #609
-* [FEATURE] Push: Support base64 encoding in grouping key. #624
-* [FEATURE] Push: Add Delete method to Pusher. #613
-
-## 1.0.0 / 2019-06-15
-
-_This release removes all previously deprecated features, resulting in the breaking changes listed below. As this is v1.0.0, semantic versioning applies from now on, with the exception of the API client and parts marked explicitly as experimental._
-
-* [CHANGE] Remove objectives from the default `Summary`. (Objectives have to be set explicitly in the `SummaryOpts`.) #600
-* [CHANGE] Remove all HTTP related feature in the `prometheus` package. (Use the `promhttp` package instead.)  #600
-* [CHANGE] Remove `push.FromGatherer`, `push.AddFromGatherer`, `push.Collectors`. (Use `push.New` instead.) #600
-* [CHANGE] API client: Pass warnings through on non-error responses. #599
-* [CHANGE] API client: Add warnings to `Series` call. #603
-* [FEATURE] Make process collector work on Microsoft Windows. **EXPERIMENTAL** #596
-* [FEATURE] API client: Add `/labels` call. #604
-* [BUGFIX] Make `AlreadyRegisteredError` usable for wrapped registries. #607
-
 ## 0.9.4 / 2019-06-07
 * [CHANGE] API client: Switch to alert values as strings. #585
 * [FEATURE] Add a collector for Go module build information. #595

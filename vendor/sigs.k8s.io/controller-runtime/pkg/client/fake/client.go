@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -35,12 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/internal/objectutil"
 )
 
-type versionedTracker struct {
-	testing.ObjectTracker
-}
-
 type fakeClient struct {
-	tracker versionedTracker
+	tracker testing.ObjectTracker
 	scheme  *runtime.Scheme
 }
 
@@ -66,35 +61,9 @@ func NewFakeClientWithScheme(clientScheme *runtime.Scheme, initObjs ...runtime.O
 		}
 	}
 	return &fakeClient{
-		tracker: versionedTracker{tracker},
+		tracker: tracker,
 		scheme:  clientScheme,
 	}
-}
-
-func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
-	if accessor, err := meta.Accessor(obj); err == nil {
-		if accessor.GetResourceVersion() == "" {
-			accessor.SetResourceVersion("1")
-		}
-	} else {
-		return err
-	}
-	return t.ObjectTracker.Create(gvr, obj, ns)
-}
-
-func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
-	if accessor, err := meta.Accessor(obj); err == nil {
-		version := 0
-		if rv := accessor.GetResourceVersion(); rv != "" {
-			version, err = strconv.Atoi(rv)
-		}
-		if err == nil {
-			accessor.SetResourceVersion(strconv.Itoa(version + 1))
-		}
-	} else {
-		return err
-	}
-	return t.ObjectTracker.Update(gvr, obj, ns)
 }
 
 func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj runtime.Object) error {

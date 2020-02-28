@@ -40,7 +40,12 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (strin
 	}
 
 	data, ok := secret.Data[dataKey]
-	if !ok {
+	if ok {
+		return string(data), nil
+	}
+	// There is no data under dataKey (userData or networkData).
+	// Tring to falback to 'value' key
+	if data, ok = secret.Data["value"]; !ok {
 		hostConfigDataError.WithLabelValues(dataKey).Inc()
 		return "", NoDataInSecretError{secret: name, key: dataKey}
 	}

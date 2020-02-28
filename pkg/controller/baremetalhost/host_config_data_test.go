@@ -65,6 +65,25 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			ErrNetworkData:      false,
 		},
 		{
+			Scenario: "fall back to value",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					UserData: &corev1.SecretReference{
+						Name:      "user-data",
+						Namespace: namespace,
+					},
+				}),
+			UserDataSecret:      newSecret("user-data", map[string]string{"value": "somedata"}),
+			ExpectedUserData:    base64.StdEncoding.EncodeToString([]byte("somedata")),
+			ErrUserData:         false,
+			ExpectedNetworkData: "",
+			ErrNetworkData:      false,
+		},
+		{
 			Scenario: "host with non-existent network data",
 			Host: newHost("host-user-data",
 				&metal3v1alpha1.BareMetalHostSpec{

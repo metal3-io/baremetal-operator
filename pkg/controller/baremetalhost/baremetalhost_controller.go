@@ -27,7 +27,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -529,34 +528,14 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 
 // Start/continue provisioning if we need to.
 func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	getUserData := func() (string, error) {
-		if info.host.Spec.UserData == nil {
-			info.log.Info("no user data for host")
-			return "", nil
-		}
-		info.log.Info("fetching user data before provisioning")
-		userDataSecret := &corev1.Secret{}
-		key := types.NamespacedName{
-			Name:      info.host.Spec.UserData.Name,
-			Namespace: info.host.Spec.UserData.Namespace,
-		}
-		err := r.client.Get(context.TODO(), key, userDataSecret)
-		if err != nil {
-			return "", errors.Wrap(err,
-				"failed to fetch user data from secret reference")
-		}
-		if content, ok := userDataSecret.Data["userData"]; ok {
-			return string(content), nil
-		} else if content, ok := userDataSecret.Data["value"]; ok {
-			return string(content), nil
-		} else {
-			return "", errors.New("userData or value key not found in secret")
-		}
+	hostConf := &hostConfigData{
+		host:   info.host,
+		log:    info.log,
+		client: r.client,
 	}
-
 	info.log.Info("provisioning")
 
-	provResult, err := prov.Provision(getUserData)
+	provResult, err := prov.Provision(hostConf)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
 	}

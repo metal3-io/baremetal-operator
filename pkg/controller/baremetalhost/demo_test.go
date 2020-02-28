@@ -28,7 +28,8 @@ func newDemoReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	c := fakeclient.NewFakeClient(initObjs...)
 
 	// Add a default secret that can be used by most hosts.
-	c.Create(goctx.TODO(), newSecret(defaultSecretName, "User", "Pass"))
+	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
+	c.Create(goctx.TODO(), bmcSecret)
 
 	return &ReconcileBareMetalHost{
 		client:             c,

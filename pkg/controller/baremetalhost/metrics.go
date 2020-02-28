@@ -16,6 +16,7 @@ const (
 	labelPowerOnOff    = "on_off"
 	labelPrevState     = "prev_state"
 	labelNewState      = "new_state"
+	labelHostDataType  = "host_data_type"
 )
 
 var reconcileCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -56,6 +57,10 @@ var noManagementAccess = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "metal3_credentials_no_management_access_total",
 	Help: "Number of times a host management interface is unavailable",
 })
+var hostConfigDataError = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "metal3_host_config_data_error_total",
+	Help: "Number of times the operator has failed to retrieve host configuration data",
+}, []string{labelHostDataType})
 
 var slowOperationBuckets = []float64{30, 90, 180, 360, 720, 1440}
 

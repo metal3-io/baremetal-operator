@@ -35,10 +35,11 @@ func init() {
 	metal3apis.AddToScheme(scheme.Scheme)
 }
 
-func newSecret(name, username, password string) *corev1.Secret {
-	data := make(map[string][]byte)
-	data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte(username)))
-	data["password"] = []byte(base64.StdEncoding.EncodeToString([]byte(password)))
+func newSecret(name string, data map[string]string) *corev1.Secret {
+	secretData := make(map[string][]byte)
+	for k, v := range data {
+		secretData[k] = []byte(base64.StdEncoding.EncodeToString([]byte(v)))
+	}
 
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -50,10 +51,14 @@ func newSecret(name, username, password string) *corev1.Secret {
 			Namespace:       namespace,
 			ResourceVersion: "1",
 		},
-		Data: data,
+		Data: secretData,
 	}
 
 	return secret
+}
+
+func newBMCCredsSecret(name, username, password string) *corev1.Secret {
+	return newSecret(name, map[string]string{"username": username, "password": password})
 }
 
 func newHost(name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha1.BareMetalHost {
@@ -90,7 +95,8 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	c := fakeclient.NewFakeClient(initObjs...)
 
 	// Add a default secret that can be used by most hosts.
-	c.Create(goctx.TODO(), newSecret(defaultSecretName, "User", "Pass"))
+	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
+	c.Create(goctx.TODO(), bmcSecret)
 
 	return &ReconcileBareMetalHost{
 		client:             c,
@@ -276,7 +282,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	)
 
 	// Define a second valid secret and update the host to use it.
-	secret2 := newSecret("bmc-creds-valid2", "User", "Pass")
+	secret2 := newBMCCredsSecret("bmc-creds-valid2", "User", "Pass")
 	err := r.client.Create(goctx.TODO(), secret2)
 	if err != nil {
 		t.Fatal(err)
@@ -305,7 +311,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 // to one that is missing data.
 func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	host := newDefaultHost(t)
-	badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+	badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 	r := newTestReconciler(host, badSecret)
 
 	tryReconcile(t, r, host,
@@ -376,7 +382,7 @@ func TestMissingBMCParameters(t *testing.T) {
 	}{
 		{
 			Scenario: "secret without username",
-			Secret:   newSecret("bmc-creds-no-user", "", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-no-user", "", "Pass"),
 			Host: newHost("missing-bmc-username",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -388,7 +394,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "secret without password",
-			Secret:   newSecret("bmc-creds-no-pass", "User", ""),
+			Secret:   newBMCCredsSecret("bmc-creds-no-pass", "User", ""),
 			Host: newHost("missing-bmc-password",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -400,7 +406,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "malformed address",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("invalid-bmc-address",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -412,7 +418,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "missing address",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("missing-bmc-address",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -424,7 +430,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "missing secret",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("missing-bmc-credentials-ref",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -436,7 +442,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "no such secret",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("non-existent-bmc-secret-ref",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -459,7 +465,7 @@ func TestMissingBMCParameters(t *testing.T) {
 // be correct the status of the host moves out of the error state.
 func TestFixSecret(t *testing.T) {
 
-	secret := newSecret("bmc-creds-no-user", "", "Pass")
+	secret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 	host := newHost("fix-secret",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
@@ -496,7 +502,7 @@ func TestBreakThenFixSecret(t *testing.T) {
 
 	// Create the host without any errors and wait for it to be
 	// registered and get a provisioning ID.
-	secret := newSecret("bmc-creds-toggle-user", "User", "Pass")
+	secret := newBMCCredsSecret("bmc-creds-toggle-user", "User", "Pass")
 	host := newHost("break-then-fix-secret",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
@@ -778,7 +784,7 @@ func TestDeleteHost(t *testing.T) {
 		t.Run(host.Name, func(t *testing.T) {
 			host.DeletionTimestamp = &now
 			host.Status.Provisioning.ID = "made-up-id"
-			badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+			badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 			r := newTestReconciler(host, badSecret)
 
 			tryReconcile(t, r, host,

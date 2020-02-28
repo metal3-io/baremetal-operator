@@ -149,7 +149,7 @@ func (p *fixtureProvisioner) Adopt() (result provisioner.Result, err error) {
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *fixtureProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Provision(hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 	p.log.Info("provisioning image to host",
 		"state", p.host.Status.Provisioning.State)
 

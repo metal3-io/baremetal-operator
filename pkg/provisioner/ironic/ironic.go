@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
@@ -817,7 +819,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 	return updates, nil
 }
 
-func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum string, getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum string, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning")
 
@@ -916,7 +918,7 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	if ironicNode, err = p.findExistingHost(); err != nil {
@@ -966,19 +968,26 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 			return result, nil
 		}
 		p.log.Info("recovering from previous failure")
-		return p.startProvisioning(ironicNode, checksum, getUserData)
+		return p.startProvisioning(ironicNode, checksum, hostConf)
 
 	case nodes.Manageable:
-		return p.startProvisioning(ironicNode, checksum, getUserData)
+		return p.startProvisioning(ironicNode, checksum, hostConf)
 
 	case nodes.Available:
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
 		p.log.Info("making host active")
 
-		userData, err := getUserData()
+		userData, err := hostConf.UserData()
 		if err != nil {
 			return result, errors.Wrap(err, "could not retrieve user data")
+		}
+
+		networkDataRaw, err := hostConf.NetworkData()
+
+		var networkData map[string]interface{}
+		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
+			return result, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
 		}
 
 		var configDrive nodes.ConfigDrive
@@ -995,6 +1004,7 @@ func (p *ironicProvisioner) Provision(getUserData provisioner.UserDataSource) (r
 					"local-hostname":   p.host.ObjectMeta.Name,
 					"local_hostname":   p.host.ObjectMeta.Name,
 				},
+				NetworkData: networkData,
 			}
 			if err != nil {
 				return result, errors.Wrap(err, "failed to build config drive")

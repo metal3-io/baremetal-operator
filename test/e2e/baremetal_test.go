@@ -185,8 +185,9 @@ func TestManageHardwareDetails(t *testing.T) {
 	host := makeHost(t, ctx, "hardware-profile",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "ipmi://192.168.122.1:6233",
-				CredentialsName: "bmc-creds-valid",
+				Address:                        "ipmi://192.168.122.1:6233",
+				CredentialsName:                "bmc-creds-valid",
+				disableCertificateVerification: true,
 			},
 		})
 

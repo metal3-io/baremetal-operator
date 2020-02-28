@@ -15,6 +15,8 @@ export DEPLOY_KERNEL_URL=http://172.22.0.1:6180/images/ironic-python-agent.kerne
 export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.initramfs
 export IRONIC_ENDPOINT=http://localhost:6385/v1/
 export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
+export GO111MODULE=on
+export GOFLAGS=
 
 .PHONY: help
 help:

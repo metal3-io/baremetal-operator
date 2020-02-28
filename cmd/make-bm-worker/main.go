@@ -13,6 +13,7 @@ func main() {
 	var username = flag.String("user", "", "username for BMC")
 	var password = flag.String("password", "", "password for BMC")
 	var bmcAddress = flag.String("address", "", "address URL for BMC")
+	var disableCertificateVerification = flag.Bool("disableCertificateVerification", false, "will skip certificate validation when true")
 	var hardwareProfile = flag.String("hardwareprofile", "", "hardwareProfile to be used")
 	var macAddress = flag.String("boot-mac", "", "boot-mac for bootMACAddress")
 	var verbose = flag.Bool("v", false, "turn on verbose output")
@@ -42,14 +43,15 @@ func main() {
 	}
 
 	template := templates.Template{
-		Name:              strings.Replace(hostName, "_", "-", -1),
-		BMCAddress:        *bmcAddress,
-		Username:          *username,
-		Password:          *password,
-		HardwareProfile:   *hardwareProfile,
-		BootMacAddress:    *macAddress,
-		Consumer:          strings.TrimSpace(*consumer),
-		ConsumerNamespace: strings.TrimSpace(*consumerNamespace),
+		Name:                           strings.Replace(hostName, "_", "-", -1),
+		BMCAddress:                     *bmcAddress,
+		DisableCertificateVerification: *disableCertificateVerification,
+		Username:                       *username,
+		Password:                       *password,
+		HardwareProfile:                *hardwareProfile,
+		BootMacAddress:                 *macAddress,
+		Consumer:                       strings.TrimSpace(*consumer),
+		ConsumerNamespace:              strings.TrimSpace(*consumerNamespace),
 	}
 	if *verbose {
 		fmt.Fprintf(os.Stderr, "%v", template)

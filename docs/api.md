@@ -7,6 +7,12 @@ defines a physical host and its properties. The **BareMetalHost** embeds
 two well differentiated sections, the bare metal host specification
 and its current status.
 
+### Pausing reconciliation
+
+It is possible to pause the reconciliation of a BareMetalHost object by adding
+an annotation `baremetalhost.metal3.io/paused`. The value of the annotation does
+not matter. Removing the annotation will enable the reconciliation again.
+
 ### BareMetalHost spec
 
 The *BareMetalHost's* *spec* defines the desire state of the host. It contains
@@ -28,10 +34,14 @@ mainly, but not only, provisioning details.
     * Redfish
       * `redfish://` (or `redfish+http://` to disable TLS), the hostname
         or IP address, and the path to the system ID are required,
-        for example `redfish://myhost.example/redfish/v1/Systems/MySystemExample`
+        for example `redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
+        or `redfish://myhost.example/redfish/v1/Systems/1`
 
   * *credentialsName* -- A reference to a *secret* containing the
     username and password for the BMC.
+
+  * *disableCertificateVerification* -- A boolean to skip certificate
+    validation when true.
 
 * *online* -- A boolean indicating whether the host should be powered on
   (true) or off (false). Changing this value will trigger a change in
@@ -56,6 +66,10 @@ mainly, but not only, provisioning details.
 * *userData* -- A reference to the Secret containing the cloudinit user data
   and its namespace, so it can be attached to the host before it boots
   for configuring different aspects of the OS (like networking, storage, ...).
+
+* *networkData* -- A reference to the Secret containing the network
+  configuration data (e.g. network\_data.json) and its namespace, so it can be
+  attached to the host before it boots to set network up
 
 * *description* -- A human-provided string to help identify the host.
 

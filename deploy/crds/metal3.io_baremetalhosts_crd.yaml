@@ -74,6 +74,13 @@ spec:
                   description: The name of the secret containing the BMC credentials
                     (requires keys "username" and "password").
                   type: string
+                disableCertificateVerification:
+                  description: DisableCertificateVerification disables verification
+                    of server certificates when using HTTPS to connect to the BMC.
+                    This is required when the server certificate is self-signed, but
+                    is insecure because it allows a man-in-the-middle to intercept
+                    the connection.
+                  type: boolean
               required:
               - address
               - credentialsName
@@ -148,6 +155,19 @@ spec:
               required:
               - checksum
               - url
+              type: object
+            networkData:
+              description: NetworkData holds the reference to the Secret containing
+                content of network_data.json which is passed to Config Drive
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
               type: object
             online:
               description: Should the server be online?

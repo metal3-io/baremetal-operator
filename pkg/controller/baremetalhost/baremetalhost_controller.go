@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,7 +27,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -39,15 +40,33 @@ import (
 
 const (
 	hostErrorRetryDelay = time.Second * 10
+	pauseRetryDelay     = time.Second * 30
 )
 
 var runInTestMode bool
 var runInDemoMode bool
+var maxConcurrentReconciles int = 3
 
 func init() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
+
+	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
+		mcr, err := strconv.Atoi(mcrEnv)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
+			os.Exit(1)
+		}
+		if mcr > 0 {
+			log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
+			maxConcurrentReconciles = mcr
+		} else {
+			log.Info(fmt.Sprintf("Invalid BMO_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+		}
+	} else {
+		log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+	}
 }
 
 var log = logf.Log.WithName("baremetalhost")
@@ -84,7 +103,9 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New("metal3-baremetalhost-controller", mgr,
-		controller.Options{Reconciler: r})
+		controller.Options{MaxConcurrentReconciles: maxConcurrentReconciles,
+			Reconciler: r,
+		})
 	if err != nil {
 		return err
 	}
@@ -166,6 +187,14 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, errors.Wrap(err, "could not load host data")
+	}
+
+	// If the reconciliation is paused, requeue
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[metal3v1alpha1.PausedAnnotation]; ok {
+			return reconcile.Result{Requeue: true, RequeueAfter: pauseRetryDelay}, nil
+		}
 	}
 
 	// NOTE(dhellmann): Handle a few steps outside of the phase
@@ -499,28 +528,14 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 
 // Start/continue provisioning if we need to.
 func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	getUserData := func() (string, error) {
-		if info.host.Spec.UserData == nil {
-			info.log.Info("no user data for host")
-			return "", nil
-		}
-		info.log.Info("fetching user data before provisioning")
-		userDataSecret := &corev1.Secret{}
-		key := types.NamespacedName{
-			Name:      info.host.Spec.UserData.Name,
-			Namespace: info.host.Spec.UserData.Namespace,
-		}
-		err := r.client.Get(context.TODO(), key, userDataSecret)
-		if err != nil {
-			return "", errors.Wrap(err,
-				"failed to fetch user data from secret reference")
-		}
-		return string(userDataSecret.Data["userData"]), nil
+	hostConf := &hostConfigData{
+		host:   info.host,
+		log:    info.log,
+		client: r.client,
 	}
-
 	info.log.Info("provisioning")
 
-	provResult, err := prov.Provision(getUserData)
+	provResult, err := prov.Provision(hostConf)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
 	}
@@ -764,7 +779,7 @@ func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcil
 	// more in-depth checking on the url to ensure it is
 	// a valid bmc address, returning a bmc.UnknownBMCTypeError
 	// if it is not conformant
-	_, err = bmc.NewAccessDetails(host.Spec.BMC.Address)
+	_, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
 	if err != nil {
 		return nil, nil, err
 	}

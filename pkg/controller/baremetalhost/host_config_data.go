@@ -87,3 +87,16 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 		"networkData",
 	)
 }
+
+// MetaData get host metatdata
+func (hcd *hostConfigData) MetaData() (string, error) {
+	if hcd.host.Spec.MetaData == nil {
+		hcd.log.Info("MetaData is not set returning epmty(nil) data")
+		return "", nil
+	}
+	return hcd.getSecretData(
+		hcd.host.Spec.MetaData.Name,
+		hcd.host.Spec.MetaData.Namespace,
+		"metaData",
+	)
+}

@@ -360,8 +360,8 @@ func (in *OperationMetric) DeepCopy() *OperationMetric {
 func (in *ProvisionStatus) DeepCopyInto(out *ProvisionStatus) {
 	*out = *in
 	out.Image = in.Image
-	if in.LastPoweredOn != nil {
-		in, out := &in.LastPoweredOn, &out.LastPoweredOn
+	if in.PoweredOnAt != nil {
+		in, out := &in.PoweredOnAt, &out.PoweredOnAt
 		*out = (*in).DeepCopy()
 	}
 	if in.PendingRebootSince != nil {

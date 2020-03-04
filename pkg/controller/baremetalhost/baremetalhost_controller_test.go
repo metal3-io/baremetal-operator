@@ -312,8 +312,8 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	host.Annotations = make(map[string]string)
 	host.Annotations[rebootAnnotationPrefix] = ""
 	host.RecordPoweredOn()
-	secondAgo := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(-time.Second))
-	host.Status.Provisioning.LastPoweredOn = &secondAgo
+	secondAgo := metav1.NewTime(host.Status.Provisioning.PoweredOnAt.Add(-time.Second))
+	host.Status.Provisioning.PoweredOnAt = &secondAgo
 	host.Status.PoweredOn = true
 	host.Spec.Online = true
 
@@ -324,7 +324,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 				return false
 			}
 
-			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 			return true
@@ -333,7 +333,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 
@@ -351,16 +351,13 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 		},
 	)
 
-	secondLater := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(time.Second))
-	host.Status.Provisioning.LastPoweredOn = &secondLater
-
 	secondAgo = metav1.NewTime(host.Status.Provisioning.PendingRebootSince.Add(-time.Second))
 	host.Status.Provisioning.PendingRebootSince = &secondAgo
 
 	r.client.Update(goctx.TODO(), host)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 
@@ -379,7 +376,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	//make sure we don't go into another reboot
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 
@@ -400,8 +397,8 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	annotation := rebootAnnotationPrefix + "/foo"
 	host.Annotations[annotation] = ""
 	host.RecordPoweredOn()
-	secondAgo := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(-time.Second))
-	host.Status.Provisioning.LastPoweredOn = &secondAgo
+	secondAgo := metav1.NewTime(host.Status.Provisioning.PoweredOnAt.Add(-time.Second))
+	host.Status.Provisioning.PoweredOnAt = &secondAgo
 	host.Status.PoweredOn = true
 	host.Spec.Online = true
 
@@ -412,7 +409,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 				return false
 			}
 
-			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 			return true
@@ -421,7 +418,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 
@@ -433,15 +430,12 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 		},
 	)
 
-	secondLater := metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(time.Second))
-	host.Status.Provisioning.LastPoweredOn = &secondLater
-
 	secondAgo = metav1.NewTime(host.Status.Provisioning.PendingRebootSince.Add(-time.Second))
 	host.Status.Provisioning.PendingRebootSince = &secondAgo
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 
@@ -452,9 +446,6 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 			return true
 		},
 	)
-
-	secondLater = metav1.NewTime(host.Status.Provisioning.LastPoweredOn.Add(time.Second))
-	host.Status.Provisioning.LastPoweredOn = &secondLater
 
 	secondAgo = metav1.NewTime(host.Status.Provisioning.PendingRebootSince.Add(-time.Second))
 	host.Status.Provisioning.PendingRebootSince = &secondAgo
@@ -469,7 +460,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 				return false
 			}
 
-			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 
@@ -480,7 +471,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	//make sure we don't go into another reboot
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.LastPoweredOn) {
+			if !host.Status.Provisioning.PendingRebootSince.Before(host.Status.Provisioning.PoweredOnAt) {
 				return false
 			}
 

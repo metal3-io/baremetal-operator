@@ -519,14 +519,14 @@ spec:
                   - checksum
                   - url
                   type: object
-                lastPoweredOn:
-                  description: LastPoweredOn is the time that the server was last
-                    powered on with the specified image
-                  format: date-time
-                  type: string
                 pendingRebootSince:
                   description: PendingRebootSince is the time after which the server
                     must be rebooted
+                  format: date-time
+                  type: string
+                poweredOnAt:
+                  description: PoweredOnAt is the time that the server was powered
+                    on with the specified image
                   format: date-time
                   type: string
                 state:

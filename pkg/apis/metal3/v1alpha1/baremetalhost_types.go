@@ -458,10 +458,10 @@ type ProvisionStatus struct {
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
 
-	// LastPoweredOn is the time that the server was last powered on
+	// PoweredOnAt is the time that the server was powered on
 	// with the specified image
 	// +optional
-	LastPoweredOn *metav1.Time `json:"lastPoweredOn,omitempty"`
+	PoweredOnAt *metav1.Time `json:"poweredOnAt,omitempty"`
 
 	// PendingRebootSince is the time after which the server must be rebooted
 	// +optional
@@ -537,10 +537,12 @@ func (host *BareMetalHost) ClearError() (dirty bool) {
 	return dirty
 }
 
-// RecordPoweredOn records the current time as the LastPoweredOn time.
+// RecordPoweredOn records the current time as the PoweredOnAt time if there's no existing value
 func (host *BareMetalHost) RecordPoweredOn() {
-	now := metav1.Now()
-	host.Status.Provisioning.LastPoweredOn = &now
+	if host.Status.Provisioning.PoweredOnAt.IsZero() {
+		now := metav1.Now()
+		host.Status.Provisioning.PoweredOnAt = &now
+	}
 }
 
 // setLabel updates the given label when necessary and returns true

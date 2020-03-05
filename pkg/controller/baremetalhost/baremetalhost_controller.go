@@ -381,22 +381,18 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	}
 }
 
-// check for existence of reboot annotations and returns two booleans indicating
-// the existence of suffix-less reboot annotation and suffixed reboot annotations
-func getRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (suffixlessExist bool, withSuffixExist bool) {
-	if host.Annotations == nil {
-		return
+// hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist
+func hasRebootAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
+	if len(host.Annotations) == 0 {
+		return false
 	}
-
-	_, suffixlessExist = host.Annotations[rebootAnnotationPrefix]
 
 	for annotation := range host.Annotations {
-		if strings.HasPrefix(annotation, rebootAnnotationPrefix+"/") {
-			withSuffixExist = true
-			return
+		if strings.HasPrefix(annotation, rebootAnnotationPrefix+"/") || annotation == rebootAnnotationPrefix {
+			return true
 		}
 	}
-	return
+	return false
 }
 
 // checks if reboot is required
@@ -405,9 +401,7 @@ func checkUpdatedRebootRequest(host *metal3v1alpha1.BareMetalHost) (dirty bool) 
 		return
 	}
 
-	suffixlessExist, withSuffixExist := getRebootAnnotations(host)
-
-	if !(suffixlessExist || withSuffixExist) {
+	if !hasRebootAnnotation(host) {
 		return
 	}
 
@@ -678,19 +672,18 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	isInRebootProcess := poweredOnAt.Before(pendingRebootSince) || (!pendingRebootSince.IsZero() && poweredOnAt.IsZero())
 
 	if isInRebootProcess {
-		suffixlessAnnotationExists, shouldHoldPowerOff := getRebootAnnotations(info.host)
+		if !info.host.Status.PoweredOn {
+			if _, hasAnn := info.host.Annotations[rebootAnnotationPrefix]; hasAnn {
+				delete(info.host.Annotations, rebootAnnotationPrefix)
 
-		if suffixlessAnnotationExists && !info.host.Status.PoweredOn {
-			delete(info.host.Annotations, rebootAnnotationPrefix)
-
-			if err = r.client.Update(context.TODO(), info.host); err != nil {
-				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+				if err = r.client.Update(context.TODO(), info.host); err != nil {
+					return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+				}
+				return actionContinue{}
 			}
-
-			return actionContinue{}
 		}
 
-		if info.host.Status.PoweredOn || shouldHoldPowerOff {
+		if info.host.Status.PoweredOn || hasRebootAnnotation(info.host) {
 			desiredPowerOnState = false
 		}
 	}

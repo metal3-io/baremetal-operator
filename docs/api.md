@@ -29,12 +29,17 @@ mainly, but not only, provisioning details.
         and the port is optional, if using the default one (623).
     * Dell iDRAC
       * `idrac://` (or `idrac+http://` to disable TLS).
+      * `idrac-virtualmedia://` to use virtual media instead of PXE
+        for attaching the provisioning image to the host.
     * Fujitsu iRMC
       * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
     * Redfish
-      * `redfish://` (or `redfish+http://` to disable TLS), the hostname
-        or IP address, and the path to the system ID are required,
-        for example `redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
+      * `redfish://` (or `redfish+http://` to disable TLS)
+      * `redfish-virtualmedia://` to use virtual media instead of PXE
+        for attaching the provisioning image to the host.
+      * The hostname or IP address, and the path to the system ID are
+        required for all variants.  For example
+        `redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
         or `redfish://myhost.example/redfish/v1/Systems/1`
 
   * *credentialsName* -- A reference to a *secret* containing the

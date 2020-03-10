@@ -67,6 +67,10 @@ mainly, but not only, provisioning details.
   and its namespace, so it can be attached to the host before it boots
   for configuring different aspects of the OS (like networking, storage, ...).
 
+* *metaData* -- A reference to the Secret containing the cloudinit metadata
+  and its namespace, so it can be attached to the host before it boots to pass
+  metadata.
+
 * *networkData* -- A reference to the Secret containing the network
   configuration data (e.g. network\_data.json) and its namespace, so it can be
   attached to the host before it boots to set network up

@@ -67,6 +67,20 @@ func (hcd *hostConfigData) UserData() (string, error) {
 
 }
 
+// metaData get Operating System metadata
+func (hcd *hostConfigData) MetaData() (string, error) {
+	if hcd.host.Spec.MetaData == nil {
+		hcd.log.Info("MetaData is not set return empty string")
+		return "", nil
+	}
+	return hcd.getSecretData(
+		hcd.host.Spec.MetaData.Name,
+		hcd.host.Spec.MetaData.Namespace,
+		"metaData",
+	)
+
+}
+
 // NetworkData get network configuration
 func (hcd *hostConfigData) NetworkData() (string, error) {
 	if hcd.host.Spec.NetworkData == nil {

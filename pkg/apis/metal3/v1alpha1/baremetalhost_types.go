@@ -183,6 +183,10 @@ type BareMetalHostSpec struct {
 	// of network_data.json which is passed to Config Drive
 	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
 
+	// MetaData holds the reference to the Secret containing metadata
+	// which is passed to Config Drive
+	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
+
 	// Description is a human-entered text used to help identify the host
 	Description string `json:"description,omitempty"`
 

@@ -24,11 +24,13 @@ type HostConfigData interface {
 	// data for a host being provisioned.
 	UserData() (string, error)
 
-	// NetworkData is the interface for a function to retrieve netwok
+	// NetworkData is the interface for a function to retrieve network
 	// configuration for a host.
 	NetworkData() (string, error)
 
-	// TODO add MetaDataSource method
+	// MetaData is the interface for a function to retrieve metadata
+	// configuration for a host.
+	MetaData() (string, error)
 }
 
 // Provisioner holds the state information for talking to the

@@ -990,20 +990,33 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			return result, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
 		}
 
+		metaDataRaw, err := hostConf.MetaData()
+		var metaData map[string]interface{}
+		if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
+			return result, errors.Wrap(err, "failed to unmarshal metadata from secret")
+		}
+
+		// cloud-init requires that the "uuid" field is present to process
+		// any of the config drive contents. In addition, set some default fields
+		targetMetaData := map[string]interface{}{
+			"uuid":             string(p.host.ObjectMeta.UID),
+			"metal3-namespace": p.host.ObjectMeta.Namespace,
+			"metal3-name":      p.host.ObjectMeta.Name,
+			"local-hostname":   p.host.ObjectMeta.Name,
+			"local_hostname":   p.host.ObjectMeta.Name,
+		}
+
+		for k, v := range metaData {
+			targetMetaData[k] = v
+		}
+
 		var configDrive nodes.ConfigDrive
 		if userData != "" {
 			configDrive = nodes.ConfigDrive{
 				UserData: userData,
-				// cloud-init requires that meta_data.json exists and
-				// that the "uuid" field is present to process
+				// cloud-init requires that meta_data.json exists to process
 				// any of the config drive contents.
-				MetaData: map[string]interface{}{
-					"uuid":             string(p.host.ObjectMeta.UID),
-					"metal3-namespace": p.host.ObjectMeta.Namespace,
-					"metal3-name":      p.host.ObjectMeta.Name,
-					"local-hostname":   p.host.ObjectMeta.Name,
-					"local_hostname":   p.host.ObjectMeta.Name,
-				},
+				MetaData:    targetMetaData,
 				NetworkData: networkData,
 			}
 			if err != nil {

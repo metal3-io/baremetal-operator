@@ -21,10 +21,13 @@ func TestProvisionWithHostConfig(t *testing.T) {
 		Host                *metal3v1alpha1.BareMetalHost
 		UserDataSecret      *corev1.Secret
 		NetworkDataSecret   *corev1.Secret
+		MetaDataSecret      *corev1.Secret
 		ExpectedUserData    string
 		ErrUserData         bool
 		ExpectedNetworkData string
 		ErrNetworkData      bool
+		ExpectedMetaData    string
+		ErrMetaData         bool
 	}{
 		{
 			Scenario: "host with user data only",
@@ -139,6 +142,57 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			ExpectedNetworkData: "",
 			ErrNetworkData:      true,
 		},
+		{
+			Scenario: "host with metadata only",
+			Host: newHost("host-meta-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "metadata",
+						Namespace: namespace,
+					},
+				}),
+			MetaDataSecret:   newSecret("metadata", map[string]string{"metaData": "somedata"}),
+			ExpectedUserData: base64.StdEncoding.EncodeToString([]byte("somedata")),
+			ErrMetaData:      false,
+		},
+		{
+			Scenario: "host with metadata wrong key",
+			Host: newHost("host-meta-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "metadata",
+						Namespace: namespace,
+					},
+				}),
+			MetaDataSecret:   newSecret("metadata", map[string]string{"wrong": "somedata"}),
+			ExpectedUserData: "",
+			ErrMetaData:      true,
+		},
+		{
+			Scenario: "host with metadata only, fallback to value",
+			Host: newHost("host-meta-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "metadata",
+						Namespace: namespace,
+					},
+				}),
+			MetaDataSecret:   newSecret("metadata", map[string]string{"value": "somedata"}),
+			ExpectedUserData: base64.StdEncoding.EncodeToString([]byte("somedata")),
+			ErrMetaData:      false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -175,6 +229,15 @@ func TestProvisionWithHostConfig(t *testing.T) {
 
 			if actualNetworkData != tc.ExpectedNetworkData {
 				t.Fatal(fmt.Errorf("Failed to assert NetworkData. Expected '%s' got '%s'", actualNetworkData, tc.ExpectedNetworkData))
+			}
+
+			actualMetaData, err := hcd.MetaData()
+			if err != nil && !tc.ErrMetaData {
+				t.Fatal(err)
+			}
+
+			if actualMetaData != tc.ExpectedMetaData {
+				t.Fatal(fmt.Errorf("Failed to assert MetaData. Expected '%s' got '%s'", actualMetaData, tc.ExpectedMetaData))
 			}
 		})
 	}

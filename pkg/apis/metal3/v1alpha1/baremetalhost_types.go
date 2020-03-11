@@ -457,15 +457,6 @@ type ProvisionStatus struct {
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
-
-	// PoweredOnAt is the time that the server was powered on
-	// with the specified image
-	// +optional
-	PoweredOnAt *metav1.Time `json:"poweredOnAt,omitempty"`
-
-	// PendingRebootSince is the time after which the server must be rebooted
-	// +optional
-	PendingRebootSince *metav1.Time `json:"pendingRebootSince,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -535,14 +526,6 @@ func (host *BareMetalHost) ClearError() (dirty bool) {
 		dirty = true
 	}
 	return dirty
-}
-
-// RecordPoweredOn records the current time as the PoweredOnAt time if there's no existing value
-func (host *BareMetalHost) RecordPoweredOn() {
-	if host.Status.Provisioning.PoweredOnAt.IsZero() {
-		now := metav1.Now()
-		host.Status.Provisioning.PoweredOnAt = &now
-	}
 }
 
 // setLabel updates the given label when necessary and returns true

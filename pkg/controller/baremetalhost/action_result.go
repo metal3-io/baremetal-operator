@@ -19,6 +19,7 @@ type actionResult interface {
 // state.
 type actionContinue struct {
 	delay time.Duration
+	dirty bool
 }
 
 func (r actionContinue) Result() (result reconcile.Result, err error) {
@@ -29,7 +30,7 @@ func (r actionContinue) Result() (result reconcile.Result, err error) {
 }
 
 func (r actionContinue) Dirty() bool {
-	return true
+	return r.dirty
 }
 
 // actionComplete is a result indicating that the current action has completed,

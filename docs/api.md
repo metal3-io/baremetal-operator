@@ -156,10 +156,6 @@ details, etc.
 * *poweredOn* -- Boolean indicating whether the host is powered on.
   See *online* on the *BareMetalHost's* *Spec*.
 * *provisioning* -- Settings related to deploying an image to the host.
-  * *PoweredOnAt* -- The time that the server was powered on
-    with the specified image
-  * *PendingRebootSince* -- The time after which the server must be rebooted
-    (should not be set by other users/operators)
   * *state* -- The current state of any ongoing provisioning operation.
     The following are the currently supported ones:
     * *\<empty string\>* -- There is no provisioning happening, at the moment.

@@ -158,7 +158,7 @@ func (in *BareMetalHostStatus) DeepCopyInto(out *BareMetalHostStatus) {
 		*out = new(HardwareDetails)
 		(*in).DeepCopyInto(*out)
 	}
-	in.Provisioning.DeepCopyInto(&out.Provisioning)
+	out.Provisioning = in.Provisioning
 	in.GoodCredentials.DeepCopyInto(&out.GoodCredentials)
 	in.TriedCredentials.DeepCopyInto(&out.TriedCredentials)
 	in.OperationHistory.DeepCopyInto(&out.OperationHistory)
@@ -360,14 +360,6 @@ func (in *OperationMetric) DeepCopy() *OperationMetric {
 func (in *ProvisionStatus) DeepCopyInto(out *ProvisionStatus) {
 	*out = *in
 	out.Image = in.Image
-	if in.PoweredOnAt != nil {
-		in, out := &in.PoweredOnAt, &out.PoweredOnAt
-		*out = (*in).DeepCopy()
-	}
-	if in.PendingRebootSince != nil {
-		in, out := &in.PendingRebootSince, &out.PendingRebootSince
-		*out = (*in).DeepCopy()
-	}
 	return
 }
 

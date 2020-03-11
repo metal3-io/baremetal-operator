@@ -1007,11 +1007,11 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		}
 		metaDataRaw, err := hostConf.MetaData()
 		if err != nil {
-			return result, errors.Wrap(err, "could not retrieve network data")
+			return result, errors.Wrap(err, "could not retrieve metadata")
 		}
 		if metaDataRaw != "" {
 			if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
-				return result, errors.Wrap(err, "failed to unmarshal meta_data.json from secret")
+				return result, errors.Wrap(err, "failed to unmarshal metadata from secret")
 			}
 		}
 

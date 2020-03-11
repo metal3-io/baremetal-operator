@@ -224,6 +224,12 @@ spec:
   userData:
     name: bmo-master-user-data
     namespace: bmo-project
+  networkData:
+    name: bmo-master-network-data
+    namespace: bmo-project
+  metaData:
+    name: bmo-master-meta-data
+    namespace: bmo-project
 status:
   errorMessage: ""
   goodCredentials:

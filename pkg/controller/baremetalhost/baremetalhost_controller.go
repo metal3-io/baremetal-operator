@@ -375,10 +375,6 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 
 // hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist
 func hasRebootAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
-	if len(host.Annotations) == 0 {
-		return false
-	}
-
 	for annotation := range host.Annotations {
 		if isRebootAnnotation(annotation) {
 			return true

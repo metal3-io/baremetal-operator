@@ -14,12 +14,30 @@ type actionResult interface {
 	Dirty() bool
 }
 
+// actionContinueNoWrite is a result indicating that the current action is still
+// in progress, and that the resource should remain in the same provisioning
+// state without writing the status
+type actionContinueNoWrite struct {
+	delay time.Duration
+}
+
+func (r actionContinueNoWrite) Result() (result reconcile.Result, err error) {
+	result.RequeueAfter = r.delay
+	// Set Requeue true as well as RequeueAfter in case the delay is 0.
+	result.Requeue = true
+	return
+}
+
+func (r actionContinueNoWrite) Dirty() bool {
+	return false
+}
+
+
 // actionContinue is a result indicating that the current action is still
 // in progress, and that the resource should remain in the same provisioning
 // state.
 type actionContinue struct {
 	delay time.Duration
-	dirty bool
 }
 
 func (r actionContinue) Result() (result reconcile.Result, err error) {
@@ -30,7 +48,7 @@ func (r actionContinue) Result() (result reconcile.Result, err error) {
 }
 
 func (r actionContinue) Dirty() bool {
-	return r.dirty
+	return true
 }
 
 // actionComplete is a result indicating that the current action has completed,

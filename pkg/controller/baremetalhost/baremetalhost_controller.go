@@ -571,6 +571,13 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 	}
 	info.log.Info("provisioning")
 
+	if clearRebootAnnotations(info.host) {
+		if err := r.client.Update(context.TODO(), info.host); err != nil {
+			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
+		}
+		return actionContinue{}
+	}
+
 	provResult, err := prov.Provision(hostConf)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
@@ -651,20 +658,22 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 
 	desiredPowerOnState := info.host.Spec.Online
 
-	if hasRebootAnnotation(info.host) {
-		desiredPowerOnState = false
+	if !info.host.Status.PoweredOn {
+		if _, suffixlessAnnotationExists := info.host.Annotations[rebootAnnotationPrefix]; suffixlessAnnotationExists {
+			delete(info.host.Annotations, rebootAnnotationPrefix)
 
-		if !info.host.Status.PoweredOn {
-			if _, suffixlessAnnotationExists := info.host.Annotations[rebootAnnotationPrefix]; suffixlessAnnotationExists {
-				delete(info.host.Annotations, rebootAnnotationPrefix)
-
-				if err = r.client.Update(context.TODO(), info.host); err != nil {
-					return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
-				}
-
-				return actionContinue{}
+			if err = r.client.Update(context.TODO(), info.host); err != nil {
+				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
 			}
+
+			return actionContinue{}
 		}
+	}
+
+	provState := info.host.Status.Provisioning.State
+	isProvisioned := provState == metal3v1alpha1.StateProvisioned || provState == metal3v1alpha1.StateExternallyProvisioned
+	if hasRebootAnnotation(info.host) && isProvisioned {
+		desiredPowerOnState = false
 	}
 
 	// Power state needs to be monitored regularly, so if we leave

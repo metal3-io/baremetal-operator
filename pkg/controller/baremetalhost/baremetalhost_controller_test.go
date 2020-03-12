@@ -291,7 +291,11 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	host.Annotations = make(map[string]string)
 	host.Annotations[rebootAnnotationPrefix] = ""
 	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
 	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
 
 	r := newTestReconciler(host)
 
@@ -346,7 +350,11 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	annotation := rebootAnnotationPrefix + "/foo"
 	host.Annotations[annotation] = ""
 	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
 	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
 
 	r := newTestReconciler(host)
 

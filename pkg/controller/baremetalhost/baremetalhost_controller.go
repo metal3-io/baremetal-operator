@@ -390,10 +390,6 @@ func isRebootAnnotation(annotation string) bool{
 
 // clearRebootAnnotations deletes all reboot annotations exist on the provided host
 func clearRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
-	if len(host.Annotations) == 0 {
-		return
-	}
-
 	for annotation := range host.Annotations {
 		if isRebootAnnotation(annotation){
 			delete(host.Annotations, annotation)

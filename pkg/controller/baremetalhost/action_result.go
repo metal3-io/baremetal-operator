@@ -18,14 +18,7 @@ type actionResult interface {
 // in progress, and that the resource should remain in the same provisioning
 // state without writing the status
 type actionContinueNoWrite struct {
-	delay time.Duration
-}
-
-func (r actionContinueNoWrite) Result() (result reconcile.Result, err error) {
-	result.RequeueAfter = r.delay
-	// Set Requeue true as well as RequeueAfter in case the delay is 0.
-	result.Requeue = true
-	return
+	actionContinue
 }
 
 func (r actionContinueNoWrite) Dirty() bool {

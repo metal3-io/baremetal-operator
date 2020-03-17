@@ -74,7 +74,7 @@ func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfac
 }
 
 func (a *ipmiAccessDetails) BootInterface() string {
-	return "ipxe"
+	return "pxe"
 }
 
 func (a *ipmiAccessDetails) ManagementInterface() string {

@@ -77,7 +77,7 @@ func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfa
 }
 
 func (a *iDracAccessDetails) BootInterface() string {
-	return "ipxe"
+	return "pxe"
 }
 
 func (a *iDracAccessDetails) ManagementInterface() string {

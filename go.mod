@@ -8,6 +8,7 @@ require (
 	github.com/go-openapi/spec v0.19.4
 	github.com/gobuffalo/envy v1.7.1 // indirect
 	github.com/gophercloud/gophercloud v0.6.0
+	github.com/hashicorp/go-retryablehttp v0.6.4
 	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/operator-framework/operator-sdk v0.15.1
 	github.com/pkg/errors v0.8.1
@@ -25,6 +26,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
 	k8s.io/utils v0.0.0-20191030222137-2b95a09bc58d // indirect
 	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/yaml v1.1.0
 )
 
 // Pinned to kubernetes-1.16.2

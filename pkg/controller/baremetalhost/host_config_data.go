@@ -2,7 +2,15 @@ package baremetalhost
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
+	"io/ioutil"
+	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -41,7 +49,7 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (strin
 
 	data, ok := secret.Data[dataKey]
 	if ok {
-		return string(data), nil
+		return hcd.getFullIgnitionData(string(data))
 	}
 	// There is no data under dataKey (userData or networkData).
 	// Tring to falback to 'value' key
@@ -50,7 +58,7 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (strin
 		return "", NoDataInSecretError{secret: name, key: dataKey}
 	}
 
-	return string(data), nil
+	return hcd.getFullIgnitionData(string(data))
 }
 
 // UserData get Operating System configuration data
@@ -78,4 +86,48 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 		hcd.host.Spec.NetworkData.Namespace,
 		"networkData",
 	)
+}
+
+// Fetch Full ignition from Pointer ignition
+func (hcd *hostConfigData) getFullIgnitionData(pointerIgnitionB64 string) (string, error) {
+	// The pointerIgnition is in base64. Convert it to string
+	pointerIgnition, err := base64.StdEncoding.DecodeString(pointerIgnitionB64)
+	if err != nil {
+		return "", err
+	}
+	var ignConf map[string]interface{}
+	if err := json.Unmarshal(pointerIgnition, &ignConf); err != nil {
+		return "", err
+	}
+	ignitionURL := ignConf["ignition"].(map[string]interface{})["config"].(map[string]interface{})["append"].([]interface{})[0].(map[string]interface{})["source"].(string)
+	caCertRaw := ignConf["ignition"].(map[string]interface{})["security"].(map[string]interface{})["tls"].(map[string]interface{})["certificateAuthorities"].([]interface{})[0].(map[string]interface{})["source"].(string)
+	caCertB64 := strings.TrimPrefix(caCertRaw, "data:text/plain;charset=utf-8;base64,")
+	caCert, err := base64.StdEncoding.DecodeString(caCertB64)
+	if err != nil {
+		return "", err
+	}
+
+	var fullIgnition []byte
+	if ignitionURL != "" {
+		transport := &http.Transport{}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		transport.TLSClientConfig = &tls.Config{RootCAs: caCertPool}
+
+		client := retryablehttp.NewClient()
+		client.HTTPClient.Transport = transport
+
+		// Get the data
+		resp, err := client.Get(ignitionURL)
+		if err != nil {
+			return "", err
+		}
+
+		defer resp.Body.Close()
+		fullIgnition, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+	}
+	return string(fullIgnition), err
 }

@@ -135,7 +135,9 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 		// The FakeClient keeps a copy of the object we update, so we
 		// need to replace the one we have with the updated data in
 		// order to test it.
-		r.client.Get(goctx.TODO(), request.NamespacedName, host)
+		updatedHost := &metal3v1alpha1.BareMetalHost{}
+		r.client.Get(goctx.TODO(), request.NamespacedName, updatedHost)
+		updatedHost.DeepCopyInto(host)
 
 		if isDone(host, result) {
 			logger.Info("tryReconcile: loop done")
@@ -239,6 +241,166 @@ func TestSetLastUpdated(t *testing.T) {
 				return true
 			}
 			return false
+		},
+	)
+}
+
+func TestHasRebootAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+
+	if hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	host.Annotations = make(map[string]string)
+	suffixedAnnotation := rebootAnnotationPrefix + "/foo"
+	host.Annotations[suffixedAnnotation] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	delete(host.Annotations, suffixedAnnotation)
+	host.Annotations[rebootAnnotationPrefix] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	host.Annotations[suffixedAnnotation] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	//two suffixed annotations to simulate multiple clients
+
+	host.Annotations[suffixedAnnotation+"bar"] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+}
+
+// TestRebootWithSuffixlessAnnotation tests full reboot cycle with suffixless
+// annotation which doesn't wait for annotation removal before power on
+func TestRebootWithSuffixlessAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[rebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if _, exists := host.Annotations[rebootAnnotationPrefix]; exists {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	//make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+}
+
+// TestRebootWithSuffixedAnnotation tests a full reboot cycle, with suffixed annotation
+// to verify that controller holds power off until annotation removal
+func TestRebootWithSuffixedAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	annotation := rebootAnnotationPrefix + "/foo"
+	host.Annotations[annotation] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			//we expect that the machine will be powered off until we remove annotation
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	delete(host.Annotations, annotation)
+	r.client.Update(goctx.TODO(), host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	//make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
 		},
 	)
 }

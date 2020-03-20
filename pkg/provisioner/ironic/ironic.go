@@ -475,13 +475,16 @@ func getNICDetails(ifdata []introspection.InterfaceType,
 	for i, intf := range ifdata {
 		baseIntf := basedata[intf.Name]
 		vlans, vlanid := getVLANs(baseIntf)
-
+		ip := intf.IPV4Address
+		if ip == "" {
+			ip = intf.IPV6Address
+		}
 		nics[i] = metal3v1alpha1.NIC{
 			Name: intf.Name,
 			Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 				intf.Vendor, intf.Product), " "),
 			MAC:       intf.MACAddress,
-			IP:        intf.IPV4Address,
+			IP:        ip,
 			VLANs:     vlans,
 			VLANID:    vlanid,
 			SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),

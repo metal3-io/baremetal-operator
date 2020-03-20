@@ -332,8 +332,14 @@ func TestGetVLANsMalformed(t *testing.T) {
 func TestGetNICDetails(t *testing.T) {
 	nics := getNICDetails(
 		[]introspection.InterfaceType{
-			introspection.InterfaceType{Name: "eth0", MACAddress: "00:11:22:33:44:55"},
-			introspection.InterfaceType{Name: "eth1", MACAddress: "66:77:88:99:aa:bb"},
+			introspection.InterfaceType{
+				Name: "eth0",
+				IPV4Address: "192.0.2.1",
+				MACAddress: "00:11:22:33:44:55"},
+			introspection.InterfaceType{
+				Name: "eth1",
+				IPV6Address: "2001:db8::1",
+				MACAddress: "66:77:88:99:aa:bb"},
 		},
 		map[string]introspection.BaseInterfaceType{
 			"eth0": introspection.BaseInterfaceType{
@@ -360,6 +366,7 @@ func TestGetNICDetails(t *testing.T) {
 	if (!reflect.DeepEqual(nics[0], metal3v1alpha1.NIC{
 		Name: "eth0",
 		MAC:  "00:11:22:33:44:55",
+		IP:   "192.0.2.1",
 		PXE:  true,
 		VLANs: []metal3v1alpha1.VLAN{
 			metal3v1alpha1.VLAN{ID: 1},
@@ -371,6 +378,7 @@ func TestGetNICDetails(t *testing.T) {
 	if (!reflect.DeepEqual(nics[1], metal3v1alpha1.NIC{
 		Name:      "eth1",
 		MAC:       "66:77:88:99:aa:bb",
+		IP:        "2001:db8::1",
 		SpeedGbps: 1,
 	})) {
 		t.Errorf("Unexpected NIC data")

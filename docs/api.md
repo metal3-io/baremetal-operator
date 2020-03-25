@@ -11,12 +11,12 @@ and its current status.
 
 It is possible to pause the reconciliation of a BareMetalHost object by adding
 an annotation `baremetalhost.metal3.io/paused`. **Metal³**  provider sets the
-value of this annotation as `metal3.io/capM3` when the cluster to which the
+value of this annotation as `metal3.io/capm3` when the cluster to which the
 **BareMetalHost** belongs, is paused and removes it when the cluster is
 not paused. If you want to pause the reconciliation of **BareMetalHost** you can
-put any value on this annotation **other than `metal3.io/capM3`**. Please make
+put any value on this annotation **other than `metal3.io/capm3`**. Please make
 sure that you remove the annotation  **only if the value of the annotation is
-not `metal3.io/capM3`, but another value that you have provided**. Removing the
+not `metal3.io/capm3`, but another value that you have provided**. Removing the
 annotation will enable the reconciliation again.
 
 ### BareMetalHost spec

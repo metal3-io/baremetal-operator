@@ -2,6 +2,8 @@ package bmc
 
 import (
 	"net/url"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 )
 
 func init() {
@@ -69,6 +71,16 @@ func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfac
 	}
 	if a.portNum == "" {
 		result["ipmi_port"] = ipmiDefaultPort
+	}
+	return result
+}
+
+// NodeProperties returns a data structure to return details of
+// the host, including the boot mode. This will be used later to
+// instruct ironic to use specific boot mode
+func (a *ipmiAccessDetails) NodeProperties() map[string]interface{} {
+	result := map[string]interface{}{
+		"boot_mode": metal3v1alpha1.Legacy,
 	}
 	return result
 }

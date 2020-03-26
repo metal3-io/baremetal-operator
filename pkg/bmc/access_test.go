@@ -3,6 +3,7 @@ package bmc
 import (
 	"testing"
 
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -886,6 +887,63 @@ func TestDriverInfo(t *testing.T) {
 				t.Fatalf("unexpected parse error: %v", err)
 			}
 			di := acc.DriverInfo(Credentials{})
+			//If a key is present when it should not, this will catch it
+			if len(di) != len(tc.expects) {
+				t.Fatalf("Number of items do not match: %v and %v, %#v", len(di),
+					len(tc.expects), di)
+			}
+			for expectKey, expectArg := range tc.expects {
+				value, ok := di[expectKey]
+				if value != expectArg && ok {
+					t.Fatalf("unexpected value for %v (key present: %v): %v, expected %v",
+						ok, expectKey, value, expectArg)
+				}
+			}
+		})
+	}
+}
+
+func TestNodeProperties(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario string
+		input    string
+		expects  map[string]interface{}
+	}{
+		{
+			Scenario: "ipmi default port",
+			input:    "ipmi://192.168.122.1",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.Legacy,
+			},
+		},
+		{
+			Scenario: "idrac",
+			input:    "idrac://192.168.122.1",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.UEFI,
+			},
+		},
+		{
+			Scenario: "irmc",
+			input:    "irmc://192.168.122.1",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.UEFI,
+			},
+		},
+		{
+			Scenario: "Redfish",
+			input:    "redfish://192.168.122.1/foo/bar",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.UEFI,
+			},
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			acc, err := NewAccessDetails(tc.input, true)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+			di := acc.NodeProperties()
 			//If a key is present when it should not, this will catch it
 			if len(di) != len(tc.expects) {
 				t.Fatalf("Number of items do not match: %v and %v, %#v", len(di),

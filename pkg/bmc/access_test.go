@@ -3,6 +3,7 @@ package bmc
 import (
 	"testing"
 
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -290,86 +291,86 @@ func TestParse(t *testing.T) {
 
 func TestStaticDriverInfo(t *testing.T) {
 	for _, tc := range []struct {
-		Scenario string
-		input    string
-		needsMac bool
-		driver   string
-		boot     string
+		Scenario   string
+		input      string
+		needsMac   bool
+		driver     string
+		boot       string
 		management string
-		power string
-		raid string
-		vendor string
+		power      string
+		raid       string
+		vendor     string
 	}{
 		{
-			Scenario: "ipmi",
-			input:    "ipmi://192.168.122.1:6233",
-			needsMac: false,
-			driver:   "ipmi",
-			boot:     "ipxe",
+			Scenario:   "ipmi",
+			input:      "ipmi://192.168.122.1:6233",
+			needsMac:   false,
+			driver:     "ipmi",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "libvirt",
-			input:    "libvirt://192.168.122.1",
-			needsMac: true,
-			driver:   "ipmi",
-			boot:     "ipxe",
+			Scenario:   "libvirt",
+			input:      "libvirt://192.168.122.1",
+			needsMac:   true,
+			driver:     "ipmi",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "idrac",
-			input:    "idrac://192.168.122.1",
-			needsMac: false,
-			driver:   "idrac",
-			boot:     "ipxe",
+			Scenario:   "idrac",
+			input:      "idrac://192.168.122.1",
+			needsMac:   false,
+			driver:     "idrac",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "irmc",
-			input:    "irmc://192.168.122.1",
-			needsMac: false,
-			driver:   "irmc",
-			boot:     "pxe",
+			Scenario:   "irmc",
+			input:      "irmc://192.168.122.1",
+			needsMac:   false,
+			driver:     "irmc",
+			boot:       "pxe",
 			management: "",
-			power: "",
-			raid: "irmc",
-			vendor: "",
+			power:      "",
+			raid:       "irmc",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "redfish",
-			input:    "redfish://192.168.122.1",
-			needsMac: true,
-			driver:   "redfish",
-			boot:     "ipxe",
+			Scenario:   "redfish",
+			input:      "redfish://192.168.122.1",
+			needsMac:   true,
+			driver:     "redfish",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "redfish virtual media",
-			input:    "redfish-virtualmedia://192.168.122.1",
-			needsMac: true,
-			driver:   "redfish",
-			boot:     "redfish-virtual-media",
+			Scenario:   "redfish virtual media",
+			input:      "redfish-virtualmedia://192.168.122.1",
+			needsMac:   true,
+			driver:     "redfish",
+			boot:       "redfish-virtual-media",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
@@ -381,15 +382,15 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
-			Scenario: "idrac virtual media",
-			input:    "idrac-virtualmedia://192.168.122.1",
-			needsMac: true,
-			driver:   "idrac",
-			boot:     "idrac-redfish-virtual-media",
+			Scenario:   "idrac virtual media",
+			input:      "idrac-virtualmedia://192.168.122.1",
+			needsMac:   true,
+			driver:     "idrac",
+			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
-			power: "idrac-redfish",
-			raid: "no-raid",
-			vendor: "no-vendor",
+			power:      "idrac-redfish",
+			raid:       "no-raid",
+			vendor:     "no-vendor",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
@@ -662,6 +663,63 @@ func TestDriverInfo(t *testing.T) {
 				t.Fatalf("unexpected parse error: %v", err)
 			}
 			di := acc.DriverInfo(Credentials{})
+			//If a key is present when it should not, this will catch it
+			if len(di) != len(tc.expects) {
+				t.Fatalf("Number of items do not match: %v and %v, %#v", len(di),
+					len(tc.expects), di)
+			}
+			for expectKey, expectArg := range tc.expects {
+				value, ok := di[expectKey]
+				if value != expectArg && ok {
+					t.Fatalf("unexpected value for %v (key present: %v): %v, expected %v",
+						ok, expectKey, value, expectArg)
+				}
+			}
+		})
+	}
+}
+
+func TestNodeProperties(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario string
+		input    string
+		expects  map[string]interface{}
+	}{
+		{
+			Scenario: "ipmi default port",
+			input:    "ipmi://192.168.122.1",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.Legacy,
+			},
+		},
+		{
+			Scenario: "idrac",
+			input:    "idrac://192.168.122.1",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.UEFI,
+			},
+		},
+		{
+			Scenario: "irmc",
+			input:    "irmc://192.168.122.1",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.UEFI,
+			},
+		},
+		{
+			Scenario: "Redfish",
+			input:    "redfish://192.168.122.1/foo/bar",
+			expects: map[string]interface{}{
+				"boot_mode": metal3v1alpha1.UEFI,
+			},
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			acc, err := NewAccessDetails(tc.input, true)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+			di := acc.NodeProperties()
 			//If a key is present when it should not, this will catch it
 			if len(di) != len(tc.expects) {
 				t.Fatalf("Number of items do not match: %v and %v, %#v", len(di),

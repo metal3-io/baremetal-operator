@@ -446,6 +446,15 @@ type BareMetalHostStatus struct {
 	OperationHistory OperationHistory `json:"operationHistory"`
 }
 
+// BootMode is the boot mode of the system
+type BootMode string
+
+// Allowed boot mode from metal3
+const (
+	UEFI   BootMode = "UEFI"
+	Legacy BootMode = "legacy"
+)
+
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
 	// An indiciator for what the provisioner is doing with the host.
@@ -457,6 +466,10 @@ type ProvisionStatus struct {
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
+
+	// BootMode indicates the boot mode used to provision the node
+	// +kubebuilder:validation:Enum=UEFI;legacy
+	BootMode BootMode `json:"bootMode,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

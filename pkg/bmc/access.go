@@ -44,6 +44,10 @@ type AccessDetails interface {
 	// (such as the kernel and ramdisk locations).
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
 
+	// NodeProperties returns properties of a host, including the boot
+	// mode. This will depend on each interface
+	NodeProperties() map[string]interface{}
+
 	// Boot interface to set
 	BootInterface() string
 

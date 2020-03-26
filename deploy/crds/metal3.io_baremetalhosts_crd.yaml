@@ -505,6 +505,13 @@ spec:
                   description: The machine's UUID from the underlying provisioning
                     tool
                   type: string
+                bootMode:
+                  description: BootMode indicates the boot mode used to provision
+                    the node
+                  enum:
+                  - UEFI
+                  - legacy
+                  type: string
                 image:
                   description: Image holds the details of the last image successfully
                     provisioned to the host.

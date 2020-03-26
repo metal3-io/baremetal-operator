@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
+	"github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
@@ -236,6 +237,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
+		properties := map[string]interface{}{}
+		nodeProperties := p.bmcAccess.NodeProperties()
+		if nodeProperties["boot_mode"] == v1alpha1.UEFI {
+			properties["capabilities"] = "boot_mode:uefi"
+		} else if nodeProperties["boot_mode"] == v1alpha1.Legacy {
+			properties["capabilities"] = "boot_mode:bios"
+		}
+
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
@@ -245,6 +254,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				DriverInfo:          driverInfo,
 				InspectInterface:    "inspector",
 				ManagementInterface: p.bmcAccess.ManagementInterface(),
+				Properties:          properties,
 				PowerInterface:      p.bmcAccess.PowerInterface(),
 				RAIDInterface:       p.bmcAccess.RAIDInterface(),
 				VendorInterface:     p.bmcAccess.VendorInterface(),
@@ -258,6 +268,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
 		p.status.ID = ironicNode.UUID
+		p.status.BootMode = nodeProperties["boot_mode"].(v1alpha1.BootMode)
 		result.Dirty = true
 		p.log.Info("setting provisioning id", "ID", p.status.ID)
 

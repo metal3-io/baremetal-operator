@@ -3,6 +3,8 @@ package bmc
 import (
 	"net/url"
 	"strings"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 )
 
 func init() {
@@ -103,6 +105,16 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 		result["redfish_verify_ca"] = false
 	}
 
+	return result
+}
+
+// NodeProperties returns a data structure to return details of
+// the host, including the boot mode. This will be used later to
+// instruct ironic to use specific boot mode
+func (a *redfishAccessDetails) NodeProperties() map[string]interface{} {
+	result := map[string]interface{}{
+		"boot_mode": metal3v1alpha1.UEFI,
+	}
 	return result
 }
 

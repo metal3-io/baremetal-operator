@@ -94,9 +94,13 @@ func (hcd *hostConfigData) MetaData() (string, error) {
 		hcd.log.Info("MetaData is not set returning empty(nil) data")
 		return "", nil
 	}
+	namespace := hcd.host.Spec.MetaData.Namespace
+	if namespace == "" {
+		namespace = hcd.host.Namespace
+	}
 	return hcd.getSecretData(
 		hcd.host.Spec.MetaData.Name,
-		hcd.host.Spec.MetaData.Namespace,
+		namespace,
 		"metaData",
 	)
 }

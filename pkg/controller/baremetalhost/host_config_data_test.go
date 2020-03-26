@@ -120,6 +120,22 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			ErrMetaData:       false,
 		},
 		{
+			Scenario: "host with metadata only, no namespace",
+			Host: newHost("host-meta-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					MetaData: &corev1.SecretReference{
+						Name: "meta-data",
+					},
+				}),
+			NetworkDataSecret: newSecret("meta-data", map[string]string{"metaData": "key: value"}),
+			ExpectedMetaData:  base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ErrMetaData:       false,
+		},
+		{
 			Scenario: "fall back to value",
 			Host: newHost("host-user-data",
 				&metal3v1alpha1.BareMetalHostSpec{

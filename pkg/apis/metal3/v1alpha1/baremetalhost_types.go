@@ -22,6 +22,9 @@ const (
 	// PausedAnnotation is the annotation that pauses the reconciliation (triggers
 	// an immediate requeue)
 	PausedAnnotation = "baremetalhost.metal3.io/paused"
+
+	// StatusAnnotation is the annotation that holds the Status of BMH
+	StatusAnnotation = "baremetalhost.metal3.io/status"
 )
 
 // OperationalStatus represents the state of the host

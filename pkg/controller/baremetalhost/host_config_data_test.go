@@ -46,6 +46,24 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			ErrNetworkData:      false,
 		},
 		{
+			Scenario: "host with user data only, no namespace",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					UserData: &corev1.SecretReference{
+						Name: "user-data",
+					},
+				}),
+			UserDataSecret:      newSecret("user-data", map[string]string{"userData": "somedata"}),
+			ExpectedUserData:    base64.StdEncoding.EncodeToString([]byte("somedata")),
+			ErrUserData:         false,
+			ExpectedNetworkData: "",
+			ErrNetworkData:      false,
+		},
+		{
 			Scenario: "host with network data only",
 			Host: newHost("host-user-data",
 				&metal3v1alpha1.BareMetalHostSpec{
@@ -56,6 +74,24 @@ func TestProvisionWithHostConfig(t *testing.T) {
 					NetworkData: &corev1.SecretReference{
 						Name:      "net-data",
 						Namespace: namespace,
+					},
+				}),
+			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),
+			ExpectedUserData:    "",
+			ErrUserData:         false,
+			ExpectedNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ErrNetworkData:      false,
+		},
+		{
+			Scenario: "host with network data only, no namespace",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					NetworkData: &corev1.SecretReference{
+						Name: "net-data",
 					},
 				}),
 			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),

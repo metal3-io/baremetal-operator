@@ -37,7 +37,7 @@ help:
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: generate unit lint dep-check
+test: generate unit lint
 
 .PHONY: generate
 generate:
@@ -97,10 +97,6 @@ e2e-local:
 		--up-local $(SETUP) \
 		$(DEBUG) --go-test-flags "$(GO_TEST_FLAGS)"
 
-.PHONY: dep
-dep:
-	dep ensure -v
-
 .PHONY: run
 run:
 	operator-sdk up local \
@@ -129,10 +125,3 @@ deploy:
 	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
 	kustomize build deploy | kubectl apply -f -
 
-.PHONY: dep-status
-dep-status:
-	dep status
-
-.PHONY: dep-prune
-dep-prune:
-	dep prune -v

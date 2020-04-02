@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: metal3
+resources:
+- ../namespace
+- ../rbac
+- ../crds
+- ../operator/no_ironic
+configMapGenerator:
+- envs:
+  - ironic_bmo_configmap.env
+  name: ironic-bmo-configmap

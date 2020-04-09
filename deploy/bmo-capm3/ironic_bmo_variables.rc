@@ -1,4 +1,0 @@
-DEPLOY_KERNEL_URL = "http://172.22.0.1:6180/images/ironic-python-agent.kernel"
-DEPLOY_RAMDISK_URL = "http://172.22.0.1:6180/images/ironic-python-agent.initramfs"
-IRONIC_URL = "http://172.22.0.1:6385/v1/"
-IRONIC_INSPECTOR_URL = "http://172.22.0.1:5050/v1/"

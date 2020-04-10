@@ -15,6 +15,8 @@ export DEPLOY_KERNEL_URL=http://172.22.0.1:6180/images/ironic-python-agent.kerne
 export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.initramfs
 export IRONIC_ENDPOINT=http://localhost:6385/v1/
 export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
+export GO111MODULE=on
+export GOFLAGS=
 
 .PHONY: help
 help:
@@ -35,7 +37,7 @@ help:
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: generate unit lint dep-check
+test: generate unit lint
 
 .PHONY: generate
 generate:
@@ -95,10 +97,6 @@ e2e-local:
 		--up-local $(SETUP) \
 		$(DEBUG) --go-test-flags "$(GO_TEST_FLAGS)"
 
-.PHONY: dep
-dep:
-	dep ensure -v
-
 .PHONY: run
 run:
 	operator-sdk up local \
@@ -127,10 +125,3 @@ deploy:
 	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
 	kustomize build deploy | kubectl apply -f -
 
-.PHONY: dep-status
-dep-status:
-	dep status
-
-.PHONY: dep-prune
-dep-prune:
-	dep prune -v

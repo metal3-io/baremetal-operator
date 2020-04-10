@@ -14,6 +14,18 @@ type actionResult interface {
 	Dirty() bool
 }
 
+// actionContinueNoWrite is a result indicating that the current action is still
+// in progress, and that the resource should remain in the same provisioning
+// state without writing the status
+type actionContinueNoWrite struct {
+	actionContinue
+}
+
+func (r actionContinueNoWrite) Dirty() bool {
+	return false
+}
+
+
 // actionContinue is a result indicating that the current action is still
 // in progress, and that the resource should remain in the same provisioning
 // state.

@@ -18,6 +18,10 @@ const (
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
 	BareMetalHostFinalizer string = "baremetalhost.metal3.io"
+
+	// PausedAnnotation is the annotation that pauses the reconciliation (triggers
+	// an immediate requeue)
+	PausedAnnotation = "baremetalhost.metal3.io/paused"
 )
 
 // OperationalStatus represents the state of the host
@@ -79,6 +83,9 @@ const (
 
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
+
+	// StateAvailable means the host can be consumed
+	StateAvailable ProvisioningState = "available"
 
 	// StateProvisioning means we are writing an image to the host's
 	// disk(s)
@@ -171,6 +178,10 @@ type BareMetalHostSpec struct {
 	// UserData holds the reference to the Secret containing the user
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
+
+	// NetworkData holds the reference to the Secret containing content
+	// of network_data.json which is passed to Config Drive
+	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
 
 	// Description is a human-entered text used to help identify the host
 	Description string `json:"description,omitempty"`
@@ -696,7 +707,7 @@ func (host *BareMetalHost) NewEvent(reason, message string) corev1.Event {
 			Namespace:  host.Namespace,
 			Name:       host.Name,
 			UID:        host.UID,
-			APIVersion: SchemeGroupVersion.Version,
+			APIVersion: SchemeGroupVersion.String(),
 		},
 		Reason:  reason,
 		Message: message,

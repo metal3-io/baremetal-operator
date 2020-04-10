@@ -187,7 +187,7 @@ func TestManageHardwareDetails(t *testing.T) {
 			BMC: metal3v1alpha1.BMCDetails{
 				Address:                        "ipmi://192.168.122.1:6233",
 				CredentialsName:                "bmc-creds-valid",
-				disableCertificateVerification: true,
+				DisableCertificateVerification: true,
 			},
 		})
 

@@ -596,6 +596,18 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				result.RequeueAfter = introspectionRequeueDelay
 				err = nil
 				return
+			case nodes.InspectFail:
+				p.log.Info("inspection failed, will retry", "error", ironicNode.LastError)
+				result, err = p.changeNodeProvisionState(
+					ironicNode,
+					nodes.ProvisionStateOpts{Target: nodes.Manageable},
+					)
+				if err == nil {
+					result.Dirty = true
+					result.RequeueAfter = introspectionRequeueDelay
+				}
+
+				return
 			default:
 				p.log.Info("starting new hardware inspection")
 				result, err = p.changeNodeProvisionState(

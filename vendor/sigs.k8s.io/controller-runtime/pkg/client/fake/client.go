@@ -106,6 +106,18 @@ func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj runtime.
 	if err != nil {
 		return err
 	}
+
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
+	}
+	ta.SetKind(gvk.Kind)
+	ta.SetAPIVersion(gvk.GroupVersion().String())
+
 	j, err := json.Marshal(o)
 	if err != nil {
 		return err
@@ -121,6 +133,8 @@ func (c *fakeClient) List(ctx context.Context, obj runtime.Object, opts ...clien
 		return err
 	}
 
+	OriginalKind := gvk.Kind
+
 	if !strings.HasSuffix(gvk.Kind, "List") {
 		return fmt.Errorf("non-list type %T (kind %q) passed as output", obj, gvk)
 	}
@@ -135,6 +149,14 @@ func (c *fakeClient) List(ctx context.Context, obj runtime.Object, opts ...clien
 	if err != nil {
 		return err
 	}
+
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
+	}
+	ta.SetKind(OriginalKind)
+	ta.SetAPIVersion(gvk.GroupVersion().String())
+
 	j, err := json.Marshal(o)
 	if err != nil {
 		return err
@@ -287,6 +309,17 @@ func (c *fakeClient) Patch(ctx context.Context, obj runtime.Object, patch client
 	if !handled {
 		panic("tracker could not handle patch method")
 	}
+
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
+	}
+	ta.SetKind(gvk.Kind)
+	ta.SetAPIVersion(gvk.GroupVersion().String())
 
 	j, err := json.Marshal(o)
 	if err != nil {

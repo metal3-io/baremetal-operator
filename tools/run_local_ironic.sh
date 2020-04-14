@@ -45,7 +45,7 @@ fi
 # Start image downloader container
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic-outside-config/ironic_bmo_configmap.env" \
      -v "$IRONIC_DATA_DIR:/shared" "${IPA_DOWNLOADER_IMAGE}" /usr/local/bin/get-resource.sh
 
 sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
@@ -56,20 +56,20 @@ sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
 # https://github.com/metal3-io/ironic/blob/master/rundnsmasq.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic-outside-config/ironic_bmo_configmap.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
 # For available env vars, see:
 # https://github.com/metal3-io/ironic/blob/master/runhttpd.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic-outside-config/ironic_bmo_configmap.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
 # https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic-outside-config/ironic_bmo_configmap.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runmariadb \
      --env "MARIADB_PASSWORD=$mariadb_password" "${IRONIC_IMAGE}"
 
@@ -77,12 +77,12 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
 # https://github.com/metal3-io/ironic/blob/master/runironic.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic-outside-config/ironic_bmo_configmap.env" \
      --env "MARIADB_PASSWORD=$mariadb_password" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start Ironic Inspector
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic-outside-config/ironic_bmo_configmap.env" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"

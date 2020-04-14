@@ -15,19 +15,27 @@
 package test
 
 import (
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 )
 
-type TestCtx struct {
+type TestCtx struct { //nolint:golint
+	// todo(camilamacedo86): The no lint here is for type name will be used as test.TestCtx by other packages, and that stutters; consider calling this Ctx (golint)
+	// However, was decided to not move forward with it now in order to not introduce breakchanges with the task to add the linter. We should to do it after.
 	id         string
 	cleanupFns []cleanupFn
 	namespace  string
 	t          *testing.T
+
+	namespacedManPath string
+	client            *frameworkClient
+	kubeclient        kubernetes.Interface
+	restMapper        *restmapper.DeferredDiscoveryRESTMapper
 }
 
 type CleanupOptions struct {
@@ -38,28 +46,27 @@ type CleanupOptions struct {
 
 type cleanupFn func() error
 
-func NewTestCtx(t *testing.T) *TestCtx {
-	var prefix string
-	if t != nil {
-		// TestCtx is used among others for namespace names where '/' is forbidden
-		prefix = strings.TrimPrefix(
-			strings.Replace(
-				strings.ToLower(t.Name()),
-				"/",
-				"-",
-				-1,
-			),
-			"test",
-		)
-	} else {
-		prefix = "main"
-	}
+func (f *Framework) newTestCtx(t *testing.T) *TestCtx {
+	// TestCtx is used among others for namespace names where '/' is forbidden and must be 63 characters or less
+	id := "osdk-e2e-" + uuid.New()
 
-	id := prefix + "-" + strconv.FormatInt(time.Now().Unix(), 10)
-	return &TestCtx{
-		id: id,
-		t:  t,
+	var namespace string
+	if f.singleNamespaceMode {
+		namespace = f.Namespace
 	}
+	return &TestCtx{
+		id:                id,
+		t:                 t,
+		namespace:         namespace,
+		namespacedManPath: *f.NamespacedManPath,
+		client:            f.Client,
+		kubeclient:        f.KubeClient,
+		restMapper:        f.restMapper,
+	}
+}
+
+func NewTestCtx(t *testing.T) *TestCtx {
+	return Global.newTestCtx(t)
 }
 
 func (ctx *TestCtx) GetID() string {

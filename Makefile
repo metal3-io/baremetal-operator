@@ -99,14 +99,14 @@ e2e-local:
 
 .PHONY: run
 run:
-	operator-sdk up local \
+	operator-sdk run --local \
 		--go-ldflags=$(LDFLAGS) \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
 
 .PHONY: demo
 demo:
-	operator-sdk up local \
+	operator-sdk run --local \
 		--go-ldflags=$(LDFLAGS) \
 		--namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev -demo-mode"

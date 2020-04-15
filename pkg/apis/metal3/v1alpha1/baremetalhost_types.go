@@ -179,9 +179,14 @@ type BareMetalHostSpec struct {
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
-	// NetworkData holds the reference to the Secret containing content
-	// of network_data.json which is passed to Config Drive
+	// NetworkData holds the reference to the Secret containing network
+	// configuration (e.g content of network_data.json which is passed
+	// to Config Drive).
 	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
+
+	// MetaData holds the reference to the Secret containing host metadata
+	// (e.g. meta_data.json which is passed to Config Drive).
+	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
 
 	// Description is a human-entered text used to help identify the host
 	Description string `json:"description,omitempty"`

@@ -5,7 +5,8 @@ resources:
 - ../namespace
 - ../rbac
 - ../crds
-- ../operator/ironic
+- ../deployments/bmo
+- ../deployments/ironic
 configMapGenerator:
 - envs:
   - ironic_bmo_configmap.env

@@ -12,13 +12,13 @@ require (
 	github.com/operator-framework/operator-sdk v0.15.1
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.2.1
-	github.com/securego/gosec v0.0.0-20200203094520-d13bb6d2420c // indirect
+	github.com/securego/gosec v0.0.0-20200302134848-c998389da2ac // indirect
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.12.0 // indirect
 	golang.org/x/crypto v0.0.0-20191108234033-bd318be0434a // indirect
-	golang.org/x/lint v0.0.0-20200130185559-910be7a94367 // indirect
+	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/net v0.0.0-20191109021931-daa7c04131f5 // indirect
-	golang.org/x/tools v0.0.0-20200226224502-204d844ad48d // indirect
+	golang.org/x/tools v0.0.0-20200302225559-9b52d559c609 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible

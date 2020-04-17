@@ -981,32 +981,45 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		// setting the state to "active".
 		p.log.Info("making host active")
 
+		// Retrieve cloud-init user data
 		userData, err := hostConf.UserData()
 		if err != nil {
 			return result, errors.Wrap(err, "could not retrieve user data")
 		}
 
+		// Retrieve cloud-init network_data.json. Default value is empty
 		networkDataRaw, err := hostConf.NetworkData()
-
+		if err != nil {
+			return result, errors.Wrap(err, "could not retrieve network data")
+		}
 		var networkData map[string]interface{}
 		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
 			return result, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
 		}
 
+		// Retrieve cloud-init meta_data.json with falback to default
+		metaData := map[string]interface{}{
+			"uuid":             string(p.host.ObjectMeta.UID),
+			"metal3-namespace": p.host.ObjectMeta.Namespace,
+			"metal3-name":      p.host.ObjectMeta.Name,
+			"local-hostname":   p.host.ObjectMeta.Name,
+			"local_hostname":   p.host.ObjectMeta.Name,
+		}
+		metaDataRaw, err := hostConf.MetaData()
+		if err != nil {
+			return result, errors.Wrap(err, "could not retrieve metadata")
+		}
+		if metaDataRaw != "" {
+			if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
+				return result, errors.Wrap(err, "failed to unmarshal metadata from secret")
+			}
+		}
+
 		var configDrive nodes.ConfigDrive
 		if userData != "" {
 			configDrive = nodes.ConfigDrive{
-				UserData: userData,
-				// cloud-init requires that meta_data.json exists and
-				// that the "uuid" field is present to process
-				// any of the config drive contents.
-				MetaData: map[string]interface{}{
-					"uuid":             string(p.host.ObjectMeta.UID),
-					"metal3-namespace": p.host.ObjectMeta.Namespace,
-					"metal3-name":      p.host.ObjectMeta.Name,
-					"local-hostname":   p.host.ObjectMeta.Name,
-					"local_hostname":   p.host.ObjectMeta.Name,
-				},
+				UserData:    userData,
+				MetaData:    metaData,
 				NetworkData: networkData,
 			}
 			if err != nil {

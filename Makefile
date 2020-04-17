@@ -118,7 +118,7 @@ docker:
 .PHONY: build
 build:
 	@echo LDFLAGS=$(LDFLAGS)
-	go build -o build/_output/bin/baremetal-operator cmd/manager/main.go
+	go build -mod=vendor -o build/_output/bin/baremetal-operator cmd/manager/main.go
 
 .PHONY: deploy
 deploy:

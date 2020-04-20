@@ -161,6 +161,7 @@ details, etc.
   | `libvirt`           | /dev/vda        |
   | `dell`              | HCTL: 0:0:0:0   |
   | `dell-raid`         | HCTL: 0:2:0:0   |
+  | `openstack`         | /dev/vdb        |
 
   **NOTE:** These are subject to change.
 

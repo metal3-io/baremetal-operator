@@ -42,7 +42,13 @@ test: generate unit lint
 .PHONY: generate
 generate:
 	operator-sdk generate k8s
-	operator-sdk generate openapi
+	openapi-gen \
+		--input-dirs ./pkg/apis/metal3/v1alpha1 \
+		--output-package ./pkg/apis/metal3/v1alpha1 \
+		--output-base "" \
+		--output-file-base zz_generated.openapi \
+		--report-filename "-" \
+		--go-header-file /dev/null
 
 .PHONY: travis
 travis: unit-verbose lint

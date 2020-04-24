@@ -8,24 +8,22 @@ require (
 	github.com/go-openapi/spec v0.19.4
 	github.com/gobuffalo/envy v1.7.1 // indirect
 	github.com/gophercloud/gophercloud v0.6.0
-	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/operator-framework/operator-sdk v0.15.1
-	github.com/pkg/errors v0.8.1
-	github.com/prometheus/client_golang v1.2.1
-	github.com/securego/gosec v0.0.0-20200302134848-c998389da2ac // indirect
+	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.5.0
+	github.com/securego/gosec v0.0.0-20200401082031-e946c8c39989 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.12.0 // indirect
-	golang.org/x/crypto v0.0.0-20191108234033-bd318be0434a // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/net v0.0.0-20191109021931-daa7c04131f5 // indirect
-	golang.org/x/tools v0.0.0-20200302225559-9b52d559c609 // indirect
-	k8s.io/api v0.0.0
-	k8s.io/apimachinery v0.0.0
+	golang.org/x/tools v0.0.0-20200417140056-c07e33ef3290 // indirect
+	k8s.io/api v0.17.2
+	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
-	k8s.io/utils v0.0.0-20191030222137-2b95a09bc58d // indirect
-	sigs.k8s.io/controller-runtime v0.4.0
-	sigs.k8s.io/yaml v1.1.0
+	sigs.k8s.io/cluster-api v0.3.3
+	sigs.k8s.io/controller-runtime v0.5.2
+	sigs.k8s.io/yaml v1.2.0
+
 )
 
 // Pinned to kubernetes-1.16.2

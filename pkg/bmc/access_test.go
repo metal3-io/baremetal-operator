@@ -31,7 +31,7 @@ func TestParse(t *testing.T) {
 			Hostname: "192.168.122.1:6233",
 			Path:     "/",
 			Query: map[string][]string{
-				"abc": []string{"def"},
+				"abc": {"def"},
 			},
 		},
 

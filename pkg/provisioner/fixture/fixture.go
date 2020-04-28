@@ -77,7 +77,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, detai
 			&metal3v1alpha1.HardwareDetails{
 				RAMMebibytes: 128 * 1024,
 				NIC: []metal3v1alpha1.NIC{
-					metal3v1alpha1.NIC{
+					{
 						Name:      "nic-1",
 						Model:     "virt-io",
 						MAC:       "some:mac:address",
@@ -85,7 +85,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, detai
 						SpeedGbps: 1,
 						PXE:       true,
 					},
-					metal3v1alpha1.NIC{
+					{
 						Name:      "nic-2",
 						Model:     "e1000",
 						MAC:       "some:other:mac:address",
@@ -95,13 +95,13 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, detai
 					},
 				},
 				Storage: []metal3v1alpha1.Storage{
-					metal3v1alpha1.Storage{
+					{
 						Name:       "disk-1 (boot)",
 						Rotational: false,
 						SizeBytes:  metal3v1alpha1.TebiByte * 93,
 						Model:      "Dell CFJ61",
 					},
-					metal3v1alpha1.Storage{
+					{
 						Name:       "disk-2",
 						Rotational: false,
 						SizeBytes:  metal3v1alpha1.TebiByte * 93,

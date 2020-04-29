@@ -71,6 +71,31 @@ Note that this script may need customizations to some of the `podman run`
 commands, to include environment variables that configure the containers for
 your environment.
 
+## Use with Redfish BMCs and UEFI
+
+Newer firmware versions being released by hardware vendors, starting in
+late 2019, are beginning to introducing changes which breaks the ability
+for a Redfish API consumer to assert a persistent boot behavior overrides
+utilizing a singular vendor-independnet field, at least when UEFI is also
+in use.
+
+Some, but not all, vendors have UEFI specific setting fields which are
+available, however the standard allows for it to be internally referential
+information. The end result being if these newer fields are even present,
+we need an extensive amount of vendor and hardware specific context, or even
+host specific internal information to be able to effectively leverage the
+UEFI specific fields.
+
+As a result, only one-time boot overrides can realistically be sent until
+vendors implement the latest fields and behavior specified in the early
+2020 Redfish schema documentation which calls for a easily relatable alias
+field to be implemented.
+
+The end result being that hardware *must* be set to persistently boot to
+a Hard Disk or other persistent storage medium prior to being deployed upon,
+if the desired end state is such and persistent settings are not asseted
+before the first reboot of the node after intiial deployment.
+
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to

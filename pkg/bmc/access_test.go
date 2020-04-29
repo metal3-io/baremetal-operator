@@ -557,6 +557,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -569,6 +570,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -581,6 +583,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -593,6 +596,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -605,6 +609,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -617,6 +622,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -629,6 +635,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -641,6 +648,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 
@@ -653,6 +661,7 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
+				"force_persistent_boot_device": "Never",
 			},
 		},
 	} {

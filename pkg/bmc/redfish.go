@@ -97,6 +97,7 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 		"redfish_username":  bmcCreds.Username,
 		"redfish_password":  bmcCreds.Password,
 		"redfish_address":   strings.Join(redfishAddress, ""),
+		"force_persistent_boot_device": "Never",
 	}
 
 	if a.disableCertificateVerification {

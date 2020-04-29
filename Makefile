@@ -75,10 +75,22 @@ crd_file=deploy/crds/metal3.io_baremetalhosts_crd.yaml
 crd_tmp=.crd.yaml.tmp
 
 .PHONY: lint
-lint: test-sec $GOPATH/bin/golint
-	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
+lint: test-sec golint go-vet generate-check
+
+# Ensure that generate does not produce changes
+.PHONY: generate-check
+generate-check:
+	cp $(crd_file) $(crd_tmp)
+	make generate
+	if ! diff $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
+
+.PHONY: go-vet
+go-vet:
 	go vet ./pkg/... ./cmd/...
-	cp $(crd_file) $(crd_tmp); make generate; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
+
+.PHONY: golint
+golint:  $GOPATH/bin/golint
+	golint ./pkg ./cmd
 
 .PHONY: test-sec
 test-sec: $GOPATH/bin/gosec

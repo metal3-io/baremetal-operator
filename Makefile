@@ -95,6 +95,10 @@ $GOPATH/bin/gosec:
 $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint
 
+.PHONY: gofmt
+gofmt:
+	gofmt -l -w ./pkg ./cmd
+
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))
 

@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	log                     = logf.Log.WithName("cmd")
-	watchNamespace          string
+	log            = logf.Log.WithName("cmd")
+	watchNamespace string
 )
 
 func printVersion() {

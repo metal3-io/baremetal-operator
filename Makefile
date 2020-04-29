@@ -100,6 +100,10 @@ gofmt-check:
 	gofmt -l ./pkg ./cmd | sed -e 's/^/gofmt fails: /g'
 	test -z "`gofmt -l ./pkg ./cmd`"
 
+.PHONY: gofmt
+gofmt:
+	gofmt -w ./pkg ./cmd
+
 .PHONY: test-sec
 test-sec: $GOPATH/bin/gosec
 	gosec -severity medium --confidence medium -quiet ./...

@@ -75,7 +75,7 @@ crd_file=deploy/crds/metal3.io_baremetalhosts_crd.yaml
 crd_tmp=.crd.yaml.tmp
 
 .PHONY: lint
-lint: test-sec golint go-vet generate-check
+lint: test-sec golint go-vet generate-check gofmt-check
 
 # Ensure that generate does not produce changes
 .PHONY: generate-check
@@ -91,6 +91,14 @@ go-vet:
 .PHONY: golint
 golint:  $GOPATH/bin/golint
 	golint ./pkg ./cmd
+
+# Ensure that gofmt does not produce changes. First show a list of the
+# files that gofmt would rewrite, then build the same list and test
+# that it's empty.
+.PHONY: gofmt-check
+gofmt-check:
+	gofmt -l ./pkg ./cmd | sed -e 's/^/gofmt fails: /g'
+	test -z "`gofmt -l ./pkg ./cmd`"
 
 .PHONY: test-sec
 test-sec: $GOPATH/bin/gosec

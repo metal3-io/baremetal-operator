@@ -282,12 +282,13 @@ type Storage struct {
 }
 
 // VLANID is a 12-bit 802.1Q VLAN identifier
+// +kubebuilder:validation:Type=integer
+// +kubebuilder:validation:Minimum=0
+// +kubebuilder:validation:Maximum=4094
 type VLANID int32
 
 // VLAN represents the name and ID of a VLAN
 type VLAN struct {
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=4094
 	ID VLANID `json:"id"`
 
 	Name string `json:"name,omitempty"`
@@ -315,8 +316,6 @@ type NIC struct {
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// The untagged VLAN ID
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=4094
 	VLANID VLANID `json:"vlanId"`
 
 	// Whether the NIC is PXE Bootable

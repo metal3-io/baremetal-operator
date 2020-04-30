@@ -342,6 +342,8 @@ spec:
                       vlanId:
                         description: The untagged VLAN ID
                         format: int32
+                        maximum: 4094
+                        minimum: 0
                         type: integer
                       vlans:
                         description: The VLANs available
@@ -351,6 +353,8 @@ spec:
                             id:
                               description: VLANID is a 12-bit 802.1Q VLAN identifier
                               format: int32
+                              maximum: 4094
+                              minimum: 0
                               type: integer
                             name:
                               type: string

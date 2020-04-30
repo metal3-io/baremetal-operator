@@ -41,7 +41,8 @@ test: generate unit lint
 
 .PHONY: generate
 generate:
-	operator-sdk generate k8s
+	operator-sdk generate $(VERBOSE) k8s
+	operator-sdk generate $(VERBOSE) crds
 	openapi-gen \
 		--input-dirs ./pkg/apis/metal3/v1alpha1 \
 		--output-package ./pkg/apis/metal3/v1alpha1 \
@@ -71,14 +72,18 @@ unit-cover-html:
 unit-verbose:
 	VERBOSE=-v make unit
 
-crd_file=deploy/crds/metal3.io_baremetalhosts_crd.yaml
-crd_tmp=.crd.yaml.tmp
-
 .PHONY: lint
-lint: test-sec $GOPATH/bin/golint
+lint: test-sec $GOPATH/bin/golint generate-check
 	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
 	go vet ./pkg/... ./cmd/...
-	cp $(crd_file) $(crd_tmp); make generate; if ! diff -q $(crd_file) $(crd_tmp); then mv $(crd_tmp) $(crd_file); exit 1; else rm $(crd_tmp); fi
+
+.PHONY: generate-check
+generate-check:
+	./hack/generate.sh
+
+.PHONY: generate-check-local
+generate-check-local:
+	IS_CONTAINER=local ./hack/generate.sh
 
 .PHONY: test-sec
 test-sec: $GOPATH/bin/gosec

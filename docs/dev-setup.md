@@ -6,6 +6,14 @@ Follow the instructions in the Quick Start section of
 <https://github.com/operator-framework/operator-sdk> to check out and
 install the operator-sdk tools.
 
+## Install openapi-gen
+
+Install the kube-api version of [openapi-gen](https://github.com/kubernetes/kube-openapi)
+
+```bash
+go get k8s.io/kube-openapi/cmd/openapi-gen
+```
+
 ## With minikube
 
 1. Install and launch minikube

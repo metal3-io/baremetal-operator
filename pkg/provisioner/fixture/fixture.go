@@ -111,7 +111,7 @@ func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, detai
 				CPU: metal3v1alpha1.CPU{
 					Arch:           "x86_64",
 					Model:          "FancyPants CPU",
-					ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+					ClockMegahertz: "3000.0",
 					Flags:          []string{"fpu", "hypervisor", "sse", "vmx"},
 					Count:          1,
 				},

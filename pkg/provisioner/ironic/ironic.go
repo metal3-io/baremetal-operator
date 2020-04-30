@@ -530,7 +530,7 @@ func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	cpu := metal3v1alpha1.CPU{
 		Arch:           cpudata.Architecture,
 		Model:          cpudata.ModelName,
-		ClockMegahertz: metal3v1alpha1.ClockSpeed(freq) * metal3v1alpha1.MegaHertz,
+		ClockMegahertz: metal3v1alpha1.ClockSpeed(fmt.Sprintf("%f", freq*metal3v1alpha1.MegaHertz)),
 		Count:          cpudata.Count,
 		Flags:          cpudata.Flags,
 	}

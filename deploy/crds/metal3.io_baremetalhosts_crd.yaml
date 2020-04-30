@@ -275,6 +275,7 @@ spec:
                     arch:
                       type: string
                     clockMegahertz:
+                      $ref: '#/definitions/encoding~1json~0Number'
                       description: ClockSpeed is a clock speed in MHz
                     count:
                       type: integer

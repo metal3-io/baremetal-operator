@@ -159,7 +159,7 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 				CPU: metal3v1alpha1.CPU{
 					Arch:           "x86_64",
 					Model:          "Core 2 Duo",
-					ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+					ClockMegahertz: "3000.0",
 					Flags:          []string{"lm", "hypervisor", "vmx"},
 					Count:          1,
 				},

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -215,12 +216,12 @@ type Image struct {
 // data structures.
 
 // ClockSpeed is a clock speed in MHz
-type ClockSpeed float64
+type ClockSpeed json.Number
 
 // ClockSpeed multipliers
 const (
-	MegaHertz ClockSpeed = 1.0
-	GigaHertz            = 1000 * MegaHertz
+	MegaHertz float64 = 1.0
+	GigaHertz         = 1000 * MegaHertz
 )
 
 // Capacity is a disk size in Bytes

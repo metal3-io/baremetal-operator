@@ -123,8 +123,15 @@ demo:
 		--operator-flags="-dev -demo-mode"
 
 .PHONY: docker
-docker:
+docker: docker-operator docker-sdk
+
+.PHONY: docker-operator
+docker-operator:
 	docker build . -f build/Dockerfile
+
+.PHONY: docker-sdk
+docker-sdk:
+	docker build . -f hack/Dockerfile.operator-sdk
 
 .PHONY: build
 build:
@@ -135,4 +142,3 @@ build:
 deploy:
 	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
 	kustomize build deploy | kubectl apply -f -
-

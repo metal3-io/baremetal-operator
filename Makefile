@@ -73,7 +73,7 @@ unit-verbose:
 	VERBOSE=-v make unit
 
 .PHONY: lint
-lint: test-sec $GOPATH/bin/golint generate-check
+lint: test-sec $GOPATH/bin/golint generate-check gofmt-check
 	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
 	go vet ./pkg/... ./cmd/...
 
@@ -94,6 +94,14 @@ $GOPATH/bin/gosec:
 
 $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint
+
+.PHONY: gofmt
+gofmt:
+	gofmt -l -w ./pkg ./cmd
+
+.PHONY: gofmt-check
+gofmt-check:
+	./hack/gofmt.sh
 
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))

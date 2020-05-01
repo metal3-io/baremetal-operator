@@ -290,86 +290,86 @@ func TestParse(t *testing.T) {
 
 func TestStaticDriverInfo(t *testing.T) {
 	for _, tc := range []struct {
-		Scenario string
-		input    string
-		needsMac bool
-		driver   string
-		boot     string
+		Scenario   string
+		input      string
+		needsMac   bool
+		driver     string
+		boot       string
 		management string
-		power string
-		raid string
-		vendor string
+		power      string
+		raid       string
+		vendor     string
 	}{
 		{
-			Scenario: "ipmi",
-			input:    "ipmi://192.168.122.1:6233",
-			needsMac: false,
-			driver:   "ipmi",
-			boot:     "ipxe",
+			Scenario:   "ipmi",
+			input:      "ipmi://192.168.122.1:6233",
+			needsMac:   false,
+			driver:     "ipmi",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "libvirt",
-			input:    "libvirt://192.168.122.1",
-			needsMac: true,
-			driver:   "ipmi",
-			boot:     "ipxe",
+			Scenario:   "libvirt",
+			input:      "libvirt://192.168.122.1",
+			needsMac:   true,
+			driver:     "ipmi",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "idrac",
-			input:    "idrac://192.168.122.1",
-			needsMac: false,
-			driver:   "idrac",
-			boot:     "ipxe",
+			Scenario:   "idrac",
+			input:      "idrac://192.168.122.1",
+			needsMac:   false,
+			driver:     "idrac",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "irmc",
-			input:    "irmc://192.168.122.1",
-			needsMac: false,
-			driver:   "irmc",
-			boot:     "pxe",
+			Scenario:   "irmc",
+			input:      "irmc://192.168.122.1",
+			needsMac:   false,
+			driver:     "irmc",
+			boot:       "pxe",
 			management: "",
-			power: "",
-			raid: "irmc",
-			vendor: "",
+			power:      "",
+			raid:       "irmc",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "redfish",
-			input:    "redfish://192.168.122.1",
-			needsMac: true,
-			driver:   "redfish",
-			boot:     "ipxe",
+			Scenario:   "redfish",
+			input:      "redfish://192.168.122.1",
+			needsMac:   true,
+			driver:     "redfish",
+			boot:       "ipxe",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
-			Scenario: "redfish virtual media",
-			input:    "redfish-virtualmedia://192.168.122.1",
-			needsMac: true,
-			driver:   "redfish",
-			boot:     "redfish-virtual-media",
+			Scenario:   "redfish virtual media",
+			input:      "redfish-virtualmedia://192.168.122.1",
+			needsMac:   true,
+			driver:     "redfish",
+			boot:       "redfish-virtual-media",
 			management: "",
-			power: "",
-			raid: "",
-			vendor: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
 		},
 
 		{
@@ -381,15 +381,15 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
-			Scenario: "idrac virtual media",
-			input:    "idrac-virtualmedia://192.168.122.1",
-			needsMac: true,
-			driver:   "idrac",
-			boot:     "idrac-redfish-virtual-media",
+			Scenario:   "idrac virtual media",
+			input:      "idrac-virtualmedia://192.168.122.1",
+			needsMac:   true,
+			driver:     "idrac",
+			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
-			power: "idrac-redfish",
-			raid: "no-raid",
-			vendor: "no-vendor",
+			power:      "idrac-redfish",
+			raid:       "no-raid",
+			vendor:     "no-vendor",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {

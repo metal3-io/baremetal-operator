@@ -1219,6 +1219,34 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		return p.setMaintenanceFlag(ironicNode, true)
 	}
 
+
+	p.log.Info("requesting ports to delete")
+
+	allpages, err := ports.List(p.client, ports.ListOpts{NodeUUID: p.status.ID}).AllPages()
+
+	if err != nil {
+		return result, errors.Wrap(err, "failed to fetch port list")
+	}
+
+	portList, err := ports.ExtractPorts(allpages)
+	if err != nil {
+		return result, errors.Wrap(err, "failed to extract port list")
+	}
+	for _, port := range portList {
+		p.log.Info("starting delete of port",
+			"ID", port.UUID,
+		) 
+		err = ports.Delete(p.client, port.UUID).ExtractErr()	
+		switch err.(type) {
+		case nil:
+			p.log.Info("port removed")
+		case gophercloud.ErrDefault409:
+			return result, errors.Wrap(err, "failed to delete port")
+		case gophercloud.ErrDefault404:
+			p.log.Info("did not find port to delete, OK")
+		}
+	}
+
 	p.log.Info("host ready to be removed")
 	err = nodes.Delete(p.client, p.status.ID).ExtractErr()
 	switch err.(type) {

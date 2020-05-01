@@ -1,0 +1,12 @@
+---
+- name: Verify
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  collections:
+    - community.kubernetes
+  tasks:
+    - name: Import all test files from tasks/
+      include_tasks: '{{ item }}'
+      with_fileglob:
+        - tasks/*_test.yml

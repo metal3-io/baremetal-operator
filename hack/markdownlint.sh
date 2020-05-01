@@ -7,7 +7,10 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
   TOP_DIR="${1:-.}"
-  find "${TOP_DIR}" -path ./vendor -prune -o -name '*.md' -exec \
+  find "${TOP_DIR}" \
+       \( -path ./vendor -prune -o \
+       -path ./tools/operator-sdk -prune \) \
+      -o -name '*.md' -exec \
       mdl --style all --warnings \
       --rules "MD001,MD002,MD003,MD004,MD005,MD006,MD007,MD009,MD010,MD011,MD012,MD013,MD014,MD018,MD019,MD020,MD021,MD022,MD023,MD024,MD025,MD026,MD027,MD028,MD030,MD031,MD032,MD033,MD034,MD035,MD036,MD037,MD038,MD039,MD040,MD041" \
       {} \+

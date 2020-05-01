@@ -1,0 +1,14 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: metal3-baremetal-operator
+subjects:
+- kind: ServiceAccount
+  name: metal3-baremetal-operator
+  namespace: metal3
+- kind: User
+  name: developer
+roleRef:
+  kind: ClusterRole
+  name: metal3-baremetal-operator
+  apiGroup: rbac.authorization.k8s.io

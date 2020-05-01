@@ -3,6 +3,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(VERBOSE)
 DEBUG = --debug
 SETUP = --no-setup
+KUSTOMIZEDIR = kustomize-deploy
 
 # See pkg/version.go for details
 GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
@@ -133,6 +134,5 @@ build:
 
 .PHONY: deploy
 deploy:
-	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
-	kustomize build deploy | kubectl apply -f -
-
+	cd $(KUSTOMIZEDIR) && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
+	kustomize build $(KUSTOMIZEDIR) | kubectl apply -f -

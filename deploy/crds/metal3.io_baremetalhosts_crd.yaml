@@ -284,6 +284,7 @@ spec:
                       type: string
                     clockMegahertz:
                       description: ClockSpeed is a clock speed in MHz
+                      type: number
                     count:
                       type: integer
                     flags:

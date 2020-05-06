@@ -82,7 +82,7 @@ your environment.
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to
-[vbmc](https://docs.openstack.org/tripleo-docs/latest/install/environments/virtualbmc.html)
+[vbmc](https://docs.openstack.org/project-deploy-guide/tripleo-docs/latest/environments/virtualbmc.html)
 and the `bootMACAddress` field needs to be set to the MAC address of the
 network interface that will PXE boot.
 

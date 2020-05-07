@@ -120,14 +120,14 @@ e2e-local:
 run:
 	operator-sdk run --local \
 		--go-ldflags=$(LDFLAGS) \
-		--namespace=$(RUN_NAMESPACE) \
+		--watch-namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
 
 .PHONY: demo
 demo:
 	operator-sdk run --local \
 		--go-ldflags=$(LDFLAGS) \
-		--namespace=$(RUN_NAMESPACE) \
+		--watch-namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev -demo-mode"
 
 .PHONY: docker

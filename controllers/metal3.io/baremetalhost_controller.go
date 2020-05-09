@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -560,6 +561,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 // fields of a host.
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
+	host.Status.Provisioning.Firmware = nil
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -759,6 +761,11 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
 		host.Status.Provisioning.RootDeviceHints = hintSource
+		dirty = true
+	}
+
+	if !reflect.DeepEqual(host.Status.Provisioning.Firmware, host.Spec.Firmware) {
+		host.Status.Provisioning.Firmware = host.Spec.Firmware.DeepCopy()
 		dirty = true
 	}
 

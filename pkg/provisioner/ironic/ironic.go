@@ -636,6 +636,17 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	return result, nil
 }
 
+func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (result provisioner.Result, err error) {
+	cleanSteps := make([]nodes.CleanStep, 0)
+
+	// Build bios configuration clean steps
+	cleanSteps = append(cleanSteps, buildBIOSCleanSteps(p.bmcAccess.Driver(), p.host.Status.Provisioning.Firmware)...)
+
+	// TODO: wait #292 is merged
+
+	return
+}
+
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())

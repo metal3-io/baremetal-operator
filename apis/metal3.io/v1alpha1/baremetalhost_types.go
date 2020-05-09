@@ -220,6 +220,331 @@ type BMCDetails struct {
 	DisableCertificateVerification bool `json:"disableCertificateVerification,omitempty"`
 }
 
+// IDRACConfig the BIOS configuration in the iDRAC driver supports
+type IDRACConfig struct {
+	// Possible values: string value.
+	// +kubebuilder:validation:MaxLength=64
+	AssetTag string `json:"assetTag,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	BootSeqRetry string `json:"bootSeqRetry,omitempty"`
+
+	// Possible values: Enabled, Disabled, ControlledTurboLimitMinus1, ControlledTurboLimitMinus2, ControlledTurboLimitMinus3.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled";"ControlledTurboLimitMinus1";"ControlledTurboLimitMinus2";"ControlledTurboLimitMinus3"
+	ControlledTurbo string `json:"controlledTurbo,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	CorrEccSmi string `json:"corrEccSmi,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	CPUInterconnectBusLinkPower string `json:"cpuInterconnectBusLinkPower,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	DcuIPPrefetcher string `json:"dcuIpPrefetcher,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	DcuStreamerPrefetcher string `json:"dcuStreamerPrefetcher,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	DynamicCoreAllocation string `json:"dynamicCoreAllocation,omitempty"`
+
+	// Possible values: AtaMode, AhciMode, RaidMode, Off.
+	// +kubebuilder:validation:Enum="AtaMode";"AhciMode";"RaidMode";"Off"
+	EmbSata string `json:"embSata,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	HddFailover string `json:"hddFailover,omitempty"`
+
+	// Possible values: OptimizerMode, SpareMode, MirrorMode, AdvEccMode, SpareWithAdvEccMode, FaultResilientMode, NUMAFaultResilientMode.
+	// +kubebuilder:validation:Enum="OptimizerMode";"SpareMode";"MirrorMode";"AdvEccMode";"SpareWithAdvEccMode";"FaultResilientMode";"NUMAFaultResilientMode"
+	MemOpMode string `json:"memOpMode,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	MemTest string `json:"memTest,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	NodeInterleave string `json:"nodeInterleave,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	PowerSaver string `json:"powerSaver,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcAdjCacheLine string `json:"procAdjCacheLine,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcAts string `json:"procAts,omitempty"`
+
+	// Possible values: Nominal, Level1.
+	// +kubebuilder:validation:Enum="Nominal";"Level1"
+	ProcConfigTdp string `json:"procConfigTdp,omitempty"`
+
+	// Possible values: All, 1, 2, 4, 6, 8.
+	// +kubebuilder:validation:Enum="All";"1";"2";"4";"6";"8"
+	ProcCores string `json:"procCores,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcExecuteDisable string `json:"procExecuteDisable,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcX2Apic string `json:"procX2Apic,omitempty"`
+
+	// Possible values: MaxDataRate, 8GTps, 6GTps.
+	// +kubebuilder:validation:Enum="MaxDataRate";"8GTps";"6GTps"
+	QpiSpeed string `json:"qpiSpeed,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcHwPrefetcher string `json:"procHwPrefetcher,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	RtidSetting string `json:"rtidSetting,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	SecurityFreezeLock string `json:"securityFreezeLock,omitempty"`
+
+	// Possible values: EarlySnoop, HomeSnoop, ClusterOnDie, OpportunisticSnoopBroadcast.
+	// +kubebuilder:validation:Enum="EarlySnoop";"HomeSnoop";"ClusterOnDie";"OpportunisticSnoopBroadcast"
+	SnoopMode string `json:"snoopMode,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	SriovGlobalEnable string `json:"enableSriovGlobal,omitempty"`
+
+	// Possible values: PerfPerWattOptimizedDapc, PerfPerWattOptimizedOs, PerfOptimized, DenseCfgOptimized, Custom.
+	// +kubebuilder:validation:Enum="PerfPerWattOptimizedDapc";"PerfPerWattOptimizedOs";"PerfOptimized";"DenseCfgOptimized";"Custom"
+	SysProfile string `json:"sysProfile,omitempty"`
+
+	// Possible values: NotAvailable, HpcProfile, LowLatencyOptimizedProfile.
+	// +kubebuilder:validation:Enum="NotAvailable";"HpcProfile";"LowLatencyOptimizedProfile"
+	WorkloadProfile string `json:"workloadProfile,omitempty"`
+
+	// Possible values: Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	WriteCache string `json:"writeCache,omitempty"`
+}
+
+// ILOConfig the supported BIOS settings and the corresponding brief description for each of the settings.
+type ILOConfig struct {
+	// Configure additional memory protection with ECC (Error Checking and Correcting).
+	// Allowed values are AdvancedEcc, OnlineSpareAdvancedEcc, MirroredAdvancedEcc.
+	// +kubebuilder:validation:Enum="AdvancedEcc";"OnlineSpareAdvancedEcc";"MirroredAdvancedEcc"
+	AdvancedMemProtection string `json:"advancedMemProtection,omitempty"`
+
+	// Configure the server to automatically power on when AC power is applied to the system.
+	// Allowed values are AlwaysPowerOn, AlwaysPowerOff, RestoreLastState.
+	// +kubebuilder:validation:Enum="AlwaysPowerOn";"AlwaysPowerOff";"RestoreLastState"
+	AutoPowerOn string `json:"autoPowerOn,omitempty"`
+
+	// Configure how the system attempts to boot devices per the Boot Order when no bootable device is found.
+	// Allowed values are RetryIndefinitely, AttemptOnce, ResetAfterFailed.
+	// +kubebuilder:validation:Enum="RetryIndefinitely";"AttemptOnce";"ResetAfterFailed"
+	BootOrderPolicy string `json:"bootOrderPolicy,omitempty"`
+
+	// Enables the Operating System to request processor frequency changes
+	// even if the Power Regulator option on the server configured for Dynamic Power Savings Mode.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	CollabPowerControl string `json:"collabPowerControl,omitempty"`
+
+	// Configure when the System ROM executes power calibration during the boot process.
+	// Allowed values are Enabled, Disabled, Auto.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled";"Auto"
+	DynamicPowerCapping string `json:"dynamicPowerCapping,omitempty"`
+
+	// Enable the System BIOS to control processor performance and power states depending on the processor workload.
+	// Allowed values are Fast, Slow.
+	// +kubebuilder:validation:Enum="Fast";"Slow"
+	DynamicPowerResponse string `json:"dynamicPowerResponse,omitempty"`
+
+	// Enable or disable the Intelligent Provisioning functionality.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	IntelligentProvisioning string `json:"intelligentProvisioning,omitempty"`
+
+	// Exposes certain chipset devices that can be used with the Intel Performance Monitoring Toolkit.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	IntelPerfMonitoring string `json:"intelPerfMonitoring,omitempty"`
+
+	// Hypervisor or operating system supporting this option can use hardware capabilities provided
+	// by Intel’s Virtualization Technology for Directed I/O.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	IntelProcVtd string `json:"intelProcVtd,omitempty"`
+
+	// Set the QPI Link frequency to a lower speed.
+	// Allowed values are Auto, MinQpiSpeed.
+	// +kubebuilder:validation:Enum="Auto";"MinQpiSpeed"
+	IntelQpiFreq string `json:"intelQpiFreq,omitempty"`
+
+	// Option to modify Intel TXT support.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	IntelTxt string `json:"intelTxt,omitempty"`
+
+	// Set the power profile to be used.
+	// Allowed values are BalancedPowerPerf, MinPower, MaxPerf, Custom.
+	// +kubebuilder:validation:Enum="BalancedPowerPerf";"MinPower";"MaxPerf";"Custom"
+	PowerProfile string `json:"powerProfile,omitempty"`
+
+	// Determines how to regulate the power consumption.
+	// Allowed values are DynamicPowerSavings, StaticLowPower, StaticHighPerf, OsControl.
+	// +kubebuilder:validation:Enum="DynamicPowerSavings";"StaticLowPower";"StaticHighPerf";"OsControl"
+	PowerRegulator string `json:"powerRegulator,omitempty"`
+
+	// Enable or disable the Advanced Encryption Standard Instruction Set (AES-NI) in the processor.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcAes string `json:"procAes,omitempty"`
+
+	// Disable processor cores using Intel’s Core Multi-Processing (CMP) Technology.
+	// Allowed values are Integers ranging from 0 to 24.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=24
+	ProcCoreDisable int64 `json:"procCoreDisable,omitempty"`
+
+	// Protect your system against malicious code and viruses.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcNoExecute string `json:"procNoExecute,omitempty"`
+
+	// Enables the processor to transition to a higher frequency than the processor’s rated speed using Turbo Boost Technology
+	// if the processor has available power and is within temperature specifications.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ProcTurbo string `json:"procTurbo,omitempty"`
+
+	// If enabled, SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance.
+	// If enabled, the BIOS allocates additional resources to PCI-express devices.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	Sriov string `json:"sriov,omitempty"`
+
+	// select the fan cooling solution for the system.
+	// Allowed values are OptimalCooling, IncreasedCooling, MaxCooling
+	// +kubebuilder:validation:Enum="OptimalCooling";"IncreasedCooling";"MaxCooling"
+	ThermalConfig string `json:"thermalConfig,omitempty"`
+
+	// Control the reaction of the system to caution level thermal events.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	ThermalShutdown string `json:"thermalShutdown,omitempty"`
+
+	// Enables or Disables the System BIOS boot using native UEFI graphics drivers.
+	// Allowed values are Enabled, Disabled.
+	// +kubebuilder:validation:Enum="Enabled";"Disabled"
+	UefiOptimizedBoot string `json:"uefiOptimizedBoot,omitempty"`
+
+	// Change the Workload Profile to accomodate your desired workload.
+	// This setting is only applicable to ProLiant Gen10 servers with iLO 5 management systems.
+	// Allowed values are GeneralPowerEfficientCompute, GeneralPeakFrequencyCompute,
+	// GeneralThroughputCompute, Virtualization-PowerEfficient, Virtualization-MaxPerformance,
+	// LowLatency, MissionCritical, TransactionalApplicationProcessing, HighPerformanceCompute,
+	// DecisionSupport, GraphicProcessing, I/OThroughput, Custom
+	// +kubebuilder:validation:Enum="GeneralPowerEfficientCompute";"GeneralPeakFrequencyCompute";"GeneralThroughputCompute";"Virtualization-PowerEfficient";"Virtualization-MaxPerformance";"LowLatency";"MissionCritical";"TransactionalApplicationProcessing";"HighPerformanceCompute";"DecisionSupport";"GraphicProcessing";"OThroughput";"Custom"
+	WorkloadProfile string `json:"workloadProfile,omitempty"`
+}
+
+// IRMCConfig the BIOS configuration in the iRMC driver supports
+type IRMCConfig struct {
+	// Specifies from which drives can be booted.
+	// This supports following options: UefiAndLegacy, LegacyOnly, UefiOnly.
+	// +kubebuilder:validation:Enum="UefiAndLegacy";"LegacyOnly";"UefiOnly"
+	BootOptionFilter string `json:"bootOptionFilter,omitempty"`
+
+	// The UEFI FW checks the controller health status.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	CheckControllersHealthStatusEnabled string `json:"checkControllersHealthStatusEnabled,omitempty"`
+
+	// The processor loads the requested cache line and the adjacent cache line.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	CPUActiveProcessorCores string `json:"cpuActiveProcessorCores,omitempty"`
+
+	// The number of active processor cores 1…n. Option 0 indicates that all available processor cores are active.
+	// +kubebuilder:validation:Minimum=0
+	CPUAdjacentCacheLinePrefetchEnabled int64 `json:"cpuAdjacentCacheLinePrefetchEnabled,omitempty"`
+
+	// The system BIOS can be written. Flash BIOS update is possible.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	FlashWriteEnabled string `json:"flashWriteEnabled,omitempty"`
+
+	// Boot Options will not be removed from “Boot Option Priority” list.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	KeepVoidBootOptionsEnabled string `json:"keepVoidBootOptionsEnabled,omitempty"`
+
+	// Specifies whether the Compatibility Support Module (CSM) is executed.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	LaunchCsmEnabled string `json:"launchCsmEnabled,omitempty"`
+
+	// Prevents the OS from overruling any energy efficiency policy setting of the setup.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	OsEnergyPerformanceOverrideEnabled string `json:"osEnergyPerformanceOverrideEnabled,omitempty"`
+
+	// Active State Power Management (ASPM) is used to power-manage the PCI Express links, thus consuming less power.
+	// This supports following options: Disabled, Auto, L0Limited, L1only, L0Force.
+	// +kubebuilder:validation:Enum="Disabled";"Auto";"L0Limited";"L1only";"L0Force"
+	PciAspmSupport string `json:"pciAspmSupport,omitempty"`
+
+	// Specifies if memory resources above the 4GB address boundary can be assigned to PCI devices.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	PciAbove4gDecodingEnabled string `json:"pciAbove4gDecodingEnabled,omitempty"`
+
+	// Specifies whether the switch on sources for the system are managed by the BIOS or the ACPI operating system.
+	// This supports following options: BiosControlled, AcpiControlled.
+	// +kubebuilder:validation:Enum="BiosControlled";"AcpiControlled"
+	PowerOnSource string `json:"powerOnSource,omitempty"`
+
+	// Single Root IO Virtualization Support is active.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	SingleRootIoVirtualizationSupportEnabled string `json:"singleRootIoVirtualizationSupportEnabled,omitempty"`
+}
+
+// FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server
+type FirmwareConfig struct {
+	// Supports the virtualization of platform hardware.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	VirtualizationEnabled string `json:"virtualizationEnabled,omitempty"`
+
+	// Allows a single physical processor core to appear as several logical processors.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum="true";"false"
+	SimultaneousMultithreadingEnabled string `json:"simultaneousMultithreadingEnabled,omitempty"`
+
+	// The integrated Dell Remote Access Controller (iDRAC) is an out-of-band management platform on Dell EMC servers.
+	IDRAC *IDRACConfig `json:"idrac,omitempty"`
+
+	// iLO driver enables to take advantage of features of iLO management engine in HPE ProLiant servers.
+	ILO *ILOConfig `json:"ilo,omitempty"`
+
+	// The iRMC driver enables control FUJITSU PRIMERGY via ServerView Common Command Interface (SCCI).
+	IRMC *IRMCConfig `json:"irmc,omitempty"`
+}
+
 // BareMetalHostSpec defines the desired state of BareMetalHost
 type BareMetalHostSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code
@@ -233,6 +558,9 @@ type BareMetalHostSpec struct {
 
 	// How do we connect to the BMC?
 	BMC BMCDetails `json:"bmc,omitempty"`
+
+	// BIOS configuration for bare metal server
+	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// What is the name of the hardware profile for this host? It
 	// should only be necessary to set this when inspection cannot
@@ -583,6 +911,9 @@ type ProvisionStatus struct {
 
 	// BootMode indicates the boot mode used to provision the node
 	BootMode BootMode `json:"bootMode,omitempty"`
+
+	// The Bios set by the user
+	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

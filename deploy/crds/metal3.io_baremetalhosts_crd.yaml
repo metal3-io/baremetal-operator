@@ -145,6 +145,534 @@ spec:
                   the power status and hardware inventory inspection. If the Image
                   field is filled in, this field is ignored.
                 type: boolean
+              firmware:
+                description: BIOS configuration for bare metal server
+                properties:
+                  idrac:
+                    description: The integrated Dell Remote Access Controller (iDRAC)
+                      is an out-of-band management platform on Dell EMC servers.
+                    properties:
+                      assetTag:
+                        description: 'Possible values: string value.'
+                        maxLength: 64
+                        type: string
+                      bootSeqRetry:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      controlledTurbo:
+                        description: 'Possible values: Enabled, Disabled, ControlledTurboLimitMinus1,
+                          ControlledTurboLimitMinus2, ControlledTurboLimitMinus3.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        - ControlledTurboLimitMinus1
+                        - ControlledTurboLimitMinus2
+                        - ControlledTurboLimitMinus3
+                        type: string
+                      corrEccSmi:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      cpuInterconnectBusLinkPower:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      dcuIpPrefetcher:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      dcuStreamerPrefetcher:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      dynamicCoreAllocation:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      embSata:
+                        description: 'Possible values: AtaMode, AhciMode, RaidMode,
+                          Off.'
+                        enum:
+                        - AtaMode
+                        - AhciMode
+                        - RaidMode
+                        - "Off"
+                        type: string
+                      enableSriovGlobal:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      hddFailover:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      memOpMode:
+                        description: 'Possible values: OptimizerMode, SpareMode, MirrorMode,
+                          AdvEccMode, SpareWithAdvEccMode, FaultResilientMode, NUMAFaultResilientMode.'
+                        enum:
+                        - OptimizerMode
+                        - SpareMode
+                        - MirrorMode
+                        - AdvEccMode
+                        - SpareWithAdvEccMode
+                        - FaultResilientMode
+                        - NUMAFaultResilientMode
+                        type: string
+                      memTest:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      nodeInterleave:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      powerSaver:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      procAdjCacheLine:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      procAts:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      procConfigTdp:
+                        description: 'Possible values: Nominal, Level1.'
+                        enum:
+                        - Nominal
+                        - Level1
+                        type: string
+                      procCores:
+                        description: 'Possible values: All, 1, 2, 4, 6, 8.'
+                        enum:
+                        - All
+                        - "1"
+                        - "2"
+                        - "4"
+                        - "6"
+                        - "8"
+                        type: string
+                      procExecuteDisable:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      procHwPrefetcher:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      procX2Apic:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      qpiSpeed:
+                        description: 'Possible values: MaxDataRate, 8GTps, 6GTps.'
+                        enum:
+                        - MaxDataRate
+                        - 8GTps
+                        - 6GTps
+                        type: string
+                      rtidSetting:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      securityFreezeLock:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      snoopMode:
+                        description: 'Possible values: EarlySnoop, HomeSnoop, ClusterOnDie,
+                          OpportunisticSnoopBroadcast.'
+                        enum:
+                        - EarlySnoop
+                        - HomeSnoop
+                        - ClusterOnDie
+                        - OpportunisticSnoopBroadcast
+                        type: string
+                      sysProfile:
+                        description: 'Possible values: PerfPerWattOptimizedDapc, PerfPerWattOptimizedOs,
+                          PerfOptimized, DenseCfgOptimized, Custom.'
+                        enum:
+                        - PerfPerWattOptimizedDapc
+                        - PerfPerWattOptimizedOs
+                        - PerfOptimized
+                        - DenseCfgOptimized
+                        - Custom
+                        type: string
+                      workloadProfile:
+                        description: 'Possible values: NotAvailable, HpcProfile, LowLatencyOptimizedProfile.'
+                        enum:
+                        - NotAvailable
+                        - HpcProfile
+                        - LowLatencyOptimizedProfile
+                        type: string
+                      writeCache:
+                        description: 'Possible values: Enabled, Disabled.'
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                    type: object
+                  ilo:
+                    description: iLO driver enables to take advantage of features
+                      of iLO management engine in HPE ProLiant servers.
+                    properties:
+                      advancedMemProtection:
+                        description: Configure additional memory protection with ECC
+                          (Error Checking and Correcting). Allowed values are AdvancedEcc,
+                          OnlineSpareAdvancedEcc, MirroredAdvancedEcc.
+                        enum:
+                        - AdvancedEcc
+                        - OnlineSpareAdvancedEcc
+                        - MirroredAdvancedEcc
+                        type: string
+                      autoPowerOn:
+                        description: Configure the server to automatically power on
+                          when AC power is applied to the system. Allowed values are
+                          AlwaysPowerOn, AlwaysPowerOff, RestoreLastState.
+                        enum:
+                        - AlwaysPowerOn
+                        - AlwaysPowerOff
+                        - RestoreLastState
+                        type: string
+                      bootOrderPolicy:
+                        description: Configure how the system attempts to boot devices
+                          per the Boot Order when no bootable device is found. Allowed
+                          values are RetryIndefinitely, AttemptOnce, ResetAfterFailed.
+                        enum:
+                        - RetryIndefinitely
+                        - AttemptOnce
+                        - ResetAfterFailed
+                        type: string
+                      collabPowerControl:
+                        description: Enables the Operating System to request processor
+                          frequency changes even if the Power Regulator option on
+                          the server configured for Dynamic Power Savings Mode. Allowed
+                          values are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      dynamicPowerCapping:
+                        description: Configure when the System ROM executes power
+                          calibration during the boot process. Allowed values are
+                          Enabled, Disabled, Auto.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        - Auto
+                        type: string
+                      dynamicPowerResponse:
+                        description: Enable the System BIOS to control processor performance
+                          and power states depending on the processor workload. Allowed
+                          values are Fast, Slow.
+                        enum:
+                        - Fast
+                        - Slow
+                        type: string
+                      intelPerfMonitoring:
+                        description: Exposes certain chipset devices that can be used
+                          with the Intel Performance Monitoring Toolkit. Allowed values
+                          are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      intelProcVtd:
+                        description: Hypervisor or operating system supporting this
+                          option can use hardware capabilities provided by Intel’s
+                          Virtualization Technology for Directed I/O. Allowed values
+                          are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      intelQpiFreq:
+                        description: Set the QPI Link frequency to a lower speed.
+                          Allowed values are Auto, MinQpiSpeed.
+                        enum:
+                        - Auto
+                        - MinQpiSpeed
+                        type: string
+                      intelTxt:
+                        description: Option to modify Intel TXT support. Allowed values
+                          are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      intelligentProvisioning:
+                        description: Enable or disable the Intelligent Provisioning
+                          functionality. Allowed values are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      powerProfile:
+                        description: Set the power profile to be used. Allowed values
+                          are BalancedPowerPerf, MinPower, MaxPerf, Custom.
+                        enum:
+                        - BalancedPowerPerf
+                        - MinPower
+                        - MaxPerf
+                        - Custom
+                        type: string
+                      powerRegulator:
+                        description: Determines how to regulate the power consumption.
+                          Allowed values are DynamicPowerSavings, StaticLowPower,
+                          StaticHighPerf, OsControl.
+                        enum:
+                        - DynamicPowerSavings
+                        - StaticLowPower
+                        - StaticHighPerf
+                        - OsControl
+                        type: string
+                      procAes:
+                        description: Enable or disable the Advanced Encryption Standard
+                          Instruction Set (AES-NI) in the processor. Allowed values
+                          are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      procCoreDisable:
+                        description: Disable processor cores using Intel’s Core Multi-Processing
+                          (CMP) Technology. Allowed values are Integers ranging from
+                          0 to 24.
+                        format: int64
+                        maximum: 24
+                        minimum: 0
+                        type: integer
+                      procNoExecute:
+                        description: Protect your system against malicious code and
+                          viruses. Allowed values are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      procTurbo:
+                        description: Enables the processor to transition to a higher
+                          frequency than the processor’s rated speed using Turbo Boost
+                          Technology if the processor has available power and is within
+                          temperature specifications. Allowed values are Enabled,
+                          Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      sriov:
+                        description: If enabled, SR-IOV support enables a hypervisor
+                          to create virtual instances of a PCI-express device, potentially
+                          increasing performance. If enabled, the BIOS allocates additional
+                          resources to PCI-express devices. Allowed values are Enabled,
+                          Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      thermalConfig:
+                        description: select the fan cooling solution for the system.
+                          Allowed values are OptimalCooling, IncreasedCooling, MaxCooling
+                        enum:
+                        - OptimalCooling
+                        - IncreasedCooling
+                        - MaxCooling
+                        type: string
+                      thermalShutdown:
+                        description: Control the reaction of the system to caution
+                          level thermal events. Allowed values are Enabled, Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      uefiOptimizedBoot:
+                        description: Enables or Disables the System BIOS boot using
+                          native UEFI graphics drivers. Allowed values are Enabled,
+                          Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      workloadProfile:
+                        description: Change the Workload Profile to accomodate your
+                          desired workload. This setting is only applicable to ProLiant
+                          Gen10 servers with iLO 5 management systems. Allowed values
+                          are GeneralPowerEfficientCompute, GeneralPeakFrequencyCompute,
+                          GeneralThroughputCompute, Virtualization-PowerEfficient,
+                          Virtualization-MaxPerformance, LowLatency, MissionCritical,
+                          TransactionalApplicationProcessing, HighPerformanceCompute,
+                          DecisionSupport, GraphicProcessing, I/OThroughput, Custom
+                        enum:
+                        - GeneralPowerEfficientCompute
+                        - GeneralPeakFrequencyCompute
+                        - GeneralThroughputCompute
+                        - Virtualization-PowerEfficient
+                        - Virtualization-MaxPerformance
+                        - LowLatency
+                        - MissionCritical
+                        - TransactionalApplicationProcessing
+                        - HighPerformanceCompute
+                        - DecisionSupport
+                        - GraphicProcessing
+                        - OThroughput
+                        - Custom
+                        type: string
+                    type: object
+                  irmc:
+                    description: The iRMC driver enables control FUJITSU PRIMERGY
+                      via ServerView Common Command Interface (SCCI).
+                    properties:
+                      bootOptionFilter:
+                        description: 'Specifies from which drives can be booted. This
+                          supports following options: UefiAndLegacy, LegacyOnly, UefiOnly.'
+                        enum:
+                        - UefiAndLegacy
+                        - LegacyOnly
+                        - UefiOnly
+                        type: string
+                      checkControllersHealthStatusEnabled:
+                        description: 'The UEFI FW checks the controller health status.
+                          This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      cpuActiveProcessorCores:
+                        description: 'The processor loads the requested cache line
+                          and the adjacent cache line. This supports following options:
+                          true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      cpuAdjacentCacheLinePrefetchEnabled:
+                        description: The number of active processor cores 1…n. Option
+                          0 indicates that all available processor cores are active.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      flashWriteEnabled:
+                        description: 'The system BIOS can be written. Flash BIOS update
+                          is possible. This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      keepVoidBootOptionsEnabled:
+                        description: 'Boot Options will not be removed from “Boot
+                          Option Priority” list. This supports following options:
+                          true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      launchCsmEnabled:
+                        description: 'Specifies whether the Compatibility Support
+                          Module (CSM) is executed. This supports following options:
+                          true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      osEnergyPerformanceOverrideEnabled:
+                        description: 'Prevents the OS from overruling any energy efficiency
+                          policy setting of the setup. This supports following options:
+                          true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      pciAbove4gDecodingEnabled:
+                        description: 'Specifies if memory resources above the 4GB
+                          address boundary can be assigned to PCI devices. This supports
+                          following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      pciAspmSupport:
+                        description: 'Active State Power Management (ASPM) is used
+                          to power-manage the PCI Express links, thus consuming less
+                          power. This supports following options: Disabled, Auto,
+                          L0Limited, L1only, L0Force.'
+                        enum:
+                        - Disabled
+                        - Auto
+                        - L0Limited
+                        - L1only
+                        - L0Force
+                        type: string
+                      powerOnSource:
+                        description: 'Specifies whether the switch on sources for
+                          the system are managed by the BIOS or the ACPI operating
+                          system. This supports following options: BiosControlled,
+                          AcpiControlled.'
+                        enum:
+                        - BiosControlled
+                        - AcpiControlled
+                        type: string
+                      singleRootIoVirtualizationSupportEnabled:
+                        description: 'Single Root IO Virtualization Support is active.
+                          This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                    type: object
+                  simultaneousMultithreadingEnabled:
+                    description: 'Allows a single physical processor core to appear
+                      as several logical processors. This supports following options:
+                      true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                  virtualizationEnabled:
+                    description: 'Supports the virtualization of platform hardware.
+                      This supports following options: true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                type: object
               hardwareProfile:
                 description: What is the name of the hardware profile for this host?
                   It should only be necessary to set this when inspection cannot automatically
@@ -603,6 +1131,543 @@ spec:
                     - UEFI
                     - legacy
                     type: string
+                  firmware:
+                    description: The Bios set by the user
+                    properties:
+                      idrac:
+                        description: The integrated Dell Remote Access Controller
+                          (iDRAC) is an out-of-band management platform on Dell EMC
+                          servers.
+                        properties:
+                          assetTag:
+                            description: 'Possible values: string value.'
+                            maxLength: 64
+                            type: string
+                          bootSeqRetry:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          controlledTurbo:
+                            description: 'Possible values: Enabled, Disabled, ControlledTurboLimitMinus1,
+                              ControlledTurboLimitMinus2, ControlledTurboLimitMinus3.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            - ControlledTurboLimitMinus1
+                            - ControlledTurboLimitMinus2
+                            - ControlledTurboLimitMinus3
+                            type: string
+                          corrEccSmi:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          cpuInterconnectBusLinkPower:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          dcuIpPrefetcher:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          dcuStreamerPrefetcher:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          dynamicCoreAllocation:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          embSata:
+                            description: 'Possible values: AtaMode, AhciMode, RaidMode,
+                              Off.'
+                            enum:
+                            - AtaMode
+                            - AhciMode
+                            - RaidMode
+                            - "Off"
+                            type: string
+                          enableSriovGlobal:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          hddFailover:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          memOpMode:
+                            description: 'Possible values: OptimizerMode, SpareMode,
+                              MirrorMode, AdvEccMode, SpareWithAdvEccMode, FaultResilientMode,
+                              NUMAFaultResilientMode.'
+                            enum:
+                            - OptimizerMode
+                            - SpareMode
+                            - MirrorMode
+                            - AdvEccMode
+                            - SpareWithAdvEccMode
+                            - FaultResilientMode
+                            - NUMAFaultResilientMode
+                            type: string
+                          memTest:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          nodeInterleave:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          powerSaver:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          procAdjCacheLine:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          procAts:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          procConfigTdp:
+                            description: 'Possible values: Nominal, Level1.'
+                            enum:
+                            - Nominal
+                            - Level1
+                            type: string
+                          procCores:
+                            description: 'Possible values: All, 1, 2, 4, 6, 8.'
+                            enum:
+                            - All
+                            - "1"
+                            - "2"
+                            - "4"
+                            - "6"
+                            - "8"
+                            type: string
+                          procExecuteDisable:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          procHwPrefetcher:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          procX2Apic:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          qpiSpeed:
+                            description: 'Possible values: MaxDataRate, 8GTps, 6GTps.'
+                            enum:
+                            - MaxDataRate
+                            - 8GTps
+                            - 6GTps
+                            type: string
+                          rtidSetting:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          securityFreezeLock:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          snoopMode:
+                            description: 'Possible values: EarlySnoop, HomeSnoop,
+                              ClusterOnDie, OpportunisticSnoopBroadcast.'
+                            enum:
+                            - EarlySnoop
+                            - HomeSnoop
+                            - ClusterOnDie
+                            - OpportunisticSnoopBroadcast
+                            type: string
+                          sysProfile:
+                            description: 'Possible values: PerfPerWattOptimizedDapc,
+                              PerfPerWattOptimizedOs, PerfOptimized, DenseCfgOptimized,
+                              Custom.'
+                            enum:
+                            - PerfPerWattOptimizedDapc
+                            - PerfPerWattOptimizedOs
+                            - PerfOptimized
+                            - DenseCfgOptimized
+                            - Custom
+                            type: string
+                          workloadProfile:
+                            description: 'Possible values: NotAvailable, HpcProfile,
+                              LowLatencyOptimizedProfile.'
+                            enum:
+                            - NotAvailable
+                            - HpcProfile
+                            - LowLatencyOptimizedProfile
+                            type: string
+                          writeCache:
+                            description: 'Possible values: Enabled, Disabled.'
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                        type: object
+                      ilo:
+                        description: iLO driver enables to take advantage of features
+                          of iLO management engine in HPE ProLiant servers.
+                        properties:
+                          advancedMemProtection:
+                            description: Configure additional memory protection with
+                              ECC (Error Checking and Correcting). Allowed values
+                              are AdvancedEcc, OnlineSpareAdvancedEcc, MirroredAdvancedEcc.
+                            enum:
+                            - AdvancedEcc
+                            - OnlineSpareAdvancedEcc
+                            - MirroredAdvancedEcc
+                            type: string
+                          autoPowerOn:
+                            description: Configure the server to automatically power
+                              on when AC power is applied to the system. Allowed values
+                              are AlwaysPowerOn, AlwaysPowerOff, RestoreLastState.
+                            enum:
+                            - AlwaysPowerOn
+                            - AlwaysPowerOff
+                            - RestoreLastState
+                            type: string
+                          bootOrderPolicy:
+                            description: Configure how the system attempts to boot
+                              devices per the Boot Order when no bootable device is
+                              found. Allowed values are RetryIndefinitely, AttemptOnce,
+                              ResetAfterFailed.
+                            enum:
+                            - RetryIndefinitely
+                            - AttemptOnce
+                            - ResetAfterFailed
+                            type: string
+                          collabPowerControl:
+                            description: Enables the Operating System to request processor
+                              frequency changes even if the Power Regulator option
+                              on the server configured for Dynamic Power Savings Mode.
+                              Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          dynamicPowerCapping:
+                            description: Configure when the System ROM executes power
+                              calibration during the boot process. Allowed values
+                              are Enabled, Disabled, Auto.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            - Auto
+                            type: string
+                          dynamicPowerResponse:
+                            description: Enable the System BIOS to control processor
+                              performance and power states depending on the processor
+                              workload. Allowed values are Fast, Slow.
+                            enum:
+                            - Fast
+                            - Slow
+                            type: string
+                          intelPerfMonitoring:
+                            description: Exposes certain chipset devices that can
+                              be used with the Intel Performance Monitoring Toolkit.
+                              Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          intelProcVtd:
+                            description: Hypervisor or operating system supporting
+                              this option can use hardware capabilities provided by
+                              Intel’s Virtualization Technology for Directed I/O.
+                              Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          intelQpiFreq:
+                            description: Set the QPI Link frequency to a lower speed.
+                              Allowed values are Auto, MinQpiSpeed.
+                            enum:
+                            - Auto
+                            - MinQpiSpeed
+                            type: string
+                          intelTxt:
+                            description: Option to modify Intel TXT support. Allowed
+                              values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          intelligentProvisioning:
+                            description: Enable or disable the Intelligent Provisioning
+                              functionality. Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          powerProfile:
+                            description: Set the power profile to be used. Allowed
+                              values are BalancedPowerPerf, MinPower, MaxPerf, Custom.
+                            enum:
+                            - BalancedPowerPerf
+                            - MinPower
+                            - MaxPerf
+                            - Custom
+                            type: string
+                          powerRegulator:
+                            description: Determines how to regulate the power consumption.
+                              Allowed values are DynamicPowerSavings, StaticLowPower,
+                              StaticHighPerf, OsControl.
+                            enum:
+                            - DynamicPowerSavings
+                            - StaticLowPower
+                            - StaticHighPerf
+                            - OsControl
+                            type: string
+                          procAes:
+                            description: Enable or disable the Advanced Encryption
+                              Standard Instruction Set (AES-NI) in the processor.
+                              Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          procCoreDisable:
+                            description: Disable processor cores using Intel’s Core
+                              Multi-Processing (CMP) Technology. Allowed values are
+                              Integers ranging from 0 to 24.
+                            format: int64
+                            maximum: 24
+                            minimum: 0
+                            type: integer
+                          procNoExecute:
+                            description: Protect your system against malicious code
+                              and viruses. Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          procTurbo:
+                            description: Enables the processor to transition to a
+                              higher frequency than the processor’s rated speed using
+                              Turbo Boost Technology if the processor has available
+                              power and is within temperature specifications. Allowed
+                              values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          sriov:
+                            description: If enabled, SR-IOV support enables a hypervisor
+                              to create virtual instances of a PCI-express device,
+                              potentially increasing performance. If enabled, the
+                              BIOS allocates additional resources to PCI-express devices.
+                              Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          thermalConfig:
+                            description: select the fan cooling solution for the system.
+                              Allowed values are OptimalCooling, IncreasedCooling,
+                              MaxCooling
+                            enum:
+                            - OptimalCooling
+                            - IncreasedCooling
+                            - MaxCooling
+                            type: string
+                          thermalShutdown:
+                            description: Control the reaction of the system to caution
+                              level thermal events. Allowed values are Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          uefiOptimizedBoot:
+                            description: Enables or Disables the System BIOS boot
+                              using native UEFI graphics drivers. Allowed values are
+                              Enabled, Disabled.
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          workloadProfile:
+                            description: Change the Workload Profile to accomodate
+                              your desired workload. This setting is only applicable
+                              to ProLiant Gen10 servers with iLO 5 management systems.
+                              Allowed values are GeneralPowerEfficientCompute, GeneralPeakFrequencyCompute,
+                              GeneralThroughputCompute, Virtualization-PowerEfficient,
+                              Virtualization-MaxPerformance, LowLatency, MissionCritical,
+                              TransactionalApplicationProcessing, HighPerformanceCompute,
+                              DecisionSupport, GraphicProcessing, I/OThroughput, Custom
+                            enum:
+                            - GeneralPowerEfficientCompute
+                            - GeneralPeakFrequencyCompute
+                            - GeneralThroughputCompute
+                            - Virtualization-PowerEfficient
+                            - Virtualization-MaxPerformance
+                            - LowLatency
+                            - MissionCritical
+                            - TransactionalApplicationProcessing
+                            - HighPerformanceCompute
+                            - DecisionSupport
+                            - GraphicProcessing
+                            - OThroughput
+                            - Custom
+                            type: string
+                        type: object
+                      irmc:
+                        description: The iRMC driver enables control FUJITSU PRIMERGY
+                          via ServerView Common Command Interface (SCCI).
+                        properties:
+                          bootOptionFilter:
+                            description: 'Specifies from which drives can be booted.
+                              This supports following options: UefiAndLegacy, LegacyOnly,
+                              UefiOnly.'
+                            enum:
+                            - UefiAndLegacy
+                            - LegacyOnly
+                            - UefiOnly
+                            type: string
+                          checkControllersHealthStatusEnabled:
+                            description: 'The UEFI FW checks the controller health
+                              status. This supports following options: true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                          cpuActiveProcessorCores:
+                            description: 'The processor loads the requested cache
+                              line and the adjacent cache line. This supports following
+                              options: true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                          cpuAdjacentCacheLinePrefetchEnabled:
+                            description: The number of active processor cores 1…n.
+                              Option 0 indicates that all available processor cores
+                              are active.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          flashWriteEnabled:
+                            description: 'The system BIOS can be written. Flash BIOS
+                              update is possible. This supports following options:
+                              true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                          keepVoidBootOptionsEnabled:
+                            description: 'Boot Options will not be removed from “Boot
+                              Option Priority” list. This supports following options:
+                              true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                          launchCsmEnabled:
+                            description: 'Specifies whether the Compatibility Support
+                              Module (CSM) is executed. This supports following options:
+                              true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                          osEnergyPerformanceOverrideEnabled:
+                            description: 'Prevents the OS from overruling any energy
+                              efficiency policy setting of the setup. This supports
+                              following options: true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                          pciAbove4gDecodingEnabled:
+                            description: 'Specifies if memory resources above the
+                              4GB address boundary can be assigned to PCI devices.
+                              This supports following options: true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                          pciAspmSupport:
+                            description: 'Active State Power Management (ASPM) is
+                              used to power-manage the PCI Express links, thus consuming
+                              less power. This supports following options: Disabled,
+                              Auto, L0Limited, L1only, L0Force.'
+                            enum:
+                            - Disabled
+                            - Auto
+                            - L0Limited
+                            - L1only
+                            - L0Force
+                            type: string
+                          powerOnSource:
+                            description: 'Specifies whether the switch on sources
+                              for the system are managed by the BIOS or the ACPI operating
+                              system. This supports following options: BiosControlled,
+                              AcpiControlled.'
+                            enum:
+                            - BiosControlled
+                            - AcpiControlled
+                            type: string
+                          singleRootIoVirtualizationSupportEnabled:
+                            description: 'Single Root IO Virtualization Support is
+                              active. This supports following options: true, false.'
+                            enum:
+                            - "true"
+                            - "false"
+                            type: string
+                        type: object
+                      simultaneousMultithreadingEnabled:
+                        description: 'Allows a single physical processor core to appear
+                          as several logical processors. This supports following options:
+                          true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      virtualizationEnabled:
+                        description: 'Supports the virtualization of platform hardware.
+                          This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                    type: object
                   image:
                     description: Image holds the details of the last image successfully
                       provisioned to the host.

@@ -201,6 +201,21 @@ type BareMetalHostSpec struct {
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 }
 
+// Checksum Algorithm Type
+// +kubebuilder:validation:Enum=md5;sha256;sha512
+type ChecksumType string
+
+const (
+	// MD5 checksum type
+	MD5 ChecksumType = "md5"
+
+	// SHA256 checksum type
+	SHA256 ChecksumType = "sha256"
+
+	// SHA512 checksum type
+	SHA512 ChecksumType = "sha512"
+)
+
 // Image holds the details of an image either to provisioned or that
 // has been provisioned.
 type Image struct {
@@ -209,6 +224,10 @@ type Image struct {
 
 	// Checksum is the checksum for the image.
 	Checksum string `json:"checksum"`
+
+	// ChecksumType is the checksum algorithm for the image.
+	// e.g md5, sha256, sha512
+	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -745,6 +764,27 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 		metric = &history.Deprovision
 	}
 	return
+}
+
+// GetImageChecksum returns the hash value and its algo.
+func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
+	checksum := host.Spec.Image.Checksum
+	checksumType := host.Spec.Image.ChecksumType
+
+	if checksum == "" {
+		// Return empty if checksum is not provided
+		return "", "", false
+	}
+	if checksumType == "" {
+		// If only checksum is specified. Assume type is md5
+		return checksum, string(MD5), true
+	}
+	switch checksumType {
+	case MD5, SHA256, SHA512:
+		return checksum, string(checksumType), true
+	default:
+		return "", "", false
+	}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

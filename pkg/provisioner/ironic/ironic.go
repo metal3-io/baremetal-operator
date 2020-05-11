@@ -279,12 +279,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			}
 		}
 
-		if p.host.Spec.Image != nil && p.host.Spec.Image.URL != "" {
-			checksum := p.host.Spec.Image.Checksum
+		checksum, checksumType, ok := p.host.GetImageChecksum()
 
+		if ok {
 			p.log.Info("setting instance info",
 				"image_source", p.host.Spec.Image.URL,
-				"checksum", checksum,
+				"image_os_hash_value", checksum,
+				"image_os_hash_algo", checksumType,
 			)
 
 			updates := nodes.UpdateOpts{
@@ -295,8 +296,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				},
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_checksum",
+					Path:  "/instance_info/image_os_hash_value",
 					Value: checksum,
+				},
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_os_hash_algo",
+					Value: checksumType,
 				},
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
@@ -676,7 +682,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	return result, nil
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksum string) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
 	if err != nil {
@@ -703,19 +709,38 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 		},
 	)
 
-	// image_checksum
-	if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
+	checksum, checksumType, _ := p.host.GetImageChecksum()
+
+	// image_os_hash_algo
+	if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
 		op = nodes.AddOp
-		p.log.Info("adding image_checksum")
+		p.log.Info("adding image_os_hash_algo")
 	} else {
 		op = nodes.ReplaceOp
-		p.log.Info("updating image_checksum")
+		p.log.Info("updating image_os_hash_algo")
 	}
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
 			Op:    op,
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: checksumType,
+		},
+	)
+
+	// image_os_hash_value
+	if _, ok := ironicNode.InstanceInfo["image_os_hash_value"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding image_os_hash_value")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating image_os_hash_value")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/image_os_hash_value",
 			Value: checksum,
 		},
 	)
@@ -822,11 +847,11 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 	return updates, nil
 }
 
-func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum string, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning")
 
-	updates, err := p.getUpdateOptsForNode(ironicNode, checksum)
+	updates, err := p.getUpdateOptsForNode(ironicNode)
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 	switch err.(type) {
 	case nil:
@@ -933,16 +958,18 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	checksum := p.host.Spec.Image.Checksum
+	checksum, checksumType, _ := p.host.GetImageChecksum()
 
 	// Local variable to make it easier to test if ironic is
 	// configured with the same image we are trying to provision to
 	// the host.
 	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
-		ironicNode.InstanceInfo["image_checksum"] == checksum)
+		ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
+		ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
 	p.log.Info("checking image settings",
 		"source", ironicNode.InstanceInfo["image_source"],
-		"checksum", checksum,
+		"image_os_hash_algo", checksumType,
+		"image_os_has_value", checksum,
 		"same", ironicHasSameImage,
 		"provisionState", ironicNode.ProvisionState)
 
@@ -971,10 +998,10 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			return result, nil
 		}
 		p.log.Info("recovering from previous failure")
-		return p.startProvisioning(ironicNode, checksum, hostConf)
+		return p.startProvisioning(ironicNode, hostConf)
 
 	case nodes.Manageable:
-		return p.startProvisioning(ironicNode, checksum, hostConf)
+		return p.startProvisioning(ironicNode, hostConf)
 
 	case nodes.Available:
 		// After it is available, we need to start provisioning by

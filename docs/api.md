@@ -73,6 +73,9 @@ mainly, but not only, provisioning details.
   * *url* -- The URL of an image to deploy to the host.
   * *checksum* -- The actual checksum or a URL to a file containing
     the checksum for the image at *image.url*.
+  * *checksumType* -- Checksum algorithms can be specified. Currently
+    only `md5`, `sha256`, `sha512` are recognized. If nothing is specified
+    `md5` is assumed.
 
 * *userData* -- A reference to the Secret containing the cloudinit user data
   and its namespace, so it can be attached to the host before it boots

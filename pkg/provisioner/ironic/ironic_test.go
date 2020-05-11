@@ -27,7 +27,9 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
-				URL: "not-empty",
+				URL:          "not-empty",
+				Checksum:     "checksum",
+				ChecksumType: metal3v1alpha1.MD5,
 			},
 			Online: true,
 		},
@@ -44,7 +46,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +65,11 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			Value: "not-empty",
 		},
 		{
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: "md5",
+		},
+		{
+			Path:  "/instance_info/image_os_hash_value",
 			Value: "checksum",
 		},
 		{
@@ -113,7 +119,9 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
-				URL: "not-empty",
+				URL:          "not-empty",
+				Checksum:     "checksum",
+				ChecksumType: metal3v1alpha1.MD5,
 			},
 			Online: true,
 		},
@@ -130,7 +138,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +157,11 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 			Value: "not-empty",
 		},
 		{
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: "md5",
+		},
+		{
+			Path:  "/instance_info/image_os_hash_value",
 			Value: "checksum",
 		},
 		{

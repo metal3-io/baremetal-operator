@@ -27,7 +27,9 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
-				URL: "not-empty",
+				URL:          "not-empty",
+				Checksum:     "checksum",
+				ChecksumType: metal3v1alpha1.MD5,
 			},
 			Online: true,
 		},
@@ -44,7 +46,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +65,11 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			Value: "not-empty",
 		},
 		{
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: "md5",
+		},
+		{
+			Path:  "/instance_info/image_os_hash_value",
 			Value: "checksum",
 		},
 		{
@@ -113,7 +119,9 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
-				URL: "not-empty",
+				URL:          "not-empty",
+				Checksum:     "checksum",
+				ChecksumType: metal3v1alpha1.MD5,
 			},
 			Online: true,
 		},
@@ -130,7 +138,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +157,11 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 			Value: "not-empty",
 		},
 		{
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: "md5",
+		},
+		{
+			Path:  "/instance_info/image_os_hash_value",
 			Value: "checksum",
 		},
 		{
@@ -194,11 +206,11 @@ func TestGetVLANs(t *testing.T) {
 	vlans, vid := getVLANs(introspection.BaseInterfaceType{
 		LLDPProcessed: map[string]interface{}{
 			"switch_port_vlans": []map[string]interface{}{
-				map[string]interface{}{
+				{
 					"id":   1,
 					"name": "vlan1",
 				},
-				map[string]interface{}{
+				{
 					"id":   4094,
 					"name": "vlan4094",
 				},
@@ -224,23 +236,23 @@ func TestGetVLANsMalformed(t *testing.T) {
 	vlans, vid := getVLANs(introspection.BaseInterfaceType{
 		LLDPProcessed: map[string]interface{}{
 			"switch_port_vlans": []map[string]interface{}{
-				map[string]interface{}{
+				{
 					"foo":  "bar",
 					"name": "vlan1",
 				},
-				map[string]interface{}{
+				{
 					"foo": "bar",
 					"id":  1,
 				},
-				map[string]interface{}{
+				{
 					"name": "vlan2",
 					"id":   "2",
 				},
-				map[string]interface{}{
+				{
 					"name": 3,
 					"id":   3,
 				},
-				map[string]interface{}{
+				{
 					"foo": "bar",
 				},
 			},
@@ -332,21 +344,21 @@ func TestGetVLANsMalformed(t *testing.T) {
 func TestGetNICDetails(t *testing.T) {
 	nics := getNICDetails(
 		[]introspection.InterfaceType{
-			introspection.InterfaceType{
-				Name: "eth0",
+			{
+				Name:        "eth0",
 				IPV4Address: "192.0.2.1",
-				MACAddress: "00:11:22:33:44:55"},
-			introspection.InterfaceType{
-				Name: "eth1",
+				MACAddress:  "00:11:22:33:44:55"},
+			{
+				Name:        "eth1",
 				IPV6Address: "2001:db8::1",
-				MACAddress: "66:77:88:99:aa:bb"},
+				MACAddress:  "66:77:88:99:aa:bb"},
 		},
 		map[string]introspection.BaseInterfaceType{
-			"eth0": introspection.BaseInterfaceType{
+			"eth0": {
 				PXE: true,
 				LLDPProcessed: map[string]interface{}{
 					"switch_port_vlans": []map[string]interface{}{
-						map[string]interface{}{
+						{
 							"id": 1,
 						},
 					},
@@ -369,7 +381,7 @@ func TestGetNICDetails(t *testing.T) {
 		IP:   "192.0.2.1",
 		PXE:  true,
 		VLANs: []metal3v1alpha1.VLAN{
-			metal3v1alpha1.VLAN{ID: 1},
+			{ID: 1},
 		},
 		VLANID: 1,
 	})) {

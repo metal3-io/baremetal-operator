@@ -6,6 +6,14 @@ Follow the instructions in the Quick Start section of
 <https://github.com/operator-framework/operator-sdk> to check out and
 install the operator-sdk tools.
 
+## Install openapi-gen
+
+Install the kube-api version of [openapi-gen](https://github.com/kubernetes/kube-openapi)
+
+```bash
+go get k8s.io/kube-openapi/cmd/openapi-gen
+```
+
 ## With minikube
 
 1. Install and launch minikube
@@ -74,7 +82,7 @@ your environment.
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to
-[vbmc](https://docs.openstack.org/tripleo-docs/latest/install/environments/virtualbmc.html)
+[vbmc](https://docs.openstack.org/project-deploy-guide/tripleo-docs/latest/environments/virtualbmc.html)
 and the `bootMACAddress` field needs to be set to the MAC address of the
 network interface that will PXE boot.
 

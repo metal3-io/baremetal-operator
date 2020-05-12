@@ -5,14 +5,8 @@ resources:
 - ../namespace
 - ../rbac
 - ../crds
-- ../deployments/bmo
-- ../deployments/ironic
+- ../operator
 configMapGenerator:
 - envs:
   - ironic_bmo_configmap.env
   name: ironic-bmo-configmap
-secretGenerator:
-- literals:
-  - password=changeme
-  name: mariadb-password
-  type: Opaque

@@ -438,10 +438,6 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 		return actionError{errors.Wrap(err, "failed to delete")}
 	}
 	if provResult.Dirty {
-		err = r.saveHostStatus(info.host)
-		if err != nil {
-			return actionError{errors.Wrap(err, "failed to save host after deleting")}
-		}
 		return actionContinue{provResult.RequeueAfter}
 	}
 

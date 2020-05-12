@@ -149,12 +149,47 @@ spec:
                 checksum:
                   description: Checksum is the checksum for the image.
                   type: string
+                checksumType:
+                  description: ChecksumType is the checksum algorithm for the image.
+                    e.g md5, sha256, sha512
+                  enum:
+                  - md5
+                  - sha256
+                  - sha512
+                  type: string
                 url:
                   description: URL is a location of an image to deploy.
                   type: string
               required:
               - checksum
               - url
+              type: object
+            metaData:
+              description: MetaData holds the reference to the Secret containing host
+                metadata (e.g. meta_data.json which is passed to Config Drive).
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
+              type: object
+            networkData:
+              description: NetworkData holds the reference to the Secret containing
+                network configuration (e.g content of network_data.json which is passed
+                to Config Drive).
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
               type: object
             online:
               description: Should the server be online?
@@ -315,6 +350,8 @@ spec:
                       vlanId:
                         description: The untagged VLAN ID
                         format: int32
+                        maximum: 4094
+                        minimum: 0
                         type: integer
                       vlans:
                         description: The VLANs available
@@ -324,6 +361,8 @@ spec:
                             id:
                               description: VLANID is a 12-bit 802.1Q VLAN identifier
                               format: int32
+                              maximum: 4094
+                              minimum: 0
                               type: integer
                             name:
                               type: string
@@ -498,6 +537,14 @@ spec:
                   properties:
                     checksum:
                       description: Checksum is the checksum for the image.
+                      type: string
+                    checksumType:
+                      description: ChecksumType is the checksum algorithm for the
+                        image. e.g md5, sha256, sha512
+                      enum:
+                      - md5
+                      - sha256
+                      - sha512
                       type: string
                     url:
                       description: URL is a location of an image to deploy.

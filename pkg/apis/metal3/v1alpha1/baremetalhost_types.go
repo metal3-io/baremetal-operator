@@ -18,6 +18,13 @@ const (
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
 	BareMetalHostFinalizer string = "baremetalhost.metal3.io"
+
+	// PausedAnnotation is the annotation that pauses the reconciliation (triggers
+	// an immediate requeue)
+	PausedAnnotation = "baremetalhost.metal3.io/paused"
+
+	// StatusAnnotation is the annotation that holds the Status of BMH
+	StatusAnnotation = "baremetalhost.metal3.io/status"
 )
 
 // OperationalStatus represents the state of the host
@@ -79,6 +86,9 @@ const (
 
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
+
+	// StateAvailable means the host can be consumed
+	StateAvailable ProvisioningState = "available"
 
 	// StateProvisioning means we are writing an image to the host's
 	// disk(s)
@@ -172,6 +182,15 @@ type BareMetalHostSpec struct {
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
+	// NetworkData holds the reference to the Secret containing network
+	// configuration (e.g content of network_data.json which is passed
+	// to Config Drive).
+	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
+
+	// MetaData holds the reference to the Secret containing host metadata
+	// (e.g. meta_data.json which is passed to Config Drive).
+	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
+
 	// Description is a human-entered text used to help identify the host
 	Description string `json:"description,omitempty"`
 
@@ -182,6 +201,21 @@ type BareMetalHostSpec struct {
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 }
 
+// Checksum Algorithm Type
+// +kubebuilder:validation:Enum=md5;sha256;sha512
+type ChecksumType string
+
+const (
+	// MD5 checksum type
+	MD5 ChecksumType = "md5"
+
+	// SHA256 checksum type
+	SHA256 ChecksumType = "sha256"
+
+	// SHA512 checksum type
+	SHA512 ChecksumType = "sha512"
+)
+
 // Image holds the details of an image either to provisioned or that
 // has been provisioned.
 type Image struct {
@@ -190,6 +224,10 @@ type Image struct {
 
 	// Checksum is the checksum for the image.
 	Checksum string `json:"checksum"`
+
+	// ChecksumType is the checksum algorithm for the image.
+	// e.g md5, sha256, sha512
+	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -263,12 +301,13 @@ type Storage struct {
 }
 
 // VLANID is a 12-bit 802.1Q VLAN identifier
+// +kubebuilder:validation:Type=integer
+// +kubebuilder:validation:Minimum=0
+// +kubebuilder:validation:Maximum=4094
 type VLANID int32
 
 // VLAN represents the name and ID of a VLAN
 type VLAN struct {
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=4094
 	ID VLANID `json:"id"`
 
 	Name string `json:"name,omitempty"`
@@ -296,8 +335,6 @@ type NIC struct {
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// The untagged VLAN ID
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=4094
 	VLANID VLANID `json:"vlanId"`
 
 	// Whether the NIC is PXE Bootable
@@ -727,6 +764,27 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 		metric = &history.Deprovision
 	}
 	return
+}
+
+// GetImageChecksum returns the hash value and its algo.
+func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
+	checksum := host.Spec.Image.Checksum
+	checksumType := host.Spec.Image.ChecksumType
+
+	if checksum == "" {
+		// Return empty if checksum is not provided
+		return "", "", false
+	}
+	if checksumType == "" {
+		// If only checksum is specified. Assume type is md5
+		return checksum, string(MD5), true
+	}
+	switch checksumType {
+	case MD5, SHA256, SHA512:
+		return checksum, string(checksumType), true
+	default:
+		return "", "", false
+	}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

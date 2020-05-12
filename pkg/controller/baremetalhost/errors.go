@@ -47,3 +47,14 @@ func (e SaveBMCSecretOwnerError) Error() string {
 	return fmt.Sprintf("Failed to set owner of BMC secret %s",
 		e.message)
 }
+
+// NoDataInSecretError is returned when host configuration
+// data were not found in referenced secret
+type NoDataInSecretError struct {
+	secret string
+	key    string
+}
+
+func (e NoDataInSecretError) Error() string {
+	return fmt.Sprintf("Secret %s does not contain key %s", e.secret, e.key)
+}

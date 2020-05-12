@@ -4,6 +4,7 @@ import (
 	goctx "context"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 const (
 	namespace         string = "test-namespace"
 	defaultSecretName string = "bmc-creds-valid"
+	statusAnnotaion   string = `{"operationalStatus":"OK","lastUpdated":"2020-04-15T15:00:50Z","hardwareProfile":"StatusProfile","hardware":{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true},{"name":"eth1","model":"0x1af4  0x0001","mac":"00:b7:8b:bb:3d:f8","ip":"192.168.111.20","speedGbps":0,"vlanId":0,"pxe":false}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["aes","apic","arat","avx","clflush","cmov","constant_tsc","cx16","cx8","de","eagerfpu","ept","erms","f16c","flexpriority","fpu","fsgsbase","fxsr","hypervisor","lahf_lm","lm","mca","mce","mmx","msr","mtrr","nopl","nx","pae","pat","pclmulqdq","pge","pni","popcnt","pse","pse36","rdrand","rdtscp","rep_good","sep","smep","sse","sse2","sse4_1","sse4_2","ssse3","syscall","tpr_shadow","tsc","tsc_adjust","tsc_deadline_timer","vme","vmx","vnmi","vpid","x2apic","xsave","xsaveopt","xtopology"],"count":4},"hostname":"node-0"},"provisioning":{"state":"provisioned","ID":"8a0ede17-7b87-44ac-9293-5b7d50b94b08","image":{"url":"bar","checksum":""}},"goodCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"triedCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"errorMessage":"","poweredOn":true,"operationHistory":{"register":{"start":"2020-04-15T12:06:26Z","end":"2020-04-15T12:07:12Z"},"inspect":{"start":"2020-04-15T12:07:12Z","end":"2020-04-15T12:09:29Z"},"provision":{"start":null,"end":null},"deprovision":{"start":null,"end":null}}}`
 )
 
 func init() {
@@ -35,10 +37,11 @@ func init() {
 	metal3apis.AddToScheme(scheme.Scheme)
 }
 
-func newSecret(name, username, password string) *corev1.Secret {
-	data := make(map[string][]byte)
-	data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte(username)))
-	data["password"] = []byte(base64.StdEncoding.EncodeToString([]byte(password)))
+func newSecret(name string, data map[string]string) *corev1.Secret {
+	secretData := make(map[string][]byte)
+	for k, v := range data {
+		secretData[k] = []byte(base64.StdEncoding.EncodeToString([]byte(v)))
+	}
 
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -50,10 +53,14 @@ func newSecret(name, username, password string) *corev1.Secret {
 			Namespace:       namespace,
 			ResourceVersion: "1",
 		},
-		Data: data,
+		Data: secretData,
 	}
 
 	return secret
+}
+
+func newBMCCredsSecret(name, username, password string) *corev1.Secret {
+	return newSecret(name, map[string]string{"username": username, "password": password})
 }
 
 func newHost(name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha1.BareMetalHost {
@@ -90,7 +97,8 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	c := fakeclient.NewFakeClient(initObjs...)
 
 	// Add a default secret that can be used by most hosts.
-	c.Create(goctx.TODO(), newSecret(defaultSecretName, "User", "Pass"))
+	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
+	c.Create(goctx.TODO(), bmcSecret)
 
 	return &ReconcileBareMetalHost{
 		client:             c,
@@ -121,6 +129,7 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 		}
 
 		result, err := r.Reconcile(request)
+
 		if err != nil {
 			t.Fatal(err)
 			break
@@ -129,7 +138,9 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 		// The FakeClient keeps a copy of the object we update, so we
 		// need to replace the one we have with the updated data in
 		// order to test it.
-		r.client.Get(goctx.TODO(), request.NamespacedName, host)
+		updatedHost := &metal3v1alpha1.BareMetalHost{}
+		r.client.Get(goctx.TODO(), request.NamespacedName, updatedHost)
+		updatedHost.DeepCopyInto(host)
 
 		if isDone(host, result) {
 			logger.Info("tryReconcile: loop done")
@@ -184,6 +195,101 @@ func waitForProvisioningState(t *testing.T, r *ReconcileBareMetalHost, host *met
 	)
 }
 
+// TestStatusAnnotation_EmptyStatus ensures that status is manually populated
+// when status annotation is present and status field is empty.
+func TestStatusAnnotation_EmptyStatus(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		metal3v1alpha1.StatusAnnotation: statusAnnotaion,
+	}
+	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.HardwareProfile == "StatusProfile" && host.Status.Provisioning.Image.URL == "bar" {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestStatusAnnotation_StatusPresent tests that if status is present
+// status annotation is ignored.
+func TestStatusAnnotation_StatusPresent(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		metal3v1alpha1.StatusAnnotation: statusAnnotaion,
+	}
+	host.Spec.Online = true
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	host.Status.Provisioning.Image = metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.HardwareProfile != "StatusProfile" && host.Status.Provisioning.Image.URL == "foo" {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestStatusAnnotation tests if statusAnnotaion is populated correctly
+func TestStatusAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
+	r := newTestReconciler(host, bmcSecret)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
+				return true
+			}
+			return false
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			objStatus, _ := r.getHostStatusFromAnnotation(host)
+			objStatus.LastUpdated = host.Status.LastUpdated
+
+			if reflect.DeepEqual(host.Status, *objStatus) {
+				return true
+			}
+			return false
+		},
+	)
+
+}
+
+// TestPause ensures that the requeue happens when the pause annotation is there.
+func TestPause(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		metal3v1alpha1.PausedAnnotation: "true",
+	}
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if result.Requeue && result.RequeueAfter == pauseRetryDelay &&
+				len(host.Finalizers) == 0 {
+				return true
+			}
+			return false
+		},
+	)
+}
+
 // TestAddFinalizers ensures that the finalizers for the host are
 // updated as part of reconciling it.
 func TestAddFinalizers(t *testing.T) {
@@ -214,6 +320,166 @@ func TestSetLastUpdated(t *testing.T) {
 				return true
 			}
 			return false
+		},
+	)
+}
+
+func TestHasRebootAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+
+	if hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	host.Annotations = make(map[string]string)
+	suffixedAnnotation := rebootAnnotationPrefix + "/foo"
+	host.Annotations[suffixedAnnotation] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	delete(host.Annotations, suffixedAnnotation)
+	host.Annotations[rebootAnnotationPrefix] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	host.Annotations[suffixedAnnotation] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+	//two suffixed annotations to simulate multiple clients
+
+	host.Annotations[suffixedAnnotation+"bar"] = ""
+
+	if !hasRebootAnnotation(host) {
+		t.Fail()
+	}
+
+}
+
+// TestRebootWithSuffixlessAnnotation tests full reboot cycle with suffixless
+// annotation which doesn't wait for annotation removal before power on
+func TestRebootWithSuffixlessAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[rebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if _, exists := host.Annotations[rebootAnnotationPrefix]; exists {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	//make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+}
+
+// TestRebootWithSuffixedAnnotation tests a full reboot cycle, with suffixed annotation
+// to verify that controller holds power off until annotation removal
+func TestRebootWithSuffixedAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	annotation := rebootAnnotationPrefix + "/foo"
+	host.Annotations[annotation] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			//we expect that the machine will be powered off until we remove annotation
+			if host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	delete(host.Annotations, annotation)
+	r.client.Update(goctx.TODO(), host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
+		},
+	)
+
+	//make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if !host.Status.PoweredOn {
+				return false
+			}
+
+			return true
 		},
 	)
 }
@@ -257,7 +523,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	)
 
 	// Define a second valid secret and update the host to use it.
-	secret2 := newSecret("bmc-creds-valid2", "User", "Pass")
+	secret2 := newBMCCredsSecret("bmc-creds-valid2", "User", "Pass")
 	err := r.client.Create(goctx.TODO(), secret2)
 	if err != nil {
 		t.Fatal(err)
@@ -286,7 +552,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 // to one that is missing data.
 func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	host := newDefaultHost(t)
-	badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+	badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 	r := newTestReconciler(host, badSecret)
 
 	tryReconcile(t, r, host,
@@ -357,7 +623,7 @@ func TestMissingBMCParameters(t *testing.T) {
 	}{
 		{
 			Scenario: "secret without username",
-			Secret:   newSecret("bmc-creds-no-user", "", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-no-user", "", "Pass"),
 			Host: newHost("missing-bmc-username",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -369,7 +635,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "secret without password",
-			Secret:   newSecret("bmc-creds-no-pass", "User", ""),
+			Secret:   newBMCCredsSecret("bmc-creds-no-pass", "User", ""),
 			Host: newHost("missing-bmc-password",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -381,7 +647,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "malformed address",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("invalid-bmc-address",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -393,7 +659,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "missing address",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("missing-bmc-address",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -405,7 +671,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "missing secret",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("missing-bmc-credentials-ref",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -417,7 +683,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 		{
 			Scenario: "no such secret",
-			Secret:   newSecret("bmc-creds-ok", "User", "Pass"),
+			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("non-existent-bmc-secret-ref",
 				&metal3v1alpha1.BareMetalHostSpec{
 					BMC: metal3v1alpha1.BMCDetails{
@@ -440,7 +706,7 @@ func TestMissingBMCParameters(t *testing.T) {
 // be correct the status of the host moves out of the error state.
 func TestFixSecret(t *testing.T) {
 
-	secret := newSecret("bmc-creds-no-user", "", "Pass")
+	secret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 	host := newHost("fix-secret",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
@@ -477,7 +743,7 @@ func TestBreakThenFixSecret(t *testing.T) {
 
 	// Create the host without any errors and wait for it to be
 	// registered and get a provisioning ID.
-	secret := newSecret("bmc-creds-toggle-user", "User", "Pass")
+	secret := newBMCCredsSecret("bmc-creds-toggle-user", "User", "Pass")
 	host := newHost("break-then-fix-secret",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
@@ -759,7 +1025,7 @@ func TestDeleteHost(t *testing.T) {
 		t.Run(host.Name, func(t *testing.T) {
 			host.DeletionTimestamp = &now
 			host.Status.Provisioning.ID = "made-up-id"
-			badSecret := newSecret("bmc-creds-no-user", "", "Pass")
+			badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 			r := newTestReconciler(host, badSecret)
 
 			tryReconcile(t, r, host,

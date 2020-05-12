@@ -128,6 +128,16 @@ func (in *BareMetalHostSpec) DeepCopyInto(out *BareMetalHostSpec) {
 		*out = new(v1.SecretReference)
 		**out = **in
 	}
+	if in.NetworkData != nil {
+		in, out := &in.NetworkData, &out.NetworkData
+		*out = new(v1.SecretReference)
+		**out = **in
+	}
+	if in.MetaData != nil {
+		in, out := &in.MetaData, &out.MetaData
+		*out = new(v1.SecretReference)
+		**out = **in
+	}
 	return
 }
 

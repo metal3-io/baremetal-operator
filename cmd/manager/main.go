@@ -20,7 +20,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-var log = logf.Log.WithName("cmd")
+var (
+	log            = logf.Log.WithName("cmd")
+	watchNamespace string
+)
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
@@ -30,8 +33,10 @@ func printVersion() {
 }
 
 func main() {
+	var err error
 	devLogging := flag.Bool("dev", false, "enable dev logging")
 	metricsAddr := flag.String("metrics-addr", "127.0.0.1:8085", "The address the metric endpoint binds to.")
+	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile BMO objects.")
 	flag.Parse()
 
 	// The logger instantiated here can be changed to any logger
@@ -42,10 +47,15 @@ func main() {
 
 	printVersion()
 
-	namespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
+	// From CAPI point of view, BMO should be able to watch all namespaces
+	// in case of a deployment that is not multi-tenant. If the deployment
+	// is for multi-tenancy, then the BMO should watch only the provided
+	// namespace.
+	if watchNamespace == "" {
+		watchNamespace, err = k8sutil.GetWatchNamespace()
+		if err != nil {
+			watchNamespace = ""
+		}
 	}
 
 	// Get a config to talk to the apiserver
@@ -59,8 +69,8 @@ func main() {
 	opts := manager.Options{
 		LeaderElection:          true,
 		LeaderElectionID:        "baremetal-operator",
-		LeaderElectionNamespace: namespace,
-		Namespace:               namespace,
+		LeaderElectionNamespace: watchNamespace,
+		Namespace:               watchNamespace,
 		MetricsBindAddress:      *metricsAddr,
 	}
 

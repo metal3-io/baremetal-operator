@@ -18,9 +18,20 @@ type EventPublisher func(reason, message string)
 // Factory is the interface for creating new Provisioner objects.
 type Factory func(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
 
-// UserDataSource is the interface for a function to retrieve user
-// data for a host being provisioned.
-type UserDataSource func() (string, error)
+// HostConfigData retrieves host configuration data
+type HostConfigData interface {
+	// UserData is the interface for a function to retrieve user
+	// data for a host being provisioned.
+	UserData() (string, error)
+
+	// NetworkData is the interface for a function to retrieve netwok
+	// configuration for a host.
+	NetworkData() (string, error)
+
+	// MetaData is the interface for a function to retrieve metadata
+	// configuration for a host.
+	MetaData() (string, error)
+}
 
 // Provisioner holds the state information for talking to the
 // provisioning backend.
@@ -53,7 +64,7 @@ type Provisioner interface {
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.
-	Provision(getUserData UserDataSource) (result Result, err error)
+	Provision(configData HostConfigData) (result Result, err error)
 
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until

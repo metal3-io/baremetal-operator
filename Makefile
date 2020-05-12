@@ -126,6 +126,11 @@ build:
 	@echo LDFLAGS=$(LDFLAGS)
 	go build -mod=vendor -o build/_output/bin/baremetal-operator cmd/manager/main.go
 
+.PHONY: tools
+tools:
+	@echo LDFLAGS=$(LDFLAGS)
+	go build -o build/_output/bin/make-introspection cmd/make-introspection/main.go
+
 .PHONY: deploy
 deploy:
 	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..

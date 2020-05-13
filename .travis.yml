@@ -15,5 +15,6 @@ env:
   - TARGET=unit-verbose
   - TARGET=lint
   - TARGET=docker
+  - TARGET=golint-check
 
 script: make $TARGET

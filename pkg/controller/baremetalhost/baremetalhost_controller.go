@@ -202,7 +202,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 
 	// Check if Status is empty and status annotation is present
 	// Manually restore data.
-	if r.hostHasStatus(host) {
+	if !r.hostHasStatus(host) {
 		reqLogger.Info("Fetching Status from Annotation")
 		objStatus, err := r.getHostStatusFromAnnotation(host)
 		if err == nil && objStatus != nil {
@@ -211,6 +211,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 			if errStatus != nil {
 				return reconcile.Result{}, errors.Wrap(err, "Could not restore status from annotation")
 			}
+			return reconcile.Result{Requeue: true}, nil
 		} else {
 			reqLogger.Info("No status cache found")
 		}
@@ -972,7 +973,7 @@ func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, event c
 }
 
 func (r *ReconcileBareMetalHost) hostHasStatus(host *metal3v1alpha1.BareMetalHost) bool {
-	return host.Status.LastUpdated.IsZero()
+	return !host.Status.LastUpdated.IsZero()
 }
 
 func hostHasFinalizer(host *metal3v1alpha1.BareMetalHost) bool {

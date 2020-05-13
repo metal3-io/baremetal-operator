@@ -212,9 +212,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 				return reconcile.Result{}, errors.Wrap(err, "Could not restore status from annotation")
 			}
 			return reconcile.Result{Requeue: true}, nil
-		} else {
-			reqLogger.Info("No status cache found")
 		}
+		reqLogger.Info("No status cache found")
 	}
 
 	// NOTE(dhellmann): Handle a few steps outside of the phase

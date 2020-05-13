@@ -14,5 +14,6 @@ before_install:
 env:
   - TARGET=unit-verbose
   - TARGET=docker
+  - TARGET=golint-check
 
 script: make $TARGET

@@ -201,7 +201,7 @@ type BareMetalHostSpec struct {
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 }
 
-// Checksum Algorithm Type
+// ChecksumType holds the algorithm name for the checksum
 // +kubebuilder:validation:Enum=md5;sha256;sha512
 type ChecksumType string
 

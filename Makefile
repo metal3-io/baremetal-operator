@@ -93,7 +93,7 @@ generate-check-local:
 
 .PHONY: test-sec
 test-sec: $GOPATH/bin/gosec
-	gosec -severity medium --confidence medium -quiet ./...
+	gosec -severity medium --confidence medium -quiet ./pkg/... ./cmd/...
 
 $GOPATH/bin/gosec:
 	go get -u github.com/securego/gosec/cmd/gosec

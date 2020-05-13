@@ -40,9 +40,9 @@ help:
 test: generate unit lint
 
 .PHONY: generate
-generate:
-	operator-sdk generate $(VERBOSE) k8s
-	operator-sdk generate $(VERBOSE) crds
+generate: bin/operator-sdk
+	./bin/operator-sdk generate $(VERBOSE) k8s
+	./bin/operator-sdk generate $(VERBOSE) crds
 	openapi-gen \
 		--input-dirs ./pkg/apis/metal3/v1alpha1 \
 		--output-package ./pkg/apis/metal3/v1alpha1 \
@@ -50,6 +50,12 @@ generate:
 		--output-file-base zz_generated.openapi \
 		--report-filename "-" \
 		--go-header-file /dev/null
+
+bin/operator-sdk: bin
+	make -C tools/operator-sdk install
+
+bin:
+	mkdir -p bin
 
 .PHONY: travis
 travis: unit-verbose lint

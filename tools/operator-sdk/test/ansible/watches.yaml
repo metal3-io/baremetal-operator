@@ -1,0 +1,21 @@
+---
+- version: v1alpha1
+  group: test.example.com
+  kind: InventoryTest
+  playbook: playbooks/inventory.yml
+
+- version: v1alpha1
+  group: test.example.com
+  kind: CollectionTest
+  role: operator_sdk.test_fixtures.dummy
+
+- version: v1alpha1
+  group: test.example.com
+  kind: ExecTest
+  playbook: playbooks/exec.yml
+
+- version: v1
+  group: ""
+  kind: Secret
+  playbook: playbooks/secret.yml
+  manageStatus: false

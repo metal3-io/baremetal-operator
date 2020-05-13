@@ -149,7 +149,7 @@ build:
 .PHONY: tools
 tools:
 	@echo LDFLAGS=$(LDFLAGS)
-	go build -o build/_output/bin/make-introspection cmd/make-introspection/main.go
+	go build -o build/_output/bin/get-hardware-details cmd/get-hardware-details/main.go
 
 .PHONY: deploy
 deploy:

@@ -74,12 +74,8 @@ unit-verbose:
 crd_file=deploy/crds/metal3.io_baremetalhosts_crd.yaml
 crd_tmp=.crd.yaml.tmp
 
-.PHONY: lint
-lint: test-sec golint-check generate-check gofmt-check
-	go vet ./pkg/... ./cmd/...
-
 .PHONY: golint-check
-golint-check: $GOPATH/bin/golint
+lint: $GOPATH/bin/golint
 	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
 
 .PHONY: generate-check

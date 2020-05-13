@@ -1,4 +1,4 @@
-// make-introspection is a tool that can be used to convert raw Ironic introspection data into the HardwareDetails
+// get-hardware-details is a tool that can be used to convert raw Ironic introspection data into the HardwareDetails
 // type used by Metal3.
 package main
 
@@ -14,7 +14,7 @@ import (
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Println("Usage: make-introspection <inspector URI> <node UUID>")
+		fmt.Println("Usage: get-hardware-details <inspector URI> <node UUID>")
 		return
 	}
 

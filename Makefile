@@ -70,12 +70,12 @@ unit-cover-html:
 unit-verbose: ## Run unit tests with verbose output
 	VERBOSE=-v make unit
 
-.PHONY: lint
-lint: test-sec golint-check generate-check gofmt-check ## Run linters
+.PHONY: linters
+linters: test-sec lint generate-check gofmt-check ## Run all linters
 	go vet ./pkg/... ./cmd/...
 
-.PHONY: golint-check
-golint-check: $GOPATH/bin/golint
+.PHONY: lint
+lint: $GOPATH/bin/golint ## Run golint
 	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
 
 .PHONY: generate-check

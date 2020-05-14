@@ -71,7 +71,10 @@ unit-verbose: ## Run unit tests with verbose output
 	VERBOSE=-v make unit
 
 .PHONY: linters
-linters: test-sec lint generate-check gofmt-check ## Run all linters
+linters: test-sec lint generate-check gofmt-check vet ## Run all linters
+
+.PHONY: vet
+vet: ## Run go vet
 	go vet ./pkg/... ./cmd/...
 
 .PHONY: lint

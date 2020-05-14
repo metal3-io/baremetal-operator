@@ -83,8 +83,8 @@ lint: gosec-check golint-check generate-check gofmt-check
 	go vet ./pkg/... ./cmd/...
 
 .PHONY: golint-check
-golint-check: $GOPATH/bin/golint
-	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
+golint-check:
+	./hack/golint.sh
 
 .PHONY: generate-check
 generate-check:
@@ -97,9 +97,6 @@ generate-check-local:
 .PHONY: gosec-check
 gosec-check:
 	./hack/gosec.sh
-
-$GOPATH/bin/golint:
-	go get -u golang.org/x/lint/golint
 
 .PHONY: gofmt
 gofmt:

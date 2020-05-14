@@ -71,7 +71,7 @@ unit-verbose: ## Run unit tests with verbose output
 	VERBOSE=-v make unit
 
 .PHONY: linters
-linters: test-sec lint generate-check fmt-check vet ## Run all linters
+linters: sec lint generate-check fmt-check vet ## Run all linters
 
 .PHONY: vet
 vet: ## Run go vet
@@ -89,9 +89,9 @@ generate-check:
 generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
 
-.PHONY: test-sec
-test-sec: $GOPATH/bin/gosec
-	gosec -severity medium --confidence medium -quiet ./...
+.PHONY: sec
+sec: $GOPATH/bin/gosec
+	gosec -severity medium --confidence medium -quiet ./pkg/... ./cmd/...
 
 $GOPATH/bin/gosec:
 	go get -u github.com/securego/gosec/cmd/gosec

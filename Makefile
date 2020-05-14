@@ -79,7 +79,7 @@ unit-verbose:
 	VERBOSE=-v make unit
 
 .PHONY: lint
-lint: gosec-check golint-check generate-check gofmt-check govet-check markdownlint-check
+lint: gosec-check golint-check generate-check gofmt-check govet-check markdownlint-check shellcheck-check
 
 .PHONY: golint-check
 golint-check:
@@ -112,6 +112,10 @@ govet-check:
 .PHONY: markdownlint-check
 markdownlint-check:
 	./hack/markdownlint.sh
+
+.PHONY: shellcheck-check
+shellcheck-check:
+	./hack/shellcheck.sh
 
 .PHONY: docs
 docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))

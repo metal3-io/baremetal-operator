@@ -29,7 +29,7 @@ help:  ## Display this help
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: generate unit lint ## Run common developer tests
+test: fmt generate lint vet unit ## Run common developer tests
 
 .PHONY: generate
 generate: bin/operator-sdk ## Run the operator-sdk code generator

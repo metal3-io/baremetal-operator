@@ -71,7 +71,7 @@ unit-verbose: ## Run unit tests with verbose output
 	VERBOSE=-v make unit
 
 .PHONY: linters
-linters: test-sec lint generate-check gofmt-check vet ## Run all linters
+linters: test-sec lint generate-check fmt-check vet ## Run all linters
 
 .PHONY: vet
 vet: ## Run go vet
@@ -99,12 +99,12 @@ $GOPATH/bin/gosec:
 $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint
 
-.PHONY: gofmt
-gofmt: ## Run gofmt and write changes to each file
+.PHONY: fmt
+fmt: ## Run gofmt and write changes to each file
 	gofmt -l -w ./pkg ./cmd
 
-.PHONY: gofmt-check
-gofmt-check:
+.PHONY: fmt-check
+fmt-check: ## Run gofmt and report an error if any changes are made
 	./hack/gofmt.sh
 
 .PHONY: docs

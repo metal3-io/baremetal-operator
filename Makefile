@@ -19,16 +19,8 @@ export GO111MODULE=on
 export GOFLAGS=
 
 .PHONY: help
-help:
-	@echo "Targets:"
-	@echo "  test             -- run unit tests and linter"
-	@echo "  unit             -- run the unit tests"
-	@echo "  unit-cover       -- run the unit tests and write code coverage statistics to console"
-	@echo "  unit-cover-html  -- run the unit tests and open code coverage statistics in a browser"
-	@echo "  unit-verbose     -- run unit tests with verbose flag enabled"
-	@echo "  lint             -- run the linter"
-	@echo "  e2e-local        -- run end-to-end tests locally"
-	@echo "  help             -- this help output"
+help:  ## Display this help
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo
 	@echo "Variables:"
 	@echo "  TEST_NAMESPACE   -- project name to use ($(TEST_NAMESPACE))"
@@ -37,10 +29,10 @@ help:
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 .PHONY: test
-test: generate unit lint
+test: generate unit lint ## Run common developer tests
 
 .PHONY: generate
-generate: bin/operator-sdk
+generate: bin/operator-sdk ## Run the operator-sdk code generator
 	./bin/operator-sdk generate $(VERBOSE) k8s
 	./bin/operator-sdk generate $(VERBOSE) crds
 	openapi-gen \
@@ -61,11 +53,11 @@ bin:
 travis: unit-verbose lint
 
 .PHONY: unit
-unit:
+unit: ## Run unit tests
 	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
 
 .PHONY: unit-cover
-unit-cover:
+unit-cover: ## Run unit tests with code coverage
 	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
 	go tool cover -func=cover.out
 
@@ -75,11 +67,11 @@ unit-cover-html:
 	go tool cover -html=cover.out
 
 .PHONY: unit-verbose
-unit-verbose:
+unit-verbose: ## Run unit tests with verbose output
 	VERBOSE=-v make unit
 
 .PHONY: lint
-lint: test-sec golint-check generate-check gofmt-check
+lint: test-sec golint-check generate-check gofmt-check ## Run linters
 	go vet ./pkg/... ./cmd/...
 
 .PHONY: golint-check
@@ -105,7 +97,7 @@ $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint
 
 .PHONY: gofmt
-gofmt:
+gofmt: ## Run gofmt and write changes to each file
 	gofmt -l -w ./pkg ./cmd
 
 .PHONY: gofmt-check
@@ -126,21 +118,21 @@ e2e-local:
 		$(DEBUG) --go-test-flags "$(GO_TEST_FLAGS)"
 
 .PHONY: run
-run:
+run: ## Run the operator outside of a cluster in development mode
 	operator-sdk run --local \
 		--go-ldflags=$(LDFLAGS) \
 		--watch-namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
 
 .PHONY: demo
-demo:
+demo: ## Run the operator outside of a cluster using the demo driver
 	operator-sdk run --local \
 		--go-ldflags=$(LDFLAGS) \
 		--watch-namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev -demo-mode"
 
 .PHONY: docker
-docker: docker-operator docker-sdk
+docker: docker-operator docker-sdk ## Build docker images
 
 .PHONY: docker-operator
 docker-operator:
@@ -151,7 +143,7 @@ docker-sdk:
 	docker build . -f hack/Dockerfile.operator-sdk
 
 .PHONY: build
-build:
+build: ## Build the operator binary
 	@echo LDFLAGS=$(LDFLAGS)
 	go build -o build/_output/bin/baremetal-operator cmd/manager/main.go
 

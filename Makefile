@@ -95,11 +95,8 @@ generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
 
 .PHONY: test-sec
-test-sec: $GOPATH/bin/gosec
-	gosec -severity medium --confidence medium -quiet ./...
-
-$GOPATH/bin/gosec:
-	go get -u github.com/securego/gosec/cmd/gosec
+test-sec:
+	./hack/gosec.sh
 
 $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint

@@ -78,7 +78,7 @@ vet: ## Run go vet
 	go vet ./pkg/... ./cmd/...
 
 .PHONY: lint
-lint: $GOPATH/bin/golint ## Run golint
+lint: golint-binary ## Run golint
 	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
 
 .PHONY: generate-check
@@ -96,6 +96,9 @@ sec: $GOPATH/bin/gosec
 $GOPATH/bin/gosec:
 	go get -u github.com/securego/gosec/cmd/gosec
 
+.PHONY: golint-binary
+golint-binary:
+	which golint 2>&1 >/dev/null || $(MAKE) $GOPATH/bin/golint
 $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint
 

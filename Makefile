@@ -138,7 +138,7 @@ demo: ## Run the operator outside of a cluster using the demo driver
 		--operator-flags="-dev -demo-mode"
 
 .PHONY: docker
-docker: docker-operator docker-sdk ## Build docker images
+docker: docker-operator docker-sdk docker-golint ## Build docker images
 
 .PHONY: docker-operator
 docker-operator:
@@ -147,6 +147,10 @@ docker-operator:
 .PHONY: docker-sdk
 docker-sdk:
 	docker build . -f hack/Dockerfile.operator-sdk
+
+.PHONY: docker-golint
+docker-golint:
+	docker build . -f hack/Dockerfile.golint
 
 .PHONY: build
 build: ## Build the operator binary

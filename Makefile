@@ -56,9 +56,6 @@ bin/operator-sdk: bin
 bin:
 	mkdir -p bin
 
-.PHONY: travis
-travis: unit lint
-
 .PHONY: unit
 unit:
 	./hack/unit.sh

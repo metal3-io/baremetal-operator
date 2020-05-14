@@ -25,7 +25,6 @@ help:
 	@echo "  unit             -- run the unit tests"
 	@echo "  unit-cover       -- run the unit tests and write code coverage statistics to console"
 	@echo "  unit-cover-html  -- run the unit tests and open code coverage statistics in a browser"
-	@echo "  unit-verbose     -- run unit tests with verbose flag enabled"
 	@echo "  lint             -- run the linter"
 	@echo "  e2e-local        -- run end-to-end tests locally"
 	@echo "  help             -- this help output"
@@ -58,10 +57,14 @@ bin:
 	mkdir -p bin
 
 .PHONY: travis
-travis: unit-verbose lint
+travis: unit lint
 
 .PHONY: unit
 unit:
+	./hack/unit.sh
+
+.PHONY: unit-local
+unit-local:
 	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
 
 .PHONY: unit-cover
@@ -73,10 +76,6 @@ unit-cover:
 unit-cover-html:
 	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
 	go tool cover -html=cover.out
-
-.PHONY: unit-verbose
-unit-verbose:
-	VERBOSE=-v make unit
 
 .PHONY: lint
 lint: gosec-check golint-check generate-check gofmt-check govet-check markdownlint-check shellcheck-check

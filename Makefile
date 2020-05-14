@@ -79,7 +79,7 @@ unit-verbose:
 	VERBOSE=-v make unit
 
 .PHONY: lint
-lint: test-sec golint-check generate-check gofmt-check
+lint: gosec-check golint-check generate-check gofmt-check
 	go vet ./pkg/... ./cmd/...
 
 .PHONY: golint-check
@@ -94,8 +94,8 @@ generate-check:
 generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
 
-.PHONY: test-sec
-test-sec:
+.PHONY: gosec-check
+gosec-check:
 	./hack/gosec.sh
 
 $GOPATH/bin/golint:

@@ -153,11 +153,10 @@ docker-sdk:
 .PHONY: build
 build:
 	@echo LDFLAGS=$(LDFLAGS)
-	go build -o build/_output/bin/baremetal-operator cmd/manager/main.go
+	go build -ldflags $(LDFLAGS) -o build/_output/bin/baremetal-operator cmd/manager/main.go
 
 .PHONY: tools
 tools:
-	@echo LDFLAGS=$(LDFLAGS)
 	go build -o build/_output/bin/get-hardware-details cmd/get-hardware-details/main.go
 
 .PHONY: deploy

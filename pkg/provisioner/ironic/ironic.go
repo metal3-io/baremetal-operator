@@ -417,6 +417,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
+		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 		return result, nil
 	}

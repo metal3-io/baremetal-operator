@@ -222,7 +222,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
 		result.ErrorMessage = msg
-		result.Dirty = true
 		return result, nil
 	}
 

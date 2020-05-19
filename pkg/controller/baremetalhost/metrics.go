@@ -117,7 +117,8 @@ func init() {
 		credentialsInvalid,
 		unhandledCredentialsError,
 		updatedCredentials,
-		noManagementAccess)
+		noManagementAccess,
+		hostConfigDataError)
 
 	metrics.Registry.MustRegister(
 		stateChanges,

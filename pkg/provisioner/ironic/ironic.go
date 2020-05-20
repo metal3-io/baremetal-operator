@@ -310,6 +310,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 					Value: string(p.host.ObjectMeta.UID),
 				},
 			}
+			if p.host.Spec.Image.DiskFormat != nil {
+				updates = append(updates, nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_disk_format",
+					Value: *p.host.Spec.Image.DiskFormat,
+				})
+			}
 			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 			switch err.(type) {
 			case nil:
@@ -612,6 +619,14 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 			Value: checksum,
 		},
 	)
+
+	if p.host.Spec.Image.DiskFormat != nil {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:    nodes.AddOp,
+			Path:  "/instance_info/image_disk_format",
+			Value: *p.host.Spec.Image.DiskFormat,
+		})
+	}
 
 	// instance_uuid
 	p.log.Info("setting instance_uuid")

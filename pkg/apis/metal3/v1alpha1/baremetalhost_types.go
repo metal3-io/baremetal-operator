@@ -231,6 +231,11 @@ type Image struct {
 	// ChecksumType is the checksum algorithm for the image.
 	// e.g md5, sha256, sha512
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
+
+	// DiskFormat contains the format of the image (raw, qcow2, ...)
+	// Needs to be set to raw for raw images streaming
+	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk
+	DiskFormat *string `json:"format,omitempty"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these

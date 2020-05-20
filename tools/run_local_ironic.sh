@@ -88,10 +88,6 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-endpoin
     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_ENDPOINT_KEEPALIVED_IMAGE}"
 
-# Let Ironic start properly before starting inspector, to avoid inspector
-# failing to start properly because ironic is not ready
-sleep 30
-
 # Start Ironic Inspector
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \

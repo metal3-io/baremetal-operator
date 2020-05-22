@@ -771,6 +771,10 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 
 // GetImageChecksum returns the hash value and its algo.
 func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
+	if host.Spec.Image == nil {
+		return "", "", false
+	}
+
 	checksum := host.Spec.Image.Checksum
 	checksumType := host.Spec.Image.ChecksumType
 

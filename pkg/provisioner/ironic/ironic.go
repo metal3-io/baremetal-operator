@@ -222,7 +222,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
 		result.ErrorMessage = msg
-		result.Dirty = true
 		return result, nil
 	}
 
@@ -424,6 +423,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
+		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 		return result, nil
 	}
@@ -1206,7 +1206,6 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
 		if err != nil {
-			result.RequeueAfter = powerRequeueDelay
 			return result, errors.Wrap(err, "failed to power on host")
 		}
 		p.publisher("PowerOn", "Host powered on")
@@ -1234,7 +1233,6 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)
 		if err != nil {
-			result.RequeueAfter = powerRequeueDelay
 			return result, errors.Wrap(err, "failed to power off host")
 		}
 		p.publisher("PowerOff", "Host powered off")

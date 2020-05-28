@@ -6,6 +6,7 @@ resources:
 - ../rbac
 - ../crds
 - ../operator
+- ../../ironic-deployment/default
 configMapGenerator:
 - envs:
   - ironic_bmo_configmap.env

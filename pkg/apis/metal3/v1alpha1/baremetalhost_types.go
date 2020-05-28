@@ -23,7 +23,10 @@ const (
 	// an immediate requeue)
 	PausedAnnotation = "baremetalhost.metal3.io/paused"
 
-	// StatusAnnotation is the annotation that holds the Status of BMH
+	// StatusAnnotation is the annotation that keeps a copy of the Status of BMH
+	// This is particularly useful when we pivot BMH. If the status
+	// annotation is present and status is empty, BMO will reconstruct BMH Status
+	// from the status annotation.
 	StatusAnnotation = "baremetalhost.metal3.io/status"
 )
 
@@ -201,7 +204,7 @@ type BareMetalHostSpec struct {
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 }
 
-// Checksum Algorithm Type
+// ChecksumType holds the algorithm name for the checksum
 // +kubebuilder:validation:Enum=md5;sha256;sha512
 type ChecksumType string
 
@@ -228,6 +231,11 @@ type Image struct {
 	// ChecksumType is the checksum algorithm for the image.
 	// e.g md5, sha256, sha512
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
+
+	// DiskFormat contains the format of the image (raw, qcow2, ...)
+	// Needs to be set to raw for raw images streaming
+	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk
+	DiskFormat *string `json:"format,omitempty"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -768,6 +776,10 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 
 // GetImageChecksum returns the hash value and its algo.
 func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
+	if host.Spec.Image == nil {
+		return "", "", false
+	}
+
 	checksum := host.Spec.Image.Checksum
 	checksumType := host.Spec.Image.ChecksumType
 

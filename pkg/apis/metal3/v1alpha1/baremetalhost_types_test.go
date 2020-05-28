@@ -645,6 +645,17 @@ func TestGetImageChecksum(t *testing.T) {
 			},
 			Expected: false,
 		},
+		{
+			Scenario: "no image",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{},
+			},
+			Expected: false,
+		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			_, _, actual := tc.Host.GetImageChecksum()

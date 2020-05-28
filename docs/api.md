@@ -76,6 +76,9 @@ mainly, but not only, provisioning details.
   * *checksumType* -- Checksum algorithms can be specified. Currently
     only `md5`, `sha256`, `sha512` are recognized. If nothing is specified
     `md5` is assumed.
+  * *format* -- This is the disk format of the image. It can be one of `raw`,
+    `qcow2`, `vdi`, `vmdk`, or be left unset. Setting it to raw enables raw
+    image streaming in Ironic agent for that image.
 
 * *userData* -- A reference to the Secret containing the cloudinit user data
   and its namespace, so it can be attached to the host before it boots

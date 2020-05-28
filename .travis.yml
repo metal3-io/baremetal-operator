@@ -14,5 +14,6 @@ before_install:
 env:
   - TARGET=unit-verbose
   - TARGET=docker
+  - TARGET=lint
 
 script: make $TARGET

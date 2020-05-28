@@ -10,6 +10,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"k8s.io/utils/pointer"
 )
 
 func init() {
@@ -28,6 +29,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 				URL:          "not-empty",
 				Checksum:     "checksum",
 				ChecksumType: metal3v1alpha1.MD5,
+				DiskFormat:   pointer.StringPtr("raw"),
 			},
 			Online: true,
 		},
@@ -69,6 +71,10 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		{
 			Path:  "/instance_info/image_os_hash_value",
 			Value: "checksum",
+		},
+		{
+			Path:  "/instance_info/image_disk_format",
+			Value: "raw",
 		},
 		{
 			Path:  "/instance_uuid",
@@ -120,6 +126,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 				URL:          "not-empty",
 				Checksum:     "checksum",
 				ChecksumType: metal3v1alpha1.MD5,
+				//DiskFormat not given to verify it is not added in instance_info
 			},
 			Online: true,
 		},

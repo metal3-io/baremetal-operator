@@ -1,0 +1,6 @@
+FROM registry.hub.docker.com/library/golang:1.13
+
+RUN go get -u golang.org/x/lint/golint
+
+LABEL io.k8s.display-name="Metal3 golint test image" \
+      io.k8s.description="This image is for running tests requiring golint"

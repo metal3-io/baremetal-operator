@@ -157,6 +157,15 @@ spec:
                   - sha256
                   - sha512
                   type: string
+                format:
+                  description: DiskFormat contains the format of the image (raw, qcow2,
+                    ...) Needs to be set to raw for raw images streaming
+                  enum:
+                  - raw
+                  - qcow2
+                  - vdi
+                  - vmdk
+                  type: string
                 url:
                   description: URL is a location of an image to deploy.
                   type: string
@@ -546,6 +555,15 @@ spec:
                       - md5
                       - sha256
                       - sha512
+                      type: string
+                    format:
+                      description: DiskFormat contains the format of the image (raw,
+                        qcow2, ...) Needs to be set to raw for raw images streaming
+                      enum:
+                      - raw
+                      - qcow2
+                      - vdi
+                      - vmdk
                       type: string
                     url:
                       description: URL is a location of an image to deploy.

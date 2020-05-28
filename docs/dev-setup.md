@@ -2,8 +2,7 @@
 
 ## Install the operator-sdk
 
-Follow the instructions in the Quick Start section of
-<https://github.com/operator-framework/operator-sdk> to check out and
+Follow the instructions on the [Operator SDK website](https://sdk.operatorframework.io/docs/install-operator-sdk/) to check out and
 install the operator-sdk tools.
 
 ## Install openapi-gen
@@ -48,7 +47,7 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     export DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs
     export IRONIC_ENDPOINT=http://localhost:6385/v1/
     export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1
-    operator-sdk up local --namespace=metal3
+    operator-sdk run --local --watch-namespace=metal3
     ```
 
 1. Create the CR

@@ -212,9 +212,8 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 				return reconcile.Result{}, errors.Wrap(err, "Could not restore status from annotation")
 			}
 			return reconcile.Result{Requeue: true}, nil
-		} else {
-			reqLogger.Info("No status cache found")
 		}
+		reqLogger.Info("No status cache found")
 	}
 
 	// NOTE(dhellmann): Handle a few steps outside of the phase
@@ -439,10 +438,6 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 		return actionError{errors.Wrap(err, "failed to delete")}
 	}
 	if provResult.Dirty {
-		err = r.saveHostStatus(info.host)
-		if err != nil {
-			return actionError{errors.Wrap(err, "failed to save host after deleting")}
-		}
 		return actionContinue{provResult.RequeueAfter}
 	}
 

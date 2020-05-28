@@ -222,7 +222,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
 		result.ErrorMessage = msg
-		result.Dirty = true
 		return result, nil
 	}
 
@@ -309,6 +308,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 					Path:  "/instance_uuid",
 					Value: string(p.host.ObjectMeta.UID),
 				},
+			}
+			if p.host.Spec.Image.DiskFormat != nil {
+				updates = append(updates, nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_disk_format",
+					Value: *p.host.Spec.Image.DiskFormat,
+				})
 			}
 			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 			switch err.(type) {
@@ -417,6 +423,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
+		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 		return result, nil
 	}
@@ -612,6 +619,14 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 			Value: checksum,
 		},
 	)
+
+	if p.host.Spec.Image.DiskFormat != nil {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:    nodes.AddOp,
+			Path:  "/instance_info/image_disk_format",
+			Value: *p.host.Spec.Image.DiskFormat,
+		})
+	}
 
 	// instance_uuid
 	p.log.Info("setting instance_uuid")
@@ -1191,7 +1206,6 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
 		if err != nil {
-			result.RequeueAfter = powerRequeueDelay
 			return result, errors.Wrap(err, "failed to power on host")
 		}
 		p.publisher("PowerOn", "Host powered on")
@@ -1219,7 +1233,6 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)
 		if err != nil {
-			result.RequeueAfter = powerRequeueDelay
 			return result, errors.Wrap(err, "failed to power off host")
 		}
 		p.publisher("PowerOff", "Host powered off")

@@ -204,8 +204,8 @@ spec:
               description: Should the server be online?
               type: boolean
             rootDeviceHints:
-              description: Provide guidance about how to find the device for the image
-                being provisioned.
+              description: Provide guidance about how to choose the device for the
+                image being provisioned.
               properties:
                 deviceName:
                   description: A Linux device name like "/dev/vda"

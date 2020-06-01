@@ -200,7 +200,7 @@ type BareMetalHostSpec struct {
 	// automatically determine the profile.
 	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
-	// Provide guidance about how to find the device for the image
+	// Provide guidance about how to choose the device for the image
 	// being provisioned.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 

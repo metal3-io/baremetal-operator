@@ -790,7 +790,7 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	if ironicNode, err = p.findExistingHost(); err != nil {
-		err = errors.Wrap(err, "could not find host to adpot")
+		err = errors.Wrap(err, "could not find host to adopt")
 		return
 	}
 	if ironicNode == nil {

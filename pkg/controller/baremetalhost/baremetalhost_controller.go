@@ -20,6 +20,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/discovery"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 
 	"github.com/go-logr/logr"
@@ -81,9 +82,12 @@ func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+// newReconciler returns a new reconciler
+func newReconciler(mgr manager.Manager) *ReconcileBareMetalHost {
 	var provisionerFactory provisioner.Factory
+	var discoveryScanner manager.Runnable
+	var err error
+
 	switch {
 	case runInTestMode:
 		log.Info("USING TEST MODE")
@@ -93,17 +97,23 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		provisionerFactory = demo.New
 	default:
 		provisionerFactory = ironic.New
+		discoveryScanner, err = discovery.Scanner(mgr, time.Second*10)
+		if err != nil {
+			log.Error(err, "failed to start discovery scanner")
+			discoveryScanner = nil
+		}
 		ironic.LogStartup()
 	}
 	return &ReconcileBareMetalHost{
 		client:             mgr.GetClient(),
 		scheme:             mgr.GetScheme(),
 		provisionerFactory: provisionerFactory,
+		discoveryScanner:   discoveryScanner,
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r *ReconcileBareMetalHost) error {
 	// Create a new controller
 	c, err := controller.New("metal3-baremetalhost-controller", mgr,
 		controller.Options{MaxConcurrentReconciles: maxConcurrentReconciles,
@@ -126,6 +136,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			IsController: true,
 			OwnerType:    &metal3v1alpha1.BareMetalHost{},
 		})
+	if err != nil {
+		return err
+	}
+
+	// Start the discovery manager
+	if r.discoveryScanner != nil {
+		err = mgr.Add(r.discoveryScanner)
+	}
+
 	return err
 }
 
@@ -138,6 +157,7 @@ type ReconcileBareMetalHost struct {
 	client             client.Client
 	scheme             *runtime.Scheme
 	provisionerFactory provisioner.Factory
+	discoveryScanner   manager.Runnable
 }
 
 // Instead of passing a zillion arguments to the action of a phase,

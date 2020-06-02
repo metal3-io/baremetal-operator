@@ -1,7 +1,7 @@
 package devicehints
 
 import (
-	"strconv"
+	"fmt"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 )
@@ -30,8 +30,8 @@ func MakeHintMap(source *metal3v1alpha1.RootDeviceHints) map[string]string {
 	if source.SerialNumber != "" {
 		hints["serial"] = source.SerialNumber
 	}
-	if source.SizeGigabytes != 0 {
-		hints["size"] = strconv.Itoa(source.SizeGigabytes)
+	if source.MinSizeGigabytes != 0 {
+		hints["size"] = fmt.Sprintf(">= %d", source.MinSizeGigabytes)
 	}
 	if source.WWN != "" {
 		hints["wwn"] = source.WWN

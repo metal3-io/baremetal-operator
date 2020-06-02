@@ -213,6 +213,9 @@ spec:
                 hctl:
                   description: A SCSI bus address like 0:0:0:0
                   type: string
+                minSizeGigabytes:
+                  description: The minimum size of the device in Gigabytes
+                  type: integer
                 model:
                   description: A vendor-specific device identifier
                   type: string
@@ -222,9 +225,6 @@ spec:
                 serialNumber:
                   description: Device serial number
                   type: string
-                sizeGigabytes:
-                  description: Size of the device in Gigabytes
-                  type: integer
                 vendor:
                   description: The name of the vendor or manufacturer of the device.
                     Must match the results found through inspection.
@@ -618,6 +618,9 @@ spec:
                     hctl:
                       description: A SCSI bus address like 0:0:0:0
                       type: string
+                    minSizeGigabytes:
+                      description: The minimum size of the device in Gigabytes
+                      type: integer
                     model:
                       description: A vendor-specific device identifier
                       type: string
@@ -627,9 +630,6 @@ spec:
                     serialNumber:
                       description: Device serial number
                       type: string
-                    sizeGigabytes:
-                      description: Size of the device in Gigabytes
-                      type: integer
                     vendor:
                       description: The name of the vendor or manufacturer of the device.
                         Must match the results found through inspection.

@@ -117,7 +117,7 @@ mainly, but not only, provisioning details.
   * *vendor* -- A string containing the name of the vendor or
     manufacturer of the device.
   * *serialNumber* -- A string contianing the device serial number.
-  * *sizeGigabytes* -- An integer representing the minimum size of the
+  * *minSizeGigabytes* -- An integer representing the minimum size of the
     device in Gigabytes.
   * *wwn* -- A string containing the unique storage identifier.
   * *wwnWithExtension* -- A string containing the unique storage

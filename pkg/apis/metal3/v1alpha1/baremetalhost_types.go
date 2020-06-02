@@ -49,8 +49,8 @@ type RootDeviceHints struct {
 	// Device serial number
 	SerialNumber string `json:"serialNumber,omitempty"`
 
-	// Size of the device in Gigabytes
-	SizeGigabytes int `json:"sizeGigabytes,omitempty"`
+	// The minimum size of the device in Gigabytes
+	MinSizeGigabytes int `json:"minSizeGigabytes,omitempty"`
 
 	// Unique storage identifier
 	WWN string `json:"wwn,omitempty"`

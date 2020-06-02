@@ -63,12 +63,12 @@ func TestMakeHintMap(t *testing.T) {
 			},
 		},
 		{
-			Scenario: "size",
+			Scenario: "min-size",
 			Hints: metal3v1alpha1.RootDeviceHints{
-				SizeGigabytes: 40,
+				MinSizeGigabytes: 40,
 			},
 			Expected: map[string]string{
-				"size": "40",
+				"size": ">= 40",
 			},
 		},
 		{
@@ -124,7 +124,7 @@ func TestMakeHintMap(t *testing.T) {
 				Model:              "userd_model",
 				Vendor:             "userd_vendor",
 				SerialNumber:       "userd_serial",
-				SizeGigabytes:      40,
+				MinSizeGigabytes:   40,
 				WWN:                "userd_wwn",
 				WWNWithExtension:   "userd_with_extension",
 				WWNVendorExtension: "userd_vendor_extension",
@@ -136,7 +136,7 @@ func TestMakeHintMap(t *testing.T) {
 				"model":                "userd_model",
 				"vendor":               "userd_vendor",
 				"serial":               "userd_serial",
-				"size":                 "40",
+				"size":                 ">= 40",
 				"wwn":                  "userd_wwn",
 				"wwn_with_extension":   "userd_with_extension",
 				"wwn_vendor_extension": "userd_vendor_extension",

@@ -217,6 +217,7 @@ spec:
                   type: string
                 minSizeGigabytes:
                   description: The minimum size of the device in Gigabytes.
+                  minimum: 0
                   type: integer
                 model:
                   description: A vendor-specific device identifier. The hint can be
@@ -629,6 +630,7 @@ spec:
                       type: string
                     minSizeGigabytes:
                       description: The minimum size of the device in Gigabytes.
+                      minimum: 0
                       type: integer
                     model:
                       description: A vendor-specific device identifier. The hint can

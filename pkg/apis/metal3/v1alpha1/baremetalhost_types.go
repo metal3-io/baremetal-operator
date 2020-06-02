@@ -54,6 +54,7 @@ type RootDeviceHints struct {
 	SerialNumber string `json:"serialNumber,omitempty"`
 
 	// The minimum size of the device in Gigabytes.
+	// +kubebuilder:validation:Minimum=0
 	MinSizeGigabytes int `json:"minSizeGigabytes,omitempty"`
 
 	// Unique storage identifier. The hint must match the actual value

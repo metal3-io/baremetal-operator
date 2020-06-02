@@ -203,6 +203,50 @@ spec:
             online:
               description: Should the server be online?
               type: boolean
+            rootDeviceHints:
+              description: Provide guidance about how to choose the device for the
+                image being provisioned.
+              properties:
+                deviceName:
+                  description: A Linux device name like "/dev/vda". The hint must
+                    match the actual value exactly.
+                  type: string
+                hctl:
+                  description: A SCSI bus address like 0:0:0:0. The hint must match
+                    the actual value exactly.
+                  type: string
+                minSizeGigabytes:
+                  description: The minimum size of the device in Gigabytes.
+                  type: integer
+                model:
+                  description: A vendor-specific device identifier. The hint can be
+                    a substring of the actual value.
+                  type: string
+                rotational:
+                  description: True if the device should use spinning media, false
+                    otherwise.
+                  type: boolean
+                serialNumber:
+                  description: Device serial number. The hint must match the actual
+                    value exactly.
+                  type: string
+                vendor:
+                  description: The name of the vendor or manufacturer of the device.
+                    The hint can be a substring of the actual value.
+                  type: string
+                wwn:
+                  description: Unique storage identifier. The hint must match the
+                    actual value exactly.
+                  type: string
+                wwnVendorExtension:
+                  description: Unique vendor storage identifier. The hint must match
+                    the actual value exactly.
+                  type: string
+                wwnWithExtension:
+                  description: Unique storage identifier with the vendor extension
+                    appended. The hint must match the actual value exactly.
+                  type: string
+              type: object
             taints:
               description: Taints is the full, authoritative list of taints to apply
                 to the corresponding Machine. This list will overwrite any modifications
@@ -571,6 +615,49 @@ spec:
                   required:
                   - checksum
                   - url
+                  type: object
+                rootDeviceHints:
+                  description: The RootDevicehints set by the user
+                  properties:
+                    deviceName:
+                      description: A Linux device name like "/dev/vda". The hint must
+                        match the actual value exactly.
+                      type: string
+                    hctl:
+                      description: A SCSI bus address like 0:0:0:0. The hint must
+                        match the actual value exactly.
+                      type: string
+                    minSizeGigabytes:
+                      description: The minimum size of the device in Gigabytes.
+                      type: integer
+                    model:
+                      description: A vendor-specific device identifier. The hint can
+                        be a substring of the actual value.
+                      type: string
+                    rotational:
+                      description: True if the device should use spinning media, false
+                        otherwise.
+                      type: boolean
+                    serialNumber:
+                      description: Device serial number. The hint must match the actual
+                        value exactly.
+                      type: string
+                    vendor:
+                      description: The name of the vendor or manufacturer of the device.
+                        The hint can be a substring of the actual value.
+                      type: string
+                    wwn:
+                      description: Unique storage identifier. The hint must match
+                        the actual value exactly.
+                      type: string
+                    wwnVendorExtension:
+                      description: Unique vendor storage identifier. The hint must
+                        match the actual value exactly.
+                      type: string
+                    wwnWithExtension:
+                      description: Unique storage identifier with the vendor extension
+                        appended. The hint must match the actual value exactly.
+                      type: string
                   type: object
                 state:
                   description: An indiciator for what the provisioner is doing with

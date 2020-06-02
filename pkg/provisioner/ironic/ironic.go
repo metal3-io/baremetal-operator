@@ -24,6 +24,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
@@ -560,6 +561,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+
 	if err != nil {
 		return updates, errors.Wrap(err,
 			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
@@ -673,13 +675,12 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		op = nodes.ReplaceOp
 		p.log.Info("updating root_device")
 	}
-	hints := map[string]string{}
-	switch {
-	case hwProf.RootDeviceHints.DeviceName != "":
-		hints["name"] = hwProf.RootDeviceHints.DeviceName
-	case hwProf.RootDeviceHints.HCTL != "":
-		hints["hctl"] = hwProf.RootDeviceHints.HCTL
-	}
+
+	// hints
+	//
+	// If the user has provided explicit root device hints, they take
+	// precedence. Otherwise use the values from the hardware profile.
+	hints := devicehints.MakeHintMap(p.host.Status.Provisioning.RootDeviceHints)
 	p.log.Info("using root device", "hints", hints)
 	updates = append(
 		updates,

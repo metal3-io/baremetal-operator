@@ -9,10 +9,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
-	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	"github.com/pkg/errors"
@@ -24,6 +22,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	ironicclient "github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/client"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
@@ -35,8 +34,6 @@ var powerRequeueDelay = time.Second * 10
 var introspectionRequeueDelay = time.Second * 15
 var deployKernelURL string
 var deployRamdiskURL string
-var ironicEndpoint string
-var inspectorEndpoint string
 
 const (
 	// See nodes.Node.PowerState for details
@@ -56,16 +53,6 @@ func init() {
 	deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
 	if deployRamdiskURL == "" {
 		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_RAMDISK_URL variable set\n")
-		os.Exit(1)
-	}
-	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
-	if ironicEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_ENDPOINT variable set\n")
-		os.Exit(1)
-	}
-	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
-	if inspectorEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
 		os.Exit(1)
 	}
 }
@@ -95,8 +82,8 @@ type ironicProvisioner struct {
 // emit once on startup but that is interal to this package.
 func LogStartup() {
 	log.Info("ironic settings",
-		"endpoint", ironicEndpoint,
-		"inspectorEndpoint", inspectorEndpoint,
+		"endpoint", ironicclient.IronicEndpoint,
+		"inspectorEndpoint", ironicclient.InspectorEndpoint,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
 	)
@@ -105,26 +92,18 @@ func LogStartup() {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
-	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
-		IronicEndpoint: ironicEndpoint,
-	})
+	client, err := ironicclient.New()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create ironic client")
+	}
+	inspector, err := ironicclient.NewInspector()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create ironic-inspector client")
 	}
 	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
-	inspector, err := noauthintrospection.NewBareMetalIntrospectionNoAuth(
-		noauthintrospection.EndpointOpts{
-			IronicInspectorEndpoint: inspectorEndpoint,
-		})
-	if err != nil {
-		return nil, err
-	}
-	// Ensure we have a microversion high enough to get the features
-	// we need.
-	client.Microversion = "1.56"
 	p := &ironicProvisioner{
 		host:      host,
 		status:    &(host.Status.Provisioning),

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	"github.com/gophercloud/gophercloud/pagination"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
@@ -78,15 +79,38 @@ func (scanner *discoveryScanner) poll() {
 	// based on data Ironic will have.
 	byUUID := make(map[string]metal3v1alpha1.BareMetalHost)
 	byName := make(map[string]metal3v1alpha1.BareMetalHost)
+	byMAC := make(map[string]metal3v1alpha1.BareMetalHost)
 	for _, host := range hostList.Items {
 		byName[host.Name] = host
 		if host.Status.Provisioning.ID != "" {
 			byUUID[host.Status.Provisioning.ID] = host
 		}
+		if host.Spec.BootMACAddress != "" {
+			byMAC[host.Spec.BootMACAddress] = host
+		}
 	}
 
-	// FIXME: Should we constrain this list at all? Maybe only
-	// look for hosts that are in a particular state?
+	// Build a map connecting the UUID of the nodes in ironic to the
+	// Port MAC address in ironic so we can easily find the MAC for
+	// any hosts we have to create.
+	uuidToMAC := make(map[string]string)
+	portPages := ports.ListDetail(scanner.ironic, ports.ListOpts{})
+	portPages.EachPage(func(p pagination.Page) (bool, error) {
+		portList, err := ports.ExtractPorts(p)
+		if err != nil {
+			return false, err
+		}
+		for _, port := range portList {
+			uuidToMAC[port.NodeUUID] = port.Address
+		}
+		return true, nil
+	})
+
+	// Look through the nodes that ironic knows and create
+	// BareMetalHost resources for any that do not exist.
+	//
+	// FIXME: Should we constrain this query at all? Maybe only look
+	// for hosts that are in a particular state?
 	nodePages := nodes.ListDetail(scanner.ironic, nodes.ListOpts{})
 	nodePages.EachPage(func(p pagination.Page) (bool, error) {
 		nodeList, err := nodes.ExtractNodes(p)
@@ -95,18 +119,27 @@ func (scanner *discoveryScanner) poll() {
 		}
 		for _, node := range nodeList {
 			var ok bool
-			log.Info("looking for ironic node", "uuid", node.UUID, "name", node.Name)
 			_, ok = byUUID[node.UUID]
 			if ok {
-				log.Info("host is known")
+				log.Info("host is known by uuid", "uuid", node.UUID, "name", node.Name)
 				continue
 			}
 			_, ok = byName[node.Name]
 			if ok {
-				log.Info("host is known by name")
+				log.Info("host is known by name", "uuid", node.UUID, "name", node.Name)
 				continue
 			}
-			log.Info("host is unknown")
+			mac, ok := uuidToMAC[node.UUID]
+			if !ok {
+				log.Info("no MAC found for host in ironic", "uuid", node.UUID, "name", node.Name)
+				continue
+			}
+			_, ok = byMAC[mac]
+			if ok {
+				log.Info("host is known by mac", "uuid", node.UUID, "name", node.Name, "mac", mac)
+				continue
+			}
+			log.Info("found new host", "mac", mac, "uuid", node.UUID, "name", node.Name)
 		}
 		return true, nil
 	})

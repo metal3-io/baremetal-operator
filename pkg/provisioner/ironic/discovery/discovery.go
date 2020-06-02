@@ -65,6 +65,26 @@ func (scanner *discoveryScanner) Start(done <-chan struct{}) error {
 func (scanner *discoveryScanner) poll() {
 	log.Info("polling")
 
+	ctx := context.TODO()
+	hostList := metal3v1alpha1.BareMetalHostList{}
+	err := scanner.client.List(ctx, &hostList)
+	if err != nil {
+		log.Error(err, "failed to fetch list of hosts")
+		return
+	}
+	log.Info("got hosts", "count", len(hostList.Items))
+
+	// Organize the data to make it easier to find existing hosts
+	// based on data Ironic will have.
+	byUUID := make(map[string]metal3v1alpha1.BareMetalHost)
+	byName := make(map[string]metal3v1alpha1.BareMetalHost)
+	for _, host := range hostList.Items {
+		byName[host.Name] = host
+		if host.Status.Provisioning.ID != "" {
+			byUUID[host.Status.Provisioning.ID] = host
+		}
+	}
+
 	// FIXME: Should we constrain this list at all? Maybe only
 	// look for hosts that are in a particular state?
 	nodePages := nodes.ListDetail(scanner.ironic, nodes.ListOpts{})
@@ -74,17 +94,20 @@ func (scanner *discoveryScanner) poll() {
 			return false, err
 		}
 		for _, node := range nodeList {
-			log.Info("found ironic node", "uuid", node.UUID)
+			var ok bool
+			log.Info("looking for ironic node", "uuid", node.UUID, "name", node.Name)
+			_, ok = byUUID[node.UUID]
+			if ok {
+				log.Info("host is known")
+				continue
+			}
+			_, ok = byName[node.Name]
+			if ok {
+				log.Info("host is known by name")
+				continue
+			}
+			log.Info("host is unknown")
 		}
 		return true, nil
 	})
-
-	ctx := context.TODO()
-	hostList := metal3v1alpha1.BareMetalHostList{}
-	err := scanner.client.List(ctx, &hostList)
-	if err != nil {
-		log.Error(err, "failed to fetch list of hosts")
-		return
-	}
-	log.Info("got hosts", "count", len(hostList.Items))
 }

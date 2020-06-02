@@ -64,8 +64,9 @@ func (scanner *discoveryScanner) Start(done <-chan struct{}) error {
 }
 
 func (scanner *discoveryScanner) poll() {
-	log.Info("polling")
 
+	// Build a list of all of the known BareMetalHost resources so we
+	// can match them to information Ironic gives us.
 	ctx := context.TODO()
 	hostList := metal3v1alpha1.BareMetalHostList{}
 	err := scanner.client.List(ctx, &hostList)
@@ -73,7 +74,6 @@ func (scanner *discoveryScanner) poll() {
 		log.Error(err, "failed to fetch list of hosts")
 		return
 	}
-	log.Info("got hosts", "count", len(hostList.Items))
 
 	// Organize the data to make it easier to find existing hosts
 	// based on data Ironic will have.

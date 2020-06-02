@@ -111,19 +111,26 @@ mainly, but not only, provisioning details.
   discovered device that matches is used. Hints can be combined, and
   if multiple hints are provided then a device must match all hints in
   order to be selected.
-  * *deviceName* -- A string containing a Linux device name like `/dev/vda`.
-  * *hctl* -- A string containing a SCSI bus address like `0:0:0:0`.
-  * *model* -- A string containing a vendor-specific device identifier.
+  * *deviceName* -- A string containing a Linux device name like
+    `/dev/vda`. The hint must match the actual value exactly.
+  * *hctl* -- A string containing a SCSI bus address like
+    `0:0:0:0`. The hint must match the actual value exactly.
+  * *model* -- A string containing a vendor-specific device
+    identifier. The hint can be a substring of the actual value.
   * *vendor* -- A string containing the name of the vendor or
-    manufacturer of the device.
-  * *serialNumber* -- A string contianing the device serial number.
+    manufacturer of the device. The hint can be a substring of the
+    actual value.
+  * *serialNumber* -- A string contianing the device serial
+    number. The hint must match the actual value exactly.
   * *minSizeGigabytes* -- An integer representing the minimum size of the
     device in Gigabytes.
-  * *wwn* -- A string containing the unique storage identifier.
+  * *wwn* -- A string containing the unique storage identifier. The
+    hint must match the actual value exactly.
   * *wwnWithExtension* -- A string containing the unique storage
-    identifier with the vendor extension appended.
+    identifier with the vendor extension appended. The hint must match
+    the actual value exactly.
   * *wwnVendorExtension* -- A string containing the unique vendor
-    storage indentifier.
+    storage indentifier. The hint must match the actual value exactly.
   * *rotational* -- A boolean indicating whether the device should be
     a rotating disk (`true`) or not (`false`).
 

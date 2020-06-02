@@ -16,31 +16,31 @@ func MakeHintMap(source *metal3v1alpha1.RootDeviceHints) map[string]string {
 	}
 
 	if source.DeviceName != "" {
-		hints["name"] = source.DeviceName
+		hints["name"] = fmt.Sprintf("s== %s", source.DeviceName)
 	}
 	if source.HCTL != "" {
-		hints["hctl"] = source.HCTL
+		hints["hctl"] = fmt.Sprintf("s== %s", source.HCTL)
 	}
 	if source.Model != "" {
-		hints["model"] = source.Model
+		hints["model"] = fmt.Sprintf("<in> %s", source.Model)
 	}
 	if source.Vendor != "" {
-		hints["vendor"] = source.Vendor
+		hints["vendor"] = fmt.Sprintf("<in> %s", source.Vendor)
 	}
 	if source.SerialNumber != "" {
-		hints["serial"] = source.SerialNumber
+		hints["serial"] = fmt.Sprintf("s== %s", source.SerialNumber)
 	}
 	if source.MinSizeGigabytes != 0 {
 		hints["size"] = fmt.Sprintf(">= %d", source.MinSizeGigabytes)
 	}
 	if source.WWN != "" {
-		hints["wwn"] = source.WWN
+		hints["wwn"] = fmt.Sprintf("s== %s", source.WWN)
 	}
 	if source.WWNWithExtension != "" {
-		hints["wwn_with_extension"] = source.WWNWithExtension
+		hints["wwn_with_extension"] = fmt.Sprintf("s== %s", source.WWNWithExtension)
 	}
 	if source.WWNVendorExtension != "" {
-		hints["wwn_vendor_extension"] = source.WWNVendorExtension
+		hints["wwn_vendor_extension"] = fmt.Sprintf("s== %s", source.WWNVendorExtension)
 	}
 	switch {
 	case source.Rotational == nil:

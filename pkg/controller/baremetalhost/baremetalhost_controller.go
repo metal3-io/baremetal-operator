@@ -207,6 +207,13 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		objStatus, err := r.getHostStatusFromAnnotation(host)
 		if err == nil && objStatus != nil {
 			host.Status = *objStatus
+			if host.Status.LastUpdated.IsZero() {
+				// Ensure the LastUpdated timestamp in set to avoid
+				// infinite loops if the annotation only contained
+				// part of the status information.
+				t := metav1.Now()
+				host.Status.LastUpdated = &t
+			}
 			errStatus := r.client.Status().Update(context.TODO(), host)
 			if errStatus != nil {
 				return reconcile.Result{}, errors.Wrap(err, "Could not restore status from annotation")

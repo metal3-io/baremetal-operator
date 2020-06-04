@@ -5,7 +5,7 @@ regarding the BMH's state. If the _Status_ is not moved with the object when we
 pivot the BMH from the management cluster to target cluster , the
 Baremetal Operator(BMO) considers it as a new object and triggers introspection
 for the BMH since its _Status_ is empty. _Status_ being empty means although the
- BMH had a _ready_ state in management cluster (for example), it would be again
+ BMH had an _available_ state in management cluster (for example), it would be again
  in _registering_ and _inspecting_ states in target cluster since we have an
  BMH with empty _Status_ in hand. This is the
 main motivation to take the BMH _Status_ also with the object when we move the

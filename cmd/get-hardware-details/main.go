@@ -23,7 +23,7 @@ func main() {
 			IronicInspectorEndpoint: os.Args[1],
 		})
 	if err != nil {
-		fmt.Printf("could not get inpsector client: %s", err)
+		fmt.Printf("could not get inspector client: %s", err)
 		os.Exit(1)
 	}
 

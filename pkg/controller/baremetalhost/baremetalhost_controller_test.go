@@ -240,7 +240,44 @@ func TestStatusAnnotation_StatusPresent(t *testing.T) {
 	)
 }
 
-// TestStatusAnnotation tests if statusAnnotaion is populated correctly
+// TestStatusAnnotation_Partial ensures that if the status annotation
+// does not include the LastUpdated value reconciliation does not go
+// into an infinite loop.
+func TestStatusAnnotation_Partial(t *testing.T) {
+	// Build a version of the annotation text that does not include
+	// a LastUpdated value.
+	unpackedStatus, err := unmarshalStatusAnnotation([]byte(statusAnnotation))
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	unpackedStatus.LastUpdated = nil
+	packedStatus, err := marshalStatusAnnotation(unpackedStatus)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		metal3v1alpha1.StatusAnnotation: string(packedStatus),
+	}
+	host.Spec.Online = true
+	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if host.Status.HardwareProfile == "StatusProfile" && host.Status.Provisioning.Image.URL == "bar" {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestStatusAnnotation tests if statusAnnotation is populated correctly
 func TestStatusAnnotation(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Spec.Online = true

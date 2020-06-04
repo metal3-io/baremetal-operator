@@ -149,6 +149,23 @@ spec:
                 checksum:
                   description: Checksum is the checksum for the image.
                   type: string
+                checksumType:
+                  description: ChecksumType is the checksum algorithm for the image.
+                    e.g md5, sha256, sha512
+                  enum:
+                  - md5
+                  - sha256
+                  - sha512
+                  type: string
+                format:
+                  description: DiskFormat contains the format of the image (raw, qcow2,
+                    ...) Needs to be set to raw for raw images streaming
+                  enum:
+                  - raw
+                  - qcow2
+                  - vdi
+                  - vmdk
+                  type: string
                 url:
                   description: URL is a location of an image to deploy.
                   type: string
@@ -156,9 +173,23 @@ spec:
               - checksum
               - url
               type: object
+            metaData:
+              description: MetaData holds the reference to the Secret containing host
+                metadata (e.g. meta_data.json which is passed to Config Drive).
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
+              type: object
             networkData:
               description: NetworkData holds the reference to the Secret containing
-                content of network_data.json which is passed to Config Drive
+                network configuration (e.g content of network_data.json which is passed
+                to Config Drive).
               properties:
                 name:
                   description: Name is unique within a namespace to reference a secret
@@ -172,6 +203,51 @@ spec:
             online:
               description: Should the server be online?
               type: boolean
+            rootDeviceHints:
+              description: Provide guidance about how to choose the device for the
+                image being provisioned.
+              properties:
+                deviceName:
+                  description: A Linux device name like "/dev/vda". The hint must
+                    match the actual value exactly.
+                  type: string
+                hctl:
+                  description: A SCSI bus address like 0:0:0:0. The hint must match
+                    the actual value exactly.
+                  type: string
+                minSizeGigabytes:
+                  description: The minimum size of the device in Gigabytes.
+                  minimum: 0
+                  type: integer
+                model:
+                  description: A vendor-specific device identifier. The hint can be
+                    a substring of the actual value.
+                  type: string
+                rotational:
+                  description: True if the device should use spinning media, false
+                    otherwise.
+                  type: boolean
+                serialNumber:
+                  description: Device serial number. The hint must match the actual
+                    value exactly.
+                  type: string
+                vendor:
+                  description: The name of the vendor or manufacturer of the device.
+                    The hint can be a substring of the actual value.
+                  type: string
+                wwn:
+                  description: Unique storage identifier. The hint must match the
+                    actual value exactly.
+                  type: string
+                wwnVendorExtension:
+                  description: Unique vendor storage identifier. The hint must match
+                    the actual value exactly.
+                  type: string
+                wwnWithExtension:
+                  description: Unique storage identifier with the vendor extension
+                    appended. The hint must match the actual value exactly.
+                  type: string
+              type: object
             taints:
               description: Taints is the full, authoritative list of taints to apply
                 to the corresponding Machine. This list will overwrite any modifications
@@ -262,6 +338,7 @@ spec:
                       type: string
                     clockMegahertz:
                       description: ClockSpeed is a clock speed in MHz
+                      type: number
                     count:
                       type: integer
                     flags:
@@ -328,6 +405,8 @@ spec:
                       vlanId:
                         description: The untagged VLAN ID
                         format: int32
+                        maximum: 4094
+                        minimum: 0
                         type: integer
                       vlans:
                         description: The VLANs available
@@ -337,6 +416,8 @@ spec:
                             id:
                               description: VLANID is a 12-bit 802.1Q VLAN identifier
                               format: int32
+                              maximum: 4094
+                              minimum: 0
                               type: integer
                             name:
                               type: string
@@ -512,12 +593,73 @@ spec:
                     checksum:
                       description: Checksum is the checksum for the image.
                       type: string
+                    checksumType:
+                      description: ChecksumType is the checksum algorithm for the
+                        image. e.g md5, sha256, sha512
+                      enum:
+                      - md5
+                      - sha256
+                      - sha512
+                      type: string
+                    format:
+                      description: DiskFormat contains the format of the image (raw,
+                        qcow2, ...) Needs to be set to raw for raw images streaming
+                      enum:
+                      - raw
+                      - qcow2
+                      - vdi
+                      - vmdk
+                      type: string
                     url:
                       description: URL is a location of an image to deploy.
                       type: string
                   required:
                   - checksum
                   - url
+                  type: object
+                rootDeviceHints:
+                  description: The RootDevicehints set by the user
+                  properties:
+                    deviceName:
+                      description: A Linux device name like "/dev/vda". The hint must
+                        match the actual value exactly.
+                      type: string
+                    hctl:
+                      description: A SCSI bus address like 0:0:0:0. The hint must
+                        match the actual value exactly.
+                      type: string
+                    minSizeGigabytes:
+                      description: The minimum size of the device in Gigabytes.
+                      minimum: 0
+                      type: integer
+                    model:
+                      description: A vendor-specific device identifier. The hint can
+                        be a substring of the actual value.
+                      type: string
+                    rotational:
+                      description: True if the device should use spinning media, false
+                        otherwise.
+                      type: boolean
+                    serialNumber:
+                      description: Device serial number. The hint must match the actual
+                        value exactly.
+                      type: string
+                    vendor:
+                      description: The name of the vendor or manufacturer of the device.
+                        The hint can be a substring of the actual value.
+                      type: string
+                    wwn:
+                      description: Unique storage identifier. The hint must match
+                        the actual value exactly.
+                      type: string
+                    wwnVendorExtension:
+                      description: Unique vendor storage identifier. The hint must
+                        match the actual value exactly.
+                      type: string
+                    wwnWithExtension:
+                      description: Unique storage identifier with the vendor extension
+                        appended. The hint must match the actual value exactly.
+                      type: string
                   type: object
                 state:
                   description: An indiciator for what the provisioner is doing with

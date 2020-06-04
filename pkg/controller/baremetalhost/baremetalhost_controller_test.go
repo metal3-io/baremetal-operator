@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1034,6 +1036,114 @@ func TestDeleteHost(t *testing.T) {
 					return host.Status.Provisioning.ID == ""
 				},
 			)
+		})
+	}
+}
+
+// TestUpdateRootDeviceHints verifies that we apply the correct
+// precedence rules to the root device hints settings for a host.
+func TestUpdateRootDeviceHints(t *testing.T) {
+	rotational := true
+
+	testCases := []struct {
+		Scenario string
+		Host     metal3v1alpha1.BareMetalHost
+		Dirty    bool
+		Expected *metal3v1alpha1.RootDeviceHints
+	}{
+		{
+			Scenario: "override profile with explicit hints",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					HardwareProfile: "libvirt",
+					RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+						DeviceName:         "userd_devicename",
+						HCTL:               "1:2:3:4",
+						Model:              "userd_model",
+						Vendor:             "userd_vendor",
+						SerialNumber:       "userd_serial",
+						MinSizeGigabytes:   40,
+						WWN:                "userd_wwn",
+						WWNWithExtension:   "userd_with_extension",
+						WWNVendorExtension: "userd_vendor_extension",
+						Rotational:         &rotational,
+					},
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+				},
+			},
+			Dirty: true,
+			Expected: &metal3v1alpha1.RootDeviceHints{
+				DeviceName:         "userd_devicename",
+				HCTL:               "1:2:3:4",
+				Model:              "userd_model",
+				Vendor:             "userd_vendor",
+				SerialNumber:       "userd_serial",
+				MinSizeGigabytes:   40,
+				WWN:                "userd_wwn",
+				WWNWithExtension:   "userd_with_extension",
+				WWNVendorExtension: "userd_vendor_extension",
+				Rotational:         &rotational,
+			},
+		},
+
+		{
+			Scenario: "use profile hints",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					HardwareProfile: "libvirt",
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+				},
+			},
+			Dirty: true,
+			Expected: &metal3v1alpha1.RootDeviceHints{
+				DeviceName: "/dev/vda",
+			},
+		},
+
+		{
+			Scenario: "default profile hints",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					HardwareProfile: "unknown",
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "unknown",
+				},
+			},
+			Dirty: true,
+			Expected: &metal3v1alpha1.RootDeviceHints{
+				DeviceName: "/dev/sda",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			dirty, err := saveHostProvisioningSettings(&tc.Host)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
+			assert.Equal(t, tc.Expected, tc.Host.Status.Provisioning.RootDeviceHints)
 		})
 	}
 }

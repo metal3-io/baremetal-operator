@@ -13,8 +13,7 @@ before_install:
 
 env:
   - TARGET=unit-verbose
-  - TARGET=lint
   - TARGET=docker
-  - TARGET=golint-check
+  - TARGET=lint
 
 script: make $TARGET

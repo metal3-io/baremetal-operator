@@ -24,6 +24,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
@@ -222,7 +223,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
 		result.ErrorMessage = msg
-		result.Dirty = true
 		return result, nil
 	}
 
@@ -279,12 +279,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			}
 		}
 
-		if p.host.Spec.Image != nil && p.host.Spec.Image.URL != "" {
-			checksum := p.host.Spec.Image.Checksum
+		checksum, checksumType, ok := p.host.GetImageChecksum()
 
+		if ok {
 			p.log.Info("setting instance info",
 				"image_source", p.host.Spec.Image.URL,
-				"checksum", checksum,
+				"image_os_hash_value", checksum,
+				"image_os_hash_algo", checksumType,
 			)
 
 			updates := nodes.UpdateOpts{
@@ -295,14 +296,26 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				},
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_checksum",
+					Path:  "/instance_info/image_os_hash_value",
 					Value: checksum,
+				},
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_os_hash_algo",
+					Value: checksumType,
 				},
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
 					Path:  "/instance_uuid",
 					Value: string(p.host.ObjectMeta.UID),
 				},
+			}
+			if p.host.Spec.Image.DiskFormat != nil {
+				updates = append(updates, nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_disk_format",
+					Value: *p.host.Spec.Image.DiskFormat,
+				})
 			}
 			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 			switch err.(type) {
@@ -411,6 +424,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
+		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 		return result, nil
 	}
@@ -544,9 +558,10 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	return result, nil
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksum string) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+
 	if err != nil {
 		return updates, errors.Wrap(err,
 			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
@@ -571,22 +586,49 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 		},
 	)
 
-	// image_checksum
-	if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
+	checksum, checksumType, _ := p.host.GetImageChecksum()
+
+	// image_os_hash_algo
+	if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
 		op = nodes.AddOp
-		p.log.Info("adding image_checksum")
+		p.log.Info("adding image_os_hash_algo")
 	} else {
 		op = nodes.ReplaceOp
-		p.log.Info("updating image_checksum")
+		p.log.Info("updating image_os_hash_algo")
 	}
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
 			Op:    op,
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: checksumType,
+		},
+	)
+
+	// image_os_hash_value
+	if _, ok := ironicNode.InstanceInfo["image_os_hash_value"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding image_os_hash_value")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating image_os_hash_value")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/image_os_hash_value",
 			Value: checksum,
 		},
 	)
+
+	if p.host.Spec.Image.DiskFormat != nil {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:    nodes.AddOp,
+			Path:  "/instance_info/image_disk_format",
+			Value: *p.host.Spec.Image.DiskFormat,
+		})
+	}
 
 	// instance_uuid
 	p.log.Info("setting instance_uuid")
@@ -633,13 +675,12 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 		op = nodes.ReplaceOp
 		p.log.Info("updating root_device")
 	}
-	hints := map[string]string{}
-	switch {
-	case hwProf.RootDeviceHints.DeviceName != "":
-		hints["name"] = hwProf.RootDeviceHints.DeviceName
-	case hwProf.RootDeviceHints.HCTL != "":
-		hints["hctl"] = hwProf.RootDeviceHints.HCTL
-	}
+
+	// hints
+	//
+	// If the user has provided explicit root device hints, they take
+	// precedence. Otherwise use the values from the hardware profile.
+	hints := devicehints.MakeHintMap(p.host.Status.Provisioning.RootDeviceHints)
 	p.log.Info("using root device", "hints", hints)
 	updates = append(
 		updates,
@@ -690,11 +731,11 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, checksu
 	return updates, nil
 }
 
-func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, checksum string, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning")
 
-	updates, err := p.getUpdateOptsForNode(ironicNode, checksum)
+	updates, err := p.getUpdateOptsForNode(ironicNode)
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 	switch err.(type) {
 	case nil:
@@ -801,16 +842,18 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	checksum := p.host.Spec.Image.Checksum
+	checksum, checksumType, _ := p.host.GetImageChecksum()
 
 	// Local variable to make it easier to test if ironic is
 	// configured with the same image we are trying to provision to
 	// the host.
 	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
-		ironicNode.InstanceInfo["image_checksum"] == checksum)
+		ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
+		ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
 	p.log.Info("checking image settings",
 		"source", ironicNode.InstanceInfo["image_source"],
-		"checksum", checksum,
+		"image_os_hash_algo", checksumType,
+		"image_os_has_value", checksum,
 		"same", ironicHasSameImage,
 		"provisionState", ironicNode.ProvisionState)
 
@@ -839,42 +882,55 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			return result, nil
 		}
 		p.log.Info("recovering from previous failure")
-		return p.startProvisioning(ironicNode, checksum, hostConf)
+		return p.startProvisioning(ironicNode, hostConf)
 
 	case nodes.Manageable:
-		return p.startProvisioning(ironicNode, checksum, hostConf)
+		return p.startProvisioning(ironicNode, hostConf)
 
 	case nodes.Available:
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
 		p.log.Info("making host active")
 
+		// Retrieve cloud-init user data
 		userData, err := hostConf.UserData()
 		if err != nil {
 			return result, errors.Wrap(err, "could not retrieve user data")
 		}
 
+		// Retrieve cloud-init network_data.json. Default value is empty
 		networkDataRaw, err := hostConf.NetworkData()
-
+		if err != nil {
+			return result, errors.Wrap(err, "could not retrieve network data")
+		}
 		var networkData map[string]interface{}
 		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
 			return result, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
 		}
 
+		// Retrieve cloud-init meta_data.json with falback to default
+		metaData := map[string]interface{}{
+			"uuid":             string(p.host.ObjectMeta.UID),
+			"metal3-namespace": p.host.ObjectMeta.Namespace,
+			"metal3-name":      p.host.ObjectMeta.Name,
+			"local-hostname":   p.host.ObjectMeta.Name,
+			"local_hostname":   p.host.ObjectMeta.Name,
+		}
+		metaDataRaw, err := hostConf.MetaData()
+		if err != nil {
+			return result, errors.Wrap(err, "could not retrieve metadata")
+		}
+		if metaDataRaw != "" {
+			if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
+				return result, errors.Wrap(err, "failed to unmarshal metadata from secret")
+			}
+		}
+
 		var configDrive nodes.ConfigDrive
 		if userData != "" {
 			configDrive = nodes.ConfigDrive{
-				UserData: userData,
-				// cloud-init requires that meta_data.json exists and
-				// that the "uuid" field is present to process
-				// any of the config drive contents.
-				MetaData: map[string]interface{}{
-					"uuid":             string(p.host.ObjectMeta.UID),
-					"metal3-namespace": p.host.ObjectMeta.Namespace,
-					"metal3-name":      p.host.ObjectMeta.Name,
-					"local-hostname":   p.host.ObjectMeta.Name,
-					"local_hostname":   p.host.ObjectMeta.Name,
-				},
+				UserData:    userData,
+				MetaData:    metaData,
 				NetworkData: networkData,
 			}
 			if err != nil {
@@ -1151,7 +1207,6 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
 		if err != nil {
-			result.RequeueAfter = powerRequeueDelay
 			return result, errors.Wrap(err, "failed to power on host")
 		}
 		p.publisher("PowerOn", "Host powered on")
@@ -1179,7 +1234,6 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)
 		if err != nil {
-			result.RequeueAfter = powerRequeueDelay
 			return result, errors.Wrap(err, "failed to power off host")
 		}
 		p.publisher("PowerOff", "Host powered off")

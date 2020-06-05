@@ -207,6 +207,13 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		objStatus, err := r.getHostStatusFromAnnotation(host)
 		if err == nil && objStatus != nil {
 			host.Status = *objStatus
+			if host.Status.LastUpdated.IsZero() {
+				// Ensure the LastUpdated timestamp in set to avoid
+				// infinite loops if the annotation only contained
+				// part of the status information.
+				t := metav1.Now()
+				host.Status.LastUpdated = &t
+			}
 			errStatus := r.client.Status().Update(context.TODO(), host)
 			if errStatus != nil {
 				return reconcile.Result{}, errors.Wrap(err, "Could not restore status from annotation")
@@ -829,7 +836,7 @@ func (r *ReconcileBareMetalHost) saveHostAnnotation(host *metal3v1alpha1.BareMet
 	}
 
 	delete(host.Annotations, metal3v1alpha1.StatusAnnotation)
-	newAnnotation, err := json.Marshal(host.Status)
+	newAnnotation, err := marshalStatusAnnotation(&host.Status)
 	if err != nil {
 		return err
 	}
@@ -840,6 +847,22 @@ func (r *ReconcileBareMetalHost) saveHostAnnotation(host *metal3v1alpha1.BareMet
 	return r.client.Update(context.TODO(), host.DeepCopy())
 }
 
+func marshalStatusAnnotation(status *metal3v1alpha1.BareMetalHostStatus) ([]byte, error) {
+	newAnnotation, err := json.Marshal(status)
+	if err != nil {
+		return []byte{}, errors.Wrap(err, "failed to marshall status annotation")
+	}
+	return newAnnotation, nil
+}
+
+func unmarshalStatusAnnotation(content []byte) (*metal3v1alpha1.BareMetalHostStatus, error) {
+	objStatus := &metal3v1alpha1.BareMetalHostStatus{}
+	if err := json.Unmarshal(content, objStatus); err != nil {
+		return nil, errors.Wrap(err, "Failed to fetch Status from annotation")
+	}
+	return objStatus, nil
+}
+
 // extract host from Status annotation
 func (r *ReconcileBareMetalHost) getHostStatusFromAnnotation(host *metal3v1alpha1.BareMetalHost) (*metal3v1alpha1.BareMetalHostStatus, error) {
 	annotations := host.GetAnnotations()
@@ -847,9 +870,9 @@ func (r *ReconcileBareMetalHost) getHostStatusFromAnnotation(host *metal3v1alpha
 	if annotations[metal3v1alpha1.StatusAnnotation] == "" {
 		return nil, nil
 	}
-	objStatus := &metal3v1alpha1.BareMetalHostStatus{}
-	if err := json.Unmarshal(content, objStatus); err != nil {
-		return nil, errors.Wrap(err, "Failed to fetch Status from annotation")
+	objStatus, err := unmarshalStatusAnnotation(content)
+	if err != nil {
+		return nil, err
 	}
 	return objStatus, nil
 }

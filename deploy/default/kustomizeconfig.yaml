@@ -4,4 +4,4 @@ namespace:
 - kind: ClusterRoleBinding
   group: rbac.authorization.k8s.io
   path: subjects/namespace
-  create: true
+  create: false

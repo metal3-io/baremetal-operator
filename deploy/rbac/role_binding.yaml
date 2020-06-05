@@ -5,6 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: metal3-baremetal-operator
+  namespace: metal3
 - kind: User
   name: developer
 roleRef:

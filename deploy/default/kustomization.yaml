@@ -8,6 +8,10 @@ resources:
 - ../operator
 - ../../ironic-deployment/default
 configMapGenerator:
-- envs:
+- behavior: merge
+  envs:
   - ironic_bmo_configmap.env
   name: ironic-bmo-configmap
+
+configurations:
+- kustomizeconfig.yaml

@@ -39,6 +39,8 @@ mainly, but not only, provisioning details.
         for attaching the provisioning image to the host.
     * Fujitsu iRMC
       * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
+    * HUAWEI ibmc
+      * `ibmc://<host>:<port>` (or `ibmc+http://<host>:<port>` to disable TLS)
     * Redfish
       * `redfish://` (or `redfish+http://` to disable TLS)
       * `redfish-virtualmedia://` to use virtual media instead of PXE

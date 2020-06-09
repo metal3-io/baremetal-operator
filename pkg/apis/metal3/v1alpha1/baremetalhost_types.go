@@ -28,6 +28,9 @@ const (
 	// annotation is present and status is empty, BMO will reconstruct BMH Status
 	// from the status annotation.
 	StatusAnnotation = "baremetalhost.metal3.io/status"
+
+	// UnhealthyAnnotation is the annotation that sets unhealthy status of BMH
+	UnhealthyAnnotation = "baremetalhost.metal3.io/unhealthy"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location

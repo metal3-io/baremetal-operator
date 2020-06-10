@@ -99,7 +99,7 @@ useful as well. For example:
    a successful pivoting state was met and ironic being deployed.
 
 2. BMO and Ironic are deployed together, in a case when CAPM3 is not used and
-   those to be deployed as a bundle.
+   baremetal-operator and ironic containers to be deployed together.
 
 3. Only Ironic is deployed, in a case when BMO is deployed as part of CAPM3 and
    only Ironic setup is sufficient, e.g.
@@ -108,8 +108,8 @@ useful as well. For example:
    the BaremetalHost during the pivoting.
 
 **Important Note**
-When the baremetal-operator is deployed through metal3-dev-env, this container
-inherits the following environment variables through configmap:
+When the baremetal-operator is deployed through metal3-dev-env, baremetal-operator
+container inherits the following environment variables through configmap:
 
 ```ini
 
@@ -119,5 +119,5 @@ $PROVISIONING_INTERFACE
 
 ```
 
-In case you are deploying baremetak-operator locally, make sure to populate and
+In case you are deploying baremetal-operator locally, make sure to populate and
 export these environment variables before deploying.

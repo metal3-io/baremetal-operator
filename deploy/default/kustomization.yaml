@@ -7,7 +7,7 @@ resources:
 - ../crds
 - ../operator
 configMapGenerator:
-- behavior: merge
+- behavior: create
   envs:
   - ironic_bmo_configmap.env
   name: ironic-bmo-configmap

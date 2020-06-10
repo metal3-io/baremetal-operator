@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metal3-baremetal-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: metal3-baremetal-operator
+  template:
+    metadata:
+      labels:
+        name: metal3-baremetal-operator
+    spec:
+      serviceAccountName: metal3-baremetal-operator
+      containers:
+        - name: baremetal-operator
+          image: quay.io/metal3-io/baremetal-operator
+          ports:
+          - containerPort: 60000
+            name: metrics
+          command:
+          - /baremetal-operator
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            - configMapRef:
+                name: ironic-bmo-configmap

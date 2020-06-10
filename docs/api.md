@@ -19,6 +19,15 @@ sure that you remove the annotation  **only if the value of the annotation is
 not `metal3.io/capm3`, but another value that you have provided**. Removing the
 annotation will enable the reconciliation again.
 
+### Unhealthy annotation
+
+It is possible to mark BareMetalHost object as unhealthy by adding an
+annotation `baremetalhost.metal3.io/unhealthy`. This annotation does not
+stop the reconciliation of the BMH. This annotation is used in the upper layers
+for coordination. For example **Metal³** provider should not provision BMH
+set as unhealthy. Removing the annotation will enable the normal operations
+on the provider layers.
+
 ### BareMetalHost spec
 
 The *BareMetalHost's* *spec* defines the desire state of the host. It contains
@@ -39,6 +48,8 @@ mainly, but not only, provisioning details.
         for attaching the provisioning image to the host.
     * Fujitsu iRMC
       * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
+    * HUAWEI ibmc
+      * `ibmc://<host>:<port>` (or `ibmc+http://<host>:<port>` to disable TLS)
     * Redfish
       * `redfish://` (or `redfish+http://` to disable TLS)
       * `redfish-virtualmedia://` to use virtual media instead of PXE
@@ -89,6 +100,50 @@ mainly, but not only, provisioning details.
   attached to the host before it boots to set network up
 
 * *description* -- A human-provided string to help identify the host.
+
+* *hardwareProfile* -- **This field is deprecated. See rootDeviceHints instead.**
+  The name of the hardware profile to use. The following are the current
+  supported `hardwareProfile` settings and their corresponding root devices.
+
+  | **hardwareProfile** | **Root Device** |
+  |---------------------|-----------------|
+  | `unknown`           | /dev/sda        |
+  | `libvirt`           | /dev/vda        |
+  | `dell`              | HCTL: 0:0:0:0   |
+  | `dell-raid`         | HCTL: 0:2:0:0   |
+  | `openstack`         | /dev/vdb        |
+
+  **NOTE:** These are subject to change.
+
+* *rootDeviceHints* -- Guidance for how to choose the device to
+  receive the image being provisioned. The storage devices are
+  examined in the order they are discovered during inspection and the
+  hint values are compared to the inspected values. The first
+  discovered device that matches is used. Hints can be combined, and
+  if multiple hints are provided then a device must match all hints in
+  order to be selected.
+  * *deviceName* -- A string containing a Linux device name like
+    `/dev/vda`. The hint must match the actual value exactly.
+  * *hctl* -- A string containing a SCSI bus address like
+    `0:0:0:0`. The hint must match the actual value exactly.
+  * *model* -- A string containing a vendor-specific device
+    identifier. The hint can be a substring of the actual value.
+  * *vendor* -- A string containing the name of the vendor or
+    manufacturer of the device. The hint can be a substring of the
+    actual value.
+  * *serialNumber* -- A string contianing the device serial
+    number. The hint must match the actual value exactly.
+  * *minSizeGigabytes* -- An integer representing the minimum size of the
+    device in Gigabytes.
+  * *wwn* -- A string containing the unique storage identifier. The
+    hint must match the actual value exactly.
+  * *wwnWithExtension* -- A string containing the unique storage
+    identifier with the vendor extension appended. The hint must match
+    the actual value exactly.
+  * *wwnVendorExtension* -- A string containing the unique vendor
+    storage indentifier. The hint must match the actual value exactly.
+  * *rotational* -- A boolean indicating whether the device should be
+    a rotating disk (`true`) or not (`false`).
 
 ### BareMetalHost status
 
@@ -153,8 +208,10 @@ details, etc.
   * *systemVendor* -- Contains information about the host's *manufacturer*,
     the *productName* and *serialNumber*.
   * *ramMebibytes* -- The host's amount of memory in Mebibytes.
-* *hardwareProfile* -- The name of the hardware profile that matches the
-  hardware discovered on the host. These details are saved
+
+* *hardwareProfile* -- **This field is deprecated. See rootDeviceHints instead.**
+  The name of the hardware profile that matches the
+  hardware discovered on the host based on the details saved
   to the *Hardware* section. If the hardware does not match any
   known profile, the value `unknown` will be set on this field
   and is used by default. In practice, this only affects which device
@@ -173,6 +230,7 @@ details, etc.
 
 * *poweredOn* -- Boolean indicating whether the host is powered on.
   See *online* on the *BareMetalHost's* *Spec*.
+
 * *provisioning* -- Settings related to deploying an image to the host.
   * *state* -- The current state of any ongoing provisioning operation.
     The following are the currently supported ones:
@@ -193,6 +251,11 @@ details, etc.
       by an agent.
     * *power management error* -- An error was found while trying to power
       the host either on or off.
+  * *id* -- The unique identifier for the service in the underlying
+    provisioning tool.
+  * *image* -- The image most recently provisioned to the host.
+  * *rootDeviceHints* -- The root device selection instructions used
+    for the most recent provisioning operation.
 
 ### BareMetalHost Example
 

@@ -19,6 +19,15 @@ sure that you remove the annotation  **only if the value of the annotation is
 not `metal3.io/capm3`, but another value that you have provided**. Removing the
 annotation will enable the reconciliation again.
 
+### Unhealthy annotation
+
+It is possible to mark BareMetalHost object as unhealthy by adding an
+annotation `baremetalhost.metal3.io/unhealthy`. This annotation does not
+stop the reconciliation of the BMH. This annotation is used in the upper layers
+for coordination. For example **Metal³** provider should not provision BMH
+set as unhealthy. Removing the annotation will enable the normal operations
+on the provider layers.
+
 ### BareMetalHost spec
 
 The *BareMetalHost's* *spec* defines the desire state of the host. It contains
@@ -39,6 +48,8 @@ mainly, but not only, provisioning details.
         for attaching the provisioning image to the host.
     * Fujitsu iRMC
       * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
+    * HUAWEI ibmc
+      * `ibmc://<host>:<port>` (or `ibmc+http://<host>:<port>` to disable TLS)
     * Redfish
       * `redfish://` (or `redfish+http://` to disable TLS)
       * `redfish-virtualmedia://` to use virtual media instead of PXE

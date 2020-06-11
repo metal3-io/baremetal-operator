@@ -24,6 +24,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
@@ -309,6 +310,27 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 					Value: string(p.host.ObjectMeta.UID),
 				},
 			}
+
+			// image_checksum
+			//
+			// FIXME: For older versions of ironic that do not have
+			// https://review.opendev.org/#/c/711816/ failing to
+			// include the 'image_checksum' causes ironic to refuse to
+			// provision the image, even if the other hash value
+			// parameters are given. We only want to do that for MD5,
+			// however, because those versions of ironic only support
+			// MD5 checksums.
+			if checksumType == string(metal3v1alpha1.MD5) {
+				updates = append(
+					updates,
+					nodes.UpdateOperation{
+						Op:    nodes.AddOp,
+						Path:  "/instance_info/image_checksum",
+						Value: checksum,
+					},
+				)
+			}
+
 			if p.host.Spec.Image.DiskFormat != nil {
 				updates = append(updates, nodes.UpdateOperation{
 					Op:    nodes.AddOp,
@@ -560,6 +582,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+
 	if err != nil {
 		return updates, errors.Wrap(err,
 			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
@@ -620,6 +643,32 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		},
 	)
 
+	// image_checksum
+	//
+	// FIXME: For older versions of ironic that do not have
+	// https://review.opendev.org/#/c/711816/ failing to include the
+	// 'image_checksum' causes ironic to refuse to provision the
+	// image, even if the other hash value parameters are given. We
+	// only want to do that for MD5, however, because those versions
+	// of ironic only support MD5 checksums.
+	if checksumType == string(metal3v1alpha1.MD5) {
+		if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
+			op = nodes.AddOp
+			p.log.Info("adding image_checksum")
+		} else {
+			op = nodes.ReplaceOp
+			p.log.Info("updating image_checksum")
+		}
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    op,
+				Path:  "/instance_info/image_checksum",
+				Value: checksum,
+			},
+		)
+	}
+
 	if p.host.Spec.Image.DiskFormat != nil {
 		updates = append(updates, nodes.UpdateOperation{
 			Op:    nodes.AddOp,
@@ -673,13 +722,12 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		op = nodes.ReplaceOp
 		p.log.Info("updating root_device")
 	}
-	hints := map[string]string{}
-	switch {
-	case hwProf.RootDeviceHints.DeviceName != "":
-		hints["name"] = hwProf.RootDeviceHints.DeviceName
-	case hwProf.RootDeviceHints.HCTL != "":
-		hints["hctl"] = hwProf.RootDeviceHints.HCTL
-	}
+
+	// hints
+	//
+	// If the user has provided explicit root device hints, they take
+	// precedence. Otherwise use the values from the hardware profile.
+	hints := devicehints.MakeHintMap(p.host.Status.Provisioning.RootDeviceHints)
 	p.log.Info("using root device", "hints", hints)
 	updates = append(
 		updates,

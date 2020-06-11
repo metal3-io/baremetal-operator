@@ -25,9 +25,9 @@ Kustomization Configuration
 It is possible to deploy ```baremetal-operator``` with three different operator
 configurations, namely:
 
-1. operator without ironic
-2. operator with ironic
-3. operator with ironic and keepalived
+1. operator with ironic
+2. operator without ironic
+3. ironic without operator
 
-A detailed overview of the Kustomization configuration is presented in [Ironic
-Keepalived Configuration](ironic-endpoint-keepalived-configuration.md)
+A detailed overview of the configuration is presented in [Bare Metal Operator
+and Ironic Configuration](deploying.md).

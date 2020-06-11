@@ -1,7 +1,10 @@
 package ironic
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -10,10 +13,119 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"k8s.io/utils/pointer"
 )
 
 func init() {
 	logf.SetLogger(logf.ZapLogger(true))
+}
+
+func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
+	rotational := true
+	host := &metal3v1alpha1.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "not-empty",
+			},
+			Online:          true,
+			HardwareProfile: "libvirt",
+			RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+				DeviceName:         "userd_devicename",
+				HCTL:               "1:2:3:4",
+				Model:              "userd_model",
+				Vendor:             "userd_vendor",
+				SerialNumber:       "userd_serial",
+				MinSizeGigabytes:   40,
+				WWN:                "userd_wwn",
+				WWNWithExtension:   "userd_with_extension",
+				WWNVendorExtension: "userd_vendor_extension",
+				Rotational:         &rotational,
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				ID: "provisioning-id",
+				// Place the hints in the status field to pretend the
+				// controller has already reconciled partially.
+				RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+					DeviceName:         "userd_devicename",
+					HCTL:               "1:2:3:4",
+					Model:              "userd_model",
+					Vendor:             "userd_vendor",
+					SerialNumber:       "userd_serial",
+					MinSizeGigabytes:   40,
+					WWN:                "userd_wwn",
+					WWNWithExtension:   "userd_with_extension",
+					WWNVendorExtension: "userd_vendor_extension",
+					Rotational:         &rotational,
+				},
+			},
+			HardwareProfile: "libvirt",
+		},
+	}
+
+	eventPublisher := func(reason, message string) {}
+
+	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
+	ironicNode := &nodes.Node{}
+
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("patches: %v", patches)
+
+	expected := []struct {
+		Path  string            // the node property path
+		Map   map[string]string // Expected roothdevicehint map
+		Value interface{}       // the value being passed to ironic (or value associated with the key)
+	}{
+		{
+			Path:  "/properties/root_device",
+			Value: "userdefined_devicename",
+			Map: map[string]string{
+				"name":                 "s== userd_devicename",
+				"hctl":                 "s== 1:2:3:4",
+				"model":                "<in> userd_model",
+				"vendor":               "<in> userd_vendor",
+				"serial":               "s== userd_serial",
+				"size":                 ">= 40",
+				"wwn":                  "s== userd_wwn",
+				"wwn_with_extension":   "s== userd_with_extension",
+				"wwn_vendor_extension": "s== userd_vendor_extension",
+				"rotational":           "true",
+			},
+		},
+	}
+
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			t.Logf("expected: %v", e)
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == e.Path {
+					break
+				}
+			}
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
+			}
+			t.Logf("update: %v", update)
+			if e.Map != nil {
+				assert.Equal(t, e.Map, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			} else {
+				assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			}
+		})
+	}
 }
 
 func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
@@ -25,7 +137,10 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
-				URL: "not-empty",
+				URL:          "not-empty",
+				Checksum:     "checksum",
+				ChecksumType: metal3v1alpha1.MD5,
+				DiskFormat:   pointer.StringPtr("raw"),
 			},
 			Online: true,
 		},
@@ -42,14 +157,12 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t.Logf("patches: %v", patches)
-
-	var update nodes.UpdateOperation
 
 	expected := []struct {
 		Path  string      // the node property path
@@ -61,8 +174,16 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			Value: "not-empty",
 		},
 		{
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: "md5",
+		},
+		{
+			Path:  "/instance_info/image_os_hash_value",
 			Value: "checksum",
+		},
+		{
+			Path:  "/instance_info/image_disk_format",
+			Value: "raw",
 		},
 		{
 			Path:  "/instance_uuid",
@@ -71,11 +192,6 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		{
 			Path:  "/instance_info/root_gb",
 			Value: 10,
-		},
-		{
-			Path:  "/instance_info/root_device",
-			Value: "/dev/vda",
-			Key:   "name",
 		},
 		{
 			Path:  "/properties/cpu_arch",
@@ -87,18 +203,23 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		},
 	}
 
-	for i, e := range expected {
-		update = patches[i].(nodes.UpdateOperation)
-		if e.Key != "" {
-			m := update.Value.(map[string]string)
-			if m[e.Key] != e.Value {
-				t.Errorf("expected %s=%q got %s=%q", e.Path, e.Value, update.Path, update.Value)
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			t.Logf("expected: %v", e)
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == e.Path {
+					break
+				}
 			}
-		} else {
-			if update.Value != e.Value {
-				t.Errorf("expected %s=%q got %s=%q", e.Path, e.Value, update.Path, update.Value)
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
 			}
-		}
+			t.Logf("update: %v", update)
+			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+		})
 	}
 }
 
@@ -111,7 +232,10 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
-				URL: "not-empty",
+				URL:          "not-empty",
+				Checksum:     "checksum",
+				ChecksumType: metal3v1alpha1.MD5,
+				//DiskFormat not given to verify it is not added in instance_info
 			},
 			Online: true,
 		},
@@ -128,14 +252,12 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode, "checksum")
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t.Logf("patches: %v", patches)
-
-	var update nodes.UpdateOperation
 
 	expected := []struct {
 		Path  string      // the node property path
@@ -147,7 +269,11 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 			Value: "not-empty",
 		},
 		{
-			Path:  "/instance_info/image_checksum",
+			Path:  "/instance_info/image_os_hash_algo",
+			Value: "md5",
+		},
+		{
+			Path:  "/instance_info/image_os_hash_value",
 			Value: "checksum",
 		},
 		{
@@ -159,11 +285,6 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 			Value: 10,
 		},
 		{
-			Path:  "/instance_info/root_device",
-			Value: "0:0:0:0",
-			Key:   "hctl",
-		},
-		{
 			Path:  "/properties/cpu_arch",
 			Value: "x86_64",
 		},
@@ -173,17 +294,22 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		},
 	}
 
-	for i, e := range expected {
-		update = patches[i].(nodes.UpdateOperation)
-		if e.Key != "" {
-			m := update.Value.(map[string]string)
-			if m[e.Key] != e.Value {
-				t.Errorf("expected %s=%q got %s=%q", e.Path, e.Value, update.Path, update.Value)
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			t.Logf("expected: %v", e)
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == e.Path {
+					break
+				}
 			}
-		} else {
-			if update.Value != e.Value {
-				t.Errorf("expected %s=%q got %s=%q", e.Path, e.Value, update.Path, update.Value)
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
 			}
-		}
+			t.Logf("update: %v", update)
+			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+		})
 	}
 }

@@ -28,7 +28,9 @@ type HostConfigData interface {
 	// configuration for a host.
 	NetworkData() (string, error)
 
-	// TODO add MetaDataSource method
+	// MetaData is the interface for a function to retrieve metadata
+	// configuration for a host.
+	MetaData() (string, error)
 }
 
 // Provisioner holds the state information for talking to the

@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metal3-ironic
+spec:
+  template:
+    spec:
+      containers:
+      # Change the value of image field below to your controller image URL
+      - image: quay.io/metal3-io/keepalived
+        name: ironic-endpoint-keepalived
+        securityContext:
+              capabilities:
+                add: ["NET_ADMIN"]
+        envFrom:
+          - configMapRef:
+              name: ironic-bmo-configmap

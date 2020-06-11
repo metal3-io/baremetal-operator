@@ -445,10 +445,6 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 		return actionError{errors.Wrap(err, "failed to delete")}
 	}
 	if provResult.Dirty {
-		err = r.saveHostStatus(info.host)
-		if err != nil {
-			return actionError{errors.Wrap(err, "failed to save host after deleting")}
-		}
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -577,6 +573,7 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 	}
+
 	info.host.ClearError()
 	return actionComplete{}
 }
@@ -626,6 +623,13 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 	return actionComplete{}
 }
 
+// clearHostProvisioningSettings removes the values related to
+// provisioning that do not trigger re-provisioning from the status
+// fields of a host.
+func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
+	host.Status.Provisioning.RootDeviceHints = nil
+}
+
 func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("deprovisioning")
 
@@ -650,9 +654,10 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 		return actionContinueNoWrite{}
 	}
 
-	// After the provisioner is done, clear the image settings so we
-	// transition to the next state.
+	// After the provisioner is done, clear the provisioning settings
+	// so we transition to the next state.
 	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
+	clearHostProvisioningSettings(info.host)
 
 	return actionComplete{}
 }
@@ -789,10 +794,42 @@ func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner,
 	}
 
 	if info.host.NeedsProvisioning() {
+		// Ensure the root device hints we're going to use are stored.
+		dirty, err := saveHostProvisioningSettings(info.host)
+		if err != nil {
+			return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
+		}
+		if dirty {
+			info.log.Info("updating host provisioning settings")
+		}
 		info.host.ClearError()
 		return actionComplete{}
 	}
 	return r.manageHostPower(prov, info)
+}
+
+// saveHostProvisioningSettings copies the values related to
+// provisioning that do not trigger re-provisioning into the status
+// fields of the host.
+func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
+
+	// Ensure the root device hints we're going to use are stored.
+	//
+	// If the user has provided explicit root device hints, they take
+	// precedence. Otherwise use the values from the hardware profile.
+	hintSource := host.Spec.RootDeviceHints
+	if hintSource == nil {
+		hwProf, err := hardware.GetProfile(host.HardwareProfile())
+		if err != nil {
+			return false, errors.Wrap(err, "Could not update root device hints")
+		}
+		hintSource = &hwProf.RootDeviceHints
+	}
+	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
+		host.Status.Provisioning.RootDeviceHints = hintSource
+		dirty = true
+	}
+	return
 }
 
 func (r *ReconcileBareMetalHost) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {

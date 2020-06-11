@@ -529,3 +529,139 @@ func TestCredentialStatusMatch(t *testing.T) {
 		})
 	}
 }
+
+func TestGetImageChecksum(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario string
+		Host     BareMetalHost
+		Expected bool
+	}{
+		{
+			Scenario: "both checksum value and type specified",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						Checksum:     "md5hash",
+						ChecksumType: MD5,
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "checksum value specified but not type",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						Checksum: "md5hash",
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "sha256 checksum value and type specified",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						Checksum:     "sha256hash",
+						ChecksumType: SHA256,
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "sha512 checksum value and type specified",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						Checksum:     "sha512hash",
+						ChecksumType: SHA512,
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "checksum value not specified",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						ChecksumType: SHA512,
+					},
+				},
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "neither checksum value nor hash specified",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "someurl",
+					},
+				},
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "wrong checksum hash specified",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						Checksum:     "somehash",
+						ChecksumType: "boondoggle",
+					},
+				},
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "no image",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{},
+			},
+			Expected: false,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			_, _, actual := tc.Host.GetImageChecksum()
+			if actual != tc.Expected {
+				t.Errorf("expected %v but got %v", tc.Expected, actual)
+			}
+		})
+	}
+}

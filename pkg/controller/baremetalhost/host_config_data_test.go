@@ -25,6 +25,8 @@ func TestProvisionWithHostConfig(t *testing.T) {
 		ErrUserData         bool
 		ExpectedNetworkData string
 		ErrNetworkData      bool
+		ExpectedMetaData    string
+		ErrMetaData         bool
 	}{
 		{
 			Scenario: "host with user data only",
@@ -99,6 +101,39 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			ErrUserData:         false,
 			ExpectedNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
 			ErrNetworkData:      false,
+		},
+		{
+			Scenario: "host with metadata only",
+			Host: newHost("host-meta-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "meta-data",
+						Namespace: namespace,
+					},
+				}),
+			NetworkDataSecret: newSecret("meta-data", map[string]string{"metaData": "key: value"}),
+			ExpectedMetaData:  base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ErrMetaData:       false,
+		},
+		{
+			Scenario: "host with metadata only, no namespace",
+			Host: newHost("host-meta-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					MetaData: &corev1.SecretReference{
+						Name: "meta-data",
+					},
+				}),
+			NetworkDataSecret: newSecret("meta-data", map[string]string{"metaData": "key: value"}),
+			ExpectedMetaData:  base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ErrMetaData:       false,
 		},
 		{
 			Scenario: "fall back to value",
@@ -211,6 +246,15 @@ func TestProvisionWithHostConfig(t *testing.T) {
 
 			if actualNetworkData != tc.ExpectedNetworkData {
 				t.Fatal(fmt.Errorf("Failed to assert NetworkData. Expected '%s' got '%s'", actualNetworkData, tc.ExpectedNetworkData))
+			}
+
+			actualMetaData, err := hcd.MetaData()
+			if err != nil && !tc.ErrMetaData {
+				t.Fatal(err)
+			}
+
+			if actualMetaData != tc.ExpectedMetaData {
+				t.Fatal(fmt.Errorf("Failed to assert MetaData. Expected '%s' got '%s'", actualMetaData, tc.ExpectedMetaData))
 			}
 		})
 	}

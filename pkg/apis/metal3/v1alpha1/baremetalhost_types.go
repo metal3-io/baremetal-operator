@@ -25,9 +25,6 @@ const (
 
 	// StatusAnnotation is the annotation that holds the Status of BMH
 	StatusAnnotation = "baremetalhost.metal3.io/status"
-
-	// UnhealthyAnnotation is the annotation that sets unhealthy status of BMH
-	UnhealthyAnnotation = "baremetalhost.metal3.io/unhealthy"
 )
 
 // OperationalStatus represents the state of the host

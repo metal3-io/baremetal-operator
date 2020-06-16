@@ -1,13 +1,13 @@
-# Running Bare Metal Operator with/without Ironic
+# Running Bare Metal Operator with or without Ironic
 
 This document explains the deployment scenarios of deploying Bare Metal
-Operator(BMO) with/without Ironic.
+Operator(BMO) with or without Ironic as well as deploying only Ironic scenario.
 
 **These are the deployment use cases in this document:**
 
-1. Deploying baremetal operator with Ironic.
+1. Deploying baremetal-operator with Ironic.
 
-2. Deploying baremetal operator without Ironic.
+2. Deploying baremetal-operator without Ironic.
 
 3. Deploying only Ironic.
 
@@ -20,8 +20,9 @@ deploy/
 │   ├── kustomization.yaml
 │   └── metal3.io_baremetalhosts_crd.yaml
 ├── default
-│   ├── ironic_bmo_configmap.env
-│   └── kustomization.yaml
+│   ├── ironic_bmo_configmap.env
+│   ├── kustomization.yaml
+│   └── kustomizeconfig.yaml
 ├── ironic_ci.env
 ├── namespace
 │   ├── kustomization.yaml
@@ -37,10 +38,11 @@ deploy/
 └── role.yaml -> rbac/role.yaml
 ```
 
-The `deploy` directory has one top level folder for deployment,
-namely `default` and it deploys only baremetal operator through kustomization.
-In addition, `crds`, `namespace` and `rbac` folders have their own kustomization
-and yaml files.
+The `deploy` directory has one top level folder for deployment, namely `default`
+and it deploys only baremetal-operator through kustomization file calling
+`operator` folder, and also uses kustomization config file for teaching
+kustomize where to look at when substituting variables. In addition, `crds`,
+`namespace` and `rbac` folders have their own kustomization and yaml files.
 
 ## Current structure of ironic-deployment directory
 
@@ -67,14 +69,14 @@ through kustomization.
 The user should run following commands to be able to meet requirements of each
 use case as provided below:
 
-### Commands to deploy baremetal operator with Ironic
+### Commands to deploy baremetal-operator with Ironic
 
 ```diff
 kustomize build $BMOPATH/deploy/default | kubectl apply -f-
 kustomize build $BMOPATH/ironic-deployment/default | kubectl apply -f-
 ```
 
-### Command to deploy baremetal operator without Ironic
+### Command to deploy baremetal-operator without Ironic
 
 ```diff
 kustomize build $BMOPATH/deploy/default | kubectl apply -f-

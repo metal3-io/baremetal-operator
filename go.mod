@@ -11,10 +11,11 @@ require (
 	github.com/gophercloud/gophercloud v0.6.0
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/onsi/ginkgo v1.12.0 // indirect
+	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.5.1
-	github.com/securego/gosec v0.0.0-20200401082031-e946c8c39989 // indirect
 	github.com/spf13/cobra v0.0.6 // indirect
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect

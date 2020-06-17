@@ -1,4 +1,4 @@
-FROM registry.hub.docker.com/library/golang:1.13
+FROM registry.hub.docker.com/library/golang:1.14
 
 ENV SDK_VERSION=v0.17.0
 ENV SDK_BIN=/sdkbin

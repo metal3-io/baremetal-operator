@@ -2,10 +2,12 @@ package ironic
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"go.etcd.io/etcd/pkg/transport"
 	"sigs.k8s.io/yaml"
 
 	"github.com/gophercloud/gophercloud"
@@ -34,10 +36,16 @@ var provisionRequeueDelay = time.Second * 10
 var powerRequeueDelay = time.Second * 10
 var introspectionRequeueDelay = time.Second * 15
 var softPowerOffTimeout = time.Second * 180
+var tlsConnectionTimeout = time.Second * 30
 var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
 var inspectorEndpoint string
+var ironicCertFile string
+var ironicKeyFile string
+var ironicTrustedCAFile string
+var ironicUseTLS bool
+var ironicUseMutualTLS bool
 
 const (
 	// See nodes.Node.PowerState for details
@@ -70,6 +78,29 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
 		os.Exit(1)
 	}
+	ironicCertFile = os.Getenv("IRONIC_CERT_FILE")
+	ironicKeyFile = os.Getenv("IRONIC_KEY_FILE")
+	ironicTrustedCAFile = os.Getenv("IRONIC_TRUSTED_CA_FILE")
+	if ironicCertFile != "" || ironicKeyFile != "" || ironicTrustedCAFile != "" {
+		if ironicTrustedCAFile == "" {
+			fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_TRUSTED_CA_FILE variable set (required for mTLS)")
+			os.Exit(1)
+		}
+		ironicUseTLS = true
+
+		if ironicCertFile == "" && ironicKeyFile != "" {
+			fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_CERT_FILE variable set (required for mTLS)")
+			os.Exit(1)
+		} else if ironicCertFile != "" && ironicKeyFile == "" {
+			fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_KEY_FILE variable set (required for mTLS)")
+			os.Exit(1)
+		} else if ironicCertFile != "" && ironicKeyFile != "" {
+			ironicUseMutualTLS = true
+		}
+	} else {
+		ironicUseTLS = false
+		ironicUseMutualTLS = false
+	}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -101,28 +132,70 @@ func LogStartup() {
 		"inspectorEndpoint", inspectorEndpoint,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
+		"ironicCertFile", ironicCertFile,
+		"ironicKeyFile", ironicKeyFile,
+		"ironicTrustedCAFile", ironicTrustedCAFile,
 	)
 }
 
-// A private function to construct an ironicProvisioner (rather than a
-// Provisioner interface) in a consistent way for tests.
-func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+// Constructs an http.Client based on the tlsInfo. This client can validate
+// against a provided CA or perform mutual TLS authentication.
+func newIronicHTTPClient(tlsInfo transport.TLSInfo) (*http.Client, error) {
+	tlsTransport, err := transport.NewTransport(tlsInfo, tlsConnectionTimeout)
+	if err != nil {
+		return nil, err
+	}
+	c := &http.Client{
+		Transport: tlsTransport,
+	}
+	return c, nil
+}
+
+// Constructs a client for the ironic endpoint (first return value) and a
+// client for the inspector endpoint (second return value)
+func newIronicClients() (*gophercloud.ServiceClient, *gophercloud.ServiceClient, error) {
 	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
 		IronicEndpoint: ironicEndpoint,
 	})
 	if err != nil {
-		return nil, err
-	}
-	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
+		return nil, nil, err
 	}
 	inspector, err := noauthintrospection.NewBareMetalIntrospectionNoAuth(
 		noauthintrospection.EndpointOpts{
 			IronicInspectorEndpoint: inspectorEndpoint,
 		})
 	if err != nil {
+		return nil, nil, err
+	}
+	if ironicUseTLS {
+		tlsInfo := transport.TLSInfo{
+			TrustedCAFile: ironicTrustedCAFile,
+		}
+		if ironicUseMutualTLS {
+			tlsInfo.CertFile = ironicCertFile
+			tlsInfo.KeyFile = ironicKeyFile
+		}
+
+		mTLSClient, err := newIronicHTTPClient(tlsInfo)
+		if err != nil {
+			return nil, nil, err
+		}
+		client.HTTPClient = *mTLSClient
+		inspector.HTTPClient = *mTLSClient
+	}
+	return client, inspector, nil
+}
+
+// A private function to construct an ironicProvisioner (rather than a
+// Provisioner interface) in a consistent way for tests.
+func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+	client, inspector, err := newIronicClients()
+	if err != nil {
 		return nil, err
+	}
+	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
 	// Ensure we have a microversion high enough to get the features
 	// we need.

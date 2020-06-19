@@ -2,6 +2,7 @@ package hardwaredetails
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -110,6 +111,7 @@ func getSystemVendorDetails(vendor introspection.SystemVendorType) metal3v1alpha
 func getCPUDetails(cpudata *introspection.CPUType) metal3v1alpha1.CPU {
 	var freq float64
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
+	freq = math.Round(freq) // Ensure freq has no fractional part
 	sort.Strings(cpudata.Flags)
 	cpu := metal3v1alpha1.CPU{
 		Arch:           cpudata.Architecture,

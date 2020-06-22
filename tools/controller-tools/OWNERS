@@ -1,0 +1,10 @@
+# See the OWNERS docs: https://git.k8s.io/community/contributors/guide/owners.md
+
+approvers:
+  - controller-tools-admins
+  - controller-tools-approvers
+  - controller-tools-maintainers
+reviewers:
+  - controller-tools-reviewers
+  - controller-tools-admins
+  - controller-tools-approvers

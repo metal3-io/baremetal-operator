@@ -2,6 +2,7 @@
 bin
 build/_output
 build/_test
+tools/controller-tools/controller-gen
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### Emacs ###
 # -*- mode: gitignore; -*-

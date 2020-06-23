@@ -204,6 +204,7 @@ type BareMetalHostSpec struct {
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
 	// How do we connect to the BMC?
+	// +optional
 	BMC BMCDetails `json:"bmc,omitempty"`
 
 	// What is the name of the hardware profile for this host? It

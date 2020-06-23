@@ -155,7 +155,7 @@ docker-golint:
 .PHONY: build
 build: ## Build the operator binary
 	@echo LDFLAGS=$(LDFLAGS)
-	go build -mod=vendor -ldflags $(LDFLAGS) -o build/_output/bin/baremetal-operator cmd/manager/main.go
+	go build -ldflags $(LDFLAGS) -o build/_output/bin/baremetal-operator cmd/manager/main.go
 
 .PHONY: tools
 tools:

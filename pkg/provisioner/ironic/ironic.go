@@ -451,7 +451,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	}
 }
 
-func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (success bool, result provisioner.Result, err error) {
 	p.log.Info("changing provisioning state",
 		"current", ironicNode.ProvisionState,
 		"existing target", ironicNode.TargetProvisionState,
@@ -461,16 +461,23 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 	changeResult := nodes.ChangeProvisionState(p.client, ironicNode.UUID, opts)
 	switch changeResult.Err.(type) {
 	case nil:
+		success = true
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not change state of host, busy")
 	default:
-		return result, errors.Wrap(changeResult.Err,
+		err = errors.Wrap(changeResult.Err,
 			fmt.Sprintf("failed to change provisioning state to %q", opts.Target))
+		return
 	}
 
 	result.Dirty = true
 	result.RequeueAfter = provisionRequeueDelay
-	return result, nil
+	return
+}
+
+func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (result provisioner.Result, err error) {
+	_, result, err = p.tryChangeNodeProvisionState(ironicNode, opts)
+	return
 }
 
 // InspectHardware updates the HardwareDetails field of the host with
@@ -501,11 +508,12 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				return
 			default:
 				p.log.Info("starting new hardware inspection")
-				result, err = p.changeNodeProvisionState(
+				var success bool
+				success, result, err = p.tryChangeNodeProvisionState(
 					ironicNode,
 					nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
 				)
-				if err == nil {
+				if success {
 					p.publisher("InspectionStarted", "Hardware inspection started")
 				}
 				return

@@ -11,9 +11,9 @@ Newly created hosts move immediately to Discovered or Registering. No
 host stays in the Created state while the operator is working
 properly.
 
-## Discovered
+## Unmanaged
 
-A Discovered host is missing either the BMC address or credentials
+An Unmanaged host is missing either the BMC address or credentials
 secret name, and does not have enough information to access the BMC
 for registration.
 

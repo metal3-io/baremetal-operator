@@ -42,6 +42,7 @@ import (
 const (
 	hostErrorRetryDelay    = time.Second * 10
 	pauseRetryDelay        = time.Second * 30
+	unmanagedRetryDelay    = time.Minute * 10
 	rebootAnnotationPrefix = "reboot.metal3.io"
 )
 
@@ -260,7 +261,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	var bmcCreds *bmc.Credentials
 	var bmcCredsSecret *corev1.Secret
 	switch host.Status.Provisioning.State {
-	case metal3v1alpha1.StateNone:
+	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
 		bmcCreds = &bmc.Credentials{}
 	default:
 		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(request, host)
@@ -479,6 +480,13 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 	}
 
 	return deleteComplete{}
+}
+
+func (r *ReconcileBareMetalHost) actionUnmanaged(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	if info.host.HasBMCDetails() {
+		return actionComplete{}
+	}
+	return actionContinueNoWrite{actionContinue{unmanagedRetryDelay}}
 }
 
 // Test the credentials by connecting to the management controller.

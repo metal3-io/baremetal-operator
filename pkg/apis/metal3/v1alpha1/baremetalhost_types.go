@@ -122,6 +122,10 @@ const (
 	// StateNone means the state is unknown
 	StateNone ProvisioningState = ""
 
+	// StateUnmanaged means there is insufficient information available to
+	// register the host
+	StateUnmanaged ProvisioningState = "unmanaged"
+
 	// StateRegistrationError means there was an error registering the
 	// host with the backend
 	StateRegistrationError ProvisioningState = "registration error"
@@ -635,6 +639,11 @@ func (host *BareMetalHost) getLabel(name string) string {
 		return ""
 	}
 	return host.Labels[name]
+}
+
+// HasBMCDetails returns true if the BMC details are set
+func (host *BareMetalHost) HasBMCDetails() bool {
+	return host.Spec.BMC.Address != "" || host.Spec.BMC.CredentialsName != ""
 }
 
 // NeedsHardwareProfile returns true if the profile is not set

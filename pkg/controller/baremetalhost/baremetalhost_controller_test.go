@@ -649,6 +649,12 @@ func TestDiscoveredHost(t *testing.T) {
 		})
 	r = newTestReconciler(noAddressOrSecret)
 	waitForStatus(t, r, noAddressOrSecret, metal3v1alpha1.OperationalStatusDiscovered)
+	if noAddressOrSecret.Status.ErrorType != "" {
+		t.Errorf("Unexpected error type %s", noAddressOrSecret.Status.ErrorType)
+	}
+	if noAddressOrSecret.Status.ErrorMessage != "" {
+		t.Errorf("Unexpected error message %s", noAddressOrSecret.Status.ErrorMessage)
+	}
 }
 
 // TestMissingBMCParameters ensures that a host that is missing some

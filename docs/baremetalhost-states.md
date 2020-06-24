@@ -13,8 +13,8 @@ properly.
 
 ## Unmanaged
 
-An Unmanaged host is missing either the BMC address or credentials
-secret name, and does not have enough information to access the BMC
+An Unmanaged host is missing both the BMC address and credentials
+secret name, and does not have any information to access the BMC
 for registration.
 
 ## Externally Provisioned

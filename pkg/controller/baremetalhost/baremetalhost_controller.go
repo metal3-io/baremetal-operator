@@ -247,14 +247,21 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	// Retrieve the BMC details from the host spec and validate host
 	// BMC details and build the credentials for talking to the
 	// management controller.
-	bmcCreds, bmcCredsSecret, err := r.buildAndValidateBMCCredentials(request, host)
-	if err != nil || bmcCreds == nil {
-		if !host.DeletionTimestamp.IsZero() {
-			// If we are in the process of deletion, try with empty credentials
-			bmcCreds = &bmc.Credentials{}
-			bmcCredsSecret = &corev1.Secret{}
-		} else {
-			return r.credentialsErrorResult(err, request, host)
+	var bmcCreds *bmc.Credentials
+	var bmcCredsSecret *corev1.Secret
+	switch host.Status.Provisioning.State {
+	case metal3v1alpha1.StateNone:
+		bmcCreds = &bmc.Credentials{}
+	default:
+		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(request, host)
+		if err != nil || bmcCreds == nil {
+			if !host.DeletionTimestamp.IsZero() {
+				// If we are in the process of deletion, try with empty credentials
+				bmcCreds = &bmc.Credentials{}
+				bmcCredsSecret = &corev1.Secret{}
+			} else {
+				return r.credentialsErrorResult(err, request, host)
+			}
 		}
 	}
 

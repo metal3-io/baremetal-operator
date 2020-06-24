@@ -152,9 +152,7 @@ func (hsm *hostStateMachine) shouldInitiateRegister(info *reconcileInfo) bool {
 }
 
 func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
-	// Running the state machine at all means we have successfully validated
-	// the BMC credentials once, so we can move to the Registering state.
-	hsm.Host.ClearError()
+	// No state is set, so immediately move to Registering
 	hsm.NextState = metal3v1alpha1.StateRegistering
 	return actionComplete{}
 }

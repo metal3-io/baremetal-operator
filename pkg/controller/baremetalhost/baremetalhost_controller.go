@@ -348,30 +348,6 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 
 func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (reconcile.Result, error) {
 	switch err.(type) {
-	// We treat an empty bmc address and empty bmc credentials fields as a
-	// trigger the host needs to be put into a discovered status. We also set
-	// an error message (but not an error state) on the host so we can understand
-	// what we may be waiting on.  Editing the host to set these values will
-	// cause the host to be reconciled again so we do not Requeue.
-	case *EmptyBMCAddressError, *EmptyBMCSecretError:
-		credentialsInvalid.Inc()
-		dirty := host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
-		if dirty {
-			// Set the host error message directly
-			// as we cannot use SetErrorCondition which
-			// overwrites our discovered state
-			host.Status.ErrorMessage = err.Error()
-			host.Status.ErrorType = ""
-			saveErr := r.saveHostStatus(host)
-			if saveErr != nil {
-				return reconcile.Result{Requeue: true}, saveErr
-			}
-			// Only publish the event if we do not have an error
-			// after saving so that we only publish one time.
-			r.publishEvent(request,
-				host.NewEvent("Discovered", fmt.Sprintf("Discovered host with unusable BMC details: %s", err.Error())))
-		}
-		return reconcile.Result{}, nil
 	// In the event a credential secret is defined, but we cannot find it
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
@@ -387,12 +363,14 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 			r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
 		}
 		return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
-	// If we have found the secret but it is missing the required fields
-	// or the BMC address is defined but malformed we set the
+	// If a managed Host is missing a BMC address or secret, or
+	// we have found the secret but it is missing the required fields,
+	// or the BMC address is defined but malformed, we set the
 	// host into an error state but we do not Requeue it
 	// as fixing the secret or the host BMC info will trigger
 	// the host to be reconciled again
-	case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
+	case *EmptyBMCAddressError, *EmptyBMCSecretError,
+		*bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
 		credentialsInvalid.Inc()
 		_, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {

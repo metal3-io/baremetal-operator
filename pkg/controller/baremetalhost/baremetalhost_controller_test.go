@@ -600,16 +600,6 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 // TestDiscoveredHost ensures that a host without a BMC IP and
 // credentials is placed into the "discovered" state.
 func TestDiscoveredHost(t *testing.T) {
-	noAddress := newHost("missing-bmc-address",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
-				Address:         "",
-				CredentialsName: "bmc-creds-valid",
-			},
-		})
-	r := newTestReconciler(noAddress)
-	waitForStatus(t, r, noAddress, metal3v1alpha1.OperationalStatusDiscovered)
-
 	noAddressOrSecret := newHost("missing-bmc-address",
 		&metal3v1alpha1.BareMetalHostSpec{
 			BMC: metal3v1alpha1.BMCDetails{
@@ -617,7 +607,7 @@ func TestDiscoveredHost(t *testing.T) {
 				CredentialsName: "",
 			},
 		})
-	r = newTestReconciler(noAddressOrSecret)
+	r := newTestReconciler(noAddressOrSecret)
 	waitForStatus(t, r, noAddressOrSecret, metal3v1alpha1.OperationalStatusDiscovered)
 	if noAddressOrSecret.Status.ErrorType != "" {
 		t.Errorf("Unexpected error type %s", noAddressOrSecret.Status.ErrorType)
@@ -713,6 +703,12 @@ func TestMissingBMCParameters(t *testing.T) {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			r := newTestReconciler(tc.Secret, tc.Host)
 			waitForError(t, r, tc.Host)
+			if tc.Host.Status.OperationalStatus != metal3v1alpha1.OperationalStatusError {
+				t.Errorf("Unexpected operational status %s", tc.Host.Status.OperationalStatus)
+			}
+			if tc.Host.Status.ErrorType != metal3v1alpha1.RegistrationError {
+				t.Errorf("Unexpected error type %s", tc.Host.Status.ErrorType)
+			}
 		})
 	}
 }

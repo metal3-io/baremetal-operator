@@ -4,7 +4,6 @@ import (
 	goctx "context"
 	"encoding/base64"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -279,6 +278,7 @@ func TestStatusAnnotation_Partial(t *testing.T) {
 	)
 }
 
+/* We are not saving the Host annotation - it is buggy and we don't need it.
 // TestStatusAnnotation tests if statusAnnotation is populated correctly
 func TestStatusAnnotation(t *testing.T) {
 	host := newDefaultHost(t)
@@ -309,6 +309,7 @@ func TestStatusAnnotation(t *testing.T) {
 	)
 
 }
+*/
 
 // TestPause ensures that the requeue happens when the pause annotation is there.
 func TestPause(t *testing.T) {

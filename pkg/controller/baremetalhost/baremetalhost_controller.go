@@ -289,10 +289,15 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
 			"provisioning state", host.Status.Provisioning.State)
-		if err = r.saveHostStatus(host); err != nil {
+		requeueNeeded, err := r.saveHostStatus(host)
+		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", initialState))
 		}
+		if requeueNeeded {
+			return reconcile.Result{Requeue: true}, nil
+		}
+		info.log.Info("Updated Status")
 
 		for _, cb := range info.postSaveCallbacks {
 			cb()
@@ -354,8 +359,8 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 			// overwrites our discovered state
 			host.Status.ErrorMessage = err.Error()
 			host.Status.ErrorType = ""
-			saveErr := r.saveHostStatus(host)
-			if saveErr != nil {
+			requeueNeeded, saveErr := r.saveHostStatus(host)
+			if saveErr != nil || requeueNeeded {
 				return reconcile.Result{Requeue: true}, saveErr
 			}
 			// Only publish the event if we do not have an error
@@ -369,16 +374,18 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// at some point in the future.
 	case *ResolveBMCSecretRefError:
 		credentialsMissing.Inc()
-		changed, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
+		changed, requeue, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
+		} else if !changed {
+			return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
+		} else if requeue {
+			return reconcile.Result{Requeue: true}, nil
 		}
-		if changed {
-			// Only publish the event if we do not have an error
-			// after saving so that we only publish one time.
-			r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-		}
-		return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
+		// Only publish the event if we do not have an error
+		// after saving the first time so that we only publish one time, requeue immediately to save the status
+		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+		return reconcile.Result{Requeue: true}, nil
 	// If we have found the secret but it is missing the required fields
 	// or the BMC address is defined but malformed we set the
 	// host into an error state but we do not Requeue it
@@ -386,14 +393,18 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	// the host to be reconciled again
 	case *bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
 		credentialsInvalid.Inc()
-		_, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
+		changed, requeue, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
+		} else if !changed {
+			return reconcile.Result{}, nil
+		} else if requeue {
+			return reconcile.Result{Requeue: true}, nil
 		}
 		// Only publish the event if we do not have an error
-		// after saving so that we only publish one time.
+		// after saving so that we only publish one time. Requeue immediately to save the status
 		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-		return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: true}, nil
 	default:
 		unhandledCredentialsError.Inc()
 		return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
@@ -832,29 +843,26 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	return
 }
 
-func (r *ReconcileBareMetalHost) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {
+func (r *ReconcileBareMetalHost) saveHostStatus(host *metal3v1alpha1.BareMetalHost) (bool, error) {
 	t := metav1.Now()
 	host.Status.LastUpdated = &t
 
 	if err := r.saveHostAnnotation(host); err != nil {
-		return err
+		if k8serrors.IsConflict(err) {
+			log.Info("Failed to update status annotation because of a conflict, requeuing", "host", host.Name)
+			return true, nil
+		}
+		return false, errors.Wrap(err, "Failed to update Status annotation")
 	}
 
-	//Refetch host again
-	obj := host.Status.DeepCopy()
-	err := r.client.Get(context.TODO(),
-		client.ObjectKey{
-			Name:      host.Name,
-			Namespace: host.Namespace,
-		},
-		host,
-	)
-	if err != nil {
-		return errors.Wrap(err, "Failed to update Status annotation")
+	if err := r.client.Status().Update(context.TODO(), host); err != nil {
+		if k8serrors.IsConflict(err) {
+			log.Info("Failed to update status because of a conflict, requeuing", "host", host.Name)
+			return true, nil
+		}
+		return false, errors.Wrap(err, "Failed to update Status")
 	}
-	host.Status = *obj
-	err = r.client.Status().Update(context.TODO(), host)
-	return err
+	return false, nil
 }
 
 func (r *ReconcileBareMetalHost) saveHostAnnotation(host *metal3v1alpha1.BareMetalHost) error {
@@ -865,14 +873,14 @@ func (r *ReconcileBareMetalHost) saveHostAnnotation(host *metal3v1alpha1.BareMet
 	}
 
 	if objStatus != nil {
-		// This value is copied to avoid continually updating the annotation
+		// These values are copied to avoid continually updating the annotation
 		objStatus.LastUpdated = host.Status.LastUpdated
+		objStatus.OperationHistory = host.Status.OperationHistory
 		if reflect.DeepEqual(host.Status, *objStatus) {
 			return nil
 		}
 	}
 
-	delete(host.Annotations, metal3v1alpha1.StatusAnnotation)
 	newAnnotation, err := marshalStatusAnnotation(&host.Status)
 	if err != nil {
 		return err
@@ -914,7 +922,7 @@ func (r *ReconcileBareMetalHost) getHostStatusFromAnnotation(host *metal3v1alpha
 	return objStatus, nil
 }
 
-func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (changed bool, err error) {
+func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (changed, requeue bool, err error) {
 	reqLogger := log.WithValues("Request.Namespace",
 		request.Namespace, "Request.Name", request.Name)
 
@@ -924,7 +932,8 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 			"adding error message",
 			"message", message,
 		)
-		err = r.saveHostStatus(host)
+		// We might need to requeue if we failed to update the status
+		requeue, err = r.saveHostStatus(host)
 		if err != nil {
 			err = errors.Wrap(err, "failed to update error message")
 		}

@@ -832,10 +832,11 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	return
 }
 
-func (r *ReconcileBareMetalHost) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {
+func (r *ReconcileBareMetalHost) saveHostStatus(host *metal3v1alpha1.BareMetalHost) (err error) {
 	t := metav1.Now()
 	host.Status.LastUpdated = &t
 
+	/* Don't save the Host annotation - this is buggy and we don't need it.
 	if err := r.saveHostAnnotation(host); err != nil {
 		return err
 	}
@@ -853,6 +854,7 @@ func (r *ReconcileBareMetalHost) saveHostStatus(host *metal3v1alpha1.BareMetalHo
 		return errors.Wrap(err, "Failed to update Status annotation")
 	}
 	host.Status = *obj
+	*/
 	err = r.client.Status().Update(context.TODO(), host)
 	return err
 }

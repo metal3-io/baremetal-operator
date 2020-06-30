@@ -160,6 +160,7 @@ func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
 		info.publishEvent("Discovered", "Discovered host with no BMC details")
 		hsm.Host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
 		hsm.NextState = metal3v1alpha1.StateUnmanaged
+		hostUnmanaged.Inc()
 	}
 	return actionComplete{}
 }

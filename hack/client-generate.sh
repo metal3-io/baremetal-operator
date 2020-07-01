@@ -15,7 +15,14 @@ if [ "${IS_CONTAINER}" != "false" ]; then
 
   cd "${GOPATH}"/src/github.com/metal3-io/baremetal-operator
 
+  INPUT_FILES=$(find pkg/clientset -type f)
+
+  cksum $INPUT_FILES | tee "$ARTIFACTS/client-generate.cksums.before"
+
   ./hack/run-client-generate.sh
+
+  cksum $INPUT_FILES | tee "$ARTIFACTS/client-generate.cksums.after"
+  diff "$ARTIFACTS/client-generate.cksums.before" "$ARTIFACTS/client-generate.cksums.after"
 
 else
   "${CONTAINER_RUNTIME}" run --rm \

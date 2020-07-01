@@ -6,6 +6,7 @@ SETUP = --no-setup
 CODE_DIRS = ./cmd ./pkg ./version
 PACKAGES = $(foreach dir,$(CODE_DIRS),$(dir)/...)
 COVER_PROFILE = cover.out
+CODE_GEN_VER=kubernetes-1.17.8
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
@@ -42,7 +43,7 @@ show_dirs:
 	@echo $(CODE_DIRS)
 
 .PHONY: generate
-generate: bin/operator-sdk ## Run the operator-sdk code generator
+generate: bin/operator-sdk $(GOPATH)/src/k8s.io/code-generator ## Run various code generators
 	./bin/operator-sdk generate $(VERBOSE) k8s
 	./bin/operator-sdk generate $(VERBOSE) crds --crd-version=v1
 	openapi-gen \
@@ -52,6 +53,11 @@ generate: bin/operator-sdk ## Run the operator-sdk code generator
 		--output-file-base zz_generated.openapi \
 		--report-filename "-" \
 		--go-header-file /dev/null
+	./hack/run-client-generate.sh
+
+$(GOPATH)/src/k8s.io/code-generator:
+	mkdir -p $(GOPATH)/src/k8s.io
+	(cd $(GOPATH)/src/k8s.io && git clone -b $(CODE_GEN_VER) https://github.com/kubernetes/code-generator.git)
 
 bin/operator-sdk: bin
 	make -C tools/operator-sdk install

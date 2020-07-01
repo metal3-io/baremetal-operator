@@ -1,0 +1,9 @@
+FROM registry.hub.docker.com/library/golang:1.14
+
+ENV GOPATH=/go
+ENV CODE_GEN_VER=kubernetes-1.17.8
+
+RUN mkdir -p ${GOPATH}/src/k8s.io && cd ${GOPATH}/src/k8s.io && git clone -b ${CODE_GEN_VER} https://github.com/kubernetes/code-generator.git
+
+LABEL io.k8s.display-name="Metal3 client code generator image" \
+      io.k8s.description="This image is for running the kubernetes client code generator"

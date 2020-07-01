@@ -454,6 +454,30 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
+			Scenario:   "redfish virtual media HTTP",
+			input:      "redfish-virtualmedia+http://192.168.122.1",
+			needsMac:   true,
+			driver:     "redfish",
+			boot:       "redfish-virtual-media",
+			management: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
+		},
+
+		{
+			Scenario:   "redfish virtual media HTTPS",
+			input:      "redfish-virtualmedia+https://192.168.122.1",
+			needsMac:   true,
+			driver:     "redfish",
+			boot:       "redfish-virtual-media",
+			management: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
+		},
+
+		{
 			Scenario: "ilo5 virtual media",
 			input:    "ilo5-virtualmedia://192.168.122.1",
 			needsMac: true,
@@ -462,8 +486,48 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
+			Scenario: "ilo5 virtual media HTTP",
+			input:    "ilo5-virtualmedia+http://192.168.122.1",
+			needsMac: true,
+			driver:   "redfish",
+			boot:     "redfish-virtual-media",
+		},
+
+		{
+			Scenario: "ilo5 virtual media HTTPS",
+			input:    "ilo5-virtualmedia+https://192.168.122.1",
+			needsMac: true,
+			driver:   "redfish",
+			boot:     "redfish-virtual-media",
+		},
+
+		{
 			Scenario:   "idrac virtual media",
 			input:      "idrac-virtualmedia://192.168.122.1",
+			needsMac:   true,
+			driver:     "idrac",
+			boot:       "idrac-redfish-virtual-media",
+			management: "idrac-redfish",
+			power:      "idrac-redfish",
+			raid:       "no-raid",
+			vendor:     "no-vendor",
+		},
+
+		{
+			Scenario:   "idrac virtual media HTTP",
+			input:      "idrac-virtualmedia+http://192.168.122.1",
+			needsMac:   true,
+			driver:     "idrac",
+			boot:       "idrac-redfish-virtual-media",
+			management: "idrac-redfish",
+			power:      "idrac-redfish",
+			raid:       "no-raid",
+			vendor:     "no-vendor",
+		},
+
+		{
+			Scenario:   "idrac virtual media HTTPS",
+			input:      "idrac-virtualmedia+https://192.168.122.1",
 			needsMac:   true,
 			driver:     "idrac",
 			boot:       "idrac-redfish-virtual-media",

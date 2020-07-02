@@ -3,8 +3,8 @@ package baremetalhost
 import (
 	goctx "context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -220,7 +220,7 @@ func TestStatusAnnotation_EmptyStatus(t *testing.T) {
 }
 
 // TestStatusAnnotation_StatusPresent tests that if status is present
-// status annotation is ignored.
+// status annotation is ignored and deleted.
 func TestStatusAnnotation_StatusPresent(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
@@ -234,7 +234,8 @@ func TestStatusAnnotation_StatusPresent(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if host.Status.HardwareProfile != "StatusProfile" && host.Status.Provisioning.Image.URL == "foo" {
+			_, found := host.Annotations[metal3v1alpha1.StatusAnnotation]
+			if host.Status.HardwareProfile != "StatusProfile" && host.Status.Provisioning.Image.URL == "foo" && !found {
 				return true
 			}
 			return false
@@ -254,7 +255,7 @@ func TestStatusAnnotation_Partial(t *testing.T) {
 		return
 	}
 	unpackedStatus.LastUpdated = nil
-	packedStatus, err := marshalStatusAnnotation(unpackedStatus)
+	packedStatus, err := json.Marshal(unpackedStatus)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -277,37 +278,6 @@ func TestStatusAnnotation_Partial(t *testing.T) {
 			return false
 		},
 	)
-}
-
-// TestStatusAnnotation tests if statusAnnotation is populated correctly
-func TestStatusAnnotation(t *testing.T) {
-	host := newDefaultHost(t)
-	host.Spec.Online = true
-	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
-	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
-	r := newTestReconciler(host, bmcSecret)
-
-	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
-				return true
-			}
-			return false
-		},
-	)
-
-	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			objStatus, _ := r.getHostStatusFromAnnotation(host)
-			objStatus.LastUpdated = host.Status.LastUpdated
-
-			if reflect.DeepEqual(host.Status, *objStatus) {
-				return true
-			}
-			return false
-		},
-	)
-
 }
 
 // TestPause ensures that the requeue happens when the pause annotation is there.

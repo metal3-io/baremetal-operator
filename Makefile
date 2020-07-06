@@ -99,7 +99,7 @@ generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
 
 .PHONY: sec
-sec: $GOPATH/bin/gosec
+sec: $GOPATH/bin/gosec ## Run gosec
 	gosec -severity medium --confidence medium -quiet $(PACKAGES)
 
 $GOPATH/bin/gosec:

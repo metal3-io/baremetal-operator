@@ -9,8 +9,11 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   TOP_DIR="${1:-.}"
   export XDG_CACHE_HOME="/tmp/.cache"
 
-  if [ -n "$(gofmt -l "${TOP_DIR}/pkg" "${TOP_DIR}/cmd")" ]; then
-      gofmt -d "${TOP_DIR}"/pkg "${TOP_DIR}"/cmd
+  cd "${TOP_DIR}"
+  DIRS=$(make show_dirs)
+
+  if [ -n "$(gofmt -l ${DIRS})" ]; then
+      make fmt
       exit 1
   fi
 else

@@ -12,6 +12,7 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   cd "${TOP_DIR}"
   DIRS=$(make show_dirs)
 
+  # shellcheck disable=SC2086
   if [ -n "$(gofmt -l ${DIRS})" ]; then
       make fmt
       exit 1

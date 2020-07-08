@@ -20,12 +20,12 @@ import (
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/hardware"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/bmc"
+	"github.com/metal3-io/baremetal-operator/hardware"
+	"github.com/metal3-io/baremetal-operator/provisioner"
+	"github.com/metal3-io/baremetal-operator/provisioner/ironic/devicehints"
+	"github.com/metal3-io/baremetal-operator/provisioner/ironic/hardwaredetails"
 )
 
 var log = logf.Log.WithName("baremetalhost_ironic")

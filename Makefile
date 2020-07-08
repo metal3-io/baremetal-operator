@@ -9,6 +9,10 @@ export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
 export GO111MODULE=on
 export GOFLAGS=
 
+# See version/version.go for details
+GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
+export LDFLAGS="-X github.com/metal3-io/baremetal-operator/version.Raw=$(shell git describe --always --abbrev=40 --dirty) -X github.com/metal3-io/baremetal-operator/version.Commit=${GIT_COMMIT}"
+
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -32,11 +36,11 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	go build -ldflags $(LDFLAGS) -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
-	go run ./main.go
+	go run -ldflags $(LDFLAGS) ./main.go
 
 # Install CRDs into a cluster
 install: manifests

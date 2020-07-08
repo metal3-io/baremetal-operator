@@ -83,8 +83,18 @@ $GOPATH/bin/golint:
 	go get -u golang.org/x/lint/golint
 
 # Generate code
-generate: $(CONTROLLER_GEN)
+generate: $(CONTROLLER_GEN) openapi
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+.PHONY:
+openapi:
+	openapi-gen \
+		--input-dirs ./api/v1alpha1 \
+		--output-package ./api/v1alpha1 \
+		--output-base "" \
+		--output-file-base zz_generated.openapi \
+		--report-filename "-" \
+		--go-header-file ./hack/boilerplate.go.txt
 
 # Build the docker image
 docker-build: test

@@ -1,10 +1,11 @@
-package baremetalhost
+package controllers
 
 import (
-	metal3 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
+
+	metal3 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
 )
 
 // actionResult is an interface that encapsulates the result of a Reconcile

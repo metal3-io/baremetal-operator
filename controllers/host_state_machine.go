@@ -1,12 +1,12 @@
-package baremetalhost
+package controllers
 
 import (
 	"fmt"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/provisioner"
 )
 
 // hostStateMachine is a finite state machine that manages transitions between
@@ -14,12 +14,12 @@ import (
 type hostStateMachine struct {
 	Host        *metal3v1alpha1.BareMetalHost
 	NextState   metal3v1alpha1.ProvisioningState
-	Reconciler  *ReconcileBareMetalHost
+	Reconciler  *BareMetalHostReconciler
 	Provisioner provisioner.Provisioner
 }
 
 func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
-	reconciler *ReconcileBareMetalHost,
+	reconciler *BareMetalHostReconciler,
 	provisioner provisioner.Provisioner) *hostStateMachine {
 	currentState := host.Status.Provisioning.State
 	r := hostStateMachine{

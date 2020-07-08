@@ -811,7 +811,7 @@ func (host *BareMetalHost) NewEvent(reason, message string) corev1.Event {
 			Namespace:  host.Namespace,
 			Name:       host.Name,
 			UID:        host.UID,
-			APIVersion: SchemeGroupVersion.String(),
+			APIVersion: GroupVersion.String(),
 		},
 		Reason:  reason,
 		Message: message,

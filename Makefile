@@ -31,7 +31,10 @@ endif
 all: manager
 
 # Run tests
-test: generate fmt vet manifests
+test: generate fmt vet lint manifests unit
+
+.PHONY:
+unit:
 	go test ./... -coverprofile cover.out
 
 # Build manager binary

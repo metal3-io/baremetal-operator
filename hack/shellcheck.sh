@@ -8,9 +8,8 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 if [ "${IS_CONTAINER}" != "false" ]; then
   TOP_DIR="${1:-.}"
   find "${TOP_DIR}" \
-       \( -path ./vendor -prune -o \
-       -path ./tools/operator-sdk -prune \) \
-       -o -name '*.sh' -exec shellcheck -s bash {} \+
+       -path ./tools -prune -o \
+       -name '*.sh' -exec shellcheck -s bash {} \+
 else
   "${CONTAINER_RUNTIME}" run --rm \
     --env IS_CONTAINER=TRUE \

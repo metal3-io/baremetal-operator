@@ -28,6 +28,10 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/controllers"
+	"github.com/metal3-io/baremetal-operator/provisioner"
+	"github.com/metal3-io/baremetal-operator/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/provisioner/ironic"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -46,10 +50,16 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var runInTestMode bool
+	var runInDemoMode bool
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
+	flag.BoolVar(&runInDemoMode, "demo-mode", false,
+		"use the demo provisioner to set host states")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -66,10 +76,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	var provisionerFactory provisioner.Factory
+	switch {
+	case runInTestMode:
+		setupLog.Info("USING TEST MODE")
+		provisionerFactory = fixture.New
+	case runInDemoMode:
+		setupLog.Info("USING DEMO MODE")
+		provisionerFactory = demo.New
+	default:
+		provisionerFactory = ironic.New
+		ironic.LogStartup()
+	}
 	if err = (&controllers.BareMetalHostReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
-		Scheme: mgr.GetScheme(),
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		Scheme:             mgr.GetScheme(),
+		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)

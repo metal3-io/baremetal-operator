@@ -10,7 +10,6 @@ IS_CONTAINER=${IS_CONTAINER:-false}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
-  TOP_DIR="${1:-.}"
   export XDG_CACHE_HOME="/tmp/.cache"
 
   dirs="api bmc cmd controllers hardware provisioner utils version"

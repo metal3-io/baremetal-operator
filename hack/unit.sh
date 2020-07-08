@@ -17,8 +17,8 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/ \
 
   # download kubebuilder and extract it to tmp
-  curl -L https://go.kubebuilder.io/dl/2.3.1/${GOOS}/${GOARCH} | tar -xz -C /tmp/
-  mv /tmp/kubebuilder_2.3.1_${GOOS}_${GOARCH} /usr/local/kubebuilder
+  curl -L "https://go.kubebuilder.io/dl/2.3.1/${GOOS}/${GOARCH}" | tar -xz -C /tmp/
+  mv "/tmp/kubebuilder_2.3.1_${GOOS}_${GOARCH}" /usr/local/kubebuilder
 
   go test ./... -coverprofile "${ARTIFACTS}"/cover.out
 else

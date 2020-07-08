@@ -67,6 +67,18 @@ fmt:
 vet:
 	go vet ./...
 
+.PHONY: lint
+lint: golint-binary ## Run golint
+	find . -path ./tools -prune -o -type f -name \*.go \
+		|grep -v zz_ \
+		| xargs -L1 golint -set_exit_status
+
+.PHONY: golint-binary
+golint-binary:
+	which golint 2>&1 >/dev/null || $(MAKE) $GOPATH/bin/golint
+$GOPATH/bin/golint:
+	go get -u golang.org/x/lint/golint
+
 # Generate code
 generate: $(CONTROLLER_GEN)
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."

@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Ignore the rule that says we should always quote variables, because
+# in this script we *do* want globbing.
+# shellcheck disable=SC2086
+
 set -eux
 
 IS_CONTAINER=${IS_CONTAINER:-false}
@@ -9,8 +13,10 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   TOP_DIR="${1:-.}"
   export XDG_CACHE_HOME="/tmp/.cache"
 
-  if [ -n "$(gofmt -l "${TOP_DIR}/pkg" "${TOP_DIR}/cmd")" ]; then
-      gofmt -d "${TOP_DIR}"/pkg "${TOP_DIR}"/cmd
+  dirs="${TOP_DIR}/{api,bmc,cmd,controllers,hardware,provisioner,utils,version}"
+
+  if [ -n "$(gofmt -l ${dirs})" ]; then
+      gofmt -d ${dirs}
       exit 1
   fi
 else

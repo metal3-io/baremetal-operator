@@ -31,7 +31,7 @@ endif
 all: manager
 
 # Run tests
-test: generate fmt vet lint manifests unit
+test: generate fmt vet lint sec manifests unit
 
 .PHONY:
 unit:
@@ -75,6 +75,12 @@ lint: golint-binary ## Run golint
 	find . -path ./tools -prune -o -type f -name \*.go \
 		|grep -v zz_ \
 		| xargs -L1 golint -set_exit_status
+
+.PHONY: sec
+sec: $(GOPATH)/bin/gosec
+	gosec -severity medium --confidence medium -quiet -exclude-dir=tools ./...
+$(GOPATH)/bin/gosec:
+	go get -u github.com/securego/gosec/cmd/gosec
 
 .PHONY: golint-binary
 golint-binary:

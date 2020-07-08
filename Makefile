@@ -9,6 +9,8 @@ export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
 export GO111MODULE=on
 export GOFLAGS=
 
+RUN_NAMESPACE = metal3
+
 # See version/version.go for details
 GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
 export LDFLAGS="-X github.com/metal3-io/baremetal-operator/version.Raw=$(shell git describe --always --abbrev=40 --dirty) -X github.com/metal3-io/baremetal-operator/version.Commit=${GIT_COMMIT}"
@@ -42,8 +44,8 @@ manager: generate fmt vet
 	go build -ldflags $(LDFLAGS) -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
-	go run -ldflags $(LDFLAGS) ./main.go
+run: generate fmt manifests
+	go run -ldflags $(LDFLAGS) ./main.go -namespace $(RUN_NAMESPACE)
 
 # Install CRDs into a cluster
 install: manifests

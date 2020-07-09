@@ -15,7 +15,7 @@ var log = logf.Log.WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 
-// Provisioner implements the provisioning.Provisioner interface
+// fixtureProvisioner implements the provisioning.fixtureProvisioner interface
 // and uses Ironic to manage the host.
 type fixtureProvisioner struct {
 	// the host to be managed by this provisioner
@@ -28,15 +28,23 @@ type fixtureProvisioner struct {
 	publisher provisioner.EventPublisher
 	// state to manage the two-step adopt process
 	adopted bool
+	// counter to set the provisioner as ready
+	becomeReadyCounter int
 }
 
-// New returns a new Ironic Provisioner
+// New returns a new Ironic FixtureProvisioner
 func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+	return NewMock(host, bmcCreds, publisher, 0)
+}
+
+// NewMock is used in tests to build a fixture provisioner and inject additional test parameters
+func NewMock(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, becomeReadyCounter int) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
-		host:      host,
-		bmcCreds:  bmcCreds,
-		log:       log.WithValues("host", host.Name),
-		publisher: publisher,
+		host:               host,
+		bmcCreds:           bmcCreds,
+		log:                log.WithValues("host", host.Name),
+		publisher:          publisher,
+		becomeReadyCounter: becomeReadyCounter,
 	}
 	return p, nil
 }
@@ -235,4 +243,15 @@ func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 	}
 
 	return result, nil
+}
+
+// IsReady returns the current availability status of the provisioner
+func (p *fixtureProvisioner) IsReady() (result bool, err error) {
+	p.log.Info("checking provisioner status")
+
+	if p.becomeReadyCounter > 0 {
+		p.becomeReadyCounter--
+	}
+
+	return p.becomeReadyCounter == 0, nil
 }

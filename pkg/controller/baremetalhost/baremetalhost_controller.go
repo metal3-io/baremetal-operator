@@ -40,9 +40,10 @@ import (
 )
 
 const (
-	hostErrorRetryDelay    = time.Second * 10
-	unmanagedRetryDelay    = time.Minute * 10
-	rebootAnnotationPrefix = "reboot.metal3.io"
+	hostErrorRetryDelay           = time.Second * 10
+	unmanagedRetryDelay           = time.Minute * 10
+	provisionerNotReadyRetryDelay = time.Second * 30
+	rebootAnnotationPrefix        = "reboot.metal3.io"
 )
 
 var runInTestMode bool
@@ -286,6 +287,16 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	prov, err := r.provisionerFactory(host, *bmcCreds, info.publishEvent)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
+	}
+
+	ready, err := prov.IsReady()
+
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to check services availability")
+	}
+	if !ready {
+		reqLogger.Info("provisioner is not ready", "RequeueAfter:", provisionerNotReadyRetryDelay)
+		return reconcile.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
 	}
 
 	stateMachine := newHostStateMachine(host, r, prov)

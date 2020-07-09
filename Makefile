@@ -29,7 +29,7 @@ CONTROLLER_GEN=./tools/controller-tools/controller-gen
 all: manager
 
 # Run tests
-test: generate fmt vet manifests
+test: generate fmt vet lint manifests
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
@@ -64,6 +64,13 @@ fmt:
 # Run go vet against code
 vet:
 	go vet ./...
+
+.PHONY: lint
+lint: ## Run golint
+	find . -path ./tools -prune -o -type f -name \*.go \
+		| grep -v zz_ \
+		| xargs -L1 golint -set_exit_status
+
 
 # Generate code
 generate: $(CONTROLLER_GEN)

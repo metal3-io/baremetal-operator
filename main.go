@@ -28,6 +28,7 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/controllers"
+	"github.com/metal3-io/baremetal-operator/version"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -54,6 +55,11 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
+	setupLog.Info("starting metal3-io/baremetal-operator",
+		"version", version.Raw,
+		"commit", version.Commit,
+	)
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
@@ -76,7 +82,6 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
-	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

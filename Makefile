@@ -4,6 +4,10 @@ IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
+# See version/version.go for details
+GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
+export LDFLAGS="-X github.com/metal3-io/baremetal-operator/version.Raw=$(shell git describe --always --abbrev=40 --dirty) -X github.com/metal3-io/baremetal-operator/version.Commit=${GIT_COMMIT}"
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -21,11 +25,11 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	go build -ldflags $(LDFLAGS) -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
-	go run ./main.go
+	go run -ldflags $(LDFLAGS) ./main.go
 
 # Install CRDs into a cluster
 install: manifests

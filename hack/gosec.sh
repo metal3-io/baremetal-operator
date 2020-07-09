@@ -7,7 +7,7 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
   export XDG_CACHE_HOME="/tmp/.cache"
-  gosec -severity medium --confidence medium -quiet ./pkg/... ./cmd/...
+  gosec -severity medium --confidence medium -quiet ./...
 else
   "${CONTAINER_RUNTIME}" run --rm \
     --env IS_CONTAINER=TRUE \

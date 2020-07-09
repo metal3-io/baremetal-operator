@@ -29,7 +29,10 @@ CONTROLLER_GEN=./tools/controller-tools/controller-gen
 all: manager
 
 # Run tests
-test: generate fmt vet lint sec manifests
+test: generate fmt vet lint sec manifests unit
+
+.PHONY: unit
+unit:
 	go test ./... -coverprofile cover.out
 
 # Build manager binary

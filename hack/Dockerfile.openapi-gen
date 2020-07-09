@@ -1,0 +1,11 @@
+FROM registry.hub.docker.com/library/golang:1.14
+
+RUN mkdir -p /go/src/github.com/kubernetes
+RUN git clone https://github.com/kubernetes/kube-openapi/ /go/src/github.com/kubernetes/kube-openapi \
+    && cd /go/src/github.com/kubernetes/kube-openapi \
+    && go mod download \
+    && go install ./cmd/...
+#golang.org/x/lint/golint
+
+LABEL io.k8s.display-name="Metal3 openapi-gen test image" \
+      io.k8s.description="This image is for running tests requiring openapi-gen"

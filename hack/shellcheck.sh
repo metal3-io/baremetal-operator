@@ -9,7 +9,7 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   TOP_DIR="${1:-.}"
   find "${TOP_DIR}" \
        \( -path ./vendor -prune -o \
-       -path ./tools/operator-sdk -prune \) \
+       -path ./tools -prune \) \
        -o -name '*.sh' -exec shellcheck -s bash {} \+
 else
   "${CONTAINER_RUNTIME}" run --rm \

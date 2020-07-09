@@ -7,10 +7,20 @@ ARTIFACTS=${ARTIFACTS:-/tmp}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
-  eval "$(go env)"
-  cd "${GOPATH}"/src/github.com/metal3-io/baremetal-operator
   export XDG_CACHE_HOME="/tmp/.cache"
-  go test -v ./pkg/... ./cmd/... -coverprofile "${ARTIFACTS}"/cover.out
+  eval "$(go env)"
+
+  os=$(go env GOOS)
+  arch=$(go env GOARCH)
+
+  # download kubebuilder and extract it to tmp
+  KUBEBUILDER_VERSION="2.3.1"
+  curl -L "https://go.kubebuilder.io/dl/${KUBEBUILDER_VERSION}/${os}/${arch}" | tar -xz -C /tmp/
+  mv "/tmp/kubebuilder_${KUBEBUILDER_VERSION}_${os}_${arch}" /usr/local/kubebuilder
+  export PATH=$PATH:/usr/local/kubebuilder/bin
+
+  cd "${GOPATH}"/src/github.com/metal3-io/baremetal-operator
+  make unit
 else
   "${CONTAINER_RUNTIME}" run --rm \
     --env IS_CONTAINER=TRUE \
@@ -21,6 +31,6 @@ else
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:rw,z" \
     --entrypoint sh \
     --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    registry.hub.docker.com/library/golang:1.13.7 \
+    registry.hub.docker.com/library/golang:1.14 \
     /go/src/github.com/metal3-io/baremetal-operator/hack/unit.sh "${@}"
 fi;

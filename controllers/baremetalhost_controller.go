@@ -25,18 +25,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
 type BareMetalHostReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log                logr.Logger
+	Scheme             *runtime.Scheme
+	ProvisionerFactory provisioner.Factory
 }
 
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts/status,verbs=get;update;patch
 
+// Reconcile manages updates to BareMetalHost resources
 func (r *BareMetalHostReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("baremetalhost", req.NamespacedName)
@@ -46,6 +49,8 @@ func (r *BareMetalHostReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager configures the reconciler to run as part of a
+// controller manager.
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3iov1alpha1.BareMetalHost{}).

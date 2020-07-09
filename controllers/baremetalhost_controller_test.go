@@ -1,4 +1,4 @@
-package baremetalhost
+package controllers
 
 import (
 	goctx "context"
@@ -7,22 +7,18 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-
 	"k8s.io/client-go/kubernetes/scheme"
-
+	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metal3apis "github.com/metal3-io/baremetal-operator/pkg/apis"
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
@@ -36,7 +32,7 @@ const (
 func init() {
 	logf.SetLogger(logf.ZapLogger(true))
 	// Register our package types with the global scheme
-	metal3apis.AddToScheme(scheme.Scheme)
+	metal3v1alpha1.AddToScheme(scheme.Scheme)
 }
 
 func newSecret(name string, data map[string]string) *corev1.Secret {
@@ -94,7 +90,7 @@ func newDefaultHost(t *testing.T) *metal3v1alpha1.BareMetalHost {
 	return newDefaultNamedHost(t.Name(), t)
 }
 
-func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
+func newTestReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 
 	c := fakeclient.NewFakeClient(initObjs...)
 
@@ -102,10 +98,11 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
 	c.Create(goctx.TODO(), bmcSecret)
 
-	return &ReconcileBareMetalHost{
-		client:             c,
-		scheme:             scheme.Scheme,
-		provisionerFactory: fixture.New,
+	return &BareMetalHostReconciler{
+		Client:             c,
+		Scheme:             scheme.Scheme,
+		Log:                ctrl.Log.WithName("controller_test"),
+		ProvisionerFactory: fixture.New,
 	}
 }
 
@@ -119,7 +116,7 @@ func newRequest(host *metal3v1alpha1.BareMetalHost) reconcile.Request {
 	return reconcile.Request{NamespacedName: namespacedName}
 }
 
-func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost, isDone DoneFunc) {
+func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost, isDone DoneFunc) {
 
 	request := newRequest(host)
 
@@ -141,7 +138,7 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 		// need to replace the one we have with the updated data in
 		// order to test it.
 		updatedHost := &metal3v1alpha1.BareMetalHost{}
-		r.client.Get(goctx.TODO(), request.NamespacedName, updatedHost)
+		r.Get(goctx.TODO(), request.NamespacedName, updatedHost)
 		updatedHost.DeepCopyInto(host)
 
 		if isDone(host, result) {
@@ -157,7 +154,7 @@ func tryReconcile(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 	}
 }
 
-func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost, desiredStatus metal3v1alpha1.OperationalStatus) {
+func waitForStatus(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost, desiredStatus metal3v1alpha1.OperationalStatus) {
 	logger := log.WithValues("host", host.ObjectMeta.Name, "desiredStatus", desiredStatus)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
@@ -168,7 +165,7 @@ func waitForStatus(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1
 	)
 }
 
-func waitForError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost) {
+func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) {
 	logger := log.WithValues("host", host.ObjectMeta.Name)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
@@ -178,7 +175,7 @@ func waitForError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.
 	)
 }
 
-func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost) {
+func waitForNoError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) {
 	logger := log.WithValues("host", host.ObjectMeta.Name)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
@@ -188,7 +185,7 @@ func waitForNoError(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha
 	)
 }
 
-func waitForProvisioningState(t *testing.T, r *ReconcileBareMetalHost, host *metal3v1alpha1.BareMetalHost, desiredState metal3v1alpha1.ProvisioningState) {
+func waitForProvisioningState(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost, desiredState metal3v1alpha1.ProvisioningState) {
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for state %q have state %q", desiredState, host.Status.Provisioning.State)
@@ -468,7 +465,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	)
 
 	delete(host.Annotations, annotation)
-	r.client.Update(goctx.TODO(), host)
+	r.Update(goctx.TODO(), host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
@@ -533,13 +530,13 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 
 	// Define a second valid secret and update the host to use it.
 	secret2 := newBMCCredsSecret("bmc-creds-valid2", "User", "Pass")
-	err := r.client.Create(goctx.TODO(), secret2)
+	err := r.Create(goctx.TODO(), secret2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	host.Spec.BMC.CredentialsName = "bmc-creds-valid2"
-	err = r.client.Update(goctx.TODO(), host)
+	err = r.Update(goctx.TODO(), host)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -576,7 +573,7 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	)
 
 	host.Spec.BMC.CredentialsName = "bmc-creds-no-user"
-	err := r.client.Update(goctx.TODO(), host)
+	err := r.Update(goctx.TODO(), host)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -731,12 +728,12 @@ func TestFixSecret(t *testing.T) {
 		Namespace: namespace,
 		Name:      "bmc-creds-no-user",
 	}
-	err := r.client.Get(goctx.TODO(), secretName, secret)
+	err := r.Get(goctx.TODO(), secretName, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
 	secret.Data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte("username")))
-	err = r.client.Update(goctx.TODO(), secret)
+	err = r.Update(goctx.TODO(), secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -776,13 +773,13 @@ func TestBreakThenFixSecret(t *testing.T) {
 		Namespace: namespace,
 		Name:      "bmc-creds-toggle-user",
 	}
-	err := r.client.Get(goctx.TODO(), secretName, secret)
+	err := r.Get(goctx.TODO(), secretName, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
 	oldUsername := secret.Data["username"]
 	secret.Data["username"] = []byte{}
-	err = r.client.Update(goctx.TODO(), secret)
+	err = r.Update(goctx.TODO(), secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -791,12 +788,12 @@ func TestBreakThenFixSecret(t *testing.T) {
 	// Modify the secret to be correct again. Wait for the error to be
 	// cleared from the host.
 	secret = &corev1.Secret{}
-	err = r.client.Get(goctx.TODO(), secretName, secret)
+	err = r.Get(goctx.TODO(), secretName, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
 	secret.Data["username"] = oldUsername
-	err = r.client.Update(goctx.TODO(), secret)
+	err = r.Update(goctx.TODO(), secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -917,7 +914,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		waitForProvisioningState(t, r, host, metal3v1alpha1.StateExternallyProvisioned)
 
 		host.Spec.ExternallyProvisioned = false
-		err := r.client.Update(goctx.TODO(), host)
+		err := r.Update(goctx.TODO(), host)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -934,7 +931,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		waitForProvisioningState(t, r, host, metal3v1alpha1.StateReady)
 
 		host.Spec.ExternallyProvisioned = true
-		err := r.client.Update(goctx.TODO(), host)
+		err := r.Update(goctx.TODO(), host)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1150,7 +1147,7 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 				t.Fatal(err)
 			}
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
-			assert.Equal(t, tc.Expected, tc.Host.Status.Provisioning.RootDeviceHints)
+			assert.Equal(t, *tc.Expected, *tc.Host.Status.Provisioning.RootDeviceHints)
 		})
 	}
 }

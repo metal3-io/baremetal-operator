@@ -1,4 +1,4 @@
-package baremetalhost
+package controllers
 
 import (
 	goctx "context"
@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
 )
 
 func TestProvisionWithHostConfig(t *testing.T) {

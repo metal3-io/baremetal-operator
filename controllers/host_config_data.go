@@ -1,20 +1,17 @@
-package baremetalhost
+package controllers
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
-
-	"github.com/go-logr/logr"
-
 	corev1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/types"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
 )
 
 // hostConfigData is an implementation of host configuration data interface.

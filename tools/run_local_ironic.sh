@@ -23,7 +23,7 @@ pushd "$IRONIC_DATA_DIR/html/images"
 # By default, image directory points to dir having needed images when metal3-dev-env environment in use.
 # In other cases user has to store images beforehand.
 
-for name in ironic ironic-inspector dnsmasq httpd mariadb ipa-downloader; do
+for name in ironic ironic-inspector dnsmasq httpd mariadb ipa-downloader ironic-endpoint-keepalived; do
     sudo "${CONTAINER_RUNTIME}" ps | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" kill "$name"
     sudo "${CONTAINER_RUNTIME}" ps --all | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" rm "$name" -f
 done

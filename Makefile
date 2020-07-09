@@ -1,167 +1,80 @@
-TEST_NAMESPACE = operator-test
-RUN_NAMESPACE = metal3
-GO_TEST_FLAGS = $(VERBOSE)
-DEBUG = --debug
-SETUP = --no-setup
 
-# See pkg/version.go for details
-GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
-export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=$(shell git describe --always --abbrev=40 --dirty) -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${GIT_COMMIT}"
+# Image URL to use all building/pushing image targets
+IMG ?= controller:latest
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-# Set some variables the operator expects to have in order to work
-# Those need to be the same as in deploy/ironic_ci.env
-export OPERATOR_NAME=baremetal-operator
-export DEPLOY_KERNEL_URL=http://172.22.0.1:6180/images/ironic-python-agent.kernel
-export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.initramfs
-export IRONIC_ENDPOINT=http://localhost:6385/v1/
-export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
-export GO111MODULE=on
-export GOFLAGS=
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
 
-.PHONY: help
-help:  ## Display this help
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
-	@echo
-	@echo "Variables:"
-	@echo "  TEST_NAMESPACE   -- project name to use ($(TEST_NAMESPACE))"
-	@echo "  SETUP            -- controls the --no-setup flag ($(SETUP))"
-	@echo "  GO_TEST_FLAGS    -- flags to pass to --go-test-flags ($(GO_TEST_FLAGS))"
-	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
+all: manager
 
-.PHONY: test
-test: fmt generate lint vet unit ## Run common developer tests
+# Run tests
+test: generate fmt vet manifests
+	go test ./... -coverprofile cover.out
 
-.PHONY: generate
-generate: bin/operator-sdk ## Run the operator-sdk code generator
-	./bin/operator-sdk generate $(VERBOSE) k8s
-	./bin/operator-sdk generate $(VERBOSE) crds
-	openapi-gen \
-		--input-dirs ./pkg/apis/metal3/v1alpha1 \
-		--output-package ./pkg/apis/metal3/v1alpha1 \
-		--output-base "" \
-		--output-file-base zz_generated.openapi \
-		--report-filename "-" \
-		--go-header-file /dev/null
+# Build manager binary
+manager: generate fmt vet
+	go build -o bin/manager main.go
 
-bin/operator-sdk: bin
-	make -C tools/operator-sdk install
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet manifests
+	go run ./main.go
 
-bin:
-	mkdir -p bin
+# Install CRDs into a cluster
+install: manifests
+	kustomize build config/crd | kubectl apply -f -
 
-.PHONY: travis
-travis: unit-verbose lint
+# Uninstall CRDs from a cluster
+uninstall: manifests
+	kustomize build config/crd | kubectl delete -f -
 
-.PHONY: unit
-unit: ## Run unit tests
-	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: manifests
+	cd config/manager && kustomize edit set image controller=${IMG}
+	kustomize build config/default | kubectl apply -f -
 
-.PHONY: unit-cover
-unit-cover: ## Run unit tests with code coverage
-	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
-	go tool cover -func=cover.out
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-.PHONY: unit-cover-html
-unit-cover-html:
-	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
-	go tool cover -html=cover.out
+# Run go fmt against code
+fmt:
+	go fmt ./...
 
-.PHONY: unit-verbose
-unit-verbose: ## Run unit tests with verbose output
-	VERBOSE=-v make unit
+# Run go vet against code
+vet:
+	go vet ./...
 
-.PHONY: linters
-linters: sec lint generate-check fmt-check vet ## Run all linters
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: vet
-vet: ## Run go vet
-	go vet ./pkg/... ./cmd/...
+# Build the docker image
+docker-build: test
+	docker build . -t ${IMG}
 
-.PHONY: lint
-lint: golint-binary ## Run golint
-	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
+# Push the docker image
+docker-push:
+	docker push ${IMG}
 
-.PHONY: generate-check
-generate-check:
-	./hack/generate.sh
-
-.PHONY: generate-check-local
-generate-check-local:
-	IS_CONTAINER=local ./hack/generate.sh
-
-.PHONY: sec
-sec: $GOPATH/bin/gosec
-	gosec -severity medium --confidence medium -quiet ./pkg/... ./cmd/...
-
-$GOPATH/bin/gosec:
-	go get -u github.com/securego/gosec/cmd/gosec
-
-.PHONY: golint-binary
-golint-binary:
-	which golint 2>&1 >/dev/null || $(MAKE) $GOPATH/bin/golint
-$GOPATH/bin/golint:
-	go get -u golang.org/x/lint/golint
-
-.PHONY: fmt
-fmt: ## Run gofmt and write changes to each file
-	gofmt -l -w ./pkg ./cmd
-
-.PHONY: fmt-check
-fmt-check: ## Run gofmt and report an error if any changes are made
-	./hack/gofmt.sh
-
-.PHONY: docs
-docs: $(patsubst %.dot,%.png,$(wildcard docs/*.dot))
-
-%.png: %.dot
-	dot -Tpng $< >$@
-
-.PHONY: e2e-local
-e2e-local:
-	operator-sdk test local ./test/e2e \
-		--namespace $(TEST_NAMESPACE) \
-		--up-local $(SETUP) \
-		$(DEBUG) --go-test-flags "$(GO_TEST_FLAGS)"
-
-.PHONY: run
-run: ## Run the operator outside of a cluster in development mode
-	operator-sdk run --local \
-		--go-ldflags=$(LDFLAGS) \
-		--watch-namespace=$(RUN_NAMESPACE) \
-		--operator-flags="-dev"
-
-.PHONY: demo
-demo: ## Run the operator outside of a cluster using the demo driver
-	operator-sdk run --local \
-		--go-ldflags=$(LDFLAGS) \
-		--watch-namespace=$(RUN_NAMESPACE) \
-		--operator-flags="-dev -demo-mode"
-
-.PHONY: docker
-docker: docker-operator docker-sdk docker-golint ## Build docker images
-
-.PHONY: docker-operator
-docker-operator:
-	docker build . -f build/Dockerfile
-
-.PHONY: docker-sdk
-docker-sdk:
-	docker build . -f hack/Dockerfile.operator-sdk
-
-.PHONY: docker-golint
-docker-golint:
-	docker build . -f hack/Dockerfile.golint
-
-.PHONY: build
-build: ## Build the operator binary
-	@echo LDFLAGS=$(LDFLAGS)
-	go build -ldflags $(LDFLAGS) -o build/_output/bin/baremetal-operator cmd/manager/main.go
-
-.PHONY: tools
-tools:
-	go build -o build/_output/bin/get-hardware-details cmd/get-hardware-details/main.go
-
-.PHONY: deploy
-deploy:
-	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
-	kustomize build deploy | kubectl apply -f -
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif

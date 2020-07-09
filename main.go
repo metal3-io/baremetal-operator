@@ -28,10 +28,10 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/controllers"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metal3-io/baremetal-operator/provisioner"
+	"github.com/metal3-io/baremetal-operator/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/provisioner/ironic"
 	"github.com/metal3-io/baremetal-operator/version"
 	// +kubebuilder:scaffold:imports
 )

@@ -43,10 +43,10 @@ import (
 
 	// metal3 packages
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/hardware"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
+	"github.com/metal3-io/baremetal-operator/bmc"
+	"github.com/metal3-io/baremetal-operator/hardware"
+	"github.com/metal3-io/baremetal-operator/provisioner"
+	"github.com/metal3-io/baremetal-operator/utils"
 )
 
 const (

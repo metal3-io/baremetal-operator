@@ -12,7 +12,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/provisioner/demo"
 )
 
 func init() {

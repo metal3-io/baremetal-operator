@@ -7,8 +7,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/bmc"
+	"github.com/metal3-io/baremetal-operator/provisioner"
 )
 
 var log = logf.Log.WithName("demo")

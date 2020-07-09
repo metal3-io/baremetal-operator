@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/provisioner"
 )
 
 // hostStateMachine is a finite state machine that manages transitions between

@@ -19,8 +19,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/api/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
+	"github.com/metal3-io/baremetal-operator/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/utils"
 )
 
 const (

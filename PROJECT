@@ -1,2 +1,6 @@
 repo: github.com/metal3-io/baremetal-operator
+resources:
+- group: metal3.io
+  kind: BareMetalHost
+  version: v1alpha1
 version: "2"

@@ -1,27 +1,19 @@
-# Build the manager binary
-FROM golang:1.13 as builder
+FROM registry.svc.ci.openshift.org/openshift/release:golang-1.14 AS builder
+WORKDIR /go/src/github.com/metal3-io/baremetal-operator
+COPY . .
+# cache deps before building and copying source so that we don't need
+# to re-download as much and so that source changes don't invalidate
+# our downloaded layer
+RUN go mod vendor
+RUN make manager
 
-WORKDIR /workspace
-# Copy the Go Modules manifests
-COPY go.mod go.mod
-COPY go.sum go.sum
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
-RUN go mod download
 
-# Copy the go source
-COPY main.go main.go
-COPY api/ api/
-COPY controllers/ controllers/
-
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
-
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
-WORKDIR /
-COPY --from=builder /workspace/manager .
-USER nonroot:nonroot
-
-ENTRYPOINT ["/manager"]
+FROM quay.io/metal3-io/base-image
+COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/baremetal-operator /
+RUN if ! rpm -q genisoimage; \
+    then yum install -y genisoimage && \
+    yum clean all && \
+    rm -rf /var/cache/yum/*; \
+    fi
+LABEL io.k8s.display-name="Metal3 BareMetal Operator" \
+      io.k8s.description="This is the image for the Metal3 BareMetal Operator."

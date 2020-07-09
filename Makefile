@@ -29,7 +29,7 @@ CONTROLLER_GEN=./tools/controller-tools/controller-gen
 all: manager
 
 # Run tests
-test: generate fmt vet lint manifests
+test: generate fmt vet lint sec manifests
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
@@ -71,6 +71,9 @@ lint: ## Run golint
 		| grep -v zz_ \
 		| xargs -L1 golint -set_exit_status
 
+.PHONY: sec
+sec: ## Run gosec
+	gosec -severity medium --confidence medium -quiet -exclude-dir=tools ./...
 
 # Generate code
 generate: $(CONTROLLER_GEN) openapi

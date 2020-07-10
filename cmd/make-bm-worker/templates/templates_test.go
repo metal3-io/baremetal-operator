@@ -51,7 +51,7 @@ kind: BareMetalHost
 metadata:
   name: hostname
 spec:
-  online: true
+  online: false
   hardwareProfile: hardware profile
   bmc:
     address: bmcAddress
@@ -86,7 +86,7 @@ kind: BareMetalHost
 metadata:
   name: hostname
 spec:
-  online: true
+  online: false
   bmc:
     address: bmcAddress
     credentialsName: hostname-bmc-secret
@@ -122,7 +122,7 @@ kind: BareMetalHost
 metadata:
   name: hostname
 spec:
-  online: true
+  online: false
   bmc:
     address: bmcAddress
     credentialsName: hostname-bmc-secret

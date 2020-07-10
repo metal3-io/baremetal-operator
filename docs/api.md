@@ -41,6 +41,10 @@ mainly, but not only, provisioning details.
       * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
     * HUAWEI ibmc
       * `ibmc://<host>:<port>` (or `ibmc+http://<host>:<port>` to disable TLS)
+    * iLO 5 Redfish
+      * `ilo5-redfish://` (or `ilo5-redfish+http://` to disable TLS), the hostname
+        or IP address, and the path to the system ID are required,
+        for example `ilo5-redfish://myhost.example/redfish/v1/Systems/MySystemExample`
     * Redfish
       * `redfish://` (or `redfish+http://` to disable TLS)
       * `redfish-virtualmedia://` to use virtual media instead of PXE

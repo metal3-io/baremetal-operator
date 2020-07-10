@@ -119,6 +119,10 @@ const (
 	// StateNone means the state is unknown
 	StateNone ProvisioningState = ""
 
+	// StateUnmanaged means there is insufficient information available to
+	// register the host
+	StateUnmanaged ProvisioningState = "unmanaged"
+
 	// StateRegistrationError means there was an error registering the
 	// host with the backend
 	StateRegistrationError ProvisioningState = "registration error"

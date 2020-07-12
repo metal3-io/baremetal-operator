@@ -311,6 +311,36 @@ func TestParse(t *testing.T) {
 			Hostname: "192.168.122.1",
 			Path:     "",
 		},
+
+		{
+                        Scenario: "ilo url",
+                        Address:  "ilo://192.168.122.1",
+                        Type:     "ilo",
+                        Port:     "",
+                        Host:     "192.168.122.1",
+                        Hostname: "192.168.122.1",
+                        Path:     "",
+                },
+
+		{
+                        Scenario: "ilo url, ipv6",
+                        Address:  "ilo://[fe80::fc33:62ff:fe83:8a76]",
+                        Type:     "ilo",
+                        Port:     "",
+                        Host:     "fe80::fc33:62ff:fe83:8a76",
+                        Hostname: "[fe80::fc33:62ff:fe83:8a76]",
+                        Path:     "",
+                },
+
+                {
+                        Scenario: "ilo url, no sep",
+                        Address:  "ilo:192.168.122.1",
+                        Type:     "ilo",
+                        Port:     "",
+                        Host:     "192.168.122.1",
+                        Hostname: "192.168.122.1",
+                        Path:     "",
+                },
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			url, err := getParsedURL(tc.Address)

@@ -216,19 +216,19 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 			}
 			errStatus := r.client.Status().Update(context.TODO(), host)
 			if errStatus != nil {
-				return reconcile.Result{}, errors.Wrap(err, "Could not restore status from annotation")
+				return reconcile.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
 			}
 			return reconcile.Result{Requeue: true}, nil
 		}
 		reqLogger.Info("No status cache found")
 	} else {
-		//The status annotation is unneeded, as the status is present, and it will get outdated, so removing it
-		objStatus, err := r.getHostStatusFromAnnotation(host)
-		if err == nil && objStatus != nil {
+		// The status annotation is unneeded, as the status subresource is
+		// already present. The annotation data will get outdated, so remove it.
+		if _, present := annotations[metal3v1alpha1.StatusAnnotation]; present {
 			delete(annotations, metal3v1alpha1.StatusAnnotation)
 			errStatus := r.client.Update(context.TODO(), host)
 			if errStatus != nil {
-				return reconcile.Result{}, errors.Wrap(err, "Could not delete status annotation")
+				return reconcile.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
 			}
 			return reconcile.Result{Requeue: true}, nil
 		}

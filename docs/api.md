@@ -369,5 +369,12 @@ Several conditions must be met in order to initiate provisioning.
    host receiving the image.
 2. The host must have `online` set to `true` so that the operator will
    keep the host powered on.
+3. The host must have all of the BMC details.
 
 To initiate deprovisioning, clear the image URL from the host spec.
+
+## Unmanaged Hosts
+
+Hosts created without BMC details will be left in the `unmanaged`
+state until the details are provided. Unmanaged hosts cannot be
+provisioned and their power state is undefined.

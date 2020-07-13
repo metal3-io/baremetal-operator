@@ -1,11 +1,11 @@
 digraph BaremetalHost {
     Created [shape=house]
-    Created -> Discovered [label="BMC.* == \"\""]
+    Created -> Unmanaged [label="BMC.* == \"\""]
     Created -> Registering [label="BMC.* != \"\""]
 
-    Discovered [shape=doublecircle]
-    Discovered -> Registering [label="BMC.* != \"\""]
-    Discovered -> Deleting1 [label="!DeletionTimestamp.IsZero()"]
+    Unmanaged [shape=doublecircle]
+    Unmanaged -> Registering [label="BMC.* != \"\""]
+    Unmanaged -> Deleting1 [label="!DeletionTimestamp.IsZero()"]
 
     Deleting1 [shape=point]
 

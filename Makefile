@@ -3,6 +3,9 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(VERBOSE)
 DEBUG = --debug
 SETUP = --no-setup
+CODE_DIRS = ./cmd ./pkg ./version
+PACKAGES = $(foreach dir,$(CODE_DIRS),$(dir)/...)
+COVER_PROFILE = cover.out
 
 # See pkg/version.go for details
 GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
@@ -31,6 +34,12 @@ help:  ## Display this help
 .PHONY: test
 test: fmt generate lint vet unit ## Run common developer tests
 
+.PHONY: show_packages show_dirs
+show_packages:
+	@echo $(PACKAGES)
+show_dirs:
+	@echo $(CODE_DIRS)
+
 .PHONY: generate
 generate: bin/operator-sdk ## Run the operator-sdk code generator
 	./bin/operator-sdk generate $(VERBOSE) k8s
@@ -54,16 +63,16 @@ travis: unit-verbose lint
 
 .PHONY: unit
 unit: ## Run unit tests
-	go test $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
+	go test $(GO_TEST_FLAGS) $(PACKAGES)
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
-	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
-	go tool cover -func=cover.out
+	go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) $(PACKAGES)
+	go tool cover -func=$(COVER_PROFILE)
 
 .PHONY: unit-cover-html
 unit-cover-html:
-	go test -coverprofile=cover.out $(GO_TEST_FLAGS) ./cmd/... ./pkg/...
+	go test -coverprofile=cover.out $(GO_TEST_FLAGS) $(PACKAGES)
 	go tool cover -html=cover.out
 
 .PHONY: unit-verbose
@@ -75,11 +84,11 @@ linters: sec lint generate-check fmt-check vet ## Run all linters
 
 .PHONY: vet
 vet: ## Run go vet
-	go vet ./pkg/... ./cmd/...
+	go vet $(PACKAGES)
 
 .PHONY: lint
 lint: golint-binary ## Run golint
-	find ./pkg ./cmd -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
+	find $(CODE_DIRS) -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
 
 .PHONY: generate-check
 generate-check:
@@ -90,8 +99,8 @@ generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
 
 .PHONY: sec
-sec: $GOPATH/bin/gosec
-	gosec -severity medium --confidence medium -quiet ./pkg/... ./cmd/...
+sec: $GOPATH/bin/gosec ## Run gosec
+	gosec -severity medium --confidence medium -quiet $(PACKAGES)
 
 $GOPATH/bin/gosec:
 	go get -u github.com/securego/gosec/cmd/gosec
@@ -104,7 +113,7 @@ $GOPATH/bin/golint:
 
 .PHONY: fmt
 fmt: ## Run gofmt and write changes to each file
-	gofmt -l -w ./pkg ./cmd
+	gofmt -l -w $(CODE_DIRS)
 
 .PHONY: fmt-check
 fmt-check: ## Run gofmt and report an error if any changes are made

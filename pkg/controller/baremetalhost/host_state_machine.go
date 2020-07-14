@@ -36,6 +36,7 @@ type stateHandler func(*reconcileInfo) actionResult
 func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]stateHandler {
 	return map[metal3v1alpha1.ProvisioningState]stateHandler{
 		metal3v1alpha1.StateNone:                  hsm.handleNone,
+		metal3v1alpha1.StateUnmanaged:             hsm.handleUnmanaged,
 		metal3v1alpha1.StateRegistering:           hsm.handleRegistering,
 		metal3v1alpha1.StateRegistrationError:     hsm.handleRegistrationError,
 		metal3v1alpha1.StateInspecting:            hsm.handleInspecting,
@@ -140,7 +141,7 @@ func (hsm *hostStateMachine) shouldInitiateRegister(info *reconcileInfo) bool {
 		switch hsm.NextState {
 		default:
 			changeState = !hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
-		case metal3v1alpha1.StateNone:
+		case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
 		case metal3v1alpha1.StateRegistering, metal3v1alpha1.StateRegistrationError:
 		case metal3v1alpha1.StateDeleting:
 		}
@@ -152,11 +153,24 @@ func (hsm *hostStateMachine) shouldInitiateRegister(info *reconcileInfo) bool {
 }
 
 func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
-	// Running the state machine at all means we have successfully validated
-	// the BMC credentials once, so we can move to the Registering state.
-	hsm.Host.ClearError()
-	hsm.NextState = metal3v1alpha1.StateRegistering
+	// No state is set, so immediately move to either Registering or Unmanaged
+	if hsm.Host.HasBMCDetails() {
+		hsm.NextState = metal3v1alpha1.StateRegistering
+	} else {
+		info.publishEvent("Discovered", "Discovered host with no BMC details")
+		hsm.Host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDiscovered)
+		hsm.NextState = metal3v1alpha1.StateUnmanaged
+		hostUnmanaged.Inc()
+	}
 	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) handleUnmanaged(info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionUnmanaged(hsm.Provisioner, info)
+	if _, complete := actResult.(actionComplete); complete {
+		hsm.NextState = metal3v1alpha1.StateRegistering
+	}
+	return actResult
 }
 
 func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult {

@@ -10,7 +10,12 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   eval "$(go env)"
   cd "${GOPATH}"/src/github.com/metal3-io/baremetal-operator
   export XDG_CACHE_HOME="/tmp/.cache"
-  go test -v ./pkg/... ./cmd/... -coverprofile "${ARTIFACTS}"/cover.out
+
+  export VERBOSE=-v
+  export COVER_PROFILE="${ARTIFACTS}"/cover.out
+
+  make -e unit-cover
+
 else
   "${CONTAINER_RUNTIME}" run --rm \
     --env IS_CONTAINER=TRUE \

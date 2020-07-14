@@ -96,6 +96,11 @@ var hostRegistrationRequired = prometheus.NewCounter(prometheus.CounterOpts{
 	Help: "Number of times a host is found to be unregistered",
 })
 
+var hostUnmanaged = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_host_unmanaged_total",
+	Help: "Number of times a host is found to be unmanaged",
+})
+
 var deleteWithoutDeprov = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "metal3_delete_without_deprovisioning_total",
 	Help: "Number of times a host is deleted despite deprovisioning failing",
@@ -123,6 +128,7 @@ func init() {
 	metrics.Registry.MustRegister(
 		stateChanges,
 		hostRegistrationRequired,
+		hostUnmanaged,
 		deleteWithoutDeprov)
 }
 

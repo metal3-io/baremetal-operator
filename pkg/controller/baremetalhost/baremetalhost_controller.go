@@ -804,7 +804,7 @@ func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner,
 
 	if info.host.NeedsProvisioning() {
 		// Ensure the root device hints we're going to use are stored.
-		dirty, err := saveHostProvisioningSettings(info.host)
+		dirty, err := saveHostProvisioningSettings(prov.BootMode, info.host)
 		if err != nil {
 			return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
 		}
@@ -820,7 +820,7 @@ func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner,
 // saveHostProvisioningSettings copies the values related to
 // provisioning that do not trigger re-provisioning into the status
 // fields of the host.
-func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
+func saveHostProvisioningSettings(defaultBootMode provisioner.BootModeProvider, host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
 
 	// Ensure the root device hints we're going to use are stored.
 	//
@@ -838,6 +838,19 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 		host.Status.Provisioning.RootDeviceHints = hintSource
 		dirty = true
 	}
+
+	// Make sure we have saved the latest boot mode value.
+	var desiredBootMode metal3v1alpha1.BootMode
+	if host.Spec.BootMode != "" {
+		desiredBootMode = host.Spec.BootMode
+	} else {
+		desiredBootMode = defaultBootMode()
+	}
+	if desiredBootMode != host.Status.Provisioning.BootMode {
+		host.Status.Provisioning.BootMode = desiredBootMode
+		dirty = true
+	}
+
 	return
 }
 

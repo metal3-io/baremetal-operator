@@ -313,3 +313,179 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUpdateOptsForNodeBootMode(t *testing.T) {
+
+	testCases := []struct {
+		Scenario string
+		Host     metal3v1alpha1.BareMetalHost
+		Node     nodes.Node
+		Expected nodes.UpdateOperation
+	}{
+		{
+			Scenario: "add uefi",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL:          "not-empty",
+						Checksum:     "checksum",
+						ChecksumType: metal3v1alpha1.MD5,
+						DiskFormat:   pointer.StringPtr("raw"),
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						BootMode: metal3v1alpha1.UEFI,
+					},
+				},
+			},
+			Node: nodes.Node{},
+			Expected: nodes.UpdateOperation{
+				Op:    nodes.AddOp,
+				Path:  "/instance_info/deploy_boot_mode",
+				Value: "uefi",
+			},
+		},
+		{
+			Scenario: "add uefi",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL:          "not-empty",
+						Checksum:     "checksum",
+						ChecksumType: metal3v1alpha1.MD5,
+						DiskFormat:   pointer.StringPtr("raw"),
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						BootMode: metal3v1alpha1.Legacy,
+					},
+				},
+			},
+			Node: nodes.Node{},
+			Expected: nodes.UpdateOperation{
+				Op:    nodes.AddOp,
+				Path:  "/instance_info/deploy_boot_mode",
+				Value: "bios",
+			},
+		},
+		{
+			Scenario: "replace uefi",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL:          "not-empty",
+						Checksum:     "checksum",
+						ChecksumType: metal3v1alpha1.MD5,
+						DiskFormat:   pointer.StringPtr("raw"),
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						BootMode: metal3v1alpha1.UEFI,
+					},
+				},
+			},
+			Node: nodes.Node{
+				InstanceInfo: map[string]interface{}{
+					"deploy_boot_mode": "legacy",
+				},
+			},
+			Expected: nodes.UpdateOperation{
+				Op:    nodes.ReplaceOp,
+				Path:  "/instance_info/deploy_boot_mode",
+				Value: "uefi",
+			},
+		},
+		{
+			Scenario: "replace legacy",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL:          "not-empty",
+						Checksum:     "checksum",
+						ChecksumType: metal3v1alpha1.MD5,
+						DiskFormat:   pointer.StringPtr("raw"),
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						BootMode: metal3v1alpha1.Legacy,
+					},
+				},
+			},
+			Node: nodes.Node{
+				InstanceInfo: map[string]interface{}{
+					"deploy_boot_mode": "legacy",
+				},
+			},
+			Expected: nodes.UpdateOperation{
+				Op:    nodes.ReplaceOp,
+				Path:  "/instance_info/deploy_boot_mode",
+				Value: "bios",
+			},
+		},
+	}
+
+	eventPublisher := func(reason, message string) {}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			t.Logf("expected: %v", tc.Expected)
+
+			prov, err := newProvisioner(&tc.Host, bmc.Credentials{}, eventPublisher)
+			patches, err := prov.getUpdateOptsForNode(&tc.Node)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Logf("patches: %v", patches)
+
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == tc.Expected.Path {
+					break
+				}
+			}
+			if update.Path != tc.Expected.Path {
+				t.Errorf("did not find %q in updates", tc.Expected.Path)
+				return
+			}
+			t.Logf("update: %v", update)
+			assert.Equal(t,
+				tc.Expected, update,
+				fmt.Sprintf("%s does not match", tc.Expected.Path),
+			)
+		})
+	}
+}

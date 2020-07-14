@@ -1147,7 +1147,10 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			dirty, err := saveHostProvisioningSettings(&tc.Host)
+			dirty, err := saveHostProvisioningSettings(
+				func() metal3v1alpha1.BootMode { return metal3v1alpha1.UEFI },
+				&tc.Host,
+			)
 			if err != nil {
 				t.Fatal(err)
 			}

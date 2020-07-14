@@ -236,3 +236,10 @@ func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 
 	return result, nil
 }
+
+// BootMode returns the boot method to be used for the host, using the
+// explicit value if given in the host and falling back to the default
+// from the BMC driver otherwise.
+func (p *fixtureProvisioner) BootMode() metal3v1alpha1.BootMode {
+	return metal3v1alpha1.UEFI
+}

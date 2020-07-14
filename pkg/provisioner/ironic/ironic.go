@@ -48,6 +48,11 @@ const (
 	powerNone    = "None"
 )
 
+var bootModeCapabilities = map[v1alpha1.BootMode]string{
+	v1alpha1.UEFI:   "uefi",
+	v1alpha1.Legacy: "bios",
+}
+
 func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
@@ -204,6 +209,14 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 	}
 }
 
+// BootMode returns the boot method to be used for the host, using the
+// explicit value if given in the host and falling back to the default
+// from the BMC driver otherwise.
+func (p *ironicProvisioner) BootMode() v1alpha1.BootMode {
+	nodeProperties := p.bmcAccess.NodeProperties()
+	return nodeProperties["boot_mode"].(v1alpha1.BootMode)
+}
+
 // ValidateManagementAccess registers the host with the provisioning
 // system and tests the connection information for the host to verify
 // that the location and credentials work.
@@ -239,14 +252,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
-		properties := map[string]interface{}{}
-		nodeProperties := p.bmcAccess.NodeProperties()
-		if nodeProperties["boot_mode"] == v1alpha1.UEFI {
-			properties["capabilities"] = "boot_mode:uefi"
-		} else if nodeProperties["boot_mode"] == v1alpha1.Legacy {
-			properties["capabilities"] = "boot_mode:bios"
-		}
-
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
@@ -256,7 +261,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				DriverInfo:          driverInfo,
 				InspectInterface:    "inspector",
 				ManagementInterface: p.bmcAccess.ManagementInterface(),
-				Properties:          properties,
 				PowerInterface:      p.bmcAccess.PowerInterface(),
 				RAIDInterface:       p.bmcAccess.RAIDInterface(),
 				VendorInterface:     p.bmcAccess.VendorInterface(),
@@ -270,7 +274,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
 		p.status.ID = ironicNode.UUID
-		p.status.BootMode = nodeProperties["boot_mode"].(v1alpha1.BootMode)
 		result.Dirty = true
 		p.log.Info("setting provisioning id", "ID", p.status.ID)
 
@@ -796,12 +799,33 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		},
 	)
 
+	// boot_mode
+	_, ok := ironicNode.InstanceInfo["deploy_boot_mode"]
+	if !ok {
+		op = nodes.AddOp
+	} else {
+		op = nodes.ReplaceOp
+	}
+	p.log.Info("setting boot_mode",
+		"operation", op,
+		"instance_info", ironicNode.InstanceInfo,
+		"bootMode", p.host.Status.Provisioning.BootMode,
+	)
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/deploy_boot_mode",
+			Value: bootModeCapabilities[p.host.Status.Provisioning.BootMode],
+		},
+	)
+
 	return updates, nil
 }
 
 func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
-	p.log.Info("starting provisioning")
+	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
 	updates, err := p.getUpdateOptsForNode(ironicNode)
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()

@@ -33,6 +33,9 @@ type HostConfigData interface {
 	MetaData() (string, error)
 }
 
+// BootModeProvider is a function that returns a boot mode
+type BootModeProvider func() metal3v1alpha1.BootMode
+
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
@@ -83,6 +86,9 @@ type Provisioner interface {
 	// PowerOff ensures the server is powered off independently of any image
 	// provisioning operation.
 	PowerOff() (result Result, err error)
+
+	// BootMode returns the boot method to be used for the host.
+	BootMode() metal3v1alpha1.BootMode
 }
 
 // Result holds the response from a call in the Provsioner API.

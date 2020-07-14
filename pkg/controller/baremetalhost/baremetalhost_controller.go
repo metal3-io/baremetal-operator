@@ -173,10 +173,6 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		}
 	}()
 
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling BareMetalHost")
-
 	// Fetch the BareMetalHost
 	host := &metal3v1alpha1.BareMetalHost{}
 	err = r.client.Get(context.TODO(), request.NamespacedName, host)
@@ -199,6 +195,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 			return reconcile.Result{Requeue: true, RequeueAfter: pauseRetryDelay}, nil
 		}
 	}
+
+	reqLogger := log.WithValues("Request.Namespace",
+		request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling BareMetalHost")
 
 	// Check if Status is empty and status annotation is present
 	// Manually restore data.

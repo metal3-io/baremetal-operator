@@ -174,3 +174,11 @@ tools:
 deploy:
 	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
 	kustomize build deploy | kubectl apply -f -
+
+TOOLS_DIR := hack/tools
+RELEASE_NOTES_BIN := bin/release-notes
+RELEASE_NOTES := $(TOOLS_DIR)/$(RELEASE_NOTES_BIN)
+
+.PHONY: release-notes
+release-notes: $(RELEASE_NOTES)  ## Generates a release notes template to be used with a release.
+	$(RELEASE_NOTES)

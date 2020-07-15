@@ -209,12 +209,10 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 	}
 }
 
-// BootMode returns the boot method to be used for the host, using the
-// explicit value if given in the host and falling back to the default
-// from the BMC driver otherwise.
+// BootMode returns the boot method to be used for the host, based on
+// the BMC driver.
 func (p *ironicProvisioner) BootMode() v1alpha1.BootMode {
-	nodeProperties := p.bmcAccess.NodeProperties()
-	return nodeProperties["boot_mode"].(v1alpha1.BootMode)
+	return p.bmcAccess.DefaultBootMode()
 }
 
 // ValidateManagementAccess registers the host with the provisioning

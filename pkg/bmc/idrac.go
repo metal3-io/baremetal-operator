@@ -76,14 +76,9 @@ func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfa
 	return result
 }
 
-// NodeProperties returns a data structure to return details of
-// the host, including the boot mode. This will be used later to
-// instruct ironic to use specific boot mode
-func (a *iDracAccessDetails) NodeProperties() map[string]interface{} {
-	result := map[string]interface{}{
-		"boot_mode": metal3v1alpha1.UEFI,
-	}
-	return result
+// DefaultBootMode returns the default boot mode for the host
+func (a *iDracAccessDetails) DefaultBootMode() metal3v1alpha1.BootMode {
+	return metal3v1alpha1.UEFI
 }
 
 func (a *iDracAccessDetails) BootInterface() string {

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 )
 
 // AccessDetailsFactory describes a callable that returns a new
@@ -49,9 +51,9 @@ type AccessDetails interface {
 	// (such as the kernel and ramdisk locations).
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
 
-	// NodeProperties returns properties of a host, including the boot
-	// mode. This will depend on each interface
-	NodeProperties() map[string]interface{}
+	// DefaultBootMode returns the default boot mode that should be
+	// used for the host associated with the management controller.
+	DefaultBootMode() metal3v1alpha1.BootMode
 
 	// Boot interface to set
 	BootInterface() string

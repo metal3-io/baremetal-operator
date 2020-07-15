@@ -3,8 +3,10 @@ package bmc
 import (
 	"testing"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/stretchr/testify/assert"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 )
 
 func init() {
@@ -903,39 +905,31 @@ func TestDriverInfo(t *testing.T) {
 	}
 }
 
-func TestNodeProperties(t *testing.T) {
+func TestDefaultBootMode(t *testing.T) {
 	for _, tc := range []struct {
 		Scenario string
 		input    string
-		expects  map[string]interface{}
+		expects  metal3v1alpha1.BootMode
 	}{
 		{
 			Scenario: "ipmi default port",
 			input:    "ipmi://192.168.122.1",
-			expects: map[string]interface{}{
-				"boot_mode": metal3v1alpha1.Legacy,
-			},
+			expects:  metal3v1alpha1.Legacy,
 		},
 		{
 			Scenario: "idrac",
 			input:    "idrac://192.168.122.1",
-			expects: map[string]interface{}{
-				"boot_mode": metal3v1alpha1.UEFI,
-			},
+			expects:  metal3v1alpha1.UEFI,
 		},
 		{
 			Scenario: "irmc",
 			input:    "irmc://192.168.122.1",
-			expects: map[string]interface{}{
-				"boot_mode": metal3v1alpha1.UEFI,
-			},
+			expects:  metal3v1alpha1.UEFI,
 		},
 		{
 			Scenario: "Redfish",
 			input:    "redfish://192.168.122.1/foo/bar",
-			expects: map[string]interface{}{
-				"boot_mode": metal3v1alpha1.UEFI,
-			},
+			expects:  metal3v1alpha1.UEFI,
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
@@ -943,19 +937,8 @@ func TestNodeProperties(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected parse error: %v", err)
 			}
-			di := acc.NodeProperties()
-			//If a key is present when it should not, this will catch it
-			if len(di) != len(tc.expects) {
-				t.Fatalf("Number of items do not match: %v and %v, %#v", len(di),
-					len(tc.expects), di)
-			}
-			for expectKey, expectArg := range tc.expects {
-				value, ok := di[expectKey]
-				if value != expectArg && ok {
-					t.Fatalf("unexpected value for %v (key present: %v): %v, expected %v",
-						ok, expectKey, value, expectArg)
-				}
-			}
+			bootMode := acc.DefaultBootMode()
+			assert.Equal(t, tc.expects, bootMode, "The boot modes do not match")
 		})
 	}
 }

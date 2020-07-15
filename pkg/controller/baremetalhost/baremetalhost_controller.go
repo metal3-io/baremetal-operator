@@ -715,7 +715,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	// a delay.
 	steadyStateResult := actionContinue{time.Second * 60}
 	if info.host.Status.PoweredOn == desiredPowerOnState {
-		return steadyStateResult
+		return actionContinueNoWrite{steadyStateResult}
 	}
 
 	info.log.Info("power state change needed",

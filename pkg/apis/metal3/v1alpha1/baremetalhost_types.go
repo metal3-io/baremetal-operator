@@ -638,6 +638,11 @@ func (host *BareMetalHost) getLabel(name string) string {
 	return host.Labels[name]
 }
 
+// HasBMCDetails returns true if the BMC details are set
+func (host *BareMetalHost) HasBMCDetails() bool {
+	return host.Spec.BMC.Address != "" || host.Spec.BMC.CredentialsName != ""
+}
+
 // NeedsHardwareProfile returns true if the profile is not set
 func (host *BareMetalHost) NeedsHardwareProfile() bool {
 	return host.Status.HardwareProfile == ""

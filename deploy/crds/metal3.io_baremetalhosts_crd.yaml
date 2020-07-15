@@ -90,6 +90,13 @@ spec:
                 types, but required for libvirt VMs driven by vbmc.
               pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
               type: string
+            bootMode:
+              description: Select the method of initializing the hardware during boot
+                to override the value based on the BMC driver.
+              enum:
+              - UEFI
+              - legacy
+              type: string
             consumerRef:
               description: ConsumerRef can be used to store information about something
                 that is using a host. When it is not empty, the host is considered
@@ -585,6 +592,13 @@ spec:
                 ID:
                   description: The machine's UUID from the underlying provisioning
                     tool
+                  type: string
+                bootMode:
+                  description: BootMode indicates the boot mode used to provision
+                    the node
+                  enum:
+                  - UEFI
+                  - legacy
                   type: string
                 image:
                   description: Image holds the details of the last image successfully

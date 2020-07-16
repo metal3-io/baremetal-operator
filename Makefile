@@ -43,7 +43,7 @@ show_dirs:
 .PHONY: generate
 generate: bin/operator-sdk ## Run the operator-sdk code generator
 	./bin/operator-sdk generate $(VERBOSE) k8s
-	./bin/operator-sdk generate $(VERBOSE) crds
+	./bin/operator-sdk generate $(VERBOSE) crds --crd-version=v1
 	openapi-gen \
 		--input-dirs ./pkg/apis/metal3/v1alpha1 \
 		--output-package ./pkg/apis/metal3/v1alpha1 \

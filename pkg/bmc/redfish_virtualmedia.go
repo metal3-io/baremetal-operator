@@ -2,7 +2,6 @@ package bmc
 
 import (
 	"net/url"
-	"strings"
 )
 
 func init() {
@@ -53,21 +52,11 @@ func (a *redfishVirtualMediaAccessDetails) DisableCertificateVerification() bool
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
 func (a *redfishVirtualMediaAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-	redfishAddress := []string{}
-	schemes := strings.Split(a.bmcType, "+")
-	if len(schemes) > 1 {
-		redfishAddress = append(redfishAddress, schemes[1])
-	} else {
-		redfishAddress = append(redfishAddress, redfishDefaultScheme)
-	}
-	redfishAddress = append(redfishAddress, "://")
-	redfishAddress = append(redfishAddress, a.host)
-
 	result := map[string]interface{}{
 		"redfish_system_id": a.path,
 		"redfish_username":  bmcCreds.Username,
 		"redfish_password":  bmcCreds.Password,
-		"redfish_address":   strings.Join(redfishAddress, ""),
+		"redfish_address":   getRedfishAddress(a.bmcType, a.host),
 	}
 
 	if a.disableCertificateVerification {

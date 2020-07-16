@@ -311,6 +311,66 @@ func TestParse(t *testing.T) {
 			Hostname: "192.168.122.1",
 			Path:     "",
 		},
+
+		{
+			Scenario: "ilo4 url",
+			Address:  "ilo4://192.168.122.1",
+			Type:     "ilo4",
+			Port:     "",
+			Host:     "192.168.122.1",
+			Hostname: "192.168.122.1",
+			Path:     "",
+		},
+
+		{
+			Scenario: "ilo4 url, ipv6",
+			Address:  "ilo4://[fe80::fc33:62ff:fe83:8a76]",
+			Type:     "ilo4",
+			Port:     "",
+			Host:     "fe80::fc33:62ff:fe83:8a76",
+			Hostname: "[fe80::fc33:62ff:fe83:8a76]",
+			Path:     "",
+		},
+
+		{
+			Scenario: "ilo4 url, no sep",
+			Address:  "ilo4:192.168.122.1",
+			Type:     "ilo4",
+			Port:     "",
+			Host:     "192.168.122.1",
+			Hostname: "192.168.122.1",
+			Path:     "",
+		},
+
+		{
+			Scenario: "ilo5 url",
+			Address:  "ilo5://192.168.122.1",
+			Type:     "ilo5",
+			Port:     "",
+			Host:     "192.168.122.1",
+			Hostname: "192.168.122.1",
+			Path:     "",
+		},
+
+		{
+			Scenario: "ilo5 url, ipv6",
+			Address:  "ilo5://[fe80::fc33:62ff:fe83:8a76]",
+			Type:     "ilo5",
+			Port:     "",
+			Host:     "fe80::fc33:62ff:fe83:8a76",
+			Hostname: "[fe80::fc33:62ff:fe83:8a76]",
+			Path:     "",
+		},
+
+		{
+			Scenario: "ilo5 url, no sep",
+			Address:  "ilo5:192.168.122.1",
+			Type:     "ilo5",
+			Port:     "",
+			Host:     "192.168.122.1",
+			Hostname: "192.168.122.1",
+			Path:     "",
+		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			url, err := getParsedURL(tc.Address)
@@ -546,6 +606,30 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "ibmc",
 			power:      "ibmc",
 			raid:       "no-raid",
+			vendor:     "",
+		},
+
+		{
+			Scenario:   "ilo4",
+			input:      "ilo4://192.168.122.1",
+			needsMac:   true,
+			driver:     "ilo",
+			boot:       "ilo-ipxe",
+			management: "",
+			power:      "",
+			raid:       "",
+			vendor:     "",
+		},
+
+		{
+			Scenario:   "ilo5",
+			input:      "ilo5://192.168.122.1",
+			needsMac:   true,
+			driver:     "ilo5",
+			boot:       "ilo-ipxe",
+			management: "",
+			power:      "",
+			raid:       "ilo5",
 			vendor:     "",
 		},
 	} {
@@ -877,6 +961,98 @@ func TestDriverInfo(t *testing.T) {
 				"ibmc_password":  "",
 				"ibmc_username":  "",
 				"ibmc_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo4",
+			input:    "ilo4://192.168.122.1",
+			expects: map[string]interface{}{
+				"ilo_address":   "192.168.122.1",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo4 port",
+			input:    "ilo4://192.168.122.1:8080",
+			expects: map[string]interface{}{
+				"ilo_address":   "192.168.122.1",
+				"client_port":   "8080",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo4 ipv6",
+			input:    "ilo4://[fe80::fc33:62ff:fe83:8a76]",
+			expects: map[string]interface{}{
+				"ilo_address":   "fe80::fc33:62ff:fe83:8a76",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo4 ipv6 port",
+			input:    "ilo4://[fe80::fc33:62ff:fe83:8a76]:8080",
+			expects: map[string]interface{}{
+				"ilo_address":   "fe80::fc33:62ff:fe83:8a76",
+				"client_port":   "8080",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo5",
+			input:    "ilo5://192.168.122.1",
+			expects: map[string]interface{}{
+				"ilo_address":   "192.168.122.1",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo5 port",
+			input:    "ilo5://192.168.122.1:8080",
+			expects: map[string]interface{}{
+				"ilo_address":   "192.168.122.1",
+				"client_port":   "8080",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo5 ipv6",
+			input:    "ilo5://[fe80::fc33:62ff:fe83:8a76]",
+			expects: map[string]interface{}{
+				"ilo_address":   "fe80::fc33:62ff:fe83:8a76",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo5 ipv6 port",
+			input:    "ilo5://[fe80::fc33:62ff:fe83:8a76]:8080",
+			expects: map[string]interface{}{
+				"ilo_address":   "fe80::fc33:62ff:fe83:8a76",
+				"client_port":   "8080",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
 			},
 		},
 	} {

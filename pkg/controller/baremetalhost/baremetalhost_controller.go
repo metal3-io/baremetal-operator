@@ -41,7 +41,6 @@ import (
 
 const (
 	hostErrorRetryDelay    = time.Second * 10
-	pauseRetryDelay        = time.Second * 30
 	unmanagedRetryDelay    = time.Minute * 10
 	rebootAnnotationPrefix = "reboot.metal3.io"
 )
@@ -173,6 +172,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		}
 	}()
 
+	reqLogger := log.WithValues("Request.Namespace",
+		request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling BareMetalHost")
+
 	// Fetch the BareMetalHost
 	host := &metal3v1alpha1.BareMetalHost{}
 	err = r.client.Get(context.TODO(), request.NamespacedName, host)
@@ -192,13 +195,10 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	annotations := host.GetAnnotations()
 	if annotations != nil {
 		if _, ok := annotations[metal3v1alpha1.PausedAnnotation]; ok {
-			return reconcile.Result{Requeue: true, RequeueAfter: pauseRetryDelay}, nil
+			reqLogger.Info("host is paused, no work to do")
+			return reconcile.Result{Requeue: false}, nil
 		}
 	}
-
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling BareMetalHost")
 
 	// Check if Status is empty and status annotation is present
 	// Manually restore data.
@@ -307,12 +307,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
 			"provisioning state", host.Status.Provisioning.State)
-		err := r.saveHostStatus(host)
+		err = r.saveHostStatus(host)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", initialState))
 		}
-		info.log.Info("Updated Status")
 
 		for _, cb := range info.postSaveCallbacks {
 			cb()
@@ -368,8 +367,6 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 		changed, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
-		} else if !changed {
-			return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
 		}
 		if changed {
 			// Only publish the event if we do not have an error
@@ -386,16 +383,14 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 	case *EmptyBMCAddressError, *EmptyBMCSecretError,
 		*bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
 		credentialsInvalid.Inc()
-		changed, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
+		_, saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
 			return reconcile.Result{Requeue: true}, saveErr
-		} else if !changed {
-			return reconcile.Result{}, nil
 		}
 		// Only publish the event if we do not have an error
-		// after saving so that we only publish one time. Requeue immediately to save the status
+		// after saving so that we only publish one time.
 		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, nil
 	default:
 		unhandledCredentialsError.Inc()
 		return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
@@ -715,7 +710,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	// a delay.
 	steadyStateResult := actionContinue{time.Second * 60}
 	if info.host.Status.PoweredOn == desiredPowerOnState {
-		return steadyStateResult
+		return actionContinueNoWrite{steadyStateResult}
 	}
 
 	info.log.Info("power state change needed",
@@ -880,7 +875,6 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 			"adding error message",
 			"message", message,
 		)
-		// We might need to requeue if we failed to update the status
 		err = r.saveHostStatus(host)
 		if err != nil {
 			err = errors.Wrap(err, "failed to update error message")

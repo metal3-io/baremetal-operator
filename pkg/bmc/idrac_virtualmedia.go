@@ -7,49 +7,38 @@ import (
 
 func init() {
 	schemes := []string{"http", "https"}
-	registerFactory("redfish", newRedfishAccessDetails, schemes)
-	registerFactory("ilo5-redfish", newRedfishAccessDetails, schemes)
+	registerFactory("idrac-virtualmedia", newRedfishiDracVirtualMediaAccessDetails, schemes)
 }
 
-func redfishDetails(parsedURL *url.URL, disableCertificateVerification bool) *redfishAccessDetails {
-	return &redfishAccessDetails{
+func newRedfishiDracVirtualMediaAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	return &redfishiDracVirtualMediaAccessDetails{
 		bmcType:                        parsedURL.Scheme,
 		host:                           parsedURL.Host,
 		path:                           parsedURL.Path,
 		disableCertificateVerification: disableCertificateVerification,
-	}
+	}, nil
 }
 
-func newRedfishAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
-	return redfishDetails(parsedURL, disableCertificateVerification), nil
-}
-
-type redfishAccessDetails struct {
+type redfishiDracVirtualMediaAccessDetails struct {
 	bmcType                        string
 	host                           string
 	path                           string
 	disableCertificateVerification bool
 }
 
-const redfishDefaultScheme = "https"
-
-func (a *redfishAccessDetails) Type() string {
+func (a *redfishiDracVirtualMediaAccessDetails) Type() string {
 	return a.bmcType
 }
 
 // NeedsMAC returns true when the host is going to need a separate
 // port created rather than having it discovered.
-func (a *redfishAccessDetails) NeedsMAC() bool {
+func (a *redfishiDracVirtualMediaAccessDetails) NeedsMAC() bool {
 	// For the inspection to work, we need a MAC address
 	// https://github.com/metal3-io/baremetal-operator/pull/284#discussion_r317579040
 	return true
 }
 
-func (a *redfishAccessDetails) Driver() string {
-	return "redfish"
-}
-
-func (a *redfishAccessDetails) DisableCertificateVerification() bool {
+func (a *redfishiDracVirtualMediaAccessDetails) DisableCertificateVerification() bool {
 	return a.disableCertificateVerification
 }
 
@@ -58,7 +47,7 @@ func (a *redfishAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+func (a *redfishiDracVirtualMediaAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
 	redfishAddress := []string{}
 	schemes := strings.Split(a.bmcType, "+")
 	if len(schemes) > 1 {
@@ -83,23 +72,28 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 	return result
 }
 
-// That can be either pxe or redfish-virtual-media
-func (a *redfishAccessDetails) BootInterface() string {
-	return "ipxe"
+// iDrac Virtual Media Overrides
+
+func (a *redfishiDracVirtualMediaAccessDetails) Driver() string {
+	return "idrac"
 }
 
-func (a *redfishAccessDetails) ManagementInterface() string {
-	return ""
+func (a *redfishiDracVirtualMediaAccessDetails) BootInterface() string {
+	return "idrac-redfish-virtual-media"
 }
 
-func (a *redfishAccessDetails) PowerInterface() string {
-	return ""
+func (a *redfishiDracVirtualMediaAccessDetails) ManagementInterface() string {
+	return "idrac-redfish"
 }
 
-func (a *redfishAccessDetails) RAIDInterface() string {
-	return ""
+func (a *redfishiDracVirtualMediaAccessDetails) PowerInterface() string {
+	return "idrac-redfish"
 }
 
-func (a *redfishAccessDetails) VendorInterface() string {
-	return ""
+func (a *redfishiDracVirtualMediaAccessDetails) RAIDInterface() string {
+	return "no-raid"
+}
+
+func (a *redfishiDracVirtualMediaAccessDetails) VendorInterface() string {
+	return "no-vendor"
 }

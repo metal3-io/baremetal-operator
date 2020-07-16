@@ -290,8 +290,11 @@ func TestPause(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if result.Requeue && result.RequeueAfter == pauseRetryDelay &&
-				len(host.Finalizers) == 0 {
+			// Because the host is created with the annotation, we
+			// expect it to never have any reconciling done at all, so
+			// it has no finalizer.
+			t.Logf("requeue: %v  finalizers: %v", result.Requeue, host.Finalizers)
+			if !result.Requeue && len(host.Finalizers) == 0 {
 				return true
 			}
 			return false

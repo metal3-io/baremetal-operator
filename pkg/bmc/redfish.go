@@ -8,9 +8,7 @@ import (
 func init() {
 	schemes := []string{"http", "https"}
 	registerFactory("redfish", newRedfishAccessDetails, schemes)
-	registerFactory("redfish-virtualmedia", newRedfishVirtualMediaAccessDetails, schemes)
 	registerFactory("ilo5-redfish", newRedfishAccessDetails, schemes)
-	registerFactory("ilo5-virtualmedia", newRedfishVirtualMediaAccessDetails, schemes)
 	registerFactory("idrac-virtualmedia", newRedfishiDracVirtualMediaAccessDetails, schemes)
 }
 
@@ -27,12 +25,6 @@ func newRedfishAccessDetails(parsedURL *url.URL, disableCertificateVerification 
 	return redfishDetails(parsedURL, disableCertificateVerification), nil
 }
 
-func newRedfishVirtualMediaAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
-	return &redfishVirtualMediaAccessDetails{
-		*redfishDetails(parsedURL, disableCertificateVerification),
-	}, nil
-}
-
 func newRedfishiDracVirtualMediaAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
 	return &redfishiDracVirtualMediaAccessDetails{
 		*redfishDetails(parsedURL, disableCertificateVerification),
@@ -44,10 +36,6 @@ type redfishAccessDetails struct {
 	host                           string
 	path                           string
 	disableCertificateVerification bool
-}
-
-type redfishVirtualMediaAccessDetails struct {
-	redfishAccessDetails
 }
 
 type redfishiDracVirtualMediaAccessDetails struct {
@@ -125,12 +113,6 @@ func (a *redfishAccessDetails) RAIDInterface() string {
 
 func (a *redfishAccessDetails) VendorInterface() string {
 	return ""
-}
-
-// Virtual Media Overrides
-
-func (a *redfishVirtualMediaAccessDetails) BootInterface() string {
-	return "redfish-virtual-media"
 }
 
 // iDrac Virtual Media Overrides

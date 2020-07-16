@@ -42,6 +42,7 @@ spec:
     - bmhost
     singular: baremetalhost
   scope: Namespaced
+  preserveUnknownFields: false
   subresources:
     status: {}
   validation:

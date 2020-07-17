@@ -102,13 +102,20 @@ mainly, but not only, provisioning details.
 
   | **hardwareProfile** | **Root Device** |
   |---------------------|-----------------|
-  | `unknown`           | /dev/sda        |
+  | `unknown`           | *none*          |
   | `libvirt`           | /dev/vda        |
   | `dell`              | HCTL: 0:0:0:0   |
   | `dell-raid`         | HCTL: 0:2:0:0   |
   | `openstack`         | /dev/vdb        |
 
   **NOTE:** These are subject to change.
+
+  When the hardware profile is not specified, and the `unknown`
+  profile is used, no root device hints are provided to the
+  provisioning tool. In that case, the tool tries to use the first
+  drive with more than 4GB of space. The actual device selected may
+  vary between hosts. For more deterministic behavior, use the
+  *rootDeviceHints* field to control the outcome.
 
 * *rootDeviceHints* -- Guidance for how to choose the device to
   receive the image being provisioned. The storage devices are

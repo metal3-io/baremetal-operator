@@ -1141,10 +1141,32 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 					HardwareProfile: "unknown",
 				},
 			},
-			Dirty: true,
-			Expected: &metal3v1alpha1.RootDeviceHints{
-				DeviceName: "/dev/sda",
+			Dirty:    false,
+			Expected: nil,
+		},
+
+		{
+			Scenario: "clear profile hints",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					HardwareProfile: "unknown",
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "unknown",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+							DeviceName: "/dev/vda",
+						},
+					},
+				},
 			},
+			Dirty:    true,
+			Expected: nil,
 		},
 	}
 

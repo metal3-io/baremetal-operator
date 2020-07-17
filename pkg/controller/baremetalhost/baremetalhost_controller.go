@@ -827,11 +827,21 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 		if err != nil {
 			return false, errors.Wrap(err, "Could not update root device hints")
 		}
-		hintSource = &hwProf.RootDeviceHints
+		hintSource = hwProf.RootDeviceHints // might be nil if the profile provides no hints
 	}
-	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
+
+	if hintSource == nil {
+		if host.Status.Provisioning.RootDeviceHints != nil {
+			dirty = true
+		}
+	} else {
+		if host.Status.Provisioning.RootDeviceHints == nil || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
+			dirty = true
+		}
+	}
+
+	if dirty {
 		host.Status.Provisioning.RootDeviceHints = hintSource
-		dirty = true
 	}
 	return
 }

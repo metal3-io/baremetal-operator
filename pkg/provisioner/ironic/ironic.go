@@ -9,9 +9,11 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
+	httpbasicintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/httpbasic"
 	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
@@ -38,6 +40,13 @@ var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
 var inspectorEndpoint string
+var authStrategy string
+
+// Variables for http_basic
+var ironicUser string
+var ironicPassword string
+var inspectorUser string
+var inspectorPassword string
 
 const (
 	// See nodes.Node.PowerState for details
@@ -50,6 +59,15 @@ const (
 func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
+	authStrategy = os.Getenv("IRONIC_AUTH_STRATEGY")
+	if authStrategy == "" {
+		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_AUTH_STRATEGY variable set\n")
+		os.Exit(1)
+	}
+	if authStrategy != "noauth" && authStrategy != "http_basic" {
+		fmt.Fprintf(os.Stderr, "Cannot start: IRONIC_AUTH_STRATEGY does not have a valid value. Set to noauth or http_basic\n")
+		os.Exit(1)
+	}
 	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
 	if deployKernelURL == "" {
 		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_KERNEL_URL variable set\n")
@@ -69,6 +87,29 @@ func init() {
 	if inspectorEndpoint == "" {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
 		os.Exit(1)
+	}
+
+	if authStrategy == "http_basic" {
+		ironicUser = os.Getenv("IRONIC_HTTP_BASIC_USERNAME")
+		ironicPassword = os.Getenv("IRONIC_HTTP_BASIC_PASSWORD")
+		inspectorUser = os.Getenv("INSPECTOR_HTTP_BASIC_USERNAME")
+		inspectorPassword = os.Getenv("INSPECTOR_HTTP_BASIC_PASSWORD")
+		if ironicUser == "" {
+			fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_HTTP_BASIC_USERNAME variable set")
+			os.Exit(1)
+		}
+		if ironicPassword == "" {
+			fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_HTTP_BASIC_PASSWORD variable set")
+			os.Exit(1)
+		}
+		if inspectorUser == "" {
+			fmt.Fprintf(os.Stderr, "Cannot start: No INSPECTOR_HTTP_BASIC_USERNAME variable set")
+			os.Exit(1)
+		}
+		if inspectorPassword == "" {
+			fmt.Fprintf(os.Stderr, "Cannot start: No INSPECTOR_HTTP_BASIC_PASSWORD variable set")
+			os.Exit(1)
+		}
 	}
 }
 
@@ -107,36 +148,69 @@ func LogStartup() {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
-	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
-		IronicEndpoint: ironicEndpoint,
-	})
-	if err != nil {
-		return nil, err
+	var clientIronic *gophercloud.ServiceClient
+	var clientInspector *gophercloud.ServiceClient
+
+	if authStrategy == "http_basic" {
+		ironic, err := httpbasic.NewBareMetalHTTPBasic(httpbasic.EndpointOpts{
+			IronicEndpoint:     ironicEndpoint,
+			IronicUser:         ironicUser,
+			IronicUserPassword: ironicPassword,
+		})
+		if err != nil {
+			return nil, err
+		}
+		clientIronic = ironic
+
+		inspector, err := httpbasicintrospection.NewBareMetalIntrospectionHTTPBasic(httpbasicintrospection.EndpointOpts{
+			IronicInspectorEndpoint:     inspectorEndpoint,
+			IronicInspectorUser:         inspectorUser,
+			IronicInspectorUserPassword: inspectorPassword,
+		})
+		if err != nil {
+			return nil, err
+		}
+		clientInspector = inspector
+
+	} else {
+		ironic, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
+			IronicEndpoint: ironicEndpoint,
+		})
+		if err != nil {
+			return nil, err
+		}
+		clientIronic = ironic
+
+		inspector, err := noauthintrospection.NewBareMetalIntrospectionNoAuth(
+			noauthintrospection.EndpointOpts{
+				IronicInspectorEndpoint: inspectorEndpoint,
+			})
+		if err != nil {
+			return nil, err
+		}
+		clientInspector = inspector
+
 	}
+
 	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
-	inspector, err := noauthintrospection.NewBareMetalIntrospectionNoAuth(
-		noauthintrospection.EndpointOpts{
-			IronicInspectorEndpoint: inspectorEndpoint,
-		})
-	if err != nil {
-		return nil, err
-	}
+
 	// Ensure we have a microversion high enough to get the features
 	// we need.
-	client.Microversion = "1.56"
+	clientIronic.Microversion = "1.56"
 	p := &ironicProvisioner{
 		host:      host,
 		status:    &(host.Status.Provisioning),
 		bmcAccess: bmcAccess,
 		bmcCreds:  bmcCreds,
-		client:    client,
-		inspector: inspector,
+		client:    clientIronic,
+		inspector: clientInspector,
 		log:       log.WithValues("host", host.Name),
 		publisher: publisher,
 	}
+
 	return p, nil
 }
 

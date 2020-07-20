@@ -92,7 +92,7 @@ spec:
                 type: string
               bootMode:
                 description: Select the method of initializing the hardware during
-                  boot to override the value based on the BMC driver.
+                  boot. Defaults to UEFI.
                 enum:
                 - UEFI
                 - legacy

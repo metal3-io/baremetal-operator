@@ -47,6 +47,11 @@ const (
 	powerNone    = "None"
 )
 
+var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
+	metal3v1alpha1.UEFI:   "uefi",
+	metal3v1alpha1.Legacy: "bios",
+}
+
 func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
@@ -785,12 +790,33 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		},
 	)
 
+	// boot_mode
+	_, ok := ironicNode.InstanceInfo["deploy_boot_mode"]
+	if !ok {
+		op = nodes.AddOp
+	} else {
+		op = nodes.ReplaceOp
+	}
+	p.log.Info("setting boot_mode",
+		"operation", op,
+		"instance_info", ironicNode.InstanceInfo,
+		"bootMode", p.host.Status.Provisioning.BootMode,
+	)
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/deploy_boot_mode",
+			Value: bootModeCapabilities[p.host.Status.Provisioning.BootMode],
+		},
+	)
+
 	return updates, nil
 }
 
 func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
-	p.log.Info("starting provisioning")
+	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
 	updates, err := p.getUpdateOptsForNode(ironicNode)
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()

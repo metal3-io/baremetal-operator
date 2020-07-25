@@ -545,6 +545,9 @@ type BareMetalHostStatus struct {
 	// OperationHistory holds information about operations performed
 	// on this host.
 	OperationHistory OperationHistory `json:"operationHistory"`
+
+	// ErrorCount records how many times the host has encoutered an error since the last successful operation
+	ErrorCount int `json:"errorCount"`
 }
 
 // ProvisionStatus holds the state information for a single target.
@@ -611,22 +614,12 @@ func (host *BareMetalHost) Available() bool {
 }
 
 // SetErrorMessage updates the ErrorMessage in the host Status struct
-// when necessary and returns true when a change is made or false when
-// no change is made.
-func (host *BareMetalHost) SetErrorMessage(errType ErrorType, message string) (dirty bool) {
-	if host.Status.OperationalStatus != OperationalStatusError {
-		host.Status.OperationalStatus = OperationalStatusError
-		dirty = true
-	}
-	if host.Status.ErrorType != errType {
-		host.Status.ErrorType = errType
-		dirty = true
-	}
-	if host.Status.ErrorMessage != message {
-		host.Status.ErrorMessage = message
-		dirty = true
-	}
-	return dirty
+// and increases the ErrorCount
+func (host *BareMetalHost) SetErrorMessage(errType ErrorType, message string) {
+	host.Status.OperationalStatus = OperationalStatusError
+	host.Status.ErrorType = errType
+	host.Status.ErrorMessage = message
+	host.Status.ErrorCount++
 }
 
 // ClearError removes any existing error message.
@@ -639,6 +632,10 @@ func (host *BareMetalHost) ClearError() (dirty bool) {
 	}
 	if host.Status.ErrorMessage != "" {
 		host.Status.ErrorMessage = ""
+		dirty = true
+	}
+	if host.Status.ErrorCount != 0 {
+		host.Status.ErrorCount = 0
 		dirty = true
 	}
 	return dirty

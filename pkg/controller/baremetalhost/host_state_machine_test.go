@@ -6,7 +6,14 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	corev1 "k8s.io/api/core/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
@@ -166,4 +173,214 @@ func TestProvisioningCancelled(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
+
+	tests := []struct {
+		Scenario string
+		Host     *metal3v1alpha1.BareMetalHost
+	}{
+		{
+			Scenario: "registering",
+			Host:     host(metal3v1alpha1.StateRegistering).build(),
+		},
+		{
+			Scenario: "inspecting",
+			Host:     host(metal3v1alpha1.StateInspecting).build(),
+		},
+		{
+			Scenario: "ready",
+			Host:     host(metal3v1alpha1.StateReady).build(),
+		},
+		{
+			Scenario: "deprovisioning",
+			Host:     host(metal3v1alpha1.StateDeprovisioning).build(),
+		},
+		{
+			Scenario: "provisioning",
+			Host:     host(metal3v1alpha1.StateProvisioning).SetImageURL("imageSpecUrl").build(),
+		},
+		{
+			Scenario: "externallyProvisioned",
+			Host:     host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.Scenario, func(t *testing.T) {
+			prov := &mockProvisioner{}
+			hsm := newHostStateMachine(tt.Host, &ReconcileBareMetalHost{}, prov)
+			info := makeDefaultReconcileInfo(tt.Host)
+
+			prov.setNextError("some error")
+			result := hsm.ReconcileState(info)
+
+			assert.Greater(t, tt.Host.Status.ErrorCount, 0)
+			assert.True(t, result.Dirty())
+		})
+	}
+}
+
+func TestErrorCountCleared(t *testing.T) {
+
+	tests := []struct {
+		Scenario string
+		Host     *metal3v1alpha1.BareMetalHost
+	}{
+		{
+			Scenario: "registering",
+			Host:     host(metal3v1alpha1.StateRegistering).build(),
+		},
+		{
+			Scenario: "inspecting",
+			Host:     host(metal3v1alpha1.StateInspecting).build(),
+		},
+		{
+			Scenario: "ready",
+			Host:     host(metal3v1alpha1.StateReady).build(),
+		},
+		{
+			Scenario: "deprovisioning",
+			Host:     host(metal3v1alpha1.StateDeprovisioning).build(),
+		},
+		{
+			Scenario: "provisioning",
+			Host:     host(metal3v1alpha1.StateProvisioning).SetImageURL("imageSpecUrl").build(),
+		},
+		{
+			Scenario: "externallyProvisioned",
+			Host:     host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.Scenario, func(t *testing.T) {
+			prov := &mockProvisioner{}
+			hsm := newHostStateMachine(tt.Host, &ReconcileBareMetalHost{}, prov)
+			info := makeDefaultReconcileInfo(tt.Host)
+
+			info.host.Status.ErrorCount = 1
+			prov.setNextResult(true)
+			result := hsm.ReconcileState(info)
+
+			assert.Equal(t, tt.Host.Status.ErrorCount, 0)
+			assert.True(t, result.Dirty())
+		})
+	}
+}
+
+type hostBuilder struct {
+	metal3v1alpha1.BareMetalHost
+}
+
+func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
+	return &hostBuilder{
+		metal3v1alpha1.BareMetalHost{
+			Status: metal3v1alpha1.BareMetalHostStatus{
+				Provisioning: metal3v1alpha1.ProvisionStatus{
+					State:    state,
+					BootMode: v1alpha1.DefaultBootMode,
+				},
+				GoodCredentials: metal3v1alpha1.CredentialsStatus{
+					Reference: &corev1.SecretReference{
+						Name:      "secretRefName",
+						Namespace: "secretNs",
+					},
+					Version: "100",
+				},
+			},
+		},
+	}
+}
+
+func (hb *hostBuilder) build() *metal3v1alpha1.BareMetalHost {
+	return &hb.BareMetalHost
+}
+
+func (hb *hostBuilder) SetTriedCredentials() *hostBuilder {
+	hb.Status.TriedCredentials = hb.Status.GoodCredentials
+	return hb
+}
+
+func (hb *hostBuilder) SetExternallyProvisioned() *hostBuilder {
+	hb.Spec.ExternallyProvisioned = true
+	return hb
+}
+
+func (hb *hostBuilder) SetImageURL(url string) *hostBuilder {
+	hb.Spec.Image = &metal3v1alpha1.Image{
+		URL: url,
+	}
+	return hb
+}
+
+func makeDefaultReconcileInfo(host *metal3v1alpha1.BareMetalHost) *reconcileInfo {
+	return &reconcileInfo{
+		log:     logf.Log.WithName("test"),
+		host:    host,
+		request: reconcile.Request{},
+		bmcCredsSecret: &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            host.Status.GoodCredentials.Reference.Name,
+				Namespace:       host.Status.GoodCredentials.Reference.Namespace,
+				ResourceVersion: host.Status.GoodCredentials.Version,
+			},
+		},
+	}
+}
+
+type mockProvisioner struct {
+	nextResult provisioner.Result
+}
+
+func (m *mockProvisioner) setNextError(msg string) {
+	m.nextResult = provisioner.Result{
+		ErrorMessage: msg,
+	}
+}
+
+func (m *mockProvisioner) setNextResult(dirty bool) {
+	m.nextResult = provisioner.Result{
+		Dirty:        dirty,
+		ErrorMessage: "",
+	}
+}
+
+func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+	return m.nextResult, details, err
+}
+
+func (m *mockProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) Adopt() (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) Provision(configData provisioner.HostConfigData) (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) Deprovision() (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) Delete() (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) PowerOn() (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) PowerOff() (result provisioner.Result, err error) {
+	return m.nextResult, err
+}
+
+func (m *mockProvisioner) IsReady() (result bool, err error) {
+	return
 }

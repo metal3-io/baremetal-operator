@@ -1,11 +1,21 @@
 package baremetalhost
 
 import (
+	"math"
+	"math/rand"
+
 	metal3 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const maxBackOffCount = 10
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 // actionResult is an interface that encapsulates the result of a Reconcile
 // call, as returned by the action corresponding to the current state.
@@ -90,11 +100,26 @@ func (r actionError) Dirty() bool {
 // actionFailed is a result indicating that the current action has failed,
 // and that the resource should be marked as in error.
 type actionFailed struct {
-	dirty     bool
-	ErrorType metal3.ErrorType
+	dirty      bool
+	ErrorType  metal3.ErrorType
+	errorCount int
+}
+
+func calculateBackoff(errorCount int) time.Duration {
+
+	if errorCount > maxBackOffCount {
+		errorCount = maxBackOffCount
+	}
+
+	base := math.Exp2(float64(errorCount))
+	/* #nosec */
+	backOff := base - (rand.Float64() * base * 0.5)
+	backOffDuration := time.Minute * time.Duration(backOff)
+	return backOffDuration
 }
 
 func (r actionFailed) Result() (result reconcile.Result, err error) {
+	result.RequeueAfter = calculateBackoff(r.errorCount)
 	return
 }
 

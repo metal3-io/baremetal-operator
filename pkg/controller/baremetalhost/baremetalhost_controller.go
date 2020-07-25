@@ -347,7 +347,8 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 
 		info.publishEvent(eventType, errorMessage)
 	}
-	return actionFailed{dirty: dirty, ErrorType: errorType}
+	errorCount := info.host.Status.ErrorCount
+	return actionFailed{dirty: dirty, ErrorType: errorType, errorCount: errorCount}
 }
 
 func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (reconcile.Result, error) {
@@ -495,6 +496,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 	info.log.Info("response from validate", "provResult", provResult)
 
 	if provResult.ErrorMessage != "" {
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 
@@ -532,6 +534,7 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 	}
 
 	if provResult.ErrorMessage != "" {
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
 	}
 
@@ -615,6 +618,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling provisioning error in controller")
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.ProvisioningError, provResult.ErrorMessage)
 	}
 
@@ -653,6 +657,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	}
 
 	if provResult.ErrorMessage != "" {
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.ProvisioningError, provResult.ErrorMessage)
 	}
 
@@ -687,6 +692,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	}
 
 	if provResult.ErrorMessage != "" {
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
 	}
 
@@ -738,6 +744,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 	}
 
 	if provResult.ErrorMessage != "" {
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
 	}
 
@@ -774,6 +781,7 @@ func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provis
 		return actionError{err}
 	}
 	if provResult.ErrorMessage != "" {
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
@@ -800,6 +808,7 @@ func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner,
 		return actionError{err}
 	}
 	if provResult.ErrorMessage != "" {
+		info.host.IncrementErrorCount()
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {

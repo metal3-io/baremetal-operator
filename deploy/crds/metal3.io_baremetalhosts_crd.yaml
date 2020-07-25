@@ -297,6 +297,10 @@ spec:
         status:
           description: BareMetalHostStatus defines the observed state of BareMetalHost
           properties:
+            errorCount:
+              description: ErrorCount records how many times the host has encoutered
+                an error
+              type: integer
             errorMessage:
               description: the last error message reported by the provisioning subsystem
               type: string
@@ -689,6 +693,7 @@ spec:
                   type: string
               type: object
           required:
+          - errorCount
           - errorMessage
           - hardwareProfile
           - operationHistory

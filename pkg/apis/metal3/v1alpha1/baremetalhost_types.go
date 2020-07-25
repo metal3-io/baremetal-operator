@@ -529,6 +529,9 @@ type BareMetalHostStatus struct {
 	// OperationHistory holds information about operations performed
 	// on this host.
 	OperationHistory OperationHistory `json:"operationHistory"`
+
+	// ErrorCount records how many times the host has encoutered an error
+	ErrorCount int `json:"errorCount"`
 }
 
 // ProvisionStatus holds the state information for a single target.
@@ -779,6 +782,11 @@ func (host *BareMetalHost) UpdateTriedCredentials(currentSecret corev1.Secret) {
 		Name:      currentSecret.ObjectMeta.Name,
 		Namespace: currentSecret.ObjectMeta.Namespace,
 	}
+}
+
+// IncrementErrorCount increments the error number
+func (host *BareMetalHost) IncrementErrorCount() {
+	host.Status.ErrorCount++
 }
 
 // NewEvent creates a new event associated with the object and ready

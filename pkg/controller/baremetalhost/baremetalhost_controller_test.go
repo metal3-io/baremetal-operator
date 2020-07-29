@@ -1159,3 +1159,84 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdateBootMode verifies that we apply the correct boot mode
+func TestUpdateBootMode(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		Host     metal3v1alpha1.BareMetalHost
+		Dirty    bool
+		Expected metal3v1alpha1.BootMode
+	}{
+		{
+			Scenario: "set default",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "unknown",
+				},
+			},
+			Dirty:    true,
+			Expected: metal3v1alpha1.DefaultBootMode,
+		},
+		{
+			Scenario: "user value",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					BootMode: metal3v1alpha1.Legacy,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "unknown",
+				},
+			},
+			Dirty:    true,
+			Expected: metal3v1alpha1.Legacy,
+		},
+		{
+			Scenario: "already set",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					BootMode:        metal3v1alpha1.Legacy,
+					HardwareProfile: "libvirt",
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						BootMode: metal3v1alpha1.Legacy,
+						RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+							DeviceName: "/dev/vda",
+						},
+					},
+				},
+			},
+			Dirty:    false,
+			Expected: metal3v1alpha1.Legacy,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			dirty, err := saveHostProvisioningSettings(&tc.Host)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
+			assert.Equal(t, tc.Expected, tc.Host.Status.Provisioning.BootMode)
+		})
+	}
+}

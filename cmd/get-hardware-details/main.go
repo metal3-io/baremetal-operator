@@ -44,24 +44,17 @@ func main() {
 }
 
 func getOptions() (o options) {
-	o.AuthConfig.Type = clients.AuthType(os.Getenv("IRONIC_AUTH_STRATEGY"))
-
-	switch o.AuthConfig.Type {
-	case clients.HTTPBasicAuth:
-		if len(os.Args) != 5 {
-			fmt.Println("Usage: get-hardware-details <inspector URI> <inspector User> <inspector Password> <node UUID>")
-			os.Exit(1)
-		}
-		o.AuthConfig.Username = os.Args[2]
-		o.AuthConfig.Password = os.Args[3]
-		o.NodeID = os.Args[4]
-	default:
-		if len(os.Args) != 3 {
-			fmt.Println("Usage: get-hardware-details <inspector URI> <node UUID>")
-			os.Exit(1)
-		}
-		o.NodeID = os.Args[2]
+	if len(os.Args) != 3 {
+		fmt.Println("Usage: get-hardware-details <inspector URI> <node UUID>")
+		os.Exit(1)
 	}
-	o.Endpoint = os.Args[1]
+
+	var err error
+	o.Endpoint, o.AuthConfig, err = clients.ConfigFromEndpointURL(os.Args[1])
+	if err != nil {
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(1)
+	}
+	o.NodeID = os.Args[2]
 	return
 }

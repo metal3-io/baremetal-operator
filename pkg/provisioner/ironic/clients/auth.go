@@ -3,6 +3,7 @@ package clients
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -76,5 +77,30 @@ func LoadAuth() (ironicAuth, inspectorAuth AuthConfig, err error) {
 		return
 	}
 	inspectorAuth, err = load("ironic-inspector")
+	return
+}
+
+// ConfigFromEndpointURL returns an endpoint and an auth config from an
+// endpoint URL that may contain HTTP basic auth credentials.
+func ConfigFromEndpointURL(endpointURL string) (endpoint string, auth AuthConfig, err error) {
+	parsedURL, err := url.Parse(endpointURL)
+	if err != nil {
+		return
+	}
+
+	if parsedURL.User != nil {
+		var hasPasswd bool
+		auth.Type = HTTPBasicAuth
+		auth.Username = parsedURL.User.Username()
+		auth.Password, hasPasswd = parsedURL.User.Password()
+		if !hasPasswd {
+			err = fmt.Errorf("No password supplied for HTTP Basic Auth")
+		}
+		parsedURL.User = nil
+	} else {
+		auth.Type = NoAuth
+	}
+
+	endpoint = parsedURL.String()
 	return
 }

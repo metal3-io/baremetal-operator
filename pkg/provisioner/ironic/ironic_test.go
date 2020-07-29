@@ -136,7 +136,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	prov, err := newProvisioner(makeHost(), bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	patches, err := prov.getUpdateOptsForNode(ironicNode, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	patches, err := prov.getUpdateOptsForNode(ironicNode, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	patches, err := prov.getUpdateOptsForNode(ironicNode, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +468,7 @@ func TestGetUpdateOptsForNodeBootMode(t *testing.T) {
 			}
 
 			prov, err := newProvisioner(&host, bmc.Credentials{}, eventPublisher)
-			patches, err := prov.getUpdateOptsForNode(&tc.Node)
+			patches, err := prov.getUpdateOptsForNode(&tc.Node, true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -506,7 +506,8 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
 			Image: &metal3v1alpha1.Image{
-				URL: "not-empty",
+				URL:      "not-empty",
+				Checksum: "not-empty",
 			},
 			Online:          true,
 			HardwareProfile: "libvirt",

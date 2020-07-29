@@ -206,6 +206,11 @@ func (hsm *hostStateMachine) handleRegistrationError(info *reconcileInfo) action
 		hsm.NextState = metal3v1alpha1.StateRegistering
 		return actionComplete{}
 	}
+	if hsm.Host.Spec.Image != nil {
+		info.log.Info("Image is set; will retry registration")
+		hsm.NextState = metal3v1alpha1.StateRegistering
+		return actionComplete{}
+	}
 	return actionFailed{}
 }
 

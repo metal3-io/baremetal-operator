@@ -589,15 +589,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	return result, nil
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
-
-	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
-
-	if err != nil {
-		return updates, errors.Wrap(err,
-			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
-				p.host.HardwareProfile()))
-	}
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, forProvisioning bool) (updates nodes.UpdateOpts, err error) {
 
 	// image_source
 	var op nodes.UpdateOp
@@ -617,7 +609,10 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		},
 	)
 
-	checksum, checksumType, _ := p.host.GetImageChecksum()
+	checksum, checksumType, imageOK := p.host.GetImageChecksum()
+	if !imageOK {
+		return updates, fmt.Errorf("missing or invalid image details")
+	}
 
 	// image_os_hash_algo
 	if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
@@ -697,6 +692,18 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 			Value: string(p.host.ObjectMeta.UID),
 		},
 	)
+
+	if !forProvisioning {
+		return updates, nil
+	}
+
+	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+
+	if err != nil {
+		return updates, errors.Wrap(err,
+			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
+				p.host.HardwareProfile()))
+	}
 
 	// root_gb
 	//
@@ -786,8 +793,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 	)
 
 	// boot_mode
-	_, ok := ironicNode.InstanceInfo["deploy_boot_mode"]
-	if !ok {
+	if _, ok := ironicNode.InstanceInfo["deploy_boot_mode"]; !ok {
 		op = nodes.AddOp
 	} else {
 		op = nodes.ReplaceOp
@@ -813,7 +819,7 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	updates, err := p.getUpdateOptsForNode(ironicNode)
+	updates, err := p.getUpdateOptsForNode(ironicNode, true)
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 	switch err.(type) {
 	case nil:
@@ -887,6 +893,31 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		err = fmt.Errorf("Invalid state for adopt: %s",
 			ironicNode.ProvisionState)
 	case nodes.Manageable:
+		if p.host.Spec.Image == nil {
+			// Without an image, adoption will fail. We can stop and
+			// wait for the image to be set, but we need to do that in
+			// a way that ensures we don't enter the states where we
+			// try to manage the host power status. Setting our own
+			// error message here avoids exposing the error message
+			// from Ironic that talks about fields in Ironic with
+			// names the user may not recognize.
+			result.ErrorMessage = "Image details missing for externally provisioned server."
+			return
+		}
+
+		updates, err := p.getUpdateOptsForNode(ironicNode, false)
+		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+		switch err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not update host settings in ironic while adopting, busy")
+			result.Dirty = true
+			return result, nil
+		default:
+			return result, errors.Wrap(err,
+				"failed to update host settings in ironic while adopting")
+		}
+
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{

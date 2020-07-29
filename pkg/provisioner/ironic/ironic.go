@@ -37,6 +37,8 @@ var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
 var inspectorEndpoint string
+var ironicAuth clients.AuthConfig
+var inspectorAuth clients.AuthConfig
 
 const (
 	// See nodes.Node.PowerState for details
@@ -50,7 +52,8 @@ func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
 
-	authErr := clients.LoadAuth()
+	var authErr error
+	ironicAuth, inspectorAuth, authErr = clients.LoadAuth()
 	if authErr != nil {
 		fmt.Fprintf(os.Stderr, "Cannot start: %s\n", authErr)
 		os.Exit(1)
@@ -104,7 +107,9 @@ type ironicProvisioner struct {
 func LogStartup() {
 	log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
+		"ironicAuthType", ironicAuth.Type,
 		"inspectorEndpoint", inspectorEndpoint,
+		"inspectorAuthType", inspectorAuth.Type,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
 	)
@@ -113,12 +118,12 @@ func LogStartup() {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
-	clientIronic, err := clients.IronicClient(ironicEndpoint)
+	clientIronic, err := clients.IronicClient(ironicEndpoint, ironicAuth)
 	if err != nil {
 		return nil, err
 	}
 
-	clientInspector, err := clients.InspectorClient(inspectorEndpoint)
+	clientInspector, err := clients.InspectorClient(inspectorEndpoint, inspectorAuth)
 	if err != nil {
 		return nil, err
 	}

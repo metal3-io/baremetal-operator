@@ -66,15 +66,13 @@ const (
 func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
-	authStrategy = AuthStrategy(os.Getenv("IRONIC_AUTH_STRATEGY"))
-	if authStrategy == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_AUTH_STRATEGY variable set\n")
+
+	authErr := loadAuth()
+	if authErr != nil {
+		fmt.Fprintf(os.Stderr, "Cannot start: %s\n", authErr)
 		os.Exit(1)
 	}
-	if authStrategy != NoAuth && authStrategy != HTTPBasicAuth {
-		fmt.Fprintf(os.Stderr, "Cannot start: IRONIC_AUTH_STRATEGY does not have a valid value. Set to noauth or http_basic\n")
-		os.Exit(1)
-	}
+
 	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
 	if deployKernelURL == "" {
 		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_KERNEL_URL variable set\n")
@@ -95,29 +93,35 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
 		os.Exit(1)
 	}
+}
 
-	if authStrategy == HTTPBasicAuth {
+func loadAuth() error {
+	authStrategy = AuthStrategy(os.Getenv("IRONIC_AUTH_STRATEGY"))
+	switch authStrategy {
+	case "":
+		return fmt.Errorf("No IRONIC_AUTH_STRATEGY variable set")
+	case NoAuth:
+	case HTTPBasicAuth:
 		ironicUser = os.Getenv("IRONIC_HTTP_BASIC_USERNAME")
 		ironicPassword = os.Getenv("IRONIC_HTTP_BASIC_PASSWORD")
 		inspectorUser = os.Getenv("INSPECTOR_HTTP_BASIC_USERNAME")
 		inspectorPassword = os.Getenv("INSPECTOR_HTTP_BASIC_PASSWORD")
 		if ironicUser == "" {
-			fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_HTTP_BASIC_USERNAME variable set")
-			os.Exit(1)
+			return fmt.Errorf("No IRONIC_HTTP_BASIC_USERNAME variable set")
 		}
 		if ironicPassword == "" {
-			fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_HTTP_BASIC_PASSWORD variable set")
-			os.Exit(1)
+			return fmt.Errorf("No IRONIC_HTTP_BASIC_PASSWORD variable set")
 		}
 		if inspectorUser == "" {
-			fmt.Fprintf(os.Stderr, "Cannot start: No INSPECTOR_HTTP_BASIC_USERNAME variable set")
-			os.Exit(1)
+			return fmt.Errorf("No INSPECTOR_HTTP_BASIC_USERNAME variable set")
 		}
 		if inspectorPassword == "" {
-			fmt.Fprintf(os.Stderr, "Cannot start: No INSPECTOR_HTTP_BASIC_PASSWORD variable set")
-			os.Exit(1)
+			return fmt.Errorf("No INSPECTOR_HTTP_BASIC_PASSWORD variable set")
 		}
+	default:
+		return fmt.Errorf("IRONIC_AUTH_STRATEGY does not have a valid value. Set to %s or %s", NoAuth, HTTPBasicAuth)
 	}
+	return nil
 }
 
 // Provisioner implements the provisioning.Provisioner interface

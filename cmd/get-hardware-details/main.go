@@ -7,52 +7,38 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/httpbasic"
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
 func main() {
-	authStrategy := os.Getenv("IRONIC_AUTH_STRATEGY")
-	if authStrategy == "http_basic" {
-		if len(os.Args) != 5 {
-			fmt.Println("Usage: get-hardware-details <inspector URI> <inspector User> <inspector Password> <node UUID>")
-			return
-		}
-	} else {
-		if len(os.Args) != 3 {
-			fmt.Println("Usage: get-hardware-details <inspector URI> <node UUID>")
-			return
-		}
+	var nodeID string
+	authConfig := clients.AuthConfig{
+		Type: clients.AuthType(os.Getenv("IRONIC_AUTH_STRATEGY")),
 	}
 
-	var inspector *gophercloud.ServiceClient
-	var nodeID string
-	if authStrategy == "http_basic" {
-		client, err := httpbasic.NewBareMetalIntrospectionHTTPBasic(httpbasic.EndpointOpts{
-			IronicInspectorEndpoint:     os.Args[1],
-			IronicInspectorUser:         os.Args[2],
-			IronicInspectorUserPassword: os.Args[3],
-		})
-		if err != nil {
-			fmt.Printf("could not get inspector client: %s", err)
+	switch authConfig.Type {
+	case clients.HTTPBasicAuth:
+		if len(os.Args) != 5 {
+			fmt.Println("Usage: get-hardware-details <inspector URI> <inspector User> <inspector Password> <node UUID>")
 			os.Exit(1)
 		}
-		inspector = client
+		authConfig.Username = os.Args[2]
+		authConfig.Password = os.Args[3]
 		nodeID = os.Args[4]
-	} else {
-		client, err := noauth.NewBareMetalIntrospectionNoAuth(
-			noauth.EndpointOpts{
-				IronicInspectorEndpoint: os.Args[1],
-			})
-		if err != nil {
-			fmt.Printf("could not get inspector client: %s", err)
+	default:
+		if len(os.Args) != 3 {
+			fmt.Println("Usage: get-hardware-details <inspector URI> <node UUID>")
 			os.Exit(1)
 		}
-		inspector = client
 		nodeID = os.Args[2]
+	}
+	inspectorEndpoint := os.Args[1]
+	inspector, err := clients.InspectorClient(inspectorEndpoint, authConfig)
+	if err != nil {
+		fmt.Printf("could not get inspector client: %s", err)
+		os.Exit(1)
 	}
 
 	introData := introspection.GetIntrospectionData(inspector, nodeID)

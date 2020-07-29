@@ -2,7 +2,11 @@ package clients
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
 )
 
 // AuthType is the method of authenticating requests to the server
@@ -22,32 +26,47 @@ type AuthConfig struct {
 	Password string
 }
 
+func readAuthFile(filename string) (string, error) {
+	content, err := ioutil.ReadFile(filepath.Clean(filename))
+	return strings.TrimSpace(string(content)), err
+}
+
+func load(clientType string) (auth AuthConfig, err error) {
+	authPath := path.Join("/opt/metal3/auth", clientType)
+
+	if _, err := os.Stat(authPath); err != nil {
+		if os.IsNotExist(err) {
+			auth.Type = NoAuth
+			return auth, nil
+		}
+		return auth, err
+	}
+	auth.Type = HTTPBasicAuth
+
+	auth.Username, err = readAuthFile(path.Join(authPath, "username"))
+	if err != nil {
+		return
+	}
+
+	auth.Password, err = readAuthFile(path.Join(authPath, "password"))
+	if err != nil {
+		return
+	}
+
+	if auth.Username == "" {
+		err = fmt.Errorf("Empty HTTP Basic Auth username")
+	} else if auth.Password == "" {
+		err = fmt.Errorf("Empty HTTP Basic Auth password")
+	}
+	return
+}
+
 // LoadAuth loads the Ironic and Inspector configuration from the environment
 func LoadAuth() (ironicAuth, inspectorAuth AuthConfig, err error) {
-	strategy := AuthType(os.Getenv("IRONIC_AUTH_STRATEGY"))
-	ironicAuth.Type = strategy
-	inspectorAuth.Type = strategy
-	switch strategy {
-	case "":
-		err = fmt.Errorf("No IRONIC_AUTH_STRATEGY variable set")
-	case NoAuth:
-	case HTTPBasicAuth:
-		ironicAuth.Username = os.Getenv("IRONIC_HTTP_BASIC_USERNAME")
-		ironicAuth.Password = os.Getenv("IRONIC_HTTP_BASIC_PASSWORD")
-		inspectorAuth.Username = os.Getenv("INSPECTOR_HTTP_BASIC_USERNAME")
-		inspectorAuth.Password = os.Getenv("INSPECTOR_HTTP_BASIC_PASSWORD")
-		switch {
-		case ironicAuth.Username == "":
-			err = fmt.Errorf("No IRONIC_HTTP_BASIC_USERNAME variable set")
-		case ironicAuth.Password == "":
-			err = fmt.Errorf("No IRONIC_HTTP_BASIC_PASSWORD variable set")
-		case inspectorAuth.Username == "":
-			err = fmt.Errorf("No INSPECTOR_HTTP_BASIC_USERNAME variable set")
-		case inspectorAuth.Password == "":
-			err = fmt.Errorf("No INSPECTOR_HTTP_BASIC_PASSWORD variable set")
-		}
-	default:
-		err = fmt.Errorf("IRONIC_AUTH_STRATEGY does not have a valid value. Set to %s or %s", NoAuth, HTTPBasicAuth)
+	ironicAuth, err = load("ironic")
+	if err != nil {
+		return
 	}
+	inspectorAuth, err = load("ironic-inspector")
 	return
 }

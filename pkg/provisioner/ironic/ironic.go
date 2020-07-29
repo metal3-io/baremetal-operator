@@ -30,6 +30,13 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
+type AuthStrategy string
+
+const (
+	NoAuth        AuthStrategy = "noauth"
+	HTTPBasicAuth AuthStrategy = "http_basic"
+)
+
 var log = logf.Log.WithName("baremetalhost_ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
@@ -40,7 +47,7 @@ var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
 var inspectorEndpoint string
-var authStrategy string
+var authStrategy AuthStrategy
 
 // Variables for http_basic
 var ironicUser string
@@ -59,12 +66,12 @@ const (
 func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
-	authStrategy = os.Getenv("IRONIC_AUTH_STRATEGY")
+	authStrategy = AuthStrategy(os.Getenv("IRONIC_AUTH_STRATEGY"))
 	if authStrategy == "" {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_AUTH_STRATEGY variable set\n")
 		os.Exit(1)
 	}
-	if authStrategy != "noauth" && authStrategy != "http_basic" {
+	if authStrategy != NoAuth && authStrategy != HTTPBasicAuth {
 		fmt.Fprintf(os.Stderr, "Cannot start: IRONIC_AUTH_STRATEGY does not have a valid value. Set to noauth or http_basic\n")
 		os.Exit(1)
 	}
@@ -89,7 +96,7 @@ func init() {
 		os.Exit(1)
 	}
 
-	if authStrategy == "http_basic" {
+	if authStrategy == HTTPBasicAuth {
 		ironicUser = os.Getenv("IRONIC_HTTP_BASIC_USERNAME")
 		ironicPassword = os.Getenv("IRONIC_HTTP_BASIC_PASSWORD")
 		inspectorUser = os.Getenv("INSPECTOR_HTTP_BASIC_USERNAME")
@@ -151,7 +158,7 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 	var clientIronic *gophercloud.ServiceClient
 	var clientInspector *gophercloud.ServiceClient
 
-	if authStrategy == "http_basic" {
+	if authStrategy == HTTPBasicAuth {
 		ironic, err := httpbasic.NewBareMetalHTTPBasic(httpbasic.EndpointOpts{
 			IronicEndpoint:     ironicEndpoint,
 			IronicUser:         ironicUser,

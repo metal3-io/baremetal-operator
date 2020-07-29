@@ -8,8 +8,9 @@ PACKAGES = $(foreach dir,$(CODE_DIRS),$(dir)/...)
 COVER_PROFILE = cover.out
 
 # See pkg/version.go for details
-GIT_COMMIT="$(shell git rev-parse --verify 'HEAD^{commit}')"
-export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=$(shell git describe --always --abbrev=40 --dirty) -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${GIT_COMMIT}"
+SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
+BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
+export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=${BUILD_VERSION} -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${SOURCE_GIT_COMMIT}"
 
 # Set some variables the operator expects to have in order to work
 # Those need to be the same as in deploy/ironic_ci.env
@@ -43,7 +44,7 @@ show_dirs:
 .PHONY: generate
 generate: bin/operator-sdk ## Run the operator-sdk code generator
 	./bin/operator-sdk generate $(VERBOSE) k8s
-	./bin/operator-sdk generate $(VERBOSE) crds
+	./bin/operator-sdk generate $(VERBOSE) crds --crd-version=v1
 	openapi-gen \
 		--input-dirs ./pkg/apis/metal3/v1alpha1 \
 		--output-package ./pkg/apis/metal3/v1alpha1 \

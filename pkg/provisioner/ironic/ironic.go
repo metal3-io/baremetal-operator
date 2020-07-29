@@ -9,12 +9,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
-	httpbasicintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/httpbasic"
-	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	"github.com/pkg/errors"
@@ -26,15 +22,9 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
-)
-
-type AuthStrategy string
-
-const (
-	NoAuth        AuthStrategy = "noauth"
-	HTTPBasicAuth AuthStrategy = "http_basic"
 )
 
 var log = logf.Log.WithName("baremetalhost_ironic")
@@ -47,13 +37,6 @@ var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
 var inspectorEndpoint string
-var authStrategy AuthStrategy
-
-// Variables for http_basic
-var ironicUser string
-var ironicPassword string
-var inspectorUser string
-var inspectorPassword string
 
 const (
 	// See nodes.Node.PowerState for details
@@ -67,7 +50,7 @@ func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
 
-	authErr := loadAuth()
+	authErr := clients.LoadAuth()
 	if authErr != nil {
 		fmt.Fprintf(os.Stderr, "Cannot start: %s\n", authErr)
 		os.Exit(1)
@@ -93,35 +76,6 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
 		os.Exit(1)
 	}
-}
-
-func loadAuth() error {
-	authStrategy = AuthStrategy(os.Getenv("IRONIC_AUTH_STRATEGY"))
-	switch authStrategy {
-	case "":
-		return fmt.Errorf("No IRONIC_AUTH_STRATEGY variable set")
-	case NoAuth:
-	case HTTPBasicAuth:
-		ironicUser = os.Getenv("IRONIC_HTTP_BASIC_USERNAME")
-		ironicPassword = os.Getenv("IRONIC_HTTP_BASIC_PASSWORD")
-		inspectorUser = os.Getenv("INSPECTOR_HTTP_BASIC_USERNAME")
-		inspectorPassword = os.Getenv("INSPECTOR_HTTP_BASIC_PASSWORD")
-		if ironicUser == "" {
-			return fmt.Errorf("No IRONIC_HTTP_BASIC_USERNAME variable set")
-		}
-		if ironicPassword == "" {
-			return fmt.Errorf("No IRONIC_HTTP_BASIC_PASSWORD variable set")
-		}
-		if inspectorUser == "" {
-			return fmt.Errorf("No INSPECTOR_HTTP_BASIC_USERNAME variable set")
-		}
-		if inspectorPassword == "" {
-			return fmt.Errorf("No INSPECTOR_HTTP_BASIC_PASSWORD variable set")
-		}
-	default:
-		return fmt.Errorf("IRONIC_AUTH_STRATEGY does not have a valid value. Set to %s or %s", NoAuth, HTTPBasicAuth)
-	}
-	return nil
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -159,48 +113,14 @@ func LogStartup() {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
-	var clientIronic *gophercloud.ServiceClient
-	var clientInspector *gophercloud.ServiceClient
+	clientIronic, err := clients.IronicClient(ironicEndpoint)
+	if err != nil {
+		return nil, err
+	}
 
-	if authStrategy == HTTPBasicAuth {
-		ironic, err := httpbasic.NewBareMetalHTTPBasic(httpbasic.EndpointOpts{
-			IronicEndpoint:     ironicEndpoint,
-			IronicUser:         ironicUser,
-			IronicUserPassword: ironicPassword,
-		})
-		if err != nil {
-			return nil, err
-		}
-		clientIronic = ironic
-
-		inspector, err := httpbasicintrospection.NewBareMetalIntrospectionHTTPBasic(httpbasicintrospection.EndpointOpts{
-			IronicInspectorEndpoint:     inspectorEndpoint,
-			IronicInspectorUser:         inspectorUser,
-			IronicInspectorUserPassword: inspectorPassword,
-		})
-		if err != nil {
-			return nil, err
-		}
-		clientInspector = inspector
-
-	} else {
-		ironic, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
-			IronicEndpoint: ironicEndpoint,
-		})
-		if err != nil {
-			return nil, err
-		}
-		clientIronic = ironic
-
-		inspector, err := noauthintrospection.NewBareMetalIntrospectionNoAuth(
-			noauthintrospection.EndpointOpts{
-				IronicInspectorEndpoint: inspectorEndpoint,
-			})
-		if err != nil {
-			return nil, err
-		}
-		clientInspector = inspector
-
+	clientInspector, err := clients.InspectorClient(inspectorEndpoint)
+	if err != nil {
+		return nil, err
 	}
 
 	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)

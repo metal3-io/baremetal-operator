@@ -23,6 +23,8 @@ import (
 
 	metal3apis "github.com/metal3-io/baremetal-operator/pkg/apis"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
@@ -70,8 +72,7 @@ func newHost(name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
 			APIVersion: "metal3.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
+		}, ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -94,7 +95,7 @@ func newDefaultHost(t *testing.T) *metal3v1alpha1.BareMetalHost {
 	return newDefaultNamedHost(t.Name(), t)
 }
 
-func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
+func newTestReconcilerWithProvisionerFactory(factory provisioner.Factory, initObjs ...runtime.Object) *ReconcileBareMetalHost {
 
 	c := fakeclient.NewFakeClient(initObjs...)
 
@@ -105,8 +106,12 @@ func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	return &ReconcileBareMetalHost{
 		client:             c,
 		scheme:             scheme.Scheme,
-		provisionerFactory: fixture.New,
+		provisionerFactory: factory,
 	}
+}
+
+func newTestReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
+	return newTestReconcilerWithProvisionerFactory(fixture.New, initObjs...)
 }
 
 type DoneFunc func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool
@@ -1239,4 +1244,27 @@ func TestUpdateBootMode(t *testing.T) {
 			assert.Equal(t, tc.Expected, tc.Host.Status.Provisioning.BootMode)
 		})
 	}
+}
+
+func TestProvisionerIsReady(t *testing.T) {
+	host := newDefaultHost(t)
+
+	var prov provisioner.Provisioner
+	r := newTestReconcilerWithProvisionerFactory(func(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner provisioner.Provisioner, err error) {
+		if prov == nil {
+			prov, err = fixture.NewMock(host, bmcCreds, publisher, 5)
+		}
+		return prov, err
+	}, host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			if prov == nil {
+				return false
+			}
+
+			ready, _ := prov.IsReady()
+			return ready
+		},
+	)
 }

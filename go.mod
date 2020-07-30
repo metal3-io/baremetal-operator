@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/go-logr/logr v0.1.0
-	github.com/go-openapi/spec v0.19.4
+	github.com/go-openapi/spec v0.19.9
 	github.com/gobuffalo/envy v1.7.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/google/gofuzz v1.1.0 // indirect

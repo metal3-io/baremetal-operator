@@ -79,8 +79,9 @@ type BootMode string
 
 // Allowed boot mode from metal3
 const (
-	UEFI   BootMode = "UEFI"
-	Legacy BootMode = "legacy"
+	UEFI            BootMode = "UEFI"
+	Legacy          BootMode = "legacy"
+	DefaultBootMode BootMode = UEFI
 )
 
 // OperationalStatus represents the state of the host
@@ -226,8 +227,8 @@ type BareMetalHostSpec struct {
 	// being provisioned.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// Select the method of initializing the hardware during boot to
-	// override the value based on the BMC driver.
+	// Select the method of initializing the hardware during
+	// boot. Defaults to UEFI.
 	// +optional
 	BootMode BootMode `json:"bootMode,omitempty"`
 

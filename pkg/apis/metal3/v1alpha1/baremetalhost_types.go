@@ -587,6 +587,15 @@ type BareMetalHost struct {
 	Status BareMetalHostStatus `json:"status,omitempty"`
 }
 
+// BootMode returns the boot method to use for the host.
+func (host *BareMetalHost) BootMode() BootMode {
+	mode := host.Spec.BootMode
+	if mode == "" {
+		return DefaultBootMode
+	}
+	return mode
+}
+
 // Available returns true if the host is available to be provisioned.
 func (host *BareMetalHost) Available() bool {
 	if host.Spec.ConsumerRef != nil {

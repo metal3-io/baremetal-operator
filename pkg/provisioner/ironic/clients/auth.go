@@ -26,13 +26,21 @@ type AuthConfig struct {
 	Password string
 }
 
+func authRoot() string {
+	env := os.Getenv("METAL3_AUTH_ROOT_DIR")
+	if env != "" {
+		return filepath.Clean(env)
+	}
+	return "/opt/metal3/auth"
+}
+
 func readAuthFile(filename string) (string, error) {
 	content, err := ioutil.ReadFile(filepath.Clean(filename))
 	return strings.TrimSpace(string(content)), err
 }
 
 func load(clientType string) (auth AuthConfig, err error) {
-	authPath := path.Join("/opt/metal3/auth", clientType)
+	authPath := path.Join(authRoot(), clientType)
 
 	if _, err := os.Stat(authPath); err != nil {
 		if os.IsNotExist(err) {

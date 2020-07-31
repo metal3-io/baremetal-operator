@@ -487,6 +487,14 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
 	}
 
+	// Make sure we have saved the current boot mode value.
+	bootMode := info.host.BootMode()
+	if bootMode != info.host.Status.Provisioning.BootMode {
+		info.log.Info("saving boot mode")
+		info.host.Status.Provisioning.BootMode = bootMode
+		return actionContinue{}
+	}
+
 	provResult, err := prov.ValidateManagementAccess(credsChanged)
 	if err != nil {
 		noManagementAccess.Inc()
@@ -842,17 +850,6 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
 		host.Status.Provisioning.RootDeviceHints = hintSource
-		dirty = true
-	}
-
-	// Make sure we have saved the current boot mode value, using a
-	// default if the spec does not include a value.
-	bootMode := host.Spec.BootMode
-	if bootMode == "" {
-		bootMode = metal3v1alpha1.DefaultBootMode
-	}
-	if bootMode != host.Status.Provisioning.BootMode {
-		host.Status.Provisioning.BootMode = bootMode
 		dirty = true
 	}
 

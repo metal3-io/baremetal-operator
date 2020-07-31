@@ -114,6 +114,16 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
 	return actionError{fmt.Errorf("No handler found for state \"%s\"", initialState)}
 }
 
+func updateBootModeStatus(host *metal3v1alpha1.BareMetalHost) bool {
+	// Make sure we have saved the current boot mode value.
+	bootMode := host.BootMode()
+	if bootMode == host.Status.Provisioning.BootMode {
+		return false
+	}
+	host.Status.Provisioning.BootMode = bootMode
+	return true
+}
+
 func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	if hsm.Host.DeletionTimestamp.IsZero() {
 		// Delete not requested
@@ -189,6 +199,9 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 			hsm.NextState = metal3v1alpha1.StateProvisioned
 		case hsm.Host.NeedsHardwareInspection():
 			hsm.NextState = metal3v1alpha1.StateInspecting
+			if updateBootModeStatus(hsm.Host) {
+				info.log.Info("saving boot mode")
+			}
 		case hsm.Host.NeedsHardwareProfile():
 			hsm.NextState = metal3v1alpha1.StateMatchProfile
 		default:
@@ -242,6 +255,9 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 	switch {
 	case hsm.Host.NeedsHardwareInspection():
 		hsm.NextState = metal3v1alpha1.StateInspecting
+		if updateBootModeStatus(hsm.Host) {
+			info.log.Info("saving boot mode")
+		}
 	case hsm.Host.NeedsHardwareProfile():
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
 	default:
@@ -261,6 +277,9 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 	switch r := actResult.(type) {
 	case actionComplete:
 		hsm.NextState = metal3v1alpha1.StateProvisioning
+		if updateBootModeStatus(hsm.Host) {
+			info.log.Info("saving boot mode")
+		}
 	case actionFailed:
 		switch r.ErrorType {
 		case metal3v1alpha1.PowerManagementError:

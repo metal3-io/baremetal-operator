@@ -243,8 +243,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
-		bootMode := p.host.BootMode()
-
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
@@ -258,7 +256,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				RAIDInterface:       p.bmcAccess.RAIDInterface(),
 				VendorInterface:     p.bmcAccess.VendorInterface(),
 				Properties: map[string]interface{}{
-					"capabilities": bootModeCapabilities[bootMode],
+					"capabilities": bootModeCapabilities[p.host.Status.Provisioning.BootMode],
 				},
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
@@ -795,7 +793,67 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		},
 	)
 
+	// boot_mode
+	op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/properties/capabilities",
+			Value: value,
+		},
+	)
+
 	return updates, nil
+}
+
+// We can't just replace the capabilities because we need to keep the
+// values provided by inspection. We can't replace only the boot_mode
+// because the API isn't fine-grained enough for that. So we have to
+// look at the existing value and modify it. This function
+// encapsulates the logic for building the value and knowing which
+// update operation to use with the results.
+func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) (op nodes.UpdateOp, value string) {
+
+	capabilities, ok := ironicNode.Properties["capabilities"]
+	if !ok {
+		// There is no existing capabilities value
+		return nodes.AddOp, bootModeCapabilities[bootMode]
+	}
+	existingCapabilities := capabilities.(string)
+
+	// The capabilities value is set, so we will want to replace it.
+	op = nodes.ReplaceOp
+
+	if existingCapabilities == "" {
+		// The existing value is empty so we can replace the whole
+		// thing.
+		value = bootModeCapabilities[bootMode]
+		return
+	}
+
+	if !strings.Contains(existingCapabilities, "boot_mode") {
+		// No boot_mode is set, append and return
+		value = fmt.Sprintf("%s,%s", existingCapabilities, bootModeCapabilities[bootMode])
+		return
+	}
+
+	// The capabilities value has format "var1:val1,var2:val2". We
+	// know that boot_mode is there but not what value it has.  There
+	// are only 2 values, so we can replace the "wrong" string with
+	// the right one without fully parsing the string. We may want to
+	// change this later when we have more boot modes.
+
+	var fromMode metal3v1alpha1.BootMode
+	if bootMode == metal3v1alpha1.UEFI {
+		fromMode = metal3v1alpha1.Legacy
+	} else {
+		fromMode = metal3v1alpha1.UEFI
+	}
+	value = strings.ReplaceAll(existingCapabilities,
+		bootModeCapabilities[fromMode], bootModeCapabilities[bootMode])
+
+	return
 }
 
 func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {

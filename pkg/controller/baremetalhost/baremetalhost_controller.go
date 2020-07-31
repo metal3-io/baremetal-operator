@@ -487,14 +487,6 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
 	}
 
-	// Make sure we have saved the current boot mode value.
-	bootMode := info.host.BootMode()
-	if bootMode != info.host.Status.Provisioning.BootMode {
-		info.log.Info("saving boot mode")
-		info.host.Status.Provisioning.BootMode = bootMode
-		return actionContinue{}
-	}
-
 	provResult, err := prov.ValidateManagementAccess(credsChanged)
 	if err != nil {
 		noManagementAccess.Inc()

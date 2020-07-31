@@ -1394,3 +1394,11 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 
 	return result, nil
 }
+
+// IsReady checks if the provisioning backend is available
+func (p *ironicProvisioner) IsReady() (result bool, err error) {
+	p.log.Info("verifying ironic provisioner dependencies")
+
+	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
+	return checker.IsReady()
+}

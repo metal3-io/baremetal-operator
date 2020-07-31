@@ -303,3 +303,8 @@ func (p *demoProvisioner) PowerOff() (result provisioner.Result, err error) {
 
 	// return result, nil
 }
+
+// IsReady always returns true for the demo provisioner
+func (p *demoProvisioner) IsReady() (result bool, err error) {
+	return true, nil
+}

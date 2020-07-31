@@ -79,6 +79,7 @@ github.com/googleapis/gnostic/extensions
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/openstack
 github.com/gophercloud/gophercloud/openstack/baremetal/noauth
+github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers
 github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes
 github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports
 github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth

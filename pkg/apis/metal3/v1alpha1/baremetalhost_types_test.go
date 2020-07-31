@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -662,6 +664,44 @@ func TestGetImageChecksum(t *testing.T) {
 			if actual != tc.Expected {
 				t.Errorf("expected %v but got %v", tc.Expected, actual)
 			}
+		})
+	}
+}
+
+func TestBootMode(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario  string
+		HostValue BootMode
+		Expected  BootMode
+	}{
+		{
+			Scenario:  "default",
+			HostValue: "",
+			Expected:  UEFI,
+		},
+		{
+			Scenario:  "UEFI",
+			HostValue: UEFI,
+			Expected:  UEFI,
+		},
+		{
+			Scenario:  "legcy",
+			HostValue: Legacy,
+			Expected:  Legacy,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := &BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					BootMode: tc.HostValue,
+				},
+			}
+			actual := host.BootMode()
+			assert.Equal(t, tc.Expected, actual)
 		})
 	}
 }

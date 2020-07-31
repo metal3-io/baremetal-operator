@@ -48,8 +48,8 @@ const (
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
-	metal3v1alpha1.UEFI:   "uefi",
-	metal3v1alpha1.Legacy: "bios",
+	metal3v1alpha1.UEFI:   "boot_mode:uefi",
+	metal3v1alpha1.Legacy: "boot_mode:bios",
 }
 
 func init() {
@@ -243,6 +243,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
+		bootMode := p.host.BootMode()
+
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
@@ -255,6 +257,9 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				PowerInterface:      p.bmcAccess.PowerInterface(),
 				RAIDInterface:       p.bmcAccess.RAIDInterface(),
 				VendorInterface:     p.bmcAccess.VendorInterface(),
+				Properties: map[string]interface{}{
+					"capabilities": bootModeCapabilities[bootMode],
+				},
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
 		if err != nil {
@@ -787,27 +792,6 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 			Op:    op,
 			Path:  "/properties/local_gb",
 			Value: hwProf.LocalGB,
-		},
-	)
-
-	// boot_mode
-	_, ok := ironicNode.InstanceInfo["deploy_boot_mode"]
-	if !ok {
-		op = nodes.AddOp
-	} else {
-		op = nodes.ReplaceOp
-	}
-	p.log.Info("setting boot_mode",
-		"operation", op,
-		"instance_info", ironicNode.InstanceInfo,
-		"bootMode", p.host.Status.Provisioning.BootMode,
-	)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/deploy_boot_mode",
-			Value: bootModeCapabilities[p.host.Status.Provisioning.BootMode],
 		},
 	)
 

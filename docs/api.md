@@ -346,7 +346,7 @@ status:
     credentialsVersion: "5562"
 ```
 
-And here it is the secret `bmo-master-0-bmc-secret` holding the host's BMC credentials:
+And here is the secret `bmo-master-0-bmc-secret` holding the host's BMC credentials, base64 encoded:
 
 `$echo -n 'admin' | base64`
 

@@ -609,6 +609,59 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	return result, nil
 }
 
+func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (result provisioner.Result, err error) {
+	var cleanSteps []nodes.CleanStep
+
+	if p.bmcAccess.RAIDInterface() != "" {
+		// Set raid config
+		err = setTargetRAIDCfg(p.client, ironicNode, p.host.Status.Provisioning.RAID)
+		if err != nil {
+			p.log.Error(err, "failed in setting the target RAID configuration")
+			return
+		}
+		// Build raid configuration clean steps
+		cleanSteps = append(cleanSteps, buildRAIDCleanSteps(p.host.Status.Provisioning.RAID)...)
+	} else {
+		p.log.Info("the BMC of the current node does not support RAID", "BMC", p.bmcAccess.Driver())
+	}
+
+	// Start manual clean
+	if len(cleanSteps) != 0 {
+		p.log.Info("remove existing configuration and set new configuration", "steps", cleanSteps)
+		opts := nodes.ProvisionStateOpts{Target: nodes.TargetClean, CleanSteps: cleanSteps}
+		var success bool
+		success, result, err = p.tryChangeNodeProvisionState(ironicNode, opts)
+		result.Dirty = !success
+	}
+	return
+}
+
+// Prepare remove existing configuration and set new configuration
+func (p *ironicProvisioner) Prepare() (result provisioner.Result, err error) {
+	var ironicNode *nodes.Node
+
+	if ironicNode, err = p.findExistingHost(); err != nil {
+		return result, errors.Wrap(err, "could not find host to clean")
+	}
+	if ironicNode == nil {
+		return result, fmt.Errorf("no ironic node for host")
+	}
+
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.CleanWait, nodes.Cleaning, nodes.CleanFail:
+		// Do Nothing (go to provisioning state)
+	case nodes.Manageable:
+		return p.startManualCleaning(ironicNode)
+	default:
+		p.log.Info("waiting for host to become manageable",
+			"state", ironicNode.ProvisionState,
+			"deploy step", ironicNode.DeployStep)
+		result.RequeueAfter = provisionRequeueDelay
+		result.Dirty = true
+	}
+	return result, err
+}
+
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
@@ -939,6 +992,15 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.CleanFail:
+		if ironicNode.LastError == "" {
+			p.log.Info("failed but error message not available")
+			result.Dirty = true
+		} else {
+			p.log.Info("found error", "msg", ironicNode.LastError)
+			result.ErrorMessage = fmt.Sprintf("Hardware configuration failed. Error: %s", ironicNode.LastError)
+		}
+		return result, nil
 
 	case nodes.DeployFail:
 		// Since we were here ironic has recorded an error for this host,

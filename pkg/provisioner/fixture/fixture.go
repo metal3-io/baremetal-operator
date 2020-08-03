@@ -143,6 +143,12 @@ func (p *fixtureProvisioner) UpdateHardwareState() (result provisioner.Result, e
 	return result, nil
 }
 
+// Prepare remove existing configuration and set new configuration
+func (p *fixtureProvisioner) Prepare() (result provisioner.Result, err error) {
+	p.log.Info("preparing host")
+	return
+}
+
 // Adopt allows an externally-provisioned server to be adopted.
 func (p *fixtureProvisioner) Adopt() (result provisioner.Result, err error) {
 	p.log.Info("adopting host")

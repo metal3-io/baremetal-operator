@@ -1187,3 +1187,77 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 	)
 }
+
+func TestUpdateRaid(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			HardwareProfile: "libvirt",
+			RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+				DeviceName:         "userd_devicename",
+				HCTL:               "1:2:3:4",
+				Model:              "userd_model",
+				Vendor:             "userd_vendor",
+				SerialNumber:       "userd_serial",
+				MinSizeGigabytes:   40,
+				WWN:                "userd_wwn",
+				WWNWithExtension:   "userd_with_extension",
+				WWNVendorExtension: "userd_vendor_extension",
+			},
+			RAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Name: "root",
+					},
+					{
+						Name: "v1",
+					},
+				},
+			},
+		},
+	}
+	cases := []struct {
+		name     string
+		expected *metal3v1alpha1.RAIDConfig
+	}{
+		{
+			name: "root1",
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Name: "root1",
+					},
+					{
+						Name: "v1",
+					},
+				},
+			},
+		},
+		{
+			name: "root2",
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Name: "root2",
+					},
+					{
+						Name: "v1",
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var dirty bool
+			host.Spec.RAID.HardwareRAIDVolumes[0].Name = c.name
+			assert.NotEqual(t, host.Spec.RAID, host.Status.Provisioning.RAID)
+
+			dirty, _ = saveHostProvisioningSettings(&host)
+			assert.Equal(t, c.expected, host.Status.Provisioning.RAID)
+			assert.Equal(t, dirty, true)
+
+			dirty, _ = saveHostProvisioningSettings(&host)
+			assert.Equal(t, dirty, false)
+		})
+	}
+}

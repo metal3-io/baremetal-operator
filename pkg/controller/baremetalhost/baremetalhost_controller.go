@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -601,6 +602,27 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 	return actionComplete{}
 }
 
+func (r *ReconcileBareMetalHost) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	info.log.Info("preparing")
+
+	provResult, err := prov.Prepare()
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to preparing")}
+	}
+
+	if provResult.ErrorMessage != "" {
+		info.log.Info("handling cleaning error in controller")
+		return recordActionFailure(info, metal3v1alpha1.ProvisioningError, provResult.ErrorMessage)
+	}
+
+	if provResult.Dirty {
+		info.host.ClearError()
+		return actionContinue{provResult.RequeueAfter}
+	}
+
+	return actionComplete{}
+}
+
 // Start/continue provisioning if we need to.
 func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	hostConf := &hostConfigData{
@@ -651,6 +673,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 // fields of a host.
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
+	host.Status.Provisioning.RAID = nil
 }
 
 func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -850,6 +873,11 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
 		host.Status.Provisioning.RootDeviceHints = hintSource
+		dirty = true
+	}
+
+	if !reflect.DeepEqual(host.Status.Provisioning.RAID, host.Spec.RAID) {
+		host.Status.Provisioning.RAID = host.Spec.RAID.DeepCopy()
 		dirty = true
 	}
 

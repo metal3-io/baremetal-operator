@@ -348,6 +348,16 @@ status:
 
 And here it is the secret `bmo-master-0-bmc-secret` holding the host's BMC credentials:
 
+`$echo -n 'admin' | base64`
+
+`YWRtaW4=`
+
+`$echo -n 'password' | base64`
+
+`cGFzc3dvcmQ=`
+
+Copy the above base64 encoded username and password pair and paste it in the yaml as mentioned below.
+
 ```yaml
 ---
 apiVersion: v1

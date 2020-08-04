@@ -357,7 +357,8 @@ BMC credentials, base64 encoded:
 
 `cGFzc3dvcmQ=`
 
-Copy the above base64 encoded username and password pair and paste it in the yaml as mentioned below.
+Copy the above base64 encoded username and password pair and 
+paste it into the yaml as mentioned below.
 
 ```yaml
 ---

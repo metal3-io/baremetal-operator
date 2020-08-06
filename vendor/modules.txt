@@ -74,18 +74,22 @@ github.com/google/uuid
 github.com/googleapis/gnostic/OpenAPIv2
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
-# github.com/gophercloud/gophercloud v0.6.0
+# github.com/gophercloud/gophercloud v0.12.0
 ## explicit
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/openstack
+github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic
 github.com/gophercloud/gophercloud/openstack/baremetal/noauth
 github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers
 github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes
 github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports
+github.com/gophercloud/gophercloud/openstack/baremetalintrospection/httpbasic
 github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth
 github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection
 github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
 github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
+github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/ec2tokens
+github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/oauth1
 github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/pagination

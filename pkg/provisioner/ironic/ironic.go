@@ -1000,18 +1000,12 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		return
 	}
 	if ironicNode == nil {
-		// The node does not exist, but we were called so the
-		// controller thinks that the node existed at one time. That
-		// likely means data loss from restarting the database, so
-		// pass through the validation process to register the node
-		// again. Pass true to indicate that we need to re-test the
-		// credentials, just in case.
-		p.log.Info("re-registering host")
-		return p.ValidateManagementAccess(true)
+		err = provisioner.NeedsRegistration
+		return
 	}
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
-	case nodes.Enroll:
+	case nodes.Enroll, nodes.Verifying:
 		err = fmt.Errorf("Invalid state for adopt: %s",
 			ironicNode.ProvisionState)
 	case nodes.Manageable:
@@ -1021,7 +1015,7 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 				Target: nodes.TargetAdopt,
 			},
 		)
-	case nodes.Adopting, nodes.Verifying:
+	case nodes.Adopting:
 		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 	case nodes.AdoptFail:

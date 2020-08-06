@@ -679,14 +679,29 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	return steadyStateResult
 }
 
-// A host reaching this action handler should be provisioned or
-// externally provisioned -- a state that it will stay in until the
-// user takes further action. Both of those states mean that it has
-// been registered with the provisioner once, so we use the Adopt()
-// API to ensure that is still true. Then we monitor its power status.
+// A host reaching this action handler should be provisioned or externally
+// provisioned -- a state that it will stay in until the user takes further
+// action. Both of those states mean that it has been registered with the
+// provisioner once, so we use the ValidateManagmentAccess() API to ensure that
+// is still true, then the Adopt() API to make sure that the provisioner is
+// aware of the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	// We always pass false for credentialsChanged because if they had
+	// changed we would have ended up in actionRegister() instead of
+	// here.
+	provResult, err := prov.ValidateManagementAccess(false)
+	if err != nil {
+		return actionError{err}
+	}
+	if provResult.ErrorMessage != "" {
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
+	}
+	if provResult.Dirty {
+		info.host.ClearError()
+		return actionContinue{provResult.RequeueAfter}
+	}
 
-	provResult, err := prov.Adopt()
+	provResult, err = prov.Adopt()
 	if err != nil {
 		return actionError{err}
 	}

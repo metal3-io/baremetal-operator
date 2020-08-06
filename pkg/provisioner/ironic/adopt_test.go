@@ -61,8 +61,8 @@ func TestAdopt(t *testing.T) {
 				UUID:           nodeUUID,
 			}),
 
-			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedDirty: false,
+			expectedError: true,
 		},
 		{
 			name: "node-in-AdoptFail",

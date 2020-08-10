@@ -346,7 +346,7 @@ status:
     credentialsVersion: "5562"
 ```
 
-And here is the secret `bmo-master-0-bmc-secret` holding the host's 
+And here is the secret `bmo-master-0-bmc-secret` holding the host's
 BMC credentials, base64 encoded:
 
 ```console
@@ -357,8 +357,9 @@ YWRtaW4=
 $echo -n 'password' | base64
 
 cGFzc3dvcmQ=
+```
 
-Copy the above base64 encoded username and password pair and 
+Copy the above base64 encoded username and password pair and
 paste it into the yaml as mentioned below.
 
 ```yaml

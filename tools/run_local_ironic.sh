@@ -6,13 +6,14 @@ SCRIPTPATH="$(dirname "$(readlink -f "${0}")")"
 
 IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
 IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic-inspector"}
-IRONIC_ENDPOINT_KEEPALIVED_IMAGE=${IRONIC_ENDPOINT_KEEPALIVED_IMAGE:-"quay.io/metal3-io/keepalived"}
+IRONIC_KEEPALIVED_IMAGE=${IRONIC_KEEPALIVED_IMAGE:-"quay.io/metal3-io/keepalived"}
 IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:master"}
 IRONIC_DATA_DIR=${IRONIC_DATA_DIR:-"/opt/metal3-dev-env/ironic"}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_INSPECTOR_IMAGE"
+sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_KEEPALIVED_IMAGE"
 
 mkdir -p "$IRONIC_DATA_DIR/html/images"
 pushd "$IRONIC_DATA_DIR/html/images"
@@ -86,7 +87,7 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-endpoint-keepalived \
     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
-    -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_ENDPOINT_KEEPALIVED_IMAGE}"
+    -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_KEEPALIVED_IMAGE}"
 
 # Start Ironic Inspector
 # shellcheck disable=SC2086

@@ -207,6 +207,18 @@ type BMCDetails struct {
 	DisableCertificateVerification bool `json:"disableCertificateVerification,omitempty"`
 }
 
+// FirmwareConfig has BIOS configurations common to all the vendors
+type FirmwareConfig struct {
+	// SRIOV configuration
+	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
+
+	// Multithreading configuration
+	SimultaneousMultithreadingDisabled *bool `json:"simultaneousMultithreadingDisabled,omitempty"`
+
+	// Virtualization configuration
+	VirtualizationDisabled *bool `json:"virtualizationDisabled,omitempty"`
+}
+
 // HardwareRAIDVolume defines the desired configuration of volume in hardware RAID
 type HardwareRAIDVolume struct {
 	// Size (Integer) of the logical disk to be created in GiB.
@@ -276,6 +288,9 @@ type BareMetalHostSpec struct {
 
 	// How do we connect to the BMC?
 	BMC BMCDetails `json:"bmc,omitempty"`
+
+	// The firmware configurations
+	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// RAID configuration for bare metal server
 	RAID *RAIDConfig `json:"raid,omitempty"`

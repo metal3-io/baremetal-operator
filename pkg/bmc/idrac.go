@@ -74,6 +74,10 @@ func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfa
 	return result
 }
 
+func (a *iDracAccessDetails) BIOSInterface() string {
+	return "idrac-wsman"
+}
+
 func (a *iDracAccessDetails) BootInterface() string {
 	return "ipxe"
 }

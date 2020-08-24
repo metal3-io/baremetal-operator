@@ -49,6 +49,9 @@ type AccessDetails interface {
 	// (such as the kernel and ramdisk locations).
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
 
+	// BIOS interface to set
+	BIOSInterface() string
+
 	// Boot interface to set
 	BootInterface() string
 

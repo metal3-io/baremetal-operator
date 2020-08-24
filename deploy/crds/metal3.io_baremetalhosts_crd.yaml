@@ -145,6 +145,19 @@ spec:
                   the power status and hardware inventory inspection. If the Image
                   field is filled in, this field is ignored.
                 type: boolean
+              firmware:
+                description: The firmware configurations
+                properties:
+                  simultaneousMultithreadingDisabled:
+                    description: Multithreading configuration
+                    type: boolean
+                  sriovEnabled:
+                    description: SRIOV configuration
+                    type: boolean
+                  virtualizationDisabled:
+                    description: Virtualization configuration
+                    type: boolean
+                type: object
               hardwareProfile:
                 description: What is the name of the hardware profile for this host?
                   It should only be necessary to set this when inspection cannot automatically

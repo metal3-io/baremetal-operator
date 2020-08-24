@@ -67,6 +67,10 @@ func (a *redfishiDracVirtualMediaAccessDetails) Driver() string {
 	return "idrac"
 }
 
+func (a *redfishiDracVirtualMediaAccessDetails) BIOSInterface() string {
+	return ""
+}
+
 func (a *redfishiDracVirtualMediaAccessDetails) BootInterface() string {
 	return "idrac-redfish-virtual-media"
 }

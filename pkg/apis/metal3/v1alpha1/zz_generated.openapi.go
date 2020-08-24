@@ -13,7 +13,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHost": schema_pkg_apis_metal3_v1alpha1_BareMetalHost(ref),
+		"github.com/democoder95/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHost": schema_pkg_apis_metal3_v1alpha1_BareMetalHost(ref),
 	}
 }
 
@@ -45,18 +45,18 @@ func schema_pkg_apis_metal3_v1alpha1_BareMetalHost(ref common.ReferenceCallback)
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostSpec"),
+							Ref: ref("github.com/democoder95/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostStatus"),
+							Ref: ref("github.com/democoder95/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostSpec", "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/democoder95/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostSpec", "github.com/democoder95/baremetal-operator/pkg/apis/metal3/v1alpha1.BareMetalHostStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }

@@ -86,6 +86,10 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 	return result
 }
 
+func (a *redfishAccessDetails) BIOSInterface() string {
+	return ""
+}
+
 // That can be either pxe or redfish-virtual-media
 func (a *redfishAccessDetails) BootInterface() string {
 	return "ipxe"

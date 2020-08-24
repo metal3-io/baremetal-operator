@@ -45,6 +45,10 @@ profile.
 
 A host in the Ready state is available to be provisioned.
 
+## Preparing
+
+While a host is being setted capabilities, it will be in Preparing state.
+
 ## Provisioning
 
 While an image is being copied to the host and it is being configured

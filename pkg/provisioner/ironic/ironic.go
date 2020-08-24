@@ -625,6 +625,13 @@ func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (result 
 		p.log.Info("the BMC of the current node does not support RAID", "BMC", p.bmcAccess.Driver())
 	}
 
+	if p.bmcAccess.BIOSInterface() != "" {
+		// Build the BIOS clean steps
+		cleanSteps = append(cleanSteps, buildBIOSCleanSteps(p.bmcAccess.Driver(), p.host.Status.Provisioning.Firmware)...)
+	} else {
+		p.log.Info("the BMC of the current node does not support BIOS", "BMC", p.bmcAccess.Driver())
+	}
+
 	// Start manual clean
 	if len(cleanSteps) != 0 {
 		p.log.Info("remove existing configuration and set new configuration", "steps", cleanSteps)

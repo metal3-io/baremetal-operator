@@ -674,6 +674,7 @@ func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
 	host.Status.Provisioning.RAID = nil
+	host.Status.Provisioning.Firmware = nil
 }
 
 func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -878,6 +879,11 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 
 	if !reflect.DeepEqual(host.Status.Provisioning.RAID, host.Spec.RAID) {
 		host.Status.Provisioning.RAID = host.Spec.RAID.DeepCopy()
+		dirty = true
+	}
+
+	if !reflect.DeepEqual(host.Status.Provisioning.Firmware, host.Spec.Firmware) {
+		host.Status.Provisioning.Firmware = host.Spec.Firmware.DeepCopy()
 		dirty = true
 	}
 

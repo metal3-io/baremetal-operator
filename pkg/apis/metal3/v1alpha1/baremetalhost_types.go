@@ -644,6 +644,9 @@ type ProvisionStatus struct {
 
 	// The Raid set by the user
 	RAID *RAIDConfig `json:"raid,omitempty"`
+
+	// The Firmware config set by the user
+	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

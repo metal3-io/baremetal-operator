@@ -743,6 +743,19 @@ spec:
                     - UEFI
                     - legacy
                     type: string
+                  firmware:
+                    description: The Firmware config set by the user
+                    properties:
+                      simultaneousMultithreadingDisabled:
+                        description: Multithreading configuration
+                        type: boolean
+                      sriovEnabled:
+                        description: SRIOV configuration
+                        type: boolean
+                      virtualizationDisabled:
+                        description: Virtualization configuration
+                        type: boolean
+                    type: object
                   image:
                     description: Image holds the details of the last image successfully
                       provisioned to the host.

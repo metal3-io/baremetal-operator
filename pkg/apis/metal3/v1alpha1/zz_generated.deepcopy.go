@@ -457,6 +457,11 @@ func (in *ProvisionStatus) DeepCopyInto(out *ProvisionStatus) {
 		*out = new(RAIDConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Firmware != nil {
+		in, out := &in.Firmware, &out.Firmware
+		*out = new(FirmwareConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

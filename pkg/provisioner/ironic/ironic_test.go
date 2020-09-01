@@ -15,6 +15,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"k8s.io/utils/pointer"
 )
 
@@ -106,8 +107,10 @@ func TestProvisionerIsReady(t *testing.T) {
 				defer tc.inspector.stop()
 			}
 
-			prov, err := newProvisionerWithURLs(makeHost(), bmc.Credentials{}, nil,
-				tc.ironic.Endpoint(), tc.inspector.Endpoint(),
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+
+			prov, err := newProvisionerWithSettings(makeHost(), bmc.Credentials{}, nil,
+				tc.ironic.Endpoint(), auth, tc.inspector.Endpoint(), auth,
 			)
 			ready, err := prov.IsReady()
 

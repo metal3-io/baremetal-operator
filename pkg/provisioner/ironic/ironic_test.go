@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -471,26 +470,40 @@ func (m *mockServer) addDrivers() *mockServer {
 	return m
 }
 
+func (m *mockServer) logRequest(r *http.Request) {
+	m.requests += r.Host + r.RequestURI + ";"
+}
+
+func (m *mockServer) handleNoResponse(w http.ResponseWriter, r *http.Request) {
+	m.logRequest(r)
+	if m.errorCode != 0 {
+		http.Error(w, "An error", m.errorCode)
+		return
+	}
+}
+
+func (m *mockServer) handleDrivers(w http.ResponseWriter, r *http.Request) {
+	m.logRequest(r)
+	if m.errorCode != 0 {
+		http.Error(w, "An error", m.errorCode)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, m.drivers)
+}
+
 func (m *mockServer) start() *mockServer {
 	listener, err := net.Listen("tcp", "127.0.0.1:"+m.port)
 	if err != nil {
 		panic(err)
 	}
 
-	m.server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		m.requests += r.Host + r.RequestURI + ";"
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", m.handleNoResponse)
+	mux.HandleFunc("/v1", m.handleNoResponse)
+	mux.HandleFunc("/v1/drivers", m.handleDrivers)
 
-		if m.errorCode != 0 {
-			http.Error(w, "An error", m.errorCode)
-			return
-		}
-
-		if strings.Contains(r.RequestURI, "/v1/drivers") {
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, m.drivers)
-		}
-	}))
-
+	m.server = httptest.NewUnstartedServer(mux)
 	m.server.Listener.Close()
 	m.server.Listener = listener
 	m.server.Start()

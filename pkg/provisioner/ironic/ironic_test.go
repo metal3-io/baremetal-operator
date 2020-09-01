@@ -2,10 +2,8 @@ package ironic
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,61 +36,61 @@ func TestProvisionerIsReady(t *testing.T) {
 	}{
 		{
 			name:      "IsReady",
-			ironic:    newMockServer(6385).addDrivers(),
-			inspector: newMockServer(5050),
+			ironic:    newMockServer(t, "ironic").addDrivers(),
+			inspector: newMockServer(t, "inspector"),
 
-			expectedIronicCalls:    "localhost:6385/v1;localhost:6385/v1/drivers;",
-			expectedInspectorCalls: "localhost:5050/v1;",
+			expectedIronicCalls:    "/v1;/v1/drivers;",
+			expectedInspectorCalls: "/v1;",
 			expectedIsReady:        true,
 		},
 		{
 			name:      "NoDriversLoaded",
-			ironic:    newMockServer(6385),
-			inspector: newMockServer(5050),
+			ironic:    newMockServer(t, "ironic"),
+			inspector: newMockServer(t, "inspector"),
 
-			expectedIronicCalls: "localhost:6385/v1;localhost:6385/v1/drivers;",
+			expectedIronicCalls: "/v1;/v1/drivers;",
 		},
 		{
 			name:      "IronicDown",
-			inspector: newMockServer(5050),
+			inspector: newMockServer(t, "inspector"),
 
 			expectedIsReady: false,
 		},
 		{
 			name:   "InspectorDown",
-			ironic: newMockServer(6385).addDrivers(),
+			ironic: newMockServer(t, "ironic").addDrivers(),
 
-			expectedIronicCalls: "localhost:6385/v1;localhost:6385/v1/drivers;",
+			expectedIronicCalls: "/v1;/v1/drivers;",
 
 			expectedIsReady: false,
 		},
 		{
 			name:      "IronicNotOk",
-			ironic:    newMockServer(6385).setErrorCode(http.StatusInternalServerError),
-			inspector: newMockServer(5050),
+			ironic:    newMockServer(t, "ironic").setErrorCode(http.StatusInternalServerError),
+			inspector: newMockServer(t, "inspector"),
 
 			expectedIsReady: false,
 
-			expectedIronicCalls: "localhost:6385/v1;",
+			expectedIronicCalls: "/v1;",
 		},
 		{
 			name:      "IronicNotOkAndNotExpected",
-			ironic:    newMockServer(6385).setErrorCode(http.StatusBadGateway),
-			inspector: newMockServer(5050),
+			ironic:    newMockServer(t, "ironic").setErrorCode(http.StatusBadGateway),
+			inspector: newMockServer(t, "inspector"),
 
 			expectedIsReady: false,
 
-			expectedIronicCalls: "localhost:6385/v1;",
+			expectedIronicCalls: "/v1;",
 		},
 		{
 			name:      "InspectorNotOk",
-			ironic:    newMockServer(6385).addDrivers(),
-			inspector: newMockServer(5050).setErrorCode(http.StatusInternalServerError),
+			ironic:    newMockServer(t, "ironic").addDrivers(),
+			inspector: newMockServer(t, "inspector").setErrorCode(http.StatusInternalServerError),
 
 			expectedIsReady: false,
 
-			expectedIronicCalls:    "localhost:6385/v1;localhost:6385/v1/drivers;",
-			expectedInspectorCalls: "localhost:5050/v1;",
+			expectedIronicCalls:    "/v1;/v1/drivers;",
+			expectedInspectorCalls: "/v1;",
 		},
 	}
 
@@ -108,7 +106,9 @@ func TestProvisionerIsReady(t *testing.T) {
 				defer tc.inspector.stop()
 			}
 
-			prov, err := newProvisioner(makeHost(), bmc.Credentials{}, nil)
+			prov, err := newProvisionerWithURLs(makeHost(), bmc.Credentials{}, nil,
+				tc.ironic.Endpoint(), tc.inspector.Endpoint(),
+			)
 			ready, err := prov.IsReady()
 
 			if tc.ironic != nil {
@@ -426,14 +426,16 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 	}
 }
 
-func newMockServer(port int) *mockServer {
+func newMockServer(t *testing.T, name string) *mockServer {
 	return &mockServer{
-		port: strconv.Itoa(port),
+		t:    t,
+		name: name,
 	}
 }
 
 type mockServer struct {
-	port      string
+	t         *testing.T
+	name      string
 	requests  string
 	server    *httptest.Server
 	drivers   string
@@ -470,12 +472,24 @@ func (m *mockServer) addDrivers() *mockServer {
 	return m
 }
 
-func (m *mockServer) logRequest(r *http.Request) {
-	m.requests += r.Host + r.RequestURI + ";"
+func (m *mockServer) Endpoint() string {
+	if m == nil || m.server == nil {
+		// The consumer of this method expects something valid, but
+		// won't use it if m is nil.
+		return "http://localhost/v1/"
+	}
+	response := m.server.URL + "/v1/"
+	m.t.Logf("%s: endpoint: %s/", m.name, response)
+	return response
+}
+
+func (m *mockServer) logRequest(r *http.Request, msg string) {
+	m.t.Logf("%s: %s %s", m.name, msg, r.URL)
+	m.requests += r.RequestURI + ";"
 }
 
 func (m *mockServer) handleNoResponse(w http.ResponseWriter, r *http.Request) {
-	m.logRequest(r)
+	m.logRequest(r, "no response")
 	if m.errorCode != 0 {
 		http.Error(w, "An error", m.errorCode)
 		return
@@ -483,7 +497,7 @@ func (m *mockServer) handleNoResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *mockServer) handleDrivers(w http.ResponseWriter, r *http.Request) {
-	m.logRequest(r)
+	m.logRequest(r, "drivers")
 	if m.errorCode != 0 {
 		http.Error(w, "An error", m.errorCode)
 		return
@@ -493,20 +507,13 @@ func (m *mockServer) handleDrivers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *mockServer) start() *mockServer {
-	listener, err := net.Listen("tcp", "127.0.0.1:"+m.port)
-	if err != nil {
-		panic(err)
-	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", m.handleNoResponse)
 	mux.HandleFunc("/v1", m.handleNoResponse)
 	mux.HandleFunc("/v1/drivers", m.handleDrivers)
 
-	m.server = httptest.NewUnstartedServer(mux)
-	m.server.Listener.Close()
-	m.server.Listener = listener
-	m.server.Start()
+	m.server = httptest.NewServer(mux)
 
 	return m
 }

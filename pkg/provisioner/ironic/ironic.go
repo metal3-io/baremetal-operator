@@ -122,13 +122,13 @@ func LogStartup() {
 
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
-func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
-	clientIronic, err := clients.IronicClient(ironicEndpoint, ironicAuth)
+func newProvisionerWithURLs(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL, inspectorURL string) (*ironicProvisioner, error) {
+	clientIronic, err := clients.IronicClient(ironicURL, ironicAuth)
 	if err != nil {
 		return nil, err
 	}
 
-	clientInspector, err := clients.InspectorClient(inspectorEndpoint, inspectorAuth)
+	clientInspector, err := clients.InspectorClient(inspectorURL, inspectorAuth)
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +153,14 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 	}
 
 	return p, nil
+}
+
+// A private function to construct an ironicProvisioner (rather than a
+// Provisioner interface) in a consistent way for tests.
+func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+	return newProvisionerWithURLs(host, bmcCreds, publisher,
+		ironicEndpoint, inspectorEndpoint,
+	)
 }
 
 // New returns a new Ironic Provisioner

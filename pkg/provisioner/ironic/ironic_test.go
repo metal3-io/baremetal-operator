@@ -134,8 +134,11 @@ func TestProvisionerIsReady(t *testing.T) {
 func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 
 	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
 
-	prov, err := newProvisioner(makeHost(), bmc.Credentials{}, eventPublisher)
+	prov, err := newProvisionerWithSettings(makeHost(), bmc.Credentials{}, eventPublisher,
+		"https://localhost", auth, "http://localhost", auth,
+	)
 	ironicNode := &nodes.Node{}
 
 	patches, err := prov.getUpdateOptsForNode(ironicNode)
@@ -217,8 +220,11 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	}
 
 	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
 
-	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
+		"https://localhost", auth, "http://localhost", auth,
+	)
 	ironicNode := &nodes.Node{}
 
 	patches, err := prov.getUpdateOptsForNode(ironicNode)
@@ -312,8 +318,11 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	}
 
 	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
 
-	prov, err := newProvisioner(host, bmc.Credentials{}, eventPublisher)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
+		"https://localhost", auth, "http://localhost", auth,
+	)
 	ironicNode := &nodes.Node{}
 
 	patches, err := prov.getUpdateOptsForNode(ironicNode)

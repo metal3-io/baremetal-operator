@@ -2,7 +2,7 @@
 
 ## Install the operator-sdk
 
-Follow the instructions on the [Operator SDK website](https://sdk.operatorframework.io/docs/install-operator-sdk/)
+Follow the instructions on the [Operator SDK website](https://sdk.operatorframework.io/docs/installation/install-operator-sdk/)
 to check out and install the operator-sdk tools.
 
 ## Install openapi-gen

@@ -3,7 +3,6 @@ package ironic
 import (
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +15,7 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"k8s.io/utils/pointer"
 )
 
@@ -27,8 +27,8 @@ func TestProvisionerIsReady(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		ironic    *mockServer
-		inspector *mockServer
+		ironic    *testserver.MockServer
+		inspector *testserver.MockServer
 
 		expectedIronicCalls    string
 		expectedInspectorCalls string
@@ -37,8 +37,8 @@ func TestProvisionerIsReady(t *testing.T) {
 	}{
 		{
 			name:      "IsReady",
-			ironic:    newMockServer(t, "ironic").addDrivers(),
-			inspector: newMockServer(t, "inspector"),
+			ironic:    testserver.New(t, "ironic").AddDrivers(),
+			inspector: testserver.New(t, "inspector"),
 
 			expectedIronicCalls:    "/v1;/v1/drivers;",
 			expectedInspectorCalls: "/v1;",
@@ -46,20 +46,20 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:      "NoDriversLoaded",
-			ironic:    newMockServer(t, "ironic"),
-			inspector: newMockServer(t, "inspector"),
+			ironic:    testserver.New(t, "ironic"),
+			inspector: testserver.New(t, "inspector"),
 
 			expectedIronicCalls: "/v1;/v1/drivers;",
 		},
 		{
 			name:      "IronicDown",
-			inspector: newMockServer(t, "inspector"),
+			inspector: testserver.New(t, "inspector"),
 
 			expectedIsReady: false,
 		},
 		{
 			name:   "InspectorDown",
-			ironic: newMockServer(t, "ironic").addDrivers(),
+			ironic: testserver.New(t, "ironic").AddDrivers(),
 
 			expectedIronicCalls: "/v1;/v1/drivers;",
 
@@ -67,8 +67,8 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:      "IronicNotOk",
-			ironic:    newMockServer(t, "ironic").setErrorCode(http.StatusInternalServerError),
-			inspector: newMockServer(t, "inspector"),
+			ironic:    testserver.New(t, "ironic").SetErrorCode(http.StatusInternalServerError),
+			inspector: testserver.New(t, "inspector"),
 
 			expectedIsReady: false,
 
@@ -76,8 +76,8 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:      "IronicNotOkAndNotExpected",
-			ironic:    newMockServer(t, "ironic").setErrorCode(http.StatusBadGateway),
-			inspector: newMockServer(t, "inspector"),
+			ironic:    testserver.New(t, "ironic").SetErrorCode(http.StatusBadGateway),
+			inspector: testserver.New(t, "inspector"),
 
 			expectedIsReady: false,
 
@@ -85,8 +85,8 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:      "InspectorNotOk",
-			ironic:    newMockServer(t, "ironic").addDrivers(),
-			inspector: newMockServer(t, "inspector").setErrorCode(http.StatusInternalServerError),
+			ironic:    testserver.New(t, "ironic").AddDrivers(),
+			inspector: testserver.New(t, "inspector").SetErrorCode(http.StatusInternalServerError),
 
 			expectedIsReady: false,
 
@@ -98,13 +98,13 @@ func TestProvisionerIsReady(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.ironic != nil {
-				tc.ironic.start()
-				defer tc.ironic.stop()
+				tc.ironic.Start()
+				defer tc.ironic.Stop()
 			}
 
 			if tc.inspector != nil {
-				tc.inspector.start()
-				defer tc.inspector.stop()
+				tc.inspector.Start()
+				defer tc.inspector.Stop()
 			}
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
@@ -115,10 +115,10 @@ func TestProvisionerIsReady(t *testing.T) {
 			ready, err := prov.IsReady()
 
 			if tc.ironic != nil {
-				assert.Equal(t, tc.expectedIronicCalls, tc.ironic.requests)
+				assert.Equal(t, tc.expectedIronicCalls, tc.ironic.Requests)
 			}
 			if tc.inspector != nil {
-				assert.Equal(t, tc.expectedInspectorCalls, tc.inspector.requests)
+				assert.Equal(t, tc.expectedInspectorCalls, tc.inspector.Requests)
 			}
 
 			if tc.expectedError != "" {
@@ -436,102 +436,6 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 			HardwareProfile: "libvirt",
 		},
 	}
-}
-
-func newMockServer(t *testing.T, name string) *mockServer {
-	return &mockServer{
-		t:    t,
-		name: name,
-	}
-}
-
-type mockServer struct {
-	t         *testing.T
-	name      string
-	requests  string
-	server    *httptest.Server
-	drivers   string
-	errorCode int
-}
-
-func (m *mockServer) setErrorCode(code int) *mockServer {
-	m.errorCode = code
-
-	return m
-}
-
-func (m *mockServer) addDrivers() *mockServer {
-	m.drivers = `
-	{
-		"drivers": [{
-			"hosts": [
-			  "master-2.ostest.test.metalkube.org"
-			],
-			"links": [
-			  {
-				"href": "http://[fd00:1101::3]:6385/v1/drivers/fake-hardware",
-				"rel": "self"
-			  },
-			  {
-				"href": "http://[fd00:1101::3]:6385/drivers/fake-hardware",
-				"rel": "bookmark"
-			  }
-			],
-			"name": "fake-hardware"
-		}]
-	}
-	`
-	return m
-}
-
-func (m *mockServer) Endpoint() string {
-	if m == nil || m.server == nil {
-		// The consumer of this method expects something valid, but
-		// won't use it if m is nil.
-		return "https://ironic.test/v1/"
-	}
-	response := m.server.URL + "/v1/"
-	m.t.Logf("%s: endpoint: %s/", m.name, response)
-	return response
-}
-
-func (m *mockServer) logRequest(r *http.Request, msg string) {
-	m.t.Logf("%s: %s %s", m.name, msg, r.URL)
-	m.requests += r.RequestURI + ";"
-}
-
-func (m *mockServer) handleNoResponse(w http.ResponseWriter, r *http.Request) {
-	m.logRequest(r, "no response")
-	if m.errorCode != 0 {
-		http.Error(w, "An error", m.errorCode)
-		return
-	}
-}
-
-func (m *mockServer) handleDrivers(w http.ResponseWriter, r *http.Request) {
-	m.logRequest(r, "drivers")
-	if m.errorCode != 0 {
-		http.Error(w, "An error", m.errorCode)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, m.drivers)
-}
-
-func (m *mockServer) start() *mockServer {
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", m.handleNoResponse)
-	mux.HandleFunc("/v1", m.handleNoResponse)
-	mux.HandleFunc("/v1/drivers", m.handleDrivers)
-
-	m.server = httptest.NewServer(mux)
-
-	return m
-}
-
-func (m *mockServer) stop() {
-	m.server.Close()
 }
 
 func TestBuildCapabilitiesValue(t *testing.T) {

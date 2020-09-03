@@ -137,7 +137,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 
 	prov, err := newProvisionerWithSettings(makeHost(), bmc.Credentials{}, eventPublisher,
-		"https://localhost", auth, "http://localhost", auth,
+		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
 	ironicNode := &nodes.Node{}
 
@@ -223,7 +223,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 
 	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
-		"https://localhost", auth, "http://localhost", auth,
+		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
 	ironicNode := &nodes.Node{}
 
@@ -321,7 +321,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 
 	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
-		"https://localhost", auth, "http://localhost", auth,
+		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
 	ironicNode := &nodes.Node{}
 
@@ -488,7 +488,7 @@ func (m *mockServer) Endpoint() string {
 	if m == nil || m.server == nil {
 		// The consumer of this method expects something valid, but
 		// won't use it if m is nil.
-		return "http://localhost/v1/"
+		return "https://ironic.test/v1/"
 	}
 	response := m.server.URL + "/v1/"
 	m.t.Logf("%s: endpoint: %s/", m.name, response)

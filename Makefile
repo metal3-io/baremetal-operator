@@ -135,14 +135,14 @@ e2e-local:
 
 .PHONY: run
 run: ## Run the operator outside of a cluster in development mode
-	operator-sdk run --local \
+	operator-sdk run local \
 		--go-ldflags=$(LDFLAGS) \
 		--watch-namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev"
 
 .PHONY: demo
 demo: ## Run the operator outside of a cluster using the demo driver
-	operator-sdk run --local \
+	operator-sdk run local \
 		--go-ldflags=$(LDFLAGS) \
 		--watch-namespace=$(RUN_NAMESPACE) \
 		--operator-flags="-dev -demo-mode"

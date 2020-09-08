@@ -76,3 +76,10 @@ tags
 .vscode/*
 .history
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
+
+
+# Tilt files.
+.tiltbuild
+/tilt.d
+tilt-settings.json
+tilt_config.json

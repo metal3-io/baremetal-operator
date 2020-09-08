@@ -78,6 +78,13 @@ Note that this script may need customizations to some of the `podman run`
 commands, to include environment variables that configure the containers for
 your environment.
 
+## Using Tilt for development
+
+It is possible to develop Baremetal Operator using Tilt with CAPM3. Please
+refer to
+[the development setup guide of CAPM3](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#tilt-for-dev-in-capm3)
+and specially the [Baremetal Operator Integration](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#including-baremetal-operator-and-ip-address-manager)
+
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to

@@ -7,6 +7,12 @@ CODE_DIRS = ./cmd ./pkg ./version
 PACKAGES = $(foreach dir,$(CODE_DIRS),$(dir)/...)
 COVER_PROFILE = cover.out
 
+# Directories.
+TOOLS_DIR := tools
+TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
+KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
+BIN_DIR := bin
+
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
 BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
@@ -31,6 +37,10 @@ help:  ## Display this help
 	@echo "  SETUP            -- controls the --no-setup flag ($(SETUP))"
 	@echo "  GO_TEST_FLAGS    -- flags to pass to --go-test-flags ($(GO_TEST_FLAGS))"
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
+
+.PHONY: $(KUSTOMIZE)
+$(KUSTOMIZE):
+	cd $(TOOLS_DIR); ./install_kustomize.sh
 
 .PHONY: test
 test: fmt generate lint vet unit ## Run common developer tests
@@ -175,3 +185,19 @@ tools:
 deploy:
 	cd deploy && kustomize edit set namespace $(RUN_NAMESPACE) && cd ..
 	kustomize build deploy | kubectl apply -f -
+
+## --------------------------------------
+## Tilt / Kind
+## --------------------------------------
+
+.PHONY: kind-create
+kind-create: ## create bmo kind cluster if needed
+	./hack/kind_with_registry.sh
+
+.PHONY: tilt-up
+tilt-up: $(KUSTOMIZE) kind-create ## start tilt and build kind cluster if needed
+	tilt up
+
+.PHONY: kind-reset
+kind-reset: ## Destroys the "bmo" kind cluster.
+	kind delete cluster --name=bmo || true

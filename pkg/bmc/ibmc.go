@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -96,4 +97,8 @@ func (a *ibmcAccessDetails) RAIDInterface() string {
 
 func (a *ibmcAccessDetails) VendorInterface() string {
 	return ""
+}
+
+func (a *ibmcAccessDetails) UniqueAccessPath() string {
+	return fmt.Sprintf("%s%s", a.host, a.path)
 }

@@ -5,6 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
 // ValidateHostForAdmission takes a list of existing hosts, and a host we are
@@ -16,47 +17,43 @@ import (
 // This is designed to be run by an admission webhook, `ValidateCreate`, and
 // `ValidateUpdate`.
 func ValidateHostForAdmission(existingHosts []metal3v1alpha1.BareMetalHost, host metal3v1alpha1.BareMetalHost, old *metal3v1alpha1.BareMetalHost) error {
-	if host.Spec.BMC.Address == "" && host.Spec.BootMACAddress == "" && host.Spec.BMC.CredentialsName == "" {
-		return nil
-	}
-
 	if len(existingHosts) == 0 {
 		return nil
 	}
 
 	var allErrs field.ErrorList
+	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, true)
+
+	if err != nil {
+		// If access details aren't set, there is nothing to validate.
+		return nil
+	}
 
 	for _, existingHost := range existingHosts {
+		// Don't compare against itself
 		if old != nil && old.Namespace == existingHost.Namespace && old.Name == existingHost.Name {
 			continue
 		}
 
-		// The BMC address is optional so only validate it if it's set
-		if host.Spec.BMC.Address != "" && host.Spec.BMC.Address == existingHost.Spec.BMC.Address {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "bmc", "address"),
-				host.Spec.BMC.Address,
-				"is not unique",
-			))
+		existingBmc, err := bmc.NewAccessDetails(existingHost.Spec.BMC.Address, false)
+
+		// If access details aren't set, there is nothing to validate.
+		if err != nil {
+			continue
 		}
 
-		// The BootMACAddress is optional so only validate it if it's set
-		if host.Spec.BootMACAddress != "" && host.Spec.BootMACAddress == existingHost.Spec.BootMACAddress {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "bootMACAddress"),
-				host.Spec.BootMACAddress,
-				"is not unique",
-			))
+		// If the two hosts don't share drivers, we can assume that they don't conflict
+		if existingBmc.Driver() != bmcAccess.Driver() {
+			continue
 		}
 
-		// The BMC credentials is optional so only validate it if it's set
-		if host.Spec.BMC.CredentialsName != "" && host.Spec.BMC.CredentialsName == existingHost.Spec.BMC.CredentialsName {
+		if existingBmc.UniqueAccessPath() == bmcAccess.UniqueAccessPath() {
 			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "bmc", "credentialsName"),
-				host.Spec.BMC.CredentialsName,
-				"is not unique",
-			))
+				field.NewPath("spec", "bmc"),
+				host.Spec.BMC,
+				"is not unique"))
 		}
+
 	}
 
 	if len(allErrs) == 0 {

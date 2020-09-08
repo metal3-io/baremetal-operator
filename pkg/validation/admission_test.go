@@ -70,8 +70,8 @@ func TestCanBeAdmitted(t *testing.T) {
 				defaultHostName,
 				field.ErrorList{
 					field.Invalid(
-						field.NewPath("spec", "bmc", "address"),
-						defaultBMCAddress,
+						field.NewPath("spec", "bmc"),
+						metal3v1alpha1.BMCDetails{Address: defaultBMCAddress},
 						"is not unique",
 					),
 				}),
@@ -79,44 +79,6 @@ func TestCanBeAdmitted(t *testing.T) {
 		{
 			Scenario: "BMC address is unique",
 			Host:     newHost(defaultHostName, "unique", "", ""),
-			Expected: nil,
-		},
-		{
-			Scenario: "BootMACAddress is not unique",
-			Host:     newHost(defaultHostName, "", "", defaultBootMACAddress),
-			Expected: apierrors.NewInvalid(
-				metal3v1alpha1.SchemeGroupVersion.WithKind("BareMetalHost").GroupKind(),
-				defaultHostName,
-				field.ErrorList{
-					field.Invalid(
-						field.NewPath("spec", "bootMACAddress"),
-						defaultBootMACAddress,
-						"is not unique",
-					),
-				}),
-		},
-		{
-			Scenario: "BootMACAddress is unique",
-			Host:     newHost(defaultHostName, "", "", "unique"),
-			Expected: nil,
-		},
-		{
-			Scenario: "BMC credentials name is not unique",
-			Host:     newHost(defaultHostName, "", defaultBMCCredentialsName, ""),
-			Expected: apierrors.NewInvalid(
-				metal3v1alpha1.SchemeGroupVersion.WithKind("BareMetalHost").GroupKind(),
-				defaultHostName,
-				field.ErrorList{
-					field.Invalid(
-						field.NewPath("spec", "bmc", "credentialsName"),
-						defaultBMCCredentialsName,
-						"is not unique",
-					),
-				}),
-		},
-		{
-			Scenario: "BMC credentials name is unique",
-			Host:     newHost(defaultHostName, "", "unique", ""),
 			Expected: nil,
 		},
 	}
@@ -128,19 +90,6 @@ func TestCanBeAdmitted(t *testing.T) {
 			assert.Equal(t, tc.Expected, err)
 		})
 	}
-}
-
-func TestCanBeAdmittedMultiple(t *testing.T) {
-	h1 := newHost("h1", "", "", "")
-	h2 := newHost("h2", "", "", "")
-	h3 := newHost("h3", "", "", "")
-	existingHosts := asList(h1, h2, h3)
-
-	err := ValidateHostForAdmission(existingHosts, newDefaultHost(), nil)
-	assert.Equal(t, nil, err)
-
-	err = ValidateHostForAdmission(existingHosts, newHost(defaultHostName, "", "", ""), nil)
-	assert.Equal(t, nil, err)
 }
 
 func TestCanBeAdmittedUpdate(t *testing.T) {
@@ -165,8 +114,8 @@ func TestCanBeAdmittedUpdate(t *testing.T) {
 		"h1",
 		field.ErrorList{
 			field.Invalid(
-				field.NewPath("spec", "bmc", "address"),
-				"2",
+				field.NewPath("spec", "bmc"),
+				metal3v1alpha1.BMCDetails{Address: "2"},
 				"is not unique",
 			),
 		})

@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"fmt"
 	"net/url"
 )
 
@@ -83,4 +84,8 @@ func (a *iRMCAccessDetails) RAIDInterface() string {
 
 func (a *iRMCAccessDetails) VendorInterface() string {
 	return ""
+}
+
+func (a *iRMCAccessDetails) UniqueAccessPath() string {
+	return fmt.Sprintf("%s:%s", a.hostname, a.portNum)
 }

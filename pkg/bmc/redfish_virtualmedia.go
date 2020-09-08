@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"fmt"
 	"net/url"
 )
 
@@ -84,4 +85,8 @@ func (a *redfishVirtualMediaAccessDetails) RAIDInterface() string {
 
 func (a *redfishVirtualMediaAccessDetails) VendorInterface() string {
 	return ""
+}
+
+func (a *redfishVirtualMediaAccessDetails) UniqueAccessPath() string {
+	return fmt.Sprintf("%s%s", a.host, a.path)
 }

@@ -56,6 +56,11 @@ type AccessDetails interface {
 	PowerInterface() string
 	RAIDInterface() string
 	VendorInterface() string
+
+	// UniqueAccessPath returns a string that can be used to assert uniqueness
+	// among hosts with the same driver.  For example, when using redfish, we
+	// can return a combination of hostname and path.
+	UniqueAccessPath() string
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {

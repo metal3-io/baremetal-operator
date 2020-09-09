@@ -53,9 +53,8 @@ func newSecret(name string, data map[string]string) *corev1.Secret {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       namespace,
-			ResourceVersion: "1",
+			Name:      name,
+			Namespace: namespace,
 		},
 		Data: secretData,
 	}

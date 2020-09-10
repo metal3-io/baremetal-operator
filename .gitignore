@@ -83,3 +83,6 @@ tags
 /tilt.d
 tilt-settings.json
 tilt_config.json
+
+*.crt
+*.key

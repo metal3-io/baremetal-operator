@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
@@ -21,8 +22,19 @@ type options struct {
 
 func main() {
 	opts := getOptions()
+	ironicTrustedCAFile := os.Getenv("IRONIC_CACERT_FILE")
+	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
+	ironicInsecure := false
+	if strings.ToLower(ironicInsecureStr) == "true" {
+		ironicInsecure = true
+	}
 
-	inspector, err := clients.InspectorClient(opts.Endpoint, opts.AuthConfig)
+	tlsConf := clients.TLSConfig{
+		TrustedCAFile:      ironicTrustedCAFile,
+		InsecureSkipVerify: ironicInsecure,
+	}
+
+	inspector, err := clients.InspectorClient(opts.Endpoint, opts.AuthConfig, tlsConf)
 	if err != nil {
 		fmt.Printf("could not get inspector client: %s", err)
 		os.Exit(1)

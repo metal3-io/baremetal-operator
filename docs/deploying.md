@@ -35,6 +35,9 @@ deploy/
 │   ├── role_binding.yaml
 │   ├── role.yaml
 │   └── service_account.yaml
+├── tls
+│   ├── kustomization.yaml
+│   └── tls_ca.yaml
 └── role.yaml -> rbac/role.yaml
 ```
 
@@ -66,6 +69,9 @@ namely `default`,  `ironic` and `keepalived`. `default` and `ironic` deploy
 only ironic, `keepalived` deploys the ironic with keepalived. As the name
 implies, `keepalived/keepalived_patch.yaml` patches the default image URL
 through kustomization.
+
+## Deployment commands
+
 The user should run following commands to be able to meet requirements of each
 use case as provided below:
 
@@ -89,6 +95,64 @@ kustomize build $BMOPATH/ironic-deployment/default | kubectl apply -f-
 ```
 
 where $BMOPATH points to the baremetal-operator path.
+
+### Deploying with TLS
+
+For this, you need to first copy your Ironic CA Certificate or the ironic
+certificate itself, then build the kustomization for baremetal operator:
+
+```sh
+   cp <path-to-certificate> $BMOPATH/deploy/tls/ca.crt
+   ./tools/bin/kustomize build $BMOPATH/deploy/tls | kubectl apply -f -
+```
+
+Then you need to copy all your certificates and build the kustomization for
+ironic. The Ironic CA certificate is not required
+
+```sh
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/ironic-ca.crt
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/ironic-inspector-ca.crt
+
+   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/tls/ironic.crt
+   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/tls/ironic.key
+
+   cp <path-to-inspector-tls-certificate> \
+   $BMOPATH/ironic-deployment/tls/ironic-inspector.crt
+   cp <path-to-inspector-tls-cert-key> \
+   $BMOPATH/ironic-deployment/tls/ironic-inspector.key
+
+   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/tls | \
+   kubectl apply -f -
+```
+
+### Deploying with Keepalived and TLS
+
+For this, you need to first copy your Ironic CA Certificate, then build the
+kustomization for baremetal operator:
+
+```sh
+   cp <path-to-ca-certificate> $BMOPATH/deploy/tls/ca.crt
+   ./tools/bin/kustomize build $BMOPATH/deploy/tls | kubectl apply -f -
+```
+
+Then you need to copy all your certificates and build the kustomization for
+ironic:
+
+```sh
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/keepalived-tls/ironic-ca.crt
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/keepalived-tls/ironic-inspector-ca.crt
+
+   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/keepalived-tls/ironic.crt
+   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/keepalived-tls/ironic.key
+
+   cp <path-to-inspector-tls-certificate> \
+   $BMOPATH/ironic-deployment/keepalived-tls/ironic-inspector.crt
+   cp <path-to-inspector-tls-cert-key> \
+   $BMOPATH/ironic-deployment/keepalived-tls/ironic-inspector.key
+
+   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/keepalived-tls | \
+   kubectl apply -f -
+```
 
 #### Useful tips
 

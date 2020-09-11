@@ -774,24 +774,6 @@ func (host *BareMetalHost) WasProvisioned() bool {
 	return false
 }
 
-// NeedsDeprovisioning compares the settings with the provisioning
-// status and returns true when the host should be deprovisioned.
-func (host *BareMetalHost) NeedsDeprovisioning() bool {
-	if host.Spec.Image == nil {
-		return true
-	}
-	if host.Spec.Image.URL == "" {
-		return true
-	}
-	if host.Status.Provisioning.Image.URL == "" {
-		return false
-	}
-	if host.Spec.Image.URL != host.Status.Provisioning.Image.URL {
-		return true
-	}
-	return false
-}
-
 // UpdateGoodCredentials modifies the GoodCredentials portion of the
 // Status struct to record the details of the secret containing
 // credentials known to work.

@@ -291,8 +291,24 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 	return actResult
 }
 
+func (hsm *hostStateMachine) provisioningCancelled() bool {
+	if hsm.Host.Spec.Image == nil {
+		return true
+	}
+	if hsm.Host.Spec.Image.URL == "" {
+		return true
+	}
+	if hsm.Host.Status.Provisioning.Image.URL == "" {
+		return false
+	}
+	if hsm.Host.Spec.Image.URL != hsm.Host.Status.Provisioning.Image.URL {
+		return true
+	}
+	return false
+}
+
 func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResult {
-	if hsm.Host.NeedsDeprovisioning() {
+	if hsm.provisioningCancelled() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
 		return actionComplete{}
 	}
@@ -318,7 +334,7 @@ func (hsm *hostStateMachine) handleProvisioningError(info *reconcileInfo) action
 }
 
 func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult {
-	if hsm.Host.NeedsDeprovisioning() {
+	if hsm.provisioningCancelled() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
 		return actionComplete{}
 	}

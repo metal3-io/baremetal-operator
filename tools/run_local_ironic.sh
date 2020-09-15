@@ -2,14 +2,38 @@
 
 set -ex
 
-SCRIPTPATH="$(dirname "$(readlink -f "${0}")")"
-
 IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
 IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic-inspector"}
 IRONIC_KEEPALIVED_IMAGE=${IRONIC_KEEPALIVED_IMAGE:-"quay.io/metal3-io/keepalived"}
 IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:master"}
 IRONIC_DATA_DIR=${IRONIC_DATA_DIR:-"/opt/metal3-dev-env/ironic"}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
+HTTP_PORT="6180"
+PROVISIONING_IP="${PROVISIONING_IP:-"172.22.0.1"}"
+CLUSTER_PROVISIONING_IP="${CLUSTER_PROVISIONING_IP:-"172.22.0.2"}"
+PROVISIONING_CIDR="${PROVISIONING_CIDR:-"24"}"
+PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-"ironicendpoint"}"
+CLUSTER_DHCP_RANGE="${CLUSTER_DHCP_RANGE:-"172.22.0.10,172.22.0.100"}"
+DEPLOY_KERNEL_URL="${DEPLOY_KERNEL_URL:-"http://${CLUSTER_PROVISIONING_IP}:${HTTP_PORT}/images/ironic-python-agent.kernel"}"
+DEPLOY_RAMDISK_URL="${DEPLOY_RAMDISK_URL:-"http://${CLUSTER_PROVISIONING_IP}:${HTTP_PORT}/images/ironic-python-agent.initramfs"}"
+IRONIC_ENDPOINT="${IRONIC_ENDPOINT:-"http://${CLUSTER_PROVISIONING_IP}:6385/v1/"}"
+IRONIC_INSPECTOR_ENDPOINT="${IRONIC_INSPECTOR_ENDPOINT:-"http://${CLUSTER_PROVISIONING_IP}:5050/v1/"}"
+CACHEURL="${CACHEURL:-"http://${PROVISIONING_IP}/images"}"
+IRONIC_FAST_TRACK="${IRONIC_FAST_TRACK:-"false"}"
+
+cat << EOF | sudo tee "${IRONIC_DATA_DIR}/ironic-vars.env"
+HTTP_PORT=${HTTP_PORT}
+PROVISIONING_IP=${CLUSTER_PROVISIONING_IP}
+PROVISIONING_CIDR=${PROVISIONING_CIDR}
+PROVISIONING_INTERFACE=${PROVISIONING_INTERFACE}
+DHCP_RANGE=${CLUSTER_DHCP_RANGE}
+DEPLOY_KERNEL_URL=${DEPLOY_KERNEL_URL}
+DEPLOY_RAMDISK_URL=${DEPLOY_RAMDISK_URL}
+IRONIC_ENDPOINT=${IRONIC_ENDPOINT}
+IRONIC_INSPECTOR_ENDPOINT=${IRONIC_INSPECTOR_ENDPOINT}
+CACHEURL=${CACHEURL}
+IRONIC_FAST_TRACK=${IRONIC_FAST_TRACK}
+EOF
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_INSPECTOR_IMAGE"
@@ -47,7 +71,7 @@ fi
 # Start image downloader container
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" "${IPA_DOWNLOADER_IMAGE}" /usr/local/bin/get-resource.sh
 
 sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
@@ -58,20 +82,20 @@ sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
 # https://github.com/metal3-io/ironic/blob/master/rundnsmasq.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
 # For available env vars, see:
 # https://github.com/metal3-io/ironic/blob/master/runhttpd.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
 # https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runmariadb \
      --env "MARIADB_PASSWORD=$mariadb_password" "${IRONIC_IMAGE}"
 
@@ -79,18 +103,18 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
 # https://github.com/metal3-io/ironic/blob/master/runironic.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      --env "MARIADB_PASSWORD=$mariadb_password" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start ironic-endpoint-keepalived
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-endpoint-keepalived \
-    ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+    ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_KEEPALIVED_IMAGE}"
 
 # Start Ironic Inspector
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \
-     ${POD} --env-file "${SCRIPTPATH}/../deploy/ironic_ci.env" \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"

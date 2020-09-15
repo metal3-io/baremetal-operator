@@ -76,7 +76,26 @@ See `tools/run_local_ironic.sh`.
 
 Note that this script may need customizations to some of the `podman run`
 commands, to include environment variables that configure the containers for
-your environment.
+your environment. All ironic related environment variables are set by default
+if they are not passed through the environment.
+
+The following environment variables can be passed to configure the ironic:
+
+- HTTP_PORT - port used by httpd server (default 6180)
+- PROVISIONING_IP - provisioning interface IP address to use for ironic,
+  dnsmasq(dhcpd) and httpd (default 172.22.0.1)
+- CLUSTER_PROVISIONING_IP - cluster provisioning interface IP address (default 172.22.0.2)
+- PROVISIONING_CIDR - provisioning interface IP address CIDR (default 24)
+- PROVISIONING_INTERFACE - interface to use for ironic, dnsmasq(dhcpd) and
+  httpd (default ironicendpoint)
+- CLUSTER_DHCP_RANGE - dhcp range to use for provisioning (default 172.22.0.10-172.22.0.100)
+- DEPLOY_KERNEL_URL - the URL of the kernel to deploy ironic-python-agent
+- DEPLOY_RAMDISK_URL - the URL of the ramdisk to deploy ironic-python-agent
+- IRONIC_ENDPOINT - the endpoint of the ironic
+- IRONIC_INSPECTOR_ENDPOINT - the endpoint of the ironic inspector
+- CACHEURL - the URL of the cached images
+- IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
+  (default false)
 
 ## Using Tilt for development
 

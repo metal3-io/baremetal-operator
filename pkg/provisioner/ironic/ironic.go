@@ -535,6 +535,21 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				err = nil
 				return
 			default:
+				// Update the node settings in ironic to ensure we
+				// have the boot mode configured, at least.
+				var updates nodes.UpdateOpts
+				updates, err = p.getUpdateOptsForNode(ironicNode)
+				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+				switch err.(type) {
+				case nil:
+				case gophercloud.ErrDefault409:
+					p.log.Info("could not update host settings in ironic, busy")
+					result.Dirty = true
+					return result, nil, nil
+				default:
+					return result, nil, errors.Wrap(err, "failed to update host settings in ironic to start inspecting")
+				}
+
 				p.log.Info("starting new hardware inspection")
 				var success bool
 				success, result, err = p.tryChangeNodeProvisionState(

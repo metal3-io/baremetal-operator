@@ -56,8 +56,14 @@ func buildIDRACCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) (cleanSteps [
 	}
 
 	var settings []map[string]string
-	settings = buildBIOSSettings(*firmware, nameMap, valueMap)
-
+	if firmware != nil {
+		settings = buildBIOSSettings(*firmware, nameMap, valueMap)
+	} else {
+		// The default configuration is always applied to the node, this
+		// ensures an empty object is available to generate default firmware config
+		dummyFirmwareConfig := &metal3v1alpha1.FirmwareConfig{}
+		settings = buildBIOSSettings(*dummyFirmwareConfig, nameMap, valueMap)
+	}
 	// This cleaning step applies a set of BIOS settings for a node
 	cleanSteps = append(
 		cleanSteps,

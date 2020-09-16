@@ -387,6 +387,60 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	}
 }
 
+func TestGetUpdateOptsForNodeNoImage(t *testing.T) {
+	host := &metal3v1alpha1.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "myhost",
+			Namespace: "myns",
+			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Online: true,
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			HardwareProfile: "dell",
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				ID: "provisioning-id",
+			},
+		},
+	}
+
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
+		"https://ironic.test", auth, "https://ironic.test", auth,
+	)
+	ironicNode := &nodes.Node{}
+
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("patches: %v", patches)
+
+	missingPaths := []string{
+		"/instance_info/image_source",
+		"/instance_info/image_os_hash_algo",
+		"/instance_info/image_os_hash_value",
+		"/instance_info/image_disk_format",
+	}
+
+	for _, path := range missingPaths {
+		t.Run(path, func(t *testing.T) {
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == path {
+					t.Fail()
+					break
+				}
+			}
+		})
+	}
+}
+
 func makeHost() *metal3v1alpha1.BareMetalHost {
 	rotational := true
 

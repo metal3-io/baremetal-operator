@@ -631,6 +631,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 }
 
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
+	var op nodes.UpdateOp
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
 
@@ -638,94 +639,6 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		return updates, errors.Wrap(err,
 			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
 				p.host.HardwareProfile()))
-	}
-
-	// image_source
-	var op nodes.UpdateOp
-	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding image_source")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating image_source")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/image_source",
-			Value: p.host.Spec.Image.URL,
-		},
-	)
-
-	checksum, checksumType, _ := p.host.GetImageChecksum()
-
-	// image_os_hash_algo
-	if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding image_os_hash_algo")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating image_os_hash_algo")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/image_os_hash_algo",
-			Value: checksumType,
-		},
-	)
-
-	// image_os_hash_value
-	if _, ok := ironicNode.InstanceInfo["image_os_hash_value"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding image_os_hash_value")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating image_os_hash_value")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/image_os_hash_value",
-			Value: checksum,
-		},
-	)
-
-	// image_checksum
-	//
-	// FIXME: For older versions of ironic that do not have
-	// https://review.opendev.org/#/c/711816/ failing to include the
-	// 'image_checksum' causes ironic to refuse to provision the
-	// image, even if the other hash value parameters are given. We
-	// only want to do that for MD5, however, because those versions
-	// of ironic only support MD5 checksums.
-	if checksumType == string(metal3v1alpha1.MD5) {
-		if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
-			op = nodes.AddOp
-			p.log.Info("adding image_checksum")
-		} else {
-			op = nodes.ReplaceOp
-			p.log.Info("updating image_checksum")
-		}
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    op,
-				Path:  "/instance_info/image_checksum",
-				Value: checksum,
-			},
-		)
-	}
-
-	if p.host.Spec.Image.DiskFormat != nil {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:    nodes.AddOp,
-			Path:  "/instance_info/image_disk_format",
-			Value: *p.host.Spec.Image.DiskFormat,
-		})
 	}
 
 	// instance_uuid
@@ -736,56 +649,6 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 			Op:    nodes.ReplaceOp,
 			Path:  "/instance_uuid",
 			Value: string(p.host.ObjectMeta.UID),
-		},
-	)
-
-	// root_gb
-	//
-	// FIXME(dhellmann): We have to provide something for the disk
-	// size until https://storyboard.openstack.org/#!/story/2005165 is
-	// fixed in ironic.
-	if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding root_gb")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating root_gb")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/root_gb",
-			Value: hwProf.RootGB,
-		},
-	)
-
-	// root_device
-	//
-	// FIXME(dhellmann): We need to specify the root device to receive
-	// the image. That should come from some combination of inspecting
-	// the host to see what is available and the hardware profile to
-	// give us instructions.
-	if _, ok := ironicNode.Properties["root_device"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding root_device")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating root_device")
-	}
-
-	// hints
-	//
-	// If the user has provided explicit root device hints, they take
-	// precedence. Otherwise use the values from the hardware profile.
-	hints := devicehints.MakeHintMap(p.host.Status.Provisioning.RootDeviceHints)
-	p.log.Info("using root device", "hints", hints)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/root_device",
-			Value: hints,
 		},
 	)
 
@@ -823,6 +686,145 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 			Op:    op,
 			Path:  "/properties/local_gb",
 			Value: hwProf.LocalGB,
+		},
+	)
+
+	// root_gb
+	//
+	// FIXME(dhellmann): We have to provide something for the disk
+	// size until https://storyboard.openstack.org/#!/story/2005165 is
+	// fixed in ironic.
+	if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding root_gb")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating root_gb")
+	}
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/root_gb",
+			Value: hwProf.RootGB,
+		},
+	)
+
+	// image_source
+	if p.host.Spec.Image != nil && p.host.Spec.Image.URL != "" {
+		if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
+			op = nodes.AddOp
+			p.log.Info("adding image_source")
+		} else {
+			op = nodes.ReplaceOp
+			p.log.Info("updating image_source")
+		}
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    op,
+				Path:  "/instance_info/image_source",
+				Value: p.host.Spec.Image.URL,
+			},
+		)
+
+		checksum, checksumType, _ := p.host.GetImageChecksum()
+
+		// image_os_hash_algo
+		if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
+			op = nodes.AddOp
+			p.log.Info("adding image_os_hash_algo")
+		} else {
+			op = nodes.ReplaceOp
+			p.log.Info("updating image_os_hash_algo")
+		}
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    op,
+				Path:  "/instance_info/image_os_hash_algo",
+				Value: checksumType,
+			},
+		)
+
+		// image_os_hash_value
+		if _, ok := ironicNode.InstanceInfo["image_os_hash_value"]; !ok {
+			op = nodes.AddOp
+			p.log.Info("adding image_os_hash_value")
+		} else {
+			op = nodes.ReplaceOp
+			p.log.Info("updating image_os_hash_value")
+		}
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    op,
+				Path:  "/instance_info/image_os_hash_value",
+				Value: checksum,
+			},
+		)
+
+		// image_checksum
+		//
+		// FIXME: For older versions of ironic that do not have
+		// https://review.opendev.org/#/c/711816/ failing to include the
+		// 'image_checksum' causes ironic to refuse to provision the
+		// image, even if the other hash value parameters are given. We
+		// only want to do that for MD5, however, because those versions
+		// of ironic only support MD5 checksums.
+		if checksumType == string(metal3v1alpha1.MD5) {
+			if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
+				op = nodes.AddOp
+				p.log.Info("adding image_checksum")
+			} else {
+				op = nodes.ReplaceOp
+				p.log.Info("updating image_checksum")
+			}
+			updates = append(
+				updates,
+				nodes.UpdateOperation{
+					Op:    op,
+					Path:  "/instance_info/image_checksum",
+					Value: checksum,
+				},
+			)
+		}
+
+		if p.host.Spec.Image.DiskFormat != nil {
+			updates = append(updates, nodes.UpdateOperation{
+				Op:    nodes.AddOp,
+				Path:  "/instance_info/image_disk_format",
+				Value: *p.host.Spec.Image.DiskFormat,
+			})
+		}
+	}
+
+	// root_device
+	//
+	// FIXME(dhellmann): We need to specify the root device to receive
+	// the image. That should come from some combination of inspecting
+	// the host to see what is available and the hardware profile to
+	// give us instructions.
+	if _, ok := ironicNode.Properties["root_device"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding root_device")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating root_device")
+	}
+
+	// hints
+	//
+	// If the user has provided explicit root device hints, they take
+	// precedence. Otherwise use the values from the hardware profile.
+	hints := devicehints.MakeHintMap(p.host.Status.Provisioning.RootDeviceHints)
+	p.log.Info("using root device", "hints", hints)
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/properties/root_device",
+			Value: hints,
 		},
 	)
 

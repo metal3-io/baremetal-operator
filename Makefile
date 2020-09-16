@@ -12,6 +12,8 @@ SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
 BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
 export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=${BUILD_VERSION} -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${SOURCE_GIT_COMMIT}"
 
+OPERATOR_BIN = ./build/_output/bin/baremetal-operator
+
 # Set some variables the operator expects to have in order to work
 # Those need to be the same as in deploy/ironic_ci.env
 export OPERATOR_NAME=baremetal-operator
@@ -134,18 +136,12 @@ e2e-local:
 		$(DEBUG) --go-test-flags "$(GO_TEST_FLAGS)"
 
 .PHONY: run
-run: ## Run the operator outside of a cluster in development mode
-	operator-sdk run --local \
-		--go-ldflags=$(LDFLAGS) \
-		--watch-namespace=$(RUN_NAMESPACE) \
-		--operator-flags="-dev"
+run: build ## Run the operator outside of a cluster in development mode
+	$(OPERATOR_BIN) -dev -namespace=$(RUN_NAMESPACE)
 
 .PHONY: demo
-demo: ## Run the operator outside of a cluster using the demo driver
-	operator-sdk run --local \
-		--go-ldflags=$(LDFLAGS) \
-		--watch-namespace=$(RUN_NAMESPACE) \
-		--operator-flags="-dev -demo-mode"
+demo: build ## Run the operator outside of a cluster using the demo driver
+	$(OPERATOR_BIN) -dev -demo-mode -namespace=$(RUN_NAMESPACE)
 
 .PHONY: docker
 docker: docker-operator docker-sdk docker-golint ## Build docker images
@@ -165,7 +161,7 @@ docker-golint:
 .PHONY: build
 build: ## Build the operator binary
 	@echo LDFLAGS=$(LDFLAGS)
-	go build -ldflags $(LDFLAGS) -o build/_output/bin/baremetal-operator cmd/manager/main.go
+	go build -ldflags $(LDFLAGS) -o $(OPERATOR_BIN) cmd/manager/main.go
 
 .PHONY: tools
 tools:

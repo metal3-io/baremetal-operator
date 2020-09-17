@@ -99,7 +99,20 @@ The following environment variables can be passed to configure the ironic:
 
 ## Using Tilt for development
 
-It is possible to develop Baremetal Operator using Tilt with CAPM3. Please
+It is easy to use Tilt for BMO deployment. Once you have a local instance
+of Ironic running, just run
+
+```sh
+  make tilt-up
+```
+
+and clean it with
+
+```sh
+  make kind-reset
+```
+
+It is also possible to develop Baremetal Operator using Tilt with CAPM3. Please
 refer to
 [the development setup guide of CAPM3](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#tilt-for-dev-in-capm3)
 and specially the [Baremetal Operator Integration](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#including-baremetal-operator-and-ip-address-manager)

@@ -42,6 +42,7 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 		metal3v1alpha1.StateInspecting:            hsm.handleInspecting,
 		metal3v1alpha1.StateExternallyProvisioned: hsm.handleExternallyProvisioned,
 		metal3v1alpha1.StateMatchProfile:          hsm.handleMatchProfile,
+		metal3v1alpha1.StateAvailable:             hsm.handleReady,
 		metal3v1alpha1.StateReady:                 hsm.handleReady,
 		metal3v1alpha1.StateProvisioning:          hsm.handleProvisioning,
 		metal3v1alpha1.StateProvisioningError:     hsm.handleProvisioningError,

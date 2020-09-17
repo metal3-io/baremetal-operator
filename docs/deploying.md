@@ -110,18 +110,18 @@ Then you need to copy all your certificates and build the kustomization for
 ironic. The Ironic CA certificate is not required
 
 ```sh
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/ironic-ca.crt
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/ironic-inspector-ca.crt
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/default/ironic-ca.crt
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/default/ironic-inspector-ca.crt
 
-   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/tls/ironic.crt
-   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/tls/ironic.key
+   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/tls/default/ironic.crt
+   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/tls/default/ironic.key
 
    cp <path-to-inspector-tls-certificate> \
-   $BMOPATH/ironic-deployment/tls/ironic-inspector.crt
+   $BMOPATH/ironic-deployment/tls/default/ironic-inspector.crt
    cp <path-to-inspector-tls-cert-key> \
-   $BMOPATH/ironic-deployment/tls/ironic-inspector.key
+   $BMOPATH/ironic-deployment/tls/default/ironic-inspector.key
 
-   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/tls | \
+   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/tls/default | \
    kubectl apply -f -
 ```
 
@@ -139,19 +139,85 @@ Then you need to copy all your certificates and build the kustomization for
 ironic:
 
 ```sh
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/keepalived-tls/ironic-ca.crt
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/keepalived-tls/ironic-inspector-ca.crt
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/keepalived/ironic-ca.crt
+   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/keepalived/ironic-inspector-ca.crt
 
-   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/keepalived-tls/ironic.crt
-   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/keepalived-tls/ironic.key
+   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/tls/keepalived/ironic.crt
+   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/tls/keepalived/ironic.key
 
    cp <path-to-inspector-tls-certificate> \
-   $BMOPATH/ironic-deployment/keepalived-tls/ironic-inspector.crt
+   $BMOPATH/ironic-deployment/tls/keepalived/ironic-inspector.crt
    cp <path-to-inspector-tls-cert-key> \
-   $BMOPATH/ironic-deployment/keepalived-tls/ironic-inspector.key
+   $BMOPATH/ironic-deployment/tls/keepalived/ironic-inspector.key
 
-   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/keepalived-tls | \
+   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/tls/keepalived | \
    kubectl apply -f -
+```
+
+### Deploying with Basic Authentication
+
+You can deploy each of the alternatives above with basic authentication
+enabled. For this, you first need to follow the instructions of the above setup
+other than running kustomize.
+
+Then define your username and password
+
+```sh
+  export IRONIC_USERNAME="<username>"
+  export IRONIC_PASSWORD="<password>"
+  export IRONIC_INSPECTOR_USERNAME="<username>"
+  export IRONIC_INSPECTOR_PASSWORD="<password>"
+```
+
+Then you can choose which scenario to deploy for BMO. It can be :
+
+- `default` : No TLS
+- `tls` : TLS setup
+
+```sh
+  BMO_SCENARIO="tls"
+```
+
+Then run the following to deploy BMO :
+
+```sh
+  echo "${IRONIC_USERNAME}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-username"
+  echo "${IRONIC_PASSWORD}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-password"
+
+  echo "${IRONIC_INSPECTOR_USERNAME}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-inspector-username"
+  echo "${IRONIC_INSPECTOR_PASSWORD}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-inspector-password"
+
+  ./tools/bin/kustomize build $BMOPATH/deploy/basic-auth/${BMO_SCENARIO}
+```
+
+Then you need to deploy Ironic and you can choose which scenario to deploy.
+It can be :
+
+- `default` : No TLS, no Keepalived
+- `keepalived` : No TLS, Keepalived enabled
+- `tls/default` : TLS setup, no Keepalived
+- `tls/keepalived` : TLS setup, Keepalived enabled
+
+```sh
+  IRONIC_SCENARIO="tls/keepalived"
+```
+
+```sh
+  export KSTM_PATH="${BMOPATH}/ironic-deployment/basic-auth/${IRONIC_SCENARIO}"
+
+  cat $BMOPATH/ironic-deployment/basic-auth/ironic-auth-config-tpl | envsubst > \
+  "${KSTM_PATH}/ironic-auth-config"
+
+  cat $BMOPATH/ironic-deployment/basic-auth/ironic-inspector-auth-config-tpl | \
+  envsubst > "${KSTM_PATH}/ironic-inspector-auth-config"
+
+  cat $BMOPATH/ironic-deployment/basic-auth/ironic-rpc-auth-config-tpl | \
+  envsubst > "${KSTM_PATH}/ironic-rpc-auth-config"
+
+  htpasswd -c -b -B "${KSTM_PATH}/HTTP_BASIC_HTPASSWD" "${IRONIC_USERNAME}" \
+  "${IRONIC_PASSWORD}"
+
+  ./tools/bin/kustomize build "${KSTM_PATH}"
 ```
 
 #### Useful tips

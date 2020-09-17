@@ -6,7 +6,18 @@ spec:
   template:
     spec:
       containers:
-      - name: ironic
+      - name: ironic-api
+        volumeMounts:
+        - name: cert-ironic
+          mountPath: "/certs/ironic"
+          readOnly: true
+        - name: cert-ironic-ca
+          mountPath: "/certs/ca/ironic"
+          readOnly: true
+        - name: cert-ironic-inspector-ca
+          mountPath: "/certs/ca/ironic-inspector"
+          readOnly: true
+      - name: ironic-conductor
         volumeMounts:
         - name: cert-ironic
           mountPath: "/certs/ironic"

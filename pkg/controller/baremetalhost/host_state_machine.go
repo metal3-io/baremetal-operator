@@ -103,7 +103,8 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 			// it needs error handling logic that we can't support in
 			// this function.
 			if updateBootModeStatus(hsm.Host) {
-				info.log.Info("saving boot mode")
+				info.log.Info("saving boot mode",
+					"new mode", hsm.Host.Status.Provisioning.BootMode)
 			}
 		}
 	}

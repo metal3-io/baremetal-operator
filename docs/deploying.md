@@ -72,155 +72,48 @@ through kustomization.
 
 ## Deployment commands
 
-The user should run following commands to be able to meet requirements of each
-use case as provided below:
+There is a useful deployment script that configures and deploys BareMetal
+Operator and Ironic. It requires some variables :
 
-### Commands to deploy baremetal-operator with Ironic
+- IRONIC_HOST : domain name for Ironic and inspector
+- IRONIC_HOST_IP : IP on which Ironic and inspector are listening
 
-```diff
-kustomize build $BMOPATH/deploy/default | kubectl apply -f-
-kustomize build $BMOPATH/ironic-deployment/default | kubectl apply -f-
-```
+In addition you can configure the following variables. They are **optional**.
+If you leave them unset, then passwords and certificates will be generated
+for you.
 
-### Command to deploy baremetal-operator without Ironic
+- KUBECTL_ARGS : Additional arguments to kubectl apply
+- IRONIC_USERNAME : username for ironic
+- IRONIC_PASSWORD : password for ironic
+- IRONIC_INSPECTOR_USERNAME : username for inspector
+- IRONIC_INSPECTOR_PASSWORD : password for inspector
+- IRONIC_CACERT_FILE : CA certificate path for ironic
+- IRONIC_CAKEY_FILE : CA certificate key path, unneeded if ironic
+  certificates exist
+- IRONIC_CERT_FILE : Ironic certificate path
+- IRONIC_KEY_FILE : Ironic certificate key path
+- IRONIC_INSPECTOR_CERT_FILE : Inspector certificate path
+- IRONIC_INSPECTOR_KEY_FILE : Inspector certificate key path
+- IRONIC_INSPECTOR_CACERT_FILE : CA certificate path for inspector, defaults to
+  IRONIC_CACERT_FILE
+- IRONIC_INSPECTOR_CAKEY_FILE : CA certificate key path, unneeded if inspector
+  certificates exist
 
-```diff
-kustomize build $BMOPATH/deploy/default | kubectl apply -f-
-```
-
-### Command to deploy only Ironic
-
-```diff
-kustomize build $BMOPATH/ironic-deployment/default | kubectl apply -f-
-```
-
-where $BMOPATH points to the baremetal-operator path.
-
-### Deploying with TLS
-
-For this, you need to first copy your Ironic CA Certificate or the ironic
-certificate itself, then build the kustomization for baremetal operator:
-
-```sh
-   cp <path-to-certificate> $BMOPATH/deploy/tls/ca.crt
-   ./tools/bin/kustomize build $BMOPATH/deploy/tls | kubectl apply -f -
-```
-
-Then you need to copy all your certificates and build the kustomization for
-ironic. The Ironic CA certificate is not required
+Then run :
 
 ```sh
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/default/ironic-ca.crt
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/default/ironic-inspector-ca.crt
-
-   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/tls/default/ironic.crt
-   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/tls/default/ironic.key
-
-   cp <path-to-inspector-tls-certificate> \
-   $BMOPATH/ironic-deployment/tls/default/ironic-inspector.crt
-   cp <path-to-inspector-tls-cert-key> \
-   $BMOPATH/ironic-deployment/tls/default/ironic-inspector.key
-
-   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/tls/default | \
-   kubectl apply -f -
+./tools/deploy.sh <deploy-BMO> <deploy-Ironic> <deploy-TLS> <deploy-Basic-Auth> <deploy-Keepalived>
 ```
 
-### Deploying with Keepalived and TLS
+- `deploy-BMO` : deploy BareMetal Operator : "true" or "false"
+- `deploy-Ironic` : deploy Ironic : "true" or "false"
+- `deploy-TLS` : deploy with TLS enabled : "true" or "false"
+- `deploy-Basic-Auth` : deploy with Basic Auth enabled : "true" or "false"
+- `deploy-Keepalived` : deploy with Keepalived for ironic : "true" or "false"
 
-For this, you need to first copy your Ironic CA Certificate, then build the
-kustomization for baremetal operator:
+This will deploy BMO and / or Ironic with the proper configuration.
 
-```sh
-   cp <path-to-ca-certificate> $BMOPATH/deploy/tls/ca.crt
-   ./tools/bin/kustomize build $BMOPATH/deploy/tls | kubectl apply -f -
-```
-
-Then you need to copy all your certificates and build the kustomization for
-ironic:
-
-```sh
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/keepalived/ironic-ca.crt
-   cp <path-to-ca-certificate> $BMOPATH/ironic-deployment/tls/keepalived/ironic-inspector-ca.crt
-
-   cp <path-to-tls-certificate> $BMOPATH/ironic-deployment/tls/keepalived/ironic.crt
-   cp <path-to-tls-cert-key> $BMOPATH/ironic-deployment/tls/keepalived/ironic.key
-
-   cp <path-to-inspector-tls-certificate> \
-   $BMOPATH/ironic-deployment/tls/keepalived/ironic-inspector.crt
-   cp <path-to-inspector-tls-cert-key> \
-   $BMOPATH/ironic-deployment/tls/keepalived/ironic-inspector.key
-
-   ./tools/bin/kustomize build $BMOPATH/ironic-deployment/tls/keepalived | \
-   kubectl apply -f -
-```
-
-### Deploying with Basic Authentication
-
-You can deploy each of the alternatives above with basic authentication
-enabled. For this, you first need to follow the instructions of the above setup
-other than running kustomize.
-
-Then define your username and password
-
-```sh
-  export IRONIC_USERNAME="<username>"
-  export IRONIC_PASSWORD="<password>"
-  export IRONIC_INSPECTOR_USERNAME="<username>"
-  export IRONIC_INSPECTOR_PASSWORD="<password>"
-```
-
-Then you can choose which scenario to deploy for BMO. It can be :
-
-- `default` : No TLS
-- `tls` : TLS setup
-
-```sh
-  BMO_SCENARIO="tls"
-```
-
-Then run the following to deploy BMO :
-
-```sh
-  echo "${IRONIC_USERNAME}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-username"
-  echo "${IRONIC_PASSWORD}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-password"
-
-  echo "${IRONIC_INSPECTOR_USERNAME}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-inspector-username"
-  echo "${IRONIC_INSPECTOR_PASSWORD}" > "$BMOPATH/deploy/basic-auth/${BMO_SCENARIO}/ironic-inspector-password"
-
-  ./tools/bin/kustomize build $BMOPATH/deploy/basic-auth/${BMO_SCENARIO}
-```
-
-Then you need to deploy Ironic and you can choose which scenario to deploy.
-It can be :
-
-- `default` : No TLS, no Keepalived
-- `keepalived` : No TLS, Keepalived enabled
-- `tls/default` : TLS setup, no Keepalived
-- `tls/keepalived` : TLS setup, Keepalived enabled
-
-```sh
-  IRONIC_SCENARIO="tls/keepalived"
-```
-
-```sh
-  export KSTM_PATH="${BMOPATH}/ironic-deployment/basic-auth/${IRONIC_SCENARIO}"
-
-  cat $BMOPATH/ironic-deployment/basic-auth/ironic-auth-config-tpl | envsubst > \
-  "${KSTM_PATH}/ironic-auth-config"
-
-  cat $BMOPATH/ironic-deployment/basic-auth/ironic-inspector-auth-config-tpl | \
-  envsubst > "${KSTM_PATH}/ironic-inspector-auth-config"
-
-  cat $BMOPATH/ironic-deployment/basic-auth/ironic-rpc-auth-config-tpl | \
-  envsubst > "${KSTM_PATH}/ironic-rpc-auth-config"
-
-  htpasswd -c -b -B "${KSTM_PATH}/HTTP_BASIC_HTPASSWD" "${IRONIC_USERNAME}" \
-  "${IRONIC_PASSWORD}"
-
-  ./tools/bin/kustomize build "${KSTM_PATH}"
-```
-
-#### Useful tips
+## Useful tips
 
 It is worth mentioning some tips for when the different configurations are
 useful as well. For example:

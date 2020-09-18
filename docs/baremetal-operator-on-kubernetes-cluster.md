@@ -27,8 +27,8 @@ Fully ready Kubernetes cluster (version >= 1.17)
 ```
 
 * Take the Cluster-IP Address of ironic pod running in default namespace
-and copy it in the config maps of Baremetal-operator replace the default 
-provisioning-IP and also other IPs in *deploy/ironic_ci.env* as mentioned below.
+and copy it in the config maps of Baremetal-operator by replace the default 
+provisioning-IP in *deploy/ironic_ci.env* as mentioned below.
 
 ```console
 > vi deploy/ironic_ci.env
@@ -68,11 +68,12 @@ CACHEURL=http://<Ironic-ClusterIP>/images
 IRONIC_FAST_TRACK=false
 ```
 
-* Start running Baremetal-operator; the below command will apply all 
-CRDs, namespace creation, RBAC and Baremetal-Operator.
+* ####Start running Baremetal-operator
+    * The below command will apply all 
+CRDs, namespace, RBAC and Baremetal-Operator.
 
 ```console
-> kubectl apply -k defalut/deploy
+> kubectl apply -k deploy/default
 ```
 
 * Now you should be able to see the pods belonging to baremetal-operator 
@@ -82,9 +83,11 @@ and ironic running.
 The below portion discusses about yaml configuration applied for provisioning
 baremetal-machine.
 
-* Download the desired OS ( in this case CentOS 7 qcow) to provision the 
-baremetals, using md5sum make a md5 checksum file ending the name with '.md5sum'
- and finally, copy the OS image and md5sum to the ironic pod -> ironic container running in cluster. 
+* #### Operating System for provisioning
+    * Download the desired OS (in this case CentOS 7 qcow) to provision the 
+baremetals. 
+    * Using md5sum make a md5 checksum file ending the name with '.md5sum'
+    * Copy the OS image and md5sum to the ironic pod -> ironic container running in cluster. 
 
 ```console
 > wget https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1905.qcow2
@@ -106,7 +109,7 @@ $echo -n 'password' | base64
 cGFzc3dvcmQ=
 ```
 
-* Paste the encoded credentials in the data/username and data/passowrd as given below
+* Paste the encoded credentials in the data/username and data/password.
 Use the below yaml to configure a Baremetal-machine.
 
 ```yaml

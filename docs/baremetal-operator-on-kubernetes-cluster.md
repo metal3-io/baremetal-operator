@@ -1,4 +1,4 @@
-# Running Baremetal-operator on kubernetes cluster.
+# Running Baremetal-operator on kubernetes cluster
 
 ## Description
 
@@ -16,27 +16,33 @@ Fully ready Kubernetes cluster (version >= 1.17)
 
 * Clone the **Baremetal-operator** on your local.
 
+
 ```console
 > git clone https://github.com/metal3-io/baremetal-operator.git
 > cd baremetal-operator
 ```
 
+
 * We will be applying the ironic first as we need the cluster IP
-of ironic pod to configure it in the config-maps of Baremetal-operator for 
+of ironic pod to configure it in the config-maps of Baremetal-operator for
 inter-pod communication.
- 
-```console 
+
+
+```console
 > kubectl apply -k ironic-deployement/default
 > kubectl get pods -n default
 ```
+
 
 * Take the Cluster-IP Address of ironic pod running in default namespace
 and copy it in the config maps of Baremetal-operator by replace the default
 provisioning-IP in *deploy/ironic_ci.env* as mentioned below.
 
+
 ```console
 > vi deploy/ironic_ci.env
 ```
+
 
 ```properties
 HTTP_PORT=6180
@@ -52,13 +58,16 @@ CACHEURL=http://<Ironic-ClusterIP>/images
 IRONIC_FAST_TRACK=false
 ```
 
+
 * Do the same in *default/ironic_bmo_configmap.env* and
 one may also have to change *provisioning-interface*
 (by default it is PROVISIONING_INTERFACE=eth2) as per the OS and hardware specs.
 
+
 ```console
 > vi default/ironic_bmo_configmap.env
 ```
+
 
 ```properties
 HTTP_PORT=6180
@@ -72,19 +81,23 @@ CACHEURL=http://<Ironic-ClusterIP>/images
 IRONIC_FAST_TRACK=false
 ```
 
+
 * ###Start running Baremetal-operator
 
   * The below command will apply all
 CRDs, namespace, RBAC and Baremetal-Operator.
 
+
 ```console
 > kubectl apply -k deploy/default
 ```
+
 
 * Now you should be able to see the pods belonging to baremetal-operator 
 and ironic running.
 
 ## Provisioning Baremetal
+
 The below portion discusses about yaml configuration applied for provisioning
 baremetal-machine.
 
@@ -94,9 +107,10 @@ baremetal-machine.
 baremetals.
 
   * Using md5sum make a md5 checksum file ending the name with '.md5sum'.
-  
+
   * Copy the OS image and md5sum to the ironic pod -> ironic container
-running in cluster. 
+running in cluster.
+
 
 ```console
 > wget https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1905.qcow2
@@ -104,15 +118,17 @@ running in cluster.
 CentOS-7-x86_64-GenericCloud-1905.qcow2.md5sum
 > kc cp CentOS-7-x86_64-GenericCloud-1905.qcow2 \
 pod/<ironic-pod>:/shared/html/images/CentOS-7-x86_64-GenericCloud-1905.qcow2 \
--c ironic 
-> kc cp CentOS-7-x86_64-GenericCloud-1905.qcow2.md5sum \
-pod/<ironic-pod>:/shared/html/images/CentOS-7-x86_64-GenericCloud-1905.qcow2.md5sum \
--c ironic 
-``` 
+-c ironic
+> kc cp CentOS-7-x86_64-GenericCloud-1905.qcow2.md5sum pod/<ironic-pod>: \
+/shared/html/images/CentOS-7-x86_64-GenericCloud-1905.qcow2.md5sum \
+-c ironic
+```
+
 
 * Turn on/enable the **IPMI** feature in the baremetals.
 
 * Use base64 to encode username and password of baremental.
+
 
 ```console
 > echo -n 'admin' | base64
@@ -121,8 +137,10 @@ YWRtaW4=
 cGFzc3dvcmQ=
 ```
 
+
 * Paste the encoded credentials in the data/username and data/password.
 Use the below yaml to configure a Baremetal-machine.
+
 
 ```yaml
 # bmh-idrack.yaml
@@ -157,13 +175,15 @@ spec:
     url: http://<Ironic-Cluster-IP>:6180/images/CentOS-7-x86_64-GenericCloud.qcow2
 ```
 
+
 ```console
 > kubectl apply -f bmc-idrack.yaml
 > kubectl get bmh -n metal3
 ```
 
+
 * At this point, the ironic will perform certain operations and the 
-state of **bmh** keeps changing as mentioned in the *provisioning* 
+state of **bmh** keeps changing as mentioned in the *provisioning*
 section of **[api.md](api.md)**
 
 

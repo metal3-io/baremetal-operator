@@ -81,7 +81,6 @@ IRONIC_FAST_TRACK=false
 The below command will apply all CRDs, namespace, RBAC
 and Baremetal-Operator.
 
-
 ```console
 > kubectl apply -k deploy/default
 ```
@@ -122,7 +121,7 @@ pod/<ironic-pod>:/shared/html/images/CentOS-7-x86_64-GenericCloud-1905.qcow2 \
 -c ironic
 ```
 
- * ### Baremetal configuration
+* ### Baremetal configuration
 
 Turn on/enable the **IPMI** feature in the baremetal server.
 Use base64 to encode username and password of baremetal.

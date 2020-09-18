@@ -72,10 +72,11 @@ CACHEURL=http://<Ironic-ClusterIP>/images
 IRONIC_FAST_TRACK=false
 ```
 
-* ###Start running Baremetal-operator
+* ### Start running Baremetal-operator
 
   * The below command will apply all
 CRDs, namespace, RBAC and Baremetal-Operator.
+
 
 ```console
 > kubectl apply -k deploy/default
@@ -93,7 +94,9 @@ baremetal-machine.
 
   * Download the desired OS (in this case CentOS 7 qcow) to provision the
 baremetals.
+
   * Using md5sum make a md5 checksum file ending the name with '.md5sum'.
+
   * Copy the OS image and md5sum to the ironic pod -> ironic container
 running in cluster.
 

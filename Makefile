@@ -110,16 +110,16 @@ generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
 
 .PHONY: sec
-sec: $GOPATH/bin/gosec ## Run gosec
+sec: $(GOPATH)/bin/gosec ## Run gosec
 	gosec -severity medium --confidence medium -quiet $(PACKAGES)
 
-$GOPATH/bin/gosec:
+$(GOPATH)/bin/gosec:
 	go get -u github.com/securego/gosec/cmd/gosec
 
 .PHONY: golint-binary
 golint-binary:
-	which golint 2>&1 >/dev/null || $(MAKE) $GOPATH/bin/golint
-$GOPATH/bin/golint:
+	which golint 2>&1 >/dev/null || $(MAKE) $(GOPATH)/bin/golint
+$(GOPATH)/bin/golint:
 	go get -u golang.org/x/lint/golint
 
 .PHONY: fmt

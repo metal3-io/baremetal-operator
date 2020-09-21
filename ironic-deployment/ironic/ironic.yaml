@@ -56,11 +56,28 @@ spec:
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap
-        - name: ironic
+        - name: ironic-api
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           command:
-            - /bin/runironic
+            - /bin/runironic-api
+          volumeMounts:
+            - mountPath: /shared
+              name: ironic-data-volume
+          envFrom:
+            - configMapRef:
+                name: ironic-bmo-configmap
+          env:
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-password
+                  key: password
+        - name: ironic-conductor
+          image: quay.io/metal3-io/ironic
+          imagePullPolicy: Always
+          command:
+            - /bin/runironic-conductor
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume

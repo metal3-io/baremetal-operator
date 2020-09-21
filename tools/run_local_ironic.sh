@@ -48,7 +48,7 @@ pushd "$IRONIC_DATA_DIR/html/images"
 # By default, image directory points to dir having needed images when metal3-dev-env environment in use.
 # In other cases user has to store images beforehand.
 
-for name in ironic ironic-inspector dnsmasq httpd mariadb ipa-downloader ironic-endpoint-keepalived; do
+for name in ironic ironic-api ironic-conductor ironic-inspector dnsmasq httpd mariadb ipa-downloader ironic-endpoint-keepalived; do
     sudo "${CONTAINER_RUNTIME}" ps | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" kill "$name"
     sudo "${CONTAINER_RUNTIME}" ps --all | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" rm "$name" -f
 done
@@ -102,9 +102,19 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
 # https://github.com/metal3-io/ironic/blob/master/runironic.sh
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-api \
      ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      --env "MARIADB_PASSWORD=$mariadb_password" \
+     --entrypoint /bin/runironic-api \
+     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
+
+# See this file for additional env vars you may want to pass, like IP and INTERFACE
+# https://github.com/metal3-io/ironic/blob/master/runironic.sh
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-conductor \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     --env "MARIADB_PASSWORD=$mariadb_password" \
+     --entrypoint /bin/runironic-conductor \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start ironic-endpoint-keepalived

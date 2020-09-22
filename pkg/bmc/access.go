@@ -15,9 +15,12 @@ type AccessDetailsFactory func(parsedURL *url.URL, disableCertificateVerificatio
 
 var factories = map[string]AccessDetailsFactory{}
 
-// We could make this function public if we want to support
-// out-of-tree factories.
-func registerFactory(name string, factory AccessDetailsFactory, schemes []string) {
+// RegisterFactory maps a BMC type name to an AccessDetailsFactory,
+// with optional scheme extensions.
+//
+// RegisterFactory("bmcname", theFunc, []string{"http", "https"})
+// maps "bmcname", "bmcname+http", and "bmcname+https" to theFunc
+func RegisterFactory(name string, factory AccessDetailsFactory, schemes []string) {
 	factories[name] = factory
 
 	for _, scheme := range schemes {

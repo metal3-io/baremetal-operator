@@ -109,6 +109,10 @@ func getParsedURL(address string) (parsedURL *url.URL, err error) {
 // for a BMC.
 func NewAccessDetails(address string, disableCertificateVerification bool) (AccessDetails, error) {
 
+	if address == "" {
+		return nil, errors.New("missing BMC address")
+	}
+
 	parsedURL, err := getParsedURL(address)
 	if err != nil {
 		return nil, err

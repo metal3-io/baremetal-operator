@@ -1,6 +1,7 @@
 package testserver
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -73,5 +74,11 @@ func (m *IronicMock) WithNode(node nodes.Node) *IronicMock {
 // WithNodeStatesProvision configures the server with a valid response for /v1/nodes/<node>/states/provision
 func (m *IronicMock) WithNodeStatesProvision(nodeUUID string) *IronicMock {
 	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/states/provision", "{}", http.StatusAccepted)
+	return m
+}
+
+// NoNode configures the server so /v1/nodes/name returns a 404
+func (m *IronicMock) NoNode(name string) *IronicMock {
+	m.NotFound(fmt.Sprintf("/v1/nodes/%s", name))
 	return m
 }

@@ -88,6 +88,24 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 			stateChanges.With(stateChangeMetricLabels(initialState, hsm.NextState)).Inc()
 		})
 		hsm.Host.Status.Provisioning.State = hsm.NextState
+		// Here we assume that if we're being asked to change the
+		// state, the return value of ReconcileState (our caller) is
+		// set up to ensure the change in the host is written back to
+		// the API. That means we can safely update any status fields
+		// along with the state.
+		switch hsm.NextState {
+		case metal3v1alpha1.StateInspecting,
+			metal3v1alpha1.StateProvisioning:
+			// TODO: When the user-selectable profile field is
+			// removed, move saveHostProvisioningSettings() from the
+			// controller to this point. We can't move it yet because
+			// it needs error handling logic that we can't support in
+			// this function.
+			if updateBootModeStatus(hsm.Host) {
+				info.log.Info("saving boot mode",
+					"new mode", hsm.Host.Status.Provisioning.BootMode)
+			}
+		}
 	}
 }
 
@@ -200,9 +218,6 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 			hsm.NextState = metal3v1alpha1.StateProvisioned
 		case hsm.Host.NeedsHardwareInspection():
 			hsm.NextState = metal3v1alpha1.StateInspecting
-			if updateBootModeStatus(hsm.Host) {
-				info.log.Info("saving boot mode")
-			}
 		case hsm.Host.NeedsHardwareProfile():
 			hsm.NextState = metal3v1alpha1.StateMatchProfile
 		default:
@@ -256,9 +271,6 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 	switch {
 	case hsm.Host.NeedsHardwareInspection():
 		hsm.NextState = metal3v1alpha1.StateInspecting
-		if updateBootModeStatus(hsm.Host) {
-			info.log.Info("saving boot mode")
-		}
 	case hsm.Host.NeedsHardwareProfile():
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
 	default:
@@ -278,9 +290,6 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 	switch r := actResult.(type) {
 	case actionComplete:
 		hsm.NextState = metal3v1alpha1.StateProvisioning
-		if updateBootModeStatus(hsm.Host) {
-			info.log.Info("saving boot mode")
-		}
 	case actionFailed:
 		switch r.ErrorType {
 		case metal3v1alpha1.PowerManagementError:

@@ -86,6 +86,11 @@ deploy: manifests
 manifests: controller-gen ## Update the generated CRD
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: mod
+mod: ## Update go modules
+	go mod tidy
+	go mod verify
+
 fmt: ## Run go fmt against code
 	go fmt ./...
 

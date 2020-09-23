@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,22 +45,37 @@ func init() {
 }
 
 func main() {
+	var devLogging bool
+	var runInTestMode bool
+	var runInDemoMode bool
 	var metricsAddr string
-	var enableLeaderElection bool
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	var watchNamespace string
+
+	flag.BoolVar(&devLogging, "dev", false, "enable developer logging")
+	flag.StringVar(&metricsAddr, "metrics-addr", "127.0.0.1:8085",
+		"The address the metric endpoint binds to.")
+	// From CAPI point of view, BMO should be able to watch all namespaces
+	// in case of a deployment that is not multi-tenant. If the deployment
+	// is for multi-tenancy, then the BMO should watch only the provided
+	// namespace.
+	flag.StringVar(&watchNamespace, "namespace", "",
+		"Namespace that the controller watches to reconcile BMO objects.")
+	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
+	flag.BoolVar(&runInDemoMode, "demo-mode", false,
+		"use the demo provisioner to set host states")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(zap.New(zap.UseDevMode(devLogging)))
 
+	ctrl.Log.Info(fmt.Sprintf("gather metrics at http://%s/metrics", metricsAddr))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "a9498140.",
+		Scheme:                  scheme,
+		MetricsBindAddress:      metricsAddr,
+		Port:                    9443,
+		LeaderElection:          true,
+		LeaderElectionID:        "baremetal=operator",
+		LeaderElectionNamespace: watchNamespace,
+		Namespace:               watchNamespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

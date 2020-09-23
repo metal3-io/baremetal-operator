@@ -220,7 +220,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			}
 			tc.Host.Spec.Online = true
 
-			c := fakeclient.NewFakeClient(tc.Host)
+			c := fakeclient.NewFakeClientWithScheme(testScheme, tc.Host)
 			c.Create(goctx.TODO(), testBMCSecret)
 			c.Create(goctx.TODO(), tc.UserDataSecret)
 			c.Create(goctx.TODO(), tc.NetworkDataSecret)

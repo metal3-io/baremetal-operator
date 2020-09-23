@@ -18,7 +18,7 @@ import (
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
-	p, _ := r.provisionerFactory(host, bmc.Credentials{},
+	p, _ := r.ProvisionerFactory(host, bmc.Credentials{},
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p)
 }
@@ -209,7 +209,7 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &ReconcileBareMetalHost{}, prov)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			prov.setNextError("some error")
@@ -255,7 +255,7 @@ func TestErrorCountCleared(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &ReconcileBareMetalHost{}, prov)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			info.host.Status.ErrorCount = 1

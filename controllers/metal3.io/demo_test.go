@@ -6,35 +6,26 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"k8s.io/client-go/kubernetes/scheme"
-
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metal3apis "github.com/metal3-io/baremetal-operator/pkg/apis"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 )
 
-func init() {
-	logf.SetLogger(logf.ZapLogger(true))
-	// Register our package types with the global scheme
-	metal3apis.AddToScheme(scheme.Scheme)
-}
+func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 
-func newDemoReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
-
-	c := fakeclient.NewFakeClient(initObjs...)
+	c := fakeclient.NewFakeClientWithScheme(testScheme, initObjs...)
 
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
 	c.Create(goctx.TODO(), bmcSecret)
 
-	return &ReconcileBareMetalHost{
-		client:             c,
-		scheme:             scheme.Scheme,
-		provisionerFactory: demo.New,
+	return &BareMetalHostReconciler{
+		Client:             c,
+		Scheme:             testScheme,
+		ProvisionerFactory: demo.New,
+		Log:                log,
 	}
 }
 

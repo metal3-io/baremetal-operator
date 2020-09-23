@@ -25,13 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
 type BareMetalHostReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log                logr.Logger
+	Scheme             *runtime.Scheme
+	ProvisionerFactory provisioner.Factory
 }
 
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts,verbs=get;list;watch;create;update;patch;delete

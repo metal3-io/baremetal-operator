@@ -29,6 +29,10 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -82,10 +86,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	var provisionerFactory provisioner.Factory
+	if runInTestMode {
+		ctrl.Log.Info("USING TEST MODE")
+		provisionerFactory = fixture.New
+	} else if runInDemoMode {
+		ctrl.Log.Info("USING DEMO MODE")
+		provisionerFactory = demo.New
+	} else {
+		provisionerFactory = ironic.New
+		ironic.LogStartup()
+	}
+
 	if err = (&metal3iocontroller.BareMetalHostReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
-		Scheme: mgr.GetScheme(),
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		Scheme:             mgr.GetScheme(),
+		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)

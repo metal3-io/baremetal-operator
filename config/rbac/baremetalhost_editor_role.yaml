@@ -1,0 +1,24 @@
+# permissions for end users to edit baremetalhosts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: baremetalhost-editor-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts/status
+  verbs:
+  - get

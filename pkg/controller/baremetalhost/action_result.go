@@ -4,7 +4,7 @@ import (
 	"math"
 	"math/rand"
 
-	metal3 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 
 	"time"
 

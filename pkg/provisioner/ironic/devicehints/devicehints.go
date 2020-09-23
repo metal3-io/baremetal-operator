@@ -3,7 +3,7 @@ package devicehints
 import (
 	"fmt"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 // MakeHintMap converts a RootDeviceHints instance into a string map

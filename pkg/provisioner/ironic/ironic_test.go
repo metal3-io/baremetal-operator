@@ -70,3 +70,6 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 		},
 	}
 }
+
+// Implements provisioner.EventPublisher to swallow events for tests.
+func nullEventPublisher(reason, message string) {}

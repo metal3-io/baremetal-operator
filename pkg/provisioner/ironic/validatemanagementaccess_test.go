@@ -67,3 +67,31 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 }
+
+func TestValidateManagementAccessCreateNode(t *testing.T) {
+	// Create a host without a bootMACAddress and with a BMC that
+	// does not require one.
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	ironic := testserver.NewIronic(t).Ready().CreateNodes().NoNode(host.Name)
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, err := prov.ValidateManagementAccess(false)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "", result.ErrorMessage)
+	assert.NotEqual(t, "", host.Status.Provisioning.ID)
+	assert.Equal(t, ironic.CreatedNodes[0].UUID, host.Status.Provisioning.ID)
+}

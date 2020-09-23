@@ -29,6 +29,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -81,6 +83,19 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3iov1alpha1.BareMetalHost{}).
+		WithEventFilter(
+			predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldHost := e.ObjectOld.(*metal3iov1alpha1.BareMetalHost)
+					newHost := e.ObjectNew.(*metal3iov1alpha1.BareMetalHost)
+
+					if oldHost.Status.ErrorCount != newHost.Status.ErrorCount {
+						//skip reconcile loop
+						return false
+					}
+					return true
+				},
+			}).
 		WithOptions(opts).
 		Owns(&corev1.Secret{}).
 		Complete(r)

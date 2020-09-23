@@ -5,24 +5,19 @@ go 1.14
 require (
 	github.com/emicklei/go-restful v2.14.2+incompatible // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
-	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/go-openapi/spec v0.19.9
 	github.com/go-openapi/swag v0.19.9 // indirect
-	github.com/gobuffalo/packr v1.30.1 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/googleapis/gnostic v0.5.1 // indirect
 	github.com/gophercloud/gophercloud v0.12.0
-	github.com/helm/helm-2to3 v0.6.0 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
-	github.com/martinlindhe/base36 v1.1.0 // indirect
 	github.com/onsi/gomega v1.10.2 // indirect
 	github.com/operator-framework/api v0.3.12 // indirect
-	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88 // indirect
 	github.com/operator-framework/operator-registry v1.13.8 // indirect
 	github.com/operator-framework/operator-sdk v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -49,11 +44,10 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-//github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
-replace k8s.io/client-go => k8s.io/client-go v0.19.0 // Required by prometheus-operator
-
-replace github.com/operator-framework/operator-sdk => github.com/operator-framework/operator-sdk v0.19.3 // operator-sdk v1.0.0 made some functions internal
-
-replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
-
-//replace github.com/openshift/api => github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad // Required until https://github.com/operator-framework/operator-lifecycle-manager/pull/1241 is resolved
+replace (
+	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
+	github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad // Required until https://github.com/operator-framework/operator-lifecycle-manager/pull/1241 is resolved
+	github.com/operator-framework/operator-sdk => github.com/operator-framework/operator-sdk v0.19.3 // operator-sdk v1.0.0 made some functions internal
+	k8s.io/client-go => k8s.io/client-go v0.19.0 // Required by prometheus-operator
+)

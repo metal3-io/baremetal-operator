@@ -10,6 +10,11 @@ IMG ?= controller:latest
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1,preserveUnknownFields=false"
 CONTROLLER_TOOLS_VERSION=v0.4.0
 
+# See pkg/version.go for details
+SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
+BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
+export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=${BUILD_VERSION} -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${SOURCE_GIT_COMMIT}"
+
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -26,11 +31,11 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	go build -ldflags $(LDFLAGS) -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
-	go run ./main.go
+	go run -ldflags $(LDFLAGS) ./main.go
 
 # Install CRDs into a cluster
 install: manifests

@@ -20,8 +20,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,11 +34,12 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metal3-io/baremetal-operator/pkg/version"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
@@ -46,6 +48,12 @@ func init() {
 
 	_ = metal3iov1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+}
+
+func printVersion() {
+	setupLog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
+	setupLog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	setupLog.Info(fmt.Sprintf("Component version: %s", version.String))
 }
 
 func main() {
@@ -70,6 +78,8 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(devLogging)))
+
+	printVersion()
 
 	ctrl.Log.Info(fmt.Sprintf("gather metrics at http://%s/metrics", metricsAddr))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{

@@ -1,4 +1,4 @@
-package baremetalhost
+package controllers
 
 import (
 	"fmt"
@@ -14,12 +14,12 @@ import (
 type hostStateMachine struct {
 	Host        *metal3v1alpha1.BareMetalHost
 	NextState   metal3v1alpha1.ProvisioningState
-	Reconciler  *ReconcileBareMetalHost
+	Reconciler  *BareMetalHostReconciler
 	Provisioner provisioner.Provisioner
 }
 
 func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
-	reconciler *ReconcileBareMetalHost,
+	reconciler *BareMetalHostReconciler,
 	provisioner provisioner.Provisioner) *hostStateMachine {
 	currentState := host.Status.Provisioning.State
 	r := hostStateMachine{

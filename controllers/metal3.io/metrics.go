@@ -1,4 +1,4 @@
-package baremetalhost
+package controllers
 
 import (
 	"github.com/prometheus/client_golang/prometheus"

@@ -1,4 +1,4 @@
-package baremetalhost
+package controllers
 
 import (
 	goctx "context"

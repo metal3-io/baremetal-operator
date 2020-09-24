@@ -283,8 +283,15 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldHost := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
-					newHost := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
+					oldHost, oldOK := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
+					newHost, newOK := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
+					if !(oldOK && newOK) {
+						// The thing that changed wasn't a host, so we
+						// need to assume that we must update. This
+						// happens when, for example, an owned Secret
+						// changes.
+						return true
+					}
 
 					if oldHost.Status.ErrorCount != newHost.Status.ErrorCount {
 						//skip reconcile loop

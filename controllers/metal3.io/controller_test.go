@@ -10,7 +10,7 @@ import (
 )
 
 var testScheme = runtime.NewScheme()
-var log = ctrl.Log.WithName("controller_test")
+var log = ctrl.Log.WithName("controllers").WithName("controller_test")
 
 func init() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))

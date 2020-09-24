@@ -1,6 +1,11 @@
 package testserver
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+)
 
 // IronicMock is a test server that implements Ironic's semantics
 type IronicMock struct {
@@ -56,5 +61,17 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 		}]
 	}
 	`)
+	return m
+}
+
+// WithNode configures the server with a valid response for /v1/nodes
+func (m *IronicMock) WithNode(node nodes.Node) *IronicMock {
+	m.ResponseJSON("/v1/nodes/"+node.UUID, node)
+	return m
+}
+
+// WithNodeStatesProvision configures the server with a valid response for /v1/nodes/<node>/states/provision
+func (m *IronicMock) WithNodeStatesProvision(nodeUUID string) *IronicMock {
+	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/states/provision", "{}", http.StatusAccepted)
 	return m
 }

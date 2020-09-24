@@ -132,9 +132,15 @@ sec: $(GOPATH)/bin/gosec ## Run gosec
 $(GOPATH)/bin/gosec:
 	go get -u github.com/securego/gosec/cmd/gosec
 
+.PHONY: docker-build
 docker-build: test ## Build the docker image
 	docker build . -t ${IMG}
 
+# Compatibility alias from older version of this file
+.PHONY: docker
+docker: docker-build
+
+.PHONY: docker-push
 docker-push: ## Push the docker image
 	docker push ${IMG}
 

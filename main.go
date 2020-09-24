@@ -87,7 +87,7 @@ func main() {
 		MetricsBindAddress:      metricsAddr,
 		Port:                    9443,
 		LeaderElection:          true,
-		LeaderElectionID:        "baremetal=operator",
+		LeaderElectionID:        "baremetal-operator",
 		LeaderElectionNamespace: watchNamespace,
 		Namespace:               watchNamespace,
 	})

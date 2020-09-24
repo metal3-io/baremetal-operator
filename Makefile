@@ -50,6 +50,9 @@ test: generate fmt vet manifests unit ## Run common developer tests
 unit: ## Run the unit tests
 	go test $(GO_TEST_FLAGS) ./... -coverprofile cover.out
 
+# Compatibility alias from older version of this file
+unit-cover: unit
+
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
 	VERBOSE=-v make unit

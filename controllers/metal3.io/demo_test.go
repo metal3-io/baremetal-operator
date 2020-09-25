@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
-
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 

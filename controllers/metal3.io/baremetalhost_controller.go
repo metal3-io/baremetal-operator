@@ -89,7 +89,6 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 		}
 	}()
 
-	_ = context.Background()
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 	reqLogger.Info("reconciling")
 

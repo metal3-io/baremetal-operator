@@ -17,6 +17,10 @@ SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
 BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
 export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=${BUILD_VERSION} -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${SOURCE_GIT_COMMIT}"
 
+TOOLS_DIR := tools
+TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
+KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
+
 # Set some variables the operator expects to have in order to work
 # Those need to be the same as in deploy/ironic_ci.env
 export OPERATOR_NAME=baremetal-operator
@@ -75,8 +79,11 @@ demo: generate fmt vet manifests ## Run the controller against the configured Ku
 	go run -ldflags $(LDFLAGS) ./main.go -dev -demo-mode -namespace $(RUN_NAMESPACE)
 
 .PHONY: install
-install: manifests ## # Install CRDs into a cluster
+install: manifests $(KUSTOMIZE) ## # Install CRDs into a cluster
 	kustomize build config/crd | kubectl apply -f -
+
+$(KUSTOMIZE):
+	cd $(TOOLS_DIR); ./install_kustomize.sh
 
 .PHONY: uninstall
 uninstall: manifests ## Uninstall CRDs from a cluster

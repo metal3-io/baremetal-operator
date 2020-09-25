@@ -25,7 +25,7 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     kubectl create namespace metal3
     ```
 
-1. Install operator-sdk
+1. Install operator
 
     ```bash
     eval $(go env)

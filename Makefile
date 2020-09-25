@@ -43,7 +43,7 @@ help:  ## Display this help
 	@echo "  GO_TEST_FLAGS    -- flags to pass to --go-test-flags ($(GO_TEST_FLAGS))"
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
-# Run tests
+.PHONY: test
 test: generate fmt vet manifests unit ## Run common developer tests
 
 .PHONY: unit
@@ -51,42 +51,44 @@ unit: ## Run the unit tests
 	go test $(GO_TEST_FLAGS) ./... -coverprofile cover.out
 
 # Compatibility alias from older version of this file
+.PHONY: unit-cover
 unit-cover: unit
 
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
 	VERBOSE=-v make unit
 
-# Build manager binary
+.PHONY: manager
 manager: generate fmt vet ## Build the primary controller binary
 	go build -ldflags $(LDFLAGS) -o bin/manager main.go
 
 # Compatibility alias from older version of this file
+.PHONY: build
 build: manager
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests ## Run the controller locally
+.PHONY: run
+run: generate fmt vet manifests ## Run the controller against the configured Kubernetes cluster in ~/.kube/config
 	go run -ldflags $(LDFLAGS) ./main.go -dev -namespace $(RUN_NAMESPACE)
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-demo: generate fmt vet manifests ## Run the controller in demo mode
+.PHONY: demo
+demo: generate fmt vet manifests ## Run the controller against the configured Kubernetes cluster in ~/.kube/config
 	go run -ldflags $(LDFLAGS) ./main.go -dev -demo-mode -namespace $(RUN_NAMESPACE)
 
-# Install CRDs into a cluster
-install: manifests
+.PHONY: install
+install: manifests ## # Install CRDs into a cluster
 	kustomize build config/crd | kubectl apply -f -
 
-# Uninstall CRDs from a cluster
-uninstall: manifests
+.PHONY: uninstall
+uninstall: manifests ## Uninstall CRDs from a cluster
 	kustomize build config/crd | kubectl delete -f -
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
+.PHONY: deploy
+deploy: manifests ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	cd config/manager && kustomize edit set image controller=${IMG}
 	kustomize build config/default | kubectl apply -f -
 
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen ## Update the generated CRD
+.PHONY: manifests
+manifests: controller-gen ## Generate manifests e.g. CRD, RBAC etc.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: mod
@@ -94,6 +96,7 @@ mod: ## Update go modules
 	go mod tidy
 	go mod verify
 
+.PHONY: fmt
 fmt: ## Run go fmt against code
 	go fmt ./...
 
@@ -101,6 +104,7 @@ fmt: ## Run go fmt against code
 fmt-check: ## Run gofmt and report an error if any changes are made
 	./hack/gofmt.sh
 
+.PHONY: vet
 vet: ## Run go vet against code
 	go vet ./...
 
@@ -114,6 +118,7 @@ golint-binary:
 $(GOPATH)/bin/golint:
 	go get -u golang.org/x/lint/golint
 
+.PHONY: generate
 generate: controller-gen ## Update generated source code
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/..."
 
@@ -146,6 +151,7 @@ docker-push: ## Push the docker image
 
 # find or download controller-gen
 # download controller-gen if necessary
+.PHONY: controller-gen
 controller-gen:
 ifeq (, $(shell which controller-gen))
 	@{ \

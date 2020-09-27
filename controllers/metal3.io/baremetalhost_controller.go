@@ -1,44 +1,48 @@
-package baremetalhost
+/*
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controllers
 
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/hardware"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
-
-	"github.com/go-logr/logr"
-
 	corev1 "k8s.io/api/core/v1"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
 const (
@@ -48,109 +52,15 @@ const (
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 )
 
-var runInTestMode bool
-var runInDemoMode bool
-var maxConcurrentReconciles int = 3
-
 func init() {
-	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
-	flag.BoolVar(&runInDemoMode, "demo-mode", false,
-		"use the demo provisioner to set host states")
-
-	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
-		mcr, err := strconv.Atoi(mcrEnv)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
-			os.Exit(1)
-		}
-		if mcr > 0 {
-			log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
-			maxConcurrentReconciles = mcr
-		} else {
-			log.Info(fmt.Sprintf("Invalid BMO_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
-		}
-	} else {
-		log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
-	}
 }
 
-var log = logf.Log.WithName("baremetalhost")
-
-// Add creates a new BareMetalHost Controller and adds it to the
-// Manager. The Manager will set fields on the Controller and Start it
-// when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	var provisionerFactory provisioner.Factory
-	switch {
-	case runInTestMode:
-		log.Info("USING TEST MODE")
-		provisionerFactory = fixture.New
-	case runInDemoMode:
-		log.Info("USING DEMO MODE")
-		provisionerFactory = demo.New
-	default:
-		provisionerFactory = ironic.New
-		ironic.LogStartup()
-	}
-	return &ReconcileBareMetalHost{
-		client:             mgr.GetClient(),
-		scheme:             mgr.GetScheme(),
-		provisionerFactory: provisionerFactory,
-	}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("metal3-baremetalhost-controller", mgr,
-		controller.Options{MaxConcurrentReconciles: maxConcurrentReconciles,
-			Reconciler: r,
-		})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to primary resource BareMetalHost
-	err = c.Watch(&source.Kind{Type: &metal3v1alpha1.BareMetalHost{}},
-		&handler.EnqueueRequestForObject{}, predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldHost := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
-				newHost := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
-
-				if oldHost.Status.ErrorCount != newHost.Status.ErrorCount {
-					//skip reconcile loop
-					return false
-				}
-				return true
-			},
-		})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to secrets being used by hosts
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}},
-		&handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &metal3v1alpha1.BareMetalHost{},
-		})
-	return err
-}
-
-var _ reconcile.Reconciler = &ReconcileBareMetalHost{}
-
-// ReconcileBareMetalHost reconciles a BareMetalHost object
-type ReconcileBareMetalHost struct {
-	// This client, initialized using mgr.Client() above, is a split client
-	// that reads objects from the cache and writes to the apiserver
-	client             client.Client
-	scheme             *runtime.Scheme
-	provisionerFactory provisioner.Factory
+// BareMetalHostReconciler reconciles a BareMetalHost object
+type BareMetalHostReconciler struct {
+	client.Client
+	Log                logr.Logger
+	Scheme             *runtime.Scheme
+	ProvisionerFactory provisioner.Factory
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -158,7 +68,7 @@ type ReconcileBareMetalHost struct {
 type reconcileInfo struct {
 	log               logr.Logger
 	host              *metal3v1alpha1.BareMetalHost
-	request           reconcile.Request
+	request           ctrl.Request
 	bmcCredsSecret    *corev1.Secret
 	events            []corev1.Event
 	errorMessage      string
@@ -170,15 +80,12 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, info.host.NewEvent(reason, message))
 }
 
-// Reconcile reads that state of the cluster for a BareMetalHost
-// object and makes changes based on the state read and what is in the
-// BareMetalHost.Spec TODO(user): Modify this Reconcile function to
-// implement your Controller logic.  This example creates a Pod as an
-// example Note: The Controller will requeue the Request to be
-// processed again if the returned error is non-nil or Result.Requeue
-// is true, otherwise upon completion it will remove the work from the
-// queue.
-func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result reconcile.Result, err error) {
+// +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts/status,verbs=get;update;patch
+
+// Reconcile handles changes to BareMetalHost resources
+func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.Result, err error) {
+
 	reconcileCounters.With(hostMetricLabels(request)).Inc()
 	defer func() {
 		if err != nil {
@@ -186,23 +93,21 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		}
 	}()
 
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling BareMetalHost")
+	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 
 	// Fetch the BareMetalHost
 	host := &metal3v1alpha1.BareMetalHost{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, host)
+	err = r.Get(context.TODO(), request.NamespacedName, host)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after
 			// reconcile request.  Owned objects are automatically
 			// garbage collected. For additional cleanup logic use
 			// finalizers.  Return and don't requeue
-			return reconcile.Result{}, nil
+			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{}, errors.Wrap(err, "could not load host data")
+		return ctrl.Result{}, errors.Wrap(err, "could not load host data")
 	}
 
 	// If the reconciliation is paused, requeue
@@ -210,7 +115,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	if annotations != nil {
 		if _, ok := annotations[metal3v1alpha1.PausedAnnotation]; ok {
 			reqLogger.Info("host is paused, no work to do")
-			return reconcile.Result{Requeue: false}, nil
+			return ctrl.Result{Requeue: false}, nil
 		}
 	}
 
@@ -228,11 +133,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 				t := metav1.Now()
 				host.Status.LastUpdated = &t
 			}
-			errStatus := r.client.Status().Update(context.TODO(), host)
+			errStatus := r.Status().Update(context.TODO(), host)
 			if errStatus != nil {
-				return reconcile.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
+				return ctrl.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 		reqLogger.Info("No status cache found")
 	} else {
@@ -240,11 +145,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		// already present. The annotation data will get outdated, so remove it.
 		if _, present := annotations[metal3v1alpha1.StatusAnnotation]; present {
 			delete(annotations, metal3v1alpha1.StatusAnnotation)
-			errStatus := r.client.Update(context.TODO(), host)
+			errStatus := r.Update(context.TODO(), host)
 			if errStatus != nil {
-				return reconcile.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
+				return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
@@ -262,11 +167,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		)
 		host.Finalizers = append(host.Finalizers,
 			metal3v1alpha1.BareMetalHostFinalizer)
-		err := r.client.Update(context.TODO(), host)
+		err := r.Update(context.TODO(), host)
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
+			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Retrieve the BMC details from the host spec and validate host
@@ -297,19 +202,19 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
 	}
-	prov, err := r.provisionerFactory(host, *bmcCreds, info.publishEvent)
+	prov, err := r.ProvisionerFactory(host, *bmcCreds, info.publishEvent)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to create provisioner")
+		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
 	ready, err := prov.IsReady()
 
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to check services availability")
+		return ctrl.Result{}, errors.Wrap(err, "failed to check services availability")
 	}
 	if !ready {
 		reqLogger.Info("provisioner is not ready", "RequeueAfter:", provisionerNotReadyRetryDelay)
-		return reconcile.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
 	}
 
 	stateMachine := newHostStateMachine(host, r, prov)
@@ -333,7 +238,7 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 			"provisioning state", host.Status.Provisioning.State)
 		err = r.saveHostStatus(host)
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err,
+			return ctrl.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", initialState))
 		}
 
@@ -347,10 +252,11 @@ func (r *ReconcileBareMetalHost) Reconcile(request reconcile.Request) (result re
 	}
 
 	logResult(info, result)
+
 	return
 }
 
-func logResult(info *reconcileInfo, result reconcile.Result) {
+func logResult(info *reconcileInfo, result ctrl.Result) {
 	if result.Requeue || result.RequeueAfter != 0 ||
 		!utils.StringInList(info.host.Finalizers,
 			metal3v1alpha1.BareMetalHostFinalizer) {
@@ -382,7 +288,7 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
 }
 
-func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (reconcile.Result, error) {
+func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl.Request, host *metal3v1alpha1.BareMetalHost) (ctrl.Result, error) {
 	switch err.(type) {
 	// In the event a credential secret is defined, but we cannot find it
 	// we requeue the host as we will not know if they create the secret
@@ -391,11 +297,11 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 		credentialsMissing.Inc()
 		saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
-			return reconcile.Result{Requeue: true}, saveErr
+			return ctrl.Result{Requeue: true}, saveErr
 		}
 		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
 
-		return reconcile.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
 	// If a managed Host is missing a BMC address or secret, or
 	// we have found the secret but it is missing the required fields,
 	// or the BMC address is defined but malformed, we set the
@@ -407,15 +313,15 @@ func (r *ReconcileBareMetalHost) credentialsErrorResult(err error, request recon
 		credentialsInvalid.Inc()
 		saveErr := r.setErrorCondition(request, host, metal3v1alpha1.RegistrationError, err.Error())
 		if saveErr != nil {
-			return reconcile.Result{Requeue: true}, saveErr
+			return ctrl.Result{Requeue: true}, saveErr
 		}
 		// Only publish the event if we do not have an error
 		// after saving so that we only publish one time.
 		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
-		return reconcile.Result{}, nil
+		return ctrl.Result{}, nil
 	default:
 		unhandledCredentialsError.Inc()
-		return reconcile.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
+		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
 	}
 }
 
@@ -447,7 +353,7 @@ func clearRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 }
 
 // Manage deletion of the host
-func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info(
 		"marked to be deleted",
 		"timestamp", info.host.DeletionTimestamp,
@@ -472,14 +378,14 @@ func (r *ReconcileBareMetalHost) actionDeleting(prov provisioner.Provisioner, in
 		info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 	info.log.Info("cleanup is complete, removed finalizer",
 		"remaining", info.host.Finalizers)
-	if err := r.client.Update(context.Background(), info.host); err != nil {
+	if err := r.Update(context.Background(), info.host); err != nil {
 		return actionError{errors.Wrap(err, "failed to remove finalizer")}
 	}
 
 	return deleteComplete{}
 }
 
-func (r *ReconcileBareMetalHost) actionUnmanaged(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.HasBMCDetails() {
 		return actionComplete{}
 	}
@@ -487,7 +393,7 @@ func (r *ReconcileBareMetalHost) actionUnmanaged(prov provisioner.Provisioner, i
 }
 
 // Test the credentials by connecting to the management controller.
-func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
 		"credentials", info.host.Status.TriedCredentials)
 
@@ -535,7 +441,7 @@ func (r *ReconcileBareMetalHost) actionRegistering(prov provisioner.Provisioner,
 }
 
 // Ensure we have the information about the hardware on the host.
-func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("inspecting hardware")
 
 	provResult, details, err := prov.InspectHardware()
@@ -560,7 +466,7 @@ func (r *ReconcileBareMetalHost) actionInspecting(prov provisioner.Provisioner, 
 	return actionFailed{}
 }
 
-func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 
 	var hardwareProfile string
 
@@ -605,16 +511,16 @@ func (r *ReconcileBareMetalHost) actionMatchProfile(prov provisioner.Provisioner
 }
 
 // Start/continue provisioning if we need to.
-func (r *ReconcileBareMetalHost) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	hostConf := &hostConfigData{
 		host:   info.host,
 		log:    info.log,
-		client: r.client,
+		client: r,
 	}
 	info.log.Info("provisioning")
 
 	if clearRebootAnnotations(info.host) {
-		if err := r.client.Update(context.TODO(), info.host); err != nil {
+		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
 		return actionContinueNoWrite{}
@@ -656,7 +562,7 @@ func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
 }
 
-func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("deprovisioning")
 
 	provResult, err := prov.Deprovision()
@@ -674,7 +580,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 	}
 
 	if clearRebootAnnotations(info.host) {
-		if err = r.client.Update(context.TODO(), info.host); err != nil {
+		if err = r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
 		return actionContinueNoWrite{}
@@ -689,7 +595,7 @@ func (r *ReconcileBareMetalHost) actionDeprovisioning(prov provisioner.Provision
 }
 
 // Check the current power status against the desired power status.
-func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	var provResult provisioner.Result
 
 	// Check the current status and save it before trying to update it.
@@ -713,7 +619,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 		if _, suffixlessAnnotationExists := info.host.Annotations[rebootAnnotationPrefix]; suffixlessAnnotationExists {
 			delete(info.host.Annotations, rebootAnnotationPrefix)
 
-			if err = r.client.Update(context.TODO(), info.host); err != nil {
+			if err = r.Update(context.TODO(), info.host); err != nil {
 				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
 			}
 
@@ -779,7 +685,7 @@ func (r *ReconcileBareMetalHost) manageHostPower(prov provisioner.Provisioner, i
 // user takes further action. Both of those states mean that it has
 // been registered with the provisioner once, so we use the Adopt()
 // API to ensure that is still true. Then we monitor its power status.
-func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 
 	provResult, err := prov.Adopt()
 	if err != nil {
@@ -802,7 +708,7 @@ func (r *ReconcileBareMetalHost) actionManageSteadyState(prov provisioner.Provis
 // ValidateManagementAccess() to ensure that is still true. We don't
 // use Adopt() because we don't want Ironic to treat the host as
 // having been provisioned. Then we monitor its power status.
-func (r *ReconcileBareMetalHost) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 
 	// We always pass false for credentialsChanged because if they had
 	// changed we would have ended up in actionRegister() instead of
@@ -859,11 +765,11 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	return
 }
 
-func (r *ReconcileBareMetalHost) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {
+func (r *BareMetalHostReconciler) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {
 	t := metav1.Now()
 	host.Status.LastUpdated = &t
 
-	return r.client.Status().Update(context.TODO(), host)
+	return r.Status().Update(context.TODO(), host)
 }
 
 func unmarshalStatusAnnotation(content []byte) (*metal3v1alpha1.BareMetalHostStatus, error) {
@@ -875,7 +781,7 @@ func unmarshalStatusAnnotation(content []byte) (*metal3v1alpha1.BareMetalHostSta
 }
 
 // extract host from Status annotation
-func (r *ReconcileBareMetalHost) getHostStatusFromAnnotation(host *metal3v1alpha1.BareMetalHost) (*metal3v1alpha1.BareMetalHostStatus, error) {
+func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3v1alpha1.BareMetalHost) (*metal3v1alpha1.BareMetalHostStatus, error) {
 	annotations := host.GetAnnotations()
 	content := []byte(annotations[metal3v1alpha1.StatusAnnotation])
 	if annotations[metal3v1alpha1.StatusAnnotation] == "" {
@@ -888,9 +794,8 @@ func (r *ReconcileBareMetalHost) getHostStatusFromAnnotation(host *metal3v1alpha
 	return objStatus, nil
 }
 
-func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (err error) {
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
+func (r *BareMetalHostReconciler) setErrorCondition(request ctrl.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (err error) {
+	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 
 	host.SetErrorMessage(errType, message)
 
@@ -907,14 +812,14 @@ func (r *ReconcileBareMetalHost) setErrorCondition(request reconcile.Request, ho
 }
 
 // Retrieve the secret containing the credentials for talking to the BMC.
-func (r *ReconcileBareMetalHost) getBMCSecretAndSetOwner(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (bmcCredsSecret *corev1.Secret, err error) {
+func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, host *metal3v1alpha1.BareMetalHost) (bmcCredsSecret *corev1.Secret, err error) {
 
 	if host.Spec.BMC.CredentialsName == "" {
 		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
 	}
 	secretKey := host.CredentialsKey()
 	bmcCredsSecret = &corev1.Secret{}
-	err = r.client.Get(context.TODO(), secretKey, bmcCredsSecret)
+	err = r.Get(context.TODO(), secretKey, bmcCredsSecret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", secretKey)}
@@ -937,7 +842,7 @@ func (r *ReconcileBareMetalHost) getBMCSecretAndSetOwner(request reconcile.Reque
 // Make sure the credentials for the management controller look
 // right and manufacture bmc.Credentials.  This does not actually try
 // to use the credentials.
-func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcile.Request, host *metal3v1alpha1.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
+func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Request, host *metal3v1alpha1.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
 
 	// Retrieve the BMC secret from Kubernetes for this host
 	bmcCredsSecret, err = r.getBMCSecretAndSetOwner(request, host)
@@ -974,29 +879,27 @@ func (r *ReconcileBareMetalHost) buildAndValidateBMCCredentials(request reconcil
 	return bmcCreds, bmcCredsSecret, nil
 }
 
-func (r *ReconcileBareMetalHost) setBMCCredentialsSecretOwner(request reconcile.Request, host *metal3v1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
+func (r *BareMetalHostReconciler) setBMCCredentialsSecretOwner(request ctrl.Request, host *metal3v1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {
+	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 	if metav1.IsControlledBy(secret, host) {
 		return nil
 	}
 	reqLogger.Info("updating owner of secret")
-	err = controllerutil.SetControllerReference(host, secret, r.scheme)
+	err = controllerutil.SetControllerReference(host, secret, r.Scheme)
 	if err != nil {
 		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot set owner: %q", err.Error())}
 	}
-	err = r.client.Update(context.TODO(), secret)
+	err = r.Update(context.TODO(), secret)
 	if err != nil {
 		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot save owner: %q", err.Error())}
 	}
 	return nil
 }
 
-func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, event corev1.Event) {
-	reqLogger := log.WithValues("Request.Namespace",
-		request.Namespace, "Request.Name", request.Name)
-	log.Info("publishing event", "reason", event.Reason, "message", event.Message)
-	err := r.client.Create(context.TODO(), &event)
+func (r *BareMetalHostReconciler) publishEvent(request ctrl.Request, event corev1.Event) {
+	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
+	reqLogger.Info("publishing event", "reason", event.Reason, "message", event.Message)
+	err := r.Create(context.TODO(), &event)
 	if err != nil {
 		reqLogger.Info("failed to record event, ignoring",
 			"reason", event.Reason, "message", event.Message, "error", err)
@@ -1004,10 +907,60 @@ func (r *ReconcileBareMetalHost) publishEvent(request reconcile.Request, event c
 	return
 }
 
-func (r *ReconcileBareMetalHost) hostHasStatus(host *metal3v1alpha1.BareMetalHost) bool {
+func (r *BareMetalHostReconciler) hostHasStatus(host *metal3v1alpha1.BareMetalHost) bool {
 	return !host.Status.LastUpdated.IsZero()
 }
 
 func hostHasFinalizer(host *metal3v1alpha1.BareMetalHost) bool {
 	return utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
+}
+
+// SetupWithManager reigsters the reconciler to be run by the manager
+func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	maxConcurrentReconciles := 3
+	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
+		mcr, err := strconv.Atoi(mcrEnv)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
+		}
+		if mcr > 0 {
+			ctrl.Log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
+			maxConcurrentReconciles = mcr
+		} else {
+			ctrl.Log.Info(fmt.Sprintf("Invalid BMO_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+		}
+	} else {
+		ctrl.Log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+	}
+
+	opts := controller.Options{
+		MaxConcurrentReconciles: maxConcurrentReconciles,
+	}
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&metal3v1alpha1.BareMetalHost{}).
+		WithEventFilter(
+			predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldHost, oldOK := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
+					newHost, newOK := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
+					if !(oldOK && newOK) {
+						// The thing that changed wasn't a host, so we
+						// need to assume that we must update. This
+						// happens when, for example, an owned Secret
+						// changes.
+						return true
+					}
+
+					if oldHost.Status.ErrorCount != newHost.Status.ErrorCount {
+						//skip reconcile loop
+						return false
+					}
+					return true
+				},
+			}).
+		WithOptions(opts).
+		Owns(&corev1.Secret{}).
+		Complete(r)
 }

@@ -1,12 +1,12 @@
-package baremetalhost
+package controllers
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 const (
@@ -132,7 +132,7 @@ func init() {
 		deleteWithoutDeprov)
 }
 
-func hostMetricLabels(request reconcile.Request) prometheus.Labels {
+func hostMetricLabels(request ctrl.Request) prometheus.Labels {
 	return prometheus.Labels{
 		labelHostNamespace: request.Namespace,
 		labelHostName:      request.Name,

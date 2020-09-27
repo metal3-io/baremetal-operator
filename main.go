@@ -28,6 +28,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metal3-io/baremetal-operator/pkg/version"
 	// +kubebuilder:scaffold:imports
 )
@@ -40,6 +46,7 @@ var (
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
+	_ = metal3iov1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -54,6 +61,8 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var devLogging bool
+	var runInTestMode bool
+	var runInDemoMode bool
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -67,6 +76,9 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&devLogging, "dev", false, "enable developer logging")
+	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
+	flag.BoolVar(&runInDemoMode, "demo-mode", false,
+		"use the demo provisioner to set host states")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(devLogging)))
@@ -87,6 +99,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	var provisionerFactory provisioner.Factory
+	if runInTestMode {
+		provisionerFactory = fixture.New
+		ctrl.Log.Info("using test provisioner")
+	} else if runInDemoMode {
+		provisionerFactory = demo.New
+		ctrl.Log.Info("using demo provisioner")
+	} else {
+		provisionerFactory = ironic.New
+		ironic.LogStartup()
+	}
+
+	if err = (&metal3iocontroller.BareMetalHostReconciler{
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		Scheme:             mgr.GetScheme(),
+		ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

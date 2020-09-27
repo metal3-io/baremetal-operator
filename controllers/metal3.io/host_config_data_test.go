@@ -1,4 +1,4 @@
-package baremetalhost
+package controllers
 
 import (
 	goctx "context"
@@ -8,9 +8,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func TestProvisionWithHostConfig(t *testing.T) {
@@ -226,7 +227,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			c.Create(goctx.TODO(), tc.NetworkDataSecret)
 			hcd := &hostConfigData{
 				host:   tc.Host,
-				log:    log.WithValues("Test", "test"),
+				log:    ctrl.Log.WithName("Test").WithName(tc.Scenario),
 				client: c,
 			}
 

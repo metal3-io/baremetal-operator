@@ -1,4 +1,4 @@
-package baremetalhost
+package controllers
 
 import (
 	goctx "context"
@@ -8,22 +8,15 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metal3apis "github.com/metal3-io/baremetal-operator/pkg/apis"
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 )
 
-func init() {
-	logf.SetLogger(logf.ZapLogger(true))
-	// Register our package types with the global scheme
-	metal3apis.AddToScheme(scheme.Scheme)
-}
-
-func newDemoReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
+func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 
 	c := fakeclient.NewFakeClient(initObjs...)
 
@@ -31,10 +24,11 @@ func newDemoReconciler(initObjs ...runtime.Object) *ReconcileBareMetalHost {
 	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
 	c.Create(goctx.TODO(), bmcSecret)
 
-	return &ReconcileBareMetalHost{
-		client:             c,
-		scheme:             scheme.Scheme,
-		provisionerFactory: demo.New,
+	return &BareMetalHostReconciler{
+		Client:             c,
+		Scheme:             scheme.Scheme,
+		ProvisionerFactory: demo.New,
+		Log:                ctrl.Log.WithName("controller").WithName("baremetalhost").WithName("demo").WithName("test"),
 	}
 }
 

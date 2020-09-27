@@ -1,24 +1,24 @@
-package baremetalhost
+package controllers
 
 import (
 	"testing"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
-	p, _ := r.provisionerFactory(host, bmc.Credentials{},
+	p, _ := r.ProvisionerFactory(host, bmc.Credentials{},
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p)
 }
@@ -209,7 +209,7 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &ReconcileBareMetalHost{}, prov)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			prov.setNextError("some error")
@@ -255,7 +255,7 @@ func TestErrorCountCleared(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &ReconcileBareMetalHost{}, prov)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			info.host.Status.ErrorCount = 1
@@ -317,7 +317,7 @@ func makeDefaultReconcileInfo(host *metal3v1alpha1.BareMetalHost) *reconcileInfo
 	return &reconcileInfo{
 		log:     logf.Log.WithName("test"),
 		host:    host,
-		request: reconcile.Request{},
+		request: ctrl.Request{},
 		bmcCredsSecret: &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            host.Status.GoodCredentials.Reference.Name,

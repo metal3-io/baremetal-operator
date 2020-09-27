@@ -10,10 +10,9 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   export XDG_CACHE_HOME="/tmp/.cache"
 
   cd "${TOP_DIR}"
-  DIRS=$(make show_dirs)
 
   # shellcheck disable=SC2086
-  if [ -n "$(gofmt -l ${DIRS})" ]; then
+  if [ -n "$(gofmt -l .)" ]; then
       make fmt
       exit 1
   fi

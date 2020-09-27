@@ -1,3 +1,19 @@
+/*
+
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -6,100 +22,76 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/metal3-io/baremetal-operator/pkg/apis"
-	"github.com/metal3-io/baremetal-operator/pkg/controller"
-	"github.com/metal3-io/baremetal-operator/pkg/version"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
-
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"github.com/metal3-io/baremetal-operator/pkg/version"
+	// +kubebuilder:scaffold:imports
 )
 
 var (
-	log            = logf.Log.WithName("cmd")
-	watchNamespace string
+	scheme   = k8sruntime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
 )
 
+func init() {
+	_ = clientgoscheme.AddToScheme(scheme)
+
+	// +kubebuilder:scaffold:scheme
+}
+
 func printVersion() {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
-	log.Info(fmt.Sprintf("Component version: %s", version.String))
+	setupLog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
+	setupLog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	setupLog.Info(fmt.Sprintf("baremetal-operator version: %s", version.String))
 }
 
 func main() {
-	var err error
-	devLogging := flag.Bool("dev", false, "enable dev logging")
-	metricsAddr := flag.String("metrics-addr", "127.0.0.1:8085", "The address the metric endpoint binds to.")
-	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile BMO objects.")
-	flag.Parse()
-
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
-	logf.SetLogger(logf.ZapLogger(*devLogging))
-
-	printVersion()
+	var watchNamespace string
+	var metricsAddr string
+	var enableLeaderElection bool
+	var devLogging bool
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
 	// is for multi-tenancy, then the BMO should watch only the provided
 	// namespace.
-	if watchNamespace == "" {
-		watchNamespace, err = k8sutil.GetWatchNamespace()
-		if err != nil {
-			watchNamespace = ""
-		}
-	}
+	flag.StringVar(&watchNamespace, "namespace", "",
+		"Namespace that the controller watches to reconcile host resources.")
+	flag.StringVar(&metricsAddr, "metrics-addr", "127.0.0.1:8085",
+		"The address the metric endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&devLogging, "dev", false, "enable developer logging")
+	flag.Parse()
 
-	// Get a config to talk to the apiserver
-	cfg, err := config.GetConfig()
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+	ctrl.SetLogger(zap.New(zap.UseDevMode(devLogging)))
 
-	log.Info(fmt.Sprintf("gather metrics at http://%s/metrics", *metricsAddr))
-	opts := manager.Options{
-		LeaderElection:          true,
+	printVersion()
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                  scheme,
+		MetricsBindAddress:      metricsAddr,
+		Port:                    9443,
+		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "baremetal-operator",
 		LeaderElectionNamespace: watchNamespace,
 		Namespace:               watchNamespace,
-		MetricsBindAddress:      *metricsAddr,
-	}
-
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, opts)
+	})
 	if err != nil {
-		log.Error(err, "")
+		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	log.Info("Registering Components.")
+	// +kubebuilder:scaffold:builder
 
-	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	log.Info("Starting the Cmd.")
-
-	// Start the Cmd
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		log.Error(err, "Manager exited non-zero")
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }

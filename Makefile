@@ -239,3 +239,12 @@ tilt-up: $(KUSTOMIZE) kind-create ## start tilt and build kind cluster if needed
 .PHONY: kind-reset
 kind-reset: ## Destroys the "bmo" kind cluster.
 	kind delete cluster --name=bmo || true
+
+## --------------------------------------
+## Go module Targets
+## --------------------------------------
+
+.PHONY:
+mod: ## Clean up go module settings
+	go mod tidy
+	go mod verify

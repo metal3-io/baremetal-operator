@@ -88,7 +88,7 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                  scheme,
 		MetricsBindAddress:      metricsAddr,
-		Port:                    9443,
+		Port:                    0, // Add flag with default of 9443 when adding webhooks
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "baremetal-operator",
 		LeaderElectionNamespace: watchNamespace,

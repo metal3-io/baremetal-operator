@@ -19,6 +19,7 @@ FROM gcr.io/distroless/base:latest
 WORKDIR /
 COPY --from=builder /workspace/baremetal-operator .
 USER nonroot:nonroot
+ENTRYPOINT ["/baremetal-operator"]
 
 LABEL io.k8s.display-name="Metal3 BareMetal Operator" \
       io.k8s.description="This is the image for the Metal3 BareMetal Operator."

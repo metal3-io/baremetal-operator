@@ -1,18 +1,5 @@
 # Setup Development Environment
 
-## Install the operator-sdk
-
-Follow the instructions on the [Operator SDK website](https://sdk.operatorframework.io/docs/installation/install-operator-sdk/)
-to check out and install the operator-sdk tools.
-
-## Install openapi-gen
-
-Install the kube-api version of [openapi-gen](https://github.com/kubernetes/kube-openapi)
-
-```bash
-go get k8s.io/kube-openapi/cmd/openapi-gen
-```
-
 ## With minikube
 
 1. Install and launch minikube
@@ -25,7 +12,7 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     kubectl create namespace metal3
     ```
 
-1. Install operator-sdk
+1. Install operator in the cluster
 
     ```bash
     eval $(go env)
@@ -39,7 +26,7 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     kubectl apply -f deploy/crds/metal3.io_baremetalhosts_crd.yaml
     ```
 
-1. Launch the operator locally
+1. OR Launch the operator locally
 
     ```bash
     export OPERATOR_NAME=baremetal-operator
@@ -47,7 +34,7 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     export DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs
     export IRONIC_ENDPOINT=http://localhost:6385/v1/
     export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1
-    operator-sdk run --local --watch-namespace=metal3
+    make run
     ```
 
 1. Create the CR

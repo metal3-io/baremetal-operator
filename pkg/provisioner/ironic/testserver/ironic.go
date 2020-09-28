@@ -134,3 +134,9 @@ func (m *IronicMock) CreateNodes() *IronicMock {
 	})
 	return m
 }
+
+// WithNodeStatesPower configures the server with a valid response for /v1/nodes/<node>/states/power
+func (m *IronicMock) WithNodeStatesPower(nodeUUID string, code int) *IronicMock {
+	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/states/power", "{}", code)
+	return m
+}

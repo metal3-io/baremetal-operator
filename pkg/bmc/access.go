@@ -6,7 +6,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/pkg/errors"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 // AccessDetailsFactory describes a callable that returns a new
@@ -56,6 +59,8 @@ type AccessDetails interface {
 	PowerInterface() string
 	RAIDInterface() string
 	VendorInterface() string
+
+	BIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {

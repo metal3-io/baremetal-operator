@@ -1195,9 +1195,7 @@ func TestUpdateFirmware(t *testing.T) {
 				WWNVendorExtension: "userd_vendor_extension",
 			},
 			Firmware: &metal3v1alpha1.FirmwareConfig{
-				IRMC: &metal3v1alpha1.IRMCConfig{
-					FlashWriteEnabled: "true",
-				},
+				SriovEnabled: "true",
 			},
 		},
 	}
@@ -1208,24 +1206,20 @@ func TestUpdateFirmware(t *testing.T) {
 		{
 			name: "false",
 			expected: &metal3v1alpha1.FirmwareConfig{
-				IRMC: &metal3v1alpha1.IRMCConfig{
-					FlashWriteEnabled: "false",
-				},
+				SriovEnabled: "false",
 			},
 		},
 		{
 			name: "true",
 			expected: &metal3v1alpha1.FirmwareConfig{
-				IRMC: &metal3v1alpha1.IRMCConfig{
-					FlashWriteEnabled: "true",
-				},
+				SriovEnabled: "true",
 			},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			var dirty bool
-			host.Spec.Firmware.IRMC.FlashWriteEnabled = c.name
+			host.Spec.Firmware.SriovEnabled = c.name
 			assert.NotEqual(t, host.Spec.Firmware, host.Status.Provisioning.Firmware)
 
 			dirty, _ = saveHostProvisioningSettings(&host)

@@ -150,6 +150,62 @@ spec:
                   the power status and hardware inventory inspection. If the Image
                   field is filled in, this field is ignored.
                 type: boolean
+              firmware:
+                description: BIOS configuration for bare metal server
+                properties:
+                  bootOrderPolicy:
+                    description: Configure how the system attempts to boot devices
+                      per the Boot Order when no bootable device is found. Allowed
+                      values are RetryIndefinitely, AttemptOnce, ResetAfterFailed.
+                    enum:
+                    - RetryIndefinitely
+                    - AttemptOnce
+                    - ResetAfterFailed
+                    type: string
+                  cStateEnabled:
+                    description: 'This supports following options: true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                  llcPrefetchEnabled:
+                    description: 'This supports following options: true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                  numaEnabled:
+                    description: 'This supports following options: true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                  simultaneousMultithreadingEnabled:
+                    description: 'Allows a single physical processor core to appear
+                      as several logical processors. This supports following options:
+                      true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                  sriovEnabled:
+                    description: 'If enabled, SR-IOV support enables a hypervisor
+                      to create virtual instances of a PCI-express device, potentially
+                      increasing performance. If enabled, the BIOS allocates additional
+                      resources to PCI-express devices. This supports following options:
+                      true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                  virtualizationEnabled:
+                    description: 'Supports the virtualization of platform hardware.
+                      This supports following options: true, false.'
+                    enum:
+                    - "true"
+                    - "false"
+                    type: string
+                type: object
               hardwareProfile:
                 description: What is the name of the hardware profile for this host?
                   It should only be necessary to set this when inspection cannot automatically
@@ -608,6 +664,62 @@ spec:
                     - UEFI
                     - legacy
                     type: string
+                  firmware:
+                    description: The Bios set by the user
+                    properties:
+                      bootOrderPolicy:
+                        description: Configure how the system attempts to boot devices
+                          per the Boot Order when no bootable device is found. Allowed
+                          values are RetryIndefinitely, AttemptOnce, ResetAfterFailed.
+                        enum:
+                        - RetryIndefinitely
+                        - AttemptOnce
+                        - ResetAfterFailed
+                        type: string
+                      cStateEnabled:
+                        description: 'This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      llcPrefetchEnabled:
+                        description: 'This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      numaEnabled:
+                        description: 'This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      simultaneousMultithreadingEnabled:
+                        description: 'Allows a single physical processor core to appear
+                          as several logical processors. This supports following options:
+                          true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      sriovEnabled:
+                        description: 'If enabled, SR-IOV support enables a hypervisor
+                          to create virtual instances of a PCI-express device, potentially
+                          increasing performance. If enabled, the BIOS allocates additional
+                          resources to PCI-express devices. This supports following
+                          options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                      virtualizationEnabled:
+                        description: 'Supports the virtualization of platform hardware.
+                          This supports following options: true, false.'
+                        enum:
+                        - "true"
+                        - "false"
+                        type: string
+                    type: object
                   image:
                     description: Image holds the details of the last image successfully
                       provisioned to the host.

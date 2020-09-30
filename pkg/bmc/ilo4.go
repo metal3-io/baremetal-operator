@@ -4,6 +4,10 @@ package bmc
 
 import (
 	"net/url"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -88,4 +92,9 @@ func (a *iLOAccessDetails) RAIDInterface() string {
 
 func (a *iLOAccessDetails) VendorInterface() string {
 	return ""
+}
+
+// Build the clean steps for ILO configuration from BaremetalHost spec
+func (a *iLOAccessDetails) BIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep {
+	return iloBIOSCleanSteps(firmware)
 }

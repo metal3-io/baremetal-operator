@@ -3,6 +3,10 @@ package bmc
 import (
 	"net/url"
 	"strings"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -92,4 +96,65 @@ func (a *iDracAccessDetails) RAIDInterface() string {
 
 func (a *iDracAccessDetails) VendorInterface() string {
 	return ""
+}
+
+func idracBIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep {
+
+	// This cleaning step resets all BIOS settings to factory default for a given node
+	cleanSteps := append([]nodes.CleanStep{}, nodes.CleanStep{
+		Interface: "bios",
+		Step:      "factory_reset",
+	})
+	if firmware == nil {
+		return cleanSteps
+	}
+
+	settings := buildBIOSSettings(*firmware,
+		map[string]string{
+			"SimultaneousMultithreadingEnabled": "LogicalProc",
+			"VirtualizationEnabled":             "ProcVirtualization",
+			"SriovEnabled":                      "SriovGlobalEnable",
+			"LLCPrefetchEnabled":                "ProcHwPrefetcher",
+			"CStateEnabled":                     "ProcCStates",
+		},
+		trueToEnabled,
+	)
+
+	if firmware.BootOrderPolicy != "" {
+		bootOrderPolicyToEnabled := map[string]string{
+			"RetryIndefinitely": "Enabled",
+			"AttemptOnce":       "Disabled",
+			"ResetAfterFailed":  "Disabled",
+		}
+		settings = append(settings, map[string]string{
+			"name":  "BootSeqRetry",
+			"value": bootOrderPolicyToEnabled[firmware.BootOrderPolicy],
+		})
+	}
+
+	if firmware.NUMAEnabled != "" {
+		settings = append(settings, []map[string]string{
+			{
+				"name":  "SubNumaCluster",
+				"value": trueToEnabled[firmware.NUMAEnabled],
+			},
+			{
+				"name":  "ProcTurboMode",
+				"value": trueToEnabled[firmware.NUMAEnabled],
+			},
+		}...)
+	}
+
+	return append(cleanSteps, nodes.CleanStep{
+		Interface: "bios",
+		Step:      "apply_configuration",
+		Args: map[string]interface{}{
+			"settings": settings,
+		},
+	})
+}
+
+// Build the clean steps for IDRAC configuration from BaremetalHost spec
+func (a *iDracAccessDetails) BIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep {
+	return idracBIOSCleanSteps(firmware)
 }

@@ -4,6 +4,17 @@ package bmc
 
 import (
 	"net/url"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+)
+
+var (
+	iloSettingNeedCustomWorkload = []string{
+		"MinProcIdlePkgState", "MinProcIdlePower", "PowerRegulator",
+		"ChannelInterleaving", "EnergyPerfBias", "IntelUpiFreq",
+		"IntelUpiPowerManagement", "MaxMemBusFreqMHz", "MaxPcieSpeed"}
 )
 
 func init() {
@@ -88,4 +99,82 @@ func (a *iLO5AccessDetails) RAIDInterface() string {
 
 func (a *iLO5AccessDetails) VendorInterface() string {
 	return ""
+}
+
+// Add the custom workloadprofile if one of the setting requires it
+// see https://github.com/denysvitali/ilo-rest-api-docs/blob/master/source/includes/_ilo5_resourcedefns.md
+func iloGetWorkloadProfile(settings []map[string]string) map[string]string {
+	for _, value := range settings {
+		if contains(value["name"], iloSettingNeedCustomWorkload) {
+			return map[string]string{
+				"name":  "WorkloadProfile",
+				"value": "custom",
+			}
+		}
+	}
+	return nil
+}
+
+// A private method to build the clean steps for ILO configuration from BaremetalHost spec
+func iloBIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep {
+	// This cleaning step resets all BIOS settings to factory default for a given node
+	cleanSteps := []nodes.CleanStep{
+		nodes.CleanStep{
+			Interface: "bios",
+			Step:      "factory_reset",
+		},
+	}
+
+	// If not configure ILO, only need to clear old configuration
+	if firmware == nil {
+		return cleanSteps
+	}
+	settings := buildBIOSSettings(*firmware,
+		map[string]string{
+			"SimultaneousMultithreadingEnabled": "ProcHyperthreading",
+			"VirtualizationEnabled":             "ProcVirtualization",
+			"SriovEnabled":                      "Sriov",
+			"BootOrderPolicy":                   "BootOrderPolicy",
+			"LLCPrefetchEnabled":                "LlcPrefetch",
+		},
+		trueToEnabled,
+	)
+	if firmware.NUMAEnabled != "" {
+		settings = append(settings, []map[string]string{
+			{
+				"name":  "SubNumaClustering",
+				"value": trueToEnabled[firmware.NUMAEnabled],
+			},
+			{
+				"name":  "EnergyEfficientTurbo",
+				"value": trueToEnabled[firmware.NUMAEnabled],
+			},
+		}...)
+	}
+	if firmware.CStateEnabled != "" {
+		trueToCState := map[string]string{
+			"true":  "C6", // C1E is also valid
+			"false": "NoCStates",
+		}
+		settings = append(settings, map[string]string{
+			"name":  "MinProcIdlePower",
+			"value": trueToCState[firmware.CStateEnabled],
+		})
+	}
+
+	// some settings require the workload profile to be custom
+	settings = append(settings, iloGetWorkloadProfile(settings))
+
+	return append(cleanSteps, nodes.CleanStep{
+		Interface: "bios",
+		Step:      "apply_configuration",
+		Args: map[string]interface{}{
+			"settings": settings,
+		},
+	})
+}
+
+// Build the clean steps for ILO configuration from BaremetalHost spec
+func (a *iLO5AccessDetails) BIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep {
+	return iloBIOSCleanSteps(firmware)
 }

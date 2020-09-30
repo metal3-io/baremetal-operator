@@ -2,6 +2,10 @@ package bmc
 
 import (
 	"net/url"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -85,4 +89,8 @@ func (a *redfishiDracVirtualMediaAccessDetails) RAIDInterface() string {
 
 func (a *redfishiDracVirtualMediaAccessDetails) VendorInterface() string {
 	return "no-vendor"
+}
+
+func (a *redfishiDracVirtualMediaAccessDetails) BIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep {
+	return idracBIOSCleanSteps(firmware)
 }

@@ -640,7 +640,7 @@ func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (result 
 	cleanSteps := make([]nodes.CleanStep, 0)
 
 	// Build bios configuration clean steps
-	cleanSteps = append(cleanSteps, buildBIOSCleanSteps(p.bmcAccess.Driver(), p.host.Status.Provisioning.Firmware)...)
+	cleanSteps = append(cleanSteps, p.bmcAccess.BIOSCleanSteps(p.host.Status.Provisioning.Firmware)...)
 
 	// TODO: wait #292 is merged
 

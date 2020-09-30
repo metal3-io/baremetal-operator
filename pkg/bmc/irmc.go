@@ -2,6 +2,10 @@ package bmc
 
 import (
 	"net/url"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -83,4 +87,28 @@ func (a *iRMCAccessDetails) RAIDInterface() string {
 
 func (a *iRMCAccessDetails) VendorInterface() string {
 	return ""
+}
+
+func (a *iRMCAccessDetails) BIOSCleanSteps(firmware *metal3v1alpha1.FirmwareConfig) []nodes.CleanStep {
+	// If not configure irmc, only need to clear old configuration,
+	// but irmc bios interface does not support factory_reset.
+	if firmware == nil {
+		return nil
+	}
+
+	return []nodes.CleanStep{nodes.CleanStep{
+		Interface: "bios",
+		Step:      "apply_configuration",
+		Args: map[string]interface{}{
+			"settings": buildBIOSSettings(*firmware,
+				map[string]string{
+					"SimultaneousMultithreadingEnabled": "hyper_threading_enabled",
+					"VirtualizationEnabled":             "cpu_vt_enabled",
+					"SriovEnabled":                      "single_root_io_virtualization_support_enabled",
+					"LLCPrefetchEnabled":                "cpu_adjacent_cache_line_prefetch_enabled",
+				},
+				nil,
+			),
+		},
+	}}
 }

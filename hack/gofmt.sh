@@ -10,10 +10,9 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   export XDG_CACHE_HOME="/tmp/.cache"
 
   cd "${TOP_DIR}"
-  DIRS=$(make show_dirs)
 
   # shellcheck disable=SC2086
-  if [ -n "$(gofmt -l ${DIRS})" ]; then
+  if [ -n "$(gofmt -l .)" ]; then
       make fmt
       exit 1
   fi
@@ -23,6 +22,6 @@ else
     --volume "${PWD}:/workdir:rw,z" \
     --entrypoint sh \
     --workdir /workdir \
-    registry.hub.docker.com/library/golang:1.13.7 \
+    registry.hub.docker.com/library/golang:1.14 \
     /workdir/hack/gofmt.sh "${@}"
 fi;

@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
 func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
@@ -21,6 +22,9 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	prov, err := newProvisionerWithSettings(makeHost(), bmc.Credentials{}, eventPublisher,
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ironicNode := &nodes.Node{}
 
 	patches, err := prov.getUpdateOptsForNode(ironicNode)
@@ -107,6 +111,9 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ironicNode := &nodes.Node{}
 
 	patches, err := prov.getUpdateOptsForNode(ironicNode)
@@ -205,6 +212,9 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ironicNode := &nodes.Node{}
 
 	patches, err := prov.getUpdateOptsForNode(ironicNode)

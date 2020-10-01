@@ -1,0 +1,26 @@
+run:
+  timeout: "5m"
+
+linters:
+  disable-all: true
+  enable: [
+    "govet",
+    "goimports",
+    "gofmt",
+    "gosec",
+    "staticcheck",
+  ]
+
+linters-settings:
+  goimports:
+    local-prefixes: "github.com/metal3-io/baremetal-operator"
+  govet:
+    check-shadowing: false
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+  - linters:
+    - staticcheck
+    text: "SA1019:"

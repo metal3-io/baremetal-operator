@@ -66,7 +66,7 @@ endif
 
 # Run tests
 .PHONY: test
-test: generate fmt lint vet manifests unit ## Run common developer tests
+test: generate lint manifests unit ## Run common developer tests
 
 .PHONY: unit
 unit: ## Run unit tests
@@ -86,32 +86,23 @@ unit-verbose: ## Run unit tests with verbose output
 ## --------------------------------------
 
 .PHONY: linters
-linters: sec lint generate-check fmt-check vet ## Run all linters
+linters: lint generate-check fmt-check
 
 .PHONY: sec
-sec: $(GOPATH)/bin/gosec ## Run gosec
-	gosec -severity medium --confidence medium -quiet ./...
-
-$(GOPATH)/bin/gosec:
-	go get -u github.com/securego/gosec/cmd/gosec
+sec: lint
 
 .PHONY: fmt
-fmt: ## Run go fmt against code
-	go fmt ./...
+fmt: lint
 
 .PHONY: vet
-vet: ## Run go vet against code
-	go vet ./...
+vet: lint
 
 .PHONY: lint
-lint: golint-binary ## Run golint
-	find $(CODE_DIRS) -type f -name \*.go  |grep -v zz_ | xargs -L1 golint -set_exit_status
+lint: $(GOBIN)/golangci-lint
+	$(GOBIN)/golangci-lint run
 
-.PHONY: golint-binary
-golint-binary:
-	which golint 2>&1 >/dev/null || $(MAKE) $(GOPATH)/bin/golint
-$(GOPATH)/bin/golint:
-	go get -u golang.org/x/lint/golint
+$(GOBIN)/golangci-lint:
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.31.0
 
 ## --------------------------------------
 ## Build/Run Targets
@@ -121,15 +112,15 @@ $(GOPATH)/bin/golint:
 build: generate manifests manager tools ## Build everything
 
 .PHONY: manager
-manager: generate fmt vet ## Build manager binary
+manager: generate lint ## Build manager binary
 	go build -ldflags $(LDFLAGS) -o bin/manager main.go
 
 .PHONY: run
-run: generate fmt vet manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev
 
 .PHONY: demo
-demo: generate fmt vet manifests ## Run in demo mode
+demo: generate lint manifests ## Run in demo mode
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -demo-mode
 
 .PHONY: install

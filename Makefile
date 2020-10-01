@@ -132,6 +132,10 @@ run: generate fmt vet manifests ## Run against the configured Kubernetes cluster
 demo: generate fmt vet manifests ## Run in demo mode
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -demo-mode
 
+.PHONY: run-test-mode
+run-test-mode: generate fmt vet manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -test-mode
+
 .PHONY: install
 install: $(KUSTOMIZE) manifests ## Install CRDs into a cluster
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -

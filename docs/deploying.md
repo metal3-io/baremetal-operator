@@ -203,7 +203,6 @@ container inherits the following environment variables through configmap:
 ```ini
 
 $PROVISIONING_IP
-$PROVISIONING_CIDR
 $PROVISIONING_INTERFACE
 
 ```

@@ -3,17 +3,15 @@ package controllers
 import (
 	"testing"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
@@ -278,7 +276,7 @@ func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
 			Status: metal3v1alpha1.BareMetalHostStatus{
 				Provisioning: metal3v1alpha1.ProvisionStatus{
 					State:    state,
-					BootMode: v1alpha1.DefaultBootMode,
+					BootMode: metal3v1alpha1.DefaultBootMode,
 				},
 				GoodCredentials: metal3v1alpha1.CredentialsStatus{
 					Reference: &corev1.SecretReference{

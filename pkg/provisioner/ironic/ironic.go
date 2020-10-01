@@ -6,17 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/yaml"
-
+	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
-
 	"github.com/pkg/errors"
-
-	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/yaml"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"

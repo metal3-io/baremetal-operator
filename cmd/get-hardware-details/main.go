@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
+
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )

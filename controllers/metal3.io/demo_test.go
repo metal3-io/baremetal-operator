@@ -5,9 +5,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/client-go/kubernetes/scheme"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"

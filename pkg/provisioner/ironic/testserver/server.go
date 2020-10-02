@@ -76,7 +76,7 @@ func (m *MockServer) Response(pattern string, payload string) *MockServer {
 	m.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		m.logRequest(r, payload)
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, payload)
+		fmt.Fprint(w, payload)
 	})
 	return m
 }

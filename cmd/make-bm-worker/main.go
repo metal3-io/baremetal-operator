@@ -71,6 +71,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 		os.Exit(1)
 	} else {
-		fmt.Fprintf(os.Stdout, result)
+		fmt.Fprint(os.Stdout, result)
 	}
 }

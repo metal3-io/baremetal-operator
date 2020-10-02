@@ -900,6 +900,9 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
 	updates, err := p.getUpdateOptsForNode(ironicNode)
+	if err != nil {
+		return result, errors.Wrap(err, "failed to update opts for node")
+	}
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 	switch err.(type) {
 	case nil:

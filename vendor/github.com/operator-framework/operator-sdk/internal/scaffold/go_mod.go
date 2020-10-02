@@ -35,18 +35,17 @@ func (s *GoMod) GetInput() (input.Input, error) {
 	return s.Input, nil
 }
 
-//nolint:lll
 const goModTmpl = `module {{ .Repo }}
 
 go 1.13
 
 require (
-	github.com/operator-framework/operator-sdk v0.17.0
-	sigs.k8s.io/controller-runtime v0.5.2
+	github.com/operator-framework/operator-sdk v0.19.3
+	sigs.k8s.io/controller-runtime v0.6.0
 )
 
 replace (
-	k8s.io/client-go => k8s.io/client-go v0.17.4 // Required by prometheus-operator
+	k8s.io/client-go => k8s.io/client-go v0.18.2 // Required by prometheus-operator
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 )
 `

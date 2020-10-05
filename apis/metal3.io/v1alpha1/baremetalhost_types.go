@@ -222,7 +222,7 @@ type BMCDetails struct {
 
 // BareMetalHostSpec defines the desired state of BareMetalHost
 type BareMetalHostSpec struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code
+	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
 
 	// Taints is the full, authoritative list of taints to apply to
@@ -521,7 +521,7 @@ type OperationHistory struct {
 
 // BareMetalHostStatus defines the observed state of BareMetalHost
 type BareMetalHostStatus struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code
+	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
 
 	// OperationalStatus holds the status of the host

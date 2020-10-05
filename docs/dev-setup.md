@@ -51,7 +51,7 @@ instead of the real Ironic provisioner by passing `-test-mode` to the
 operator when launching it.
 
 ```bash
-operator-sdk up local --operator-flags "-test-mode"
+make run-test-mode
 ```
 
 ## Running a local instance of Ironic

@@ -16,6 +16,7 @@ COVER_PROFILE = cover.out
 #
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
 CONTROLLER_TOOLS_VERSION=v0.4.0
+CONTROLLER_GEN=./bin/controller-gen
 
 # Directories.
 TOOLS_DIR := tools
@@ -137,34 +138,20 @@ deploy: $(KUSTOMIZE) manifests ## Deploy controller in the configured Kubernetes
 	kustomize build config/default | kubectl apply -f -
 
 .PHONY: manifests
-manifests: controller-gen ## Generate manifests e.g. CRD, RBAC etc.
+manifests: $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC etc.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
-generate: controller-gen ## Generate code
+generate: $(CONTROLLER_GEN) ## Generate code
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: $(KUSTOMIZE)
 $(KUSTOMIZE):
 	cd $(TOOLS_DIR); ./install_kustomize.sh
 
-# find or download controller-gen
-# download controller-gen if necessary
-.PHONY: controller-gen
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION) ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+# Build the version of controller-gen that we use
+$(CONTROLLER_GEN):
+	./hack/install-controller-gen.sh $(CONTROLLER_TOOLS_VERSION) $$(pwd)/$(CONTROLLER_GEN)
 
 ## --------------------------------------
 ## Docker Targets

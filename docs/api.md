@@ -95,6 +95,10 @@ The sub-fields are
   `qcow2`, `vdi`, `vmdk`, or be left unset. Setting it to raw enables raw
   image streaming in Ironic agent for that image.
 
+Even though the image sub-fields are required by Ironic,
+when the host provisioning is managed externally via `externallyProvisioned: true`,
+and power control isn't needed, the fields can be left empty.
+
 #### userData
 
 A reference to the Secret containing the cloudinit user data and its

@@ -114,7 +114,7 @@ build: generate manifests manager tools ## Build everything
 
 .PHONY: manager
 manager: generate lint ## Build manager binary
-	go build -ldflags $(LDFLAGS) -o bin/manager main.go
+	go build -ldflags $(LDFLAGS) -o bin/manager cmd/manager/main.go
 
 .PHONY: run
 run: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config

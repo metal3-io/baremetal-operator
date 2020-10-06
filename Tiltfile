@@ -49,7 +49,7 @@ def load_provider_tiltfiles(provider_repos):
             if "kustomize_config" not in provider_config:
                 provider_config["kustomize_config"] = True
             if "go_main" not in provider_config:
-                provider_config["go_main"] = "main.go"
+                provider_config["go_main"] = "cmd/manager/main.go"
             providers[provider_name] = provider_config
 
 def validate_auth():

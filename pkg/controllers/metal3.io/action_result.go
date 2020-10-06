@@ -7,7 +7,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3.io/v1alpha1"
 )
 
 const maxBackOffCount = 10

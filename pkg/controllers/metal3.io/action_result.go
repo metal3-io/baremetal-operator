@@ -7,7 +7,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metal3 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3.io/v1alpha1"
+	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3.io/v1alpha1"
 )
 
 const maxBackOffCount = 10
@@ -100,7 +100,7 @@ func (r actionError) Dirty() bool {
 // and that the resource should be marked as in error.
 type actionFailed struct {
 	dirty      bool
-	ErrorType  metal3.ErrorType
+	ErrorType  metal3iov1alpha1.ErrorType
 	errorCount int
 }
 

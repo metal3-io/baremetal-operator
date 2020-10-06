@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: metal3
+resources:
+- ../../default
+
+configMapGenerator:
+- behavior: create
+  envs:
+  - ironic-htpasswd
+  name: ironic-htpasswd
+- behavior: create
+  envs:
+  - ironic-inspector-htpasswd
+  name: ironic-inspector-htpasswd
+
+secretGenerator:
+- name: ironic-auth-config
+  files:
+  - auth-config=ironic-auth-config
+- name: ironic-inspector-auth-config
+  files:
+  - auth-config=ironic-inspector-auth-config
+- name: ironic-rpc-auth-config
+  files:
+  - auth-config=ironic-rpc-auth-config
+
+patchesStrategicMerge:
+- auth.yaml

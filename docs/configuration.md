@@ -16,6 +16,11 @@ Ironic.
 `IRONIC_INSPECTOR_ENDPOINT` -- The URL for the operator to use when talking to
 Ironic Inspector.
 
+`IRONIC_CACERT_FILE` -- The path of the CA certificate file of Ironic, if needed
+
+`IRONIC_INSECURE` -- ("True", "False") Whether to skip the ironic certificate
+validation. It is highly recommend to not set it to True.
+
 `BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
 Operator. Default is 3.
 

@@ -2,16 +2,53 @@ package clients
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"time"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	httpbasicintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/httpbasic"
 	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
+	"go.etcd.io/etcd/pkg/transport"
 )
 
+var tlsConnectionTimeout = time.Second * 30
+
+// TLSConfig contains the TLS configuration for the Ironic connection.
+// Using Go default values for this will result in no additional trusted
+// CA certificates and a secure connection.
+type TLSConfig struct {
+	TrustedCAFile      string
+	InsecureSkipVerify bool
+}
+
+func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*gophercloud.ServiceClient, error) {
+	tlsInfo := transport.TLSInfo{
+		TrustedCAFile:      tlsConf.TrustedCAFile,
+		InsecureSkipVerify: tlsConf.InsecureSkipVerify,
+	}
+	if _, err := os.Stat(tlsConf.TrustedCAFile); err != nil {
+		if os.IsNotExist(err) {
+			tlsInfo.TrustedCAFile = ""
+		} else {
+			return client, err
+		}
+	}
+	tlsTransport, err := transport.NewTransport(tlsInfo, tlsConnectionTimeout)
+	if err != nil {
+		return client, err
+	}
+	c := http.Client{
+		Transport: tlsTransport,
+	}
+	client.HTTPClient = c
+	return client, nil
+}
+
 // IronicClient creates a client for Ironic
-func IronicClient(ironicEndpoint string, auth AuthConfig) (client *gophercloud.ServiceClient, err error) {
+func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client *gophercloud.ServiceClient, err error) {
 	switch auth.Type {
 	case NoAuth:
 		client, err = noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
@@ -26,11 +63,14 @@ func IronicClient(ironicEndpoint string, auth AuthConfig) (client *gophercloud.S
 	default:
 		err = fmt.Errorf("Unknown auth type %s", auth.Type)
 	}
-	return
+	if err != nil {
+		return
+	}
+	return updateHTTPClient(client, tls)
 }
 
 // InspectorClient creates a client for Ironic Inspector
-func InspectorClient(inspectorEndpoint string, auth AuthConfig) (client *gophercloud.ServiceClient, err error) {
+func InspectorClient(inspectorEndpoint string, auth AuthConfig, tls TLSConfig) (client *gophercloud.ServiceClient, err error) {
 	switch auth.Type {
 	case NoAuth:
 		client, err = noauthintrospection.NewBareMetalIntrospectionNoAuth(
@@ -46,5 +86,8 @@ func InspectorClient(inspectorEndpoint string, auth AuthConfig) (client *gopherc
 	default:
 		err = fmt.Errorf("Unknown auth type %s", auth.Type)
 	}
-	return
+	if err != nil {
+		return
+	}
+	return updateHTTPClient(client, tls)
 }

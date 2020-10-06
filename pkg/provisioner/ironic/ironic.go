@@ -37,6 +37,8 @@ var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
 var inspectorEndpoint string
+var ironicTrustedCAFile string
+var ironicInsecure bool
 var ironicAuth clients.AuthConfig
 var inspectorAuth clients.AuthConfig
 
@@ -84,6 +86,14 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
 		os.Exit(1)
 	}
+	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")
+	if ironicTrustedCAFile == "" {
+		ironicTrustedCAFile = "/opt/metal3/certs/ca/crt"
+	}
+	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
+	if strings.ToLower(ironicInsecureStr) == "true" {
+		ironicInsecure = true
+	}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -123,12 +133,16 @@ func LogStartup() {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
-	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings)
+	tlsConf := clients.TLSConfig{
+		TrustedCAFile:      ironicTrustedCAFile,
+		InsecureSkipVerify: ironicInsecure,
+	}
+	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings, tlsConf)
 	if err != nil {
 		return nil, err
 	}
 
-	clientInspector, err := clients.InspectorClient(inspectorURL, inspectorAuthSettings)
+	clientInspector, err := clients.InspectorClient(inspectorURL, inspectorAuthSettings, tlsConf)
 	if err != nil {
 		return nil, err
 	}

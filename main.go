@@ -68,7 +68,7 @@ func main() {
 	// in case of a deployment that is not multi-tenant. If the deployment
 	// is for multi-tenancy, then the BMO should watch only the provided
 	// namespace.
-	flag.StringVar(&watchNamespace, "namespace", "",
+	flag.StringVar(&watchNamespace, "namespace", os.Getenv("WATCH_NAMESPACE"),
 		"Namespace that the controller watches to reconcile host resources.")
 	flag.StringVar(&metricsAddr, "metrics-addr", "127.0.0.1:8085",
 		"The address the metric endpoint binds to.")

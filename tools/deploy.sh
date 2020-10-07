@@ -26,10 +26,10 @@ KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-    BMO_SCENARIO="${SCRIPTDIR}/deploy/basic-auth"
+    BMO_SCENARIO="${SCRIPTDIR}/config/basic-auth"
     IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment/basic-auth"
 else
-    BMO_SCENARIO="${SCRIPTDIR}/deploy"
+    BMO_SCENARIO="${SCRIPTDIR}/config"
     IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment"
 fi
 
@@ -156,7 +156,7 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
     if [ "${DEPLOY_BMO}" == "true" ]; then
         cp "${IRONIC_CACERT_FILE}" "${SCRIPTDIR}/deploy/tls/ca.crt"
         [ "${IRONIC_CACERT_FILE}" == "${IRONIC_INSPECTOR_CACERT_FILE}" ] || \
-        cat "${IRONIC_INSPECTOR_CACERT_FILE}" >> "${SCRIPTDIR}/deploy/tls/ca.crt"
+        cat "${IRONIC_INSPECTOR_CACERT_FILE}" >> "${SCRIPTDIR}/config/tls/ca.crt"
     fi
 
     if [ "${DEPLOY_IRONIC}" == "true" ]; then
@@ -208,7 +208,7 @@ fi
 
 if [ "${DEPLOY_TLS}" == "true" ]; then
     if [ "${DEPLOY_BMO}" == "true" ]; then
-        rm "${SCRIPTDIR}/deploy/tls/ca.crt"
+        rm "${SCRIPTDIR}/config/tls/ca.crt"
     fi
 
     if [ "${DEPLOY_IRONIC}" == "true" ]; then

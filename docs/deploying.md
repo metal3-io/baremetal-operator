@@ -14,38 +14,67 @@ Operator(BMO) with or without Ironic as well as deploying only Ironic scenario.
 ## Current structure of baremetal-operator deployment directory
 
 ```diff
-tree deploy/
-deploy/
-├── crds
-│   ├── kustomization.yaml
-│   └── metal3.io_baremetalhosts_crd.yaml
-├── default
-│   ├── ironic_bmo_configmap.env
+tree config/
+config/
+├── basic-auth
+│   ├── default
+│   │   ├── credentials.yaml
+│   │   └── kustomization.yaml
+│   └── tls
+│       ├── credentials.yaml
+│       └── kustomization.yaml
+├── certmanager
+│   ├── certificate.yaml
 │   ├── kustomization.yaml
 │   └── kustomizeconfig.yaml
-├── ironic_ci.env
-├── namespace
-│   ├── kustomization.yaml
-│   └── namespace.yaml
-├── operator
-│   ├── bmo.yaml
-│   └── kustomization.yaml
+├── crd
+│   ├── bases
+│   │   └── metal3.io_baremetalhosts.yaml
+│   ├── kustomization.yaml
+│   ├── kustomizeconfig.yaml
+│   └── patches
+│       ├── cainjection_in_baremetalhosts.yaml
+│       └── webhook_in_baremetalhosts.yaml
+├── default
+│   ├── kustomization.yaml
+│   ├── manager_auth_proxy_patch.yaml
+│   ├── manager_webhook_patch.yaml
+│   └── webhookcainjection_patch.yaml
+├── manager
+│   ├── kustomization.yaml
+│   └── manager.yaml
+├── prometheus
+│   ├── kustomization.yaml
+│   └── monitor.yaml
 ├── rbac
-│   ├── kustomization.yaml
-│   ├── role_binding.yaml
-│   ├── role.yaml
-│   └── service_account.yaml
+│   ├── auth_proxy_client_clusterrole.yaml
+│   ├── auth_proxy_role_binding.yaml
+│   ├── auth_proxy_role.yaml
+│   ├── auth_proxy_service.yaml
+│   ├── baremetalhost_editor_role.yaml
+│   ├── baremetalhost_viewer_role.yaml
+│   ├── kustomization.yaml
+│   ├── leader_election_role_binding.yaml
+│   ├── leader_election_role.yaml
+│   ├── role_binding.yaml
+│   └── role.yaml
+├── samples
+│   └── metal3.io_v1alpha1_baremetalhost.yaml
 ├── tls
-│   ├── kustomization.yaml
-│   └── tls_ca.yaml
-└── role.yaml -> rbac/role.yaml
+│   ├── kustomization.yaml
+│   └── tls_ca.yaml
+└── webhook
+    ├── kustomization.yaml
+    ├── kustomizeconfig.yaml
+    └── service.yaml
 ```
 
-The `deploy` directory has one top level folder for deployment, namely `default`
+The `config` directory has one top level folder for deployment, namely `default`
 and it deploys only baremetal-operator through kustomization file calling
-`operator` folder, and also uses kustomization config file for teaching
-kustomize where to look at when substituting variables. In addition, `crds`,
-`namespace` and `rbac` folders have their own kustomization and yaml files.
+`manager` folder, and also uses kustomization config file for teaching
+kustomize where to look at when substituting variables. In addition, `basic-auth`
+`certmanager`, `crds`, `prometheus`, `rbac`, `tls` and `webhook`folders have their
+own kustomization and yaml files.
 
 ## Current structure of ironic-deployment directory
 

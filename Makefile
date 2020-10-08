@@ -134,16 +134,17 @@ install: $(KUSTOMIZE) manifests ## Install CRDs into a cluster
 
 .PHONY: uninstall
 uninstall: $(KUSTOMIZE) manifests ## Uninstall CRDs from a cluster
-	kustomize build config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 .PHONY: deploy
 deploy: $(KUSTOMIZE) manifests ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	cd config/manager && kustomize edit set image controller=${IMG}
-	kustomize build config/default | kubectl apply -f -
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: manifests
-manifests: $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC etc.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC etc.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases 
+	$(KUSTOMIZE) build config/default > config/render/deployment.yaml
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) ## Generate code

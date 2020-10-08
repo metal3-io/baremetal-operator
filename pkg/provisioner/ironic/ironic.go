@@ -216,6 +216,8 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 			p.log.Info("found existing node by ID")
 			return ironicNode, nil
 		case gophercloud.ErrDefault404:
+			// Look by ID failed, trying to lookup by hostname in case it was
+			// previously created
 		default:
 			return nil, errors.Wrap(err,
 				fmt.Sprintf("failed to find node by ID %s", p.status.ID))

@@ -99,6 +99,12 @@ func (m *IronicMock) NoNode(name string) *IronicMock {
 	return m
 }
 
+// NodeError configures the server to return the specified error code for /v1/nodes/name
+func (m *IronicMock) NodeError(name string, errorCode int) *IronicMock {
+	m.ErrorResponse(fmt.Sprintf("/v1/nodes/%s", name), errorCode)
+	return m
+}
+
 // CreateNodes configures the server so POSTing to /v1/nodes saves the data
 func (m *IronicMock) CreateNodes() *IronicMock {
 	m.Handler("/v1/nodes", func(w http.ResponseWriter, r *http.Request) {

@@ -144,7 +144,7 @@ deploy: $(KUSTOMIZE) manifests ## Deploy controller in the configured Kubernetes
 .PHONY: manifests
 manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC etc.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases 
-	$(KUSTOMIZE) build config/default > config/render/deployment.yaml
+	$(KUSTOMIZE) build config/default > config/render/capm3.yaml
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) ## Generate code

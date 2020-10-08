@@ -15,10 +15,10 @@ if [ "${IS_CONTAINER}" != "false" ]; then
   cd "${GOPATH}"/src/github.com/metal3-io/baremetal-operator
   export XDG_CACHE_HOME="/tmp/.cache"
 
-  INPUT_FILES="deploy/crds/*.yaml pkg/apis/metal3/v1alpha1/zz_generated.*.go"
+  INPUT_FILES="$(git ls-files config) $(git ls-files | grep zz_generated)"
   cksum $INPUT_FILES > "$ARTIFACTS/lint.cksums.before"
   export VERBOSE="--verbose"
-  make generate
+  make generate manifests
   cksum $INPUT_FILES > "$ARTIFACTS/lint.cksums.after"
   diff "$ARTIFACTS/lint.cksums.before" "$ARTIFACTS/lint.cksums.after"
 
@@ -32,6 +32,6 @@ else
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:rw,z" \
     --entrypoint sh \
     --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    quay.io/metal3-io/operator-sdk:latest \
+    registry.hub.docker.com/library/golang:1.14 \
     /go/src/github.com/metal3-io/baremetal-operator/hack/generate.sh "${@}"
 fi;

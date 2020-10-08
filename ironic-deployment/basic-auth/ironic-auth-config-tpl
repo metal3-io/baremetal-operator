@@ -1,0 +1,4 @@
+[ironic]
+auth_type=http_basic
+username=${IRONIC_USERNAME}
+password=${IRONIC_PASSWORD}

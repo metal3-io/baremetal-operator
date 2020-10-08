@@ -1,18 +1,5 @@
 # Setup Development Environment
 
-## Install the operator-sdk
-
-Follow the instructions on the [Operator SDK website](https://sdk.operatorframework.io/docs/install-operator-sdk/)
-to check out and install the operator-sdk tools.
-
-## Install openapi-gen
-
-Install the kube-api version of [openapi-gen](https://github.com/kubernetes/kube-openapi)
-
-```bash
-go get k8s.io/kube-openapi/cmd/openapi-gen
-```
-
 ## With minikube
 
 1. Install and launch minikube
@@ -25,7 +12,7 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     kubectl create namespace metal3
     ```
 
-1. Install operator-sdk
+1. Install operator in the cluster
 
     ```bash
     eval $(go env)
@@ -33,13 +20,10 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     cd $GOPATH/src/github.com/metal3-io
     git clone https://github.com/metal3-io/baremetal-operator.git
     cd baremetal-operator
-    kubectl apply -f deploy/rbac/service_account.yaml -n metal3
-    kubectl apply -f deploy/rbac/role.yaml -n metal3
-    kubectl apply -f deploy/rbac/role_binding.yaml
-    kubectl apply -f deploy/crds/metal3.io_baremetalhosts_crd.yaml
+    kustomize build config/default | kubectl apply -f
     ```
 
-1. Launch the operator locally
+1. OR Launch the operator locally
 
     ```bash
     export OPERATOR_NAME=baremetal-operator
@@ -47,7 +31,7 @@ go get k8s.io/kube-openapi/cmd/openapi-gen
     export DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs
     export IRONIC_ENDPOINT=http://localhost:6385/v1/
     export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1
-    operator-sdk run --local --watch-namespace=metal3
+    make run
     ```
 
 1. Create the CR
@@ -64,7 +48,7 @@ instead of the real Ironic provisioner by passing `-test-mode` to the
 operator when launching it.
 
 ```bash
-operator-sdk up local --operator-flags "-test-mode"
+make run-test-mode
 ```
 
 ## Running a local instance of Ironic
@@ -76,7 +60,46 @@ See `tools/run_local_ironic.sh`.
 
 Note that this script may need customizations to some of the `podman run`
 commands, to include environment variables that configure the containers for
-your environment.
+your environment. All ironic related environment variables are set by default
+if they are not passed through the environment.
+
+The following environment variables can be passed to configure the ironic:
+
+- HTTP_PORT - port used by httpd server (default 6180)
+- PROVISIONING_IP - provisioning interface IP address to use for ironic,
+  dnsmasq(dhcpd) and httpd (default 172.22.0.1)
+- CLUSTER_PROVISIONING_IP - cluster provisioning interface IP address (default 172.22.0.2)
+- PROVISIONING_CIDR - provisioning interface IP address CIDR (default 24)
+- PROVISIONING_INTERFACE - interface to use for ironic, dnsmasq(dhcpd) and
+  httpd (default ironicendpoint)
+- CLUSTER_DHCP_RANGE - dhcp range to use for provisioning (default 172.22.0.10-172.22.0.100)
+- DEPLOY_KERNEL_URL - the URL of the kernel to deploy ironic-python-agent
+- DEPLOY_RAMDISK_URL - the URL of the ramdisk to deploy ironic-python-agent
+- IRONIC_ENDPOINT - the endpoint of the ironic
+- IRONIC_INSPECTOR_ENDPOINT - the endpoint of the ironic inspector
+- CACHEURL - the URL of the cached images
+- IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
+  (default false)
+
+## Using Tilt for development
+
+It is easy to use Tilt for BMO deployment. Once you have a local instance
+of Ironic running, just run
+
+```sh
+  make tilt-up
+```
+
+and clean it with
+
+```sh
+  make kind-reset
+```
+
+It is also possible to develop Baremetal Operator using Tilt with CAPM3. Please
+refer to
+[the development setup guide of CAPM3](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#tilt-for-dev-in-capm3)
+and specially the [Baremetal Operator Integration](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#including-baremetal-operator-and-ip-address-manager)
 
 ## Using libvirt VMs with Ironic
 

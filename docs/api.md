@@ -7,138 +7,166 @@ defines a physical host and its properties. The **BareMetalHost** embeds
 two well differentiated sections, the bare metal host specification
 and its current status.
 
-### Pausing reconciliation
-
-It is possible to pause the reconciliation of a BareMetalHost object by adding
-an annotation `baremetalhost.metal3.io/paused`. **Metal³**  provider sets the
-value of this annotation as `metal3.io/capm3` when the cluster to which the
-**BareMetalHost** belongs, is paused and removes it when the cluster is
-not paused. If you want to pause the reconciliation of **BareMetalHost** you can
-put any value on this annotation **other than `metal3.io/capm3`**. Please make
-sure that you remove the annotation  **only if the value of the annotation is
-not `metal3.io/capm3`, but another value that you have provided**. Removing the
-annotation will enable the reconciliation again.
-
 ### BareMetalHost spec
 
 The *BareMetalHost's* *spec* defines the desire state of the host. It contains
 mainly, but not only, provisioning details.
 
-#### Spec fields
+#### bmc
 
-* *bmc* -- The connection information for the BMC (Baseboard Management
-  Controller) on the host.
-  * *address* -- The URL for communicating with the BMC controller, based
-    on the provider being used, the URL will look as follows:
-    * IPMI
-      * `ipmi://<host>:<port>`, an unadorned `<host>:<port>` is also accepted
-        and the port is optional, if using the default one (623).
-    * Dell iDRAC
-      * `idrac://` (or `idrac+http://` to disable TLS).
-      * `idrac-virtualmedia://` to use virtual media instead of PXE
-        for attaching the provisioning image to the host.
-    * Fujitsu iRMC
-      * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
-    * HUAWEI ibmc
-      * `ibmc://<host>:<port>` (or `ibmc+http://<host>:<port>` to disable TLS)
-    * iLO 5 Redfish
-      * `ilo5-redfish://` (or `ilo5-redfish+http://` to disable TLS), the hostname
-        or IP address, and the path to the system ID are required,
-        for example `ilo5-redfish://myhost.example/redfish/v1/Systems/MySystemExample`
-    * Redfish
-      * `redfish://` (or `redfish+http://` to disable TLS)
-      * `redfish-virtualmedia://` to use virtual media instead of PXE
-        for attaching the provisioning image to the host.
-      * The hostname or IP address, and the path to the system ID are
-        required for all variants.  For example
-        `redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
-        or `redfish://myhost.example/redfish/v1/Systems/1`
+The `bmc` fields contain the connection information for the BMC
+(Baseboard Management Controller) on the host.
 
-  * *credentialsName* -- A reference to a *secret* containing the
-    username and password for the BMC.
+The sub-fields are
 
-  * *disableCertificateVerification* -- A boolean to skip certificate
+* *address* -- The URL for communicating with the BMC controller, based
+  on the provider being used. See below for more details.
+* *credentialsName* -- A reference to a *secret* containing the
+  username and password for the BMC.
+* *disableCertificateVerification* -- A boolean to skip certificate
     validation when true.
 
-* *online* -- A boolean indicating whether the host should be powered on
-  (true) or off (false). Changing this value will trigger a change in
-  power state on the physical host.
+BMC URLs vary based on the type of BMC and the protocol used to
+communicate with them.
 
-* *consumerRef* -- A reference to another resource that is using the
-  host, it could be empty if the host is not being currently used.
-  For example, a *Machine* resource when the host is being used by the
-  [*machine-api*](https://github.com/kubernetes-sigs/cluster-api).
+* IPMI
+  * `ipmi://<host>:<port>`, an unadorned `<host>:<port>` is also accepted
+    and the port is optional, if using the default one (623).
+* Dell iDRAC
+  * `idrac://` (or `idrac+http://` to disable TLS).
+  * `idrac-virtualmedia://` to use virtual media instead of PXE
+    for attaching the provisioning image to the host.
+* Fujitsu iRMC
+  * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
+* HUAWEI ibmc
+  * `ibmc://<host>:<port>` (or `ibmc+http://<host>:<port>` to disable TLS)
+* HPE iLO 4
+  * `ilo4://<host>:<port>` for iLO 4 based systems and the port is optional,
+    if using the default one (443).
+* HPE iLO 5
+  * `ilo5://<host>:<port>` for iLO 5 based systems and the port is optional,
+    if using the default one (443).
+* iLO 5 Redfish
+  * `ilo5-redfish://` (or `ilo5-redfish+http://` to disable TLS), the hostname
+    or IP address, and the path to the system ID are required,
+    for example `ilo5-redfish://myhost.example/redfish/v1/Systems/MySystemExample`
+* Redfish
+  * `redfish://` (or `redfish+http://` to disable TLS)
+  * `redfish-virtualmedia://` to use virtual media instead of PXE
+    for attaching the provisioning image to the host.
+  * The hostname or IP address, and the path to the system ID are
+    required for all variants.  For example
+    `redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
+    or `redfish://myhost.example/redfish/v1/Systems/1`
 
-* *externallyProvisioned* -- A boolean indicating whether the host
-  provisioning and deprovisioning are managed externally. When set,
-  the host's power status and hardware inventory will be monitored
-  but no provisioning or deprovisioning operations are performed
-  on the host.
+#### online
 
-* *image* -- Holds details for the image to be deployed on a given host.
-  * *url* -- The URL of an image to deploy to the host.
-  * *checksum* -- The actual checksum or a URL to a file containing
-    the checksum for the image at *image.url*.
-  * *checksumType* -- Checksum algorithms can be specified. Currently
-    only `md5`, `sha256`, `sha512` are recognized. If nothing is specified
-    `md5` is assumed.
-  * *format* -- This is the disk format of the image. It can be one of `raw`,
-    `qcow2`, `vdi`, `vmdk`, or be left unset. Setting it to raw enables raw
-    image streaming in Ironic agent for that image.
+A boolean indicating whether the host should be powered on (true) or
+off (false). Changing this value will trigger a change in power state
+on the physical host.
 
-* *userData* -- A reference to the Secret containing the cloudinit user data
-  and its namespace, so it can be attached to the host before it boots
-  for configuring different aspects of the OS (like networking, storage, ...).
+#### consumerRef
 
-* *networkData* -- A reference to the Secret containing the network
-  configuration data (e.g. network\_data.json) and its namespace, so it can be
-  attached to the host before it boots to set network up
+A reference to another resource that is using the host, it could be
+empty if the host is not being currently used.  For example, a
+*Machine* resource when the host is being used by the
+[*machine-api*](https://github.com/kubernetes-sigs/cluster-api).
 
-* *description* -- A human-provided string to help identify the host.
+#### externallyProvisioned
 
-* *hardwareProfile* -- **This field is deprecated. See rootDeviceHints instead.**
-  The name of the hardware profile to use. The following are the current
-  supported `hardwareProfile` settings and their corresponding root devices.
+A boolean indicating whether the host provisioning and deprovisioning
+are managed externally. When set, the host's power status and hardware
+inventory will be monitored but no provisioning or deprovisioning
+operations are performed on the host.
 
-  | **hardwareProfile** | **Root Device** |
-  |---------------------|-----------------|
-  | `unknown`           | /dev/sda        |
-  | `libvirt`           | /dev/vda        |
-  | `dell`              | HCTL: 0:0:0:0   |
-  | `dell-raid`         | HCTL: 0:2:0:0   |
-  | `openstack`         | /dev/vdb        |
+#### image
 
-  **NOTE:** These are subject to change.
+Holds details for the image to be deployed on a given host.
 
-* *rootDeviceHints* -- Guidance for how to choose the device to
-  receive the image being provisioned. The storage devices are
-  examined in the order they are discovered during inspection and the
-  hint values are compared to the inspected values. The first
-  discovered device that matches is used. Hints can be combined, and
-  if multiple hints are provided then a device must match all hints in
-  order to be selected.
-  * *deviceName* -- A string containing a Linux device name like
-    `/dev/vda`. The hint must match the actual value exactly.
-  * *hctl* -- A string containing a SCSI bus address like
-    `0:0:0:0`. The hint must match the actual value exactly.
-  * *model* -- A string containing a vendor-specific device
-    identifier. The hint can be a substring of the actual value.
-  * *vendor* -- A string containing the name of the vendor or
-    manufacturer of the device. The hint can be a substring of the
-    actual value.
-  * *serialNumber* -- A string contianing the device serial
-    number. The hint must match the actual value exactly.
-  * *minSizeGigabytes* -- An integer representing the minimum size of the
-    device in Gigabytes.
-  * *wwn* -- A string containing the unique storage identifier. The
-    hint must match the actual value exactly.
-  * *wwnWithExtension* -- A string containing the unique storage
-    identifier with the vendor extension appended. The hint must match
-    the actual value exactly.
-  * *wwnVendorExtension* -- A string containing the unique vendor
-    storage indentifier. The hint must match the actual value exactly.
-  * *rotational* -- A boolean indicating whether the device should be
-    a rotating disk (`true`) or not (`false`).
+The sub-fields are
+
+* *url* -- The URL of an image to deploy to the host.
+* *checksum* -- The actual checksum or a URL to a file containing
+  the checksum for the image at *image.url*.
+* *checksumType* -- Checksum algorithms can be specified. Currently
+  only `md5`, `sha256`, `sha512` are recognized. If nothing is specified
+  `md5` is assumed.
+* *format* -- This is the disk format of the image. It can be one of `raw`,
+  `qcow2`, `vdi`, `vmdk`, or be left unset. Setting it to raw enables raw
+  image streaming in Ironic agent for that image.
+
+Even though the image sub-fields are required by Ironic,
+when the host provisioning is managed externally via `externallyProvisioned: true`,
+and power control isn't needed, the fields can be left empty.
+
+#### userData
+
+A reference to the Secret containing the cloudinit user data and its
+namespace, so it can be attached to the host before it boots for
+configuring different aspects of the OS (like networking, storage,
+...).
+
+#### networkData
+
+A reference to the Secret containing the network configuration data
+(e.g. network\_data.json) and its namespace, so it can be attached to
+the host before it boots to set network up
+
+#### description
+
+A human-provided string to help identify the host.
+
+#### hardwareProfile
+
+**This field is deprecated. See rootDeviceHints instead.**
+
+The name of the hardware profile to use. The following are the current
+supported `hardwareProfile` settings and their corresponding root
+devices.
+
+| **hardwareProfile** | **Root Device** |
+|---------------------|-----------------|
+| `unknown`           | /dev/sda        |
+| `libvirt`           | /dev/vda        |
+| `dell`              | HCTL: 0:0:0:0   |
+| `dell-raid`         | HCTL: 0:2:0:0   |
+| `openstack`         | /dev/vdb        |
+
+**NOTE:** These are subject to change.
+
+#### rootDeviceHints
+
+Guidance for how to choose the device to receive the image being
+provisioned. The storage devices are examined in the order they are
+discovered during inspection and the hint values are compared to the
+inspected values. The first discovered device that matches is
+used. Hints can be combined, and if multiple hints are provided then a
+device must match all hints in order to be selected.
+
+The sub-fields are
+
+* *deviceName* -- A string containing a Linux device name like
+  `/dev/vda`. The hint must match the actual value exactly.
+* *hctl* -- A string containing a SCSI bus address like
+  `0:0:0:0`. The hint must match the actual value exactly.
+* *model* -- A string containing a vendor-specific device
+  identifier. The hint can be a substring of the actual value.
+* *vendor* -- A string containing the name of the vendor or
+  manufacturer of the device. The hint can be a substring of the
+  actual value.
+* *serialNumber* -- A string contianing the device serial
+  number. The hint must match the actual value exactly.
+* *minSizeGigabytes* -- An integer representing the minimum size of the
+  device in Gigabytes.
+* *wwn* -- A string containing the unique storage identifier. The
+  hint must match the actual value exactly.
+* *wwnWithExtension* -- A string containing the unique storage
+  identifier with the vendor extension appended. The hint must match
+  the actual value exactly.
+* *wwnVendorExtension* -- A string containing the unique vendor
+  storage indentifier. The hint must match the actual value exactly.
+* *rotational* -- A boolean indicating whether the device should be
+  a rotating disk (`true`) or not (`false`).
 
 ### BareMetalHost status
 
@@ -146,111 +174,129 @@ Moving onto the next block, the *BareMetalHost's* *status* which represents
 the host's current state. Including tested credentials, current hardware
 details, etc.
 
-#### Status fields
+#### goodCredentials
 
-* *goodCredentials* -- A reference to the secret and its namespace
-  holding the last set of BMC credentials the system was able to validate
-  as working.
+A reference to the secret and its namespace holding the last set of
+BMC credentials the system was able to validate as working.
 
-* *triedCredentials* -- A reference to the secret and its namespace
-  holding the last set of BMC credentials that were sent to
-  the provisioning backend.
+#### triedCredentials
 
-* *lastUpdated* -- The timestamp of the last time the status of the
-  host was updated.
+A reference to the secret and its namespace holding the last set of
+BMC credentials that were sent to the provisioning backend.
 
-* *operationalStatus* -- The status of the server. Value is one of the
-  following:
-  * *OK* -- Indicates all the details for the host are known and working,
-    meaning the host is correctly configured and manageable.
-  * *discovered* -- Implies some of the host's details are either
-    not working correctly or missing. For example, the BMC address is known
-    but the login credentials are not.
-  * *error* -- Indicates the system found some sort of irrecuperable error.
-    Refer to the *errorMessage* field in the status section for more details.
+#### lastUpdated
 
-* *errorMessage* -- Details of the last error reported by the provisioning
-  backend, if any.
+The timestamp of the last time the status of the host was updated.
 
-* *hardware* -- The details for hardware capabilities discovered on the
-  host. These are filled in by the provisioning agent when the host is
-  registered.
-  * *nics* -- List of network interfaces for the host.
-    * *name* -- A string identifying the network device,
-      e.g. *nic-1*.
-    * *mac* -- The MAC address of the NIC.
-    * *ip* -- The IP address of the NIC, if one was assigned
-      when the discovery agent ran.
-    * *speedGbps* -- The speed of the device in Gbps.
-    * *vlans* -- A list holding all the VLANs available for this NIC.
-    * *vlanId* -- The untagged VLAN ID.
-    * *pxe* -- Whether the NIC is able to boot using PXE.
-  * *storage* -- List of storage (disk, SSD, etc.) available to the host.
-    * *name* -- A string identifying the storage device,
-      e.g. *disk 1 (boot)*.
-    * *rotational* -- Either true or false, indicates whether the disk
-      is rotational.
-    * *sizeBytes* -- Size of the storage device.
-    * *serialNumber* -- The device's serial number.
-  * *cpu* -- Details of the CPU(s) in the system.
-    * *arch* -- The architecture of the CPU.
-    * *model* -- The model string.
-    * *clockMegahertz* -- The speed in GHz of the CPU.
-    * *flags* -- List of CPU flags, e.g. 'mmx','sse','sse2','vmx', ...
-    * *count* -- Amount of these CPUs available in the system.
-  * *firmware* -- Contains BIOS information like for instance its *vendor*
-    and *version*.
-  * *systemVendor* -- Contains information about the host's *manufacturer*,
-    the *productName* and *serialNumber*.
-  * *ramMebibytes* -- The host's amount of memory in Mebibytes.
+#### operationalStatus
 
-* *hardwareProfile* -- **This field is deprecated. See rootDeviceHints instead.**
-  The name of the hardware profile that matches the
-  hardware discovered on the host based on the details saved
-  to the *Hardware* section. If the hardware does not match any
-  known profile, the value `unknown` will be set on this field
-  and is used by default. In practice, this only affects which device
-  the OS image will be written to. The following are the current
-  supported `hardwareProfile` settings and their corresponding root devices.
+The status of the server. Value is one of the following:
 
-  | **hardwareProfile** | **Root Device** |
-  |---------------------|-----------------|
-  | `unknown`           | /dev/sda        |
-  | `libvirt`           | /dev/vda        |
-  | `dell`              | HCTL: 0:0:0:0   |
-  | `dell-raid`         | HCTL: 0:2:0:0   |
-  | `openstack`         | /dev/vdb        |
+* *OK* -- Indicates all the details for the host are known and working,
+  meaning the host is correctly configured and manageable.
+* *discovered* -- Implies some of the host's details are either
+  not working correctly or missing. For example, the BMC address is known
+  but the login credentials are not.
+* *error* -- Indicates the system found some sort of irrecuperable error.
+  Refer to the *errorMessage* field in the status section for more details.
 
-  **NOTE:** These are subject to change.
+#### errorMessage
 
-* *poweredOn* -- Boolean indicating whether the host is powered on.
-  See *online* on the *BareMetalHost's* *Spec*.
+Details of the last error reported by the provisioning backend, if
+any.
 
-* *provisioning* -- Settings related to deploying an image to the host.
-  * *state* -- The current state of any ongoing provisioning operation.
-    The following are the currently supported ones:
-    * *\<empty string\>* -- There is no provisioning happening, at the moment.
-    * *registration error* -- The details for the host's BMC are
-      either incorrect or incomplete therfore the host could not be managed.
-    * *registering* -- The host's BMC details are being checked.
-    * *match profile* -- The discovered hardware details on the host
-      are being compared against known profiles.
-    * *ready* -- The host is available to be consumed.
-    * *provisioning* -- An image is being written to the host's disk(s).
-    * *provisioning error* -- The image could not be written to the host.
-    * *provisioned* -- An image has been completely written to the host's
-      disk(s).
-    * *externally provisioned* -- Metal³ does not manage the image on the host.
-    * *deprovisioning* -- The image is being wiped from the host's disk(s).
-    * *inspecting* -- The hardware details for the host are being collected
-      by an agent.
-    * *power management error* -- An error was found while trying to power
-      the host either on or off.
-  * *id* -- The unique identifier for the service in the underlying
-    provisioning tool.
-  * *image* -- The image most recently provisioned to the host.
-  * *rootDeviceHints* -- The root device selection instructions used
-    for the most recent provisioning operation.
+#### hardware
+
+The details for hardware capabilities discovered on the host. These
+are filled in by the provisioning agent when the host is registered.
+
+The sub-fields are
+
+* *nics* -- List of network interfaces for the host.
+  * *name* -- A string identifying the network device,
+    e.g. *nic-1*.
+  * *mac* -- The MAC address of the NIC.
+  * *ip* -- The IP address of the NIC, if one was assigned
+    when the discovery agent ran.
+  * *speedGbps* -- The speed of the device in Gbps.
+  * *vlans* -- A list holding all the VLANs available for this NIC.
+  * *vlanId* -- The untagged VLAN ID.
+  * *pxe* -- Whether the NIC is able to boot using PXE.
+* *storage* -- List of storage (disk, SSD, etc.) available to the host.
+  * *name* -- A string identifying the storage device,
+    e.g. *disk 1 (boot)*.
+  * *rotational* -- Either true or false, indicates whether the disk
+    is rotational.
+  * *sizeBytes* -- Size of the storage device.
+  * *serialNumber* -- The device's serial number.
+* *cpu* -- Details of the CPU(s) in the system.
+  * *arch* -- The architecture of the CPU.
+  * *model* -- The model string.
+  * *clockMegahertz* -- The speed in GHz of the CPU.
+  * *flags* -- List of CPU flags, e.g. 'mmx','sse','sse2','vmx', ...
+  * *count* -- Amount of these CPUs available in the system.
+* *firmware* -- Contains BIOS information like for instance its *vendor*
+  and *version*.
+* *systemVendor* -- Contains information about the host's *manufacturer*,
+  the *productName* and *serialNumber*.
+* *ramMebibytes* -- The host's amount of memory in Mebibytes.
+
+#### hardwareProfile (status)
+
+**This field is deprecated. See rootDeviceHints instead.**
+
+The name of the hardware profile that matches the hardware discovered
+on the host based on the details saved to the *Hardware* section. If
+the hardware does not match any known profile, the value `unknown`
+will be set on this field and is used by default. In practice, this
+only affects which device the OS image will be written to. The
+following are the current supported `hardwareProfile` settings and
+their corresponding root devices.
+
+| **hardwareProfile** | **Root Device** |
+|---------------------|-----------------|
+| `unknown`           | /dev/sda        |
+| `libvirt`           | /dev/vda        |
+| `dell`              | HCTL: 0:0:0:0   |
+| `dell-raid`         | HCTL: 0:2:0:0   |
+| `openstack`         | /dev/vdb        |
+
+**NOTE:** These are subject to change.
+
+#### poweredOn
+
+Boolean indicating whether the host is powered on.
+
+See *online* on the *BareMetalHost's* *Spec*.
+
+#### provisioning
+
+Settings related to deploying an image to the host.
+
+* *state* -- The current state of any ongoing provisioning operation.
+  The following are the currently supported ones:
+  * *\<empty string\>* -- There is no provisioning happening, at the moment.
+  * *registration error* -- The details for the host's BMC are
+    either incorrect or incomplete therfore the host could not be managed.
+  * *registering* -- The host's BMC details are being checked.
+  * *match profile* -- The discovered hardware details on the host
+    are being compared against known profiles.
+  * *ready* -- The host is available to be consumed.
+  * *provisioning* -- An image is being written to the host's disk(s).
+  * *provisioning error* -- The image could not be written to the host.
+  * *provisioned* -- An image has been completely written to the host's
+    disk(s).
+  * *externally provisioned* -- Metal³ does not manage the image on the host.
+  * *deprovisioning* -- The image is being wiped from the host's disk(s).
+  * *inspecting* -- The hardware details for the host are being collected
+    by an agent.
+  * *power management error* -- An error was found while trying to power
+    the host either on or off.
+* *id* -- The unique identifier for the service in the underlying
+  provisioning tool.
+* *image* -- The image most recently provisioned to the host.
+* *rootDeviceHints* -- The root device selection instructions used
+  for the most recent provisioning operation.
 
 ### BareMetalHost Example
 
@@ -346,7 +392,21 @@ status:
     credentialsVersion: "5562"
 ```
 
-And here it is the secret `bmo-master-0-bmc-secret` holding the host's BMC credentials:
+And here is the secret `bmo-master-0-bmc-secret` holding the host's
+BMC credentials, base64 encoded:
+
+```console
+$echo -n 'admin' | base64
+
+YWRtaW4=
+
+$echo -n 'password' | base64
+
+cGFzc3dvcmQ=
+```
+
+Copy the above base64 encoded username and password pair and
+paste it into the yaml as mentioned below.
 
 ```yaml
 ---
@@ -378,3 +438,15 @@ To initiate deprovisioning, clear the image URL from the host spec.
 Hosts created without BMC details will be left in the `unmanaged`
 state until the details are provided. Unmanaged hosts cannot be
 provisioned and their power state is undefined.
+
+## Pausing reconciliation
+
+It is possible to pause the reconciliation of a BareMetalHost object by adding
+an annotation `baremetalhost.metal3.io/paused`. **Metal³**  provider sets the
+value of this annotation as `metal3.io/capm3` when the cluster to which the
+**BareMetalHost** belongs, is paused and removes it when the cluster is
+not paused. If you want to pause the reconciliation of **BareMetalHost** you can
+put any value on this annotation **other than `metal3.io/capm3`**. Please make
+sure that you remove the annotation  **only if the value of the annotation is
+not `metal3.io/capm3`, but another value that you have provided**. Removing the
+annotation will enable the reconciliation again.

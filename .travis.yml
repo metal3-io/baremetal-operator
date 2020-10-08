@@ -8,9 +8,6 @@ services:
 go:
   - "1.13.7"
 
-before_install:
-  - git clone --depth=1 https://github.com/operator-framework/operator-sdk $GOPATH/src/github.com/operator-framework/operator-sdk && pushd $GOPATH/src/github.com/operator-framework/operator-sdk && make tidy && make install && popd
-
 env:
   - TARGET=unit-verbose
   - TARGET=docker

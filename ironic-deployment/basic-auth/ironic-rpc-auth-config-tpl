@@ -1,0 +1,6 @@
+[json_rpc]
+auth_type=http_basic
+username=${IRONIC_USERNAME}
+password=${IRONIC_PASSWORD}
+http_basic_username=${IRONIC_USERNAME}
+http_basic_password=${IRONIC_PASSWORD}

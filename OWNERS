@@ -1,19 +1,27 @@
 # approval == this is a good idea /approve
 approvers:
+  - andfasano
+  - asalkeld
   - dhellmann
   - hardys
   - honza
+  - kirankt
   - mhrivnak
   - russellb
+  - sadasu
   - stbenjam
   - zaneb
 # review == this code is good /lgtm
 reviewers:
+  - andfasano
+  - asalkeld
   - dhellmann
   - hardys
   - honza
+  - kirankt
   - mhrivnak
   - russellb
+  - sadasu
   - stbenjam
   - zaneb
 

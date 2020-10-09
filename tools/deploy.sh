@@ -38,6 +38,9 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
     IRONIC_SCENARIO="${IRONIC_SCENARIO}/tls"
 elif [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     BMO_SCENARIO="${BMO_SCENARIO}/default"
+else
+    echo "ERROR: Unsupported deploy scenario. Please set DEPLOY_TLS or DEPLOY_BASIC_AUTH." 1>&2
+    exit 1
 fi
 
 if [ "${DEPLOY_KEEPALIVED}" == "true" ]; then

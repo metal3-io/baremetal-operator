@@ -20,7 +20,7 @@ spec:
         - /baremetal-operator
         args:
         - --enable-leader-election
-        image: controller:latest
+        image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
         env:
           - name: POD_NAME

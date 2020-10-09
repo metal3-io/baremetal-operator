@@ -830,7 +830,7 @@ spec:
         envFrom:
         - configMapRef:
             name: baremetal-operator-ironic
-        image: controller:latest
+        image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
         name: manager
         resources:

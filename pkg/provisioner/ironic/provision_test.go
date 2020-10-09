@@ -107,3 +107,143 @@ func TestProvision(t *testing.T) {
 		})
 	}
 }
+
+func TestDeprovision(t *testing.T) {
+
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+	cases := []struct {
+		name                 string
+		ironic               *testserver.IronicMock
+		expectedDirty        bool
+		expectedError        bool
+		expectedRequestAfter int
+	}{
+		{
+			name: "error state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Error),
+				UUID:           nodeUUID,
+			}).WithNodeStatesProvision(nodeUUID),
+			expectedRequestAfter: 0,
+			expectedDirty:        true,
+		},
+		{
+			name: "available state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}).WithNodeStatesProvision(nodeUUID),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "inspecting state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Inspecting),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 15,
+			expectedDirty:        true,
+		},
+		{
+			name: "inspectWait state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.InspectWait),
+				UUID:           nodeUUID,
+			}).WithNodeStatesProvision(nodeUUID),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "deleting state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Deleting),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "cleaning state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Cleaning),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "cleanWait state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.CleanWait),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+
+		{
+			name: "Manageable state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+		},
+		{
+			name: "Enroll state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Enroll),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+		},
+		{
+			name: "Verifying state",
+			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+				ProvisionState: string(nodes.Verifying),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.ironic != nil {
+				tc.ironic.Start()
+				defer tc.ironic.Stop()
+			}
+
+			inspector := testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
+				Finished: false,
+			})
+			inspector.Start()
+			defer inspector.Stop()
+
+			host := makeHost()
+			publisher := func(reason, message string) {}
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
+				tc.ironic.Endpoint(), auth, inspector.Endpoint(), auth,
+			)
+			if err != nil {
+				t.Fatalf("could not create provisioner: %s", err)
+			}
+
+			prov.status.ID = nodeUUID
+			result, err := prov.Deprovision()
+
+			assert.Equal(t, tc.expectedDirty, result.Dirty)
+			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
+			if !tc.expectedError {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+			}
+		})
+	}
+}

@@ -769,6 +769,22 @@ subjects:
   namespace: baremetal-operator-system
 ---
 apiVersion: v1
+data:
+  CACHEURL: http://172.22.0.1/images
+  DEPLOY_KERNEL_URL: http://172.22.0.2:6180/images/ironic-python-agent.kernel
+  DEPLOY_RAMDISK_URL: http://172.22.0.2:6180/images/ironic-python-agent.initramfs
+  DHCP_RANGE: 172.22.0.10,172.22.0.100
+  HTTP_PORT: "6180"
+  IRONIC_ENDPOINT: http://172.22.0.2:6385/v1/
+  IRONIC_FAST_TRACK: "false"
+  IRONIC_INSPECTOR_ENDPOINT: http://172.22.0.2:5050/v1/
+  PROVISIONING_INTERFACE: eth2
+kind: ConfigMap
+metadata:
+  name: baremetal-operator-ironic
+  namespace: baremetal-operator-system
+---
+apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -806,7 +822,16 @@ spec:
         - --enable-leader-election
         command:
         - /baremetal-operator
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        envFrom:
+        - configMapRef:
+            name: baremetal-operator-ironic
         image: controller:latest
+        imagePullPolicy: Always
         name: manager
         resources:
           limits:

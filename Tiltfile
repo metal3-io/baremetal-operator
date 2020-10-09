@@ -139,7 +139,7 @@ def enable_provider(name):
     os.environ.update(substitutions)
 
     # Apply the kustomized yaml for this provider
-    yaml = str(kustomizesub(context + "/deploy/default"))
+    yaml = str(kustomizesub(context + "/config"))
     k8s_yaml(blob(yaml))
 
 def kustomizesub(folder):

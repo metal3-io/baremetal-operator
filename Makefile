@@ -30,7 +30,7 @@ BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
 export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=${BUILD_VERSION} -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${SOURCE_GIT_COMMIT}"
 
 # Set some variables the operator expects to have in order to work
-# Those need to be the same as in deploy/ironic_ci.env
+# Those need to be the same as in config/default/ironic.env
 export OPERATOR_NAME=baremetal-operator
 export DEPLOY_KERNEL_URL=http://172.22.0.1:6180/images/ironic-python-agent.kernel
 export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.initramfs

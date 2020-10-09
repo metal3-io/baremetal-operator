@@ -56,6 +56,7 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 					WWNVendorExtension: "userd_vendor_extension",
 					Rotational:         &rotational,
 				},
+				BootMode: metal3v1alpha1.UEFI,
 			},
 			HardwareProfile: "libvirt",
 		},

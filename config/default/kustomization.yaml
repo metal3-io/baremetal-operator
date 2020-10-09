@@ -68,3 +68,13 @@ vars:
 #    kind: Service
 #    version: v1
 #    name: webhook-service
+
+# Add ironic configmap-generator 
+generatorOptions:
+ disableNameSuffixHash: true
+ 
+configMapGenerator:
+- behavior: create
+  envs:
+  - ironic.env
+  name: ironic

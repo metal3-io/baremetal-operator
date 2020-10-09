@@ -36,7 +36,7 @@ fi
 if [ "${DEPLOY_TLS}" == "true" ]; then
     BMO_SCENARIO="${BMO_SCENARIO}/tls"
     IRONIC_SCENARIO="${IRONIC_SCENARIO}/tls"
-else
+elif [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     BMO_SCENARIO="${BMO_SCENARIO}/default"
 fi
 

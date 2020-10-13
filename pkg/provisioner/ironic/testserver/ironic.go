@@ -78,7 +78,12 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 
 // WithNode configures the server with a valid response for /v1/nodes
 func (m *IronicMock) WithNode(node nodes.Node) *IronicMock {
-	m.ResponseJSON("/v1/nodes/"+node.UUID, node)
+	if node.UUID != "" {
+		m.ResponseJSON("/v1/nodes/"+node.UUID, node)
+	}
+	if node.Name != "" {
+		m.ResponseJSON("/v1/nodes/"+node.Name, node)
+	}
 	return m
 }
 

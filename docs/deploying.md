@@ -11,7 +11,7 @@ Operator(BMO) with or without Ironic as well as deploying only Ironic scenario.
 
 3. Deploying only Ironic.
 
-## Current structure of baremetal-operator deployment directory
+## Current structure of baremetal-operator config directory
 
 ```diff
 tree config/
@@ -36,13 +36,18 @@ config/
 │       ├── cainjection_in_baremetalhosts.yaml
 │       └── webhook_in_baremetalhosts.yaml
 ├── default
+│   ├── ironic.env
 │   ├── kustomization.yaml
 │   ├── manager_auth_proxy_patch.yaml
 │   ├── manager_webhook_patch.yaml
 │   └── webhookcainjection_patch.yaml
+├── kustomization.yaml
 ├── manager
 │   ├── kustomization.yaml
 │   └── manager.yaml
+├── namespace
+│   ├── kustomization.yaml
+│   └── namespace.yaml
 ├── prometheus
 │   ├── kustomization.yaml
 │   └── monitor.yaml
@@ -58,6 +63,8 @@ config/
 │   ├── leader_election_role.yaml
 │   ├── role_binding.yaml
 │   └── role.yaml
+├── render
+│   └── capm3.yaml
 ├── samples
 │   └── metal3.io_v1alpha1_baremetalhost.yaml
 ├── tls
@@ -71,33 +78,57 @@ config/
 
 The `config` directory has one top level folder for deployment, namely `default`
 and it deploys only baremetal-operator through kustomization file calling
-`manager` folder, and also uses kustomization config file for teaching
-kustomize where to look at when substituting variables. In addition, `basic-auth`
-`certmanager`, `crds`, `prometheus`, `rbac`, `tls` and `webhook`folders have their
-own kustomization and yaml files.
+`manager` folder. In addition, `basic-auth`, `certmanager`, `crd`, `namespace`,
+`prometheus`, `rbac`, `tls` and `webhook`folders have their own kustomization
+and yaml files.
 
 ## Current structure of ironic-deployment directory
 
 ```diff
 tree ironic-deployment/
 ironic-deployment/
+├── basic-auth
+│   ├── default
+│   │   ├── auth.yaml
+│   │   └── kustomization.yaml
+│   ├── ironic-auth-config-tpl
+│   ├── ironic-inspector-auth-config-tpl
+│   ├── ironic-rpc-auth-config-tpl
+│   ├── keepalived
+│   │   ├── auth.yaml
+│   │   └── kustomization.yaml
+│   └── tls
+│       ├── default
+│       │   ├── auth.yaml
+│       │   └── kustomization.yaml
+│       └── keepalived
+│           ├── auth.yaml
+│           └── kustomization.yaml
 ├── default
-│   ├── ironic_bmo_configmap.env
-│   └── kustomization.yaml
+│   ├── ironic_bmo_configmap.env
+│   └── kustomization.yaml
 ├── ironic
-│   ├── ironic.yaml
-│   └── kustomization.yaml
-└── keepalived
-    ├── ironic_bmo_configmap.env
-    ├── keepalived_patch.yaml
-    └── kustomization.yaml
+│   ├── ironic.yaml
+│   └── kustomization.yaml
+├── keepalived
+│   ├── ironic_bmo_configmap.env
+│   ├── keepalived_patch.yaml
+│   └── kustomization.yaml
+└── tls
+    ├── default
+    │   ├── kustomization.yaml
+    │   └── tls.yaml
+    └── keepalived
+        ├── kustomization.yaml
+        └── tls.yaml
 ```
 
-ironic-deployment folder has three top level folder for deployments,
+Ironic-deployment folder has three top level folder for deployments,
 namely `default`,  `ironic` and `keepalived`. `default` and `ironic` deploy
 only ironic, `keepalived` deploys the ironic with keepalived. As the name
 implies, `keepalived/keepalived_patch.yaml` patches the default image URL
-through kustomization.
+through kustomization. `tls` and `basic-auth` folders contain deployment files
+to add TLS and Basic Auth support between baremetal-operator and ironic.
 
 ## Deployment commands
 

@@ -333,23 +333,23 @@ spec:
                       description: NIC describes one network interface on the host.
                       properties:
                         ip:
-                          description: The IP address of the device
+                          description: The IP address of the interface. This will be an IPv4 address if one is present, and only an IPv6 address if there is no IPv4 address.
                           type: string
                         mac:
-                          description: The device MAC addr
+                          description: The device MAC address
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
                         model:
-                          description: The name of the model, e.g. "virt-io"
+                          description: The vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
                           type: string
                         name:
-                          description: The name of the NIC, e.g. "nic-1"
+                          description: The name of the network interface, e.g. "en0"
                           type: string
                         pxe:
                           description: Whether the NIC is PXE Bootable
                           type: boolean
                         speedGbps:
-                          description: The speed of the device
+                          description: The speed of the device in Gigabits per second
                           type: integer
                         vlanId:
                           description: The untagged VLAN ID
@@ -397,7 +397,7 @@ spec:
                           description: Hardware model
                           type: string
                         name:
-                          description: A name for the disk, e.g. "disk 1 (boot)"
+                          description: The Linux device name of the disk, e.g. "/dev/sda". Note that this may not be stable across reboots.
                           type: string
                         rotational:
                           description: Whether this disk represents rotational storage

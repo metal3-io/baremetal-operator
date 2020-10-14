@@ -360,7 +360,8 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	// A name for the disk, e.g. "disk 1 (boot)"
+	// The Linux device name of the disk, e.g. "/dev/sda". Note that this
+	// may not be stable across reboots.
 	Name string `json:"name"`
 
 	// Whether this disk represents rotational storage
@@ -406,20 +407,21 @@ type VLAN struct {
 
 // NIC describes one network interface on the host.
 type NIC struct {
-	// The name of the NIC, e.g. "nic-1"
+	// The name of the network interface, e.g. "en0"
 	Name string `json:"name"`
 
-	// The name of the model, e.g. "virt-io"
+	// The vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
 	Model string `json:"model"`
 
-	// The device MAC addr
+	// The device MAC address
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	MAC string `json:"mac"`
 
-	// The IP address of the device
+	// The IP address of the interface. This will be an IPv4 address if one is
+	// present, and only an IPv6 address if there is no IPv4 address.
 	IP string `json:"ip"`
 
-	// The speed of the device
+	// The speed of the device in Gigabits per second
 	SpeedGbps int `json:"speedGbps"`
 
 	// The VLANs available

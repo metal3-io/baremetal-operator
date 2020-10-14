@@ -163,7 +163,7 @@ $(CONTROLLER_GEN):
 ## --------------------------------------
 
 .PHONY: docker
-docker: test ## Build the docker image
+docker: generate manifests ## Build the docker image
 	docker build . -t ${IMG}
 
 # Push the docker image

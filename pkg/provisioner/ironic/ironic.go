@@ -18,7 +18,7 @@ import (
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -37,6 +37,8 @@ var deployKernelURL string
 var deployRamdiskURL string
 var ironicEndpoint string
 var inspectorEndpoint string
+var ironicTrustedCAFile string
+var ironicInsecure bool
 var ironicAuth clients.AuthConfig
 var inspectorAuth clients.AuthConfig
 
@@ -84,6 +86,14 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
 		os.Exit(1)
 	}
+	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")
+	if ironicTrustedCAFile == "" {
+		ironicTrustedCAFile = "/opt/metal3/certs/ca/crt"
+	}
+	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
+	if strings.ToLower(ironicInsecureStr) == "true" {
+		ironicInsecure = true
+	}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -122,13 +132,17 @@ func LogStartup() {
 
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
-func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
-	clientIronic, err := clients.IronicClient(ironicEndpoint, ironicAuth)
+func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
+	tlsConf := clients.TLSConfig{
+		TrustedCAFile:      ironicTrustedCAFile,
+		InsecureSkipVerify: ironicInsecure,
+	}
+	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings, tlsConf)
 	if err != nil {
 		return nil, err
 	}
 
-	clientInspector, err := clients.InspectorClient(inspectorEndpoint, inspectorAuth)
+	clientInspector, err := clients.InspectorClient(inspectorURL, inspectorAuthSettings, tlsConf)
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +167,14 @@ func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials
 	}
 
 	return p, nil
+}
+
+// A private function to construct an ironicProvisioner (rather than a
+// Provisioner interface) in a consistent way for tests.
+func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+	return newProvisionerWithSettings(host, bmcCreds, publisher,
+		ironicEndpoint, ironicAuth, inspectorEndpoint, inspectorAuth,
+	)
 }
 
 // New returns a new Ironic Provisioner
@@ -892,6 +914,9 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
 	updates, err := p.getUpdateOptsForNode(ironicNode)
+	if err != nil {
+		return result, errors.Wrap(err, "failed to update opts for node")
+	}
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 	switch err.(type) {
 	case nil:

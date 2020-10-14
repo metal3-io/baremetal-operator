@@ -1,0 +1,4 @@
+[inspector]
+auth_type=http_basic
+username=${IRONIC_INSPECTOR_USERNAME}
+password=${IRONIC_INSPECTOR_PASSWORD}

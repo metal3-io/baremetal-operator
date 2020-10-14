@@ -14,35 +14,67 @@ Operator(BMO) with or without Ironic as well as deploying only Ironic scenario.
 ## Current structure of baremetal-operator deployment directory
 
 ```diff
-tree deploy/
-deploy/
-├── crds
-│   ├── kustomization.yaml
-│   └── metal3.io_baremetalhosts_crd.yaml
-├── default
-│   ├── ironic_bmo_configmap.env
+tree config/
+config/
+├── basic-auth
+│   ├── default
+│   │   ├── credentials.yaml
+│   │   └── kustomization.yaml
+│   └── tls
+│       ├── credentials.yaml
+│       └── kustomization.yaml
+├── certmanager
+│   ├── certificate.yaml
 │   ├── kustomization.yaml
 │   └── kustomizeconfig.yaml
-├── ironic_ci.env
-├── namespace
-│   ├── kustomization.yaml
-│   └── namespace.yaml
-├── operator
-│   ├── bmo.yaml
-│   └── kustomization.yaml
+├── crd
+│   ├── bases
+│   │   └── metal3.io_baremetalhosts.yaml
+│   ├── kustomization.yaml
+│   ├── kustomizeconfig.yaml
+│   └── patches
+│       ├── cainjection_in_baremetalhosts.yaml
+│       └── webhook_in_baremetalhosts.yaml
+├── default
+│   ├── kustomization.yaml
+│   ├── manager_auth_proxy_patch.yaml
+│   ├── manager_webhook_patch.yaml
+│   └── webhookcainjection_patch.yaml
+├── manager
+│   ├── kustomization.yaml
+│   └── manager.yaml
+├── prometheus
+│   ├── kustomization.yaml
+│   └── monitor.yaml
 ├── rbac
-│   ├── kustomization.yaml
-│   ├── role_binding.yaml
-│   ├── role.yaml
-│   └── service_account.yaml
-└── role.yaml -> rbac/role.yaml
+│   ├── auth_proxy_client_clusterrole.yaml
+│   ├── auth_proxy_role_binding.yaml
+│   ├── auth_proxy_role.yaml
+│   ├── auth_proxy_service.yaml
+│   ├── baremetalhost_editor_role.yaml
+│   ├── baremetalhost_viewer_role.yaml
+│   ├── kustomization.yaml
+│   ├── leader_election_role_binding.yaml
+│   ├── leader_election_role.yaml
+│   ├── role_binding.yaml
+│   └── role.yaml
+├── samples
+│   └── metal3.io_v1alpha1_baremetalhost.yaml
+├── tls
+│   ├── kustomization.yaml
+│   └── tls_ca.yaml
+└── webhook
+    ├── kustomization.yaml
+    ├── kustomizeconfig.yaml
+    └── service.yaml
 ```
 
-The `deploy` directory has one top level folder for deployment, namely `default`
+The `config` directory has one top level folder for deployment, namely `default`
 and it deploys only baremetal-operator through kustomization file calling
-`operator` folder, and also uses kustomization config file for teaching
-kustomize where to look at when substituting variables. In addition, `crds`,
-`namespace` and `rbac` folders have their own kustomization and yaml files.
+`manager` folder, and also uses kustomization config file for teaching
+kustomize where to look at when substituting variables. In addition, `basic-auth`
+`certmanager`, `crds`, `prometheus`, `rbac`, `tls` and `webhook`folders have their
+own kustomization and yaml files.
 
 ## Current structure of ironic-deployment directory
 
@@ -66,31 +98,51 @@ namely `default`,  `ironic` and `keepalived`. `default` and `ironic` deploy
 only ironic, `keepalived` deploys the ironic with keepalived. As the name
 implies, `keepalived/keepalived_patch.yaml` patches the default image URL
 through kustomization.
-The user should run following commands to be able to meet requirements of each
-use case as provided below:
 
-### Commands to deploy baremetal-operator with Ironic
+## Deployment commands
 
-```diff
-kustomize build $BMOPATH/deploy/default | kubectl apply -f-
-kustomize build $BMOPATH/ironic-deployment/default | kubectl apply -f-
+There is a useful deployment script that configures and deploys BareMetal
+Operator and Ironic. It requires some variables :
+
+- IRONIC_HOST : domain name for Ironic and inspector
+- IRONIC_HOST_IP : IP on which Ironic and inspector are listening
+
+In addition you can configure the following variables. They are **optional**.
+If you leave them unset, then passwords and certificates will be generated
+for you.
+
+- KUBECTL_ARGS : Additional arguments to kubectl apply
+- IRONIC_USERNAME : username for ironic
+- IRONIC_PASSWORD : password for ironic
+- IRONIC_INSPECTOR_USERNAME : username for inspector
+- IRONIC_INSPECTOR_PASSWORD : password for inspector
+- IRONIC_CACERT_FILE : CA certificate path for ironic
+- IRONIC_CAKEY_FILE : CA certificate key path, unneeded if ironic
+  certificates exist
+- IRONIC_CERT_FILE : Ironic certificate path
+- IRONIC_KEY_FILE : Ironic certificate key path
+- IRONIC_INSPECTOR_CERT_FILE : Inspector certificate path
+- IRONIC_INSPECTOR_KEY_FILE : Inspector certificate key path
+- IRONIC_INSPECTOR_CACERT_FILE : CA certificate path for inspector, defaults to
+  IRONIC_CACERT_FILE
+- IRONIC_INSPECTOR_CAKEY_FILE : CA certificate key path, unneeded if inspector
+  certificates exist
+
+Then run :
+
+```sh
+./tools/deploy.sh <deploy-BMO> <deploy-Ironic> <deploy-TLS> <deploy-Basic-Auth> <deploy-Keepalived>
 ```
 
-### Command to deploy baremetal-operator without Ironic
+- `deploy-BMO` : deploy BareMetal Operator : "true" or "false"
+- `deploy-Ironic` : deploy Ironic : "true" or "false"
+- `deploy-TLS` : deploy with TLS enabled : "true" or "false"
+- `deploy-Basic-Auth` : deploy with Basic Auth enabled : "true" or "false"
+- `deploy-Keepalived` : deploy with Keepalived for ironic : "true" or "false"
 
-```diff
-kustomize build $BMOPATH/deploy/default | kubectl apply -f-
-```
+This will deploy BMO and / or Ironic with the proper configuration.
 
-### Command to deploy only Ironic
-
-```diff
-kustomize build $BMOPATH/ironic-deployment/default | kubectl apply -f-
-```
-
-where $BMOPATH points to the baremetal-operator path.
-
-#### Useful tips
+## Useful tips
 
 It is worth mentioning some tips for when the different configurations are
 useful as well. For example:

@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        volumeMounts:
+          - name: cacert
+            mountPath: "/opt/metal3/certs/ca"
+            readOnly: true
+      volumes:
+      - name: cacert
+        secret:
+          secretName: ironic-cacert

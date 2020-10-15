@@ -227,7 +227,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			c.Create(goctx.TODO(), tc.NetworkDataSecret)
 			hcd := &hostConfigData{
 				host:   tc.Host,
-				log:    ctrl.Log.WithName("Test").WithName(tc.Scenario),
+				log:    ctrl.Log.WithName("controllers").WithName("BareMetalHost").WithName("host_config_data"),
 				client: c,
 			}
 

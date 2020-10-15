@@ -99,7 +99,7 @@ func newTestReconcilerWithProvisionerFactory(factory provisioner.Factory, initOb
 		Client:             c,
 		Scheme:             scheme.Scheme,
 		ProvisionerFactory: factory,
-		Log:                ctrl.Log.WithName("controller").WithName("baremetalhost").WithName("test"),
+		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 	}
 }
 
@@ -122,8 +122,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 	request := newRequest(host)
 
 	for i := 0; ; i++ {
-		logger := r.Log.WithValues("iteration", i)
-		logger.Info("tryReconcile: top of loop")
+		t.Logf("tryReconcile: top of loop %d", i)
 		if i >= 25 {
 			t.Fatal(fmt.Errorf("Exceeded 25 iterations"))
 		}
@@ -143,11 +142,11 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 		updatedHost.DeepCopyInto(host)
 
 		if isDone(host, result) {
-			logger.Info("tryReconcile: loop done")
+			t.Logf("tryReconcile: loop done %d", i)
 			break
 		}
 
-		logger.Info("tryReconcile: loop bottom", "result", result)
+		t.Logf("tryReconcile: loop bottom %d result=%v", i, result)
 		if !result.Requeue && result.RequeueAfter == 0 {
 			t.Fatal(fmt.Errorf("Ended reconcile at iteration %d without test condition being true", i))
 			break
@@ -156,11 +155,10 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 }
 
 func waitForStatus(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost, desiredStatus metal3v1alpha1.OperationalStatus) {
-	logger := r.Log.WithValues("desiredStatus", desiredStatus)
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			state := host.OperationalStatus()
-			logger.Info("WAIT FOR STATUS", "State", state)
+			t.Logf("Waiting for status %s: %s", desiredStatus, state)
 			return state == desiredStatus
 		},
 	)
@@ -169,7 +167,7 @@ func waitForStatus(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha
 func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) {
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			r.Log.Info("WAIT FOR ERROR", "ErrorMessage", host.Status.ErrorMessage)
+			t.Logf("Waiting for error: %q", host.Status.ErrorMessage)
 			return host.HasError()
 		},
 	)
@@ -178,7 +176,7 @@ func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 func waitForNoError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) {
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			r.Log.Info("WAIT FOR NO ERROR", "ErrorMessage", host.Status.ErrorMessage)
+			t.Logf("Waiting for no error message: %q", host.Status.ErrorMessage)
 			return !host.HasError()
 		},
 	)
@@ -749,8 +747,6 @@ func TestFixSecret(t *testing.T) {
 // moves out of the error state.
 func TestBreakThenFixSecret(t *testing.T) {
 
-	logger := ctrl.Log.WithName("Test").WithName("TestBreakThenFixSecret")
-
 	// Create the host without any errors and wait for it to be
 	// registered and get a provisioning ID.
 	secret := newBMCCredsSecret("bmc-creds-toggle-user", "User", "Pass")
@@ -765,7 +761,7 @@ func TestBreakThenFixSecret(t *testing.T) {
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			id := host.Status.Provisioning.ID
-			logger.Info("WAIT FOR PROVISIONING ID", "ID", id)
+			t.Logf("Waiting for provisioning ID to be set: %q", id)
 			return id != ""
 		},
 	)

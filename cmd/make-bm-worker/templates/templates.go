@@ -22,7 +22,7 @@ kind: BareMetalHost
 metadata:
   name: {{ .Name }}
 spec:
-  online: false
+  online: true
 {{- if .HardwareProfile }}
   hardwareProfile: {{ .HardwareProfile }}
 {{- end }}

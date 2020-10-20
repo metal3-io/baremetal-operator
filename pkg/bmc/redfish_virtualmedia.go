@@ -6,8 +6,8 @@ import (
 
 func init() {
 	schemes := []string{"http", "https"}
-	registerFactory("redfish-virtualmedia", newRedfishVirtualMediaAccessDetails, schemes)
-	registerFactory("ilo5-virtualmedia", newRedfishVirtualMediaAccessDetails, schemes)
+	RegisterFactory("redfish-virtualmedia", newRedfishVirtualMediaAccessDetails, schemes)
+	RegisterFactory("ilo5-virtualmedia", newRedfishVirtualMediaAccessDetails, schemes)
 }
 
 func newRedfishVirtualMediaAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {

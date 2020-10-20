@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	registerFactory("ibmc", newIbmcAccessDetails, []string{"http", "https"})
+	RegisterFactory("ibmc", newIbmcAccessDetails, []string{"http", "https"})
 }
 
 func newIbmcAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {

@@ -3,6 +3,8 @@ package ironic
 import (
 	"testing"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -11,7 +13,7 @@ import (
 func TestFindExistingHost(t *testing.T) {
 	cases := []struct {
 		name   string
-		ironic *testserver.MockServer
+		ironic *testserver.IronicMock
 
 		hostName       string
 		provisioningID string
@@ -21,23 +23,28 @@ func TestFindExistingHost(t *testing.T) {
 			name:           "no-node",
 			hostName:       "name",
 			provisioningID: "uuid",
-			ironic: testserver.New(t, "ironic").NotFound("/v1/nodes/name").
-				NotFound("/v1/nodes/uuid"),
+			ironic:         testserver.NewIronic(t).NoNode("name").NoNode("uuid"),
 		},
 		{
 			name:           "by-name",
 			hostName:       "name",
 			provisioningID: "uuid",
-			ironic: testserver.New(t, "ironic").NotFound("/v1/nodes/uuid").
-				Response("/v1/nodes/name", `{"name": "name", "uuid": "different-uuid"}`),
+			ironic: testserver.NewIronic(t).NoNode("uuid").
+				WithNode(nodes.Node{
+					Name: "name",
+					UUID: "different-uuid",
+				}),
 			nodeName: "name",
 		},
 		{
 			name:           "by-uuid",
 			hostName:       "name",
 			provisioningID: "uuid",
-			ironic: testserver.New(t, "ironic").NotFound("/v1/nodes/name").
-				Response("/v1/nodes/uuid", `{"name": "different-name", "uuid": "uuid"}`),
+			ironic: testserver.NewIronic(t).NoNode("name").
+				WithNode(nodes.Node{
+					Name: "different-name",
+					UUID: "uuid",
+				}),
 			nodeName: "different-name",
 		},
 	}

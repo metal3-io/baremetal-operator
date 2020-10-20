@@ -5,6 +5,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+
+	// We don't use this package directly here, but need it imported
+	// so it registers its test fixture with the other BMC access
+	// types.
+	_ "github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testbmc"
 )
 
 func init() {
@@ -21,6 +26,9 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address: "test://test.bmc/",
+			},
 			Image: &metal3v1alpha1.Image{
 				URL: "not-empty",
 			},
@@ -62,3 +70,6 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 		},
 	}
 }
+
+// Implements provisioner.EventPublisher to swallow events for tests.
+func nullEventPublisher(reason, message string) {}

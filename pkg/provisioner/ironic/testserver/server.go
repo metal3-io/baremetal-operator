@@ -1,6 +1,7 @@
 package testserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -72,12 +73,30 @@ func (m *MockServer) NotFound(pattern string) *MockServer {
 // Response attaches a handler function that returns the given payload
 // from requests to the URL pattern
 func (m *MockServer) Response(pattern string, payload string) *MockServer {
+	return m.ResponseWithCode(pattern, payload, http.StatusOK)
+}
+
+// ResponseWithCode attaches a handler function that returns the given payload
+// from requests to the URL pattern along with the specified code
+func (m *MockServer) ResponseWithCode(pattern string, payload string, code int) *MockServer {
 	m.t.Logf("%s: adding response handler for %s", m.name, pattern)
 	m.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		m.logRequest(r, payload)
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(code)
 		fmt.Fprint(w, payload)
 	})
+	return m
+}
+
+// ResponseJSON marshals the JSON object as payload returned by the response
+// handler
+func (m *MockServer) ResponseJSON(pattern string, payload interface{}) *MockServer {
+	content, err := json.Marshal(payload)
+	if err != nil {
+		m.t.Error(err)
+	}
+	m.Response(pattern, string(content))
 	return m
 }
 

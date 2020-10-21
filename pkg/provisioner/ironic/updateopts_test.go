@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -89,13 +90,17 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address: "test://test.bmc/",
+			},
 			Image: &metal3v1alpha1.Image{
 				URL:          "not-empty",
 				Checksum:     "checksum",
 				ChecksumType: metal3v1alpha1.MD5,
 				DiskFormat:   pointer.StringPtr("raw"),
 			},
-			Online: true,
+			Online:          true,
+			HardwareProfile: "unknown",
 		},
 		Status: metal3v1alpha1.BareMetalHostStatus{
 			HardwareProfile: "libvirt",
@@ -112,7 +117,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(errors.Wrap(err, "could not create provisioner"))
 	}
 	ironicNode := &nodes.Node{}
 
@@ -190,6 +195,9 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		Spec: metal3v1alpha1.BareMetalHostSpec{
+			BMC: metal3v1alpha1.BMCDetails{
+				Address: "test://test.bmc/",
+			},
 			Image: &metal3v1alpha1.Image{
 				URL:          "not-empty",
 				Checksum:     "checksum",

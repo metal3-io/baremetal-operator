@@ -35,9 +35,9 @@ EOF
         mkdir -p "./bin"
       fi
       curl -L -O "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${MINIMUM_KUSTOMIZE_VERSION}/kustomize_v${MINIMUM_KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz"
-      tar -xzvf kustomize_v${MINIMUM_KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz
-      mv kustomize ./bin
-      rm kustomize_v${MINIMUM_KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz
+      tar --one-top-level=tmp -xzvf kustomize_v${MINIMUM_KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz
+      mv tmp/kustomize ./bin
+      rm -rf tmp kustomize_v${MINIMUM_KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz
     else
       echo "Missing required binary: $(PWD)bin/kustomize"
       return 2

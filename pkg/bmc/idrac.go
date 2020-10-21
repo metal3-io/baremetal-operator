@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	registerFactory("idrac", newIDRACAccessDetails, []string{"http", "https"})
+	RegisterFactory("idrac", newIDRACAccessDetails, []string{"http", "https"})
 }
 
 func newIDRACAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {

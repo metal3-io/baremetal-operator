@@ -1,6 +1,10 @@
 package testserver
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
+)
 
 // InspectorMock is a test server that implements Ironic Inspector's semantics
 type InspectorMock struct {
@@ -31,5 +35,29 @@ func (m *InspectorMock) Ready() *InspectorMock {
 // NotReady configures the server with an error response for /v1
 func (m *InspectorMock) NotReady(errorCode int) *InspectorMock {
 	m.ErrorResponse("/v1", errorCode)
+	return m
+}
+
+// WithIntrospection configures the server with a valid response for /v1/introspection/<node>
+func (m *InspectorMock) WithIntrospection(nodeUUID string, status introspection.Introspection) *InspectorMock {
+	m.ResponseJSON("/v1/introspection/"+nodeUUID, status)
+	return m
+}
+
+// WithIntrospectionFailed configures the server with an error response for /v1/introspection/<node>
+func (m *InspectorMock) WithIntrospectionFailed(nodeUUID string, errorCode int) *InspectorMock {
+	m.ErrorResponse("/v1/introspection/"+nodeUUID, errorCode)
+	return m
+}
+
+// WithIntrospectionData configures the server with a valid response for /v1/introspection/<node>/data
+func (m *InspectorMock) WithIntrospectionData(nodeUUID string, data introspection.Data) *InspectorMock {
+	m.ResponseJSON("/v1/introspection/"+nodeUUID+"/data", data)
+	return m
+}
+
+// WithIntrospectionDataFailed configures the server with an error response for /v1/introspection/<node>/data
+func (m *InspectorMock) WithIntrospectionDataFailed(nodeUUID string, errorCode int) *InspectorMock {
+	m.ErrorResponse("/v1/introspection/"+nodeUUID+"/data", errorCode)
 	return m
 }

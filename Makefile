@@ -30,7 +30,7 @@ BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
 export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=${BUILD_VERSION} -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${SOURCE_GIT_COMMIT}"
 
 # Set some variables the operator expects to have in order to work
-# Those need to be the same as in deploy/ironic_ci.env
+# Those need to be the same as in config/default/ironic.env
 export OPERATOR_NAME=baremetal-operator
 export DEPLOY_KERNEL_URL=http://172.22.0.1:6180/images/ironic-python-agent.kernel
 export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.initramfs
@@ -134,16 +134,17 @@ install: $(KUSTOMIZE) manifests ## Install CRDs into a cluster
 
 .PHONY: uninstall
 uninstall: $(KUSTOMIZE) manifests ## Uninstall CRDs from a cluster
-	kustomize build config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 .PHONY: deploy
 deploy: $(KUSTOMIZE) manifests ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	cd config/manager && kustomize edit set image controller=${IMG}
-	kustomize build config/default | kubectl apply -f -
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: manifests
-manifests: $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC etc.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC etc.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases 
+	$(KUSTOMIZE) build config/default > config/render/capm3.yaml
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) ## Generate code
@@ -162,7 +163,7 @@ $(CONTROLLER_GEN):
 ## --------------------------------------
 
 .PHONY: docker
-docker: test ## Build the docker image
+docker: generate manifests ## Build the docker image
 	docker build . -t ${IMG}
 
 # Push the docker image

@@ -79,7 +79,7 @@ The following environment variables can be passed to configure the ironic:
 - IRONIC_INSPECTOR_ENDPOINT - the endpoint of the ironic inspector
 - CACHEURL - the URL of the cached images
 - IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
-  (default false)
+  (default true)
 
 ## Using Tilt for development
 

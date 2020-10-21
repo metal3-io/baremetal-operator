@@ -7,8 +7,8 @@ import (
 
 func init() {
 	schemes := []string{"http", "https"}
-	registerFactory("redfish", newRedfishAccessDetails, schemes)
-	registerFactory("ilo5-redfish", newRedfishAccessDetails, schemes)
+	RegisterFactory("redfish", newRedfishAccessDetails, schemes)
+	RegisterFactory("ilo5-redfish", newRedfishAccessDetails, schemes)
 }
 
 func redfishDetails(parsedURL *url.URL, disableCertificateVerification bool) *redfishAccessDetails {

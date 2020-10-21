@@ -139,3 +139,54 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 	// no node should have been created
 	assert.Nil(t, createdNode)
 }
+
+func TestValidateManagementAccessNewCredentials(t *testing.T) {
+	// Create a host without a bootMACAddress and with a BMC that
+	// does not require one.
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	before := nodes.Node{
+		Name: host.Name,
+		UUID: "uuid",
+	}
+
+	after := nodes.Node{
+		Name: host.Name,
+		UUID: "uuid",
+		DriverInfo: map[string]interface{}{
+			"test_address": "test.bmc",
+		},
+	}
+
+	updates := []nodes.UpdateOperation{}
+	updateCallback := func(incoming []nodes.UpdateOperation) {
+		updates = append(updates, incoming...)
+	}
+
+	ironic := testserver.NewIronic(t).Ready().NodeUpdate(before, after, updateCallback)
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, err := prov.ValidateManagementAccess(true)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "", result.ErrorMessage)
+	assert.NotEqual(t, "", host.Status.Provisioning.ID)
+	assert.Equal(t, 1, len(updates))
+	if len(updates) > 0 {
+		// Look for one of the predictable values in the update payload
+		newValues := updates[0].Value.(map[string]interface{})
+		assert.Equal(t, "test.bmc", newValues["test_address"])
+	}
+}

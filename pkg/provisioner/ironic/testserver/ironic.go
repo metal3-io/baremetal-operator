@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 )
 
@@ -98,6 +100,55 @@ func (m *IronicMock) Node(node nodes.Node) *IronicMock {
 	return m
 }
 
+type NodeUpdateCallback func(updates []nodes.UpdateOperation)
+
+// NodeUpdate configures the server with a valid response for GET and
+// PATCH for /v1/nodes/{name,uuid}
+func (m *IronicMock) NodeUpdate(before nodes.Node, after nodes.Node, callback NodeUpdateCallback) *IronicMock {
+	handleNode := func(w http.ResponseWriter, r *http.Request) {
+
+		respondError := func(err error) {
+			m.logRequest(r, fmt.Sprintf("ERROR: %s", err))
+			http.Error(w, fmt.Sprintf("%s", err), http.StatusInternalServerError)
+		}
+
+		switch r.Method {
+		case http.MethodGet:
+			m.SendJSONResponse(before, http.StatusOK, w, r)
+			return
+		case http.MethodPatch:
+			bodyRaw, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				respondError(err)
+				return
+			}
+			body := string(bodyRaw)
+			m.t.Logf("%s: patch node request %v", m.name, body)
+
+			updates := []nodes.UpdateOperation{}
+			if err := json.Unmarshal(bodyRaw, &updates); err != nil {
+				respondError(errors.Wrap(err,
+					fmt.Sprintf("cannot unmarshall patch instructions %q", body)))
+				return
+			}
+
+			callback(updates)
+			m.SendJSONResponse(after, http.StatusOK, w, r)
+		default:
+			http.Error(w, fmt.Sprintf("Cannot handle method %s", r.Method),
+				http.StatusNotImplemented)
+		}
+	}
+
+	if before.UUID != "" {
+		m.Handler("/v1/nodes/"+before.UUID, handleNode)
+	}
+	if before.Name != "" {
+		m.Handler("/v1/nodes/"+before.Name, handleNode)
+	}
+	return m
+}
+
 func (m *IronicMock) withNodeStatesProvision(nodeUUID string, method string) *IronicMock {
 	m.ResponseWithCode(m.buildURL("/v1/nodes/"+nodeUUID+"/states/provision", method), "{}", http.StatusAccepted)
 	return m
@@ -124,10 +175,10 @@ func (m *IronicMock) NodeError(name string, errorCode int) *IronicMock {
 	return m
 }
 
-type CreateNodeCallback func(node nodes.Node)
+type NodeCreateCallback func(node nodes.Node)
 
 // CreateNodes configures the server so POSTing to /v1/nodes saves the data
-func (m *IronicMock) CreateNodes(callback CreateNodeCallback) *IronicMock {
+func (m *IronicMock) CreateNodes(callback NodeCreateCallback) *IronicMock {
 	m.Handler("/v1/nodes", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, fmt.Sprintf("%s not handled for %s", r.Method, r.URL),

@@ -2,18 +2,22 @@
 
 set -ex
 
-CONTROLLER_TOOLS_VERSION=${1:-v0.4.0}
-OUTPUT=${2:-${ORIG_DIR}/bin/controller-gen}
+OUTPUT=bin/controller-gen
 
-WORK_DIR=$(mktemp --tmpdir -d controller-gen-XXX)
-trap cleanup EXIT
+# Check for a vendor directory if any downstream forks use that dependency
+# tracking method
+if [ -d "vendor" ]
+then
+    go build -o "${OUTPUT}" ./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen
+    exit 0;
+fi
 
-function cleanup() {
-    rm -rf "$WORK_DIR"
-}
 
-cd "$WORK_DIR"
+CMDPATH="$GOPATH/pkg/mod/sigs.k8s.io/controller-tools@v0.4.0/cmd/controller-gen"
 
-go mod init tmp
-go get -d "sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_TOOLS_VERSION}"
-go build -o "${OUTPUT}" sigs.k8s.io/controller-tools/cmd/controller-gen
+if [ ! -f "$CMDPATH" ]
+then
+    go mod download
+fi
+
+go build -o "${OUTPUT}" "$CMDPATH"

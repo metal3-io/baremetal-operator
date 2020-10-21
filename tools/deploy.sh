@@ -36,7 +36,7 @@ fi
 if [ "${DEPLOY_TLS}" == "true" ]; then
     BMO_SCENARIO="${BMO_SCENARIO}/tls"
     IRONIC_SCENARIO="${IRONIC_SCENARIO}/tls"
-else
+elif [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     BMO_SCENARIO="${BMO_SCENARIO}/default"
 fi
 
@@ -51,7 +51,7 @@ IRONIC_AUTH_DIR="${IRONIC_AUTH_DIR:-"${IRONIC_DATA_DIR}auth/"}"
 IRONIC_CERTS_DIR="${IRONIC_CERTS_DIR:-"${IRONIC_DATA_DIR}certs/"}"
 
 sudo mkdir -p "${IRONIC_DATA_DIR}"
-sudo chown -R "${USER}:${USER}" "${IRONIC_DATA_DIR}"
+sudo chown -R "${USER}:$(id -gn)" "${IRONIC_DATA_DIR}"
 mkdir -p "${IRONIC_AUTH_DIR}"
 mkdir -p "${IRONIC_CERTS_DIR}"
 
@@ -154,7 +154,7 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
     fi
 
     if [ "${DEPLOY_BMO}" == "true" ]; then
-        cp "${IRONIC_CACERT_FILE}" "${SCRIPTDIR}/deploy/tls/ca.crt"
+        cp "${IRONIC_CACERT_FILE}" "${SCRIPTDIR}/config/tls/ca.crt"
         [ "${IRONIC_CACERT_FILE}" == "${IRONIC_INSPECTOR_CACERT_FILE}" ] || \
         cat "${IRONIC_INSPECTOR_CACERT_FILE}" >> "${SCRIPTDIR}/config/tls/ca.crt"
     fi

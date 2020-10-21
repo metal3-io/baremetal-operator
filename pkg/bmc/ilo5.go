@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	registerFactory("ilo5", newILO5AccessDetails, []string{"https"})
+	RegisterFactory("ilo5", newILO5AccessDetails, []string{"https"})
 }
 
 func newILO5AccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {

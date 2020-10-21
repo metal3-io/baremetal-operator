@@ -1,12 +1,25 @@
-FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-golang-1.15-openshift-4.7 AS builder
-WORKDIR /go/src/github.com/metal3-io/baremetal-operator
-COPY . .
-RUN make build
-RUN make tools
+# Build the manager binary
+FROM registry.hub.docker.com/library/golang:1.15.3 AS builder
 
-FROM registry.svc.ci.openshift.org/ocp/4.7:base
-COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/manager /baremetal-operator
-COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/get-hardware-details /
-COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/make-bm-worker /
-COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/make-virt-host /
-RUN if ! rpm -q genisoimage; then yum install -y genisoimage && yum clean all && rm -rf /var/cache/yum/*; fi
+WORKDIR /workspace
+
+# Bring in the go dependencies before anything else so we can take
+# advantage of caching these layers in future builds.
+COPY go.mod go.mod
+COPY go.sum go.sum
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o baremetal-operator main.go
+
+# Copy the controller-manager into a thin image
+# BMO has a dependency preventing us to use the static one,
+# using the base one instead
+FROM gcr.io/distroless/base:latest
+WORKDIR /
+COPY --from=builder /workspace/baremetal-operator .
+USER nonroot:nonroot
+ENTRYPOINT ["/baremetal-operator"]
+
+LABEL io.k8s.display-name="Metal3 BareMetal Operator" \
+      io.k8s.description="This is the image for the Metal3 BareMetal Operator."

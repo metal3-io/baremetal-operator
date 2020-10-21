@@ -68,7 +68,7 @@ kind: BareMetalHost
 metadata:
   name: {{ .Domain }}
 spec:
-  online: false
+  online: true
   bmc:
     address: libvirt://192.168.122.1:{{ .BMCPort }}/
     credentialsName: {{ .Domain }}-bmc-secret

@@ -5,7 +5,7 @@ import (
 )
 
 func init() {
-	registerFactory("irmc", newIRMCAccessDetails, []string{})
+	RegisterFactory("irmc", newIRMCAccessDetails, []string{})
 }
 
 func newIRMCAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {

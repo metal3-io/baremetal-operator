@@ -60,7 +60,7 @@ def validate_auth():
 
 tilt_helper_dockerfile_header = """
 # Tilt image
-FROM golang:1.14 as tilt-helper
+FROM golang:1.15.3 as tilt-helper
 # Support live reloading with Tilt
 RUN wget --output-document /restart.sh --quiet https://raw.githubusercontent.com/windmilleng/rerun-process-wrapper/master/restart.sh  && \
     wget --output-document /start.sh --quiet https://raw.githubusercontent.com/windmilleng/rerun-process-wrapper/master/start.sh && \
@@ -139,7 +139,7 @@ def enable_provider(name):
     os.environ.update(substitutions)
 
     # Apply the kustomized yaml for this provider
-    yaml = str(kustomizesub(context + "/deploy/default"))
+    yaml = str(kustomizesub(context + "/config"))
     k8s_yaml(blob(yaml))
 
 def kustomizesub(folder):

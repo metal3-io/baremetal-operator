@@ -228,3 +228,13 @@ func (m *MockServer) sendData(w http.ResponseWriter, r *http.Request, code int, 
 	w.WriteHeader(code)
 	fmt.Fprint(w, payload)
 }
+
+// SendJSONResponse marshalls the payload to a JSON object and sends
+// the response using the given writer
+func (m *MockServer) SendJSONResponse(payload interface{}, code int, w http.ResponseWriter, r *http.Request) {
+	content, err := json.Marshal(payload)
+	if err != nil {
+		m.t.Error(err)
+	}
+	m.sendData(w, r, code, string(content))
+}

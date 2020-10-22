@@ -14,15 +14,13 @@ COVER_PROFILE = cover.out
 #       crdVersions=v1, so that the API server discards "extra" data
 #       instead of storing it
 #
+#
+BIN_DIR := bin
+
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
 CONTROLLER_TOOLS_VERSION=v0.4.0
-CONTROLLER_GEN=./bin/controller-gen
-
-# Directories.
-TOOLS_DIR := tools
-TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
-KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
-BIN_DIR := bin
+CONTROLLER_GEN := $(BIN_DIR)/controller-gen
+KUSTOMIZE := $(BIN_DIR)/kustomize
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
@@ -152,7 +150,7 @@ generate: $(CONTROLLER_GEN) ## Generate code
 
 .PHONY: $(KUSTOMIZE)
 $(KUSTOMIZE):
-	cd $(TOOLS_DIR); ./install_kustomize.sh
+	./tools/install_kustomize.sh
 
 # Build the version of controller-gen that we use
 $(CONTROLLER_GEN):

@@ -36,8 +36,8 @@ inter-pod communication.
 
 Take the Cluster-IP Address of ironic pod running in default namespace
 and copy it in the config maps of Baremetal-operator by replace the default
-provisioning-IP in *ironic-deployment/default/ironic_bmo_configmap.env* as mentioned below.
-One may also have to change *provisioning-interface*
+provisioning-IP in *ironic-deployment/default/ironic_bmo_configmap.env* as
+mentioned below. One may also have to change *provisioning-interface*
 (by default it is PROVISIONING_INTERFACE=eth2) and its value will change
 as per the OS and hardware specs.
 
@@ -59,7 +59,7 @@ CACHEURL=http://<Ironic-ClusterIP>/images
 IRONIC_FAST_TRACK=false
 ```
 
-Do the same in *default/ironic_bmo_configmap.env*
+Do the same in *deploy/default/ironic_bmo_configmap.env*
 
 ```console
 > vi deploy/default/ironic_bmo_configmap.env

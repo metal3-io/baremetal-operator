@@ -1,11 +1,11 @@
-# Running Baremetal-operator on kubernetes cluster
+# Running Baremetal-operator on Kubernetes cluster
 
 ## Description
 
 This document outlines the process of provisioning completely within
 the cluster; starting with spinning the components
 **Baremetal-operator and Ironic** over a
-**On-Premises Kubernetes Cluster**, till the **provisioning of baremetal
+**On-Premises/Cloud Kubernetes Cluster**, till the **provisioning of baremetal
 machines** using only cluster resources.
 
 ## Prerequisites
@@ -36,17 +36,20 @@ inter-pod communication.
 
 Take the Cluster-IP Address of ironic pod running in default namespace
 and copy it in the config maps of Baremetal-operator by replace the default
-provisioning-IP in *deploy/ironic_ci.env* as mentioned below.
+provisioning-IP in *ironic-deployment/default/ironic_bmo_configmap.env* as mentioned below.
+One may also have to change *provisioning-interface*
+(by default it is PROVISIONING_INTERFACE=eth2) and its value will change
+as per the OS and hardware specs.
 
 ```console
-> vi deploy/ironic_ci.env
+> vi ironic-deployment/default/ironic_bmo_configmap.env
 ```
 
 ```properties
 HTTP_PORT=6180
 PROVISIONING_IP=<Ironic-ClusterIP>
 PROVISIONING_CIDR=24
-PROVISIONING_INTERFACE=ironicendpoint
+PROVISIONING_INTERFACE=eth2
 DHCP_RANGE=<Cluster Dhcp range start>,<Cluster Dhcp range end>
 DEPLOY_KERNEL_URL=http://<Ironic-ClusterIP>:6180/images/ironic-python-agent.kernel
 DEPLOY_RAMDISK_URL=http://<Ironic-ClusterIP>:6180/images/ironic-python-agent.initramfs
@@ -56,12 +59,10 @@ CACHEURL=http://<Ironic-ClusterIP>/images
 IRONIC_FAST_TRACK=false
 ```
 
-Do the same in *default/ironic_bmo_configmap.env* and
-one may also have to change *provisioning-interface*
-(by default it is PROVISIONING_INTERFACE=eth2) as per the OS and hardware specs.
+Do the same in *default/ironic_bmo_configmap.env*
 
 ```console
-> vi default/ironic_bmo_configmap.env
+> vi deploy/default/ironic_bmo_configmap.env
 ```
 
 ```properties

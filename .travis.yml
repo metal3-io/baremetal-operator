@@ -9,8 +9,6 @@ go:
   - "1.15.3"
 
 env:
-  - TARGET=unit-verbose
   - TARGET=docker
-  - TARGET=lint
 
 script: make $TARGET

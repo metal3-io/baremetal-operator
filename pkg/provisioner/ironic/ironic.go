@@ -24,7 +24,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
-var log = logf.Log.WithName("baremetalhost_ironic")
+var log = logf.Log.WithName("provisioner").WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var powerRequeueDelay = time.Second * 10

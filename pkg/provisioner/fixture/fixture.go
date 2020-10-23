@@ -11,7 +11,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
-var log = logf.Log.WithName("fixture")
+var log = logf.Log.WithName("provisioner").WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 

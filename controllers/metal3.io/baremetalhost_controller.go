@@ -516,7 +516,7 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	hostConf := &hostConfigData{
 		host:   info.host,
-		log:    info.log,
+		log:    info.log.WithName("host_config_data"),
 		client: r,
 	}
 	info.log.Info("provisioning")

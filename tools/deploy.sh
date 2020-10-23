@@ -175,6 +175,7 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
 fi
 
 pushd "${SCRIPTDIR}"
+./tools/install_kustomize.sh
 make tools/bin/kustomize
 popd
 

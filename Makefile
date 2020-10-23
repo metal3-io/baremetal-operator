@@ -148,7 +148,6 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC e
 generate: $(CONTROLLER_GEN) ## Generate code
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: $(KUSTOMIZE)
 $(KUSTOMIZE):
 	./tools/install_kustomize.sh
 

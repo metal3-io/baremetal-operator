@@ -39,3 +39,9 @@ spec:
             cpu: 100m
             memory: 20Mi
       terminationGracePeriodSeconds: 10
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 9440
+        initialDelaySeconds: 3
+        periodSeconds: 3

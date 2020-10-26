@@ -11,9 +11,35 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
-var log = logf.Log.WithName("fixture")
+var log = logf.Log.WithName("provisioner").WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
+
+type fixtureHostConfigData struct {
+	userData    string
+	networkData string
+	metaData    string
+}
+
+func NewHostConfigData(userData string, networkData string, metaData string) provisioner.HostConfigData {
+	return &fixtureHostConfigData{
+		userData:    userData,
+		networkData: networkData,
+		metaData:    metaData,
+	}
+}
+
+func (cd *fixtureHostConfigData) UserData() (string, error) {
+	return cd.userData, nil
+}
+
+func (cd *fixtureHostConfigData) NetworkData() (string, error) {
+	return cd.networkData, nil
+}
+
+func (cd *fixtureHostConfigData) MetaData() (string, error) {
+	return cd.metaData, nil
+}
 
 // fixtureProvisioner implements the provisioning.fixtureProvisioner interface
 // and uses Ironic to manage the host.

@@ -315,7 +315,7 @@ func (hb *hostBuilder) SetImageURL(url string) *hostBuilder {
 
 func makeDefaultReconcileInfo(host *metal3v1alpha1.BareMetalHost) *reconcileInfo {
 	return &reconcileInfo{
-		log:     logf.Log.WithName("test"),
+		log:     logf.Log.WithName("controllers").WithName("BareMetalHost").WithName("host_state_machine"),
 		host:    host,
 		request: ctrl.Request{},
 		bmcCredsSecret: &corev1.Secret{

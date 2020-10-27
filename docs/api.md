@@ -276,22 +276,17 @@ Settings related to deploying an image to the host.
 * *state* -- The current state of any ongoing provisioning operation.
   The following are the currently supported ones:
   * *\<empty string\>* -- There is no provisioning happening, at the moment.
-  * *registration error* -- The details for the host's BMC are
-    either incorrect or incomplete therfore the host could not be managed.
   * *registering* -- The host's BMC details are being checked.
   * *match profile* -- The discovered hardware details on the host
     are being compared against known profiles.
   * *ready* -- The host is available to be consumed.
   * *provisioning* -- An image is being written to the host's disk(s).
-  * *provisioning error* -- The image could not be written to the host.
   * *provisioned* -- An image has been completely written to the host's
     disk(s).
   * *externally provisioned* -- Metal³ does not manage the image on the host.
   * *deprovisioning* -- The image is being wiped from the host's disk(s).
   * *inspecting* -- The hardware details for the host are being collected
     by an agent.
-  * *power management error* -- An error was found while trying to power
-    the host either on or off.
 * *id* -- The unique identifier for the service in the underlying
   provisioning tool.
 * *image* -- The image most recently provisioned to the host.

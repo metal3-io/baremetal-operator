@@ -20,6 +20,7 @@ BIN_DIR := bin
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
 CONTROLLER_TOOLS_VERSION=v0.4.0
 CONTROLLER_GEN := $(BIN_DIR)/controller-gen
+GOLANGCI_LINT := $(BIN_DIR)/golangci-lint
 KUSTOMIZE := $(BIN_DIR)/kustomize
 
 # See pkg/version.go for details
@@ -97,11 +98,11 @@ fmt: lint
 vet: lint
 
 .PHONY: lint
-lint: $(GOBIN)/golangci-lint
-	$(GOBIN)/golangci-lint run
+lint: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run
 
-$(GOBIN)/golangci-lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.31.0
+$(GOLANGCI_LINT):
+	./hack/install-golangci-lint.sh
 
 ## --------------------------------------
 ## Build/Run Targets

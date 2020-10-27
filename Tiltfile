@@ -162,5 +162,5 @@ validate_auth()
 include_user_tilt_files()
 
 load_provider_tiltfiles(["."])
-local("make tools/bin/kustomize")
+local("make bin/kustomize")
 enable_provider("metal3-bmo")

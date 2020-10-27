@@ -175,17 +175,17 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
 fi
 
 pushd "${SCRIPTDIR}"
-make tools/bin/kustomize
+make bin/kustomize
 popd
 
 if [ "${DEPLOY_BMO}" == "true" ]; then
     # shellcheck disable=SC2086
-    "${SCRIPTDIR}/tools/bin/kustomize" build "${BMO_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    "${SCRIPTDIR}/bin/kustomize" build "${BMO_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
 fi
 
 if [ "${DEPLOY_IRONIC}" == "true" ]; then
     # shellcheck disable=SC2086
-    "${SCRIPTDIR}/tools/bin/kustomize" build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    "${SCRIPTDIR}/bin/kustomize" build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
 fi
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then

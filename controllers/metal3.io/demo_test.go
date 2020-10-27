@@ -28,7 +28,7 @@ func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 		Client:             c,
 		Scheme:             scheme.Scheme,
 		ProvisionerFactory: demo.New,
-		Log:                ctrl.Log.WithName("controller").WithName("baremetalhost").WithName("demo").WithName("test"),
+		Log:                ctrl.Log.WithName("controller").WithName("BareMetalHost"),
 	}
 }
 

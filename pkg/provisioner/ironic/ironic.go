@@ -6,17 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/yaml"
-
+	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
-
 	"github.com/pkg/errors"
-
-	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/yaml"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
@@ -27,7 +24,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
-var log = logf.Log.WithName("baremetalhost_ironic")
+var log = logf.Log.WithName("provisioner").WithName("ironic")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var powerRequeueDelay = time.Second * 10
@@ -219,6 +216,8 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 			p.log.Info("found existing node by ID")
 			return ironicNode, nil
 		case gophercloud.ErrDefault404:
+			// Look by ID failed, trying to lookup by hostname in case it was
+			// previously created
 		default:
 			return nil, errors.Wrap(err,
 				fmt.Sprintf("failed to find node by ID %s", p.status.ID))

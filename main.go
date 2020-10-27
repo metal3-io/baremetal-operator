@@ -63,6 +63,7 @@ func main() {
 	var devLogging bool
 	var runInTestMode bool
 	var runInDemoMode bool
+	var healthAddr string
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -79,6 +80,8 @@ func main() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
+	flag.StringVar(&healthAddr, "health-addr", ":9440",
+		"The address the health endpoint binds to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(devLogging)))
@@ -93,6 +96,7 @@ func main() {
 		LeaderElectionID:        "baremetal-operator",
 		LeaderElectionNamespace: watchNamespace,
 		Namespace:               watchNamespace,
+		HealthProbeBindAddress:  healthAddr,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

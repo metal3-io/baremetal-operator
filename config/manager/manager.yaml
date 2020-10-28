@@ -31,10 +31,10 @@ spec:
           - configMapRef:
               name: ironic
         name: manager
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9440
+          initialDelaySeconds: 3
+          periodSeconds: 3
       terminationGracePeriodSeconds: 10
-      livenessProbe:
-        httpGet:
-          path: /healthz
-          port: 9440
-        initialDelaySeconds: 3
-        periodSeconds: 3

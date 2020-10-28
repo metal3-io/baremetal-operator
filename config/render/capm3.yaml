@@ -862,11 +862,11 @@ spec:
             name: baremetal-operator-ironic
         image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9440
+          initialDelaySeconds: 3
+          periodSeconds: 3
         name: manager
-      livenessProbe:
-        httpGet:
-          path: /healthz
-          port: 9440
-        initialDelaySeconds: 3
-        periodSeconds: 3
       terminationGracePeriodSeconds: 10

@@ -2,10 +2,9 @@
     "name": "metal3-bmo",
     "config": {
         "kustomize_config": false,
-        "go_main": "cmd/manager/main.go",
         "image": "quay.io/metal3-io/baremetal-operator",
         "live_reload_deps": [
-            "cmd", "pkg", "go.mod", "go.sum"
+            "apis", "cmd", "pkg", "config", "controllers", "go.mod", "go.sum", "main.go"
         ]
     }
 }

@@ -863,13 +863,6 @@ spec:
         image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
         name: manager
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
       livenessProbe:
         httpGet:
           path: /healthz

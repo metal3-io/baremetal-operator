@@ -39,7 +39,7 @@ func TestAdopt(t *testing.T) {
 			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
+			}).WithNodeStatesProvision(nodeUUID).WithNodeStatesProvisionUpdate(nodeUUID),
 
 			expectedDirty:        true,
 			expectedRequestAfter: 10,

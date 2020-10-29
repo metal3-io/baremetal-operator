@@ -76,21 +76,44 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 	return m
 }
 
-// WithNode configures the server with a valid response for /v1/nodes
-func (m *IronicMock) WithNode(node nodes.Node) *IronicMock {
+func (m *IronicMock) buildURL(url string, method string) string {
+	return fmt.Sprintf("%s:%s", url, method)
+}
+
+func (m *IronicMock) withNode(node nodes.Node, method string) *IronicMock {
+
 	if node.UUID != "" {
-		m.ResponseJSON("/v1/nodes/"+node.UUID, node)
+		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.UUID, method), node)
 	}
 	if node.Name != "" {
-		m.ResponseJSON("/v1/nodes/"+node.Name, node)
+		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.Name, method), node)
 	}
 	return m
 }
 
-// WithNodeStatesProvision configures the server with a valid response for /v1/nodes/<node>/states/provision
-func (m *IronicMock) WithNodeStatesProvision(nodeUUID string) *IronicMock {
-	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/states/provision", "{}", http.StatusAccepted)
+// WithNode configures the server with a valid response for [GET] /v1/nodes
+func (m *IronicMock) WithNode(node nodes.Node) *IronicMock {
+	return m.withNode(node, http.MethodGet)
+}
+
+// WithNodeUpdate configures the server with a valid response for [PATCH] /v1/nodes
+func (m *IronicMock) WithNodeUpdate(node nodes.Node) *IronicMock {
+	return m.withNode(node, http.MethodPatch)
+}
+
+func (m *IronicMock) withNodeStatesProvision(nodeUUID string, method string) *IronicMock {
+	m.ResponseWithCode(m.buildURL("/v1/nodes/"+nodeUUID+"/states/provision", method), "{}", http.StatusAccepted)
 	return m
+}
+
+// WithNodeStatesProvision configures the server with a valid response for [GET] /v1/nodes/<node>/states/provision
+func (m *IronicMock) WithNodeStatesProvision(nodeUUID string) *IronicMock {
+	return m.withNodeStatesProvision(nodeUUID, http.MethodGet)
+}
+
+// WithNodeStatesProvision configures the server with a valid response for [PATCH] /v1/nodes/<node>/states/provision
+func (m *IronicMock) WithNodeStatesProvisionUpdate(nodeUUID string) *IronicMock {
+	return m.withNodeStatesProvision(nodeUUID, http.MethodPut)
 }
 
 // NoNode configures the server so /v1/nodes/name returns a 404
@@ -141,10 +164,19 @@ func (m *IronicMock) CreateNodes() *IronicMock {
 	return m
 }
 
-// WithNodeStatesPower configures the server with a valid response for /v1/nodes/<node>/states/power
-func (m *IronicMock) WithNodeStatesPower(nodeUUID string, code int) *IronicMock {
-	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/states/power", "{}", code)
+func (m *IronicMock) withNodeStatesPower(nodeUUID string, code int, method string) *IronicMock {
+	m.ResponseWithCode(m.buildURL("/v1/nodes/"+nodeUUID+"/states/power", method), "{}", code)
 	return m
+}
+
+// WithNodeStatesPower configures the server with a valid response for [GET] /v1/nodes/<node>/states/power
+func (m *IronicMock) WithNodeStatesPower(nodeUUID string, code int) *IronicMock {
+	return m.withNodeStatesPower(nodeUUID, code, http.MethodGet)
+}
+
+// WithNodeStatesPowerUpdate configures the server with a valid response for [PUT] /v1/nodes/<node>/states/power
+func (m *IronicMock) WithNodeStatesPowerUpdate(nodeUUID string, code int) *IronicMock {
+	return m.withNodeStatesPower(nodeUUID, code, http.MethodPut)
 }
 
 // WithNodeValidate configures the server with a valid response for /v1/nodes/<node>/validate

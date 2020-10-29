@@ -36,7 +36,9 @@ func TestInspectHardware(t *testing.T) {
 			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "active",
-			}).WithNodeStatesProvision(nodeUUID),
+			}).WithNodeStatesProvision(nodeUUID).WithNodeStatesProvisionUpdate(nodeUUID).WithNodeUpdate(nodes.Node{
+				UUID: nodeUUID,
+			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 
 			expectedDirty:        true,

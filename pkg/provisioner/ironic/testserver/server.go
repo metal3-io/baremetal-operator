@@ -5,17 +5,25 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 // New returns a MockServer
 func New(t *testing.T, name string) *MockServer {
 	mux := http.NewServeMux()
+	t.Logf("%s: new server created", name)
 	return &MockServer{
-		t:    t,
-		name: name,
-		mux:  mux,
+		t:                 t,
+		name:              name,
+		mux:               mux,
+		responsesByMethod: make(map[string]map[string]response),
 	}
+}
+
+type response struct {
+	code    int
+	payload string
 }
 
 // MockServer is a simple http testing server
@@ -27,6 +35,8 @@ type MockServer struct {
 	FullRequests []*http.Request
 	server       *httptest.Server
 	errorCode    int
+
+	responsesByMethod map[string]map[string]response
 }
 
 // Endpoint returns the URL to the server
@@ -76,16 +86,57 @@ func (m *MockServer) Response(pattern string, payload string) *MockServer {
 	return m.ResponseWithCode(pattern, payload, http.StatusOK)
 }
 
+func (m *MockServer) buildHandler(pattern string) func(http.ResponseWriter, *http.Request) {
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+
+		response, ok := m.responsesByMethod[r.URL.String()][r.Method]
+		if !ok {
+			m.logRequest(r, fmt.Sprintf("No method handler found for [%s] %s, returning an error", r.Method, r.URL))
+			http.Error(w, "Method handler not found", http.StatusInternalServerError)
+		}
+
+		m.logRequest(r, response.payload)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(response.code)
+		fmt.Fprint(w, response.payload)
+	}
+
+	return handler
+}
+
+func (m *MockServer) parsePattern(patternWithMethod string) (pattern string, method string) {
+	method = http.MethodGet
+	res := strings.Split(patternWithMethod, ":")
+	if len(res) > 1 {
+		method = res[1]
+	}
+	pattern = res[0]
+
+	return
+}
+
 // ResponseWithCode attaches a handler function that returns the given payload
 // from requests to the URL pattern along with the specified code
-func (m *MockServer) ResponseWithCode(pattern string, payload string, code int) *MockServer {
-	m.t.Logf("%s: adding response handler for %s", m.name, pattern)
-	m.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		m.logRequest(r, payload)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(code)
-		fmt.Fprint(w, payload)
-	})
+func (m *MockServer) ResponseWithCode(patternWithMethod string, payload string, code int) *MockServer {
+
+	pattern, method := m.parsePattern(patternWithMethod)
+
+	mh, ok := m.responsesByMethod[pattern]
+	if !ok {
+		m.responsesByMethod[pattern] = map[string]response{}
+		m.mux.HandleFunc(pattern, m.buildHandler(pattern))
+	}
+	_, ok = mh[method]
+	if ok {
+		panic(fmt.Sprintf("Method handler for [%s] %s was already defined", method, pattern))
+	}
+
+	m.t.Logf("%s: adding response for [%s] %s", m.name, method, pattern)
+	m.responsesByMethod[pattern][method] = response{
+		code:    code,
+		payload: payload,
+	}
 	return m
 }
 

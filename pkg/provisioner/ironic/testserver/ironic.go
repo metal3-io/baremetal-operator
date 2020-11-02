@@ -25,10 +25,24 @@ type IronicMock struct {
 
 // NewIronic builds an ironic mock server
 func NewIronic(t *testing.T) *IronicMock {
+
 	return &IronicMock{
 		MockServer:   New(t, "ironic"),
 		CreatedNodes: nil,
 	}
+}
+
+// WithDefaultResponses sets a valid answer for all the API calls
+func (m *IronicMock) WithDefaultResponses() *IronicMock {
+	m.AddDefaultResponseJSON("/v1/nodes/{id}", "", http.StatusOK, nodes.Node{
+		UUID: "{id}",
+	})
+	m.AddDefaultResponse("/v1/nodes/{id}/states/provision", "", http.StatusAccepted, "{}")
+	m.AddDefaultResponse("/v1/nodes/{id}/states/power", "", http.StatusAccepted, "{}")
+	m.AddDefaultResponse("/v1/nodes/{id}/validate", "", http.StatusOK, "{}")
+	m.Ready()
+
+	return m
 }
 
 // Endpoint returns the URL for accessing the server

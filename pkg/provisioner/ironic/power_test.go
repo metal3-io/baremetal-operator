@@ -44,12 +44,12 @@ func TestPowerOn(t *testing.T) {
 		},
 		{
 			name: "power-on normal",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				PowerState:           powerOff,
 				TargetPowerState:     powerOff,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
-			}).WithNodeStatesPower(nodeUUID, http.StatusAccepted).WithNodeStatesPowerUpdate(nodeUUID, http.StatusAccepted),
+			}),
 			expectedDirty: true,
 		},
 		{
@@ -144,12 +144,12 @@ func TestPowerOff(t *testing.T) {
 		},
 		{
 			name: "power-off normal",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				PowerState:           powerOn,
 				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
-			}).WithNodeStatesPower(nodeUUID, http.StatusAccepted).WithNodeStatesPowerUpdate(nodeUUID, http.StatusAccepted),
+			}),
 			expectedDirty: true,
 		},
 		{

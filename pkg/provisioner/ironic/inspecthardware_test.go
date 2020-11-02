@@ -33,11 +33,9 @@ func TestInspectHardware(t *testing.T) {
 	}{
 		{
 			name: "introspection-status-start-new-hardware-inspection",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "active",
-			}).WithNodeStatesProvision(nodeUUID).WithNodeStatesProvisionUpdate(nodeUUID).WithNodeUpdate(nodes.Node{
-				UUID: nodeUUID,
 			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 
@@ -46,10 +44,8 @@ func TestInspectHardware(t *testing.T) {
 			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
-			name: "introspection-data-failed",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				UUID: nodeUUID,
-			}),
+			name:   "introspection-data-failed",
+			ironic: testserver.NewIronic(t).WithDefaultResponses(),
 			inspector: testserver.NewInspector(t).Ready().
 				WithIntrospection(nodeUUID, introspection.Introspection{
 					Finished: true,
@@ -103,10 +99,8 @@ func TestInspectHardware(t *testing.T) {
 			expectedResultError: "Canceled by operator",
 		},
 		{
-			name: "inspection-in-progress",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				UUID: nodeUUID,
-			}),
+			name:   "inspection-in-progress",
+			ironic: testserver.NewIronic(t).WithDefaultResponses(),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
 				Finished: false,
 			}),
@@ -114,10 +108,8 @@ func TestInspectHardware(t *testing.T) {
 			expectedRequestAfter: 15,
 		},
 		{
-			name: "inspection-completed",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				UUID: nodeUUID,
-			}),
+			name:   "inspection-completed",
+			ironic: testserver.NewIronic(t).WithDefaultResponses(),
 			inspector: testserver.NewInspector(t).Ready().
 				WithIntrospection(nodeUUID, introspection.Introspection{
 					Finished: true,

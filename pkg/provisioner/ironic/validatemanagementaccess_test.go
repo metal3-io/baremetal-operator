@@ -46,7 +46,7 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 
 	// Set up ironic server to return the node
 	ironic := testserver.NewIronic(t).Ready().
-		WithNode(nodes.Node{
+		Node(nodes.Node{
 			Name: host.Name,
 			UUID: host.Status.Provisioning.ID,
 		})

@@ -33,7 +33,7 @@ func TestInspectHardware(t *testing.T) {
 	}{
 		{
 			name: "introspection-status-start-new-hardware-inspection",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "active",
 			}),
@@ -56,7 +56,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-status-failed-404-retry-on-wait",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspect wait",
 			}),
@@ -67,7 +67,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-status-failed-extraction",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspecting",
 			}),
@@ -77,7 +77,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-status-failed-404-retry",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspecting",
 			}),
@@ -88,7 +88,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-aborted",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID: nodeUUID,
 			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{

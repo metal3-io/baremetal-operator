@@ -94,25 +94,15 @@ func (m *IronicMock) buildURL(url string, method string) string {
 	return fmt.Sprintf("%s:%s", url, method)
 }
 
-func (m *IronicMock) withNode(node nodes.Node, method string) *IronicMock {
-
+// Node configures the server with a valid response for /v1/nodes/{name,uuid}
+func (m *IronicMock) Node(node nodes.Node) *IronicMock {
 	if node.UUID != "" {
-		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.UUID, method), node)
+		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.UUID, http.MethodGet), node)
 	}
 	if node.Name != "" {
-		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.Name, method), node)
+		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.Name, http.MethodGet), node)
 	}
 	return m
-}
-
-// WithNode configures the server with a valid response for [GET] /v1/nodes
-func (m *IronicMock) WithNode(node nodes.Node) *IronicMock {
-	return m.withNode(node, http.MethodGet)
-}
-
-// WithNodeUpdate configures the server with a valid response for [PATCH] /v1/nodes
-func (m *IronicMock) WithNodeUpdate(node nodes.Node) *IronicMock {
-	return m.withNode(node, http.MethodPatch)
 }
 
 func (m *IronicMock) withNodeStatesProvision(nodeUUID string, method string) *IronicMock {

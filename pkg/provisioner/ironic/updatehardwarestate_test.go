@@ -33,13 +33,13 @@ func TestUpdateHardwareState(t *testing.T) {
 	}{
 		{
 			name: "unkown-power-state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID: nodeUUID,
 			}),
 		},
 		{
 			name: "updated-power-on-state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power on",
 			}),
@@ -47,7 +47,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "not-updated-power-on-state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power on",
 			}),
@@ -57,7 +57,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "updated-power-off-state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power off",
 			}),
@@ -65,7 +65,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "not-updated-power-off-state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power off",
 			}),
@@ -75,7 +75,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "no-power",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "None",
 			}),

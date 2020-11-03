@@ -132,8 +132,7 @@ func (m *IronicMock) WithNodeStatesProvisionUpdate(nodeUUID string) *IronicMock 
 
 // NoNode configures the server so /v1/nodes/name returns a 404
 func (m *IronicMock) NoNode(name string) *IronicMock {
-	m.NotFound(fmt.Sprintf("/v1/nodes/%s", name))
-	return m
+	return m.NodeError(name, http.StatusNotFound)
 }
 
 // NodeError configures the server to return the specified error code for /v1/nodes/name

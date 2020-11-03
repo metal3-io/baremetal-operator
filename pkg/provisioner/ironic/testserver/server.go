@@ -77,12 +77,6 @@ func (m *MockServer) Handler(pattern string, handlerFunc http.HandlerFunc) *Mock
 	return m
 }
 
-// NotFound attaches a 404 error handler to a request URL pattern
-func (m *MockServer) NotFound(pattern string) *MockServer {
-	m.ErrorResponse(pattern, http.StatusNotFound)
-	return m
-}
-
 // Response attaches a handler function that returns the given payload
 // from requests to the URL pattern
 func (m *MockServer) Response(pattern string, payload string) *MockServer {

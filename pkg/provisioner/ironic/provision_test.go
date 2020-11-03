@@ -26,28 +26,28 @@ func TestProvision(t *testing.T) {
 	}{
 		{
 			name: "deployFail state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
-			}).WithNodeValidate(nodeUUID).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},
 		{
 			name: "manageable state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
-			}).WithNodeValidate(nodeUUID).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},
 		{
 			name: "available state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
@@ -120,19 +120,19 @@ func TestDeprovision(t *testing.T) {
 	}{
 		{
 			name: "error state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				ProvisionState: string(nodes.Error),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},
 		{
 			name: "available state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
@@ -147,10 +147,10 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "inspectWait state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				ProvisionState: string(nodes.InspectWait),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
@@ -202,7 +202,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "Verifying state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().WithNode(nodes.Node{
 				ProvisionState: string(nodes.Verifying),
 				UUID:           nodeUUID,
 			}),

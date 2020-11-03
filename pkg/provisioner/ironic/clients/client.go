@@ -37,6 +37,7 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*go
 		}
 	}
 	tlsTransport, err := transport.NewTransport(tlsInfo, tlsConnectionTimeout)
+	tlsTransport.DisableKeepAlives = true
 	if err != nil {
 		return client, err
 	}

@@ -67,13 +67,6 @@ func (m *MockServer) logRequest(r *http.Request, response string) {
 	m.FullRequests = append(m.FullRequests, r)
 }
 
-func (m *MockServer) handleNoResponse(w http.ResponseWriter, r *http.Request) {
-	if m.errorCode != 0 {
-		http.Error(w, "An error", m.errorCode)
-		return
-	}
-}
-
 // Handler attaches a generic handler function to a request URL pattern
 func (m *MockServer) Handler(pattern string, handlerFunc http.HandlerFunc) *MockServer {
 	m.t.Logf("%s: adding handler for %s", m.name, pattern)

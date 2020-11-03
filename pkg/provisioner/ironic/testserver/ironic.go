@@ -55,7 +55,7 @@ func (m *IronicMock) Endpoint() string {
 
 // Ready configures the server with a valid response for /v1
 func (m *IronicMock) Ready() *IronicMock {
-	m.Response("/v1", "{}")
+	m.ResponseWithCode("/v1", "{}", http.StatusOK)
 	return m
 }
 
@@ -67,7 +67,7 @@ func (m *IronicMock) NotReady(errorCode int) *IronicMock {
 
 // WithDrivers configures the server so /v1/drivers returns a valid value
 func (m *IronicMock) WithDrivers() *IronicMock {
-	m.Response("/v1/drivers", `
+	m.ResponseWithCode("/v1/drivers", `
 	{
 		"drivers": [{
 			"hosts": [
@@ -86,7 +86,7 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 			"name": "fake-hardware"
 		}]
 	}
-	`)
+	`, http.StatusOK)
 	return m
 }
 

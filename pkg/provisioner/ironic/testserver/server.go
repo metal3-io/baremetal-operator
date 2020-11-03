@@ -77,12 +77,6 @@ func (m *MockServer) Handler(pattern string, handlerFunc http.HandlerFunc) *Mock
 	return m
 }
 
-// Response attaches a handler function that returns the given payload
-// from requests to the URL pattern
-func (m *MockServer) Response(pattern string, payload string) *MockServer {
-	return m.ResponseWithCode(pattern, payload, http.StatusOK)
-}
-
 func (m *MockServer) buildHandler(pattern string) func(http.ResponseWriter, *http.Request) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +134,7 @@ func (m *MockServer) ResponseJSON(pattern string, payload interface{}) *MockServ
 	if err != nil {
 		m.t.Error(err)
 	}
-	m.Response(pattern, string(content))
+	m.ResponseWithCode(pattern, string(content), http.StatusOK)
 	return m
 }
 

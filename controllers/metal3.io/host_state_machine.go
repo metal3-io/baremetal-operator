@@ -62,7 +62,7 @@ func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.P
 
 func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
 	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
-		if !prevMetric.Start.IsZero() {
+		if !prevMetric.Start.IsZero() && prevMetric.End.IsZero() {
 			prevMetric.End = time
 			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
 				observer := stateTime[state].With(hostMetricLabels(info.request))
@@ -160,12 +160,6 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 }
 
 func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actionResult) {
-	switch hsm.NextState {
-	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
-		// We haven't yet reached the Registration state, so don't attempt
-		// to register the Host.
-		return
-	}
 	if !hsm.Host.DeletionTimestamp.IsZero() {
 		// BUG(zaneb) We currently don't attempt to re-register the Host
 		// if we find it missing once a delete has been requested (in
@@ -177,23 +171,38 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		return
 	}
 
-	if hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
-		// Credentials are unchanged since we verified them.
+	needsReregister := false
+
+	switch hsm.NextState {
+	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
+		// We haven't yet reached the Registration state, so don't attempt
+		// to register the Host.
 		return
+	case metal3v1alpha1.StateRegistering:
+	default:
+		needsReregister = (hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError ||
+			!hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret))
+		if needsReregister {
+			info.log.Info("Retrying registration")
+			recordStateBegin(hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+		}
 	}
 
-	recordStateBegin(hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
-	if hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError {
-		if hsm.Host.Status.TriedCredentials.Match(*info.bmcCredsSecret) {
-			// Already tried with these credentials; no point retrying
-			info.log.Info("Unmodified credentials; not retrying")
-			return actionFailed{ErrorType: metal3v1alpha1.RegistrationError}
-		}
-		info.log.Info("Modified credentials detected; will retry registration")
-	}
 	result = hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
-	if _, complete := result.(actionComplete); complete && hsm.Host.Status.Provisioning.State != metal3v1alpha1.StateRegistering {
-		recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+	if _, complete := result.(actionComplete); complete {
+		if hsm.NextState != metal3v1alpha1.StateRegistering {
+			recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+		}
+		if needsReregister {
+			// Host was re-registered, so requeue and run the state machine on
+			// the next reconcile
+			result = actionContinue{}
+		} else {
+			// Allow the state machine to run, either because we were just
+			// reconfirming an existing registration, or because we are in the
+			// Registering state
+			result = nil
+		}
 	}
 	return
 }
@@ -224,7 +233,6 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 	// registered using the current BMC credentials, so we can move to the
 	// next state. We will not return to the Registering state, even
 	// if the credentials change and the Host must be re-registered.
-	hsm.Host.ClearError()
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
 	} else {

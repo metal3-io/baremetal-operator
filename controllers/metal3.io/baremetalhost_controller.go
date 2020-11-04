@@ -428,15 +428,13 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 	// so clear any previous error and record the success in the
 	// status block.
 	info.log.Info("updating credentials success status fields")
+	registeredNewCreds := !info.host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
 	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 	info.log.Info("clearing previous error message")
 	info.host.ClearError()
 
-	info.publishEvent("BMCAccessValidated", "Verified access to BMC")
-
-	if info.host.Spec.ExternallyProvisioned {
-		info.publishEvent("ExternallyProvisioned",
-			"Registered host that was externally provisioned")
+	if registeredNewCreds {
+		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
 	}
 
 	return actionComplete{}
@@ -681,27 +679,10 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 
 // A host reaching this action handler should be provisioned or externally
 // provisioned -- a state that it will stay in until the user takes further
-// action. Both of those states mean that it has been registered with the
-// provisioner once, so we use the ValidateManagmentAccess() API to ensure that
-// is still true, then the Adopt() API to make sure that the provisioner is
-// aware of the provisioning details. Then we monitor its power status.
+// action. We use the Adopt() API to make sure that the provisioner is aware of
+// the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	// We always pass false for credentialsChanged because if they had
-	// changed we would have ended up in actionRegister() instead of
-	// here.
-	provResult, err := prov.ValidateManagementAccess(false)
-	if err != nil {
-		return actionError{err}
-	}
-	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
-	}
-	if provResult.Dirty {
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
-	}
-
-	provResult, err = prov.Adopt()
+	provResult, err := prov.Adopt()
 	if err != nil {
 		return actionError{err}
 	}
@@ -717,28 +698,10 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 }
 
 // A host reaching this action handler should be ready -- a state that
-// it will stay in until the user takes further action. It has been
-// registered with the provisioner once, so we use
-// ValidateManagementAccess() to ensure that is still true. We don't
+// it will stay in until the user takes further action. We don't
 // use Adopt() because we don't want Ironic to treat the host as
 // having been provisioned. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-
-	// We always pass false for credentialsChanged because if they had
-	// changed we would have ended up in actionRegister() instead of
-	// here.
-	provResult, err := prov.ValidateManagementAccess(false)
-	if err != nil {
-		return actionError{err}
-	}
-	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
-	}
-	if provResult.Dirty {
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
-	}
-
 	if info.host.NeedsProvisioning() {
 		// Ensure the provisioning settings we're going to use are stored.
 		dirty, err := saveHostProvisioningSettings(info.host)

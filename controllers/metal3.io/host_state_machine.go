@@ -331,15 +331,15 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult
 func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
 
-	switch actResult.(type) {
-	case actionComplete:
-		if !hsm.Host.DeletionTimestamp.IsZero() {
-			hsm.NextState = metal3v1alpha1.StateDeleting
-		} else {
+	if hsm.Host.DeletionTimestamp.IsZero() {
+		if _, complete := actResult.(actionComplete); complete {
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
-	case actionFailed:
-		if !hsm.Host.DeletionTimestamp.IsZero() {
+	} else {
+		switch actResult.(type) {
+		case actionComplete:
+			hsm.NextState = metal3v1alpha1.StateDeleting
+		case actionFailed:
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
 			// Note that this is entirely theoretical, as the

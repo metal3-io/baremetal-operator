@@ -1,6 +1,7 @@
 package provisioner
 
 import (
+	"errors"
 	"time"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -100,3 +101,5 @@ type Result struct {
 	// Any error message produced by the provisioner.
 	ErrorMessage string
 }
+
+var NeedsRegistration = errors.New("Host not registered")

@@ -101,7 +101,7 @@ func TestUpdateHardwareState(t *testing.T) {
 			name:   "not-ironic-node",
 			ironic: testserver.NewIronic(t).Ready().NoNode(nodeUUID).NoNode("myhost"),
 
-			expectedError: "no ironic node for host",
+			expectedError: "Host not registered",
 		},
 	}
 

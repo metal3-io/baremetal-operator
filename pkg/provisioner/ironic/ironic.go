@@ -560,7 +560,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 		return
 	}
 	if ironicNode == nil {
-		return result, nil, fmt.Errorf("no ironic node for host")
+		return result, nil, provisioner.NeedsRegistration
 	}
 
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
@@ -650,7 +650,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
+		return result, provisioner.NeedsRegistration
 	}
 
 	var discoveredVal bool
@@ -1043,7 +1043,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		return result, errors.Wrap(err, "could not find host to receive image")
 	}
 	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
+		return result, provisioner.NeedsRegistration
 	}
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)

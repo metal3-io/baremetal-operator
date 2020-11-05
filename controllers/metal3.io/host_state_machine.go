@@ -16,17 +16,20 @@ type hostStateMachine struct {
 	NextState   metal3v1alpha1.ProvisioningState
 	Reconciler  *BareMetalHostReconciler
 	Provisioner provisioner.Provisioner
+	haveCreds   bool
 }
 
 func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
 	reconciler *BareMetalHostReconciler,
-	provisioner provisioner.Provisioner) *hostStateMachine {
+	provisioner provisioner.Provisioner,
+	haveCreds bool) *hostStateMachine {
 	currentState := host.Status.Provisioning.State
 	r := hostStateMachine{
 		Host:        host,
 		NextState:   currentState, // Remain in current state by default
 		Reconciler:  reconciler,
 		Provisioner: provisioner,
+		haveCreds:   haveCreds,
 	}
 	return &r
 }
@@ -160,14 +163,10 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 }
 
 func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actionResult) {
-	if !hsm.Host.DeletionTimestamp.IsZero() {
-		// BUG(zaneb) We currently don't attempt to re-register the Host
-		// if we find it missing once a delete has been requested (in
-		// part because we are also willing to pass empty credentials
-		// after this point), but this means that we may not be able to
-		// deprovision a Host if the Ironic database pod is rescheduled
-		// during deprovisioning, or if the credentials need to be
-		// modified.
+	if !hsm.haveCreds {
+		// If we are in the process of deletion (which may start with
+		// deprovisioning) and we have been unable to obtain any credentials,
+		// don't attempt to re-register the Host as this will always fail.
 		return
 	}
 
@@ -177,6 +176,9 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
 		// We haven't yet reached the Registration state, so don't attempt
 		// to register the Host.
+		return
+	case metal3v1alpha1.StateDeleting:
+		// In the deleting state the whole idea is to de-register the host
 		return
 	case metal3v1alpha1.StateRegistering:
 	default:
@@ -353,7 +355,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 			// trying to deprovision.
 			return skipToDelete()
 		case actionError:
-			if r.NeedsRegistration() {
+			if r.NeedsRegistration() && !hsm.haveCreds {
 				// If the host is not registered as a node in Ironic and we
 				// lack the credentials to deprovision it, just continue to
 				// delete.

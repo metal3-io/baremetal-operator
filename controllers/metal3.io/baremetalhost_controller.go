@@ -181,6 +181,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 	// management controller.
 	var bmcCreds *bmc.Credentials
 	var bmcCredsSecret *corev1.Secret
+	haveCreds := false
 	switch host.Status.Provisioning.State {
 	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
 		bmcCreds = &bmc.Credentials{}
@@ -194,6 +195,8 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 			} else {
 				return r.credentialsErrorResult(err, request, host)
 			}
+		} else {
+			haveCreds = true
 		}
 	}
 
@@ -219,7 +222,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
 	}
 
-	stateMachine := newHostStateMachine(host, r, prov)
+	stateMachine := newHostStateMachine(host, r, prov, haveCreds)
 	actResult := stateMachine.ReconcileState(info)
 	result, err = actResult.Result()
 

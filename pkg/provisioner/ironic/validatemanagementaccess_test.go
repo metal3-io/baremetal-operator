@@ -147,12 +147,20 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	host.Spec.BootMACAddress = ""
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
-	ironic := testserver.NewIronic(t).WithDefaultResponses().NodeUpdate(nodes.Node{
-		Name: host.Name,
-		UUID: "uuid",
-		DriverInfo: map[string]interface{}{
-			"test_address": "test.bmc",
-		}})
+	ironic := testserver.NewIronic(t).
+		Node(
+			nodes.Node{
+				Name: host.Name,
+				UUID: "uuid",
+			}).
+		NodeUpdate(
+			nodes.Node{
+				Name: host.Name,
+				UUID: "uuid",
+				DriverInfo: map[string]interface{}{
+					"test_address": "test.bmc",
+				},
+			})
 	ironic.Start()
 	defer ironic.Stop()
 
@@ -169,9 +177,9 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.NotEqual(t, "", host.Status.Provisioning.ID)
+	assert.Equal(t, "uuid", host.Status.Provisioning.ID)
 
-	updates := ironic.GetLastNodeUpdateRequestFor(host.Name)
+	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	newValues := updates[0].Value.(map[string]interface{})
 	assert.Equal(t, "test.bmc", newValues["test_address"])
 }

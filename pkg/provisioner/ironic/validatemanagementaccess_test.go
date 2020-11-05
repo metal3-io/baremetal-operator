@@ -147,25 +147,12 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	host.Spec.BootMACAddress = ""
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
-	before := nodes.Node{
-		Name: host.Name,
-		UUID: "uuid",
-	}
-
-	after := nodes.Node{
+	ironic := testserver.NewIronic(t).WithDefaultResponses().NodeUpdate(nodes.Node{
 		Name: host.Name,
 		UUID: "uuid",
 		DriverInfo: map[string]interface{}{
 			"test_address": "test.bmc",
-		},
-	}
-
-	updates := []nodes.UpdateOperation{}
-	updateCallback := func(incoming []nodes.UpdateOperation) {
-		updates = append(updates, incoming...)
-	}
-
-	ironic := testserver.NewIronic(t).Ready().NodeUpdate(before, after, updateCallback)
+		}})
 	ironic.Start()
 	defer ironic.Stop()
 
@@ -183,10 +170,8 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", host.Status.Provisioning.ID)
-	assert.Equal(t, 1, len(updates))
-	if len(updates) > 0 {
-		// Look for one of the predictable values in the update payload
-		newValues := updates[0].Value.(map[string]interface{})
-		assert.Equal(t, "test.bmc", newValues["test_address"])
-	}
+
+	updates := ironic.GetLastNodeUpdateRequestFor(host.Name)
+	newValues := updates[0].Value.(map[string]interface{})
+	assert.Equal(t, "test.bmc", newValues["test_address"])
 }

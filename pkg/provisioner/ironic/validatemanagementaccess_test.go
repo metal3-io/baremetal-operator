@@ -109,10 +109,8 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 	host.Spec.BootMACAddress = ""
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
-	var createdNode *nodes.Node
-
 	createCallback := func(node nodes.Node) {
-		createdNode = &node
+		t.Fatal("create callback should not be invoked for existing node")
 	}
 
 	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(nodes.Node{
@@ -136,8 +134,6 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, "uuid", host.Status.Provisioning.ID)
-	// no node should have been created
-	assert.Nil(t, createdNode)
 }
 
 func TestValidateManagementAccessNewCredentials(t *testing.T) {

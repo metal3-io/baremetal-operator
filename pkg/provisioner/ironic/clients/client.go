@@ -15,6 +15,8 @@ import (
 )
 
 var tlsConnectionTimeout = time.Second * 30
+var inspectorClient *gophercloud.ServiceClient
+var ironicClient *gophercloud.ServiceClient
 
 // TLSConfig contains the TLS configuration for the Ironic connection.
 // Using Go default values for this will result in no additional trusted
@@ -49,6 +51,10 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*go
 
 // IronicClient creates a client for Ironic
 func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client *gophercloud.ServiceClient, err error) {
+	if ironicClient != nil && ironicClient.Endpoint == ironicEndpoint {
+		return ironicClient, nil
+	}
+
 	switch auth.Type {
 	case NoAuth:
 		client, err = noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
@@ -66,11 +72,16 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 	if err != nil {
 		return
 	}
-	return updateHTTPClient(client, tls)
+	ironicClient = client
+	return updateHTTPClient(ironicClient, tls)
 }
 
 // InspectorClient creates a client for Ironic Inspector
 func InspectorClient(inspectorEndpoint string, auth AuthConfig, tls TLSConfig) (client *gophercloud.ServiceClient, err error) {
+	if inspectorClient != nil && inspectorClient.Endpoint == inspectorEndpoint {
+		return inspectorClient, nil
+	}
+
 	switch auth.Type {
 	case NoAuth:
 		client, err = noauthintrospection.NewBareMetalIntrospectionNoAuth(
@@ -89,5 +100,6 @@ func InspectorClient(inspectorEndpoint string, auth AuthConfig, tls TLSConfig) (
 	if err != nil {
 		return
 	}
-	return updateHTTPClient(client, tls)
+	inspectorClient = client
+	return updateHTTPClient(inspectorClient, tls)
 }

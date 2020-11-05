@@ -849,27 +849,31 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 
 // GetImageChecksum returns the hash value and its algo.
 func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
-	if host.Spec.Image == nil {
-		return "", "", false
+	return host.Spec.Image.GetChecksum()
+}
+
+func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
+	if image == nil {
+		return
 	}
 
-	checksum := host.Spec.Image.Checksum
-	checksumType := host.Spec.Image.ChecksumType
-
-	if checksum == "" {
+	if image.Checksum == "" {
 		// Return empty if checksum is not provided
-		return "", "", false
+		return
 	}
-	if checksumType == "" {
-		// If only checksum is specified. Assume type is md5
-		return checksum, string(MD5), true
-	}
-	switch checksumType {
+
+	switch image.ChecksumType {
+	case "":
+		checksumType = string(MD5)
 	case MD5, SHA256, SHA512:
-		return checksum, string(checksumType), true
+		checksumType = string(image.ChecksumType)
 	default:
-		return "", "", false
+		return
 	}
+
+	checksum = image.Checksum
+	ok = true
+	return
 }
 
 // +kubebuilder:object:root=true

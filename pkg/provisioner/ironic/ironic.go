@@ -346,11 +346,23 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			}
 		}
 
-		checksum, checksumType, ok := p.host.GetImageChecksum()
+		// If there is an image to be provisioned, or an image has
+		// previously been provisioned, include those details. Either
+		// case may mean we are re-adopting a host that was already
+		// known but removed/lost because the pod restarted.
+		var imageData *metal3v1alpha1.Image
+		switch {
+		case p.host.Status.Provisioning.Image.URL != "":
+			imageData = &p.host.Status.Provisioning.Image
+		case p.host.Spec.Image != nil && p.host.Spec.Image.URL != "":
+			imageData = p.host.Spec.Image
+		}
+
+		checksum, checksumType, ok := imageData.GetChecksum()
 
 		if ok {
 			p.log.Info("setting instance info",
-				"image_source", p.host.Spec.Image.URL,
+				"image_source", imageData.URL,
 				"image_os_hash_value", checksum,
 				"image_os_hash_algo", checksumType,
 			)
@@ -359,7 +371,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
 					Path:  "/instance_info/image_source",
-					Value: p.host.Spec.Image.URL,
+					Value: imageData.URL,
 				},
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
@@ -398,11 +410,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				)
 			}
 
-			if p.host.Spec.Image.DiskFormat != nil {
+			if imageData.DiskFormat != nil {
 				updates = append(updates, nodes.UpdateOperation{
 					Op:    nodes.AddOp,
 					Path:  "/instance_info/image_disk_format",
-					Value: *p.host.Spec.Image.DiskFormat,
+					Value: *imageData.DiskFormat,
 				})
 			}
 			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()

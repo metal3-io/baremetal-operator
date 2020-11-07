@@ -24,20 +24,28 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
-var log = logf.Log.WithName("provisioner").WithName("ironic")
-var deprovisionRequeueDelay = time.Second * 10
-var provisionRequeueDelay = time.Second * 10
-var powerRequeueDelay = time.Second * 10
-var introspectionRequeueDelay = time.Second * 15
-var softPowerOffTimeout = time.Second * 180
-var deployKernelURL string
-var deployRamdiskURL string
-var ironicEndpoint string
-var inspectorEndpoint string
-var ironicTrustedCAFile string
-var ironicInsecure bool
-var ironicAuth clients.AuthConfig
-var inspectorAuth clients.AuthConfig
+var (
+	log                       = logf.Log.WithName("provisioner").WithName("ironic")
+	deprovisionRequeueDelay   = time.Second * 10
+	provisionRequeueDelay     = time.Second * 10
+	powerRequeueDelay         = time.Second * 10
+	introspectionRequeueDelay = time.Second * 15
+	softPowerOffTimeout       = time.Second * 180
+	deployKernelURL           string
+	deployRamdiskURL          string
+	ironicEndpoint            string
+	inspectorEndpoint         string
+	ironicTrustedCAFile       string
+	ironicInsecure            bool
+	ironicAuth                clients.AuthConfig
+	inspectorAuth             clients.AuthConfig
+
+	// Keep pointers to ironic and inspector clients configured with
+	// the global auth settings to reuse the connection between
+	// reconcilers.
+	clientIronicSingleton    *gophercloud.ServiceClient
+	clientInspectorSingleton *gophercloud.ServiceClient
+)
 
 const (
 	// See nodes.Node.PowerState for details
@@ -144,6 +152,12 @@ func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc
 		return nil, err
 	}
 
+	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
+		clientIronic, clientInspector)
+}
+
+func newProvisionerWithIronicClients(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
+
 	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
@@ -166,17 +180,29 @@ func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc
 	return p, nil
 }
 
-// A private function to construct an ironicProvisioner (rather than a
-// Provisioner interface) in a consistent way for tests.
-func newProvisioner(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
-	return newProvisionerWithSettings(host, bmcCreds, publisher,
-		ironicEndpoint, ironicAuth, inspectorEndpoint, inspectorAuth,
-	)
-}
-
-// New returns a new Ironic Provisioner
+// New returns a new Ironic Provisioner using the global configuration
+// for finding the Ironic services.
 func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
-	return newProvisioner(host, bmcCreds, publisher)
+	var err error
+	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
+		tlsConf := clients.TLSConfig{
+			TrustedCAFile:      ironicTrustedCAFile,
+			InsecureSkipVerify: ironicInsecure,
+		}
+		clientIronicSingleton, err = clients.IronicClient(
+			ironicEndpoint, ironicAuth, tlsConf)
+		if err != nil {
+			return nil, err
+		}
+
+		clientInspectorSingleton, err = clients.InspectorClient(
+			inspectorEndpoint, inspectorAuth, tlsConf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
+		clientIronicSingleton, clientInspectorSingleton)
 }
 
 func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage string, err error) {

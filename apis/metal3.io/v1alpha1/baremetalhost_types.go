@@ -252,6 +252,11 @@ type BareMetalHostSpec struct {
 	// Image holds the details of the image to be provisioned.
 	Image *Image `json:"image,omitempty"`
 
+	// LiveImage holds the details of the live-image to be booted.
+	// Only one of Image or Live image may be specified, and
+	// at present UserData cannot be used with LiveImage.
+	LiveImage *LiveImage `json:"liveImage,omitempty"`
+
 	// UserData holds the reference to the Secret containing the user
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
@@ -307,6 +312,13 @@ type Image struct {
 	// Needs to be set to raw for raw images streaming
 	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk
 	DiskFormat *string `json:"format,omitempty"`
+}
+
+// LiveImage holds the details of a live-image either to boot or that
+// has been booted.
+type LiveImage struct {
+	// URL is a location of an iso image to boot.
+	URL string `json:"url"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -570,6 +582,10 @@ type ProvisionStatus struct {
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
 
+	// LiveImage holds the details of the last live-image
+	// successfully booted by the host.
+	LiveImage LiveImage `json:"image,omitempty"`
+
 	// The RootDevicehints set by the user
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
@@ -752,18 +768,27 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		// The host is not supposed to be powered on.
 		return false
 	}
-	if host.Spec.Image == nil {
-		// Without an image, there is nothing to provision.
-		return false
+	if host.Spec.Image != nil {
+		if host.Spec.Image.URL == "" {
+			// We have an Image struct but it is empty
+			return false
+		}
+		if host.Status.Provisioning.Image.URL == "" {
+			// We have an image set, but not provisioned.
+			return true
+		}
 	}
-	if host.Spec.Image.URL == "" {
-		// We have an Image struct but it is empty
-		return false
+	if host.Spec.LiveImage != nil {
+		if host.Spec.LiveImage.URL == "" {
+			// We have a LiveImage struct but it is empty
+			return false
+		}
+		if host.Status.Provisioning.LiveImage.URL == "" {
+			// We have an image set, but not provisioned.
+			return true
+		}
 	}
-	if host.Status.Provisioning.Image.URL == "" {
-		// We have an image set, but not provisioned.
-		return true
-	}
+	// Without an image, there is nothing to provision.
 	return false
 }
 

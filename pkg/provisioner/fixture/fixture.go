@@ -170,7 +170,7 @@ func (p *fixtureProvisioner) UpdateHardwareState() (result provisioner.Result, e
 }
 
 // Adopt allows an externally-provisioned server to be adopted.
-func (p *fixtureProvisioner) Adopt() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	if p.host.Spec.ExternallyProvisioned && !p.adopted {
 		p.adopted = true

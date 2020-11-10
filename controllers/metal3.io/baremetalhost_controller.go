@@ -565,7 +565,7 @@ func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	// Adopt the host in case it has been re-registered during the
 	// deprovisioning process before it completed
-	provResult, err := prov.Adopt()
+	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		return actionError{err}
 	}
@@ -699,7 +699,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 // action. We use the Adopt() API to make sure that the provisioner is aware of
 // the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Adopt()
+	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		return actionError{err}
 	}

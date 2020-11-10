@@ -367,7 +367,7 @@ func (m *mockProvisioner) UpdateHardwareState() (result provisioner.Result, err 
 	return m.nextResult, err
 }
 
-func (m *mockProvisioner) Adopt() (result provisioner.Result, err error) {
+func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	return m.nextResult, err
 }
 

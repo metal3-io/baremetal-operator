@@ -997,7 +997,7 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 }
 
 // Adopt allows an externally-provisioned server to be adopted by Ironic.
-func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	if ironicNode, err = p.findExistingHost(); err != nil {
@@ -1024,8 +1024,17 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 	case nodes.AdoptFail:
-		result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
-			ironicNode.LastError)
+		if force {
+			return p.changeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{
+					Target: nodes.TargetAdopt,
+				},
+			)
+		} else {
+			result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
+				ironicNode.LastError)
+		}
 	case nodes.Active:
 	default:
 	}

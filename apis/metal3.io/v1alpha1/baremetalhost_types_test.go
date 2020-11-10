@@ -207,6 +207,23 @@ func TestHostNeedsProvisioning(t *testing.T) {
 		},
 
 		{
+			Scenario: "with live image url, online",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					LiveImage: &LiveImage{
+						URL: "not-empty",
+					},
+					Online: true,
+				},
+			},
+			Expected: true,
+		},
+
+		{
 			Scenario: "with image url, offline",
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
@@ -224,7 +241,24 @@ func TestHostNeedsProvisioning(t *testing.T) {
 		},
 
 		{
-			Scenario: "already provisioned",
+			Scenario: "with live-image url, offline",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					LiveImage: &LiveImage{
+						URL: "not-empty",
+					},
+					Online: false,
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "image already provisioned",
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
@@ -239,6 +273,30 @@ func TestHostNeedsProvisioning(t *testing.T) {
 				Status: BareMetalHostStatus{
 					Provisioning: ProvisionStatus{
 						Image: Image{
+							URL: "also-not-empty",
+						},
+					},
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "live-image already provisioned",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					LiveImage: &LiveImage{
+						URL: "not-empty",
+					},
+					Online: true,
+				},
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						LiveImage: LiveImage{
 							URL: "also-not-empty",
 						},
 					},

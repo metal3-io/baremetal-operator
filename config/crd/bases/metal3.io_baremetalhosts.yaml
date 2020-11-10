@@ -155,6 +155,15 @@ spec:
                 - checksum
                 - url
                 type: object
+              liveImage:
+                description: LiveImage holds the details of the live-image to be booted. Only one of Image or Live image may be specified, and at present UserData cannot be used with LiveImage.
+                properties:
+                  url:
+                    description: URL is a location of an iso image to boot.
+                    type: string
+                required:
+                - url
+                type: object
               metaData:
                 description: MetaData holds the reference to the Secret containing host metadata (e.g. meta_data.json which is passed to Config Drive).
                 properties:
@@ -566,6 +575,15 @@ spec:
                         type: string
                     required:
                     - checksum
+                    - url
+                    type: object
+                  liveImage:
+                    description: LiveImage holds the details of the last live-image successfully booted by the host.
+                    properties:
+                      url:
+                        description: URL is a location of an iso image to boot.
+                        type: string
+                    required:
                     - url
                     type: object
                   rootDeviceHints:

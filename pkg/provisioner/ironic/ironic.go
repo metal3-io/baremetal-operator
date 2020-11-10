@@ -1215,8 +1215,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 	if ironicNode == nil {
-		p.log.Info("no node found, already deleted")
-		return result, nil
+		return result, provisioner.NeedsRegistration
 	}
 
 	p.log.Info("deprovisioning host",
@@ -1225,44 +1224,20 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 		"deploy step", ironicNode.DeployStep,
+		"instance_info", ironicNode.InstanceInfo,
 	)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 
 	case nodes.Error, nodes.CleanFail:
-		if !ironicNode.Maintenance {
-			p.log.Info("setting host maintenance flag to force image delete")
-			return p.setMaintenanceFlag(ironicNode, true)
-		}
-		// Once it's in maintenance, we can start the delete process.
 		return p.changeNodeProvisionState(
 			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 
 	case nodes.Available:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
 		return result, nil
-
-	case nodes.Inspecting:
-		p.log.Info("waiting for inspection to complete")
-		result.Dirty = true
-		result.RequeueAfter = introspectionRequeueDelay
-		return result, nil
-
-	case nodes.InspectWait:
-		p.log.Info("cancelling inspection")
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
-		)
-
-	case nodes.InspectFail:
-		p.log.Info("inspection failed or cancelled")
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-		)
 
 	case nodes.Deleting:
 		p.log.Info("deleting")
@@ -1284,17 +1259,16 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
-	case nodes.Manageable, nodes.Enroll, nodes.Verifying:
-		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
-		return result, nil
-
-	default:
+	case nodes.Active:
 		p.log.Info("starting deprovisioning")
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
+
+	default:
+		return result, fmt.Errorf("Unhandled ironic state %s", ironicNode.ProvisionState)
 	}
 }
 

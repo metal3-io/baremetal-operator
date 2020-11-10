@@ -336,7 +336,13 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
 	} else {
-		switch actResult.(type) {
+		skipToDelete := func() actionResult {
+			hsm.NextState = metal3v1alpha1.StateDeleting
+			info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutDeprov.Inc)
+			return actionComplete{}
+		}
+
+		switch r := actResult.(type) {
 		case actionComplete:
 			hsm.NextState = metal3v1alpha1.StateDeleting
 		case actionFailed:
@@ -345,9 +351,14 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 			// Note that this is entirely theoretical, as the
 			// Ironic provisioner currently never gives up
 			// trying to deprovision.
-			hsm.NextState = metal3v1alpha1.StateDeleting
-			info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutDeprov.Inc)
-			actResult = actionComplete{}
+			return skipToDelete()
+		case actionError:
+			if r.NeedsRegistration() {
+				// If the host is not registered as a node in Ironic and we
+				// lack the credentials to deprovision it, just continue to
+				// delete.
+				return skipToDelete()
+			}
 		}
 	}
 	return actResult

@@ -119,12 +119,21 @@ func TestDeprovision(t *testing.T) {
 		expectedRequestAfter int
 	}{
 		{
+			name: "active state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Active),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
 			name: "error state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Error),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 0,
+			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
 		{
@@ -135,24 +144,6 @@ func TestDeprovision(t *testing.T) {
 			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
-		},
-		{
-			name: "inspecting state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				ProvisionState: string(nodes.Inspecting),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 15,
-			expectedDirty:        true,
-		},
-		{
-			name: "inspectWait state",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-				ProvisionState: string(nodes.InspectWait),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
 		},
 		{
 			name: "deleting state",
@@ -180,34 +171,6 @@ func TestDeprovision(t *testing.T) {
 			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
-		},
-
-		{
-			name: "Manageable state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				ProvisionState: string(nodes.Manageable),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
-		},
-		{
-			name: "Enroll state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				ProvisionState: string(nodes.Enroll),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
-		},
-		{
-			name: "Verifying state",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-				ProvisionState: string(nodes.Verifying),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
 		},
 	}
 

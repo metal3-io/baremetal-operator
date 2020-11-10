@@ -560,9 +560,23 @@ func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	// Adopt the host in case it has been re-registered during the
+	// deprovisioning process before it completed
+	provResult, err := prov.Adopt()
+	if err != nil {
+		return actionError{err}
+	}
+	if provResult.ErrorMessage != "" {
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
+	}
+	if provResult.Dirty {
+		info.host.ClearError()
+		return actionContinue{provResult.RequeueAfter}
+	}
+
 	info.log.Info("deprovisioning")
 
-	provResult, err := prov.Deprovision()
+	provResult, err = prov.Deprovision()
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to deprovision")}
 	}

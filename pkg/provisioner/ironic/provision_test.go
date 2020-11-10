@@ -39,7 +39,7 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 0,
+			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
 		{
@@ -48,7 +48,7 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},
 		{
@@ -133,8 +133,8 @@ func TestDeprovision(t *testing.T) {
 				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
 		},
 		{
 			name: "inspecting state",

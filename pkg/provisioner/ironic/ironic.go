@@ -993,14 +993,7 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 	)
 	p.publisher("ProvisioningStarted",
 		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
-
-	var opts nodes.ProvisionStateOpts
-	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.DeployFail {
-		opts = nodes.ProvisionStateOpts{Target: nodes.TargetActive}
-	} else {
-		opts = nodes.ProvisionStateOpts{Target: nodes.TargetProvide}
-	}
-	return p.changeNodeProvisionState(ironicNode, opts)
+	return
 }
 
 // Adopt allows an externally-provisioned server to be adopted by Ironic.
@@ -1094,12 +1087,22 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			return result, nil
 		}
 		p.log.Info("recovering from previous failure")
-		return p.startProvisioning(ironicNode, hostConf)
+		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+			return provResult, err
+		}
+
+		return p.changeNodeProvisionState(ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetActive})
 
 	case nodes.Manageable:
-		return p.startProvisioning(ironicNode, hostConf)
+		return p.changeNodeProvisionState(ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetProvide})
 
 	case nodes.Available:
+		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+			return provResult, err
+		}
+
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
 		p.log.Info("making host active")
@@ -1238,11 +1241,8 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		)
 
 	case nodes.Available:
-		// Move back to manageable
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-		)
+		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
+		return result, nil
 
 	case nodes.Inspecting:
 		p.log.Info("waiting for inspection to complete")
@@ -1266,12 +1266,14 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	case nodes.Deleting:
 		p.log.Info("deleting")
+		// Transitions to Cleaning upon completion
 		result.Dirty = true
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
+		// Transitions to Available upon completion
 		result.Dirty = true
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil

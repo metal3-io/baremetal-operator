@@ -73,6 +73,7 @@ func TestAdopt(t *testing.T) {
 
 			expectedDirty:        false,
 			expectedRequestAfter: 0,
+			expectedError:        true,
 		},
 	}
 

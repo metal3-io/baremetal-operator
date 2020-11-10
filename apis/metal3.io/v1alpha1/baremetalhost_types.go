@@ -552,7 +552,7 @@ type BareMetalHostStatus struct {
 	// on this host.
 	OperationHistory OperationHistory `json:"operationHistory"`
 
-	// ErrorCount records how many times the host has encoutered an error since the last successful operation
+	// ErrorCount records how many times the host has encountered an error since the last successful operation
 	ErrorCount int `json:"errorCount"`
 }
 

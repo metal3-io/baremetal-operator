@@ -248,7 +248,7 @@ spec:
             description: BareMetalHostStatus defines the observed state of BareMetalHost
             properties:
               errorCount:
-                description: ErrorCount records how many times the host has encoutered an error since the last successful operation
+                description: ErrorCount records how many times the host has encountered an error since the last successful operation
                 type: integer
               errorMessage:
                 description: the last error message reported by the provisioning subsystem

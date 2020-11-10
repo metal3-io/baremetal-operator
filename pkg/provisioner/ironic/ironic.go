@@ -996,7 +996,7 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	if ironicNode, err = p.findExistingHost(); err != nil {
-		err = errors.Wrap(err, "could not find host to adpot")
+		err = errors.Wrap(err, "could not find host to adopt")
 		return
 	}
 	if ironicNode == nil {
@@ -1025,8 +1025,20 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 	case nodes.AdoptFail:
-		result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
-			ironicNode.LastError)
+		// The node is in AdoptFail, the way to get node
+		// out of this state is by target manage to go
+		// to manageable. Once the node is in manageable
+		// it will move to target adopt.
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{
+				Target: nodes.TargetManage,
+			},
+		)
+		// Throw an error, so we can record a failure in recordActionFailure
+		// and retry with exponential backoff and jitter.
+		result.ErrorMessage = "Failed to adopt"
+		return
 	case nodes.Active:
 	default:
 	}

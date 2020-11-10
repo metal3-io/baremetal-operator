@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 )
 
 // IronicMock is a test server that implements Ironic's semantics
@@ -209,5 +211,27 @@ func (m *IronicMock) WithNodeStatesPowerUpdate(nodeUUID string, code int) *Ironi
 // WithNodeValidate configures the server with a valid response for /v1/nodes/<node>/validate
 func (m *IronicMock) WithNodeValidate(nodeUUID string) *IronicMock {
 	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/validate", "{}", http.StatusOK)
+	return m
+}
+
+// Port configures the server with a valid response for
+//    [GET] /v1/nodes/<node uuid>/ports
+//    [GET] /v1/ports
+//    [GET] /v1/ports?=address=<node uuid>
+func (m *IronicMock) Port(port ports.Port) *IronicMock {
+	if port.NodeUUID == "" {
+		m.MockServer.t.Error("When using withPort(), the port must include a NodeUUID.")
+	}
+
+	resp := map[string][]ports.Port{
+		"ports": {port},
+	}
+
+	address := url.QueryEscape(port.Address)
+
+	m.ResponseJSON(m.buildURL("/v1/nodes/"+port.NodeUUID+"/ports", http.MethodGet), resp)
+	m.ResponseJSON(m.buildURL("/v1/ports", http.MethodGet), resp)
+	m.ResponseJSON(m.buildURL("/v1/ports?address="+address, http.MethodGet), resp)
+
 	return m
 }

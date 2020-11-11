@@ -21,6 +21,14 @@ secretGenerator:
   - tls.crt=ironic-inspector.crt
   - tls.key=ironic-inspector.key
   type: "kubernetes.io/tls"
+- name: mariadb-ca-cert
+  files:
+  - tls.crt=mariadb-ca.crt
+- name: mariadb-cert
+  files:
+  - tls.crt=mariadb.crt
+  - tls.key=mariadb.key
+  type: "kubernetes.io/tls"
 
 patchesStrategicMerge:
 - tls.yaml

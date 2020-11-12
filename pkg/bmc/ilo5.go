@@ -3,6 +3,7 @@
 package bmc
 
 import (
+	"net/http"
 	"net/url"
 )
 
@@ -92,4 +93,8 @@ func (a *iLO5AccessDetails) VendorInterface() string {
 
 func (a *iLO5AccessDetails) SupportsSecureBoot() bool {
 	return true
+}
+
+func (a *iLO5AccessDetails) Validate(bmcCreds Credentials, bmcClient *http.Client) error {
+	return nil
 }

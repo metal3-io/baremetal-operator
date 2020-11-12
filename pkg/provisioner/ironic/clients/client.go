@@ -15,6 +15,7 @@ import (
 )
 
 var tlsConnectionTimeout = time.Second * 30
+var bmcIdleConnTimeout = time.Second * 15
 
 // TLSConfig contains the TLS configuration for the Ironic connection.
 // Using Go default values for this will result in no additional trusted
@@ -90,4 +91,21 @@ func InspectorClient(inspectorEndpoint string, auth AuthConfig, tls TLSConfig) (
 		return
 	}
 	return updateHTTPClient(client, tls)
+}
+
+// BMCClient creates a HTTP client to access the BMC
+func BMCClient(tlsConf TLSConfig) (client *http.Client, err error) {
+	tlsInfo := transport.TLSInfo{
+		TrustedCAFile:      tlsConf.TrustedCAFile,
+		InsecureSkipVerify: tlsConf.InsecureSkipVerify,
+	}
+	tlsTransport, err := transport.NewTransport(tlsInfo, tlsConnectionTimeout)
+	if err != nil {
+		return client, err
+	}
+	tlsTransport.IdleConnTimeout = bmcIdleConnTimeout
+	client = &http.Client{
+		Transport: tlsTransport,
+	}
+	return client, nil
 }

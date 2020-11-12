@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -100,4 +101,8 @@ func (a *ibmcAccessDetails) VendorInterface() string {
 
 func (a *ibmcAccessDetails) SupportsSecureBoot() bool {
 	return false
+}
+
+func (a *ibmcAccessDetails) Validate(bmcCreds Credentials, bmcClient *http.Client) error {
+	return nil
 }

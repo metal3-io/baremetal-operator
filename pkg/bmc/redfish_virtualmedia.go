@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"net/http"
 	"net/url"
 )
 
@@ -88,4 +89,10 @@ func (a *redfishVirtualMediaAccessDetails) VendorInterface() string {
 
 func (a *redfishVirtualMediaAccessDetails) SupportsSecureBoot() bool {
 	return true
+}
+
+func (a *redfishVirtualMediaAccessDetails) Validate(bmcCreds Credentials, bmcClient *http.Client) error {
+	address := getRedfishAddress(a.bmcType, a.host)
+	return ValidateVirtualMedia(address, bmcCreds.Username, bmcCreds.Password, a.path,
+		a.disableCertificateVerification, bmcClient)
 }

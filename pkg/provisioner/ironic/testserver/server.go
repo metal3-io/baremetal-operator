@@ -21,6 +21,21 @@ func New(t *testing.T, name string) *MockServer {
 		mux:               mux,
 		responsesByMethod: make(map[string]map[string]response),
 		defaultResponses:  []defaultResponse{},
+		secure:            false,
+	}
+}
+
+// NewTLS returns a secure MockServer
+func NewTLS(t *testing.T, name string) *MockServer {
+	mux := http.NewServeMux()
+	t.Logf("%s: new server created", name)
+	return &MockServer{
+		t:                 t,
+		name:              name,
+		mux:               mux,
+		responsesByMethod: make(map[string]map[string]response),
+		defaultResponses:  []defaultResponse{},
+		secure:            true,
 	}
 }
 
@@ -51,6 +66,7 @@ type MockServer struct {
 	FullRequests []simpleRequest
 	server       *httptest.Server
 	errorCode    int
+	secure       bool
 
 	responsesByMethod map[string]map[string]response
 	defaultResponses  []defaultResponse
@@ -66,6 +82,16 @@ func (m *MockServer) Endpoint() string {
 	response := m.server.URL + "/v1/"
 	m.t.Logf("%s: endpoint: %s", m.name, response)
 	return response
+}
+
+//Client returns a client
+func (m *MockServer) Client() *http.Client {
+	return m.server.Client()
+}
+
+// RawEndpoint returns the plain URL to the server
+func (m *MockServer) RawEndpoint() string {
+	return m.server.Listener.Addr().String()
 }
 
 func (m *MockServer) logRequest(r *http.Request, response string) {
@@ -94,6 +120,7 @@ func (m *MockServer) buildHandler(pattern string) func(http.ResponseWriter, *htt
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if response, ok := m.responsesByMethod[r.URL.Path][r.Method]; ok {
+			fmt.Printf("%+v\n", response.payload)
 			m.sendData(w, r, response.code, response.payload)
 			return
 		}
@@ -163,7 +190,11 @@ func (m *MockServer) ErrorResponse(pattern string, errorCode int) *MockServer {
 
 // Start runs the server
 func (m *MockServer) Start() *MockServer {
-	m.server = httptest.NewServer(m.mux)
+	if m.secure {
+		m.server = httptest.NewTLSServer(m.mux)
+	} else {
+		m.server = httptest.NewServer(m.mux)
+	}
 	//catch all handler
 	m.mux.HandleFunc("/", m.defaultHandler)
 	return m

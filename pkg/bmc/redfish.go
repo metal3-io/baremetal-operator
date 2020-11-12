@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -120,6 +121,10 @@ func (a *redfishAccessDetails) VendorInterface() string {
 
 func (a *redfishAccessDetails) SupportsSecureBoot() bool {
 	return true
+}
+
+func (a *redfishAccessDetails) Validate(bmcCreds Credentials, bmcClient *http.Client) error {
+	return nil
 }
 
 // iDrac Redfish Overrides

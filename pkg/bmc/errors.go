@@ -26,3 +26,13 @@ func (e CredentialsValidationError) Error() string {
 	return fmt.Sprintf("Validation error with BMC credentials: %s",
 		e.message)
 }
+
+// AccessVirtualMediaValidationError is returned when the BMC can not be reached
+// to validate the virtual media support
+type AccessVirtualMediaValidationError struct {
+	message string
+}
+
+func (e AccessVirtualMediaValidationError) Error() string {
+	return e.message
+}

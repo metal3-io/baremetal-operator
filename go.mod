@@ -6,8 +6,10 @@ require (
 	github.com/go-logr/logr v0.3.0
 	github.com/golangci/golangci-lint v1.32.0
 	github.com/gophercloud/gophercloud v0.12.0
+	github.com/hashicorp/go-version v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
+	github.com/stmcginnis/gofish v0.8.1-0.20210224221804-1d2c11e698c9
 	github.com/stretchr/testify v1.6.1
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200819165624-17cef6e3e9d5
 	k8s.io/api v0.20.1

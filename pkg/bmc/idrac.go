@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -98,4 +99,8 @@ func (a *iDracAccessDetails) VendorInterface() string {
 // by default.
 func (a *iDracAccessDetails) SupportsSecureBoot() bool {
 	return false
+}
+
+func (a *iDracAccessDetails) Validate(bmcCreds Credentials, bmcClient *http.Client) error {
+	return nil
 }

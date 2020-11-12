@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"net/http"
 	"net/url"
 )
 
@@ -95,4 +96,8 @@ func (a *ipmiAccessDetails) VendorInterface() string {
 
 func (a *ipmiAccessDetails) SupportsSecureBoot() bool {
 	return false
+}
+
+func (a *ipmiAccessDetails) Validate(bmcCreds Credentials, bmcClient *http.Client) error {
+	return nil
 }

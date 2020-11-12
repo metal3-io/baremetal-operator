@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -47,6 +48,9 @@ var (
 	// reconcilers.
 	clientIronicSingleton    *gophercloud.ServiceClient
 	clientInspectorSingleton *gophercloud.ServiceClient
+	// Keep pointers to bmc client to reuse the connection between
+	// reconcilers.
+	bmcClientSingleton *http.Client
 )
 
 const (
@@ -137,6 +141,8 @@ type ironicProvisioner struct {
 	status *metal3v1alpha1.ProvisionStatus
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
+	// http client to be used to access the BMC for validation
+	bmcClient *http.Client
 	// a client for talking to ironic
 	client *gophercloud.ServiceClient
 	// a client for talking to ironic-inspector
@@ -178,12 +184,21 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 	if err != nil {
 		return nil, err
 	}
+	// TODO(iurygregory): Update here if we want to consider a trusted CAFile for the bmc.
+	bmcTLSConf := clients.TLSConfig{
+		TrustedCAFile:      "",
+		InsecureSkipVerify: host.Spec.BMC.DisableCertificateVerification,
+	}
+	bmcClient, err := clients.BMCClient(bmcTLSConf)
+	if err != nil {
+		return nil, err
+	}
 
 	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
-		clientIronic, clientInspector)
+		clientIronic, clientInspector, bmcClient)
 }
 
-func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
+func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient, bmcClient *http.Client) (*ironicProvisioner, error) {
 	// Ensure we have a microversion high enough to get the features
 	// we need.
 	clientIronic.Microversion = "1.56"
@@ -191,6 +206,7 @@ func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds
 		host:      host,
 		status:    &(host.Status.Provisioning),
 		bmcCreds:  bmcCreds,
+		bmcClient: bmcClient,
 		client:    clientIronic,
 		inspector: clientInspector,
 		publisher: publisher,
@@ -221,9 +237,21 @@ func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher 
 		if err != nil {
 			return nil, err
 		}
+
+	}
+	// TODO(iurygregory): Update here if we want to consider a trusted CAFile for the bmc.
+	if bmcClientSingleton == nil {
+		tlsConf := clients.TLSConfig{
+			TrustedCAFile:      "",
+			InsecureSkipVerify: true,
+		}
+		bmcClientSingleton, err = clients.BMCClient(tlsConf)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
-		clientIronicSingleton, clientInspectorSingleton)
+		clientIronicSingleton, clientInspectorSingleton, bmcClientSingleton)
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
@@ -379,6 +407,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	}
 
 	var ironicNode *nodes.Node
+	var validationError error
 
 	p.debugLog.Info("validating management access")
 
@@ -390,6 +419,12 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		default:
 			result, err = transientError(errors.Wrap(err, "failed to find existing host"))
 		}
+		return
+	}
+
+	validationError = bmcAccess.Validate(p.bmcCreds, p.bmcClient)
+	if validationError != nil {
+		result, err = operationFailed(validationError.Error())
 		return
 	}
 

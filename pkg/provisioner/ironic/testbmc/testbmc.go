@@ -1,6 +1,7 @@
 package testbmc
 
 import (
+	"net/http"
 	"net/url"
 
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
@@ -84,4 +85,8 @@ func (a *testAccessDetails) VendorInterface() string {
 
 func (a *testAccessDetails) SupportsSecureBoot() bool {
 	return false
+}
+
+func (a *testAccessDetails) Validate(bmcCreds bmc.Credentials, bmcClient *http.Client) error {
+	return nil
 }

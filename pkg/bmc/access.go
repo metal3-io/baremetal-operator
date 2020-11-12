@@ -3,6 +3,7 @@ package bmc
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -62,6 +63,11 @@ type AccessDetails interface {
 
 	// Whether the driver supports changing secure boot state.
 	SupportsSecureBoot() bool
+
+	// Function that can be used to call any type of validation
+	// that requires access to the BMC.
+	// e.g Check if virtual media is supported.
+	Validate(bmcCreds Credentials, bmcClient *http.Client) error
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {

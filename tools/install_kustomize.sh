@@ -19,4 +19,4 @@ then
     go mod download
 fi
 
-go build -o "${OUTPUT}" "$CMDPATH"
+go build -o "${OUTPUT}" "sigs.k8s.io/kustomize/kustomize/v3"

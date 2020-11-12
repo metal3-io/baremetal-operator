@@ -2,6 +2,7 @@
 
 set -ex
 
+CONTROLLER_TOOLS_VERSION=${1:-v0.4.0}
 OUTPUT=bin/controller-gen
 
 # Check for a vendor directory if any downstream forks use that dependency
@@ -13,11 +14,11 @@ then
 fi
 
 
-CMDPATH="$GOPATH/pkg/mod/sigs.k8s.io/controller-tools@v0.4.0/cmd/controller-gen"
+CMDPATH="$GOPATH/pkg/mod/sigs.k8s.io/controller-tools@${CONTROLLER_TOOLS_VERSION}/cmd/controller-gen"
 
 if [ ! -f "$CMDPATH" ]
 then
     go mod download
 fi
 
-go build -o "${OUTPUT}" "$CMDPATH"
+go build -o "${OUTPUT}" "sigs.k8s.io/controller-tools/cmd/controller-gen"

@@ -20,4 +20,4 @@ then
     go mod download
 fi
 
-go build -o "${OUTPUT}" "$CMDPATH"
+go build -o "${OUTPUT}" "github.com/golangci/golangci-lint/cmd/golangci-lint"

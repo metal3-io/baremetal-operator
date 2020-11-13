@@ -87,6 +87,19 @@ func (m *IronicMock) buildURL(url string, method string) string {
 	return fmt.Sprintf("%s:%s", url, method)
 }
 
+// Delete configures the server with a valid response for [DELETE] /v1/nodes/ on the
+// specific node id
+func (m *IronicMock) Delete(id string) *IronicMock {
+	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id, http.MethodDelete), "", http.StatusAccepted)
+	return m
+}
+
+// DeleteError configures the server with an error response for [DELETE] /v1/nodes/
+func (m *IronicMock) DeleteError(id string, errorCode int) *IronicMock {
+	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id, http.MethodDelete), "", errorCode)
+	return m
+}
+
 // Node configures the server with a valid response for /v1/nodes/{name,uuid}
 func (m *IronicMock) Node(node nodes.Node) *IronicMock {
 	if node.UUID != "" {
@@ -95,6 +108,12 @@ func (m *IronicMock) Node(node nodes.Node) *IronicMock {
 	if node.Name != "" {
 		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.Name, http.MethodGet), node)
 	}
+	return m
+}
+
+// NodeUpdateError configures configures the server with an error response for [PATCH] /v1/nodes/{id}
+func (m *IronicMock) NodeUpdateError(id string, errorCode int) *IronicMock {
+	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id, http.MethodPatch), "", errorCode)
 	return m
 }
 

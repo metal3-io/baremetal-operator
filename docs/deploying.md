@@ -158,6 +158,10 @@ for you.
   IRONIC_CACERT_FILE
 - IRONIC_INSPECTOR_CAKEY_FILE : CA certificate key path, unneeded if inspector
   certificates exist
+- MARIADB_KEY_FILE: Path to the key of MariaDB
+- MARIADB_CERT_FILE:  Path to the cert of MariaDB
+- MARIADB_CAKEY_FILE: Path to the CA key of MariaDB
+- MARIADB_CACERT_FILE: Path to the CA certificate of MariaDB
 
 Then run :
 

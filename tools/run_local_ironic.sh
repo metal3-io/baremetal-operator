@@ -13,7 +13,7 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 HTTP_PORT="6180"
 PROVISIONING_IP="${PROVISIONING_IP:-"172.22.0.1"}"
 CLUSTER_PROVISIONING_IP="${CLUSTER_PROVISIONING_IP:-"172.22.0.2"}"
-PROVISIONING_CIDR="${PROVISIONING_CIDR:-"24"}"
+PROVISIONING_CIDR="${PROVISIONING_CIDR:-"24"}" 
 PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-"ironicendpoint"}"
 CLUSTER_DHCP_RANGE="${CLUSTER_DHCP_RANGE:-"172.22.0.10,172.22.0.100"}"
 
@@ -24,6 +24,16 @@ IRONIC_KEY_FILE="${IRONIC_KEY_FILE:-}"
 IRONIC_INSPECTOR_CACERT_FILE="${IRONIC_INSPECTOR_CACERT_FILE:-}"
 IRONIC_INSPECTOR_CERT_FILE="${IRONIC_INSPECTOR_CERT_FILE:-}"
 IRONIC_INSPECTOR_KEY_FILE="${IRONIC_INSPECTOR_KEY_FILE:-}"
+
+MARIADB_CACERT_FILE="${MARIADB_CACERT_FILE:-}"
+MARIADB_CERT_FILE="${MARIADB_CERT_FILE:-}"
+MARIADB_KEY_FILE="${MARIADB_KEY_FILE:-}"
+
+# Ensure that the MariaDB key file allow a non-owned user to read.
+if [ -n "${MARIADB_KEY_FILE}" ]
+then
+  chmod 604 "${MARIADB_KEY_FILE}"
+fi
 
 if [ -n "$IRONIC_CERT_FILE" ]; then
     export IRONIC_BASE_URL="https://${CLUSTER_PROVISIONING_IP}"
@@ -63,9 +73,11 @@ sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_INSPECTOR_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_KEEPALIVED_IMAGE"
 
 CERTS_MOUNTS=""
+
 if [ -n "$IRONIC_CACERT_FILE" ]; then
      CERTS_MOUNTS="-v ${IRONIC_CACERT_FILE}:/certs/ca/ironic/tls.crt "
 fi
+
 if [ -n "$IRONIC_CERT_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_CERT_FILE}:/certs/ironic/tls.crt "
 fi
@@ -80,6 +92,16 @@ if [ -n "$IRONIC_INSPECTOR_CERT_FILE" ]; then
 fi
 if [ -n "$IRONIC_INSPECTOR_KEY_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_INSPECTOR_KEY_FILE}:/certs/ironic-inspector/tls.key "
+fi
+
+if [ -n "$MARIADB_CACERT_FILE" ]; then
+     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_CACERT_FILE}:/certs/ca/mariadb/tls.crt "
+fi
+if [ -n "$MARIADB_CERT_FILE" ]; then
+     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_CERT_FILE}:/certs/mariadb/tls.crt "
+fi
+if [ -n "$MARIADB_KEY_FILE" ]; then
+     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_KEY_FILE}:/certs/mariadb/tls.key "
 fi
 
 BASIC_AUTH_MOUNTS=""
@@ -157,7 +179,7 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
 # https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
-     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runmariadb \
      --env "MARIADB_PASSWORD=$mariadb_password" "${IRONIC_IMAGE}"
 

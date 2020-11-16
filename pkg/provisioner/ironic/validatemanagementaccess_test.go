@@ -201,6 +201,7 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 
 	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
 	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
+	ironic.AddDefaultResponse("/v1/nodes/"+existingNode.UUID, "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
 

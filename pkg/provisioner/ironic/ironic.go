@@ -492,6 +492,29 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			p.log.Info("setting provisioning id", "ID", p.status.ID)
 		}
 
+		if ironicNode.Name == "" {
+			updates := nodes.UpdateOpts{
+				nodes.UpdateOperation{
+					Op:    nodes.ReplaceOp,
+					Path:  "/name",
+					Value: p.host.Name,
+				},
+			}
+			ironicNode, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+			switch err.(type) {
+			case nil:
+			case gophercloud.ErrDefault409:
+				p.log.Info("could not update ironic node name, busy")
+				result.Dirty = true
+				result.RequeueAfter = provisionRequeueDelay
+				return result, nil
+			default:
+				return result, errors.Wrap(err, "failed to update ironc node name")
+			}
+			p.log.Info("updated ironic node name")
+
+		}
+
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
 		if credentialsChanged {

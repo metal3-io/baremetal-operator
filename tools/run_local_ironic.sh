@@ -132,7 +132,8 @@ sudo mkdir -p "$IRONIC_DATA_DIR/html/images"
 # By default, image directory points to dir having needed images when metal3-dev-env environment in use.
 # In other cases user has to store images beforehand.
 
-for name in ironic ironic-api ironic-conductor ironic-inspector dnsmasq httpd mariadb ipa-downloader ironic-endpoint-keepalived; do
+for name in ironic ironic-api ironic-conductor ironic-inspector dnsmasq httpd mariadb ipa-downloader \
+    ironic-endpoint-keepalived ironic-log-watch ironic-inspector-log-watch; do
     sudo "${CONTAINER_RUNTIME}" ps | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" kill "$name"
     sudo "${CONTAINER_RUNTIME}" ps --all | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" rm "$name" -f
 done
@@ -209,9 +210,21 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-endpoin
     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_KEEPALIVED_IMAGE}"
 
+# Start ironic-log-watch
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-log-watch \
+    ${POD} --entrypoint /bin/runlogwatch.sh \
+     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
+
 # Start Ironic Inspector
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"
+
+# Start ironic-inspector-log-watch
+# shellcheck disable=SC2086
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector-log-watch \
+    ${POD} --entrypoint /bin/runlogwatch.sh \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"

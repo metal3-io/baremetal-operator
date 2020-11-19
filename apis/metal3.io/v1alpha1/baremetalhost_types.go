@@ -553,6 +553,7 @@ type BareMetalHostStatus struct {
 	OperationHistory OperationHistory `json:"operationHistory"`
 
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
+	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
 }
 

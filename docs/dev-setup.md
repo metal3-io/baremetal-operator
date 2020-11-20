@@ -69,7 +69,6 @@ The following environment variables can be passed to configure the ironic:
 - PROVISIONING_IP - provisioning interface IP address to use for ironic,
   dnsmasq(dhcpd) and httpd (default 172.22.0.1)
 - CLUSTER_PROVISIONING_IP - cluster provisioning interface IP address (default 172.22.0.2)
-- PROVISIONING_CIDR - provisioning interface IP address CIDR (default 24)
 - PROVISIONING_INTERFACE - interface to use for ironic, dnsmasq(dhcpd) and
   httpd (default ironicendpoint)
 - CLUSTER_DHCP_RANGE - dhcp range to use for provisioning (default 172.22.0.10-172.22.0.100)

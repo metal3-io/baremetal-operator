@@ -45,7 +45,6 @@ inherits the following environment variables through configmap:
 ```bash
 
 $PROVISIONING_IP
-$PROVISIONING_CIDR
 $PROVISIONING_INTERFACE
 
 ```

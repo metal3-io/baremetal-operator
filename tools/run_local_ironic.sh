@@ -130,11 +130,7 @@ sudo mkdir -p "$IRONIC_DATA_DIR/html/images"
 # By default, image directory points to dir having needed images when metal3-dev-env environment in use.
 # In other cases user has to store images beforehand.
 
-for name in ironic ironic-api ironic-conductor ironic-inspector dnsmasq httpd mariadb ipa-downloader \
-    ironic-endpoint-keepalived ironic-log-watch ironic-inspector-log-watch; do
-    sudo "${CONTAINER_RUNTIME}" ps | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" kill "$name"
-    sudo "${CONTAINER_RUNTIME}" ps --all | grep -w "$name$" && sudo "${CONTAINER_RUNTIME}" rm "$name" -f
-done
+"$SCRIPTDIR/tools/remove_local_ironic.sh"
 
 # set password for mariadb
 mariadb_password=$(echo "$(date;hostname)"|sha256sum |cut -c-20)

@@ -45,9 +45,11 @@ func (i *ironicDependenciesChecker) checkEndpoint(client *gophercloud.ServiceCli
 	// from the client endpoint.
 	endpoint := strings.TrimSuffix(client.Endpoint, "/")
 
-	_, err := client.Get(endpoint, nil, nil)
+	resp, err := client.Get(endpoint, nil, &gophercloud.RequestOpts{KeepResponseBody: true})
 	if err != nil {
 		log.Info("error caught while checking endpoint", "endpoint", client.Endpoint, "error", err)
+	} else {
+		resp.Body.Close()
 	}
 
 	return err == nil

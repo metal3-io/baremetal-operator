@@ -262,6 +262,7 @@ spec:
                 - inspection error
                 - provisioning error
                 - power management error
+                - too many hosts error
                 type: string
               goodCredentials:
                 description: the last credentials we were able to validate as working

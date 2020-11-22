@@ -22,6 +22,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -50,9 +51,21 @@ const (
 	unmanagedRetryDelay           = time.Minute * 10
 	provisionerNotReadyRetryDelay = time.Second * 30
 	rebootAnnotationPrefix        = "reboot.metal3.io"
+	maxProvisioningHostsDefault   = 20
 )
 
+var maxProvisioningHosts int
+
 func init() {
+	maxProvisioningHosts = maxProvisioningHostsDefault
+	if maxHostsStr := os.Getenv("MAX_CONCURRENT_PROVISIONING_HOSTS"); maxHostsStr != "" {
+		value, err := strconv.Atoi(maxHostsStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot start: Invalid value set for variable MAX_CONCURRENT_PROVISIONING_HOSTS=%s", maxHostsStr)
+			os.Exit(1)
+		}
+		maxProvisioningHosts = value
+	}
 }
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
@@ -61,6 +74,22 @@ type BareMetalHostReconciler struct {
 	Log                logr.Logger
 	Scheme             *runtime.Scheme
 	ProvisionerFactory provisioner.Factory
+
+	currentProvisioningHosts map[string]struct{}
+	mu                       sync.Mutex
+}
+
+// NewBareMetalHostReconciler creates a new reconciler instance
+func NewBareMetalHostReconciler(client client.Client, scheme *runtime.Scheme, factory provisioner.Factory) *BareMetalHostReconciler {
+	r := BareMetalHostReconciler{
+		Client:             client,
+		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		Scheme:             scheme,
+		ProvisionerFactory: factory,
+
+		currentProvisioningHosts: make(map[string]struct{}),
+	}
+	return &r
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -914,8 +943,61 @@ func hostHasFinalizer(host *metal3v1alpha1.BareMetalHost) bool {
 	return utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 }
 
+// Resync the set at the startup
+func (r *BareMetalHostReconciler) syncProvisioningHosts(mgr ctrl.Manager) {
+	hosts := &metal3v1alpha1.BareMetalHostList{}
+	err := mgr.GetAPIReader().List(context.TODO(), hosts)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	for _, host := range hosts.Items {
+		r.checkProvisioningHost(host, host.Status.Provisioning.State)
+	}
+}
+
+// Check if there's a free slot for hosts to be provisioned
+func (r *BareMetalHostReconciler) checkProvisioningHost(host metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	switch state {
+	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning:
+		if len(r.currentProvisioningHosts) >= maxProvisioningHosts {
+			return false
+		}
+		r.currentProvisioningHosts[host.Name] = struct{}{}
+	default:
+		delete(r.currentProvisioningHosts, host.Name)
+	}
+
+	return true
+}
+
+// Check if there's a free slot for hosts that have been previously delayed
+func (r *BareMetalHostReconciler) checkDelayedHost(info *reconcileInfo) (bool, actionResult) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	switch info.host.Status.ErrorType {
+	case metal3v1alpha1.TooManyHostsError:
+		if len(r.currentProvisioningHosts) >= maxProvisioningHosts {
+			// No available slots, current action delayed
+			return true, recordActionFailure(info, metal3v1alpha1.TooManyHostsError, "Delayed, too many hosts")
+		}
+
+		// A slot could be available, let's cleanup the host and retry
+		info.host.ClearError()
+		return true, actionContinue{}
+	}
+
+	return false, nil
+}
+
 // SetupWithManager reigsters the reconciler to be run by the manager
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	r.syncProvisioningHosts(mgr)
 
 	maxConcurrentReconciles := 3
 	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {

@@ -136,6 +136,9 @@ const (
 	// PowerManagementError is an error condition occurring when the
 	// controller is unable to modify the power state of the Host.
 	PowerManagementError ErrorType = "power management error"
+	// TooManyHostsError is an error condition occurring when
+	// there are too many hosts simultaneously being provisioned
+	TooManyHostsError ErrorType = "too many hosts error"
 )
 
 // ProvisioningState defines the states the provisioner will report
@@ -520,7 +523,7 @@ type BareMetalHostStatus struct {
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
-	// +kubebuilder:validation:Enum=registration error;inspection error;provisioning error;power management error
+	// +kubebuilder:validation:Enum=registration error;inspection error;provisioning error;power management error;too many hosts error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// LastUpdated identifies when this status was last observed.

@@ -73,8 +73,13 @@ func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, sta
 }
 
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
-	info *reconcileInfo) {
+	info *reconcileInfo) bool {
 	if hsm.NextState != initialState {
+
+		if !hsm.Reconciler.checkProvisioningHost(*info.host, hsm.NextState) {
+			return false
+		}
+
 		info.log.Info("changing provisioning state",
 			"old", initialState,
 			"new", hsm.NextState)
@@ -104,11 +109,22 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 			}
 		}
 	}
+
+	return true
 }
 
-func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes actionResult) {
 	initialState := hsm.Host.Status.Provisioning.State
-	defer hsm.updateHostStateFrom(initialState, info)
+	defer func() {
+		if !hsm.updateHostStateFrom(initialState, info) {
+			actionRes = recordActionFailure(info, metal3v1alpha1.TooManyHostsError, "Delayed, too many hosts")
+		}
+	}()
+
+	// Check if any immediate action is required for a delayed host
+	if delayed, actionRes := hsm.Reconciler.checkDelayedHost(info); delayed {
+		return actionRes
+	}
 
 	if hsm.checkInitiateDelete() {
 		info.log.Info("Initiating host deletion")

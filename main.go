@@ -128,12 +128,8 @@ func main() {
 		ironic.LogStartup()
 	}
 
-	if err = (&metal3iocontroller.BareMetalHostReconciler{
-		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
-		Scheme:             mgr.GetScheme(),
-		ProvisionerFactory: provisionerFactory,
-	}).SetupWithManager(mgr); err != nil {
+	reconciler := metal3iocontroller.NewBareMetalHostReconciler(mgr.GetClient(), mgr.GetScheme(), provisionerFactory)
+	if err = reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)
 	}

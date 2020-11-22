@@ -95,12 +95,7 @@ func newTestReconcilerWithProvisionerFactory(factory provisioner.Factory, initOb
 	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
 	c.Create(goctx.TODO(), bmcSecret)
 
-	return &BareMetalHostReconciler{
-		Client:             c,
-		Scheme:             scheme.Scheme,
-		ProvisionerFactory: factory,
-		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
-	}
+	return NewBareMetalHostReconciler(c, scheme.Scheme, factory)
 }
 
 func newTestReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {

@@ -205,7 +205,7 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
+			hsm := newHostStateMachine(tt.Host, newTestReconciler(), prov)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			prov.setNextError("some error")
@@ -220,7 +220,7 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 func TestErrorCountIncreasedWhenRegistrationFails(t *testing.T) {
 	bmh := host(metal3v1alpha1.StateRegistering).build()
 	prov := &mockProvisioner{}
-	hsm := newHostStateMachine(bmh, &BareMetalHostReconciler{}, prov)
+	hsm := newHostStateMachine(bmh, newTestReconciler(), prov)
 	info := makeDefaultReconcileInfo(bmh)
 	bmh.Status.GoodCredentials = metal3v1alpha1.CredentialsStatus{}
 
@@ -265,7 +265,7 @@ func TestErrorCountCleared(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
+			hsm := newHostStateMachine(tt.Host, newTestReconciler(), prov)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			info.host.Status.ErrorCount = 1

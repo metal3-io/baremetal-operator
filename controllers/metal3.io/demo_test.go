@@ -8,7 +8,6 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 
-	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -24,12 +23,7 @@ func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
 	c.Create(goctx.TODO(), bmcSecret)
 
-	return &BareMetalHostReconciler{
-		Client:             c,
-		Scheme:             scheme.Scheme,
-		ProvisionerFactory: demo.New,
-		Log:                ctrl.Log.WithName("controller").WithName("BareMetalHost"),
-	}
+	return NewBareMetalHostReconciler(c, scheme.Scheme, demo.New)
 }
 
 // TestDemoRegistrationError tests that a host with the right name reports

@@ -21,10 +21,11 @@ spec:
     - description: Operational status
       jsonPath: .status.operationalStatus
       name: Status
+      priority: 1
       type: string
     - description: Provisioning status
       jsonPath: .status.provisioning.state
-      name: Provisioning Status
+      name: Provisioning_Status
       type: string
     - description: Consumer using this host
       jsonPath: .spec.consumerRef.name
@@ -33,10 +34,12 @@ spec:
     - description: Address of management controller
       jsonPath: .spec.bmc.address
       name: BMC
+      priority: 1
       type: string
     - description: The type of hardware detected
       jsonPath: .status.hardwareProfile
-      name: Hardware Profile
+      name: Hardware_Profile
+      priority: 1
       type: string
     - description: Whether the host is online or not
       jsonPath: .spec.online

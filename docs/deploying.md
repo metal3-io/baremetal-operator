@@ -18,10 +18,10 @@ tree config/
 config/
 ├── basic-auth
 │   ├── default
-│   │   ├── credentials.yaml
+│   │   ├── credentials_patch.yaml
 │   │   └── kustomization.yaml
 │   └── tls
-│       ├── credentials.yaml
+│       ├── credentials_patch.yaml
 │       └── kustomization.yaml
 ├── certmanager
 │   ├── certificate.yaml
@@ -69,11 +69,11 @@ config/
 │   └── metal3.io_v1alpha1_baremetalhost.yaml
 ├── tls
 │   ├── kustomization.yaml
-│   └── tls_ca.yaml
+│   └── tls_ca_patch.yaml
 └── webhook
     ├── kustomization.yaml
     ├── kustomizeconfig.yaml
-    └── service.yaml
+    └── service_patch.yaml
 ```
 
 The `config` directory has one top level folder for deployment, namely `default`

@@ -346,11 +346,23 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			}
 		}
 
-		checksum, checksumType, ok := p.host.GetImageChecksum()
+		// If there is an image to be provisioned, or an image has
+		// previously been provisioned, include those details. Either
+		// case may mean we are re-adopting a host that was already
+		// known but removed/lost because the pod restarted.
+		var imageData *metal3v1alpha1.Image
+		switch {
+		case p.host.Status.Provisioning.Image.URL != "":
+			imageData = &p.host.Status.Provisioning.Image
+		case p.host.Spec.Image != nil && p.host.Spec.Image.URL != "":
+			imageData = p.host.Spec.Image
+		}
+
+		checksum, checksumType, ok := imageData.GetChecksum()
 
 		if ok {
 			p.log.Info("setting instance info",
-				"image_source", p.host.Spec.Image.URL,
+				"image_source", imageData.URL,
 				"image_os_hash_value", checksum,
 				"image_os_hash_algo", checksumType,
 			)
@@ -359,7 +371,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
 					Path:  "/instance_info/image_source",
-					Value: p.host.Spec.Image.URL,
+					Value: imageData.URL,
 				},
 				nodes.UpdateOperation{
 					Op:    nodes.AddOp,
@@ -398,11 +410,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				)
 			}
 
-			if p.host.Spec.Image.DiskFormat != nil {
+			if imageData.DiskFormat != nil {
 				updates = append(updates, nodes.UpdateOperation{
 					Op:    nodes.AddOp,
 					Path:  "/instance_info/image_disk_format",
-					Value: *p.host.Spec.Image.DiskFormat,
+					Value: *imageData.DiskFormat,
 				})
 			}
 			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
@@ -560,7 +572,7 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 		return
 	}
 	if ironicNode == nil {
-		return result, nil, fmt.Errorf("no ironic node for host")
+		return result, nil, provisioner.NeedsRegistration
 	}
 
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
@@ -650,7 +662,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
+		return result, provisioner.NeedsRegistration
 	}
 
 	var discoveredVal bool
@@ -981,18 +993,11 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 	)
 	p.publisher("ProvisioningStarted",
 		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
-
-	var opts nodes.ProvisionStateOpts
-	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.DeployFail {
-		opts = nodes.ProvisionStateOpts{Target: nodes.TargetActive}
-	} else {
-		opts = nodes.ProvisionStateOpts{Target: nodes.TargetProvide}
-	}
-	return p.changeNodeProvisionState(ironicNode, opts)
+	return
 }
 
 // Adopt allows an externally-provisioned server to be adopted by Ironic.
-func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	if ironicNode, err = p.findExistingHost(); err != nil {
@@ -1000,18 +1005,12 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 		return
 	}
 	if ironicNode == nil {
-		// The node does not exist, but we were called so the
-		// controller thinks that the node existed at one time. That
-		// likely means data loss from restarting the database, so
-		// pass through the validation process to register the node
-		// again. Pass true to indicate that we need to re-test the
-		// credentials, just in case.
-		p.log.Info("re-registering host")
-		return p.ValidateManagementAccess(true)
+		err = provisioner.NeedsRegistration
+		return
 	}
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
-	case nodes.Enroll:
+	case nodes.Enroll, nodes.Verifying:
 		err = fmt.Errorf("Invalid state for adopt: %s",
 			ironicNode.ProvisionState)
 	case nodes.Manageable:
@@ -1021,12 +1020,21 @@ func (p *ironicProvisioner) Adopt() (result provisioner.Result, err error) {
 				Target: nodes.TargetAdopt,
 			},
 		)
-	case nodes.Adopting, nodes.Verifying:
+	case nodes.Adopting:
 		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
 	case nodes.AdoptFail:
-		result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
-			ironicNode.LastError)
+		if force {
+			return p.changeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{
+					Target: nodes.TargetAdopt,
+				},
+			)
+		} else {
+			result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
+				ironicNode.LastError)
+		}
 	case nodes.Active:
 	default:
 	}
@@ -1043,7 +1051,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		return result, errors.Wrap(err, "could not find host to receive image")
 	}
 	if ironicNode == nil {
-		return result, fmt.Errorf("no ironic node for host")
+		return result, provisioner.NeedsRegistration
 	}
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
@@ -1088,12 +1096,22 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			return result, nil
 		}
 		p.log.Info("recovering from previous failure")
-		return p.startProvisioning(ironicNode, hostConf)
+		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+			return provResult, err
+		}
+
+		return p.changeNodeProvisionState(ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetActive})
 
 	case nodes.Manageable:
-		return p.startProvisioning(ironicNode, hostConf)
+		return p.changeNodeProvisionState(ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetProvide})
 
 	case nodes.Available:
+		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+			return provResult, err
+		}
+
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
 		p.log.Info("making host active")
@@ -1206,8 +1224,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		return result, errors.Wrap(err, "failed to find existing host")
 	}
 	if ironicNode == nil {
-		p.log.Info("no node found, already deleted")
-		return result, nil
+		return result, provisioner.NeedsRegistration
 	}
 
 	p.log.Info("deprovisioning host",
@@ -1216,56 +1233,40 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 		"deploy step", ironicNode.DeployStep,
+		"instance_info", ironicNode.InstanceInfo,
 	)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
-
-	case nodes.Error, nodes.CleanFail:
-		if !ironicNode.Maintenance {
-			p.log.Info("setting host maintenance flag to force image delete")
-			return p.setMaintenanceFlag(ironicNode, true)
-		}
-		// Once it's in maintenance, we can start the delete process.
+	case nodes.Error:
 		return p.changeNodeProvisionState(
 			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
+	case nodes.CleanFail:
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			return p.setMaintenanceFlag(ironicNode, false)
+		}
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 
 	case nodes.Available:
-		// Move back to manageable
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-		)
-
-	case nodes.Inspecting:
-		p.log.Info("waiting for inspection to complete")
-		result.Dirty = true
-		result.RequeueAfter = introspectionRequeueDelay
+		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
 		return result, nil
-
-	case nodes.InspectWait:
-		p.log.Info("cancelling inspection")
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
-		)
-
-	case nodes.InspectFail:
-		p.log.Info("inspection failed or cancelled")
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-		)
 
 	case nodes.Deleting:
 		p.log.Info("deleting")
+		// Transitions to Cleaning upon completion
 		result.Dirty = true
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
+		// Transitions to Available upon completion
 		result.Dirty = true
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
@@ -1276,17 +1277,16 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		result.RequeueAfter = deprovisionRequeueDelay
 		return result, nil
 
-	case nodes.Manageable, nodes.Enroll, nodes.Verifying:
-		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
-		return result, nil
-
-	default:
+	case nodes.Active:
 		p.log.Info("starting deprovisioning")
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
+
+	default:
+		return result, fmt.Errorf("Unhandled ironic state %s", ironicNode.ProvisionState)
 	}
 }
 

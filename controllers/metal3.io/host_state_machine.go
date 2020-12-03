@@ -16,17 +16,20 @@ type hostStateMachine struct {
 	NextState   metal3v1alpha1.ProvisioningState
 	Reconciler  *BareMetalHostReconciler
 	Provisioner provisioner.Provisioner
+	haveCreds   bool
 }
 
 func newHostStateMachine(host *metal3v1alpha1.BareMetalHost,
 	reconciler *BareMetalHostReconciler,
-	provisioner provisioner.Provisioner) *hostStateMachine {
+	provisioner provisioner.Provisioner,
+	haveCreds bool) *hostStateMachine {
 	currentState := host.Status.Provisioning.State
 	r := hostStateMachine{
 		Host:        host,
 		NextState:   currentState, // Remain in current state by default
 		Reconciler:  reconciler,
 		Provisioner: provisioner,
+		haveCreds:   haveCreds,
 	}
 	return &r
 }
@@ -62,7 +65,7 @@ func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.P
 
 func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
 	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
-		if !prevMetric.Start.IsZero() {
+		if !prevMetric.Start.IsZero() && prevMetric.End.IsZero() {
 			prevMetric.End = time
 			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
 				observer := stateTime[state].With(hostMetricLabels(info.request))
@@ -160,40 +163,48 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 }
 
 func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actionResult) {
+	if !hsm.haveCreds {
+		// If we are in the process of deletion (which may start with
+		// deprovisioning) and we have been unable to obtain any credentials,
+		// don't attempt to re-register the Host as this will always fail.
+		return
+	}
+
+	needsReregister := false
+
 	switch hsm.NextState {
 	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
 		// We haven't yet reached the Registration state, so don't attempt
 		// to register the Host.
 		return
-	}
-	if !hsm.Host.DeletionTimestamp.IsZero() {
-		// BUG(zaneb) We currently don't attempt to re-register the Host
-		// if we find it missing once a delete has been requested (in
-		// part because we are also willing to pass empty credentials
-		// after this point), but this means that we may not be able to
-		// deprovision a Host if the Ironic database pod is rescheduled
-		// during deprovisioning, or if the credentials need to be
-		// modified.
+	case metal3v1alpha1.StateDeleting:
+		// In the deleting state the whole idea is to de-register the host
 		return
-	}
-
-	if hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
-		// Credentials are unchanged since we verified them.
-		return
-	}
-
-	recordStateBegin(hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
-	if hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError {
-		if hsm.Host.Status.TriedCredentials.Match(*info.bmcCredsSecret) {
-			// Already tried with these credentials; no point retrying
-			info.log.Info("Unmodified credentials; not retrying")
-			return actionFailed{ErrorType: metal3v1alpha1.RegistrationError}
+	case metal3v1alpha1.StateRegistering:
+	default:
+		needsReregister = (hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError ||
+			!hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret))
+		if needsReregister {
+			info.log.Info("Retrying registration")
+			recordStateBegin(hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
 		}
-		info.log.Info("Modified credentials detected; will retry registration")
 	}
+
 	result = hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
-	if _, complete := result.(actionComplete); complete && hsm.Host.Status.Provisioning.State != metal3v1alpha1.StateRegistering {
-		recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+	if _, complete := result.(actionComplete); complete {
+		if hsm.NextState != metal3v1alpha1.StateRegistering {
+			recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+		}
+		if needsReregister {
+			// Host was re-registered, so requeue and run the state machine on
+			// the next reconcile
+			result = actionContinue{}
+		} else {
+			// Allow the state machine to run, either because we were just
+			// reconfirming an existing registration, or because we are in the
+			// Registering state
+			result = nil
+		}
 	}
 	return
 }
@@ -224,7 +235,6 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 	// registered using the current BMC credentials, so we can move to the
 	// next state. We will not return to the Registering state, even
 	// if the credentials change and the Host must be re-registered.
-	hsm.Host.ClearError()
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
 	} else {
@@ -323,23 +333,34 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult
 func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
 
-	switch actResult.(type) {
-	case actionComplete:
-		if !hsm.Host.DeletionTimestamp.IsZero() {
-			hsm.NextState = metal3v1alpha1.StateDeleting
-		} else {
+	if hsm.Host.DeletionTimestamp.IsZero() {
+		if _, complete := actResult.(actionComplete); complete {
 			hsm.NextState = metal3v1alpha1.StateReady
 		}
-	case actionFailed:
-		if !hsm.Host.DeletionTimestamp.IsZero() {
+	} else {
+		skipToDelete := func() actionResult {
+			hsm.NextState = metal3v1alpha1.StateDeleting
+			info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutDeprov.Inc)
+			return actionComplete{}
+		}
+
+		switch r := actResult.(type) {
+		case actionComplete:
+			hsm.NextState = metal3v1alpha1.StateDeleting
+		case actionFailed:
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
 			// Note that this is entirely theoretical, as the
 			// Ironic provisioner currently never gives up
 			// trying to deprovision.
-			hsm.NextState = metal3v1alpha1.StateDeleting
-			info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutDeprov.Inc)
-			actResult = actionComplete{}
+			return skipToDelete()
+		case actionError:
+			if r.NeedsRegistration() && !hsm.haveCreds {
+				// If the host is not registered as a node in Ironic and we
+				// lack the credentials to deprovision it, just continue to
+				// delete.
+				return skipToDelete()
+			}
 		}
 	}
 	return actResult

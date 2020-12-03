@@ -23,6 +23,7 @@ func TestAdopt(t *testing.T) {
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		force                bool
 	}{
 		{
 			name: "node-in-enroll",
@@ -61,8 +62,8 @@ func TestAdopt(t *testing.T) {
 				UUID:           nodeUUID,
 			}),
 
-			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedDirty: false,
+			expectedError: true,
 		},
 		{
 			name: "node-in-AdoptFail",
@@ -73,6 +74,17 @@ func TestAdopt(t *testing.T) {
 
 			expectedDirty:        false,
 			expectedRequestAfter: 0,
+		},
+		{
+			name: "node-in-AdoptFail force retry",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.AdoptFail),
+				UUID:           nodeUUID,
+			}),
+
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+			force:                true,
 		},
 	}
 
@@ -100,7 +112,7 @@ func TestAdopt(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, err := prov.Adopt()
+			result, err := prov.Adopt(tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

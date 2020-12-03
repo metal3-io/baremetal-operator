@@ -1,6 +1,7 @@
 package testserver
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
@@ -28,7 +29,7 @@ func (m *InspectorMock) Endpoint() string {
 
 // Ready configures the server with a valid response for /v1
 func (m *InspectorMock) Ready() *InspectorMock {
-	m.Response("/v1", "{}")
+	m.ResponseWithCode("/v1", "{}", http.StatusOK)
 	return m
 }
 

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"math"
 	"math/rand"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 const maxBackOffCount = 10
@@ -94,6 +96,10 @@ func (r actionError) Result() (result reconcile.Result, err error) {
 
 func (r actionError) Dirty() bool {
 	return false
+}
+
+func (r actionError) NeedsRegistration() bool {
+	return errors.Is(r.err, provisioner.NeedsRegistration)
 }
 
 // actionFailed is a result indicating that the current action has failed,

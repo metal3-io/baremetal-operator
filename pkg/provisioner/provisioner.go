@@ -1,6 +1,7 @@
 package provisioner
 
 import (
+	"errors"
 	"time"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -59,7 +60,7 @@ type Provisioner interface {
 
 	// Adopt brings an externally-provisioned host under management by
 	// the provisioner.
-	Adopt() (result Result, err error)
+	Adopt(force bool) (result Result, err error)
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
@@ -100,3 +101,5 @@ type Result struct {
 	// Any error message produced by the provisioner.
 	ErrorMessage string
 }
+
+var NeedsRegistration = errors.New("Host not registered")

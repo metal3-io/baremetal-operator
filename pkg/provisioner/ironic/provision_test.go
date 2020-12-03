@@ -26,34 +26,34 @@ func TestProvision(t *testing.T) {
 	}{
 		{
 			name: "deployFail state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
-			}).WithNodeValidate(nodeUUID).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},
 		{
 			name: "manageable state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
-			}).WithNodeValidate(nodeUUID).WithNodeStatesProvision(nodeUUID),
-			expectedRequestAfter: 0,
-			expectedDirty:        true,
-		},
-		{
-			name: "available state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				ProvisionState: string(nodes.Available),
-				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
+			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
 		{
+			name: "available state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        true,
+		},
+		{
 			name: "active state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 			}),
@@ -62,7 +62,7 @@ func TestProvision(t *testing.T) {
 		},
 		{
 			name: "other state: Cleaning",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Cleaning),
 				UUID:           nodeUUID,
 			}),
@@ -119,44 +119,35 @@ func TestDeprovision(t *testing.T) {
 		expectedRequestAfter int
 	}{
 		{
+			name: "active state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Active),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
 			name: "error state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Error),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
-			expectedRequestAfter: 0,
+			}),
+			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
 		{
 			name: "available state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
-		},
-		{
-			name: "inspecting state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				ProvisionState: string(nodes.Inspecting),
-				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 15,
-			expectedDirty:        true,
-		},
-		{
-			name: "inspectWait state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				ProvisionState: string(nodes.InspectWait),
-				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
 		},
 		{
 			name: "deleting state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Deleting),
 				UUID:           nodeUUID,
 			}),
@@ -165,7 +156,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "cleaning state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Cleaning),
 				UUID:           nodeUUID,
 			}),
@@ -174,40 +165,12 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "cleanWait state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanWait),
 				UUID:           nodeUUID,
 			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
-		},
-
-		{
-			name: "Manageable state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				ProvisionState: string(nodes.Manageable),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
-		},
-		{
-			name: "Enroll state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				ProvisionState: string(nodes.Enroll),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
-		},
-		{
-			name: "Verifying state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
-				ProvisionState: string(nodes.Verifying),
-				UUID:           nodeUUID,
-			}),
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
 		},
 	}
 

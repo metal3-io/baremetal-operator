@@ -18,10 +18,10 @@ tree config/
 config/
 ├── basic-auth
 │   ├── default
-│   │   ├── credentials.yaml
+│   │   ├── credentials_patch.yaml
 │   │   └── kustomization.yaml
 │   └── tls
-│       ├── credentials.yaml
+│       ├── credentials_patch.yaml
 │       └── kustomization.yaml
 ├── certmanager
 │   ├── certificate.yaml
@@ -69,11 +69,11 @@ config/
 │   └── metal3.io_v1alpha1_baremetalhost.yaml
 ├── tls
 │   ├── kustomization.yaml
-│   └── tls_ca.yaml
+│   └── tls_ca_patch.yaml
 └── webhook
     ├── kustomization.yaml
     ├── kustomizeconfig.yaml
-    └── service.yaml
+    └── service_patch.yaml
 ```
 
 The `config` directory has one top level folder for deployment, namely `default`
@@ -158,6 +158,10 @@ for you.
   IRONIC_CACERT_FILE
 - IRONIC_INSPECTOR_CAKEY_FILE : CA certificate key path, unneeded if inspector
   certificates exist
+- MARIADB_KEY_FILE: Path to the key of MariaDB
+- MARIADB_CERT_FILE:  Path to the cert of MariaDB
+- MARIADB_CAKEY_FILE: Path to the CA key of MariaDB
+- MARIADB_CACERT_FILE: Path to the CA certificate of MariaDB
 
 Then run :
 
@@ -199,7 +203,6 @@ container inherits the following environment variables through configmap:
 ```ini
 
 $PROVISIONING_IP
-$PROVISIONING_CIDR
 $PROVISIONING_INTERFACE
 
 ```

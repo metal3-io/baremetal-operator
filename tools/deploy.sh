@@ -21,6 +21,8 @@ DEPLOY_KEEPALIVED="${5,,}"
 
 IRONIC_HOST="${IRONIC_HOST}"
 IRONIC_HOST_IP="${IRONIC_HOST_IP}"
+MARIADB_HOST="${MARIADB_HOST:-"mariaDB"}"
+MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
@@ -124,17 +126,29 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
     IRONIC_INSPECTOR_CERT_FILE="${IRONIC_INSPECTOR_CERT_FILE:-"${IRONIC_DATA_DIR}certs/ironic-inspector.crt"}"
     IRONIC_INSPECTOR_KEY_FILE="${IRONIC_INSPECTOR_KEY_FILE:-"${IRONIC_DATA_DIR}certs/ironic-inspector.key"}"
 
+    MARIADB_CACERT_FILE="${MARIADB_CACERT_FILE:-"${IRONIC_CACERT_FILE}"}"
+    MARIADB_CAKEY_FILE="${MARIADB_CAKEY_FILE:-"${IRONIC_CAKEY_FILE}"}"
+    MARIADB_CERT_FILE="${MARIADB_CERT_FILE:-"${IRONIC_DATA_DIR}certs/mariadb.crt"}"
+    MARIADB_KEY_FILE="${MARIADB_KEY_FILE:-"${IRONIC_DATA_DIR}certs/mariadb.key"}"
+
     if [ ! -f "${IRONIC_CAKEY_FILE}" ]; then
         openssl genrsa -out "${IRONIC_CAKEY_FILE}" 2048
     fi
     if [ ! -f "${IRONIC_INSPECTOR_CAKEY_FILE}" ]; then
         openssl genrsa -out "${IRONIC_INSPECTOR_CAKEY_FILE}" 2048
     fi
+    if [ ! -f "${MARIADB_CAKEY_FILE}" ]; then
+        openssl genrsa -out "${MARIADB_CAKEY_FILE}" 2048
+    fi
+
     if [ ! -f "${IRONIC_CACERT_FILE}" ]; then
         openssl req -x509 -new -nodes -key "${IRONIC_CAKEY_FILE}" -sha256 -days 1825 -out "${IRONIC_CACERT_FILE}" -subj /CN="ironic CA"/
     fi
     if [ ! -f "${IRONIC_INSPECTOR_CACERT_FILE}" ]; then
         openssl req -x509 -new -nodes -key "${IRONIC_INSPECTOR_CAKEY_FILE}" -sha256 -days 1825 -out "${IRONIC_INSPECTOR_CACERT_FILE}" -subj /CN="ironic inspector CA"/
+    fi
+    if [ ! -f "${MARIADB_CACERT_FILE}" ]; then
+        openssl req -x509 -new -nodes -key "${MARIADB_CAKEY_FILE}" -sha256 -days 1825 -out "${MARIADB_CACERT_FILE}" -subj /CN="mariadb CA"/
     fi
 
     if [ ! -f "${IRONIC_KEY_FILE}" ]; then
@@ -142,6 +156,9 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
     fi
     if [ ! -f "${IRONIC_INSPECTOR_KEY_FILE}" ]; then
         openssl genrsa -out "${IRONIC_INSPECTOR_KEY_FILE}" 2048
+    fi
+    if [ ! -f "${MARIADB_KEY_FILE}" ]; then
+        openssl genrsa -out "${MARIADB_KEY_FILE}" 2048
     fi
 
     if [ ! -f "${IRONIC_CERT_FILE}" ]; then
@@ -152,6 +169,11 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
         openssl req -new -key "${IRONIC_INSPECTOR_KEY_FILE}" -out /tmp/ironic.csr -subj /CN="${IRONIC_HOST}"/
         openssl x509 -req -in /tmp/ironic.csr -CA "${IRONIC_INSPECTOR_CACERT_FILE}" -CAkey "${IRONIC_INSPECTOR_CAKEY_FILE}" -CAcreateserial -out "${IRONIC_INSPECTOR_CERT_FILE}" -days 825 -sha256 -extfile <(printf "subjectAltName=IP:%s" "${IRONIC_HOST_IP}")
     fi
+    if [ ! -f "${MARIADB_CERT_FILE}" ]; then
+        openssl req -new -key "${MARIADB_KEY_FILE}" -out /tmp/mariadb.csr -subj /CN="${MARIADB_HOST}"/
+        openssl x509 -req -in /tmp/mariadb.csr -CA "${MARIADB_CACERT_FILE}" -CAkey "${MARIADB_CAKEY_FILE}" -CAcreateserial -out "${MARIADB_CERT_FILE}" -days 825 -sha256 -extfile <(printf "subjectAltName=IP:%s" "${MARIADB_HOST_IP}")
+    fi
+
 
     if [ "${DEPLOY_BMO}" == "true" ]; then
         cp "${IRONIC_CACERT_FILE}" "${SCRIPTDIR}/config/tls/ca.crt"
@@ -165,12 +187,17 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
         else
             IRONIC_TLS_SCENARIO="${SCRIPTDIR}/ironic-deployment/tls/default"
         fi
+        # Ensure that the MariaDB key file allow a non-owned user to read.
+        chmod 604 "${MARIADB_KEY_FILE}"
         cp "${IRONIC_CACERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-ca.crt"
         cp "${IRONIC_INSPECTOR_CACERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-inspector-ca.crt"
+        cp "${MARIADB_CACERT_FILE}" "${IRONIC_TLS_SCENARIO}/mariadb-ca.crt"
         cp "${IRONIC_CERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic.crt"
-        cp "${IRONIC_KEY_FILE}" "${IRONIC_TLS_SCENARIO}/ironic.key"
         cp "${IRONIC_INSPECTOR_CERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-inspector.crt"
+        cp "${MARIADB_CERT_FILE}" "${IRONIC_TLS_SCENARIO}/mariadb.crt"
+        cp "${IRONIC_KEY_FILE}" "${IRONIC_TLS_SCENARIO}/ironic.key"
         cp "${IRONIC_INSPECTOR_KEY_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-inspector.key"
+        cp "${MARIADB_KEY_FILE}" "${IRONIC_TLS_SCENARIO}/mariadb.key"
     fi
 fi
 
@@ -218,5 +245,8 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
         rm "${IRONIC_TLS_SCENARIO}/ironic.key"
         rm "${IRONIC_TLS_SCENARIO}/ironic-inspector.crt"
         rm "${IRONIC_TLS_SCENARIO}/ironic-inspector.key"
+        rm "${IRONIC_TLS_SCENARIO}/mariadb-ca.crt"
+        rm "${IRONIC_TLS_SCENARIO}/mariadb.crt"
+        rm "${IRONIC_TLS_SCENARIO}/mariadb.key"
     fi
 fi

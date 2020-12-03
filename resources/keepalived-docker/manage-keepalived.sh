@@ -1,5 +1,5 @@
 #!/bin/bash
-export assignedIP="$PROVISIONING_IP/$PROVISIONING_CIDR"
+export assignedIP="$PROVISIONING_IP/32"
 export interface=$PROVISIONING_INTERFACE
 
 sed  -i "s~INTERFACE~$interface~g" /etc/keepalived/keepalived.conf

@@ -150,10 +150,6 @@ const (
 	// register the host
 	StateUnmanaged ProvisioningState = "unmanaged"
 
-	// StateRegistrationError means there was an error registering the
-	// host with the backend
-	StateRegistrationError ProvisioningState = "registration error"
-
 	// StateRegistering means we are telling the backend about the host
 	StateRegistering ProvisioningState = "registering"
 
@@ -171,10 +167,6 @@ const (
 	// disk(s)
 	StateProvisioning ProvisioningState = "provisioning"
 
-	// StateProvisioningError means we are writing an image to the
-	// host's disk(s)
-	StateProvisioningError ProvisioningState = "provisioning error"
-
 	// StateProvisioned means we have written an image to the host's
 	// disk(s)
 	StateProvisioned ProvisioningState = "provisioned"
@@ -190,10 +182,6 @@ const (
 	// StateInspecting means we are running the agent on the host to
 	// learn about the hardware components available there
 	StateInspecting ProvisioningState = "inspecting"
-
-	// StatePowerManagementError means something went wrong trying to
-	// power the server on or off.
-	StatePowerManagementError ProvisioningState = "power management error"
 
 	// StateDeleting means we are in the process of cleaning up the host
 	// ready for deletion
@@ -565,6 +553,7 @@ type BareMetalHostStatus struct {
 	OperationHistory OperationHistory `json:"operationHistory"`
 
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
+	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
 }
 
@@ -593,11 +582,11 @@ type ProvisionStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:shortName=bmh;bmhost
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status"
-// +kubebuilder:printcolumn:name="Provisioning Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status",priority=1
+// +kubebuilder:printcolumn:name="Provisioning_Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
-// +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller"
-// +kubebuilder:printcolumn:name="Hardware Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected"
+// +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller",priority=1
+// +kubebuilder:printcolumn:name="Hardware_Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected",priority=1
 // +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"
 // +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".status.errorMessage",description="Most recent error"
 // +kubebuilder:object:root=true
@@ -861,27 +850,31 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 
 // GetImageChecksum returns the hash value and its algo.
 func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
-	if host.Spec.Image == nil {
-		return "", "", false
+	return host.Spec.Image.GetChecksum()
+}
+
+func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
+	if image == nil {
+		return
 	}
 
-	checksum := host.Spec.Image.Checksum
-	checksumType := host.Spec.Image.ChecksumType
-
-	if checksum == "" {
+	if image.Checksum == "" {
 		// Return empty if checksum is not provided
-		return "", "", false
+		return
 	}
-	if checksumType == "" {
-		// If only checksum is specified. Assume type is md5
-		return checksum, string(MD5), true
-	}
-	switch checksumType {
+
+	switch image.ChecksumType {
+	case "":
+		checksumType = string(MD5)
 	case MD5, SHA256, SHA512:
-		return checksum, string(checksumType), true
+		checksumType = string(image.ChecksumType)
 	default:
-		return "", "", false
+		return
 	}
+
+	checksum = image.Checksum
+	ok = true
+	return
 }
 
 // +kubebuilder:object:root=true

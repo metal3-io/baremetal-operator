@@ -21,10 +21,11 @@ spec:
     - description: Operational status
       jsonPath: .status.operationalStatus
       name: Status
+      priority: 1
       type: string
     - description: Provisioning status
       jsonPath: .status.provisioning.state
-      name: Provisioning Status
+      name: Provisioning_Status
       type: string
     - description: Consumer using this host
       jsonPath: .spec.consumerRef.name
@@ -33,10 +34,12 @@ spec:
     - description: Address of management controller
       jsonPath: .spec.bmc.address
       name: BMC
+      priority: 1
       type: string
     - description: The type of hardware detected
       jsonPath: .status.hardwareProfile
-      name: Hardware Profile
+      name: Hardware_Profile
+      priority: 1
       type: string
     - description: Whether the host is online or not
       jsonPath: .spec.online
@@ -248,6 +251,7 @@ spec:
             description: BareMetalHostStatus defines the observed state of BareMetalHost
             properties:
               errorCount:
+                default: 0
                 description: ErrorCount records how many times the host has encoutered an error since the last successful operation
                 type: integer
               errorMessage:
@@ -862,12 +866,11 @@ spec:
             name: baremetal-operator-ironic
         image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9440
+          initialDelaySeconds: 3
+          periodSeconds: 3
         name: manager
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
       terminationGracePeriodSeconds: 10

@@ -31,11 +31,10 @@ spec:
           - configMapRef:
               name: ironic
         name: manager
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9440
+          initialDelaySeconds: 3
+          periodSeconds: 3
       terminationGracePeriodSeconds: 10

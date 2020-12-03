@@ -11,4 +11,4 @@ secretGenerator:
     - crt=ca.crt
 
 patchesStrategicMerge:
-- tls_ca.yaml
+- tls_ca_patch.yaml

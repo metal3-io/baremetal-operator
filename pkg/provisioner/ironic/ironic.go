@@ -1107,6 +1107,16 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		return p.changeNodeProvisionState(ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetProvide})
 
+	case nodes.CleanFail:
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			return p.setMaintenanceFlag(ironicNode, false)
+		}
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
 	case nodes.Available:
 		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err

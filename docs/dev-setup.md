@@ -69,7 +69,6 @@ The following environment variables can be passed to configure the ironic:
 - PROVISIONING_IP - provisioning interface IP address to use for ironic,
   dnsmasq(dhcpd) and httpd (default 172.22.0.1)
 - CLUSTER_PROVISIONING_IP - cluster provisioning interface IP address (default 172.22.0.2)
-- PROVISIONING_CIDR - provisioning interface IP address CIDR (default 24)
 - PROVISIONING_INTERFACE - interface to use for ironic, dnsmasq(dhcpd) and
   httpd (default ironicendpoint)
 - CLUSTER_DHCP_RANGE - dhcp range to use for provisioning (default 172.22.0.10-172.22.0.100)
@@ -80,6 +79,31 @@ The following environment variables can be passed to configure the ironic:
 - CACHEURL - the URL of the cached images
 - IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
   (default true)
+
+In case you want to run the local ironic containers with TLS and basic
+authentication enabled, you also need to export the following variables:
+
+### TLS variables
+
+- IRONIC_CACERT_FILE
+- IRONIC_CERT_FILE
+- IRONIC_KEY_FILE
+- IRONIC_INSPECTOR_CACERT_FILE
+- IRONIC_INSPECTOR_CERT_FILE
+- IRONIC_INSPECTOR_KEY_FILE
+
+### Basic authentication variables
+
+- IRONIC_USERNAME
+- IRONIC_PASSWORD
+- IRONIC_INSPECTOR_USERNAME
+- IRONIC_INSPECTOR_PASSWORD
+
+The names of these variables are self explanatory. TLS variables expect the
+path of the corresponding certificate/key file as their value. Basic
+authentication variables expect the corresponding value as string.  Note that,
+these variables **do not** have any default value. So if they are not set, the
+ironic container will run with TLS and basic authentication disabled.
 
 ## Using Tilt for development
 

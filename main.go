@@ -26,6 +26,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -39,8 +40,9 @@ import (
 )
 
 var (
-	scheme   = k8sruntime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme     = k8sruntime.NewScheme()
+	setupLog   = ctrl.Log.WithName("setup")
+	healthAddr string
 )
 
 func init() {
@@ -54,6 +56,18 @@ func printVersion() {
 	setupLog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	setupLog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	setupLog.Info(fmt.Sprintf("baremetal-operator version: %s", version.String))
+}
+
+func setupChecks(mgr ctrl.Manager) {
+	if err := mgr.AddReadyzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to create ready check")
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to create health check")
+		os.Exit(1)
+	}
 }
 
 func main() {
@@ -79,6 +93,8 @@ func main() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
+	flag.StringVar(&healthAddr, "health-addr", ":9440",
+		"The address the health endpoint binds to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(devLogging)))
@@ -93,6 +109,7 @@ func main() {
 		LeaderElectionID:        "baremetal-operator",
 		LeaderElectionNamespace: watchNamespace,
 		Namespace:               watchNamespace,
+		HealthProbeBindAddress:  healthAddr,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -120,6 +137,9 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)
 	}
+
+	setupChecks(mgr)
+
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

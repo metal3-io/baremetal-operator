@@ -20,7 +20,7 @@ func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
 	p, _ := r.ProvisionerFactory(host, bmc.Credentials{},
 		func(reason, message string) {})
-	return newHostStateMachine(host, r, p)
+	return newHostStateMachine(host, r, p, true)
 }
 
 func TestProvisioningCancelled(t *testing.T) {
@@ -182,10 +182,6 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 		Host     *metal3v1alpha1.BareMetalHost
 	}{
 		{
-			Scenario: "registering",
-			Host:     host(metal3v1alpha1.StateRegistering).build(),
-		},
-		{
 			Scenario: "inspecting",
 			Host:     host(metal3v1alpha1.StateInspecting).build(),
 		},
@@ -209,7 +205,7 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov, true)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			prov.setNextError("some error")
@@ -219,6 +215,20 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 			assert.True(t, result.Dirty())
 		})
 	}
+}
+
+func TestErrorCountIncreasedWhenRegistrationFails(t *testing.T) {
+	bmh := host(metal3v1alpha1.StateRegistering).build()
+	prov := &mockProvisioner{}
+	hsm := newHostStateMachine(bmh, &BareMetalHostReconciler{}, prov, true)
+	info := makeDefaultReconcileInfo(bmh)
+	bmh.Status.GoodCredentials = metal3v1alpha1.CredentialsStatus{}
+
+	prov.setNextError("some error")
+	result := hsm.ReconcileState(info)
+
+	assert.Greater(t, bmh.Status.ErrorCount, 0)
+	assert.True(t, result.Dirty())
 }
 
 func TestErrorCountCleared(t *testing.T) {
@@ -255,7 +265,7 @@ func TestErrorCountCleared(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := &mockProvisioner{}
-			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov, true)
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			info.host.Status.ErrorCount = 1
@@ -357,7 +367,7 @@ func (m *mockProvisioner) UpdateHardwareState() (result provisioner.Result, err 
 	return m.nextResult, err
 }
 
-func (m *mockProvisioner) Adopt() (result provisioner.Result, err error) {
+func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	return m.nextResult, err
 }
 

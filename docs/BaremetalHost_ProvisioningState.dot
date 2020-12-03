@@ -13,7 +13,6 @@ digraph BaremetalHost {
 
     Registering -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
     Registering -> ExternallyProvisioned [label="externallyProvisioned"]
-    Registering -> RegistrationError [shape=doublecircle label="registration error"]
     Registering -> Deleting2 [label="!DeletionTimestamp.IsZero()"]
 
     Deleting2 [shape=point]
@@ -33,10 +32,6 @@ digraph BaremetalHost {
 
     Deleting4 [shape=point]
 
-    RegistrationError [shape=doublecircle label="Error"]
-    RegistrationError -> Registering [label="(user edits settings)"]
-    RegistrationError -> Deleting5 [label="!DeletionTimestamp.IsZero()"]
-
     Deleting5 [shape=point]
 
     Ready [shape=doublecircle]
@@ -46,12 +41,7 @@ digraph BaremetalHost {
     Deleting6 [shape=point]
 
     Provisioning -> Provisioned [label=done]
-    Provisioning -> ProvisioningError [label="provisioning error"]
-    Provisioning -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
-
-    ProvisioningError [shape=doublecircle label="Error"]
-    ProvisioningError -> Provisioning [label="?"]
-    ProvisioningError -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
+    Provisioning -> Deprovisioning [label="failed || !DeletionTimestamp.IsZero()"]
 
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]

@@ -27,14 +27,14 @@ func TestPowerOn(t *testing.T) {
 	}{
 		{
 			name: "node-already-power-on",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState: powerOn,
 				UUID:       nodeUUID,
 			}),
 		},
 		{
 			name: "waiting-for-target-power-on",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:       powerOff,
 				TargetPowerState: powerOn,
 				UUID:             nodeUUID,
@@ -44,17 +44,17 @@ func TestPowerOn(t *testing.T) {
 		},
 		{
 			name: "power-on normal",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				PowerState:           powerOff,
 				TargetPowerState:     powerOff,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
-			}).WithNodeStatesPower(nodeUUID, http.StatusAccepted),
+			}),
 			expectedDirty: true,
 		},
 		{
 			name: "power-on wait for Provisioning state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:           powerOff,
 				TargetPowerState:     powerOff,
 				TargetProvisionState: string(nodes.TargetDeleted),
@@ -65,12 +65,12 @@ func TestPowerOn(t *testing.T) {
 		},
 		{
 			name: "power-on wait for locked host",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:           powerOff,
 				TargetPowerState:     powerOff,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
-			}).WithNodeStatesPower(nodeUUID, http.StatusConflict),
+			}).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 			expectedError:        true,
@@ -127,14 +127,14 @@ func TestPowerOff(t *testing.T) {
 	}{
 		{
 			name: "node-already-power-off",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState: powerOff,
 				UUID:       nodeUUID,
 			}),
 		},
 		{
 			name: "waiting-for-target-power-off",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:       powerOn,
 				TargetPowerState: powerOff,
 				UUID:             nodeUUID,
@@ -144,17 +144,17 @@ func TestPowerOff(t *testing.T) {
 		},
 		{
 			name: "power-off normal",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				PowerState:           powerOn,
 				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
-			}).WithNodeStatesPower(nodeUUID, http.StatusAccepted),
+			}),
 			expectedDirty: true,
 		},
 		{
 			name: "power-off wait for Provisioning state",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:           powerOn,
 				TargetPowerState:     powerOn,
 				TargetProvisionState: string(nodes.TargetDeleted),
@@ -165,12 +165,12 @@ func TestPowerOff(t *testing.T) {
 		},
 		{
 			name: "power-off wait for locked host",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:           powerOn,
 				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
-			}).WithNodeStatesPower(nodeUUID, http.StatusConflict),
+			}).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},

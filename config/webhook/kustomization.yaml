@@ -1,6 +1,6 @@
 resources:
 - manifests.yaml
-- service.yaml
+- service_patch.yaml
 
 configurations:
 - kustomizeconfig.yaml

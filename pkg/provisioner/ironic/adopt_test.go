@@ -23,10 +23,11 @@ func TestAdopt(t *testing.T) {
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		force                bool
 	}{
 		{
 			name: "node-in-enroll",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Enroll),
 				UUID:           nodeUUID,
 			}),
@@ -36,17 +37,17 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-manageable",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
-			}).WithNodeStatesProvision(nodeUUID),
+			}),
 
 			expectedDirty:        true,
 			expectedRequestAfter: 10,
 		},
 		{
 			name: "node-in-adopting",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Adopting),
 				UUID:           nodeUUID,
 			}),
@@ -56,23 +57,34 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-verifying",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Verifying),
 				UUID:           nodeUUID,
 			}),
 
-			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedDirty: false,
+			expectedError: true,
 		},
 		{
 			name: "node-in-AdoptFail",
-			ironic: testserver.NewIronic(t).Ready().WithNode(nodes.Node{
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.AdoptFail),
 				UUID:           nodeUUID,
 			}),
 
 			expectedDirty:        false,
 			expectedRequestAfter: 0,
+		},
+		{
+			name: "node-in-AdoptFail force retry",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.AdoptFail),
+				UUID:           nodeUUID,
+			}),
+
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+			force:                true,
 		},
 	}
 
@@ -100,7 +112,7 @@ func TestAdopt(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, err := prov.Adopt()
+			result, err := prov.Adopt(tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

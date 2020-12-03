@@ -1237,8 +1237,17 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.Error:
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
 
-	case nodes.Error, nodes.CleanFail:
+	case nodes.CleanFail:
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			return p.setMaintenanceFlag(ironicNode, false)
+		}
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},

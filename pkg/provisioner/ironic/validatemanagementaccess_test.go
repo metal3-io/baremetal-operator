@@ -136,6 +136,71 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 	assert.Equal(t, "uuid", host.Status.Provisioning.ID)
 }
 
+func TestValidateManagementAccessExistingNodeStatus(t *testing.T) {
+	statuses := []nodes.ProvisionState{
+		nodes.Manageable,
+		nodes.Available,
+		nodes.Active,
+		nodes.DeployWait,
+		nodes.Deploying,
+		nodes.DeployFail,
+		nodes.DeployDone,
+		nodes.Deleting,
+		nodes.Deleted,
+		nodes.Cleaning,
+		nodes.CleanWait,
+		nodes.CleanFail,
+		nodes.Error,
+		nodes.Rebuild,
+		nodes.Inspecting,
+		nodes.InspectFail,
+		nodes.InspectWait,
+		nodes.Adopting,
+		nodes.AdoptFail,
+		nodes.Rescue,
+		nodes.RescueFail,
+		nodes.Rescuing,
+		nodes.UnrescueFail,
+	}
+
+	for _, status := range statuses {
+		t.Run(string(status), func(t *testing.T) {
+			// Create a host without a bootMACAddress and with a BMC that
+			// does not require one.
+			host := makeHost()
+			host.Spec.BootMACAddress = ""
+			host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+			createCallback := func(node nodes.Node) {
+				t.Fatal("create callback should not be invoked for existing node")
+			}
+
+			ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(nodes.Node{
+				Name:           host.Name,
+				UUID:           "", // to match status in host
+				ProvisionState: string(status),
+			})
+			ironic.Start()
+			defer ironic.Stop()
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+				ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+			)
+			if err != nil {
+				t.Fatalf("could not create provisioner: %s", err)
+			}
+
+			result, err := prov.ValidateManagementAccess(false)
+			if err != nil {
+				t.Fatalf("error from ValidateManagementAccess: %s", err)
+			}
+			assert.Equal(t, "", result.ErrorMessage)
+			assert.Equal(t, false, result.Dirty)
+		})
+	}
+}
+
 func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.

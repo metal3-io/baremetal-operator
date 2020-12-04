@@ -651,7 +651,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	ironicNode, err := p.findExistingHost()
@@ -674,6 +674,15 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				err = nil
 				return
 			default:
+				if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectFail && !force {
+					p.log.Info("starting inspection failed", "error", status.Error)
+					if ironicNode.LastError == "" {
+						result.ErrorMessage = "Inspection failed"
+					} else {
+						result.ErrorMessage = ironicNode.LastError
+					}
+					err = nil
+				}
 				p.log.Info("updating boot mode before hardware inspection")
 				op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
 				updates := nodes.UpdateOpts{

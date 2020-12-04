@@ -472,7 +472,7 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("inspecting hardware")
 
-	provResult, details, err := prov.InspectHardware()
+	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}

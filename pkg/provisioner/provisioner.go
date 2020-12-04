@@ -49,7 +49,7 @@ type Provisioner interface {
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
-	InspectHardware() (result Result, details *metal3v1alpha1.HardwareDetails, err error)
+	InspectHardware(force bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with

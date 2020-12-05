@@ -313,6 +313,7 @@ type Image struct {
 // data structures.
 
 // ClockSpeed is a clock speed in MHz
+// +kubebuilder:validation:Format=double
 type ClockSpeed float64
 
 // ClockSpeed multipliers

@@ -18,7 +18,7 @@ The tests can be run via `make`
 make test
 ```
 
-Run linters test before pushing your commit
+Run linters test before pushing your commit.
 
 ```bash
 make lint

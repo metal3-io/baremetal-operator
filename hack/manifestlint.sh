@@ -20,8 +20,11 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 # matches our regexp pattern (i.e. kustom, patch). 
 
 if [ "${IS_CONTAINER}" != "false" ]; then
+    { set +x; } 2>/dev/null
+    echo "<-------------------------STARTING MANIFESTS VALIDATION CHECKS------------------------->"
     kubeval --strict --ignore-missing-schemas \
     -d config,examples -i kustom,patch -o tap
+    echo "<-------------------------COMPLETED MANIFESTS VALIDATION CHECKS------------------------>"
 else
   "${CONTAINER_RUNTIME}" run --rm \
     --env IS_CONTAINER=TRUE \

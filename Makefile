@@ -104,6 +104,10 @@ lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT):
 	./hack/install-golangci-lint.sh
 
+.PHONY: manifest-lint
+manifest-lint: ## Run manifest validation
+	./hack/manifestlint.sh
+
 ## --------------------------------------
 ## Build/Run Targets
 ## --------------------------------------

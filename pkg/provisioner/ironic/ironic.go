@@ -230,6 +230,31 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage s
 	return "", nil
 }
 
+func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
+	var allPorts []ports.Port
+
+	opts := ports.ListOpts{}
+
+	if address != "" {
+		opts.Address = address
+	}
+
+	pager := ports.List(p.client, opts)
+
+	if pager.Err != nil {
+		return allPorts, pager.Err
+	}
+
+	allPages, err := pager.AllPages()
+
+	if err != nil {
+		return allPorts, err
+	}
+
+	return ports.ExtractPorts(allPages)
+
+}
+
 // Look for an existing registration for the host in Ironic.
 func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err error) {
 	// Try to load the node by UUID
@@ -258,11 +283,48 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 		p.log.Info("found existing node by name")
 		return ironicNode, nil
 	case gophercloud.ErrDefault404:
-		return nil, nil
+		p.log.Info(
+			fmt.Sprintf("node with name %s doesn't exist", p.host.Name))
 	default:
 		return nil, errors.Wrap(err,
 			fmt.Sprintf("failed to find node by name %s", p.host.Name))
 	}
+
+	// Try to load the node by port address
+	p.log.Info("looking for existing node by MAC", "MAC", p.host.Spec.BootMACAddress)
+	allPorts, err := p.listAllPorts(p.host.Spec.BootMACAddress)
+
+	if err != nil {
+		p.log.Info("failed to find an existing port with address", "MAC", p.host.Spec.BootMACAddress)
+		return nil, nil
+	}
+
+	if len(allPorts) > 0 {
+		nodeUUID := allPorts[0].NodeUUID
+		ironicNode, err = nodes.Get(p.client, nodeUUID).Extract()
+		switch err.(type) {
+		case nil:
+			p.log.Info("found existing node by ID")
+
+			// If the node has a name, this means we didn't find it above.
+			if ironicNode.Name != "" {
+				return nil, errors.New(fmt.Sprint("node found by MAC but has a name: ", ironicNode.Name))
+			}
+
+			return ironicNode, nil
+		case gophercloud.ErrDefault404:
+			return nil, errors.Wrap(err,
+				fmt.Sprintf("port exists but linked node doesn't %s", nodeUUID))
+		default:
+			return nil, errors.Wrap(err,
+				fmt.Sprintf("port exists but failed to find linked node by ID %s", nodeUUID))
+		}
+	} else {
+		p.log.Info("port with address doesn't exist", "MAC", p.host.Spec.BootMACAddress)
+	}
+
+	return nil, nil
+
 }
 
 // ValidateManagementAccess registers the host with the provisioning
@@ -442,6 +504,29 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			p.log.Info("setting provisioning id", "ID", p.status.ID)
 		}
 
+		if ironicNode.Name == "" {
+			updates := nodes.UpdateOpts{
+				nodes.UpdateOperation{
+					Op:    nodes.ReplaceOp,
+					Path:  "/name",
+					Value: p.host.Name,
+				},
+			}
+			ironicNode, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+			switch err.(type) {
+			case nil:
+			case gophercloud.ErrDefault409:
+				p.log.Info("could not update ironic node name, busy")
+				result.Dirty = true
+				result.RequeueAfter = provisionRequeueDelay
+				return result, nil
+			default:
+				return result, errors.Wrap(err, "failed to update ironc node name")
+			}
+			p.log.Info("updated ironic node name")
+
+		}
+
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
 		if credentialsChanged {
@@ -505,6 +590,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 
+	case nodes.Verifying:
+		// If we're still waiting for the state to change in Ironic,
+		// return true to indicate that we're dirty and need to be
+		// reconciled again.
+		result.RequeueAfter = provisionRequeueDelay
+		result.Dirty = true
+		return result, nil
+
 	case nodes.Manageable:
 		p.log.Info("have manageable host")
 		return result, nil
@@ -521,11 +614,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		return result, nil
 
 	default:
-		// If we're still waiting for the state to change in Ironic,
-		// return true to indicate that we're dirty and need to be
-		// reconciled again.
-		result.RequeueAfter = provisionRequeueDelay
-		result.Dirty = true
 		return result, nil
 	}
 }

@@ -590,6 +590,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 
+	case nodes.Verifying:
+		// If we're still waiting for the state to change in Ironic,
+		// return true to indicate that we're dirty and need to be
+		// reconciled again.
+		result.RequeueAfter = provisionRequeueDelay
+		result.Dirty = true
+		return result, nil
+
 	case nodes.Manageable:
 		p.log.Info("have manageable host")
 		return result, nil
@@ -606,11 +614,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		return result, nil
 
 	default:
-		// If we're still waiting for the state to change in Ironic,
-		// return true to indicate that we're dirty and need to be
-		// reconciled again.
-		result.RequeueAfter = provisionRequeueDelay
-		result.Dirty = true
 		return result, nil
 	}
 }

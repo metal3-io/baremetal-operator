@@ -1198,7 +1198,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 	case nodes.CleanFail:
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			return p.setMaintenanceFlag(ironicNode, false)
+			return result, p.setMaintenanceFlag(ironicNode, false)
 		}
 		return p.changeNodeProvisionState(
 			ironicNode,
@@ -1288,7 +1288,15 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 	}
 }
 
-func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (err error) {
+	if ironicNode == nil {
+		panic("ironic node object must by defined")
+	}
+	if ironicNode.Maintenance == value {
+		p.log.Info("maintenance flag already set", "MaintenanceFlag", value)
+		return nil
+	}
+
 	_, err = nodes.Update(
 		p.client,
 		ironicNode.UUID,
@@ -1304,11 +1312,11 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 	case nil:
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not set host maintenance flag, busy")
+		return HostLockedError{Address: p.host.Spec.BMC.Address}
 	default:
-		return result, errors.Wrap(err, "failed to set host maintenance flag")
+		return errors.Wrap(err, "failed to set host maintenance flag")
 	}
-	result.Dirty = true
-	return result, nil
+	return nil
 }
 
 // Deprovision removes the host from the image. It may be called
@@ -1344,7 +1352,9 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	case nodes.CleanFail:
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			return p.setMaintenanceFlag(ironicNode, false)
+			if err := p.setMaintenanceFlag(ironicNode, false); err != nil {
+				return result, err
+			}
 		}
 		return p.changeNodeProvisionState(
 			ironicNode,
@@ -1431,7 +1441,9 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// delete while bypassing Ironic's internal checks related to
 		// Nova.
 		p.log.Info("setting host maintenance flag to force image delete")
-		return p.setMaintenanceFlag(ironicNode, true)
+		if err := p.setMaintenanceFlag(ironicNode, true); err != nil {
+			return result, err
+		}
 	}
 
 	p.log.Info("host ready to be removed")

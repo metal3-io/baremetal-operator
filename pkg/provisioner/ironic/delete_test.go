@@ -121,8 +121,7 @@ func TestDelete(t *testing.T) {
 				},
 			).NodeUpdateError(nodeUUID, http.StatusConflict),
 
-			expectedDirty:        true,
-			expectedRequestAfter: 0,
+			expectedError: "BMC test://test.bmc/ host is locked",
 		},
 		{
 			name: "not-in-maintenance-update",
@@ -132,11 +131,12 @@ func TestDelete(t *testing.T) {
 					ProvisionState: "active",
 					Maintenance:    false,
 				},
-			).NodeUpdate(nodes.Node{
-				UUID: nodeUUID,
-			}),
-			expectedDirty:        true,
+			).Delete(nodeUUID).
+				NodeUpdate(nodes.Node{
+					UUID: nodeUUID,
+				}),
 			expectedRequestAfter: 0,
+			expectedDirty:        true,
 			expectedUpdate: &nodes.UpdateOperation{
 				Op:    "replace",
 				Path:  "/maintenance",

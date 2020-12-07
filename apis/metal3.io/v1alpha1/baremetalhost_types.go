@@ -619,6 +619,10 @@ func (host *BareMetalHost) Available() bool {
 	if host.HasError() {
 		return false
 	}
+	if host.Status.HardwareDetails == nil {
+		return false
+	}
+
 	return true
 }
 

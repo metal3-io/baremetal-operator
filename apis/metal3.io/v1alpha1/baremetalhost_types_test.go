@@ -30,6 +30,9 @@ func TestHostAvailable(t *testing.T) {
 					Name:      "myhost",
 					Namespace: "myns",
 				},
+				Status: BareMetalHostStatus{
+					HardwareDetails: &HardwareDetails{},
+				},
 			},
 			Expected:    true,
 			FailMessage: "available host returned not available",

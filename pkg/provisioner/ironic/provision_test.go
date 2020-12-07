@@ -34,6 +34,15 @@ func TestProvision(t *testing.T) {
 			expectedDirty:        true,
 		},
 		{
+			name: "cleanFail state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
 			name: "manageable state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Manageable),

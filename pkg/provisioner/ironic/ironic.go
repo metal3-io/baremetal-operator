@@ -1034,7 +1034,7 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	return
 }
 
-func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
@@ -1184,7 +1184,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			return result, nil
 		}
 		p.log.Info("recovering from previous failure")
-		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
@@ -1195,8 +1195,18 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		return p.changeNodeProvisionState(ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetProvide})
 
+	case nodes.CleanFail:
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			return p.setMaintenanceFlag(ironicNode, false)
+		}
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
 	case nodes.Available:
-		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 

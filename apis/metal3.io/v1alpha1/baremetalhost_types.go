@@ -608,20 +608,6 @@ func (host *BareMetalHost) BootMode() BootMode {
 	return mode
 }
 
-// Available returns true if the host is available to be provisioned.
-func (host *BareMetalHost) Available() bool {
-	if host.Spec.ConsumerRef != nil {
-		return false
-	}
-	if host.GetDeletionTimestamp() != nil {
-		return false
-	}
-	if host.HasError() {
-		return false
-	}
-	return true
-}
-
 // SetErrorMessage updates the ErrorMessage in the host Status struct
 // and increases the ErrorCount
 func (host *BareMetalHost) SetErrorMessage(errType ErrorType, message string) {

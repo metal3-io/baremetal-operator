@@ -699,12 +699,6 @@ func (host *BareMetalHost) OperationalStatus() OperationalStatus {
 	return host.Status.OperationalStatus
 }
 
-// HasError returns a boolean indicating whether there is an error
-// set for the host.
-func (host *BareMetalHost) HasError() bool {
-	return host.Status.ErrorMessage != ""
-}
-
 // CredentialsKey returns a NamespacedName suitable for loading the
 // Secret containing the credentials associated with the host.
 func (host *BareMetalHost) CredentialsKey() types.NamespacedName {

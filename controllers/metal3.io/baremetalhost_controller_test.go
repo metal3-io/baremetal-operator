@@ -169,7 +169,7 @@ func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for error: %q", host.Status.ErrorMessage)
-			return host.HasError()
+			return host.Status.ErrorMessage != ""
 		},
 	)
 }
@@ -178,7 +178,7 @@ func waitForNoError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alph
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for no error message: %q", host.Status.ErrorMessage)
-			return !host.HasError()
+			return host.Status.ErrorMessage == ""
 		},
 	)
 }

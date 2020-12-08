@@ -290,7 +290,7 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {
-	if hsm.Host.HasError() {
+	if hsm.Host.Status.ErrorMessage != "" {
 		return true
 	}
 	if hsm.Host.Spec.Image == nil {

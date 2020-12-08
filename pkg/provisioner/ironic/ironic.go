@@ -158,9 +158,13 @@ func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc
 
 func newProvisionerWithIronicClients(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
 
-	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
+	var bmcAccess bmc.AccessDetails
+	var err error
+	if host.HasBMCDetails() {
+		bmcAccess, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse BMC address information")
+		}
 	}
 
 	// Ensure we have a microversion high enough to get the features

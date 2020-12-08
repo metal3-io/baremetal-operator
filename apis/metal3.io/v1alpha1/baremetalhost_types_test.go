@@ -488,39 +488,3 @@ func TestBootMode(t *testing.T) {
 		})
 	}
 }
-
-func TestErrorCountIncrementsAlways(t *testing.T) {
-
-	b := &BareMetalHost{}
-	assert.Equal(t, b.Status.ErrorCount, 0)
-
-	b.SetErrorMessage(RegistrationError, "An error message")
-	assert.Equal(t, b.Status.ErrorCount, 1)
-
-	b.SetErrorMessage(InspectionError, "Another error message")
-	assert.Equal(t, b.Status.ErrorCount, 2)
-}
-
-func TestClearErrorCount(t *testing.T) {
-
-	b := &BareMetalHost{
-		Status: BareMetalHostStatus{
-			ErrorCount: 5,
-		},
-	}
-
-	assert.True(t, b.ClearError())
-	assert.Equal(t, 0, b.Status.ErrorCount)
-}
-
-func TestClearErrorCountOnlyIfNotZero(t *testing.T) {
-
-	b := &BareMetalHost{
-		Status: BareMetalHostStatus{
-			ErrorCount: 5,
-		},
-	}
-
-	assert.True(t, b.ClearError())
-	assert.False(t, b.ClearError())
-}

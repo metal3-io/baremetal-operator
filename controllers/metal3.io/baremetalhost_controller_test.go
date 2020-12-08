@@ -1298,3 +1298,39 @@ func TestUpdateEventHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestErrorCountIncrementsAlways(t *testing.T) {
+
+	b := &metal3v1alpha1.BareMetalHost{}
+	assert.Equal(t, b.Status.ErrorCount, 0)
+
+	setErrorMessage(b, metal3v1alpha1.RegistrationError, "An error message")
+	assert.Equal(t, b.Status.ErrorCount, 1)
+
+	setErrorMessage(b, metal3v1alpha1.InspectionError, "Another error message")
+	assert.Equal(t, b.Status.ErrorCount, 2)
+}
+
+func TestClearErrorCount(t *testing.T) {
+
+	b := &metal3v1alpha1.BareMetalHost{
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			ErrorCount: 5,
+		},
+	}
+
+	assert.True(t, clearError(b))
+	assert.Equal(t, 0, b.Status.ErrorCount)
+}
+
+func TestClearErrorCountOnlyIfNotZero(t *testing.T) {
+
+	b := &metal3v1alpha1.BareMetalHost{
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			ErrorCount: 5,
+		},
+	}
+
+	assert.True(t, clearError(b))
+	assert.False(t, clearError(b))
+}

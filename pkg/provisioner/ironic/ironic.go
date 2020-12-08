@@ -1329,7 +1329,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 		p.log.Info("cleaning")
 		return operationContinuing(deprovisionRequeueDelay)
 
-	case nodes.Active:
+	case nodes.Active, nodes.DeployFail:
 		p.log.Info("starting deprovisioning")
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(

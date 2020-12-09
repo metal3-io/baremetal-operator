@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -909,6 +910,30 @@ func hostHasFinalizer(host *metal3v1alpha1.BareMetalHost) bool {
 	return utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 }
 
+func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
+	_, oldOK := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
+	_, newOK := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
+	if !(oldOK && newOK) {
+		// The thing that changed wasn't a host, so we
+		// need to assume that we must update. This
+		// happens when, for example, an owned Secret
+		// changes.
+		return true
+	}
+
+	//If the update increased the resource Generation then let's process it
+	if e.MetaNew.GetGeneration() != e.MetaOld.GetGeneration() {
+		return true
+	}
+
+	//Discard updates that did not increase the resource Generation (such as on Status.LastUpdated), except for the finalizers or annotations
+	if reflect.DeepEqual(e.MetaNew.GetFinalizers(), e.MetaOld.GetFinalizers()) && reflect.DeepEqual(e.MetaNew.GetAnnotations(), e.MetaOld.GetAnnotations()) {
+		return false
+	}
+
+	return true
+}
+
 // SetupWithManager reigsters the reconciler to be run by the manager
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
@@ -936,23 +961,7 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&metal3v1alpha1.BareMetalHost{}).
 		WithEventFilter(
 			predicate.Funcs{
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldHost, oldOK := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
-					newHost, newOK := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
-					if !(oldOK && newOK) {
-						// The thing that changed wasn't a host, so we
-						// need to assume that we must update. This
-						// happens when, for example, an owned Secret
-						// changes.
-						return true
-					}
-
-					if oldHost.Status.ErrorCount != newHost.Status.ErrorCount {
-						//skip reconcile loop
-						return false
-					}
-					return true
-				},
+				UpdateFunc: r.updateEventHandler,
 			}).
 		WithOptions(opts).
 		Owns(&corev1.Secret{}).

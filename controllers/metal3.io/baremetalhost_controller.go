@@ -434,7 +434,7 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
 	}
 
-	provResult, err := prov.ValidateManagementAccess(credsChanged)
+	provResult, err := prov.ValidateManagementAccess(credsChanged, info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}

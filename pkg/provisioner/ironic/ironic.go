@@ -333,7 +333,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	p.log.Info("validating management access")
@@ -572,7 +572,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	case nodes.Enroll:
 
 		// If ironic is reporting an error, stop working on the node.
-		if ironicNode.LastError != "" && !credentialsChanged {
+		if ironicNode.LastError != "" && !(credentialsChanged || force) {
 			result.ErrorMessage = ironicNode.LastError
 			return result, nil
 		}

@@ -366,7 +366,7 @@ func (m *mockProvisioner) setNextResult(dirty bool) {
 	}
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
 	return m.nextResult, err
 }
 

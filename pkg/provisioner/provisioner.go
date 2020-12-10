@@ -43,7 +43,7 @@ type Provisioner interface {
 	// of credentials it has are different from the credentials it has
 	// previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(credentialsChanged bool) (result Result, err error)
+	ValidateManagementAccess(credentialsChanged, force bool) (result Result, err error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called

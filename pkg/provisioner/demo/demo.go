@@ -68,7 +68,7 @@ func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.host.ObjectMeta.Name

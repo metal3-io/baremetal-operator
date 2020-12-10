@@ -77,7 +77,7 @@ func NewMock(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publi
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
 	p.log.Info("testing management access")
 
 	// Fill in the ID of the host in the provisioning system

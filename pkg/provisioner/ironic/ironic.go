@@ -1347,7 +1347,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 	case nodes.Error:
 		return p.changeNodeProvisionState(
 			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
 
 	case nodes.CleanFail:

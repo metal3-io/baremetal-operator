@@ -240,6 +240,7 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 	} else {
 		hsm.NextState = metal3v1alpha1.StateInspecting
 	}
+	hsm.Host.Status.ErrorCount = 0
 	return actionComplete{}
 }
 
@@ -247,6 +248,7 @@ func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult 
 	actResult := hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
+		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
 }
@@ -255,12 +257,14 @@ func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResul
 	actResult := hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateReady
+		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
 }
 
 func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
+		// ErrorCount is cleared when appropriate inside actionManageSteadyState
 		return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
 	}
 
@@ -281,8 +285,8 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
+	// ErrorCount is cleared when appropriate inside actionManageReady
 	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
-
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateProvisioning
 	}
@@ -317,6 +321,7 @@ func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResul
 	actResult := hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateProvisioned
+		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
 }
@@ -327,6 +332,7 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult
 		return actionComplete{}
 	}
 
+	// ErrorCount is cleared when appropriate inside actionManageSteadyState
 	return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
 }
 
@@ -336,6 +342,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 	if hsm.Host.DeletionTimestamp.IsZero() {
 		if _, complete := actResult.(actionComplete); complete {
 			hsm.NextState = metal3v1alpha1.StateReady
+			hsm.Host.Status.ErrorCount = 0
 		}
 	} else {
 		skipToDelete := func() actionResult {
@@ -347,6 +354,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 		switch r := actResult.(type) {
 		case actionComplete:
 			hsm.NextState = metal3v1alpha1.StateDeleting
+			hsm.Host.Status.ErrorCount = 0
 		case actionFailed:
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.

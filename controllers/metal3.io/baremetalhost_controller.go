@@ -370,10 +370,6 @@ func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 		host.Status.ErrorMessage = ""
 		dirty = true
 	}
-	if host.Status.ErrorCount != 0 {
-		host.Status.ErrorCount = 0
-		dirty = true
-	}
 	return dirty
 }
 
@@ -720,6 +716,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// state and there were no errors, so reflect the new state in the
 	// host status field.
 	info.host.Status.PoweredOn = info.host.Spec.Online
+	info.host.Status.ErrorCount = 0
 	return steadyStateResult
 }
 

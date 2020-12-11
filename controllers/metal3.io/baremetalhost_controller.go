@@ -604,7 +604,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 
 	info.log.Info("deprovisioning")
 
-	provResult, err = prov.Deprovision()
+	provResult, err = prov.Deprovision(info.host.Status.ErrorType == metal3v1alpha1.ProvisioningError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to deprovision")}
 	}

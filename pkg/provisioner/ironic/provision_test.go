@@ -125,6 +125,7 @@ func TestDeprovision(t *testing.T) {
 		ironic               *testserver.IronicMock
 		expectedDirty        bool
 		expectedError        bool
+		expectedErrorMessage bool
 		expectedRequestAfter int
 	}{
 		{
@@ -142,8 +143,7 @@ func TestDeprovision(t *testing.T) {
 				ProvisionState: string(nodes.Error),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedErrorMessage: true,
 		},
 		{
 			name: "available state",
@@ -207,9 +207,10 @@ func TestDeprovision(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, err := prov.Deprovision()
+			result, err := prov.Deprovision(false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
+			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage != "")
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
 			if !tc.expectedError {
 				assert.NoError(t, err)

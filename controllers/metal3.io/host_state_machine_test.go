@@ -387,7 +387,7 @@ func (m *mockProvisioner) Provision(configData provisioner.HostConfigData) (resu
 	return m.nextResult, err
 }
 
-func (m *mockProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (m *mockProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 	return m.nextResult, err
 }
 

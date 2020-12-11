@@ -218,7 +218,7 @@ func (p *demoProvisioner) Provision(hostConf provisioner.HostConfigData) (result
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *demoProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *demoProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 
 	hostName := p.host.ObjectMeta.Name
 	switch hostName {

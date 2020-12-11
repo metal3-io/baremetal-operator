@@ -57,7 +57,7 @@ func (p *emptyProvisioner) Provision(hostConf provisioner.HostConfigData) (provi
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *emptyProvisioner) Deprovision() (provisioner.Result, error) {
+func (p *emptyProvisioner) Deprovision(force bool) (provisioner.Result, error) {
 	return provisioner.Result{}, nil
 }
 

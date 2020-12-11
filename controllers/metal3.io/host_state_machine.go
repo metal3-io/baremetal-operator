@@ -358,10 +358,9 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 		case actionFailed:
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
-			// Note that this is entirely theoretical, as the
-			// Ironic provisioner currently never gives up
-			// trying to deprovision.
-			return skipToDelete()
+			if hsm.Host.Status.ErrorCount > 3 {
+				return skipToDelete()
+			}
 		case actionError:
 			if r.NeedsRegistration() && !hsm.haveCreds {
 				// If the host is not registered as a node in Ironic and we

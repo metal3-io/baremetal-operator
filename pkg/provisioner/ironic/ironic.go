@@ -1323,7 +1323,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.findExistingHost()
@@ -1345,6 +1345,17 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Error:
+		if !force {
+			p.log.Info("deprovisioning failed")
+			if ironicNode.LastError == "" {
+				result.ErrorMessage = "Deprovisioning failed"
+			} else {
+				result.ErrorMessage = ironicNode.LastError
+			}
+			return result, nil
+		}
+		p.log.Info("retrying deprovisioning")
+		p.publisher("DeprovisioningStarted", "Image deprovisioning restarted")
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
@@ -1355,6 +1366,10 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 			p.log.Info("clearing maintenance flag")
 			return p.setMaintenanceFlag(ironicNode, false)
 		}
+		// This will return us to the manageable state without completing
+		// cleaning. Because cleaning happens in the process of moving from
+		// manageable to available, the node will still get cleaned before
+		// we provision it again.
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},

@@ -70,7 +70,7 @@ type Provisioner interface {
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
 	// the deprovisioning operation is completed.
-	Deprovision() (result Result, err error)
+	Deprovision(force bool) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty

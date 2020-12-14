@@ -210,6 +210,18 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 	}
 	prov, err := r.ProvisionerFactory(host, *bmcCreds, info.publishEvent)
 	if err != nil {
+		if !info.host.DeletionTimestamp.IsZero() {
+			// Remove the finalizer, if present
+			if hostHasFinalizer(host) {
+				info.log.Info(
+					"removing finalizer",
+					"timestamp", info.host.DeletionTimestamp,
+				)
+
+				host.Finalizers = utils.FilterStringFromList(
+					host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
+			}
+		}
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 

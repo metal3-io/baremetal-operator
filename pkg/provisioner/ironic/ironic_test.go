@@ -71,5 +71,14 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 	}
 }
 
+func makeHostLiveImage() (host *metal3v1alpha1.BareMetalHost) {
+	host = makeHost()
+	host.Spec.LiveImage = &metal3v1alpha1.LiveImage{
+		URL: "liveimage-not-empty",
+	}
+	host.Spec.Image = nil
+	return host
+}
+
 // Implements provisioner.EventPublisher to swallow events for tests.
 func nullEventPublisher(reason, message string) {}

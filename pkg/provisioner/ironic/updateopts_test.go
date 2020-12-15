@@ -286,3 +286,73 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUpdateOptsForNodeLiveImage(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	prov, err := newProvisionerWithSettings(makeHostLiveImage(), bmc.Credentials{}, eventPublisher,
+		"https://ironic.test", auth, "https://ironic.test", auth,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{}
+
+	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("patches: %v", patches)
+
+	expected := []struct {
+		Path  string      // the node property path
+		Key   string      // if value is a map, the key we care about
+		Value interface{} // the value being passed to ironic (or value associated with the key)
+	}{
+		{
+			Path:  "/instance_info/boot_iso",
+			Value: "liveimage-not-empty",
+		},
+		{
+			Path:  "/deploy_interface",
+			Value: "ramdisk",
+		},
+		{
+			Path:  "/instance_uuid",
+			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		{
+			Path:  "/instance_info/root_gb",
+			Value: 10,
+		},
+		{
+			Path:  "/properties/cpu_arch",
+			Value: "x86_64",
+		},
+		{
+			Path:  "/properties/local_gb",
+			Value: 50,
+		},
+	}
+
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			t.Logf("expected: %v", e)
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == e.Path {
+					break
+				}
+			}
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
+			}
+			t.Logf("update: %v", update)
+			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+		})
+	}
+}

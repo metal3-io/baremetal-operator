@@ -102,6 +102,83 @@ func TestValidateManagementAccessCreateNode(t *testing.T) {
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
+	assert.Equal(t, createdNode.DeployInterface, "direct")
+}
+
+func TestValidateManagementAccessCreateWithImage(t *testing.T) {
+	// Create a host with Image specified in the Spec
+	host := makeHost()
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+	host.Spec.Image.URL = "theimagefoo"
+	host.Spec.Image.Checksum = "thechecksumxyz"
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.ValidateManagementAccess(false, false)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "", result.ErrorMessage)
+	assert.Equal(t, createdNode.UUID, provID)
+	assert.Equal(t, createdNode.DeployInterface, "direct")
+	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
+	assert.Contains(t, updates, "/instance_info/image_source")
+	assert.Contains(t, updates, host.Spec.Image.URL)
+	assert.Contains(t, updates, "/instance_info/image_checksum")
+	assert.Contains(t, updates, host.Spec.Image.Checksum)
+}
+
+func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
+	// Create a host with Image specified in the Spec
+	host := makeHostLiveIso()
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.ValidateManagementAccess(false, false)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "", result.ErrorMessage)
+	assert.Equal(t, createdNode.UUID, provID)
+	assert.Equal(t, createdNode.DeployInterface, "ramdisk")
+	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
+	assert.Contains(t, updates, "/instance_info/boot_iso")
+	assert.Contains(t, updates, host.Spec.Image.URL)
 }
 
 func TestValidateManagementAccessExistingNode(t *testing.T) {

@@ -71,5 +71,12 @@ func makeHost() metal3v1alpha1.BareMetalHost {
 	}
 }
 
+func makeHostLiveIso() (host metal3v1alpha1.BareMetalHost) {
+	host = makeHost()
+	format := "live-iso"
+	host.Spec.Image.DiskFormat = &format
+	return host
+}
+
 // Implements provisioner.EventPublisher to swallow events for tests.
 func nullEventPublisher(reason, message string) {}

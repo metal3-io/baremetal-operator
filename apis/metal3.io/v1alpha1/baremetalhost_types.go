@@ -815,6 +815,12 @@ func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 		return
 	}
 
+	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+		// Checksum is not required for live-iso
+		ok = true
+		return
+	}
+
 	if image.Checksum == "" {
 		// Return empty if checksum is not provided
 		return

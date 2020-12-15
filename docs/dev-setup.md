@@ -20,7 +20,7 @@
     cd $GOPATH/src/github.com/metal3-io
     git clone https://github.com/metal3-io/baremetal-operator.git
     cd baremetal-operator
-    kustomize build config/default | kubectl apply -f
+    kustomize build config/default | kubectl apply -f -
     ```
 
 1. OR Launch the operator locally

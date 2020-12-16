@@ -99,6 +99,14 @@ Even though the image sub-fields are required by Ironic,
 when the host provisioning is managed externally via `externallyProvisioned: true`,
 and power control isn't needed, the fields can be left empty.
 
+#### liveImage
+
+Holds details for the live-image to be booted on a given host.
+
+The sub-fields are
+
+* *url* -- The URL of an iso image to boot.
+
 #### userData
 
 A reference to the Secret containing the cloudinit user data and its

@@ -1819,7 +1819,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 func (p *ironicProvisioner) IsReady() (result bool, err error) {
 	p.log.Info("verifying ironic provisioner dependencies")
 
-	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
+	checker := newIronicDependenciesChecker(p.client, p.inspector, &p.host, p.log)
 	return checker.IsReady()
 }
 

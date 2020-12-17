@@ -25,7 +25,7 @@ func TestProvisionerIsReady(t *testing.T) {
 	}{
 		{
 			name:                   "IsReady",
-			ironic:                 testserver.NewIronic(t).Ready().WithDrivers(),
+			ironic:                 testserver.NewIronic(t).Ready().WithTestDriver(),
 			inspector:              testserver.NewInspector(t).Ready(),
 			expectedIronicCalls:    "/v1;/v1/drivers;",
 			expectedInspectorCalls: "/v1;",
@@ -33,7 +33,13 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:                "NoDriversLoaded",
-			ironic:              testserver.NewIronic(t).Ready(),
+			ironic:              testserver.NewIronic(t).Ready().WithNoDrivers(),
+			inspector:           testserver.NewInspector(t).Ready(),
+			expectedIronicCalls: "/v1;/v1/drivers;",
+		},
+		{
+			name:                "WrongDriversLoaded",
+			ironic:              testserver.NewIronic(t).Ready().WithFakeHardwareDriver(),
 			inspector:           testserver.NewInspector(t).Ready(),
 			expectedIronicCalls: "/v1;/v1/drivers;",
 		},
@@ -44,7 +50,7 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:                "InspectorDown",
-			ironic:              testserver.NewIronic(t).Ready().WithDrivers(),
+			ironic:              testserver.NewIronic(t).Ready().WithTestDriver(),
 			expectedIronicCalls: "/v1;/v1/drivers;",
 			expectedIsReady:     false,
 		},
@@ -64,7 +70,7 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:                   "InspectorNotOk",
-			ironic:                 testserver.NewIronic(t).Ready().WithDrivers(),
+			ironic:                 testserver.NewIronic(t).Ready().WithTestDriver(),
 			inspector:              testserver.NewInspector(t).NotReady(http.StatusInternalServerError),
 			expectedIsReady:        false,
 			expectedIronicCalls:    "/v1;/v1/drivers;",

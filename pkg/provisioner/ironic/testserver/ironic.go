@@ -61,9 +61,38 @@ func (m *IronicMock) NotReady(errorCode int) *IronicMock {
 	return m
 }
 
-// WithDrivers configures the server so /v1/drivers returns a valid value
-func (m *IronicMock) WithDrivers() *IronicMock {
-	m.ResponseWithCode("/v1/drivers", `
+func (m *IronicMock) withDrivers(payload string) *IronicMock {
+	m.ResponseWithCode("/v1/drivers", payload, http.StatusOK)
+	return m
+}
+
+// WithTestDriver configures the server so /v1/drivers returns the test driver
+func (m *IronicMock) WithTestDriver() *IronicMock {
+	m.withDrivers(`
+	{
+		"drivers": [{
+			"hosts": [
+			  "master-2.ostest.test.metalkube.org"
+			],
+			"links": [
+			  {
+				"href": "http://[fd00:1101::3]:6385/v1/drivers/test",
+				"rel": "self"
+			  },
+			  {
+				"href": "http://[fd00:1101::3]:6385/drivers/test",
+				"rel": "bookmark"
+			  }
+			],
+			"name": "test"
+		}]
+	}`)
+	return m
+}
+
+// WithFakeHardwareDriver configures the server so /v1/drivers returns the fake-hardware driver
+func (m *IronicMock) WithFakeHardwareDriver() *IronicMock {
+	m.withDrivers(`
 	{
 		"drivers": [{
 			"hosts": [
@@ -81,8 +110,16 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 			],
 			"name": "fake-hardware"
 		}]
-	}
-	`, http.StatusOK)
+	}`)
+	return m
+}
+
+// WithNoDrivers configures the server so /v1/drivers returns an empty list
+func (m *IronicMock) WithNoDrivers() *IronicMock {
+	m.withDrivers(`
+	{
+		"drivers": []
+	}`)
 	return m
 }
 

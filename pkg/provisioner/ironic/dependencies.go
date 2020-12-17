@@ -7,7 +7,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
-	"github.com/gophercloud/gophercloud/pagination"
+	"github.com/pkg/errors"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
 const (
@@ -17,13 +20,16 @@ const (
 type ironicDependenciesChecker struct {
 	client    *gophercloud.ServiceClient
 	inspector *gophercloud.ServiceClient
+	host      *metal3v1alpha1.BareMetalHost
 	log       logr.Logger
 }
 
-func newIronicDependenciesChecker(client *gophercloud.ServiceClient, inspector *gophercloud.ServiceClient, log logr.Logger) *ironicDependenciesChecker {
+func newIronicDependenciesChecker(client *gophercloud.ServiceClient, inspector *gophercloud.ServiceClient, host *metal3v1alpha1.BareMetalHost,
+	log logr.Logger) *ironicDependenciesChecker {
 	return &ironicDependenciesChecker{
 		client:    client,
 		inspector: inspector,
+		host:      host,
 		log:       log,
 	}
 }
@@ -61,30 +67,36 @@ func (i *ironicDependenciesChecker) checkIronic() (ready bool, err error) {
 	return ready, err
 }
 
-func (i *ironicDependenciesChecker) checkIronicConductor() (ready bool, err error) {
+func (i *ironicDependenciesChecker) checkIronicConductor() (bool, error) {
+
+	bmcAccess, err := bmc.NewAccessDetails(i.host.Spec.BMC.Address, i.host.Spec.BMC.DisableCertificateVerification)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to parse BMC address information")
+	}
 
 	pager := drivers.ListDrivers(i.client, drivers.ListDriversOpts{
 		Detail: false,
 	})
-	err = pager.Err
-
-	if err != nil {
-		return ready, err
+	if pager.Err != nil {
+		return false, pager.Err
 	}
 
-	driverCount := 0
-	pager.EachPage(func(page pagination.Page) (bool, error) {
-		actual, driverErr := drivers.ExtractDrivers(page)
-		if driverErr != nil {
-			return false, driverErr
-		}
-		driverCount += len(actual)
-		return true, nil
-	})
-	// If we have any drivers, conductor is up.
-	ready = driverCount > 0
+	page, err := pager.AllPages()
+	if err != nil {
+		return false, err
+	}
+	allDrivers, err := drivers.ExtractDrivers(page)
+	if err != nil {
+		return false, err
+	}
 
-	return ready, err
+	for _, driver := range allDrivers {
+		if driver.Name == bmcAccess.Driver() {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (i *ironicDependenciesChecker) checkIronicInspector() (ready bool) {

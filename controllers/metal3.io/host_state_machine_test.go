@@ -62,6 +62,38 @@ func TestProvisioningCancelled(t *testing.T) {
 		},
 
 		{
+			Scenario: "with liveimage url, unprovisioned",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					LiveImage: &metal3v1alpha1.LiveImage{
+						URL: "not-empty",
+					},
+					Online: true,
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "with liveimage, unprovisioned",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					LiveImage: &metal3v1alpha1.LiveImage{},
+					Online:    true,
+				},
+			},
+			Expected: true,
+		},
+
+		{
 			Scenario: "without, unprovisioned",
 			Host: metal3v1alpha1.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{

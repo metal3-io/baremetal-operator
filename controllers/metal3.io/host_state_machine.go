@@ -293,16 +293,25 @@ func (hsm *hostStateMachine) provisioningCancelled() bool {
 	if hsm.Host.HasError() {
 		return true
 	}
-	if hsm.Host.Spec.Image == nil {
+	if hsm.Host.Spec.Image == nil && hsm.Host.Spec.LiveImage == nil {
 		return true
 	}
-	if hsm.Host.Spec.Image.URL == "" {
+	if hsm.Host.Spec.LiveImage != nil && hsm.Host.Spec.LiveImage.URL == "" {
 		return true
 	}
-	if hsm.Host.Status.Provisioning.Image.URL == "" {
+	if hsm.Host.Spec.LiveImage != nil && hsm.Host.Status.Provisioning.LiveImage.URL == "" {
 		return false
 	}
-	if hsm.Host.Spec.Image.URL != hsm.Host.Status.Provisioning.Image.URL {
+	if hsm.Host.Spec.LiveImage != nil && hsm.Host.Spec.LiveImage.URL != hsm.Host.Status.Provisioning.LiveImage.URL {
+		return true
+	}
+	if hsm.Host.Spec.Image != nil && hsm.Host.Spec.Image.URL == "" {
+		return true
+	}
+	if hsm.Host.Spec.Image != nil && hsm.Host.Status.Provisioning.Image.URL == "" {
+		return false
+	}
+	if hsm.Host.Spec.Image != nil && hsm.Host.Spec.Image.URL != hsm.Host.Status.Provisioning.Image.URL {
 		return true
 	}
 	return false

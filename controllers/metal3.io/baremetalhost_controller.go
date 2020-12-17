@@ -546,9 +546,17 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
-	if info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
-		info.log.Info("updating deployed image in status")
-		info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
+	if info.host.Spec.Image != nil {
+		if info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
+			info.log.Info("updating deployed image in status")
+			info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
+		}
+	}
+	if info.host.Spec.LiveImage != nil {
+		if info.host.Status.Provisioning.LiveImage != *(info.host.Spec.LiveImage) {
+			info.log.Info("updating booted liveImage in status")
+			info.host.Status.Provisioning.LiveImage = *(info.host.Spec.LiveImage)
+		}
 	}
 
 	// After provisioning we always requeue to ensure we enter the

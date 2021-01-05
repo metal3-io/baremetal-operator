@@ -59,24 +59,37 @@ func getNICSpeedGbps(intfExtradata introspection.ExtraHardwareData) (speedGbps i
 func getNICDetails(ifdata []introspection.InterfaceType,
 	basedata map[string]introspection.BaseInterfaceType,
 	extradata introspection.ExtraHardwareDataSection) []metal3v1alpha1.NIC {
-	nics := make([]metal3v1alpha1.NIC, len(ifdata))
-	for i, intf := range ifdata {
+	var nics []metal3v1alpha1.NIC
+	for _, intf := range ifdata {
 		baseIntf := basedata[intf.Name]
 		vlans, vlanid := getVLANs(baseIntf)
-		ip := intf.IPV4Address
-		if ip == "" {
-			ip = intf.IPV6Address
+		// We still store one nic even if both ips are unset
+		// if both are set, we store two nics with each ip
+		if intf.IPV4Address != "" || intf.IPV6Address == "" {
+			nics = append(nics, metal3v1alpha1.NIC{
+				Name: intf.Name,
+				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
+					intf.Vendor, intf.Product), " "),
+				MAC:       intf.MACAddress,
+				IP:        intf.IPV4Address,
+				VLANs:     vlans,
+				VLANID:    vlanid,
+				SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),
+				PXE:       baseIntf.PXE,
+			})
 		}
-		nics[i] = metal3v1alpha1.NIC{
-			Name: intf.Name,
-			Model: strings.TrimLeft(fmt.Sprintf("%s %s",
-				intf.Vendor, intf.Product), " "),
-			MAC:       intf.MACAddress,
-			IP:        ip,
-			VLANs:     vlans,
-			VLANID:    vlanid,
-			SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),
-			PXE:       baseIntf.PXE,
+		if intf.IPV6Address != "" {
+			nics = append(nics, metal3v1alpha1.NIC{
+				Name: intf.Name,
+				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
+					intf.Vendor, intf.Product), " "),
+				MAC:       intf.MACAddress,
+				IP:        intf.IPV6Address,
+				VLANs:     vlans,
+				VLANID:    vlanid,
+				SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),
+				PXE:       baseIntf.PXE,
+			})
 		}
 	}
 	return nics

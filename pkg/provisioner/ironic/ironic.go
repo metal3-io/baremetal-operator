@@ -388,7 +388,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
 		p.status.ID = ironicNode.UUID
-		result.Dirty = true
+		result, err = hostUpdated()
 		p.log.Info("setting provisioning id", "ID", p.status.ID)
 
 		// If we know the MAC, create a port. Otherwise we will have
@@ -447,7 +447,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			// Store the ID so other methods can assume it is set and
 			// so we can find the node using that value next time.
 			p.status.ID = ironicNode.UUID
-			result.Dirty = true
+			result, err = hostUpdated()
 			p.log.Info("setting provisioning id", "ID", p.status.ID)
 		}
 
@@ -717,7 +717,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, er
 	if discoveredVal != p.host.Status.PoweredOn {
 		p.log.Info("updating power status", "discovered", discoveredVal)
 		p.host.Status.PoweredOn = discoveredVal
-		result.Dirty = true
+		return hostUpdated()
 	}
 	return result, nil
 }

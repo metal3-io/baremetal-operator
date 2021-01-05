@@ -431,9 +431,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 				case nil:
 				case gophercloud.ErrDefault409:
 					p.log.Info("could not update host settings in ironic, busy")
-					result.Dirty = true
-					result.RequeueAfter = provisionRequeueDelay
-					return result, nil
+					return retryAfterDelay(provisionRequeueDelay)
 				default:
 					return result, errors.Wrap(err, "failed to update host settings in ironic")
 				}
@@ -465,9 +463,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update ironic node name, busy")
-				result.Dirty = true
-				result.RequeueAfter = provisionRequeueDelay
-				return result, nil
+				return retryAfterDelay(provisionRequeueDelay)
 			default:
 				return result, errors.Wrap(err, "failed to update ironc node name")
 			}
@@ -490,9 +486,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update host driver settings, busy")
-				result.Dirty = true
-				result.RequeueAfter = provisionRequeueDelay
-				return result, nil
+				return retryAfterDelay(provisionRequeueDelay)
 			default:
 				return result, errors.Wrap(err, "failed to update host driver settings")
 			}
@@ -579,6 +573,8 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 		success = true
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not change state of host, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+		return
 	default:
 		err = errors.Wrap(changeResult.Err,
 			fmt.Sprintf("failed to change provisioning state to %q", opts.Target))
@@ -645,7 +641,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 				case nil:
 				case gophercloud.ErrDefault409:
 					p.log.Info("could not update host settings in ironic, busy")
-					result.Dirty = true
+					result, err = retryAfterDelay(provisionRequeueDelay)
 					return
 				default:
 					err = errors.Wrap(err, "failed to update host boot mode settings in ironic")
@@ -1016,8 +1012,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 	case nil:
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not update host settings in ironic, busy")
-		result.Dirty = true
-		return result, nil
+		return retryAfterDelay(provisionRequeueDelay)
 	default:
 		return result, errors.Wrap(err, "failed to update host settings in ironic")
 	}
@@ -1029,8 +1024,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 	case nil:
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not validate host during registration, busy")
-		result.Dirty = true
-		return result, nil
+		return retryAfterDelay(provisionRequeueDelay)
 	default:
 		return result, errors.Wrap(err, "failed to validate host during registration")
 	}
@@ -1273,6 +1267,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 	case nil:
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not set host maintenance flag, busy")
+		return retryAfterDelay(provisionRequeueDelay)
 	default:
 		return result, errors.Wrap(err, "failed to set host maintenance flag")
 	}
@@ -1425,6 +1420,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		p.log.Info("removed")
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not remove host, busy")
+		return retryAfterDelay(provisionRequeueDelay)
 	case gophercloud.ErrDefault404:
 		p.log.Info("did not find host to delete, OK")
 	default:
@@ -1466,8 +1462,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		p.log.Info("power change OK")
 	case gophercloud.ErrDefault409:
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
-		result.Dirty = true
-		result.RequeueAfter = powerRequeueDelay
+		result, _ = retryAfterDelay(powerRequeueDelay)
 		return result, HostLockedError{Address: p.host.Spec.BMC.Address}
 	case gophercloud.ErrDefault400:
 		// Error 400 Bad Request means target power state is not supported by vendor driver

@@ -524,9 +524,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		if ironicNode.TargetProvisionState == string(nodes.TargetManage) {
 			// We have already tried to manage the node and did not
 			// get an error, so do nothing and keep trying.
-			result.Dirty = true
-			result.RequeueAfter = provisionRequeueDelay
-			return result, nil
+			return operationContinuing(provisionRequeueDelay)
 		}
 
 		return p.changeNodeProvisionState(
@@ -538,9 +536,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
-		result.RequeueAfter = provisionRequeueDelay
-		result.Dirty = true
-		return result, nil
+		return operationContinuing(provisionRequeueDelay)
 
 	case nodes.Manageable:
 		p.log.Info("have manageable host")
@@ -583,8 +579,7 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 		return
 	}
 
-	result.Dirty = true
-	result.RequeueAfter = provisionRequeueDelay
+	result, err = operationContinuing(provisionRequeueDelay)
 	return
 }
 
@@ -615,9 +610,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {
 			case nodes.Inspecting, nodes.InspectWait:
 				p.log.Info("inspection already started")
-				result.Dirty = true
-				result.RequeueAfter = introspectionRequeueDelay
-				err = nil
+				result, err = operationContinuing(introspectionRequeueDelay)
 				return
 			default:
 				if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectFail && !force {
@@ -667,8 +660,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 	}
 	if !status.Finished {
 		p.log.Info("inspection in progress", "started_at", status.StartedAt)
-		result.Dirty = true // make sure we check back
-		result.RequeueAfter = introspectionRequeueDelay
+		result, err = operationContinuing(introspectionRequeueDelay)
 		return
 	}
 	if status.Error != "" {
@@ -1076,9 +1068,7 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 			},
 		)
 	case nodes.Adopting:
-		result.RequeueAfter = provisionRequeueDelay
-		result.Dirty = true
-		return
+		return operationContinuing(provisionRequeueDelay)
 	case nodes.AdoptFail:
 		if force {
 			return p.changeNodeProvisionState(
@@ -1127,8 +1117,6 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		"image_os_has_value", checksum,
 		"same", ironicHasSameImage,
 		"provisionState", ironicNode.ProvisionState)
-
-	result.RequeueAfter = provisionRequeueDelay
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
@@ -1251,8 +1239,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		p.log.Info("waiting for host to become available",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep)
-		result.Dirty = true
-		return result, nil
+		return operationContinuing(provisionRequeueDelay)
 	}
 }
 
@@ -1276,8 +1263,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 	default:
 		return result, errors.Wrap(err, "failed to set host maintenance flag")
 	}
-	result.Dirty = true
-	return result, nil
+	return operationContinuing(0)
 }
 
 // Deprovision removes the host from the image. It may be called
@@ -1342,22 +1328,16 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 	case nodes.Deleting:
 		p.log.Info("deleting")
 		// Transitions to Cleaning upon completion
-		result.Dirty = true
-		result.RequeueAfter = deprovisionRequeueDelay
-		return result, nil
+		return operationContinuing(deprovisionRequeueDelay)
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
 		// Transitions to Available upon completion
-		result.Dirty = true
-		result.RequeueAfter = deprovisionRequeueDelay
-		return result, nil
+		return operationContinuing(deprovisionRequeueDelay)
 
 	case nodes.CleanWait:
 		p.log.Info("cleaning")
-		result.Dirty = true
-		result.RequeueAfter = deprovisionRequeueDelay
-		return result, nil
+		return operationContinuing(deprovisionRequeueDelay)
 
 	case nodes.Active:
 		p.log.Info("starting deprovisioning")
@@ -1432,8 +1412,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		return result, errors.Wrap(err, "failed to remove host")
 	}
 
-	result.Dirty = true
-	return result, nil
+	return operationContinuing(0)
 }
 
 func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {
@@ -1444,9 +1423,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 			"state", ironicNode.ProvisionState,
 			"target state", ironicNode.TargetProvisionState,
 		)
-		result.Dirty = true
-		result.RequeueAfter = powerRequeueDelay
-		return result, nil
+		return operationContinuing(powerRequeueDelay)
 	}
 
 	powerStateOpts := nodes.PowerStateOpts{
@@ -1463,8 +1440,8 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 
 	switch changeResult.Err.(type) {
 	case nil:
-		result.Dirty = true
 		p.log.Info("power change OK")
+		return operationContinuing(0)
 	case gophercloud.ErrDefault409:
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
 		result, _ = retryAfterDelay(powerRequeueDelay)
@@ -1477,8 +1454,6 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		p.log.Info("power change error", "message", changeResult.Err)
 		return result, errors.Wrap(changeResult.Err, "failed to change power state")
 	}
-
-	return result, nil
 }
 
 // PowerOn ensures the server is powered on independently of any image
@@ -1498,9 +1473,7 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 	if ironicNode.PowerState != powerOn {
 		if ironicNode.TargetPowerState == powerOn {
 			p.log.Info("waiting for power status to change")
-			result.RequeueAfter = powerRequeueDelay
-			result.Dirty = true
-			return result, nil
+			return operationContinuing(powerRequeueDelay)
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
 		if err != nil {
@@ -1546,9 +1519,7 @@ func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error
 	if ironicNode.PowerState != powerOff {
 		if ironicNode.TargetPowerState == powerOff {
 			p.log.Info("waiting for power status to change")
-			result.RequeueAfter = powerRequeueDelay
-			result.Dirty = true
-			return result, nil
+			return operationContinuing(powerRequeueDelay)
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)
 		if err != nil {
@@ -1579,9 +1550,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 		// If the target state is either powerOff or softPowerOff, then we should wait
 		if targetState == powerOff || targetState == softPowerOff {
 			p.log.Info("waiting for power status to change")
-			result.RequeueAfter = powerRequeueDelay
-			result.Dirty = true
-			return result, nil
+			return operationContinuing(powerRequeueDelay)
 		}
 		// If the target state is unset while the last error is set,
 		// then the last execution of soft power off has failed.

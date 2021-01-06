@@ -406,8 +406,9 @@ type NIC struct {
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	MAC string `json:"mac"`
 
-	// The IP address of the interface. This will be an IPv4 address if one is
-	// present, and only an IPv6 address if there is no IPv4 address.
+	// The IP address of the interface. This will be an IPv4 or IPv6 address
+	// if one is present.  If both IPv4 and IPv6 addresses are present in a
+	// dual-stack environment, two nics will be output, one with each IP.
 	IP string `json:"ip"`
 
 	// The speed of the device in Gigabits per second

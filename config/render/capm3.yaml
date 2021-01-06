@@ -338,7 +338,7 @@ spec:
                       description: NIC describes one network interface on the host.
                       properties:
                         ip:
-                          description: The IP address of the interface. This will be an IPv4 address if one is present, and only an IPv6 address if there is no IPv4 address.
+                          description: The IP address of the interface. This will be an IPv4 or IPv6 address if one is present.  If both IPv4 and IPv6 addresses are present in a dual-stack environment, two nics will be output, one with each IP.
                           type: string
                         mac:
                           description: The device MAC address

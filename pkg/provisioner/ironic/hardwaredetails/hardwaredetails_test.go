@@ -159,6 +159,14 @@ func TestGetNICDetails(t *testing.T) {
 				Name:        "eth1",
 				IPV6Address: "2001:db8::1",
 				MACAddress:  "66:77:88:99:aa:bb"},
+			{
+				Name:        "eth46",
+				IPV6Address: "2001:db8::2",
+				IPV4Address: "192.0.2.2",
+				MACAddress:  "00:11:22:33:44:66"},
+			{
+				Name:       "ethNoIp",
+				MACAddress: "00:11:22:33:44:77"},
 		},
 		map[string]introspection.BaseInterfaceType{
 			"eth0": {
@@ -179,8 +187,9 @@ func TestGetNICDetails(t *testing.T) {
 			},
 		})
 
-	if len(nics) != 2 {
-		t.Errorf("Expected 2 NICs, got %d", len(nics))
+	// 5 expected because eth46 results in two items
+	if len(nics) != 5 {
+		t.Errorf("Expected 5 NICs, got %d", len(nics))
 	}
 	if (!reflect.DeepEqual(nics[0], metal3v1alpha1.NIC{
 		Name: "eth0",
@@ -199,6 +208,26 @@ func TestGetNICDetails(t *testing.T) {
 		MAC:       "66:77:88:99:aa:bb",
 		IP:        "2001:db8::1",
 		SpeedGbps: 1,
+	})) {
+		t.Errorf("Unexpected NIC data")
+	}
+	if (!reflect.DeepEqual(nics[2], metal3v1alpha1.NIC{
+		Name: "eth46",
+		MAC:  "00:11:22:33:44:66",
+		IP:   "192.0.2.2",
+	})) {
+		t.Errorf("Unexpected NIC data")
+	}
+	if (!reflect.DeepEqual(nics[3], metal3v1alpha1.NIC{
+		Name: "eth46",
+		MAC:  "00:11:22:33:44:66",
+		IP:   "2001:db8::2",
+	})) {
+		t.Errorf("Unexpected NIC data")
+	}
+	if (!reflect.DeepEqual(nics[4], metal3v1alpha1.NIC{
+		Name: "ethNoIp",
+		MAC:  "00:11:22:33:44:77",
 	})) {
 		t.Errorf("Unexpected NIC data")
 	}

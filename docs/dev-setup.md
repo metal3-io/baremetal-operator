@@ -9,7 +9,7 @@
 1. Create a namespace to host the operator
 
     ```bash
-    kubectl create namespace metal3
+    kubectl create namespace baremetal-operator-system
     ```
 
 1. Install operator in the cluster

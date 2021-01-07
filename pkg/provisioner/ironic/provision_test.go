@@ -66,7 +66,7 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 0,
 			expectedDirty:        false,
 		},
 		{

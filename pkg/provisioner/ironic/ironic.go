@@ -358,6 +358,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	driverInfo["deploy_kernel"] = deployKernelURL
 	driverInfo["deploy_ramdisk"] = deployRamdiskURL
 
+	result, err = operationComplete()
+
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
@@ -542,21 +544,21 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 	case nodes.Manageable:
 		p.log.Info("have manageable host")
-		return result, nil
+		return
 
 	case nodes.Available:
 		// The host is fully registered (and probably wasn't cleanly
 		// deleted previously)
 		p.log.Info("have available host")
-		return result, nil
+		return
 
 	case nodes.Active:
 		// The host is already running, maybe it's a master?
 		p.log.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
-		return result, nil
+		return
 
 	default:
-		return result, nil
+		return
 	}
 }
 
@@ -687,6 +689,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 
 	details = hardwaredetails.GetHardwareDetails(data)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
+	result, err = operationComplete()
 	return
 }
 
@@ -1064,6 +1067,7 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 	case nodes.Enroll, nodes.Verifying:
 		err = fmt.Errorf("Invalid state for adopt: %s",
 			ironicNode.ProvisionState)
+		return
 	case nodes.Manageable:
 		return p.changeNodeProvisionState(
 			ironicNode,
@@ -1074,6 +1078,7 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 	case nodes.Adopting:
 		result.RequeueAfter = provisionRequeueDelay
 		result.Dirty = true
+		return
 	case nodes.AdoptFail:
 		if force {
 			return p.changeNodeProvisionState(
@@ -1085,11 +1090,12 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 		} else {
 			result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
 				ironicNode.LastError)
+			return
 		}
 	case nodes.Active:
 	default:
 	}
-	return
+	return operationComplete()
 }
 
 // Provision writes the image from the host spec to the host. It may
@@ -1238,7 +1244,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		p.publisher("ProvisioningComplete",
 			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
 		p.log.Info("finished provisioning")
-		return result, nil
+		return operationComplete()
 
 	default:
 		// wait states like cleaning and clean wait
@@ -1331,7 +1337,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 
 	case nodes.Available:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
-		return result, nil
+		return operationComplete()
 
 	case nodes.Deleting:
 		p.log.Info("deleting")
@@ -1377,7 +1383,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	}
 	if ironicNode == nil {
 		p.log.Info("no node found, already deleted")
-		return result, nil
+		return operationComplete()
 	}
 
 	p.log.Info("deleting host",
@@ -1549,9 +1555,10 @@ func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error
 			return result, errors.Wrap(err, "failed to power off host")
 		}
 		p.publisher("PowerOff", "Host powered off")
+		return result, err
 	}
 
-	return result, nil
+	return operationComplete()
 }
 
 // softPowerOff sends 'soft power off' request to BM node.

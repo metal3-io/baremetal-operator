@@ -348,8 +348,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
-		result.ErrorMessage = msg
-		return result, nil
+		return operationFailed(msg)
 	}
 
 	driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
@@ -517,8 +516,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 		// If ironic is reporting an error, stop working on the node.
 		if ironicNode.LastError != "" && !(credentialsChanged || force) {
-			result.ErrorMessage = ironicNode.LastError
-			return result, nil
+			return operationFailed(ironicNode.LastError)
 		}
 
 		if ironicNode.TargetProvisionState == string(nodes.TargetManage) {
@@ -666,7 +664,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 	}
 	if status.Error != "" {
 		p.log.Info("inspection failed", "error", status.Error)
-		result.ErrorMessage = status.Error
+		result, err = operationFailed(status.Error)
 		return
 	}
 
@@ -1025,9 +1023,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 		return transientError(errors.Wrap(err, "failed to validate host during registration"))
 	}
 	if errorMessage != "" {
-		result.ErrorMessage = errorMessage
-		result.Dirty = true // validateNode() would have set the errors
-		return result, nil
+		return operationFailed(errorMessage)
 	}
 
 	// If validation is successful we can start moving the host
@@ -1076,9 +1072,8 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 				},
 			)
 		} else {
-			result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
-				ironicNode.LastError)
-			return
+			return operationFailed(fmt.Sprintf("Host adoption failed: %s",
+				ironicNode.LastError))
 		}
 	case nodes.Active:
 	default:
@@ -1133,9 +1128,8 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 				return retryAfterDelay(provisionRequeueDelay)
 			}
 			p.log.Info("found error", "msg", ironicNode.LastError)
-			result.ErrorMessage = fmt.Sprintf("Image provisioning failed: %s",
-				ironicNode.LastError)
-			return result, nil
+			return operationFailed(fmt.Sprintf("Image provisioning failed: %s",
+				ironicNode.LastError))
 		}
 		p.log.Info("recovering from previous failure")
 		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {

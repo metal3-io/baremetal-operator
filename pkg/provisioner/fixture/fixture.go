@@ -77,21 +77,19 @@ func NewMock(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publi
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	// Fill in the ID of the host in the provisioning system
 	if p.host.Status.Provisioning.ID == "" {
-		p.host.Status.Provisioning.ID = "temporary-fake-id"
-		p.log.Info("setting provisioning id",
-			"provisioningID", p.host.Status.Provisioning.ID)
+		provID = "temporary-fake-id"
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
 		p.publisher("Registered", "Registered new host")
-		return result, nil
+		return
 	}
 
-	return result, nil
+	return
 }
 
 // InspectHardware updates the HardwareDetails field of the host with

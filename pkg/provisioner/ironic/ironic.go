@@ -333,14 +333,15 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	var ironicNode *nodes.Node
 
 	p.log.Info("validating management access")
 
 	ironicNode, err = p.findExistingHost()
 	if err != nil {
-		return transientError(errors.Wrap(err, "failed to find existing host"))
+		result, err = transientError(errors.Wrap(err, "failed to find existing host"))
+		return
 	}
 
 	// Some BMC types require a MAC address, so ensure we have one
@@ -348,7 +349,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
-		return operationFailed(msg)
+		result, err = operationFailed(msg)
+		return
 	}
 
 	driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
@@ -381,15 +383,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
 		if err != nil {
-			return transientError(errors.Wrap(err, "failed to register host in ironic"))
+			result, err = transientError(errors.Wrap(err, "failed to register host in ironic"))
+			return
 		}
 		p.publisher("Registered", "Registered new host")
 
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
-		p.status.ID = ironicNode.UUID
-		result, err = hostUpdated()
-		p.log.Info("setting provisioning id", "ID", p.status.ID)
+		provID = ironicNode.UUID
 
 		// If we know the MAC, create a port. Otherwise we will have
 		// to do this after we run the introspection step.
@@ -397,7 +398,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			enable := true
 			p.log.Info("creating port for node in ironic", "MAC",
 				p.host.Spec.BootMACAddress)
-			_, err := ports.Create(
+			_, err = ports.Create(
 				p.client,
 				ports.CreateOpts{
 					NodeUUID:   ironicNode.UUID,
@@ -405,7 +406,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {
-				return transientError(errors.Wrap(err, "failed to create port in ironic"))
+				result, err = transientError(errors.Wrap(err, "failed to create port in ironic"))
+				return
 			}
 		}
 
@@ -422,9 +424,10 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		}
 
 		if imageData != nil {
-			updates, err := p.getImageUpdateOptsForNode(ironicNode, imageData)
-			if err != nil {
-				return transientError(errors.Wrap(err, "Could not get Image options for node"))
+			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData)
+			if optsErr != nil {
+				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
+				return
 			}
 			if len(updates) != 0 {
 				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
@@ -432,9 +435,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 				case nil:
 				case gophercloud.ErrDefault409:
 					p.log.Info("could not update host settings in ironic, busy")
-					return retryAfterDelay(provisionRequeueDelay)
+					result, err = retryAfterDelay(provisionRequeueDelay)
+					return
 				default:
-					return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+					result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+					return
 				}
 			}
 		}
@@ -443,13 +448,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		// node in ironic by looking it up. We need to check its
 		// settings against what we have in the host, and change them
 		// if there are differences.
-		if p.status.ID != ironicNode.UUID {
-			// Store the ID so other methods can assume it is set and
-			// so we can find the node using that value next time.
-			p.status.ID = ironicNode.UUID
-			result, err = hostUpdated()
-			p.log.Info("setting provisioning id", "ID", p.status.ID)
-		}
+		provID = ironicNode.UUID
 
 		if ironicNode.Name == "" {
 			updates := nodes.UpdateOpts{
@@ -464,9 +463,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update ironic node name, busy")
-				return retryAfterDelay(provisionRequeueDelay)
+				result, err = retryAfterDelay(provisionRequeueDelay)
+				return
 			default:
-				return transientError(errors.Wrap(err, "failed to update ironc node name"))
+				result, err = transientError(errors.Wrap(err, "failed to update ironc node name"))
+				return
 			}
 			p.log.Info("updated ironic node name")
 
@@ -487,9 +488,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update host driver settings, busy")
-				return retryAfterDelay(provisionRequeueDelay)
+				result, err = retryAfterDelay(provisionRequeueDelay)
+				return
 			default:
-				return transientError(errors.Wrap(err, "failed to update host driver settings"))
+				result, err = transientError(errors.Wrap(err, "failed to update host driver settings"))
+				return
 			}
 			p.log.Info("updated host driver settings")
 			// We don't return here because we also have to set the
@@ -516,25 +519,29 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 		// If ironic is reporting an error, stop working on the node.
 		if ironicNode.LastError != "" && !(credentialsChanged || force) {
-			return operationFailed(ironicNode.LastError)
+			result, err = operationFailed(ironicNode.LastError)
+			return
 		}
 
 		if ironicNode.TargetProvisionState == string(nodes.TargetManage) {
 			// We have already tried to manage the node and did not
 			// get an error, so do nothing and keep trying.
-			return operationContinuing(provisionRequeueDelay)
+			result, err = operationContinuing(provisionRequeueDelay)
+			return
 		}
 
-		return p.changeNodeProvisionState(
+		result, err = p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
+		return
 
 	case nodes.Verifying:
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
-		return operationContinuing(provisionRequeueDelay)
+		result, err = operationContinuing(provisionRequeueDelay)
+		return
 
 	case nodes.Manageable:
 		p.log.Info("have manageable host")
@@ -1125,7 +1132,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			// top of relational databases...
 			if ironicNode.LastError == "" {
 				p.log.Info("failed but error message not available")
-				return retryAfterDelay(provisionRequeueDelay)
+				return retryAfterDelay(0)
 			}
 			p.log.Info("found error", "msg", ironicNode.LastError)
 			return operationFailed(fmt.Sprintf("Image provisioning failed: %s",

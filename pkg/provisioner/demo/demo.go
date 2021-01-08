@@ -68,7 +68,7 @@ func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.host.ObjectMeta.Name
@@ -88,14 +88,14 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force boo
 
 	default:
 		if p.host.Status.Provisioning.ID == "" {
-			p.host.Status.Provisioning.ID = p.host.ObjectMeta.Name
+			provID = p.host.ObjectMeta.Name
 			p.log.Info("setting provisioning id",
 				"provisioningID", p.host.Status.Provisioning.ID)
 			result.Dirty = true
 		}
 	}
 
-	return result, nil
+	return
 }
 
 // InspectHardware updates the HardwareDetails field of the host with

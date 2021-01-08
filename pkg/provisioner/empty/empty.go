@@ -21,8 +21,8 @@ func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *emptyProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (provisioner.Result, error) {
-	return provisioner.Result{}, nil
+func (p *emptyProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (provisioner.Result, string, error) {
+	return provisioner.Result{}, "", nil
 }
 
 // InspectHardware updates the HardwareDetails field of the host with

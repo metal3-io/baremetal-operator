@@ -366,8 +366,8 @@ func (m *mockProvisioner) setNextResult(dirty bool) {
 	}
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
-	return m.nextResult, err
+func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+	return m.nextResult, "", err
 }
 
 func (m *mockProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {

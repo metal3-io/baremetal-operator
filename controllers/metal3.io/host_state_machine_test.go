@@ -375,8 +375,8 @@ func (m *mockProvisioner) InspectHardware(force bool) (result provisioner.Result
 	return m.nextResult, details, err
 }
 
-func (m *mockProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
-	return m.nextResult, err
+func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
+	return
 }
 
 func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {

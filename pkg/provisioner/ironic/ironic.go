@@ -694,39 +694,30 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 // UpdateHardwareState fetches the latest hardware state of the server
 // and updates the HardwareDetails field of the host with details. It
 // is expected to do this in the least expensive way possible, such as
-// reading from a cache, and return dirty only if any state
-// information has changed.
-func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
+// reading from a cache.
+func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	p.log.Info("updating hardware state")
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return transientError(errors.Wrap(err, "failed to find existing host"))
+		err = errors.Wrap(err, "failed to find existing host")
+		return
 	}
 	if ironicNode == nil {
-		return transientError(provisioner.NeedsRegistration)
+		err = provisioner.NeedsRegistration
+		return
 	}
 
-	var discoveredVal bool
 	switch ironicNode.PowerState {
-	case powerOn:
-		discoveredVal = true
-	case powerOff:
-		discoveredVal = false
+	case powerOn, powerOff:
+		discoveredVal := ironicNode.PowerState == powerOn
+		hwState.PoweredOn = &discoveredVal
 	case powerNone:
 		p.log.Info("could not determine power state", "value", ironicNode.PowerState)
-		return result, nil
 	default:
 		p.log.Info("unknown power state", "value", ironicNode.PowerState)
-		return result, nil
 	}
-
-	if discoveredVal != p.host.Status.PoweredOn {
-		p.log.Info("updating power status", "discovered", discoveredVal)
-		p.host.Status.PoweredOn = discoveredVal
-		return hostUpdated()
-	}
-	return result, nil
+	return
 }
 
 func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {

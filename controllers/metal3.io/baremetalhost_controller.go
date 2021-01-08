@@ -644,18 +644,16 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	var provResult provisioner.Result
 
 	// Check the current status and save it before trying to update it.
-	provResult, err := prov.UpdateHardwareState()
+	hwState, err := prov.UpdateHardwareState()
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to update the host power status")}
 	}
 
-	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
-	}
-
-	if provResult.Dirty {
+	if hwState.PoweredOn != nil && *hwState.PoweredOn != info.host.Status.PoweredOn {
+		info.log.Info("updating power status", "discovered", *hwState.PoweredOn)
+		info.host.Status.PoweredOn = *hwState.PoweredOn
 		clearError(info.host)
-		return actionContinue{provResult.RequeueAfter}
+		return actionContinue{}
 	}
 
 	desiredPowerOnState := info.host.Spec.Online

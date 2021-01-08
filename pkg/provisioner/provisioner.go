@@ -54,9 +54,8 @@ type Provisioner interface {
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with
 	// details. It is expected to do this in the least expensive way
-	// possible, such as reading from a cache, and return dirty only
-	// if any state information has changed.
-	UpdateHardwareState() (result Result, err error)
+	// possible, such as reading from a cache.
+	UpdateHardwareState() (hwState HardwareState, err error)
 
 	// Adopt brings an externally-provisioned host under management by
 	// the provisioner.
@@ -100,6 +99,13 @@ type Result struct {
 	RequeueAfter time.Duration
 	// Any error message produced by the provisioner.
 	ErrorMessage string
+}
+
+// HardwareState holds the response from an UpdateHardwareState call
+type HardwareState struct {
+	// PoweredOn is a pointer to a bool indicating whether the Host is currently
+	// powered on. The value is nil if the power state cannot be determined.
+	PoweredOn *bool
 }
 
 var NeedsRegistration = errors.New("Host not registered")

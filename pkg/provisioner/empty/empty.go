@@ -36,10 +36,9 @@ func (p *emptyProvisioner) InspectHardware(force bool) (provisioner.Result, *met
 // UpdateHardwareState fetches the latest hardware state of the server
 // and updates the HardwareDetails field of the host with details. It
 // is expected to do this in the least expensive way possible, such as
-// reading from a cache, and return dirty only if any state
-// information has changed.
-func (p *emptyProvisioner) UpdateHardwareState() (provisioner.Result, error) {
-	return provisioner.Result{}, nil
+// reading from a cache.
+func (p *emptyProvisioner) UpdateHardwareState() (provisioner.HardwareState, error) {
+	return provisioner.HardwareState{}, nil
 }
 
 // Adopt allows an externally-provisioned server to be adopted.

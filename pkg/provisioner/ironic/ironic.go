@@ -105,7 +105,7 @@ func init() {
 // and uses Ironic to manage the host.
 type ironicProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metal3v1alpha1.BareMetalHost
+	host metal3v1alpha1.BareMetalHost
 	// a shorter path to the provisioning status data structure
 	status *metal3v1alpha1.ProvisionStatus
 	// access parameters for the BMC
@@ -137,7 +137,7 @@ func LogStartup() {
 
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
-func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
+func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
 	tlsConf := clients.TLSConfig{
 		TrustedCAFile:      ironicTrustedCAFile,
 		InsecureSkipVerify: ironicInsecure,
@@ -156,7 +156,7 @@ func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc
 		clientIronic, clientInspector)
 }
 
-func newProvisionerWithIronicClients(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
+func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
 
 	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
 	if err != nil {
@@ -182,7 +182,7 @@ func newProvisionerWithIronicClients(host *metal3v1alpha1.BareMetalHost, bmcCred
 
 // New returns a new Ironic Provisioner using the global configuration
 // for finding the Ironic services.
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	var err error
 	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
 		tlsConf := clients.TLSConfig{

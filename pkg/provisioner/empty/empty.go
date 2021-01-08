@@ -15,7 +15,7 @@ type emptyProvisioner struct {
 }
 
 // New returns a new Empty Provisioner
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	return &emptyProvisioner{}, nil
 }
 

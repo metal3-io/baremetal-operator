@@ -46,7 +46,7 @@ const (
 // and uses Ironic to manage the host.
 type demoProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metal3v1alpha1.BareMetalHost
+	host metal3v1alpha1.BareMetalHost
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -56,7 +56,7 @@ type demoProvisioner struct {
 }
 
 // New returns a new Ironic Provisioner
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
 		host:      host,
 		bmcCreds:  bmcCreds,

@@ -17,7 +17,7 @@ Package provisioning defines the API for talking to the provisioning backend.
 type EventPublisher func(reason, message string)
 
 // Factory is the interface for creating new Provisioner objects.
-type Factory func(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
+type Factory func(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
 
 // HostConfigData retrieves host configuration data
 type HostConfigData interface {

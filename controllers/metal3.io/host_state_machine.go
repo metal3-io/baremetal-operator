@@ -63,7 +63,7 @@ func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.P
 	}
 }
 
-func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) (changed bool) {
 	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
 		if !prevMetric.Start.IsZero() && prevMetric.End.IsZero() {
 			prevMetric.End = time
@@ -71,8 +71,10 @@ func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, sta
 				observer := stateTime[state].With(hostMetricLabels(info.request))
 				observer.Observe(prevMetric.Duration().Seconds())
 			})
+			changed = true
 		}
 	}
+	return
 }
 
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
@@ -193,7 +195,9 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	result = hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
 	if _, complete := result.(actionComplete); complete {
 		if hsm.NextState != metal3v1alpha1.StateRegistering {
-			recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+			if recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now()) {
+				return actionUpdate{}
+			}
 		}
 		if needsReregister {
 			// Host was re-registered, so requeue and run the state machine on

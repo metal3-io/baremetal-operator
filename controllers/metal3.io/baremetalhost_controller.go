@@ -419,19 +419,21 @@ func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, 
 	if info.host.HasBMCDetails() {
 		return actionComplete{}
 	}
-	return actionContinueNoWrite{actionContinue{unmanagedRetryDelay}}
+	return actionContinue{unmanagedRetryDelay}
 }
 
 // Test the credentials by connecting to the management controller.
 func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
 		"credentials", info.host.Status.TriedCredentials)
+	dirty := false
 
 	credsChanged := !info.host.Status.TriedCredentials.Match(*info.bmcCredsSecret)
 	if credsChanged {
 		info.log.Info("new credentials")
 		info.host.UpdateTriedCredentials(*info.bmcCredsSecret)
 		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
+		dirty = true
 	}
 
 	provResult, provID, err := prov.ValidateManagementAccess(credsChanged, info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
@@ -447,13 +449,19 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 	if provID != "" && info.host.Status.Provisioning.ID != provID {
 		info.log.Info("setting provisioning id", "ID", provID)
 		info.host.Status.Provisioning.ID = provID
-		provResult.Dirty = true
+		dirty = true
 	}
 
 	if provResult.Dirty {
 		info.log.Info("host not ready", "wait", provResult.RequeueAfter)
-		clearError(info.host)
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			dirty = true
+		}
+		if dirty {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	// Reaching this point means the credentials are valid and worked,
@@ -463,13 +471,22 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 		info.log.Info("updating credentials success status fields")
 		info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
+		dirty = true
 	} else {
 		info.log.Info("verified access to the BMC")
 	}
 	if clearError(info.host) {
 		info.log.Info("clearing previous error message")
+		dirty = true
 	}
 
+	if dirty {
+		// Normally returning actionComplete would be sufficient to ensure
+		// changes are written, but when this is called in a state other than
+		// Registering, the state machine will ignore actionComplete and
+		// proceed with the action function for the current state.
+		return actionUpdate{}
+	}
 	return actionComplete{}
 }
 
@@ -486,12 +503,15 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
 	}
 
-	clearError(info.host)
-
 	if provResult.Dirty || details == nil {
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
+	clearError(info.host)
 	info.host.Status.HardwareDetails = details
 	return actionComplete{}
 }
@@ -553,7 +573,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
-		return actionContinueNoWrite{}
+		return actionContinue{}
 	}
 
 	provResult, err := prov.Provision(hostConf)
@@ -570,8 +590,11 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		// Go back into the queue and wait for the Provision() method
 		// to return false, indicating that it has no more work to
 		// do.
-		clearError(info.host)
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
@@ -603,8 +626,11 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
-		clearError(info.host)
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	info.log.Info("deprovisioning")
@@ -619,15 +645,18 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	}
 
 	if provResult.Dirty {
-		clearError(info.host)
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	if clearRebootAnnotations(info.host) {
 		if err = r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
-		return actionContinueNoWrite{}
+		return actionContinue{}
 	}
 
 	// After the provisioner is done, clear the provisioning settings
@@ -652,7 +681,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		info.log.Info("updating power status", "discovered", *hwState.PoweredOn)
 		info.host.Status.PoweredOn = *hwState.PoweredOn
 		clearError(info.host)
-		return actionContinue{}
+		return actionUpdate{}
 	}
 
 	desiredPowerOnState := info.host.Spec.Online
@@ -665,7 +694,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
 			}
 
-			return actionContinueNoWrite{}
+			return actionContinue{}
 		}
 	}
 
@@ -680,7 +709,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// a delay.
 	steadyStateResult := actionContinue{time.Second * 60}
 	if info.host.Status.PoweredOn == desiredPowerOnState {
-		return actionContinueNoWrite{steadyStateResult}
+		return steadyStateResult
 	}
 
 	info.log.Info("power state change needed",
@@ -711,8 +740,11 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 			}
 			powerChangeAttempts.With(metricLabels).Inc()
 		})
-		clearError(info.host)
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	// The provisioner did not have to do anything to change the power
@@ -720,7 +752,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// host status field.
 	info.host.Status.PoweredOn = info.host.Spec.Online
 	info.host.Status.ErrorCount = 0
-	return steadyStateResult
+	return actionUpdate{steadyStateResult}
 }
 
 // A host reaching this action handler should be provisioned or externally
@@ -736,8 +768,11 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
-		clearError(info.host)
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	return r.manageHostPower(prov, info)

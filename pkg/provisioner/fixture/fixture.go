@@ -52,25 +52,31 @@ type fixtureProvisioner struct {
 	log logr.Logger
 	// an event publisher for recording significant events
 	publisher provisioner.EventPublisher
+	// state storage for the Host
+	state *Fixture
+}
+
+type Fixture struct {
+	// counter to set the provisioner as ready
+	BecomeReadyCounter int
+	// state to manage deletion
+	Deleted bool
 	// state to manage the two-step adopt process
 	adopted bool
-	// counter to set the provisioner as ready
-	becomeReadyCounter int
+	// state to manage provisioning
+	image metal3v1alpha1.Image
+	// state to manage power
+	poweredOn bool
 }
 
 // New returns a new Ironic FixtureProvisioner
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
-	return NewMock(host, bmcCreds, publisher, 0)
-}
-
-// NewMock is used in tests to build a fixture provisioner and inject additional test parameters
-func NewMock(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, becomeReadyCounter int) (provisioner.Provisioner, error) {
+func (f *Fixture) New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
-		host:               host,
-		bmcCreds:           bmcCreds,
-		log:                log.WithValues("host", host.Name),
-		publisher:          publisher,
-		becomeReadyCounter: becomeReadyCounter,
+		host:      host,
+		bmcCreds:  bmcCreds,
+		log:       log.WithValues("host", host.Name),
+		publisher: publisher,
+		state:     f,
 	}
 	return p, nil
 }
@@ -160,6 +166,7 @@ func (p *fixtureProvisioner) InspectHardware(force bool) (result provisioner.Res
 // reading from a cache.
 func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	if !p.host.NeedsProvisioning() {
+		hwState.PoweredOn = &p.state.poweredOn
 		p.log.Info("updating hardware state")
 	}
 	return
@@ -168,8 +175,8 @@ func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.Hardware
 // Adopt allows an externally-provisioned server to be adopted.
 func (p *fixtureProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
-	if p.host.Spec.ExternallyProvisioned && !p.adopted {
-		p.adopted = true
+	if p.host.Spec.ExternallyProvisioned && !p.state.adopted {
+		p.state.adopted = true
 		result.Dirty = true
 		result.RequeueAfter = provisionRequeueDelay
 	}
@@ -183,10 +190,10 @@ func (p *fixtureProvisioner) Provision(hostConf provisioner.HostConfigData) (res
 	p.log.Info("provisioning image to host",
 		"state", p.host.Status.Provisioning.State)
 
-	if p.host.Status.Provisioning.Image.URL == "" {
+	if p.state.image.URL == "" {
 		p.publisher("ProvisioningComplete", "Image provisioning completed")
 		p.log.Info("moving to done")
-		p.host.Status.Provisioning.Image = *p.host.Spec.Image
+		p.state.image = *p.host.Spec.Image
 		result.Dirty = true
 		result.RequeueAfter = provisionRequeueDelay
 	}
@@ -207,10 +214,10 @@ func (p *fixtureProvisioner) Deprovision(force bool) (result provisioner.Result,
 	// necessary once we really have Fixture doing the deprovisioning
 	// and we can monitor it's status.
 
-	if p.host.Status.HardwareDetails != nil {
+	if p.state.image.URL != "" {
 		p.publisher("DeprovisionStarted", "Image deprovisioning started")
 		p.log.Info("clearing hardware details")
-		p.host.Status.HardwareDetails = nil
+		p.state.image = metal3v1alpha1.Image{}
 		result.Dirty = true
 		return result, nil
 	}
@@ -225,9 +232,9 @@ func (p *fixtureProvisioner) Deprovision(force bool) (result provisioner.Result,
 func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
 	p.log.Info("deleting host")
 
-	if p.host.Status.Provisioning.ID != "" {
+	if !p.state.Deleted {
 		p.log.Info("clearing provisioning id")
-		p.host.Status.Provisioning.ID = ""
+		p.state.Deleted = true
 		result.Dirty = true
 		return result, nil
 	}
@@ -240,10 +247,10 @@ func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
 func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	if !p.host.Status.PoweredOn {
+	if !p.state.poweredOn {
 		p.publisher("PowerOn", "Host powered on")
 		p.log.Info("changing status")
-		p.host.Status.PoweredOn = true
+		p.state.poweredOn = true
 		result.Dirty = true
 		return result, nil
 	}
@@ -256,10 +263,10 @@ func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
-	if p.host.Status.PoweredOn {
+	if p.state.poweredOn {
 		p.publisher("PowerOff", "Host powered off")
 		p.log.Info("changing status")
-		p.host.Status.PoweredOn = false
+		p.state.poweredOn = false
 		result.Dirty = true
 		return result, nil
 	}
@@ -271,9 +278,9 @@ func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
 func (p *fixtureProvisioner) IsReady() (result bool, err error) {
 	p.log.Info("checking provisioner status")
 
-	if p.becomeReadyCounter > 0 {
-		p.becomeReadyCounter--
+	if p.state.BecomeReadyCounter > 0 {
+		p.state.BecomeReadyCounter--
 	}
 
-	return p.becomeReadyCounter == 0, nil
+	return p.state.BecomeReadyCounter == 0, nil
 }

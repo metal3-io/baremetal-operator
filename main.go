@@ -123,7 +123,8 @@ func main() {
 
 		if runInTestMode {
 			ctrl.Log.Info("using test provisioner")
-			return fixture.New(host, bmcCreds, publish)
+			fix := fixture.Fixture{}
+			return fix.New(host, bmcCreds, publish)
 		} else if runInDemoMode {
 			ctrl.Log.Info("using demo provisioner")
 			return demo.New(host, bmcCreds, publish)

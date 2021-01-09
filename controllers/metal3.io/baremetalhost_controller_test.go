@@ -23,8 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
@@ -88,7 +86,7 @@ func newDefaultHost(t *testing.T) *metal3v1alpha1.BareMetalHost {
 	return newDefaultNamedHost(t.Name(), t)
 }
 
-func newTestReconcilerWithProvisionerFactory(factory provisioner.Factory, initObjs ...runtime.Object) *BareMetalHostReconciler {
+func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Object) *BareMetalHostReconciler {
 
 	c := fakeclient.NewFakeClient(initObjs...)
 
@@ -99,13 +97,14 @@ func newTestReconcilerWithProvisionerFactory(factory provisioner.Factory, initOb
 	return &BareMetalHostReconciler{
 		Client:             c,
 		Scheme:             scheme.Scheme,
-		ProvisionerFactory: factory,
+		ProvisionerFactory: fix.New,
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 	}
 }
 
 func newTestReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
-	return newTestReconcilerWithProvisionerFactory(fixture.New, initObjs...)
+	fix := fixture.Fixture{}
+	return newTestReconcilerWithFixture(&fix, initObjs...)
 }
 
 type DoneFunc func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool
@@ -1033,12 +1032,12 @@ func TestDeleteHost(t *testing.T) {
 			host.DeletionTimestamp = &now
 			host.Status.Provisioning.ID = "made-up-id"
 			badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
-			r := newTestReconciler(host, badSecret)
+			fix := fixture.Fixture{}
+			r := newTestReconcilerWithFixture(&fix, host, badSecret)
 
 			tryReconcile(t, r, host,
 				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-					t.Logf("provisioning id: %q", host.Status.Provisioning.ID)
-					return host.Status.Provisioning.ID == ""
+					return fix.Deleted
 				},
 			)
 		})
@@ -1156,22 +1155,12 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 func TestProvisionerIsReady(t *testing.T) {
 	host := newDefaultHost(t)
 
-	var prov provisioner.Provisioner
-	r := newTestReconcilerWithProvisionerFactory(func(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner provisioner.Provisioner, err error) {
-		if prov == nil {
-			prov, err = fixture.NewMock(host, bmcCreds, publisher, 5)
-		}
-		return prov, err
-	}, host)
+	fix := fixture.Fixture{BecomeReadyCounter: 5}
+	r := newTestReconcilerWithFixture(&fix, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if prov == nil {
-				return false
-			}
-
-			ready, _ := prov.IsReady()
-			return ready
+			return host.Status.Provisioning.State != metal3v1alpha1.StateNone
 		},
 	)
 }

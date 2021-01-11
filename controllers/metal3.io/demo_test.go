@@ -45,7 +45,7 @@ func TestDemoRegistrationError(t *testing.T) {
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.HasError()
+			return host.Status.ErrorMessage != ""
 		},
 	)
 }
@@ -168,7 +168,7 @@ func TestDemoValidationError(t *testing.T) {
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.HasError()
+			return host.Status.ErrorMessage != ""
 		},
 	)
 }

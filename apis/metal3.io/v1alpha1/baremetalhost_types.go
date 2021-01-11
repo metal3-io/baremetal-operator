@@ -609,48 +609,6 @@ func (host *BareMetalHost) BootMode() BootMode {
 	return mode
 }
 
-// Available returns true if the host is available to be provisioned.
-func (host *BareMetalHost) Available() bool {
-	if host.Spec.ConsumerRef != nil {
-		return false
-	}
-	if host.GetDeletionTimestamp() != nil {
-		return false
-	}
-	if host.HasError() {
-		return false
-	}
-	return true
-}
-
-// SetErrorMessage updates the ErrorMessage in the host Status struct
-// and increases the ErrorCount
-func (host *BareMetalHost) SetErrorMessage(errType ErrorType, message string) {
-	host.Status.OperationalStatus = OperationalStatusError
-	host.Status.ErrorType = errType
-	host.Status.ErrorMessage = message
-	host.Status.ErrorCount++
-}
-
-// ClearError removes any existing error message.
-func (host *BareMetalHost) ClearError() (dirty bool) {
-	dirty = host.SetOperationalStatus(OperationalStatusOK)
-	var emptyErrType ErrorType = ""
-	if host.Status.ErrorType != emptyErrType {
-		host.Status.ErrorType = emptyErrType
-		dirty = true
-	}
-	if host.Status.ErrorMessage != "" {
-		host.Status.ErrorMessage = ""
-		dirty = true
-	}
-	if host.Status.ErrorCount != 0 {
-		host.Status.ErrorCount = 0
-		dirty = true
-	}
-	return dirty
-}
-
 // setLabel updates the given label when necessary and returns true
 // when a change is made or false when no change is made.
 func (host *BareMetalHost) setLabel(name, value string) bool {
@@ -712,12 +670,6 @@ func (host *BareMetalHost) SetOperationalStatus(status OperationalStatus) bool {
 // field.
 func (host *BareMetalHost) OperationalStatus() OperationalStatus {
 	return host.Status.OperationalStatus
-}
-
-// HasError returns a boolean indicating whether there is an error
-// set for the host.
-func (host *BareMetalHost) HasError() bool {
-	return host.Status.ErrorMessage != ""
 }
 
 // CredentialsKey returns a NamespacedName suitable for loading the

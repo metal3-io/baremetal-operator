@@ -169,7 +169,7 @@ func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for error: %q", host.Status.ErrorMessage)
-			return host.HasError()
+			return host.Status.ErrorMessage != ""
 		},
 	)
 }
@@ -178,7 +178,7 @@ func waitForNoError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alph
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for no error message: %q", host.Status.ErrorMessage)
-			return !host.HasError()
+			return host.Status.ErrorMessage == ""
 		},
 	)
 }
@@ -1297,4 +1297,40 @@ func TestUpdateEventHandler(t *testing.T) {
 			assert.Equal(t, tc.expectedProcess, r.updateEventHandler(tc.event))
 		})
 	}
+}
+
+func TestErrorCountIncrementsAlways(t *testing.T) {
+
+	b := &metal3v1alpha1.BareMetalHost{}
+	assert.Equal(t, b.Status.ErrorCount, 0)
+
+	setErrorMessage(b, metal3v1alpha1.RegistrationError, "An error message")
+	assert.Equal(t, b.Status.ErrorCount, 1)
+
+	setErrorMessage(b, metal3v1alpha1.InspectionError, "Another error message")
+	assert.Equal(t, b.Status.ErrorCount, 2)
+}
+
+func TestClearErrorCount(t *testing.T) {
+
+	b := &metal3v1alpha1.BareMetalHost{
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			ErrorCount: 5,
+		},
+	}
+
+	assert.True(t, clearError(b))
+	assert.Equal(t, 0, b.Status.ErrorCount)
+}
+
+func TestClearErrorCountOnlyIfNotZero(t *testing.T) {
+
+	b := &metal3v1alpha1.BareMetalHost{
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			ErrorCount: 5,
+		},
+	}
+
+	assert.True(t, clearError(b))
+	assert.False(t, clearError(b))
 }

@@ -277,7 +277,7 @@ func logResult(info *reconcileInfo, result ctrl.Result) {
 
 func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType, errorMessage string) actionFailed {
 
-	info.host.SetErrorMessage(errorType, errorMessage)
+	setErrorMessage(info.host, errorType, errorMessage)
 
 	eventType := map[metal3v1alpha1.ErrorType]string{
 		metal3v1alpha1.RegistrationError:    "RegistrationError",
@@ -358,6 +358,34 @@ func clearRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	return
 }
 
+// clearError removes any existing error message.
+func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
+	dirty = host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
+	var emptyErrType metal3v1alpha1.ErrorType = ""
+	if host.Status.ErrorType != emptyErrType {
+		host.Status.ErrorType = emptyErrType
+		dirty = true
+	}
+	if host.Status.ErrorMessage != "" {
+		host.Status.ErrorMessage = ""
+		dirty = true
+	}
+	if host.Status.ErrorCount != 0 {
+		host.Status.ErrorCount = 0
+		dirty = true
+	}
+	return dirty
+}
+
+// setErrorMessage updates the ErrorMessage in the host Status struct
+// and increases the ErrorCount
+func setErrorMessage(host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) {
+	host.Status.OperationalStatus = metal3v1alpha1.OperationalStatusError
+	host.Status.ErrorType = errType
+	host.Status.ErrorMessage = message
+	host.Status.ErrorCount++
+}
+
 // Manage deletion of the host
 func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info(
@@ -424,7 +452,7 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 
 	if provResult.Dirty {
 		info.log.Info("host not ready", "wait", provResult.RequeueAfter)
-		info.host.ClearError()
+		clearError(info.host)
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -435,7 +463,7 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 	registeredNewCreds := !info.host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
 	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 	info.log.Info("clearing previous error message")
-	info.host.ClearError()
+	clearError(info.host)
 
 	if registeredNewCreds {
 		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
@@ -457,7 +485,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
 	}
 
-	info.host.ClearError()
+	clearError(info.host)
 
 	if provResult.Dirty || details == nil {
 		return actionContinue{provResult.RequeueAfter}
@@ -507,7 +535,7 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 	}
 
-	info.host.ClearError()
+	clearError(info.host)
 	return actionComplete{}
 }
 
@@ -541,7 +569,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		// Go back into the queue and wait for the Provision() method
 		// to return false, indicating that it has no more work to
 		// do.
-		info.host.ClearError()
+		clearError(info.host)
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -574,7 +602,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
-		info.host.ClearError()
+		clearError(info.host)
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -590,7 +618,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	}
 
 	if provResult.Dirty {
-		info.host.ClearError()
+		clearError(info.host)
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -624,7 +652,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	}
 
 	if provResult.Dirty {
-		info.host.ClearError()
+		clearError(info.host)
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -684,7 +712,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 			}
 			powerChangeAttempts.With(metricLabels).Inc()
 		})
-		info.host.ClearError()
+		clearError(info.host)
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -708,7 +736,7 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
-		info.host.ClearError()
+		clearError(info.host)
 		return actionContinue{provResult.RequeueAfter}
 	}
 
@@ -729,7 +757,7 @@ func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner
 		if dirty {
 			info.log.Info("updating host provisioning settings")
 		}
-		info.host.ClearError()
+		clearError(info.host)
 		return actionComplete{}
 	}
 	return r.manageHostPower(prov, info)
@@ -792,7 +820,7 @@ func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3v1alph
 func (r *BareMetalHostReconciler) setErrorCondition(request ctrl.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (err error) {
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 
-	host.SetErrorMessage(errType, message)
+	setErrorMessage(host, errType, message)
 
 	reqLogger.Info(
 		"adding error message",

@@ -27,7 +27,7 @@ spec:
       type: string
     - description: Provisioning status
       jsonPath: .status.provisioning.state
-      name: Provisioning_Status
+      name: State
       type: string
     - description: Consumer using this host
       jsonPath: .spec.consumerRef.name

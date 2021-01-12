@@ -585,7 +585,7 @@ type ProvisionStatus struct {
 // +kubebuilder:resource:shortName=bmh;bmhost
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status",priority=1
-// +kubebuilder:printcolumn:name="Provisioning_Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller",priority=1
 // +kubebuilder:printcolumn:name="Hardware_Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected",priority=1

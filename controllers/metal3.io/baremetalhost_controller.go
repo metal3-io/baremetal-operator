@@ -440,8 +440,6 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
 	}
 
-	info.log.Info("response from validate", "provResult", provResult)
-
 	if provResult.ErrorMessage != "" {
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
@@ -461,14 +459,15 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 	// Reaching this point means the credentials are valid and worked,
 	// so clear any previous error and record the success in the
 	// status block.
-	info.log.Info("updating credentials success status fields")
-	registeredNewCreds := !info.host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
-	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
-	info.log.Info("clearing previous error message")
-	clearError(info.host)
-
-	if registeredNewCreds {
+	if !info.host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
+		info.log.Info("updating credentials success status fields")
+		info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
+	} else {
+		info.log.Info("verified access to the BMC")
+	}
+	if clearError(info.host) {
+		info.log.Info("clearing previous error message")
 	}
 
 	return actionComplete{}

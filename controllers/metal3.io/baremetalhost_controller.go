@@ -370,10 +370,6 @@ func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 		host.Status.ErrorMessage = ""
 		dirty = true
 	}
-	if host.Status.ErrorCount != 0 {
-		host.Status.ErrorCount = 0
-		dirty = true
-	}
 	return dirty
 }
 
@@ -438,7 +434,7 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
 	}
 
-	provResult, err := prov.ValidateManagementAccess(credsChanged)
+	provResult, err := prov.ValidateManagementAccess(credsChanged, info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
@@ -476,7 +472,7 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("inspecting hardware")
 
-	provResult, details, err := prov.InspectHardware()
+	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
@@ -608,7 +604,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 
 	info.log.Info("deprovisioning")
 
-	provResult, err = prov.Deprovision()
+	provResult, err = prov.Deprovision(info.host.Status.ErrorType == metal3v1alpha1.ProvisioningError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to deprovision")}
 	}
@@ -720,6 +716,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// state and there were no errors, so reflect the new state in the
 	// host status field.
 	info.host.Status.PoweredOn = info.host.Spec.Online
+	info.host.Status.ErrorCount = 0
 	return steadyStateResult
 }
 

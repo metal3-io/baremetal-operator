@@ -77,7 +77,7 @@ func NewMock(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publi
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
 	p.log.Info("testing management access")
 
 	// Fill in the ID of the host in the provisioning system
@@ -98,7 +98,7 @@ func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged bool) (
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *fixtureProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *fixtureProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	// The inspection is ongoing. We'll need to check the fixture
@@ -201,7 +201,7 @@ func (p *fixtureProvisioner) Provision(hostConf provisioner.HostConfigData) (res
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *fixtureProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is deprovisioned")
 
 	result.RequeueAfter = deprovisionRequeueDelay

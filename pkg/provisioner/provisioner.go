@@ -43,13 +43,13 @@ type Provisioner interface {
 	// of credentials it has are different from the credentials it has
 	// previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(credentialsChanged bool) (result Result, err error)
+	ValidateManagementAccess(credentialsChanged, force bool) (result Result, err error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
-	InspectHardware() (result Result, details *metal3v1alpha1.HardwareDetails, err error)
+	InspectHardware(force bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with
@@ -70,11 +70,11 @@ type Provisioner interface {
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
 	// the deprovisioning operation is completed.
-	Deprovision() (result Result, err error)
+	Deprovision(force bool) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty
-	// flag until the deprovisioning operation is completed.
+	// flag until the deletion operation is completed.
 	Delete() (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image

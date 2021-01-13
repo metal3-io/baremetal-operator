@@ -68,7 +68,7 @@ func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.host.ObjectMeta.Name
@@ -102,7 +102,7 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged bool) (res
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	hostName := p.host.ObjectMeta.Name
@@ -218,7 +218,7 @@ func (p *demoProvisioner) Provision(hostConf provisioner.HostConfigData) (result
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *demoProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *demoProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 
 	hostName := p.host.ObjectMeta.Name
 	switch hostName {

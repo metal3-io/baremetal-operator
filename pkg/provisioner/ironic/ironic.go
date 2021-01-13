@@ -333,7 +333,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	p.log.Info("validating management access")
@@ -572,7 +572,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	case nodes.Enroll:
 
 		// If ironic is reporting an error, stop working on the node.
-		if ironicNode.LastError != "" && !credentialsChanged {
+		if ironicNode.LastError != "" && !(credentialsChanged || force) {
 			result.ErrorMessage = ironicNode.LastError
 			return result, nil
 		}
@@ -651,7 +651,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	ironicNode, err := p.findExistingHost()
@@ -674,6 +674,15 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				err = nil
 				return
 			default:
+				if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectFail && !force {
+					p.log.Info("starting inspection failed", "error", status.Error)
+					if ironicNode.LastError == "" {
+						result.ErrorMessage = "Inspection failed"
+					} else {
+						result.ErrorMessage = ironicNode.LastError
+					}
+					err = nil
+				}
 				p.log.Info("updating boot mode before hardware inspection")
 				op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
 				updates := nodes.UpdateOpts{
@@ -1314,7 +1323,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.findExistingHost()
@@ -1336,9 +1345,20 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Error:
+		if !force {
+			p.log.Info("deprovisioning failed")
+			if ironicNode.LastError == "" {
+				result.ErrorMessage = "Deprovisioning failed"
+			} else {
+				result.ErrorMessage = ironicNode.LastError
+			}
+			return result, nil
+		}
+		p.log.Info("retrying deprovisioning")
+		p.publisher("DeprovisioningStarted", "Image deprovisioning restarted")
 		return p.changeNodeProvisionState(
 			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
 
 	case nodes.CleanFail:
@@ -1346,6 +1366,10 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 			p.log.Info("clearing maintenance flag")
 			return p.setMaintenanceFlag(ironicNode, false)
 		}
+		// This will return us to the manageable state without completing
+		// cleaning. Because cleaning happens in the process of moving from
+		// manageable to available, the node will still get cleaned before
+		// we provision it again.
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},

@@ -423,7 +423,7 @@ func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, 
 }
 
 // Test the credentials by connecting to the management controller.
-func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
 		"credentials", info.host.Status.TriedCredentials)
 	dirty := false
@@ -481,13 +481,9 @@ func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner
 	}
 
 	if dirty {
-		// Normally returning actionComplete would be sufficient to ensure
-		// changes are written, but when this is called in a state other than
-		// Registering, the state machine will ignore actionComplete and
-		// proceed with the action function for the current state.
-		return actionUpdate{}
+		return actionComplete{}
 	}
-	return actionComplete{}
+	return nil
 }
 
 // Ensure we have the information about the hardware on the host.

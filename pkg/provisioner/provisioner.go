@@ -61,6 +61,9 @@ type Provisioner interface {
 	// the provisioner.
 	Adopt(force bool) (result Result, err error)
 
+	// Prepare remove existing configuration and set new configuration
+	Prepare(unprepared bool) (result Result, started bool, err error)
+
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.

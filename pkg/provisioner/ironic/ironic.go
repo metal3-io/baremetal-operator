@@ -1199,6 +1199,93 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImag
 	return sameImage
 }
 
+func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.CleanStep) {
+	// TODO: Add manual cleaning steps for host configuration
+
+	return
+}
+
+func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
+	cleanSteps := p.buildManualCleaningSteps()
+
+	// Start manual clean
+	if len(cleanSteps) != 0 {
+		p.log.Info("remove existing configuration and set new configuration", "steps", cleanSteps)
+		return p.tryChangeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{
+				Target:     nodes.TargetClean,
+				CleanSteps: cleanSteps,
+			},
+		)
+	}
+	result, err = operationComplete()
+	return
+}
+
+// Prepare remove existing configuration and set new configuration.
+// If `started` is true,  it means that we successfully executed `tryChangeNodeProvisionState`.
+func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+	var ironicNode *nodes.Node
+
+	if ironicNode, err = p.findExistingHost(); err != nil {
+		result, err = transientError(errors.Wrap(err, "could not find host to clean"))
+		return
+	}
+	if ironicNode == nil {
+		result, err = transientError(provisioner.NeedsRegistration)
+		return
+	}
+
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.Available:
+		if unprepared && len(p.buildManualCleaningSteps()) != 0 {
+			result, err = p.changeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+			)
+			return
+		}
+		result, err = operationComplete()
+
+	case nodes.Manageable:
+		if unprepared {
+			started, result, err = p.startManualCleaning(ironicNode)
+			return
+		}
+		// Manual clean finished
+		result, err = operationComplete()
+
+	case nodes.CleanFail:
+		// When clean failed, we need to clean host provisioning settings.
+		// If unprepared is false, means the settings aren't cleared.
+		// So we can't set the node's state to manageable, until the settings are cleared.
+		if !unprepared {
+			result, err = operationFailed(ironicNode.LastError)
+			return
+		}
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			result, err = p.setMaintenanceFlag(ironicNode, false)
+			return
+		}
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
+	case nodes.Cleaning, nodes.CleanWait:
+		p.log.Info("waiting for host to become manageable",
+			"state", ironicNode.ProvisionState,
+			"deploy step", ironicNode.DeployStep)
+		result, err = operationContinuing(provisionRequeueDelay)
+
+	default:
+		result, err = transientError(fmt.Errorf("Have unexpected ironic node state %s", ironicNode.ProvisionState))
+	}
+	return
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.

@@ -46,6 +46,7 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 		metal3v1alpha1.StateExternallyProvisioned: hsm.handleExternallyProvisioned,
 		metal3v1alpha1.StateMatchProfile:          hsm.handleMatchProfile,
 		metal3v1alpha1.StateAvailable:             hsm.handleReady,
+		metal3v1alpha1.StatePreparing:             hsm.handlePreparing,
 		metal3v1alpha1.StateReady:                 hsm.handleReady,
 		metal3v1alpha1.StateProvisioning:          hsm.handleProvisioning,
 		metal3v1alpha1.StateProvisioned:           hsm.handleProvisioned,
@@ -311,7 +312,7 @@ func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult 
 func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
-		hsm.NextState = metal3v1alpha1.StateReady
+		hsm.NextState = metal3v1alpha1.StatePreparing
 		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
@@ -329,20 +330,32 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 	case hsm.Host.NeedsHardwareProfile():
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
 	default:
-		hsm.NextState = metal3v1alpha1.StateReady
+		hsm.NextState = metal3v1alpha1.StatePreparing
 	}
 	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) handlePreparing(info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionPreparing(hsm.Provisioner, info)
+	if _, complete := actResult.(actionComplete); complete {
+		hsm.Host.Status.ErrorCount = 0
+		hsm.NextState = metal3v1alpha1.StateReady
+	}
+	return actResult
 }
 
 func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
+		clearHostProvisioningSettings(info.host)
 		return actionComplete{}
 	}
 
 	// ErrorCount is cleared when appropriate inside actionManageReady
 	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
-	if _, complete := actResult.(actionComplete); complete {
+	if _, update := actResult.(actionUpdate); update {
+		hsm.NextState = metal3v1alpha1.StatePreparing
+	} else if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateProvisioning
 	}
 	return actResult

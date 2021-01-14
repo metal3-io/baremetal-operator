@@ -30,6 +30,12 @@ const (
 	// InspectingHost is a host that is having its hardware scanned.
 	InspectingHost string = "demo-inspecting"
 
+	// PreparingErrorHost is a host that started preparing but failed.
+	PreparingErrorHost string = "demo-preparing-error"
+
+	// PreparingHost is a host that is in the middle of preparing.
+	PreparingHost string = "demo-preparing"
+
 	// ValidationErrorHost is a host that started provisioning but
 	// failed validation.
 	ValidationErrorHost string = "demo-validation-error"
@@ -182,6 +188,29 @@ func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result
 func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	p.log.Info("updating hardware state")
 	return
+}
+
+// Prepare remove existing configuration and set new configuration
+func (p *demoProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+	hostName := p.host.ObjectMeta.Name
+	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
+
+	switch hostName {
+
+	case PreparingErrorHost:
+		p.log.Info("preparing error host")
+		result.ErrorMessage = "preparing failed"
+
+	case PreparingHost:
+		p.log.Info("preparing host")
+		result.Dirty = true
+		result.RequeueAfter = time.Second * 5
+
+	default:
+		p.log.Info("finished preparing")
+	}
+
+	return result, false, nil
 }
 
 // Adopt allows an externally-provisioned server to be adopted.

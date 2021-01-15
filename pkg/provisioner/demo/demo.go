@@ -66,6 +66,10 @@ func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher 
 	return p, nil
 }
 
+func (m *demoProvisioner) HasProvisioningCapacity() (result bool, err error) {
+	return true, nil
+}
+
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
 func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {

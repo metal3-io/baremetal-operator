@@ -24,6 +24,12 @@ validation. It is highly recommend to not set it to True.
 `BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
 Operator. Default is 3.
 
+`PROVISIONING_LIMIT` -- The desired maximum number of hosts that could be provisioned
+simultaneously by the Operator. The Operator will try to enforce this limit,
+but overflows could happen in case of slow provisioners and / or higher number of
+concurrent reconciles. For such reasons, it is highly recommended to keep
+BMO_CONCURRENCY value lower than the requested PROVISIONING_LIMIT. Default is 20.
+
 Kustomization Configuration
 ---------------------------
 

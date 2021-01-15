@@ -116,6 +116,8 @@ const (
 	// OperationalStatusError is the status value for when the host
 	// has any sort of error.
 	OperationalStatusError OperationalStatus = "error"
+
+	OperationalStatusDelayed = "delayed"
 )
 
 // ErrorType indicates the class of problem that has caused the Host resource
@@ -523,7 +525,7 @@ type BareMetalHostStatus struct {
 	// after modifying this file
 
 	// OperationalStatus holds the status of the host
-	// +kubebuilder:validation:Enum="";OK;discovered;error
+	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
 	// ErrorType indicates the type of failure encountered when the

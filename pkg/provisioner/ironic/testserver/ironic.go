@@ -254,3 +254,15 @@ func (m *IronicMock) Port(port ports.Port) *IronicMock {
 
 	return m
 }
+
+// Nodes configure the server with a valid response for /v1/nodes
+func (m *IronicMock) Nodes(allNodes []nodes.Node) *IronicMock {
+	resp := struct {
+		Nodes []nodes.Node `json:"nodes"`
+	}{
+		Nodes: allNodes,
+	}
+
+	m.ResponseJSON(m.buildURL("/v1/nodes", http.MethodGet), resp)
+	return m
+}

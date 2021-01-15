@@ -11,6 +11,7 @@ import (
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -21,6 +22,126 @@ func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	p, _ := r.ProvisionerFactory(*host.DeepCopy(), bmc.Credentials{},
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p, true)
+}
+
+func TestProvisioningCapacity(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+
+		HasProvisioningCapacity bool
+		Host                    *metal3v1alpha1.BareMetalHost
+
+		ExpectedProvisioningState metal3v1alpha1.ProvisioningState
+		ExpectedDelayed           bool
+	}{
+		{
+			Scenario:                "transition-to-inspecting-delayed",
+			Host:                    host(metal3v1alpha1.StateRegistering).build(),
+			HasProvisioningCapacity: false,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateRegistering,
+			ExpectedDelayed:           true,
+		},
+		{
+			Scenario:                "transition-to-provisioning-delayed",
+			Host:                    host(metal3v1alpha1.StateReady).build(),
+			HasProvisioningCapacity: false,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateReady,
+			ExpectedDelayed:           true,
+		},
+		{
+			Scenario:                "transition-to-inspecting-ok",
+			Host:                    host(metal3v1alpha1.StateRegistering).build(),
+			HasProvisioningCapacity: true,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateInspecting,
+			ExpectedDelayed:           false,
+		},
+		{
+			Scenario:                "transition-to-provisioning-ok",
+			Host:                    host(metal3v1alpha1.StateReady).build(),
+			HasProvisioningCapacity: true,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateProvisioning,
+			ExpectedDelayed:           false,
+		},
+
+		{
+			Scenario:                "already-delayed-delayed",
+			Host:                    host(metal3v1alpha1.StateReady).SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed).build(),
+			HasProvisioningCapacity: false,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateReady,
+			ExpectedDelayed:           true,
+		},
+		{
+			Scenario:                "already-delayed-ok",
+			Host:                    host(metal3v1alpha1.StateReady).SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed).build(),
+			HasProvisioningCapacity: true,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateReady,
+			ExpectedDelayed:           false,
+		},
+
+		{
+			Scenario:                "untracked-inspecting-delayed",
+			Host:                    host(metal3v1alpha1.StateInspecting).build(),
+			HasProvisioningCapacity: false,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateInspecting,
+			ExpectedDelayed:           true,
+		},
+		{
+			Scenario:                "untracked-inspecting-ok",
+			Host:                    host(metal3v1alpha1.StateInspecting).build(),
+			HasProvisioningCapacity: true,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateMatchProfile,
+			ExpectedDelayed:           false,
+		},
+		{
+			Scenario:                "untracked-inspecting-delayed",
+			Host:                    host(metal3v1alpha1.StateProvisioning).build(),
+			HasProvisioningCapacity: false,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateProvisioning,
+			ExpectedDelayed:           true,
+		},
+		{
+			Scenario:                "untracked-provisioning-ok",
+			Host:                    host(metal3v1alpha1.StateProvisioning).build(),
+			HasProvisioningCapacity: true,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateProvisioned,
+			ExpectedDelayed:           false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			prov := newMockProvisioner()
+			prov.setHasProvisioningCapacity(tc.HasProvisioningCapacity)
+			hsm := newHostStateMachine(tc.Host, &BareMetalHostReconciler{}, prov, true)
+			info := makeDefaultReconcileInfo(tc.Host)
+			delayedProvisioningHostCounters.Reset()
+
+			result := hsm.ReconcileState(info)
+
+			assert.Equal(t, tc.ExpectedProvisioningState, tc.Host.Status.Provisioning.State)
+			assert.Equal(t, tc.ExpectedDelayed, metal3v1alpha1.OperationalStatusDelayed == tc.Host.Status.OperationalStatus, "Expected OperationalStatusDelayed")
+			assert.Equal(t, tc.ExpectedDelayed, assert.ObjectsAreEqual(actionDelayed{}, result), "Expected actionDelayed")
+
+			if tc.ExpectedDelayed {
+				counter, _ := delayedProvisioningHostCounters.GetMetricWith(hostMetricLabels(info.request))
+				initialCounterValue := promutil.ToFloat64(counter)
+				for _, sb := range info.postSaveCallbacks {
+					sb()
+				}
+				assert.Greater(t, promutil.ToFloat64(counter), initialCounterValue)
+			}
+		})
+	}
 }
 
 func TestProvisioningCancelled(t *testing.T) {
@@ -204,7 +325,7 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
-			prov := &mockProvisioner{}
+			prov := newMockProvisioner()
 			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov, true)
 			info := makeDefaultReconcileInfo(tt.Host)
 
@@ -219,7 +340,7 @@ func TestErrorCountIncreasedWhenProvisionerFails(t *testing.T) {
 
 func TestErrorCountIncreasedWhenRegistrationFails(t *testing.T) {
 	bmh := host(metal3v1alpha1.StateRegistering).build()
-	prov := &mockProvisioner{}
+	prov := newMockProvisioner()
 	hsm := newHostStateMachine(bmh, &BareMetalHostReconciler{}, prov, true)
 	info := makeDefaultReconcileInfo(bmh)
 	bmh.Status.GoodCredentials = metal3v1alpha1.CredentialsStatus{}
@@ -259,15 +380,10 @@ func TestErrorCountCleared(t *testing.T) {
 			Scenario: "provisioning",
 			Host:     host(metal3v1alpha1.StateProvisioning).SetImageURL("imageSpecUrl").build(),
 		},
-		{
-			Scenario:                     "externallyProvisioned",
-			Host:                         host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
-			PreserveErrorCountOnComplete: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
-			prov := &mockProvisioner{}
+			prov := newMockProvisioner()
 			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov, true)
 			info := makeDefaultReconcileInfo(tt.Host)
 
@@ -347,20 +463,35 @@ type hostBuilder struct {
 }
 
 func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
+
+	creds := metal3v1alpha1.CredentialsStatus{
+		Reference: &corev1.SecretReference{
+			Name:      "secretRefName",
+			Namespace: "secretNs",
+		},
+		Version: "100",
+	}
+
 	return &hostBuilder{
 		metal3v1alpha1.BareMetalHost{
+			Spec: v1alpha1.BareMetalHostSpec{
+				Online: true,
+				Image: &v1alpha1.Image{
+					URL: "not-empty",
+				},
+				RootDeviceHints: &v1alpha1.RootDeviceHints{},
+			},
 			Status: metal3v1alpha1.BareMetalHostStatus{
 				Provisioning: metal3v1alpha1.ProvisionStatus{
 					State:    state,
 					BootMode: v1alpha1.DefaultBootMode,
-				},
-				GoodCredentials: metal3v1alpha1.CredentialsStatus{
-					Reference: &corev1.SecretReference{
-						Name:      "secretRefName",
-						Namespace: "secretNs",
+					Image: v1alpha1.Image{
+						URL: "", //needs provisioning
 					},
-					Version: "100",
 				},
+				GoodCredentials:   creds,
+				TriedCredentials:  creds,
+				OperationalStatus: metal3v1alpha1.OperationalStatusOK,
 			},
 		},
 	}
@@ -396,6 +527,11 @@ func (hb *hostBuilder) SetStatusError(opStatus metal3v1alpha1.OperationalStatus,
 	return hb
 }
 
+func (hb *hostBuilder) SetOperationalStatus(status metal3v1alpha1.OperationalStatus) *hostBuilder {
+	hb.Status.OperationalStatus = status
+	return hb
+}
+
 func makeDefaultReconcileInfo(host *metal3v1alpha1.BareMetalHost) *reconcileInfo {
 	return &reconcileInfo{
 		log:     logf.Log.WithName("controllers").WithName("BareMetalHost").WithName("host_state_machine"),
@@ -411,8 +547,23 @@ func makeDefaultReconcileInfo(host *metal3v1alpha1.BareMetalHost) *reconcileInfo
 	}
 }
 
+func newMockProvisioner() *mockProvisioner {
+	return &mockProvisioner{
+		hasProvisioningCapacity: true,
+	}
+}
+
 type mockProvisioner struct {
-	nextResult provisioner.Result
+	hasProvisioningCapacity bool
+	nextResult              provisioner.Result
+}
+
+func (m *mockProvisioner) setHasProvisioningCapacity(hasCapacity bool) {
+	m.hasProvisioningCapacity = hasCapacity
+}
+
+func (m *mockProvisioner) HasProvisioningCapacity() (result bool, err error) {
+	return m.hasProvisioningCapacity, nil
 }
 
 func (m *mockProvisioner) setNextError(msg string) {

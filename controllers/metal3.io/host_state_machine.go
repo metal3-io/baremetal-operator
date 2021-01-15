@@ -6,6 +6,7 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -77,9 +78,33 @@ func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, sta
 	return
 }
 
+func (hsm *hostStateMachine) ensureProvisioningCapacity(info *reconcileInfo) actionResult {
+	hasCapacity, err := hsm.Provisioner.HasProvisioningCapacity()
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to get hosts currently being provisioned")}
+	}
+	if !hasCapacity {
+		return recordActionDelayed(info)
+	}
+
+	return nil
+}
+
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
-	info *reconcileInfo) {
+	info *reconcileInfo) actionResult {
 	if hsm.NextState != initialState {
+
+		// Check if there is a free slot available when trying to
+		// provision an host - if not the action will be delayed.
+		// The check is limited to only the provisioning states to
+		// avoid putting an excessive pressure on the provisioner
+		switch hsm.NextState {
+		case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning:
+			if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+				return actionRes
+			}
+		}
+
 		info.log.Info("changing provisioning state",
 			"old", initialState,
 			"new", hsm.NextState)
@@ -109,11 +134,47 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 			}
 		}
 	}
+
+	return nil
 }
 
-func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult {
+
+	// Check if there's a free slot for hosts that have been previously delayed
+	if info.host.Status.OperationalStatus == metal3v1alpha1.OperationalStatusDelayed {
+		if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+			return actionRes
+		}
+
+		// A slot is available, let's cleanup the status and retry
+		clearError(info.host)
+		return actionUpdate{}
+	}
+
+	// Make sure the check is re-applied when provisioning an
+	// host not yet tracked by the provisioner
+	switch info.host.Status.Provisioning.State {
+	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning:
+		if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+			return actionRes
+		}
+	}
+
+	return nil
+}
+
+func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes actionResult) {
 	initialState := hsm.Host.Status.Provisioning.State
-	defer hsm.updateHostStateFrom(initialState, info)
+
+	defer func() {
+		if overrideAction := hsm.updateHostStateFrom(initialState, info); overrideAction != nil {
+			actionRes = overrideAction
+		}
+	}()
+
+	if delayedResult := hsm.checkDelayedHost(info); delayedResult != nil {
+		return delayedResult
+	}
 
 	if hsm.checkInitiateDelete() {
 		info.log.Info("Initiating host deletion")

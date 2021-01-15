@@ -523,6 +523,7 @@ spec:
                 - OK
                 - discovered
                 - error
+                - delayed
                 type: string
               poweredOn:
                 description: indicator for whether or not the host is powered on

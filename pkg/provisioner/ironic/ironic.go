@@ -3,6 +3,7 @@ package ironic
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ var (
 	ironicInsecure            bool
 	ironicAuth                clients.AuthConfig
 	inspectorAuth             clients.AuthConfig
+	maxProvisioningHosts      int = 20
 
 	// Keep pointers to ironic and inspector clients configured with
 	// the global auth settings to reuse the connection between
@@ -98,6 +100,15 @@ func init() {
 	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
 	if strings.ToLower(ironicInsecureStr) == "true" {
 		ironicInsecure = true
+	}
+
+	if maxHostsStr := os.Getenv("PROVISIONING_LIMIT"); maxHostsStr != "" {
+		value, err := strconv.Atoi(maxHostsStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot start: Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
+			os.Exit(1)
+		}
+		maxProvisioningHosts = value
 	}
 }
 
@@ -1629,4 +1640,53 @@ func (p *ironicProvisioner) IsReady() (result bool, err error) {
 
 	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
 	return checker.IsReady()
+}
+
+func (p *ironicProvisioner) HasProvisioningCapacity() (result bool, err error) {
+
+	hosts, err := p.loadProvisioningHosts()
+	if err != nil {
+		p.log.Error(err, "Unable to get hosts currently being provisioned")
+		return false, err
+	}
+
+	// If the current host is already under processing then let's skip the test
+	if _, ok := hosts[p.host.Name]; ok {
+		return true, nil
+	}
+
+	return len(hosts) < maxProvisioningHosts, nil
+}
+
+func (p *ironicProvisioner) loadProvisioningHosts() (hosts map[string]struct{}, err error) {
+
+	hosts = make(map[string]struct{})
+	pager := nodes.List(p.client, nodes.ListOpts{
+		Fields: []string{"uuid,name,provision_state,driver_internal_info,target_provision_state"},
+	})
+	if pager.Err != nil {
+		return nil, pager.Err
+	}
+
+	page, err := pager.AllPages()
+	if err != nil {
+		return nil, err
+	}
+
+	allNodes, err := nodes.ExtractNodes(page)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, node := range allNodes {
+
+		switch nodes.ProvisionState(node.ProvisionState) {
+		case nodes.Cleaning, nodes.CleanWait,
+			nodes.Inspecting, nodes.InspectWait,
+			nodes.Deploying, nodes.DeployWait:
+			hosts[node.Name] = struct{}{}
+		}
+	}
+
+	return hosts, nil
 }

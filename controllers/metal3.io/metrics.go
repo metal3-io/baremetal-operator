@@ -61,6 +61,10 @@ var hostConfigDataError = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "metal3_host_config_data_error_total",
 	Help: "Number of times the operator has failed to retrieve host configuration data",
 }, []string{labelHostDataType})
+var delayedProvisioningHostCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "metal3_delayed__provisioning_total",
+	Help: "The number of times hosts have been delayed while provisioning due a busy provisioner",
+}, []string{labelHostNamespace, labelHostName})
 
 var slowOperationBuckets = []float64{30, 90, 180, 360, 720, 1440}
 
@@ -111,7 +115,8 @@ func init() {
 		reconcileCounters,
 		reconcileErrorCounter,
 		actionFailureCounters,
-		powerChangeAttempts)
+		powerChangeAttempts,
+		delayedProvisioningHostCounters)
 
 	for _, collector := range stateTime {
 		metrics.Registry.MustRegister(collector)

@@ -87,6 +87,9 @@ type Provisioner interface {
 	// IsReady checks if the provisioning backend is available to accept
 	// all the incoming requests.
 	IsReady() (result bool, err error)
+
+	// HasProvisioningCapacity checks if the backend has a free provisioning slot for the current host
+	HasProvisioningCapacity() (result bool, err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

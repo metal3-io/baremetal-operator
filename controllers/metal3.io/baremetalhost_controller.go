@@ -94,6 +94,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	}()
 
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
+	reqLogger.Info("start")
 
 	// Fetch the BareMetalHost
 	host := &metal3v1alpha1.BareMetalHost{}

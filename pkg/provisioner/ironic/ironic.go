@@ -143,6 +143,8 @@ type ironicProvisioner struct {
 	inspector *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
+	// a debug logger configured for this host
+	debugLog logr.Logger
 	// an event publisher for recording significant events
 	publisher provisioner.EventPublisher
 }
@@ -188,6 +190,8 @@ func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
 
+	provisionerLogger := log.WithValues("host", host.Name)
+
 	// Ensure we have a microversion high enough to get the features
 	// we need.
 	clientIronic.Microversion = "1.56"
@@ -198,7 +202,8 @@ func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds
 		bmcCreds:  bmcCreds,
 		client:    clientIronic,
 		inspector: clientInspector,
-		log:       log.WithValues("host", host.Name),
+		log:       provisionerLogger,
+		debugLog:  provisionerLogger.V(1),
 		publisher: publisher,
 	}
 
@@ -291,7 +296,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 		ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 		switch err.(type) {
 		case nil:
-			p.log.Info("found existing node by ID")
+			p.debugLog.Info("found existing node by ID")
 			return ironicNode, nil
 		case gophercloud.ErrDefault404:
 			// Look by ID failed, trying to lookup by hostname in case it was
@@ -307,7 +312,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 	ironicNode, err = nodes.Get(p.client, p.host.Name).Extract()
 	switch err.(type) {
 	case nil:
-		p.log.Info("found existing node by name")
+		p.debugLog.Info("found existing node by name")
 		return ironicNode, nil
 	case gophercloud.ErrDefault404:
 		p.log.Info(
@@ -331,7 +336,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 		ironicNode, err = nodes.Get(p.client, nodeUUID).Extract()
 		switch err.(type) {
 		case nil:
-			p.log.Info("found existing node by ID")
+			p.debugLog.Info("found existing node by ID")
 
 			// If the node has a name, this means we didn't find it above.
 			if ironicNode.Name != "" {
@@ -363,7 +368,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	var ironicNode *nodes.Node
 
-	p.log.Info("validating management access")
+	p.debugLog.Info("validating management access")
 
 	ironicNode, err = p.findExistingHost()
 	if err != nil {
@@ -584,18 +589,16 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		return
 
 	case nodes.Manageable:
-		p.log.Info("have manageable host")
 		return
 
 	case nodes.Available:
 		// The host is fully registered (and probably wasn't cleanly
 		// deleted previously)
-		p.log.Info("have available host")
 		return
 
 	case nodes.Active:
 		// The host is already running, maybe it's a master?
-		p.log.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
+		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
 		return
 
 	default:
@@ -736,7 +739,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 // is expected to do this in the least expensive way possible, such as
 // reading from a cache.
 func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
-	p.log.Info("updating hardware state")
+	p.debugLog.Info("updating hardware state")
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
@@ -1817,7 +1820,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 
 // IsReady checks if the provisioning backend is available
 func (p *ironicProvisioner) IsReady() (result bool, err error) {
-	p.log.Info("verifying ironic provisioner dependencies")
+	p.debugLog.Info("verifying ironic provisioner dependencies")
 
 	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
 	return checker.IsReady()

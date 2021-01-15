@@ -18,7 +18,7 @@ import (
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
-	p, _ := r.ProvisionerFactory(host, bmc.Credentials{},
+	p, _ := r.ProvisionerFactory(*host.DeepCopy(), bmc.Credentials{},
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p, true)
 }
@@ -366,8 +366,8 @@ func (m *mockProvisioner) setNextResult(dirty bool) {
 	}
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
-	return m.nextResult, err
+func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+	return m.nextResult, "", err
 }
 
 func (m *mockProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
@@ -375,8 +375,8 @@ func (m *mockProvisioner) InspectHardware(force bool) (result provisioner.Result
 	return m.nextResult, details, err
 }
 
-func (m *mockProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
-	return m.nextResult, err
+func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
+	return
 }
 
 func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {

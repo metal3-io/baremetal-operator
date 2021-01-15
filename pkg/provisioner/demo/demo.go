@@ -46,7 +46,7 @@ const (
 // and uses Ironic to manage the host.
 type demoProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metal3v1alpha1.BareMetalHost
+	host metal3v1alpha1.BareMetalHost
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -56,7 +56,7 @@ type demoProvisioner struct {
 }
 
 // New returns a new Ironic Provisioner
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
 		host:      host,
 		bmcCreds:  bmcCreds,
@@ -68,7 +68,7 @@ func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.host.ObjectMeta.Name
@@ -88,14 +88,14 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force boo
 
 	default:
 		if p.host.Status.Provisioning.ID == "" {
-			p.host.Status.Provisioning.ID = p.host.ObjectMeta.Name
+			provID = p.host.ObjectMeta.Name
 			p.log.Info("setting provisioning id",
 				"provisioningID", p.host.Status.Provisioning.ID)
 			result.Dirty = true
 		}
 	}
 
-	return result, nil
+	return
 }
 
 // InspectHardware updates the HardwareDetails field of the host with
@@ -174,12 +174,10 @@ func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result
 // UpdateHardwareState fetches the latest hardware state of the server
 // and updates the HardwareDetails field of the host with details. It
 // is expected to do this in the least expensive way possible, such as
-// reading from a cache, and return dirty only if any state
-// information has changed.
-func (p *demoProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
+// reading from a cache.
+func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	p.log.Info("updating hardware state")
-	result.Dirty = false
-	return result, nil
+	return
 }
 
 // Adopt allows an externally-provisioned server to be adopted.

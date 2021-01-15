@@ -33,7 +33,7 @@ func TestValidateManagementAccessNoMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, err := prov.ValidateManagementAccess(false, false)
+	result, _, err := prov.ValidateManagementAccess(false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
@@ -63,7 +63,7 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, err := prov.ValidateManagementAccess(false, false)
+	result, _, err := prov.ValidateManagementAccess(false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
@@ -95,13 +95,13 @@ func TestValidateManagementAccessCreateNode(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, err := prov.ValidateManagementAccess(false, false)
+	result, provID, err := prov.ValidateManagementAccess(false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", createdNode.UUID)
-	assert.Equal(t, createdNode.UUID, host.Status.Provisioning.ID)
+	assert.Equal(t, createdNode.UUID, provID)
 }
 
 func TestValidateManagementAccessExistingNode(t *testing.T) {
@@ -130,12 +130,12 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, err := prov.ValidateManagementAccess(false, false)
+	result, provID, err := prov.ValidateManagementAccess(false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.Equal(t, "uuid", host.Status.Provisioning.ID)
+	assert.Equal(t, "uuid", provID)
 }
 
 func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
@@ -193,7 +193,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.ValidateManagementAccess(false, false)
+			result, _, err := prov.ValidateManagementAccess(false, false)
 			if err != nil {
 				t.Fatalf("error from ValidateManagementAccess: %s", err)
 			}
@@ -238,7 +238,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.ValidateManagementAccess(false, false)
+			result, _, err := prov.ValidateManagementAccess(false, false)
 			if err != nil {
 				t.Fatalf("error from ValidateManagementAccess: %s", err)
 			}
@@ -280,12 +280,12 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, err := prov.ValidateManagementAccess(true, false)
+	result, provID, err := prov.ValidateManagementAccess(true, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.Equal(t, "uuid", host.Status.Provisioning.ID)
+	assert.Equal(t, "uuid", provID)
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	newValues := updates[0].Value.(map[string]interface{})
@@ -327,12 +327,12 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, err := prov.ValidateManagementAccess(false, false)
+	result, provID, err := prov.ValidateManagementAccess(false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.NotEqual(t, "", host.Status.Provisioning.ID)
+	assert.NotEqual(t, "", provID)
 }
 
 func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
@@ -370,7 +370,7 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, err = prov.ValidateManagementAccess(false, false)
+	_, _, err = prov.ValidateManagementAccess(false, false)
 	assert.EqualError(t, err, "failed to find existing host: port exists but linked node doesn't random-wrong-id: Resource not found")
 }
 
@@ -412,7 +412,7 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, err = prov.ValidateManagementAccess(false, false)
+	_, _, err = prov.ValidateManagementAccess(false, false)
 	assert.EqualError(t, err, "failed to find existing host: node found by MAC but has a name: wrong-name")
 }
 
@@ -450,10 +450,10 @@ func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, err := prov.ValidateManagementAccess(false, false)
+	result, provID, err := prov.ValidateManagementAccess(false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.NotEqual(t, "", host.Status.Provisioning.ID)
+	assert.NotEqual(t, "", provID)
 }

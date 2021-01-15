@@ -83,7 +83,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
-	host := &metal3v1alpha1.BareMetalHost{
+	host := metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
@@ -188,7 +188,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeDell(t *testing.T) {
-	host := &metal3v1alpha1.BareMetalHost{
+	host := metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",

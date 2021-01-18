@@ -152,7 +152,7 @@ func TestInspectHardware(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, details, err := prov.InspectHardware()
+			result, details, err := prov.InspectHardware(false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

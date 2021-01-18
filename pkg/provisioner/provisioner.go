@@ -17,7 +17,7 @@ Package provisioning defines the API for talking to the provisioning backend.
 type EventPublisher func(reason, message string)
 
 // Factory is the interface for creating new Provisioner objects.
-type Factory func(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
+type Factory func(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
 
 // HostConfigData retrieves host configuration data
 type HostConfigData interface {
@@ -43,20 +43,19 @@ type Provisioner interface {
 	// of credentials it has are different from the credentials it has
 	// previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(credentialsChanged bool) (result Result, err error)
+	ValidateManagementAccess(credentialsChanged, force bool) (result Result, provID string, err error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
-	InspectHardware() (result Result, details *metal3v1alpha1.HardwareDetails, err error)
+	InspectHardware(force bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with
 	// details. It is expected to do this in the least expensive way
-	// possible, such as reading from a cache, and return dirty only
-	// if any state information has changed.
-	UpdateHardwareState() (result Result, err error)
+	// possible, such as reading from a cache.
+	UpdateHardwareState() (hwState HardwareState, err error)
 
 	// Adopt brings an externally-provisioned host under management by
 	// the provisioner.
@@ -70,11 +69,11 @@ type Provisioner interface {
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
 	// the deprovisioning operation is completed.
-	Deprovision() (result Result, err error)
+	Deprovision(force bool) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty
-	// flag until the deprovisioning operation is completed.
+	// flag until the deletion operation is completed.
 	Delete() (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image
@@ -100,6 +99,13 @@ type Result struct {
 	RequeueAfter time.Duration
 	// Any error message produced by the provisioner.
 	ErrorMessage string
+}
+
+// HardwareState holds the response from an UpdateHardwareState call
+type HardwareState struct {
+	// PoweredOn is a pointer to a bool indicating whether the Host is currently
+	// powered on. The value is nil if the power state cannot be determined.
+	PoweredOn *bool
 }
 
 var NeedsRegistration = errors.New("Host not registered")

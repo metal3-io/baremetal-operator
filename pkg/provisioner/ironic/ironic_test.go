@@ -16,10 +16,10 @@ func init() {
 	logf.SetLogger(logf.ZapLogger(true))
 }
 
-func makeHost() *metal3v1alpha1.BareMetalHost {
+func makeHost() metal3v1alpha1.BareMetalHost {
 	rotational := true
 
-	return &metal3v1alpha1.BareMetalHost{
+	return metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",

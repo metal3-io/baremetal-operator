@@ -25,17 +25,6 @@ type actionResult interface {
 	Dirty() bool
 }
 
-// actionContinueNoWrite is a result indicating that the current action is still
-// in progress, and that the resource should remain in the same provisioning
-// state without writing the status
-type actionContinueNoWrite struct {
-	actionContinue
-}
-
-func (r actionContinueNoWrite) Dirty() bool {
-	return false
-}
-
 // actionContinue is a result indicating that the current action is still
 // in progress, and that the resource should remain in the same provisioning
 // state.
@@ -51,6 +40,17 @@ func (r actionContinue) Result() (result reconcile.Result, err error) {
 }
 
 func (r actionContinue) Dirty() bool {
+	return false
+}
+
+// actionUpdate is a result indicating that the current action is still
+// in progress, and that the resource should remain in the same provisioning
+// state but write new Status data.
+type actionUpdate struct {
+	actionContinue
+}
+
+func (r actionUpdate) Dirty() bool {
 	return true
 }
 

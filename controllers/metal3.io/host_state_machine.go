@@ -63,7 +63,7 @@ func recordStateBegin(host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.P
 	}
 }
 
-func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) {
+func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, state metal3v1alpha1.ProvisioningState, time metav1.Time) (changed bool) {
 	if prevMetric := host.OperationMetricForState(state); prevMetric != nil {
 		if !prevMetric.Start.IsZero() && prevMetric.End.IsZero() {
 			prevMetric.End = time
@@ -71,8 +71,10 @@ func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, sta
 				observer := stateTime[state].With(hostMetricLabels(info.request))
 				observer.Observe(prevMetric.Duration().Seconds())
 			})
+			changed = true
 		}
 	}
+	return
 }
 
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.ProvisioningState,
@@ -170,8 +172,6 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		return
 	}
 
-	needsReregister := false
-
 	switch hsm.NextState {
 	case metal3v1alpha1.StateNone, metal3v1alpha1.StateUnmanaged:
 		// We haven't yet reached the Registration state, so don't attempt
@@ -182,29 +182,23 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		return
 	case metal3v1alpha1.StateRegistering:
 	default:
-		needsReregister = (hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError ||
-			!hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret))
-		if needsReregister {
+		if hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError ||
+			!hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
 			info.log.Info("Retrying registration")
 			recordStateBegin(hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
 		}
 	}
 
-	result = hsm.Reconciler.actionRegistering(hsm.Provisioner, info)
-	if _, complete := result.(actionComplete); complete {
-		if hsm.NextState != metal3v1alpha1.StateRegistering {
-			recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now())
+	result = hsm.Reconciler.registerHost(hsm.Provisioner, info)
+	_, complete := result.(actionComplete)
+	if (result == nil || complete) &&
+		hsm.NextState != metal3v1alpha1.StateRegistering {
+		if recordStateEnd(info, hsm.Host, metal3v1alpha1.StateRegistering, metav1.Now()) {
+			result = actionUpdate{}
 		}
-		if needsReregister {
-			// Host was re-registered, so requeue and run the state machine on
-			// the next reconcile
-			result = actionContinue{}
-		} else {
-			// Allow the state machine to run, either because we were just
-			// reconfirming an existing registration, or because we are in the
-			// Registering state
-			result = nil
-		}
+	}
+	if complete {
+		result = actionUpdate{}
 	}
 	return
 }
@@ -240,6 +234,7 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 	} else {
 		hsm.NextState = metal3v1alpha1.StateInspecting
 	}
+	hsm.Host.Status.ErrorCount = 0
 	return actionComplete{}
 }
 
@@ -247,6 +242,7 @@ func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult 
 	actResult := hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateMatchProfile
+		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
 }
@@ -255,12 +251,14 @@ func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResul
 	actResult := hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateReady
+		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
 }
 
 func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
+		// ErrorCount is cleared when appropriate inside actionManageSteadyState
 		return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
 	}
 
@@ -281,8 +279,8 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
+	// ErrorCount is cleared when appropriate inside actionManageReady
 	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
-
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateProvisioning
 	}
@@ -290,7 +288,7 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {
-	if hsm.Host.HasError() {
+	if hsm.Host.Status.ErrorMessage != "" {
 		return true
 	}
 	if hsm.Host.Spec.Image == nil {
@@ -317,6 +315,7 @@ func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResul
 	actResult := hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateProvisioned
+		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
 }
@@ -327,6 +326,7 @@ func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult
 		return actionComplete{}
 	}
 
+	// ErrorCount is cleared when appropriate inside actionManageSteadyState
 	return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
 }
 
@@ -336,6 +336,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 	if hsm.Host.DeletionTimestamp.IsZero() {
 		if _, complete := actResult.(actionComplete); complete {
 			hsm.NextState = metal3v1alpha1.StateReady
+			hsm.Host.Status.ErrorCount = 0
 		}
 	} else {
 		skipToDelete := func() actionResult {
@@ -347,13 +348,13 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 		switch r := actResult.(type) {
 		case actionComplete:
 			hsm.NextState = metal3v1alpha1.StateDeleting
+			hsm.Host.Status.ErrorCount = 0
 		case actionFailed:
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
-			// Note that this is entirely theoretical, as the
-			// Ironic provisioner currently never gives up
-			// trying to deprovision.
-			return skipToDelete()
+			if hsm.Host.Status.ErrorCount > 3 {
+				return skipToDelete()
+			}
 		case actionError:
 			if r.NeedsRegistration() && !hsm.haveCreds {
 				// If the host is not registered as a node in Ironic and we

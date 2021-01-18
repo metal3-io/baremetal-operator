@@ -406,8 +406,9 @@ type NIC struct {
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	MAC string `json:"mac"`
 
-	// The IP address of the interface. This will be an IPv4 address if one is
-	// present, and only an IPv6 address if there is no IPv4 address.
+	// The IP address of the interface. This will be an IPv4 or IPv6 address
+	// if one is present.  If both IPv4 and IPv6 addresses are present in a
+	// dual-stack environment, two nics will be output, one with each IP.
 	IP string `json:"ip"`
 
 	// The speed of the device in Gigabits per second
@@ -584,7 +585,7 @@ type ProvisionStatus struct {
 // +kubebuilder:resource:shortName=bmh;bmhost
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status",priority=1
-// +kubebuilder:printcolumn:name="Provisioning_Status",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller",priority=1
 // +kubebuilder:printcolumn:name="Hardware_Profile",type="string",JSONPath=".status.hardwareProfile",description="The type of hardware detected",priority=1
@@ -606,48 +607,6 @@ func (host *BareMetalHost) BootMode() BootMode {
 		return DefaultBootMode
 	}
 	return mode
-}
-
-// Available returns true if the host is available to be provisioned.
-func (host *BareMetalHost) Available() bool {
-	if host.Spec.ConsumerRef != nil {
-		return false
-	}
-	if host.GetDeletionTimestamp() != nil {
-		return false
-	}
-	if host.HasError() {
-		return false
-	}
-	return true
-}
-
-// SetErrorMessage updates the ErrorMessage in the host Status struct
-// and increases the ErrorCount
-func (host *BareMetalHost) SetErrorMessage(errType ErrorType, message string) {
-	host.Status.OperationalStatus = OperationalStatusError
-	host.Status.ErrorType = errType
-	host.Status.ErrorMessage = message
-	host.Status.ErrorCount++
-}
-
-// ClearError removes any existing error message.
-func (host *BareMetalHost) ClearError() (dirty bool) {
-	dirty = host.SetOperationalStatus(OperationalStatusOK)
-	var emptyErrType ErrorType = ""
-	if host.Status.ErrorType != emptyErrType {
-		host.Status.ErrorType = emptyErrType
-		dirty = true
-	}
-	if host.Status.ErrorMessage != "" {
-		host.Status.ErrorMessage = ""
-		dirty = true
-	}
-	if host.Status.ErrorCount != 0 {
-		host.Status.ErrorCount = 0
-		dirty = true
-	}
-	return dirty
 }
 
 // setLabel updates the given label when necessary and returns true
@@ -711,12 +670,6 @@ func (host *BareMetalHost) SetOperationalStatus(status OperationalStatus) bool {
 // field.
 func (host *BareMetalHost) OperationalStatus() OperationalStatus {
 	return host.Status.OperationalStatus
-}
-
-// HasError returns a boolean indicating whether there is an error
-// set for the host.
-func (host *BareMetalHost) HasError() bool {
-	return host.Status.ErrorMessage != ""
 }
 
 // CredentialsKey returns a NamespacedName suitable for loading the

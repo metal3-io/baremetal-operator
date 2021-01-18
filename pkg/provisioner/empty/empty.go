@@ -15,31 +15,30 @@ type emptyProvisioner struct {
 }
 
 // New returns a new Empty Provisioner
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	return &emptyProvisioner{}, nil
 }
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *emptyProvisioner) ValidateManagementAccess(credentialsChanged bool) (provisioner.Result, error) {
-	return provisioner.Result{}, nil
+func (p *emptyProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (provisioner.Result, string, error) {
+	return provisioner.Result{}, "", nil
 }
 
 // InspectHardware updates the HardwareDetails field of the host with
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *emptyProvisioner) InspectHardware() (provisioner.Result, *metal3v1alpha1.HardwareDetails, error) {
+func (p *emptyProvisioner) InspectHardware(force bool) (provisioner.Result, *metal3v1alpha1.HardwareDetails, error) {
 	return provisioner.Result{}, nil, nil
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server
 // and updates the HardwareDetails field of the host with details. It
 // is expected to do this in the least expensive way possible, such as
-// reading from a cache, and return dirty only if any state
-// information has changed.
-func (p *emptyProvisioner) UpdateHardwareState() (provisioner.Result, error) {
-	return provisioner.Result{}, nil
+// reading from a cache.
+func (p *emptyProvisioner) UpdateHardwareState() (provisioner.HardwareState, error) {
+	return provisioner.HardwareState{}, nil
 }
 
 // Adopt allows an externally-provisioned server to be adopted.
@@ -57,7 +56,7 @@ func (p *emptyProvisioner) Provision(hostConf provisioner.HostConfigData) (provi
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *emptyProvisioner) Deprovision() (provisioner.Result, error) {
+func (p *emptyProvisioner) Deprovision(force bool) (provisioner.Result, error) {
 	return provisioner.Result{}, nil
 }
 

@@ -123,6 +123,9 @@ const (
 type ErrorType string
 
 const (
+	// ProvisionedRegistrationError is an error condition occurring when the controller
+	// is unable to re-register an already provisioned host.
+	ProvisionedRegistrationError ErrorType = "provisioned registration error"
 	// RegistrationError is an error condition occurring when the
 	// controller is unable to connect to the Host's baseboard management
 	// controller.
@@ -522,7 +525,7 @@ type BareMetalHostStatus struct {
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
-	// +kubebuilder:validation:Enum=registration error;inspection error;provisioning error;power management error
+	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;provisioning error;power management error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// LastUpdated identifies when this status was last observed.

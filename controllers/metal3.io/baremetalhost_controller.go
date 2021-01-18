@@ -280,10 +280,11 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 	setErrorMessage(info.host, errorType, errorMessage)
 
 	eventType := map[metal3v1alpha1.ErrorType]string{
-		metal3v1alpha1.RegistrationError:    "RegistrationError",
-		metal3v1alpha1.InspectionError:      "InspectionError",
-		metal3v1alpha1.ProvisioningError:    "ProvisioningError",
-		metal3v1alpha1.PowerManagementError: "PowerManagementError",
+		metal3v1alpha1.ProvisionedRegistrationError: "ProvisionedRegistrationError",
+		metal3v1alpha1.RegistrationError:            "RegistrationError",
+		metal3v1alpha1.InspectionError:              "InspectionError",
+		metal3v1alpha1.ProvisioningError:            "ProvisioningError",
+		metal3v1alpha1.PowerManagementError:         "PowerManagementError",
 	}[errorType]
 
 	counter := actionFailureCounters.WithLabelValues(eventType)
@@ -467,7 +468,8 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	// Reaching this point means the credentials are valid and worked,
 	// so clear any previous error and record the success in the
 	// status block.
-	if !info.host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
+	registeredNewCreds := !info.host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
+	if registeredNewCreds {
 		info.log.Info("updating credentials success status fields")
 		info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
@@ -475,9 +477,10 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	} else {
 		info.log.Info("verified access to the BMC")
 	}
-	if clearError(info.host) {
+
+	if info.host.Status.ErrorType == metal3v1alpha1.RegistrationError || registeredNewCreds {
 		info.log.Info("clearing previous error message")
-		dirty = true
+		dirty = clearError(info.host)
 	}
 
 	if dirty {
@@ -615,12 +618,12 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	if info.host.Status.Provisioning.Image.URL != "" {
 		// Adopt the host in case it has been re-registered during the
 		// deprovisioning process before it completed
-		provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+		provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 		if err != nil {
 			return actionError{err}
 		}
 		if provResult.ErrorMessage != "" {
-			return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
+			return recordActionFailure(info, metal3v1alpha1.ProvisionedRegistrationError, provResult.ErrorMessage)
 		}
 		if provResult.Dirty {
 			result := actionContinue{provResult.RequeueAfter}
@@ -758,12 +761,12 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 // action. We use the Adopt() API to make sure that the provisioner is aware of
 // the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 	if err != nil {
 		return actionError{err}
 	}
 	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.ProvisionedRegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}

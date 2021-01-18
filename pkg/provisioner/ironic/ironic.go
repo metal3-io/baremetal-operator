@@ -721,7 +721,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 }
 
 func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
-	checksum, checksumType, ok := p.host.GetImageChecksum()
+	checksum, checksumType, ok := imageData.GetChecksum()
 	if !ok {
 		p.log.Info("image/checksum not found for host")
 		return

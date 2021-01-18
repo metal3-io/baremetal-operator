@@ -423,24 +423,75 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			imageData = p.host.Spec.Image
 		}
 
-		if imageData != nil {
-			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData)
-			if optsErr != nil {
-				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
-				return
+		checksum, checksumType, ok := imageData.GetChecksum()
+
+		if ok {
+			p.log.Info("setting instance info",
+				"image_source", imageData.URL,
+				"image_os_hash_value", checksum,
+				"image_os_hash_algo", checksumType,
+			)
+
+			updates := nodes.UpdateOpts{
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_source",
+					Value: imageData.URL,
+				},
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_os_hash_value",
+					Value: checksum,
+				},
+				nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_os_hash_algo",
+					Value: checksumType,
+				},
+				nodes.UpdateOperation{
+					Op:    nodes.ReplaceOp,
+					Path:  "/instance_uuid",
+					Value: string(p.host.ObjectMeta.UID),
+				},
 			}
-			if len(updates) != 0 {
-				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-				switch err.(type) {
-				case nil:
-				case gophercloud.ErrDefault409:
-					p.log.Info("could not update host settings in ironic, busy")
-					result, err = retryAfterDelay(provisionRequeueDelay)
-					return
-				default:
-					result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
-					return
-				}
+
+			// image_checksum
+			//
+			// FIXME: For older versions of ironic that do not have
+			// https://review.opendev.org/#/c/711816/ failing to
+			// include the 'image_checksum' causes ironic to refuse to
+			// provision the image, even if the other hash value
+			// parameters are given. We only want to do that for MD5,
+			// however, because those versions of ironic only support
+			// MD5 checksums.
+			if checksumType == string(metal3v1alpha1.MD5) {
+				updates = append(
+					updates,
+					nodes.UpdateOperation{
+						Op:    nodes.AddOp,
+						Path:  "/instance_info/image_checksum",
+						Value: checksum,
+					},
+				)
+			}
+
+			if imageData.DiskFormat != nil {
+				updates = append(updates, nodes.UpdateOperation{
+					Op:    nodes.AddOp,
+					Path:  "/instance_info/image_disk_format",
+					Value: *imageData.DiskFormat,
+				})
+			}
+			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+			switch err.(type) {
+			case nil:
+			case gophercloud.ErrDefault409:
+				p.log.Info("could not update host settings in ironic, busy")
+				result, err = retryAfterDelay(provisionRequeueDelay)
+				return
+			default:
+				result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+				return
 			}
 		}
 	} else {
@@ -720,22 +771,16 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
-	checksum, checksumType, ok := p.host.GetImageChecksum()
-	if !ok {
-		p.log.Info("image/checksum not found for host")
-		return
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
+
+	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+
+	if err != nil {
+		return updates, errors.Wrap(err,
+			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
+				p.host.HardwareProfile()))
 	}
-	// instance_uuid
-	p.log.Info("setting instance_uuid")
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    nodes.ReplaceOp,
-			Path:  "/instance_uuid",
-			Value: string(p.host.ObjectMeta.UID),
-		},
-	)
+
 	// image_source
 	var op nodes.UpdateOp
 	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
@@ -750,9 +795,11 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 		nodes.UpdateOperation{
 			Op:    op,
 			Path:  "/instance_info/image_source",
-			Value: imageData.URL,
+			Value: p.host.Spec.Image.URL,
 		},
 	)
+
+	checksum, checksumType, _ := p.host.GetImageChecksum()
 
 	// image_os_hash_algo
 	if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
@@ -814,38 +861,30 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 		)
 	}
 
-	if imageData.DiskFormat != nil {
+	if p.host.Spec.Image.DiskFormat != nil {
 		updates = append(updates, nodes.UpdateOperation{
 			Op:    nodes.AddOp,
 			Path:  "/instance_info/image_disk_format",
-			Value: *imageData.DiskFormat,
+			Value: *p.host.Spec.Image.DiskFormat,
 		})
 	}
-	return updates, nil
-}
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
-
-	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
-
-	if err != nil {
-		return updates, errors.Wrap(err,
-			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
-				p.host.HardwareProfile()))
-	}
-
-	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, p.host.Spec.Image)
-	if err != nil {
-		return updates, errors.Wrap(err, "Could not get Image options for node")
-	}
-	updates = append(updates, imageOpts...)
+	// instance_uuid
+	p.log.Info("setting instance_uuid")
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    nodes.ReplaceOp,
+			Path:  "/instance_uuid",
+			Value: string(p.host.ObjectMeta.UID),
+		},
+	)
 
 	// root_gb
 	//
 	// FIXME(dhellmann): We have to provide something for the disk
 	// size until https://storyboard.openstack.org/#!/story/2005165 is
 	// fixed in ironic.
-	var op nodes.UpdateOp
 	if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
 		op = nodes.AddOp
 		p.log.Info("adding root_gb")

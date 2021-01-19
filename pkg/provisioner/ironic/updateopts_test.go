@@ -154,10 +154,6 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
 		{
-			Path:  "/instance_info/root_gb",
-			Value: 10,
-		},
-		{
 			Path:  "/properties/cpu_arch",
 			Value: "x86_64",
 		},
@@ -252,10 +248,6 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		{
 			Path:  "/instance_uuid",
 			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
-		},
-		{
-			Path:  "/instance_info/root_gb",
-			Value: 10,
 		},
 		{
 			Path:  "/properties/cpu_arch",

@@ -840,34 +840,13 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 	}
 	updates = append(updates, imageOpts...)
 
-	// root_gb
-	//
-	// FIXME(dhellmann): We have to provide something for the disk
-	// size until https://storyboard.openstack.org/#!/story/2005165 is
-	// fixed in ironic.
-	var op nodes.UpdateOp
-	if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding root_gb")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating root_gb")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/root_gb",
-			Value: hwProf.RootGB,
-		},
-	)
-
 	// root_device
 	//
 	// FIXME(dhellmann): We need to specify the root device to receive
 	// the image. That should come from some combination of inspecting
 	// the host to see what is available and the hardware profile to
 	// give us instructions.
+	var op nodes.UpdateOp
 	if _, ok := ironicNode.Properties["root_device"]; !ok {
 		op = nodes.AddOp
 		p.log.Info("adding root_device")

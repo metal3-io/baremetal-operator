@@ -289,6 +289,59 @@ func TestErrorCountCleared(t *testing.T) {
 	}
 }
 
+func TestErrorClean(t *testing.T) {
+
+	tests := []struct {
+		Scenario    string
+		Host        *metal3v1alpha1.BareMetalHost
+		SecretName  string
+		ExpectError bool
+	}{
+		{
+			Scenario: "clean-after-registration-error",
+			Host: host(metal3v1alpha1.StateInspecting).
+				SetStatusError(metal3v1alpha1.OperationalStatusError, metal3v1alpha1.RegistrationError, "some error", 1).
+				build(),
+		},
+		{
+			Scenario: "not-clean-after-provisioned-registration-error",
+			Host: host(metal3v1alpha1.StateInspecting).
+				SetStatusError(metal3v1alpha1.OperationalStatusError, metal3v1alpha1.ProvisionedRegistrationError, "some error", 1).
+				build(),
+			ExpectError: true,
+		},
+		{
+			Scenario: "clean-after-creds-change",
+			Host: host(metal3v1alpha1.StateReady).
+				SetStatusError(metal3v1alpha1.OperationalStatusError, metal3v1alpha1.InspectionError, "some error", 1).
+				build(),
+			SecretName: "NewCreds",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.Scenario, func(t *testing.T) {
+			prov := &mockProvisioner{}
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov, true)
+
+			info := makeDefaultReconcileInfo(tt.Host)
+			if tt.SecretName != "" {
+				info.bmcCredsSecret.Name = tt.SecretName
+			}
+
+			hsm.ReconcileState(info)
+
+			if tt.ExpectError {
+				assert.Equal(t, tt.Host.Status.ErrorType, v1alpha1.ProvisionedRegistrationError)
+				assert.NotEmpty(t, tt.Host.Status.ErrorMessage)
+			} else {
+				assert.Equal(t, tt.Host.Status.OperationalStatus, v1alpha1.OperationalStatusOK)
+				assert.Empty(t, tt.Host.Status.ErrorType)
+				assert.Empty(t, tt.Host.Status.ErrorMessage)
+			}
+		})
+	}
+}
+
 type hostBuilder struct {
 	metal3v1alpha1.BareMetalHost
 }
@@ -331,6 +384,15 @@ func (hb *hostBuilder) SetImageURL(url string) *hostBuilder {
 	hb.Spec.Image = &metal3v1alpha1.Image{
 		URL: url,
 	}
+	return hb
+}
+
+func (hb *hostBuilder) SetStatusError(opStatus metal3v1alpha1.OperationalStatus, errType metal3v1alpha1.ErrorType, errMsg string, errCount int) *hostBuilder {
+	hb.Status.OperationalStatus = opStatus
+	hb.Status.ErrorType = errType
+	hb.Status.ErrorMessage = errMsg
+	hb.Status.ErrorCount = errCount
+
 	return hb
 }
 

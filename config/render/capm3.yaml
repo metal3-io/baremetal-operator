@@ -260,6 +260,7 @@ spec:
               errorType:
                 description: ErrorType indicates the type of failure encountered when the OperationalStatus is OperationalStatusError
                 enum:
+                - provisioned registration error
                 - registration error
                 - inspection error
                 - provisioning error

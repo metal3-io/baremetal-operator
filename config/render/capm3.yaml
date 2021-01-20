@@ -139,18 +139,18 @@ spec:
                     - sha512
                     type: string
                   format:
-                    description: DiskFormat contains the format of the image (raw, qcow2, ...) Needs to be set to raw for raw images streaming
+                    description: DiskFormat contains the format of the image (raw, qcow2, ...). Needs to be set to raw for raw images streaming. Note live-iso means an iso referenced by the url will be live-booted and not deployed to disk, and in this case the checksum options are not required and if specified will be ignored.
                     enum:
                     - raw
                     - qcow2
                     - vdi
                     - vmdk
+                    - live-iso
                     type: string
                   url:
                     description: URL is a location of an image to deploy.
                     type: string
                 required:
-                - checksum
                 - url
                 type: object
               metaData:
@@ -552,18 +552,18 @@ spec:
                         - sha512
                         type: string
                       format:
-                        description: DiskFormat contains the format of the image (raw, qcow2, ...) Needs to be set to raw for raw images streaming
+                        description: DiskFormat contains the format of the image (raw, qcow2, ...). Needs to be set to raw for raw images streaming. Note live-iso means an iso referenced by the url will be live-booted and not deployed to disk, and in this case the checksum options are not required and if specified will be ignored.
                         enum:
                         - raw
                         - qcow2
                         - vdi
                         - vmdk
+                        - live-iso
                         type: string
                       url:
                         description: URL is a location of an image to deploy.
                         type: string
                     required:
-                    - checksum
                     - url
                     type: object
                   rootDeviceHints:

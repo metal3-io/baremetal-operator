@@ -372,6 +372,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 				BootInterface:       p.bmcAccess.BootInterface(),
 				Name:                p.host.Name,
 				DriverInfo:          driverInfo,
+				DeployInterface:     p.deployInterface(),
 				InspectInterface:    "inspector",
 				ManagementInterface: p.bmcAccess.ManagementInterface(),
 				PowerInterface:      p.bmcAccess.PowerInterface(),
@@ -736,8 +737,72 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 			Value: string(p.host.ObjectMeta.UID),
 		},
 	)
-	// image_source
+	// live-iso format
 	var op nodes.UpdateOp
+	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
+		if _, ok := ironicNode.InstanceInfo["boot_iso"]; !ok {
+			op = nodes.AddOp
+			p.log.Info("adding boot_iso")
+		} else {
+			op = nodes.ReplaceOp
+			p.log.Info("updating boot_iso")
+		}
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    op,
+				Path:  "/instance_info/boot_iso",
+				Value: imageData.URL,
+			},
+		)
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    nodes.ReplaceOp,
+				Path:  "/deploy_interface",
+				Value: "ramdisk",
+			},
+		)
+		// remove any image_source or checksum options
+		removals := []string{
+			"image_source", "image_os_hash_value", "image_os_hash_algo", "image_checksum"}
+		op = nodes.RemoveOp
+		for _, item := range removals {
+			if _, ok := ironicNode.InstanceInfo[item]; ok {
+				p.log.Info("removing " + item)
+				updates = append(
+					updates,
+					nodes.UpdateOperation{
+						Op:   op,
+						Path: "/instance_info/" + item,
+					},
+				)
+			}
+		}
+		return updates, nil
+	}
+
+	// Set deploy_interface direct when not booting a live-iso
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    nodes.ReplaceOp,
+			Path:  "/deploy_interface",
+			Value: "direct",
+		},
+	)
+	// Remove any boot_iso field
+	if _, ok := ironicNode.InstanceInfo["boot_iso"]; ok {
+		p.log.Info("removing boot_iso")
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:   nodes.RemoveOp,
+				Path: "/instance_info/boot_iso",
+			},
+		)
+	}
+	// image_source
 	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
 		op = nodes.AddOp
 		p.log.Info("adding image_source")
@@ -1016,6 +1081,14 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 	return
 }
 
+func (p *ironicProvisioner) deployInterface() (result string) {
+	result = "direct"
+	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
+		result = "ramdisk"
+	}
+	return result
+}
+
 // Adopt allows an externally-provisioned server to be adopted by Ironic.
 func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
@@ -1058,6 +1131,30 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 	return operationComplete()
 }
 
+func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImage bool) {
+	// To make it easier to test if ironic is configured with
+	// the same image we are trying to provision to the host.
+	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
+		sameImage = (ironicNode.InstanceInfo["boot_iso"] == p.host.Spec.Image.URL)
+		p.log.Info("checking image settings",
+			"boot_iso", ironicNode.InstanceInfo["boot_iso"],
+			"same", sameImage,
+			"provisionState", ironicNode.ProvisionState)
+	} else {
+		checksum, checksumType, _ := p.host.GetImageChecksum()
+		sameImage = (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+			ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
+			ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
+		p.log.Info("checking image settings",
+			"source", ironicNode.InstanceInfo["image_source"],
+			"image_os_hash_algo", checksumType,
+			"image_os_has_value", checksum,
+			"same", sameImage,
+			"provisionState", ironicNode.ProvisionState)
+	}
+	return sameImage
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
@@ -1073,20 +1170,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	checksum, checksumType, _ := p.host.GetImageChecksum()
-
-	// Local variable to make it easier to test if ironic is
-	// configured with the same image we are trying to provision to
-	// the host.
-	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
-		ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
-		ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
-	p.log.Info("checking image settings",
-		"source", ironicNode.InstanceInfo["image_source"],
-		"image_os_hash_algo", checksumType,
-		"image_os_has_value", checksum,
-		"same", ironicHasSameImage,
-		"provisionState", ironicNode.ProvisionState)
+	ironicHasSameImage := p.ironicHasSameImage(ironicNode)
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.

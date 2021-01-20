@@ -297,15 +297,18 @@ type Image struct {
 	URL string `json:"url"`
 
 	// Checksum is the checksum for the image.
-	Checksum string `json:"checksum"`
+	Checksum string `json:"checksum,omitempty"`
 
 	// ChecksumType is the checksum algorithm for the image.
 	// e.g md5, sha256, sha512
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 
-	// DiskFormat contains the format of the image (raw, qcow2, ...)
-	// Needs to be set to raw for raw images streaming
-	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk
+	// DiskFormat contains the format of the image (raw, qcow2, ...).
+	// Needs to be set to raw for raw images streaming.
+	// Note live-iso means an iso referenced by the url will be live-booted
+	// and not deployed to disk, and in this case the checksum options
+	// are not required and if specified will be ignored.
+	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
 	DiskFormat *string `json:"format,omitempty"`
 }
 
@@ -809,6 +812,12 @@ func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
 
 func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 	if image == nil {
+		return
+	}
+
+	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+		// Checksum is not required for live-iso
+		ok = true
 		return
 	}
 

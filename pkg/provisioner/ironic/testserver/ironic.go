@@ -151,7 +151,7 @@ func (m *IronicMock) WithNodeStatesProvision(nodeUUID string) *IronicMock {
 	return m.withNodeStatesProvision(nodeUUID, http.MethodGet)
 }
 
-// WithNodeStatesProvision configures the server with a valid response for [PATCH] /v1/nodes/<node>/states/provision
+// WithNodeStatesProvisionUpdate configures the server with a valid response for [PATCH] /v1/nodes/<node>/states/provision
 func (m *IronicMock) WithNodeStatesProvisionUpdate(nodeUUID string) *IronicMock {
 	return m.withNodeStatesProvision(nodeUUID, http.MethodPut)
 }

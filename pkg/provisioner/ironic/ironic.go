@@ -1102,6 +1102,19 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 		err = fmt.Errorf("Invalid state for adopt: %s",
 			ironicNode.ProvisionState)
 	case nodes.Manageable:
+		_, hasImageSource := ironicNode.InstanceInfo["image_source"]
+		_, hasBootISO := ironicNode.InstanceInfo["boot_iso"]
+		if p.status.State == metal3v1alpha1.StateDeprovisioning &&
+			!(hasImageSource || hasBootISO) {
+			// If we got here after a fresh registration and image data is
+			// available, it should have been added to the node during
+			// registration. If it isn't present then we got here due to a
+			// failed cleaning on deprovision. The node will be cleaned again
+			// before the next provisioning, so just allow the controller to
+			// continue without adopting.
+			p.log.Info("no image info; not adopting", "state", ironicNode.ProvisionState)
+			return operationComplete()
+		}
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{
@@ -1332,6 +1345,7 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		)
 
 	case nodes.CleanFail:
+		p.log.Info("cleaning failed")
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
 			return p.setMaintenanceFlag(ironicNode, false)
@@ -1340,6 +1354,14 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
+
+	case nodes.Manageable:
+		// We end up here after CleanFail. Because cleaning happens in the
+		// process of moving from manageable to available, the node will still
+		// get cleaned before we provision it again. Therefore, just declare
+		// deprovisioning complete.
+		p.log.Info("deprovisioning node is in manageable state")
+		return operationComplete()
 
 	case nodes.Available:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")

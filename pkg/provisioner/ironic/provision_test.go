@@ -146,6 +146,15 @@ func TestDeprovision(t *testing.T) {
 			expectedDirty:        true,
 		},
 		{
+			name: "deploy failed state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
 			name: "error state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Error),

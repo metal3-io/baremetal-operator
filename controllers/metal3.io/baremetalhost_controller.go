@@ -612,26 +612,28 @@ func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	// Adopt the host in case it has been re-registered during the
-	// deprovisioning process before it completed
-	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
-	if err != nil {
-		return actionError{err}
-	}
-	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
-	}
-	if provResult.Dirty {
-		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
-			return actionUpdate{result}
+	if info.host.Status.Provisioning.Image.URL != "" {
+		// Adopt the host in case it has been re-registered during the
+		// deprovisioning process before it completed
+		provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+		if err != nil {
+			return actionError{err}
 		}
-		return result
+		if provResult.ErrorMessage != "" {
+			return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
+		}
+		if provResult.Dirty {
+			result := actionContinue{provResult.RequeueAfter}
+			if clearError(info.host) {
+				return actionUpdate{result}
+			}
+			return result
+		}
 	}
 
 	info.log.Info("deprovisioning")
 
-	provResult, err = prov.Deprovision(info.host.Status.ErrorType == metal3v1alpha1.ProvisioningError)
+	provResult, err := prov.Deprovision(info.host.Status.ErrorType == metal3v1alpha1.ProvisioningError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to deprovision")}
 	}

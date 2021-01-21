@@ -14,5 +14,9 @@ var (
 
 	// Commit is the commit hash from which the software was built.
 	// Set via LDFLAGS in Makefile.
-	Commit = ""
+	Commit = "unknown"
+
+	// BuildTime is the string representation of build time.
+	// Set via LDFLAGS in Makefile.
+	BuildTime = "unknown"
 )

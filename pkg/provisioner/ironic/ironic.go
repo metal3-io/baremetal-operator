@@ -233,7 +233,9 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage s
 func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 	var allPorts []ports.Port
 
-	opts := ports.ListOpts{}
+	opts := ports.ListOpts{
+		Fields: []string{"node_uuid"},
+	}
 
 	if address != "" {
 		opts.Address = address

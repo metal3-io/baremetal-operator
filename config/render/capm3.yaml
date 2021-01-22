@@ -45,8 +45,8 @@ spec:
       jsonPath: .spec.online
       name: Online
       type: string
-    - description: Most recent error
-      jsonPath: .status.errorMessage
+    - description: Type of the most recent error
+      jsonPath: .status.errorType
       name: Error
       type: string
     name: v1alpha1

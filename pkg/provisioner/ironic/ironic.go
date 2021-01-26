@@ -88,7 +88,7 @@ func init() {
 	}
 	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
 	if inspectorEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
+		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set\n")
 		os.Exit(1)
 	}
 	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")

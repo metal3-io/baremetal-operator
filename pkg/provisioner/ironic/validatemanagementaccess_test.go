@@ -574,8 +574,9 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, _, err = prov.ValidateManagementAccess(false, false)
-	assert.EqualError(t, err, "failed to find existing host: node found by MAC but has a name: wrong-name")
+	res, _, err := prov.ValidateManagementAccess(false, false)
+	assert.Nil(t, err)
+	assert.Equal(t, res.ErrorMessage, "MAC address 11:11:11:11:11:11 conflicts with existing node wrong-name")
 }
 
 func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {

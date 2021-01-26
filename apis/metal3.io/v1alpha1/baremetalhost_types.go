@@ -558,7 +558,7 @@ type BareMetalHostStatus struct {
 
 	// OperationHistory holds information about operations performed
 	// on this host.
-	OperationHistory OperationHistory `json:"operationHistory"`
+	OperationHistory OperationHistory `json:"operationHistory,omitempty"`
 
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
 	// +kubebuilder:default:=0

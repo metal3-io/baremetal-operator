@@ -48,6 +48,9 @@ help:  ## Display this help
 	@echo "  GO_TEST_FLAGS    -- flags to pass to --go-test-flags ($(GO_TEST_FLAGS))"
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
+# Default Image pull registry
+OVERRIDE_DOCKER_HUB_REGISTRY ?= "registry.hub.docker.com"
+
 # Image URL to use all building/pushing image targets
 IMG ?= baremetal-operator:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -167,7 +170,7 @@ $(CONTROLLER_GEN):
 
 .PHONY: docker
 docker: generate manifests ## Build the docker image
-	docker build . -t ${IMG}
+	docker build . -t ${IMG} --build-arg OVERRIDE_DOCKER_HUB_REGISTRY=${OVERRIDE_DOCKER_HUB_REGISTRY}
 
 # Push the docker image
 .PHONY: docker-push

@@ -1,5 +1,7 @@
 # Build the manager binary
-FROM registry.hub.docker.com/library/golang:1.15.3 AS builder
+ARG OVERRIDE_DOCKER_HUB_REGISTRY=${OVERRIDE_DOCKER_HUB_REGISTRY:-"registry.hub.docker.com"}
+
+FROM "${OVERRIDE_DOCKER_HUB_REGISTRY}/"library/golang:1.15.3 AS builder
 
 WORKDIR /workspace
 

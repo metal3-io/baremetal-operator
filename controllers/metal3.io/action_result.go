@@ -12,7 +12,9 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
-const maxBackOffCount = 10
+// This is an upper limit for the ErrorCount, so that the max backoff
+// timeout will not exceed (roughly) 8 hours
+const maxBackOffCount = 9
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -52,6 +54,18 @@ type actionUpdate struct {
 
 func (r actionUpdate) Dirty() bool {
 	return true
+}
+
+// actionDelayed it's the same of an actionUpdate, but the requeue time
+// is calculated using a fixed backoff with jitter
+type actionDelayed struct {
+	actionUpdate
+}
+
+func (r actionDelayed) Result() (result reconcile.Result, err error) {
+	result.RequeueAfter = calculateBackoff(1)
+	result.Requeue = true
+	return
 }
 
 // actionComplete is a result indicating that the current action has completed,
@@ -110,6 +124,16 @@ type actionFailed struct {
 	errorCount int
 }
 
+// Distribution sample for errorCount values:
+// 1  [1m, 2m]
+// 2  [2m, 4m]
+// 3  [4m, 8m]
+// 4  [8m, 16m]
+// 5  [16m, 32m]
+// 6  [32m, 1h4m]
+// 7  [1h4m, 2h8m]
+// 8  [2h8m, 4h16m]
+// 9  [4h16m, 8h32m]
 func calculateBackoff(errorCount int) time.Duration {
 
 	if errorCount > maxBackOffCount {
@@ -119,7 +143,7 @@ func calculateBackoff(errorCount int) time.Duration {
 	base := math.Exp2(float64(errorCount))
 	/* #nosec */
 	backOff := base - (rand.Float64() * base * 0.5)
-	backOffDuration := time.Minute * time.Duration(backOff)
+	backOffDuration := time.Duration(float64(time.Minute) * backOff)
 	return backOffDuration
 }
 

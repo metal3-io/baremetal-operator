@@ -1290,12 +1290,14 @@ func TestUpdateEventHandler(t *testing.T) {
 
 func TestErrorCountIncrementsAlways(t *testing.T) {
 
+	errorTypes := []metal3v1alpha1.ErrorType{metal3v1alpha1.RegistrationError, metal3v1alpha1.InspectionError, metal3v1alpha1.ProvisioningError, metal3v1alpha1.PowerManagementError}
+
 	b := &metal3v1alpha1.BareMetalHost{}
 	assert.Equal(t, b.Status.ErrorCount, 0)
 
-	setErrorMessage(b, metal3v1alpha1.RegistrationError, "An error message")
-	assert.Equal(t, b.Status.ErrorCount, 1)
-
-	setErrorMessage(b, metal3v1alpha1.InspectionError, "Another error message")
-	assert.Equal(t, b.Status.ErrorCount, 2)
+	for _, c := range errorTypes {
+		before := b.Status.ErrorCount
+		setErrorMessage(b, c, "An error message")
+		assert.Equal(t, before+1, b.Status.ErrorCount)
+	}
 }

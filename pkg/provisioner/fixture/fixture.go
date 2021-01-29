@@ -21,6 +21,7 @@ type fixtureHostConfigData struct {
 	metaData    string
 }
 
+// NewHostConfigData creates new host configuration data
 func NewHostConfigData(userData string, networkData string, metaData string) provisioner.HostConfigData {
 	return &fixtureHostConfigData{
 		userData:    userData,
@@ -79,6 +80,10 @@ func (f *Fixture) New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credential
 		state:     f,
 	}
 	return p, nil
+}
+
+func (p *fixtureProvisioner) HasProvisioningCapacity() (result bool, err error) {
+	return true, nil
 }
 
 // ValidateManagementAccess tests the connection information for the

@@ -83,3 +83,7 @@ func (p *emptyProvisioner) PowerOff() (provisioner.Result, error) {
 func (p *emptyProvisioner) IsReady() (bool, error) {
 	return true, nil
 }
+
+func (p *emptyProvisioner) HasProvisioningCapacity() (result bool, err error) {
+	return true, nil
+}

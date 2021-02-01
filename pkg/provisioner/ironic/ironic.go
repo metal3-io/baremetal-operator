@@ -1042,27 +1042,15 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 		return
 	}
 
-	if !strings.Contains(existingCapabilities, "boot_mode") {
-		// No boot_mode is set, append and return
-		value = fmt.Sprintf("%s,%s", existingCapabilities, bootModeCapabilities[bootMode])
-		return
+	var filteredCapabilities []string
+	for _, item := range strings.Split(existingCapabilities, ",") {
+		if !strings.HasPrefix(item, "boot_mode:") {
+			filteredCapabilities = append(filteredCapabilities, item)
+		}
 	}
+	filteredCapabilities = append(filteredCapabilities, bootModeCapabilities[bootMode])
 
-	// The capabilities value has format "var1:val1,var2:val2". We
-	// know that boot_mode is there but not what value it has.  There
-	// are only 2 values, so we can replace the "wrong" string with
-	// the right one without fully parsing the string. We may want to
-	// change this later when we have more boot modes.
-
-	var fromMode metal3v1alpha1.BootMode
-	if bootMode == metal3v1alpha1.UEFI {
-		fromMode = metal3v1alpha1.Legacy
-	} else {
-		fromMode = metal3v1alpha1.UEFI
-	}
-	value = strings.ReplaceAll(existingCapabilities,
-		bootModeCapabilities[fromMode], bootModeCapabilities[bootMode])
-
+	value = strings.Join(filteredCapabilities, ",")
 	return
 }
 

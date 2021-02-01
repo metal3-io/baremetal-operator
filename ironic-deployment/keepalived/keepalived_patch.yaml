@@ -11,7 +11,7 @@ spec:
         name: ironic-endpoint-keepalived
         securityContext:
               capabilities:
-                add: ["NET_ADMIN"]
+                add: ["NET_ADMIN", "NET_RAW"]
         envFrom:
           - configMapRef:
               name: ironic-bmo-configmap

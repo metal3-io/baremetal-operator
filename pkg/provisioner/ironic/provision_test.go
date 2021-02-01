@@ -172,6 +172,23 @@ func TestDeprovision(t *testing.T) {
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
+		{
+			name: "clean fail state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "manageable state",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			expectedDirty: false,
+		},
 	}
 
 	for _, tc := range cases {

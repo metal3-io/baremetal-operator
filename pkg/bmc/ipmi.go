@@ -92,3 +92,7 @@ func (a *ipmiAccessDetails) RAIDInterface() string {
 func (a *ipmiAccessDetails) VendorInterface() string {
 	return ""
 }
+
+func (a *ipmiAccessDetails) SupportsSecureBoot() bool {
+	return false
+}

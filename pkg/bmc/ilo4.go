@@ -89,3 +89,7 @@ func (a *iLOAccessDetails) RAIDInterface() string {
 func (a *iLOAccessDetails) VendorInterface() string {
 	return ""
 }
+
+func (a *iLOAccessDetails) SupportsSecureBoot() bool {
+	return true
+}

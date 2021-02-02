@@ -58,8 +58,9 @@ const (
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
-	metal3v1alpha1.UEFI:   "boot_mode:uefi",
-	metal3v1alpha1.Legacy: "boot_mode:bios",
+	metal3v1alpha1.UEFI:           "boot_mode:uefi",
+	metal3v1alpha1.UEFISecureBoot: "boot_mode:uefi,secure_boot:true",
+	metal3v1alpha1.Legacy:         "boot_mode:bios",
 }
 
 type macAddressConflictError struct {
@@ -395,6 +396,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
+
+		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !p.bmcAccess.SupportsSecureBoot() {
+			msg := fmt.Sprintf("BMC driver %s does not support secure boot", p.bmcAccess.Type())
+			p.log.Info(msg)
+			result, err = operationFailed(msg)
+			return
+		}
 
 		ironicNode, err = nodes.Create(
 			p.client,
@@ -768,6 +776,30 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 			Value: string(p.host.ObjectMeta.UID),
 		},
 	)
+
+	// Secure boot is a normal capability that goes into instance_info (we
+	// also put it to properties for consistency, although it's not
+	// strictly required in our case).
+
+	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:   nodes.AddOp,
+			Path: "/instance_info/capabilities",
+			// Instance info capabilities were invented later and
+			// use a normal JSON mapping instead of a custom
+			// string value.
+			Value: map[string]string{
+				"secure_boot": "true",
+			},
+		})
+	} else {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:    nodes.AddOp,
+			Path:  "/instance_info/capabilities",
+			Value: map[string]string{},
+		})
+	}
+
 	// live-iso format
 	var op nodes.UpdateOp
 	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
@@ -917,6 +949,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 			Value: *imageData.DiskFormat,
 		})
 	}
+
 	return updates, nil
 }
 
@@ -1044,7 +1077,7 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 
 	var filteredCapabilities []string
 	for _, item := range strings.Split(existingCapabilities, ",") {
-		if !strings.HasPrefix(item, "boot_mode:") {
+		if !strings.HasPrefix(item, "boot_mode:") && !strings.HasPrefix(item, "secure_boot:") {
 			filteredCapabilities = append(filteredCapabilities, item)
 		}
 	}

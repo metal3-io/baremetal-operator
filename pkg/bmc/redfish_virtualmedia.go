@@ -85,3 +85,7 @@ func (a *redfishVirtualMediaAccessDetails) RAIDInterface() string {
 func (a *redfishVirtualMediaAccessDetails) VendorInterface() string {
 	return ""
 }
+
+func (a *redfishVirtualMediaAccessDetails) SupportsSecureBoot() bool {
+	return true
+}

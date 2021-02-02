@@ -90,12 +90,13 @@ type RootDeviceHints struct {
 }
 
 // BootMode is the boot mode of the system
-// +kubebuilder:validation:Enum=UEFI;legacy
+// +kubebuilder:validation:Enum=UEFI;UEFISecureBoot;legacy
 type BootMode string
 
 // Allowed boot mode from metal3
 const (
 	UEFI            BootMode = "UEFI"
+	UEFISecureBoot  BootMode = "UEFISecureBoot"
 	Legacy          BootMode = "legacy"
 	DefaultBootMode BootMode = UEFI
 )

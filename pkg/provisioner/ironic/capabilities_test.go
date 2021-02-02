@@ -47,6 +47,17 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
+			Scenario: "add-secure-boot",
+			Node: nodes.Node{
+				Properties: map[string]interface{}{
+					"capabilities": "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
+				},
+			},
+			Mode:          metal3v1alpha1.UEFISecureBoot,
+			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi,secure_boot:true",
+			ExpectedOp:    nodes.ReplaceOp,
+		},
+		{
 			Scenario: "uefi-to-uefi",
 			Node: nodes.Node{
 				Properties: map[string]interface{}{
@@ -88,6 +99,28 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.Legacy,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:bios",
+			ExpectedOp:    nodes.ReplaceOp,
+		},
+		{
+			Scenario: "uefi-to-secure",
+			Node: nodes.Node{
+				Properties: map[string]interface{}{
+					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
+				},
+			},
+			Mode:          metal3v1alpha1.UEFISecureBoot,
+			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi,secure_boot:true",
+			ExpectedOp:    nodes.ReplaceOp,
+		},
+		{
+			Scenario: "secure-to-uefi",
+			Node: nodes.Node{
+				Properties: map[string]interface{}{
+					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,secure_boot:true",
+				},
+			},
+			Mode:          metal3v1alpha1.UEFI,
+			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
 			ExpectedOp:    nodes.ReplaceOp,
 		},
 	}

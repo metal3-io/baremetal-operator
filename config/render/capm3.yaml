@@ -89,6 +89,7 @@ spec:
                 description: Select the method of initializing the hardware during boot. Defaults to UEFI.
                 enum:
                 - UEFI
+                - UEFISecureBoot
                 - legacy
                 type: string
               consumerRef:
@@ -538,6 +539,7 @@ spec:
                     description: BootMode indicates the boot mode used to provision the node
                     enum:
                     - UEFI
+                    - UEFISecureBoot
                     - legacy
                     type: string
                   image:

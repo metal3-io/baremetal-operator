@@ -24,9 +24,12 @@ GOLANGCI_LINT := $(BIN_DIR)/golangci-lint
 KUSTOMIZE := $(BIN_DIR)/kustomize
 
 # See pkg/version.go for details
-SOURCE_GIT_COMMIT ?= $(shell git rev-parse --verify 'HEAD^{commit}')
+SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
-export LDFLAGS="-X github.com/metal3-io/baremetal-operator/pkg/version.Raw=${BUILD_VERSION} -X github.com/metal3-io/baremetal-operator/pkg/version.Commit=${SOURCE_GIT_COMMIT}"
+VERSION_URI = "github.com/metal3-io/baremetal-operator/pkg/version"
+export LDFLAGS="-X $(VERSION_URI).Raw=${BUILD_VERSION} \
+                -X $(VERSION_URI).Commit=${SOURCE_GIT_COMMIT} \
+                -X $(VERSION_URI).BuildTime=$(shell date +%Y-%m-%dT%H:%M:%S%z)"
 
 # Set some variables the operator expects to have in order to work
 # Those need to be the same as in config/default/ironic.env
@@ -117,7 +120,7 @@ build: generate manifests manager tools ## Build everything
 
 .PHONY: manager
 manager: generate lint ## Build manager binary
-	go build -ldflags $(LDFLAGS) -o bin/manager main.go
+	go build -ldflags $(LDFLAGS) -o bin/$(OPERATOR_NAME) main.go
 
 .PHONY: run
 run: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config

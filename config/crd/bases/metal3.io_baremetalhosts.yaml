@@ -633,7 +633,6 @@ spec:
             - errorCount
             - errorMessage
             - hardwareProfile
-            - operationHistory
             - operationalStatus
             - poweredOn
             - provisioning

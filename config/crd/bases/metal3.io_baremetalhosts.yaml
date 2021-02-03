@@ -265,6 +265,7 @@ spec:
                 - provisioned registration error
                 - registration error
                 - inspection error
+                - preparation error
                 - provisioning error
                 - power management error
                 type: string

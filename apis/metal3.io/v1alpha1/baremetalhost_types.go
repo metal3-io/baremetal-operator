@@ -135,6 +135,9 @@ const (
 	// InspectionError is an error condition occurring when an attempt to
 	// obtain hardware details from the Host fails.
 	InspectionError ErrorType = "inspection error"
+	// PreparationError is an error condition occurring when do
+	// cleaning steps failed.
+	PreparationError ErrorType = "preparation error"
 	// ProvisioningError is an error condition occuring when the controller
 	// fails to provision or deprovision the Host.
 	ProvisioningError ErrorType = "provisioning error"
@@ -161,6 +164,9 @@ const (
 	// StateMatchProfile means we are comparing the discovered details
 	// against known hardware profiles
 	StateMatchProfile ProvisioningState = "match profile"
+
+	// StatePreparing means we are removing existing configuration and set new configuration to the host
+	StatePreparing ProvisioningState = "preparing"
 
 	// StateReady means the host can be consumed
 	StateReady ProvisioningState = "ready"
@@ -530,7 +536,7 @@ type BareMetalHostStatus struct {
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
-	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;provisioning error;power management error
+	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// LastUpdated identifies when this status was last observed.

@@ -46,6 +46,11 @@ func (p *emptyProvisioner) Adopt(force bool) (provisioner.Result, error) {
 	return provisioner.Result{}, nil
 }
 
+// Prepare remove existing configuration and set new configuration
+func (p *emptyProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+	return provisioner.Result{}, false, nil
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.

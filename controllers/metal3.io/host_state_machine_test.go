@@ -45,7 +45,7 @@ func TestProvisioningCapacity(t *testing.T) {
 		},
 		{
 			Scenario:                "transition-to-provisioning-delayed",
-			Host:                    host(metal3v1alpha1.StateReady).build(),
+			Host:                    host(metal3v1alpha1.StateReady).SaveHostProvisioningSettings().build(),
 			HasProvisioningCapacity: false,
 
 			ExpectedProvisioningState: metal3v1alpha1.StateReady,
@@ -61,7 +61,7 @@ func TestProvisioningCapacity(t *testing.T) {
 		},
 		{
 			Scenario:                "transition-to-provisioning-ok",
-			Host:                    host(metal3v1alpha1.StateReady).build(),
+			Host:                    host(metal3v1alpha1.StateReady).SaveHostProvisioningSettings().build(),
 			HasProvisioningCapacity: true,
 
 			ExpectedProvisioningState: metal3v1alpha1.StateProvisioning,
@@ -379,8 +379,13 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 			TargetState: metal3v1alpha1.StateMatchProfile,
 		},
 		{
-			Scenario:    "matchprofile-to-ready",
+			Scenario:    "matchprofile-to-preparing",
 			Host:        host(metal3v1alpha1.StateMatchProfile).build(),
+			TargetState: metal3v1alpha1.StatePreparing,
+		},
+		{
+			Scenario:    "preparing-to-ready",
+			Host:        host(metal3v1alpha1.StatePreparing).build(),
 			TargetState: metal3v1alpha1.StateReady,
 		},
 		{
@@ -504,6 +509,11 @@ func (hb *hostBuilder) build() *metal3v1alpha1.BareMetalHost {
 	return &hb.BareMetalHost
 }
 
+func (hb *hostBuilder) SaveHostProvisioningSettings() *hostBuilder {
+	saveHostProvisioningSettings(&hb.BareMetalHost)
+	return hb
+}
+
 func (hb *hostBuilder) SetTriedCredentials() *hostBuilder {
 	hb.Status.TriedCredentials = hb.Status.GoodCredentials
 	return hb
@@ -615,6 +625,10 @@ func (m *mockProvisioner) InspectHardware(force bool) (result provisioner.Result
 
 func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	return
+}
+
+func (m *mockProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 
 func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {

@@ -455,6 +455,9 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	if provID != "" && info.host.Status.Provisioning.ID != provID {
 		info.log.Info("setting provisioning id", "ID", provID)
 		info.host.Status.Provisioning.ID = provID
+		if info.host.Status.Provisioning.State == metal3v1alpha1.StatePreparing {
+			clearHostProvisioningSettings(info.host)
+		}
 		dirty = true
 	}
 
@@ -558,6 +561,44 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
+	}
+
+	clearError(info.host)
+	return actionComplete{}
+}
+
+func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	info.log.Info("preparing")
+
+	// Save provisioning settings.
+	provisioningSettings := info.host.Status.Provisioning.DeepCopy()
+	dirty, err := saveHostProvisioningSettings(info.host)
+	if err != nil {
+		return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
+	}
+
+	// Do prepare(manual clean).
+	provResult, started, err := prov.Prepare(dirty)
+	if err != nil {
+		return actionError{errors.Wrap(err, "error preparing host")}
+	}
+
+	if provResult.ErrorMessage != "" {
+		info.log.Info("handling cleaning error in controller")
+		clearHostProvisioningSettings(info.host)
+		return recordActionFailure(info, metal3v1alpha1.PreparationError, provResult.ErrorMessage)
+	}
+
+	if provResult.Dirty {
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) || (dirty && started) {
+			// If clearError return true, but started is false, restore provisioningSettings.
+			if dirty && !started {
+				info.host.Status.Provisioning = *provisioningSettings
+			}
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	clearError(info.host)
@@ -796,7 +837,9 @@ func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner
 			return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
 		}
 		if dirty {
-			info.log.Info("updating host provisioning settings")
+			info.log.Info("Host provisioning settings have been updated, go back to Preparing state")
+			clearHostProvisioningSettings(info.host)
+			return actionUpdate{}
 		}
 		clearError(info.host)
 		return actionComplete{}

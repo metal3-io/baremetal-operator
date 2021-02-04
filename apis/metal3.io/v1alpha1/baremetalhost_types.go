@@ -220,6 +220,62 @@ type BMCDetails struct {
 	DisableCertificateVerification bool `json:"disableCertificateVerification,omitempty"`
 }
 
+// HardwareRAIDVolume defines the desired configuration of volume in hardware RAID
+type HardwareRAIDVolume struct {
+	// Size (Integer) of the logical disk to be created in GiB.
+	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+	// +kubebuilder:validation:Minimum=0
+	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
+
+	// RAID level for the logical disk. The following levels are supported: 0;1;2;5;6;1+0;5+0;6+0.
+	// +kubebuilder:validation:Enum="0";"1";"2";"5";"6";"1+0";"5+0";"6+0"
+	Level string `json:"level" required:"true"`
+
+	// Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+	// +kubebuilder:validation:MaxLength=64
+	Name string `json:"name,omitempty"`
+
+	// Select disks with only rotational or solid-state storage
+	Rotational *bool `json:"rotational,omitempty"`
+
+	// Integer, number of disks to use for the logical disk. Defaults to minimum number of disks required
+	// for the particular RAID level.
+	// +kubebuilder:validation:Minimum=1
+	NumberOfPhysicalDisks *int `json:"numberOfPhysicalDisks,omitempty"`
+}
+
+// SoftwareRAIDVolume defines the desired configuration of volume in software RAID
+type SoftwareRAIDVolume struct {
+	// Size (Integer) of the logical disk to be created in GiB.
+	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+	// +kubebuilder:validation:Minimum=0
+	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
+
+	// RAID level for the logical disk. The following levels are supported: 0;1;1+0.
+	// +kubebuilder:validation:Enum="0";"1";"1+0"
+	Level string `json:"level" required:"true"`
+
+	// A list of device hints, the number of item should be greater than or equal to 2.
+	// +kubebuilder:validation:MinItems=2
+	PhysicalDisks []RootDeviceHints `json:"physicalDisks,omitempty"`
+}
+
+// RAIDConfig contains the configuration that are required to config RAID in Bare Metal server
+type RAIDConfig struct {
+	// The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes,omitempty"`
+
+	// The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
+	// If HardwareRAIDVolumes is set this item will be invalid.
+	// The number of created Software RAID devices must be 1 or 2.
+	// If there is only one Software RAID device, it has to be a RAID-1.
+	// If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0.
+	// As the first RAID device will be the deployment device,
+	// enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+	// +kubebuilder:validation:MaxItems=2
+	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes,omitempty"`
+}
+
 // BareMetalHostSpec defines the desired state of BareMetalHost
 type BareMetalHostSpec struct {
 	// Important: Run "make generate manifests" to regenerate code
@@ -233,6 +289,9 @@ type BareMetalHostSpec struct {
 
 	// How do we connect to the BMC?
 	BMC BMCDetails `json:"bmc,omitempty"`
+
+	// RAID configuration for bare metal server
+	RAID *RAIDConfig `json:"raid,omitempty"`
 
 	// What is the name of the hardware profile for this host? It
 	// should only be necessary to set this when inspection cannot
@@ -603,6 +662,9 @@ type ProvisionStatus struct {
 
 	// BootMode indicates the boot mode used to provision the node
 	BootMode BootMode `json:"bootMode,omitempty"`
+
+	// The Raid set by the user
+	RAID *RAIDConfig `json:"raid,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

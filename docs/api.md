@@ -234,7 +234,7 @@ The sub-fields are
 * *cpu* -- Details of the CPU(s) in the system.
   * *arch* -- The architecture of the CPU.
   * *model* -- The model string.
-  * *clockMegahertz* -- The speed in GHz of the CPU.
+  * *clockMegahertz* -- The speed in MHz of the CPU.
   * *flags* -- List of CPU flags, e.g. 'mmx','sse','sse2','vmx', ...
   * *count* -- Amount of these CPUs available in the system.
 * *firmware* -- Contains BIOS information like for instance its *vendor*

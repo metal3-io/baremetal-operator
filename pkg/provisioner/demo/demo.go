@@ -30,6 +30,12 @@ const (
 	// InspectingHost is a host that is having its hardware scanned.
 	InspectingHost string = "demo-inspecting"
 
+	// PreparingErrorHost is a host that started preparing but failed.
+	PreparingErrorHost string = "demo-preparing-error"
+
+	// PreparingHost is a host that is in the middle of preparing.
+	PreparingHost string = "demo-preparing"
+
 	// ValidationErrorHost is a host that started provisioning but
 	// failed validation.
 	ValidationErrorHost string = "demo-validation-error"
@@ -46,7 +52,7 @@ const (
 // and uses Ironic to manage the host.
 type demoProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metal3v1alpha1.BareMetalHost
+	host metal3v1alpha1.BareMetalHost
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -56,7 +62,7 @@ type demoProvisioner struct {
 }
 
 // New returns a new Ironic Provisioner
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
 		host:      host,
 		bmcCreds:  bmcCreds,
@@ -66,9 +72,13 @@ func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher
 	return p, nil
 }
 
+func (m *demoProvisioner) HasProvisioningCapacity() (result bool, err error) {
+	return true, nil
+}
+
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.host.ObjectMeta.Name
@@ -88,21 +98,21 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged bool) (res
 
 	default:
 		if p.host.Status.Provisioning.ID == "" {
-			p.host.Status.Provisioning.ID = p.host.ObjectMeta.Name
+			provID = p.host.ObjectMeta.Name
 			p.log.Info("setting provisioning id",
 				"provisioningID", p.host.Status.Provisioning.ID)
 			result.Dirty = true
 		}
 	}
 
-	return result, nil
+	return
 }
 
 // InspectHardware updates the HardwareDetails field of the host with
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	hostName := p.host.ObjectMeta.Name
@@ -174,12 +184,33 @@ func (p *demoProvisioner) InspectHardware() (result provisioner.Result, details 
 // UpdateHardwareState fetches the latest hardware state of the server
 // and updates the HardwareDetails field of the host with details. It
 // is expected to do this in the least expensive way possible, such as
-// reading from a cache, and return dirty only if any state
-// information has changed.
-func (p *demoProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
+// reading from a cache.
+func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	p.log.Info("updating hardware state")
-	result.Dirty = false
-	return result, nil
+	return
+}
+
+// Prepare remove existing configuration and set new configuration
+func (p *demoProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+	hostName := p.host.ObjectMeta.Name
+	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
+
+	switch hostName {
+
+	case PreparingErrorHost:
+		p.log.Info("preparing error host")
+		result.ErrorMessage = "preparing failed"
+
+	case PreparingHost:
+		p.log.Info("preparing host")
+		result.Dirty = true
+		result.RequeueAfter = time.Second * 5
+
+	default:
+		p.log.Info("finished preparing")
+	}
+
+	return result, false, nil
 }
 
 // Adopt allows an externally-provisioned server to be adopted.
@@ -218,7 +249,7 @@ func (p *demoProvisioner) Provision(hostConf provisioner.HostConfigData) (result
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *demoProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *demoProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 
 	hostName := p.host.ObjectMeta.Name
 	switch hostName {

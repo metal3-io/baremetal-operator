@@ -13,7 +13,7 @@ then
 fi
 
 
-CMDPATH="$GOPATH/pkg/mod/sigs.k8s.io/controller-tools@v0.4.0/cmd/controller-gen"
+CMDPATH="$GOPATH/pkg/mod/sigs.k8s.io/controller-tools@${1:-v0.4.1}/cmd/controller-gen"
 
 if [ ! -f "$CMDPATH" ]
 then

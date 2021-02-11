@@ -16,10 +16,6 @@ func retryAfterDelay(delay time.Duration) (provisioner.Result, error) {
 	}, nil
 }
 
-func hostUpdated() (provisioner.Result, error) {
-	return provisioner.Result{Dirty: true}, nil
-}
-
 func operationContinuing(delay time.Duration) (provisioner.Result, error) {
 	return provisioner.Result{
 		Dirty:        true,

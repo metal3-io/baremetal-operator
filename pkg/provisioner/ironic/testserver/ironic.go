@@ -151,7 +151,7 @@ func (m *IronicMock) WithNodeStatesProvision(nodeUUID string) *IronicMock {
 	return m.withNodeStatesProvision(nodeUUID, http.MethodGet)
 }
 
-// WithNodeStatesProvision configures the server with a valid response for [PATCH] /v1/nodes/<node>/states/provision
+// WithNodeStatesProvisionUpdate configures the server with a valid response for [PATCH] /v1/nodes/<node>/states/provision
 func (m *IronicMock) WithNodeStatesProvisionUpdate(nodeUUID string) *IronicMock {
 	return m.withNodeStatesProvision(nodeUUID, http.MethodPut)
 }
@@ -236,7 +236,8 @@ func (m *IronicMock) WithNodeValidate(nodeUUID string) *IronicMock {
 // Port configures the server with a valid response for
 //    [GET] /v1/nodes/<node uuid>/ports
 //    [GET] /v1/ports
-//    [GET] /v1/ports?=address=<node uuid>
+//    [GET] /v1/ports?address=<mac>
+//    [GET] /v1/ports?address=<mac>&fields=node_uuid
 func (m *IronicMock) Port(port ports.Port) *IronicMock {
 	if port.NodeUUID == "" {
 		m.MockServer.t.Error("When using withPort(), the port must include a NodeUUID.")
@@ -251,6 +252,19 @@ func (m *IronicMock) Port(port ports.Port) *IronicMock {
 	m.ResponseJSON(m.buildURL("/v1/nodes/"+port.NodeUUID+"/ports", http.MethodGet), resp)
 	m.ResponseJSON(m.buildURL("/v1/ports", http.MethodGet), resp)
 	m.ResponseJSON(m.buildURL("/v1/ports?address="+address, http.MethodGet), resp)
+	m.ResponseJSON(m.buildURL("/v1/ports?address="+address+"&fields=node_uuid", http.MethodGet), resp)
 
+	return m
+}
+
+// Nodes configure the server with a valid response for /v1/nodes
+func (m *IronicMock) Nodes(allNodes []nodes.Node) *IronicMock {
+	resp := struct {
+		Nodes []nodes.Node `json:"nodes"`
+	}{
+		Nodes: allNodes,
+	}
+
+	m.ResponseJSON(m.buildURL("/v1/nodes", http.MethodGet), resp)
 	return m
 }

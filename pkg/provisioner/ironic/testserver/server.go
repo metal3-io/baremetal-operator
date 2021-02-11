@@ -70,12 +70,12 @@ func (m *MockServer) Endpoint() string {
 
 func (m *MockServer) logRequest(r *http.Request, response string) {
 	m.t.Logf("%s: %s %s -> %s", m.name, r.Method, r.URL, response)
-	m.Requests += r.RequestURI + ";"
+	m.Requests += r.URL.Path + ";"
 
 	bodyRaw, _ := ioutil.ReadAll(r.Body)
 
 	m.FullRequests = append(m.FullRequests, simpleRequest{
-		pattern: r.URL.String(),
+		pattern: r.URL.Path,
 		method:  r.Method,
 		body:    string(bodyRaw),
 	})
@@ -93,8 +93,7 @@ func (m *MockServer) Handler(pattern string, handlerFunc http.HandlerFunc) *Mock
 func (m *MockServer) buildHandler(pattern string) func(http.ResponseWriter, *http.Request) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-
-		if response, ok := m.responsesByMethod[r.URL.String()][r.Method]; ok {
+		if response, ok := m.responsesByMethod[r.URL.Path][r.Method]; ok {
 			m.sendData(w, r, response.code, response.payload)
 			return
 		}
@@ -224,7 +223,7 @@ func (m *MockServer) AddDefaultResponse(patternWithVars string, httpMethod strin
 
 func (m *MockServer) defaultHandler(w http.ResponseWriter, r *http.Request) {
 
-	url := r.URL.String()
+	url := r.URL.Path
 	method := r.Method
 
 	for _, response := range m.defaultResponses {

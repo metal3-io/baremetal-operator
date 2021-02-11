@@ -19,11 +19,10 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
@@ -87,7 +86,7 @@ func newDefaultHost(t *testing.T) *metal3v1alpha1.BareMetalHost {
 	return newDefaultNamedHost(t.Name(), t)
 }
 
-func newTestReconcilerWithProvisionerFactory(factory provisioner.Factory, initObjs ...runtime.Object) *BareMetalHostReconciler {
+func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Object) *BareMetalHostReconciler {
 
 	c := fakeclient.NewFakeClient(initObjs...)
 
@@ -98,13 +97,14 @@ func newTestReconcilerWithProvisionerFactory(factory provisioner.Factory, initOb
 	return &BareMetalHostReconciler{
 		Client:             c,
 		Scheme:             scheme.Scheme,
-		ProvisionerFactory: factory,
+		ProvisionerFactory: fix.New,
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 	}
 }
 
 func newTestReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
-	return newTestReconcilerWithProvisionerFactory(fixture.New, initObjs...)
+	fix := fixture.Fixture{}
+	return newTestReconcilerWithFixture(&fix, initObjs...)
 }
 
 type DoneFunc func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool
@@ -168,7 +168,7 @@ func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for error: %q", host.Status.ErrorMessage)
-			return host.HasError()
+			return host.Status.ErrorMessage != ""
 		},
 	)
 }
@@ -177,7 +177,7 @@ func waitForNoError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alph
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for no error message: %q", host.Status.ErrorMessage)
-			return !host.HasError()
+			return host.Status.ErrorMessage == ""
 		},
 	)
 }
@@ -296,6 +296,25 @@ func TestPause(t *testing.T) {
 	)
 }
 
+// TestInspectDisabled ensures that Inspection is skipped when disabled
+func TestInspectDisabled(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		inspectAnnotationPrefix: "disabled",
+	}
+	r := newTestReconciler(host)
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateMatchProfile)
+	assert.Nil(t, host.Status.HardwareDetails)
+}
+
+// TestInspectEnabled ensures that Inspection is completed when not disabled
+func TestInspectEnabled(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host)
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateMatchProfile)
+	assert.NotNil(t, host.Status.HardwareDetails)
+}
+
 // TestAddFinalizers ensures that the finalizers for the host are
 // updated as part of reconciling it.
 func TestAddFinalizers(t *testing.T) {
@@ -328,6 +347,16 @@ func TestSetLastUpdated(t *testing.T) {
 			return false
 		},
 	)
+}
+
+func TestInspectionDisabledAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+
+	assert.False(t, inspectionDisabled(host))
+
+	host.Annotations[inspectAnnotationPrefix] = "disabled"
+	assert.True(t, inspectionDisabled(host))
 }
 
 func TestHasRebootAnnotation(t *testing.T) {
@@ -923,12 +952,12 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		waitForProvisioningState(t, r, host, metal3v1alpha1.StateInspecting)
 	})
 
-	t.Run("ready to externally provisioned", func(t *testing.T) {
+	t.Run("preparing to externally provisioned", func(t *testing.T) {
 		host := newDefaultHost(t)
 		host.Spec.Online = true
 		r := newTestReconciler(host)
 
-		waitForProvisioningState(t, r, host, metal3v1alpha1.StateReady)
+		waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
 
 		host.Spec.ExternallyProvisioned = true
 		err := r.Update(goctx.TODO(), host)
@@ -1032,12 +1061,12 @@ func TestDeleteHost(t *testing.T) {
 			host.DeletionTimestamp = &now
 			host.Status.Provisioning.ID = "made-up-id"
 			badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
-			r := newTestReconciler(host, badSecret)
+			fix := fixture.Fixture{}
+			r := newTestReconcilerWithFixture(&fix, host, badSecret)
 
 			tryReconcile(t, r, host,
 				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-					t.Logf("provisioning id: %q", host.Status.Provisioning.ID)
-					return host.Status.Provisioning.ID == ""
+					return fix.Deleted
 				},
 			)
 		})
@@ -1155,22 +1184,149 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 func TestProvisionerIsReady(t *testing.T) {
 	host := newDefaultHost(t)
 
-	var prov provisioner.Provisioner
-	r := newTestReconcilerWithProvisionerFactory(func(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner provisioner.Provisioner, err error) {
-		if prov == nil {
-			prov, err = fixture.NewMock(host, bmcCreds, publisher, 5)
-		}
-		return prov, err
-	}, host)
+	fix := fixture.Fixture{BecomeReadyCounter: 5}
+	r := newTestReconcilerWithFixture(&fix, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			if prov == nil {
-				return false
-			}
-
-			ready, _ := prov.IsReady()
-			return ready
+			return host.Status.Provisioning.State != metal3v1alpha1.StateNone
 		},
 	)
+}
+
+func TestUpdateEventHandler(t *testing.T) {
+	cases := []struct {
+		name            string
+		event           event.UpdateEvent
+		expectedProcess bool
+	}{
+		{
+			name: "process-non-bmh-events",
+			event: event.UpdateEvent{
+				ObjectOld: &corev1.Secret{},
+				ObjectNew: &corev1.Secret{},
+			},
+			expectedProcess: true,
+		},
+		{
+			name: "process-generation-change",
+			event: event.UpdateEvent{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{},
+				MetaOld:   &metav1.ObjectMeta{Generation: 0},
+				MetaNew:   &metav1.ObjectMeta{Generation: 1},
+			},
+
+			expectedProcess: true,
+		},
+		{
+			name: "skip-if-same-generation-finalizers-and-annotations",
+			event: event.UpdateEvent{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{},
+				MetaOld: &metav1.ObjectMeta{
+					Generation: 0,
+					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Annotations: map[string]string{
+						metal3v1alpha1.PausedAnnotation: "true",
+					},
+				},
+				MetaNew: &metav1.ObjectMeta{
+					Generation: 0,
+					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Annotations: map[string]string{
+						metal3v1alpha1.PausedAnnotation: "true",
+					},
+				},
+			},
+
+			expectedProcess: false,
+		},
+		{
+			name: "process-same-generation-annotations-change",
+			event: event.UpdateEvent{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{},
+				MetaOld: &metav1.ObjectMeta{
+					Generation:  0,
+					Finalizers:  []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Annotations: map[string]string{},
+				},
+				MetaNew: &metav1.ObjectMeta{
+					Generation: 0,
+					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Annotations: map[string]string{
+						metal3v1alpha1.PausedAnnotation: "true",
+					},
+				},
+			},
+
+			expectedProcess: true,
+		},
+		{
+			name: "process-same-generation-finalizers-change",
+			event: event.UpdateEvent{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{},
+				MetaOld: &metav1.ObjectMeta{
+					Generation: 0,
+					Finalizers: []string{},
+					Annotations: map[string]string{
+						metal3v1alpha1.PausedAnnotation: "true",
+					},
+				},
+				MetaNew: &metav1.ObjectMeta{
+					Generation: 0,
+					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Annotations: map[string]string{
+						metal3v1alpha1.PausedAnnotation: "true",
+					},
+				},
+			},
+
+			expectedProcess: true,
+		},
+		{
+			name: "process-same-generation-finalizers-and-annotation-change",
+			event: event.UpdateEvent{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{},
+				MetaOld: &metav1.ObjectMeta{
+					Generation:  0,
+					Finalizers:  []string{},
+					Annotations: map[string]string{},
+				},
+				MetaNew: &metav1.ObjectMeta{
+					Generation: 0,
+					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Annotations: map[string]string{
+						metal3v1alpha1.PausedAnnotation: "true",
+					},
+				},
+			},
+
+			expectedProcess: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newTestReconciler()
+			assert.Equal(t, tc.expectedProcess, r.updateEventHandler(tc.event))
+		})
+	}
+}
+
+func TestErrorCountIncrementsAlways(t *testing.T) {
+
+	errorTypes := []metal3v1alpha1.ErrorType{metal3v1alpha1.RegistrationError, metal3v1alpha1.InspectionError, metal3v1alpha1.ProvisioningError, metal3v1alpha1.PowerManagementError}
+
+	b := &metal3v1alpha1.BareMetalHost{}
+	assert.Equal(t, b.Status.ErrorCount, 0)
+
+	for _, c := range errorTypes {
+		before := b.Status.ErrorCount
+		setErrorMessage(b, c, "An error message")
+		assert.Equal(t, before+1, b.Status.ErrorCount)
+	}
 }

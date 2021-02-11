@@ -41,6 +41,12 @@ will stay in the Inspecting state until this process is completed.
 A host in the Match Profile state is being matched against a hardware
 profile.
 
+## Preparing
+
+When setting up RAID, BIOS and other similar configurations,
+the host will be in Preparing state. For ironic provisioner,
+we build and set up manual clean steps in Preparing state.
+
 ## Ready
 
 A host in the Ready state is available to be provisioned.

@@ -99,8 +99,11 @@ func TestInspectHardware(t *testing.T) {
 			expectedResultError: "Canceled by operator",
 		},
 		{
-			name:   "inspection-in-progress",
-			ironic: testserver.NewIronic(t).WithDefaultResponses(),
+			name: "inspection-in-progress (not yet finished)",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.Manageable),
+			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
 				Finished: false,
 			}),
@@ -108,8 +111,30 @@ func TestInspectHardware(t *testing.T) {
 			expectedRequestAfter: 15,
 		},
 		{
-			name:   "inspection-completed",
-			ironic: testserver.NewIronic(t).WithDefaultResponses(),
+			name: "inspection-in-progress (but node still in InspectWait)",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectWait),
+			}),
+			inspector: testserver.NewInspector(t).Ready().
+				WithIntrospection(nodeUUID, introspection.Introspection{
+					Finished: true,
+				}).
+				WithIntrospectionData(nodeUUID, introspection.Data{
+					Inventory: introspection.InventoryType{
+						Hostname: "node-0",
+					},
+				}),
+
+			expectedDirty:        true,
+			expectedRequestAfter: 15,
+		},
+		{
+			name: "inspection-complete",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.Manageable),
+			}),
 			inspector: testserver.NewInspector(t).Ready().
 				WithIntrospection(nodeUUID, introspection.Introspection{
 					Finished: true,
@@ -152,7 +177,7 @@ func TestInspectHardware(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, details, err := prov.InspectHardware()
+			result, details, err := prov.InspectHardware(false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

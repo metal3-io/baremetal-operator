@@ -54,7 +54,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 				},
 			},
 			Mode:          metal3v1alpha1.UEFI,
-			ExpectedValue: "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
+			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
 			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
@@ -65,7 +65,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 				},
 			},
 			Mode:          metal3v1alpha1.Legacy,
-			ExpectedValue: "boot_mode:bios,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
+			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:bios",
 			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
@@ -76,7 +76,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 				},
 			},
 			Mode:          metal3v1alpha1.UEFI,
-			ExpectedValue: "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
+			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
 			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
@@ -87,7 +87,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 				},
 			},
 			Mode:          metal3v1alpha1.Legacy,
-			ExpectedValue: "boot_mode:bios,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
+			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:bios",
 			ExpectedOp:    nodes.ReplaceOp,
 		},
 	}

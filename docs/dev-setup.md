@@ -9,7 +9,7 @@
 1. Create a namespace to host the operator
 
     ```bash
-    kubectl create namespace metal3
+    kubectl create namespace baremetal-operator-system
     ```
 
 1. Install operator in the cluster
@@ -20,7 +20,7 @@
     cd $GOPATH/src/github.com/metal3-io
     git clone https://github.com/metal3-io/baremetal-operator.git
     cd baremetal-operator
-    kustomize build config/default | kubectl apply -f
+    kustomize build config/default | kubectl apply -f -
     ```
 
 1. OR Launch the operator locally
@@ -79,6 +79,7 @@ The following environment variables can be passed to configure the ironic:
 - CACHEURL - the URL of the cached images
 - IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
   (default true)
+- IRONIC_KERNEL_PARAMS - Kernel parameters to pass to IPA (default console=ttyS0)
 
 In case you want to run the local ironic containers with TLS and basic
 authentication enabled, you also need to export the following variables:
@@ -219,7 +220,10 @@ spec:
 ## Using Bare Metal Hosts
 
 The `make-bm-worker` tool may be a more convenient way of creating
-YAML definitions for workers than editing the files directly.
+YAML definitions for workers than editing the files directly. If
+deploying baremetal hosts you might want to consider setting
+IRONIC_KERNEL_PARAMS="", when deploying ironic as the default directs
+the console to ttyS0 and is lost in Bare Metal Hosts.
 
 ```bash
 $ go run cmd/make-bm-worker/main.go -address 1.2.3.4 \

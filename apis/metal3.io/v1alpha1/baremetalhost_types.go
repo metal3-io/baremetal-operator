@@ -596,7 +596,7 @@ type ProvisionStatus struct {
 
 // BareMetalHost is the Schema for the baremetalhosts API
 // +k8s:openapi-gen=true
-// +kubebuilder:resource:shortName=bmh;bmhost
+// +kubebuilder:resource:shortName=bmh;bmhost,scope=Cluster
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status",priority=1
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"

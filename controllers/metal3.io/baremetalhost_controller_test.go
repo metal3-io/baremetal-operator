@@ -296,6 +296,25 @@ func TestPause(t *testing.T) {
 	)
 }
 
+// TestInspectDisabled ensures that Inspection is skipped when disabled
+func TestInspectDisabled(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		inspectAnnotationPrefix: "disabled",
+	}
+	r := newTestReconciler(host)
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateMatchProfile)
+	assert.Nil(t, host.Status.HardwareDetails)
+}
+
+// TestInspectEnabled ensures that Inspection is completed when not disabled
+func TestInspectEnabled(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host)
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateMatchProfile)
+	assert.NotNil(t, host.Status.HardwareDetails)
+}
+
 // TestAddFinalizers ensures that the finalizers for the host are
 // updated as part of reconciling it.
 func TestAddFinalizers(t *testing.T) {
@@ -328,6 +347,16 @@ func TestSetLastUpdated(t *testing.T) {
 			return false
 		},
 	)
+}
+
+func TestInspectionDisabledAnnotation(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+
+	assert.False(t, inspectionDisabled(host))
+
+	host.Annotations[inspectAnnotationPrefix] = "disabled"
+	assert.True(t, inspectionDisabled(host))
 }
 
 func TestHasRebootAnnotation(t *testing.T) {

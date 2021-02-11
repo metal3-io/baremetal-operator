@@ -51,6 +51,7 @@ const (
 	unmanagedRetryDelay           = time.Minute * 10
 	provisionerNotReadyRetryDelay = time.Second * 30
 	rebootAnnotationPrefix        = "reboot.metal3.io"
+	inspectAnnotationPrefix       = "inspect.metal3.io"
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
@@ -364,6 +365,16 @@ func clearRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	return
 }
 
+// inspectionDisabled checks for existence of inspect.metal3.io=disabled
+// which means we don't inspect even in Inspecting state
+func inspectionDisabled(host *metal3v1alpha1.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations[inspectAnnotationPrefix] == "disabled" {
+		return true
+	}
+	return false
+}
+
 // clearError removes any existing error message.
 func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	dirty = host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
@@ -499,6 +510,13 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 // Ensure we have the information about the hardware on the host.
 func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+
+	if inspectionDisabled(info.host) {
+		info.log.Info("inspection disabled by annotation")
+		info.publishEvent("InspectionSkipped", "disabled by annotation")
+		return actionComplete{}
+	}
+
 	info.log.Info("inspecting hardware")
 
 	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError)

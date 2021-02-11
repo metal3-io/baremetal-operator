@@ -18,7 +18,7 @@ COVER_PROFILE = cover.out
 BIN_DIR := bin
 
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
-CONTROLLER_TOOLS_VERSION=v0.4.0
+CONTROLLER_TOOLS_VERSION=v0.4.1
 CONTROLLER_GEN := $(BIN_DIR)/controller-gen
 GOLANGCI_LINT := $(BIN_DIR)/golangci-lint
 KUSTOMIZE := $(BIN_DIR)/kustomize

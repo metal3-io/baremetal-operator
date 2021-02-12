@@ -32,6 +32,7 @@ const (
 	namespace         string = "test-namespace"
 	defaultSecretName string = "bmc-creds-valid" // #nosec
 	statusAnnotation  string = `{"operationalStatus":"OK","lastUpdated":"2020-04-15T15:00:50Z","hardwareProfile":"StatusProfile","hardware":{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true},{"name":"eth1","model":"0x1af4  0x0001","mac":"00:b7:8b:bb:3d:f8","ip":"192.168.111.20","speedGbps":0,"vlanId":0,"pxe":false}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["aes","apic","arat","avx","clflush","cmov","constant_tsc","cx16","cx8","de","eagerfpu","ept","erms","f16c","flexpriority","fpu","fsgsbase","fxsr","hypervisor","lahf_lm","lm","mca","mce","mmx","msr","mtrr","nopl","nx","pae","pat","pclmulqdq","pge","pni","popcnt","pse","pse36","rdrand","rdtscp","rep_good","sep","smep","sse","sse2","sse4_1","sse4_2","ssse3","syscall","tpr_shadow","tsc","tsc_adjust","tsc_deadline_timer","vme","vmx","vnmi","vpid","x2apic","xsave","xsaveopt","xtopology"],"count":4},"hostname":"node-0"},"provisioning":{"state":"provisioned","ID":"8a0ede17-7b87-44ac-9293-5b7d50b94b08","image":{"url":"bar","checksum":""}},"goodCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"triedCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"errorMessage":"","poweredOn":true,"operationHistory":{"register":{"start":"2020-04-15T12:06:26Z","end":"2020-04-15T12:07:12Z"},"inspect":{"start":"2020-04-15T12:07:12Z","end":"2020-04-15T12:09:29Z"},"provision":{"start":null,"end":null},"deprovision":{"start":null,"end":null}}}`
+	hwdAnnotation     string = `{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}`
 )
 
 func newSecret(name string, data map[string]string) *corev1.Secret {
@@ -188,6 +189,82 @@ func waitForProvisioningState(t *testing.T, r *BareMetalHostReconciler, host *me
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for state %q have state %q", desiredState, host.Status.Provisioning.State)
 			return host.Status.Provisioning.State == desiredState
+		},
+	)
+}
+
+// TestHardwareDetails_EmptyStatus ensures that hardware details in
+// the status field are populated when the hardwaredetails annotation
+// is present and no existing HarwareDetails are present
+func TestHardwareDetails_EmptyStatus(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		hardwareDetailsAnnotation: hwdAnnotation,
+	}
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[hardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestHardwareDetails_StatusPresent ensures that hardware details in
+// the hardwaredetails annotation is ignored with existing Status
+func TestHardwareDetails_StatusPresent(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		hardwareDetailsAnnotation: hwdAnnotation,
+	}
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd.Hostname = "existinghost"
+	host.Status.HardwareDetails = &hwd
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[hardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "existinghost" && !found {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestHardwareDetails_StatusPresentInspectDisabled ensures that
+// hardware details in the hardwaredetails annotation are consumed
+// even when existing status exists, when inspection is disabled
+func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		inspectAnnotationPrefix:   "disabled",
+		hardwareDetailsAnnotation: hwdAnnotation,
+	}
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd.Hostname = "existinghost"
+	host.Status.HardwareDetails = &hwd
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[hardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
+				return true
+			}
+			return false
 		},
 	)
 }

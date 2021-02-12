@@ -106,3 +106,7 @@ func (a *redfishAccessDetails) RAIDInterface() string {
 func (a *redfishAccessDetails) VendorInterface() string {
 	return ""
 }
+
+func (a *redfishAccessDetails) SupportsSecureBoot() bool {
+	return true
+}

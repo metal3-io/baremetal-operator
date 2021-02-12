@@ -97,3 +97,7 @@ func (a *ibmcAccessDetails) RAIDInterface() string {
 func (a *ibmcAccessDetails) VendorInterface() string {
 	return ""
 }
+
+func (a *ibmcAccessDetails) SupportsSecureBoot() bool {
+	return false
+}

@@ -93,3 +93,9 @@ func (a *iDracAccessDetails) RAIDInterface() string {
 func (a *iDracAccessDetails) VendorInterface() string {
 	return ""
 }
+
+// NOTE(dtantsur): change to true if we switch to redfish-based implementations
+// by default.
+func (a *iDracAccessDetails) SupportsSecureBoot() bool {
+	return false
+}

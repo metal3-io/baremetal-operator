@@ -81,3 +81,7 @@ func (a *testAccessDetails) RAIDInterface() string {
 func (a *testAccessDetails) VendorInterface() string {
 	return ""
 }
+
+func (a *testAccessDetails) SupportsSecureBoot() bool {
+	return false
+}

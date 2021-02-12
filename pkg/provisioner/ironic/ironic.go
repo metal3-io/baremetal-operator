@@ -470,6 +470,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 				return
 			}
 			if len(updates) != 0 {
+				p.log.Info("updating host settings in ironic")
 				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 				switch err.(type) {
 				case nil:
@@ -481,6 +482,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 					result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
 					return
 				}
+				p.log.Info("updated host settings in ironic")
 			}
 		}
 	} else {
@@ -491,6 +493,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		provID = ironicNode.UUID
 
 		if ironicNode.Name == "" {
+			p.log.Info("updating ironic node name")
 			updates := nodes.UpdateOpts{
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
@@ -516,6 +519,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
 		if credentialsChanged {
+			p.log.Info("updating host driver settings")
 			updates := nodes.UpdateOpts{
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
@@ -677,17 +681,19 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 						Value: value,
 					},
 				}
+				p.log.Info("updating host boot mode settings in ironic")
 				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 				switch err.(type) {
 				case nil:
 				case gophercloud.ErrDefault409:
-					p.log.Info("could not update host settings in ironic, busy")
+					p.log.Info("could not update host boot mode settings in ironic, busy")
 					result, err = retryAfterDelay(provisionRequeueDelay)
 					return
 				default:
 					result, err = transientError(errors.Wrap(err, "failed to update host boot mode settings in ironic"))
 					return
 				}
+				p.log.Info("updated host boot mode settings in ironic")
 
 				p.log.Info("starting new hardware inspection")
 				var success bool
@@ -1095,6 +1101,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 	if err != nil {
 		return transientError(errors.Wrap(err, "failed to update opts for node"))
 	}
+	p.log.Info("updating host settings in ironic")
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 	switch err.(type) {
 	case nil:
@@ -1104,6 +1111,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 	default:
 		return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
 	}
+	p.log.Info("updated host settings in ironic")
 
 	p.log.Info("validating host settings")
 
@@ -1119,6 +1127,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 	if errorMessage != "" {
 		return operationFailed(errorMessage)
 	}
+	p.log.Info("validated host settings")
 
 	// If validation is successful we can start moving the host
 	// through the states necessary to make it "available".
@@ -1449,6 +1458,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 }
 
 func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
+	p.log.Info("updating host maintenance flag")
 	_, err = nodes.Update(
 		p.client,
 		ironicNode.UUID,
@@ -1468,6 +1478,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 	default:
 		return transientError(errors.Wrap(err, "failed to set host maintenance flag"))
 	}
+	p.log.Info("updated host host maintenance flag", "maintenance_flag", value)
 	return operationContinuing(0)
 }
 

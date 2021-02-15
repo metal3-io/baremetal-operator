@@ -782,6 +782,8 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		"actual", info.host.Status.PoweredOn,
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
+	// WIP (rdo) The isHardReboot functionality is a WIP as the provisioner
+	// API needs changes to allow us to call hardPowerOff here if requested
 	if desiredPowerOnState {
 		provResult, err = prov.PowerOn()
 	} else {

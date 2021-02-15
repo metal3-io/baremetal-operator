@@ -1705,10 +1705,14 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
-	p.log.Info("ensuring host is powered off")
+func (p *ironicProvisioner) PowerOff(hardMode bool) (result provisioner.Result, err error) {
+	p.log.Info(fmt.Sprintf("ensuring host is powered off (hard: %v)", hardMode))
 
-	result, err = p.softPowerOff()
+	if hardMode {
+		result, err = p.hardPowerOff()
+	} else {
+		result, err = p.softPowerOff()
+	}
 	if err != nil {
 		switch err.(type) {
 		// In case of soft power off is unsupported or has failed,

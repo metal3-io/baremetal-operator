@@ -123,6 +123,7 @@ func TestPowerOff(t *testing.T) {
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		hardMode             bool
 	}{
 		{
 			name: "node-already-power-off",
@@ -150,6 +151,19 @@ func TestPowerOff(t *testing.T) {
 				UUID:                 nodeUUID,
 			}),
 			expectedDirty: true,
+			hardMode:      false,
+
+		},
+		{
+			name: "power-off hard",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+			}),
+			expectedDirty: true,
+			hardMode:      true,
 		},
 		{
 			name: "power-off wait for Provisioning state",
@@ -199,7 +213,8 @@ func TestPowerOff(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, err := prov.PowerOff()
+			// We pass whether we want this to be a hard/soft power off
+			result, err := prov.PowerOff(tc.hardMode)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

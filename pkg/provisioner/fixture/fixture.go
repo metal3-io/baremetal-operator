@@ -271,7 +271,7 @@ func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOff() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOff(hardMode bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
 	if p.state.poweredOn {

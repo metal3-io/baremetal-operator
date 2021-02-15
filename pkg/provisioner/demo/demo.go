@@ -316,7 +316,7 @@ func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOff() (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOff(hardMode bool) (result provisioner.Result, err error) {
 
 	hostName := p.host.ObjectMeta.Name
 	switch hostName {

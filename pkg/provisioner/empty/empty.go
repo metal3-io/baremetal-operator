@@ -80,7 +80,7 @@ func (p *emptyProvisioner) PowerOn() (provisioner.Result, error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *emptyProvisioner) PowerOff() (provisioner.Result, error) {
+func (p *emptyProvisioner) PowerOff(hardMode bool) (provisioner.Result, error) {
 	return provisioner.Result{}, nil
 }
 

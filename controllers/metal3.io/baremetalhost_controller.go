@@ -339,11 +339,41 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl
 }
 
 // hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist
-func hasRebootAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
-	for annotation := range host.Annotations {
+func hasRebootAnnotation(info *reconcileInfo) (hasReboot, hardMode bool) {
+	for annotation, value := range info.host.GetAnnotations() {
+		// Don't use a break here as we may have multiple clients setting
+		// reboot annotations and we always want hard requests honoured
 		if isRebootAnnotation(annotation) {
-			return true
+			hasReboot = true
+			if isHardReboot(value, info) {
+				hardMode = true
+			}
 		}
+	}
+	return
+}
+
+// isHardReboot checks if reboot annotation requests a hard reboot and returns true if so
+func isHardReboot(annotation string, info *reconcileInfo) bool {
+
+	type RebootAnnotationArguments struct {
+		Mode	metal3v1alpha1.RebootAnnotation	`json:"mode"`
+	}
+
+	if annotation == "" {
+		info.log.Info("No reboot annotation value specified, assuming soft-reboot.")
+		return false
+	}
+
+	annotations := RebootAnnotationArguments{}
+	err := json.Unmarshal([]byte(annotation), &annotations)
+	if err != nil {
+		info.publishEvent("InvalidAnnotationValue", fmt.Sprintf("could not parse reboot annotation (%s) - invalid json, assuming soft-reboot", annotation))
+		info.log.Info(fmt.Sprintf("Could not parse reboot annotation (%q) - invalid json, assuming soft-reboot", annotation))
+		return false
+	}
+	if annotations.Mode == metal3v1alpha1.RebootAnnotationHard {
+		return true
 	}
 	return false
 }
@@ -765,7 +795,9 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 
 	provState := info.host.Status.Provisioning.State
 	isProvisioned := provState == metal3v1alpha1.StateProvisioned || provState == metal3v1alpha1.StateExternallyProvisioned
-	if hasRebootAnnotation(info.host) && isProvisioned {
+
+	desiredReboot, desiredHardReboot := hasRebootAnnotation(info)
+	if desiredReboot && isProvisioned {
 		desiredPowerOnState = false
 	}
 
@@ -780,14 +812,13 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	info.log.Info("power state change needed",
 		"expected", desiredPowerOnState,
 		"actual", info.host.Status.PoweredOn,
+		"hard reboot", desiredHardReboot,
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
-	// WIP (rdo) The isHardReboot functionality is a WIP as the provisioner
-	// API needs changes to allow us to call hardPowerOff here if requested
 	if desiredPowerOnState {
 		provResult, err = prov.PowerOn()
 	} else {
-		provResult, err = prov.PowerOff()
+		provResult, err = prov.PowerOff(desiredHardReboot)
 	}
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to manage power state of host")}

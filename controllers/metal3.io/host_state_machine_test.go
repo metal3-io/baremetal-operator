@@ -651,7 +651,7 @@ func (m *mockProvisioner) PowerOn() (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOn"), err
 }
 
-func (m *mockProvisioner) PowerOff() (result provisioner.Result, err error) {
+func (m *mockProvisioner) PowerOff(hardMode bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOff"), err
 }
 

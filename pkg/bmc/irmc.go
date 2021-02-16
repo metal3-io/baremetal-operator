@@ -84,3 +84,7 @@ func (a *iRMCAccessDetails) RAIDInterface() string {
 func (a *iRMCAccessDetails) VendorInterface() string {
 	return ""
 }
+
+func (a *iRMCAccessDetails) SupportsSecureBoot() bool {
+	return true
+}

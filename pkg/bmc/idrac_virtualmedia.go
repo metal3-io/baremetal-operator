@@ -86,3 +86,7 @@ func (a *redfishiDracVirtualMediaAccessDetails) RAIDInterface() string {
 func (a *redfishiDracVirtualMediaAccessDetails) VendorInterface() string {
 	return "no-vendor"
 }
+
+func (a *redfishiDracVirtualMediaAccessDetails) SupportsSecureBoot() bool {
+	return true
+}

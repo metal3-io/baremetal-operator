@@ -86,7 +86,7 @@ func TestDelete(t *testing.T) {
 		},
 		{
 			name:   "not-ironic-node",
-			ironic: testserver.NewIronic(t).Ready().NoNode(nodeUUID).NoNode("myhost"),
+			ironic: testserver.NewIronic(t).Ready().NoNode(nodeUUID).NoNode("myns" + nameSeparator + "myhost").NoNode("myhost"),
 		},
 		{
 			name: "available-node",

@@ -73,7 +73,6 @@ func TestPowerOn(t *testing.T) {
 			}).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
-			expectedError:        true,
 		},
 	}
 

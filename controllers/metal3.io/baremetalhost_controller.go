@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -50,10 +51,8 @@ const (
 	unmanagedRetryDelay           = time.Minute * 10
 	provisionerNotReadyRetryDelay = time.Second * 30
 	rebootAnnotationPrefix        = "reboot.metal3.io"
+	inspectAnnotationPrefix       = "inspect.metal3.io"
 )
-
-func init() {
-}
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
 type BareMetalHostReconciler struct {
@@ -207,13 +206,12 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
 	}
-	prov, err := r.ProvisionerFactory(host, *bmcCreds, info.publishEvent)
+	prov, err := r.ProvisionerFactory(*host, *bmcCreds, info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
 	ready, err := prov.IsReady()
-
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to check services availability")
 	}
@@ -276,13 +274,14 @@ func logResult(info *reconcileInfo, result ctrl.Result) {
 
 func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType, errorMessage string) actionFailed {
 
-	info.host.SetErrorMessage(errorType, errorMessage)
+	setErrorMessage(info.host, errorType, errorMessage)
 
 	eventType := map[metal3v1alpha1.ErrorType]string{
-		metal3v1alpha1.RegistrationError:    "RegistrationError",
-		metal3v1alpha1.InspectionError:      "InspectionError",
-		metal3v1alpha1.ProvisioningError:    "ProvisioningError",
-		metal3v1alpha1.PowerManagementError: "PowerManagementError",
+		metal3v1alpha1.ProvisionedRegistrationError: "ProvisionedRegistrationError",
+		metal3v1alpha1.RegistrationError:            "RegistrationError",
+		metal3v1alpha1.InspectionError:              "InspectionError",
+		metal3v1alpha1.ProvisioningError:            "ProvisioningError",
+		metal3v1alpha1.PowerManagementError:         "PowerManagementError",
 	}[errorType]
 
 	counter := actionFailureCounters.WithLabelValues(eventType)
@@ -291,6 +290,15 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 	info.publishEvent(eventType, errorMessage)
 
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
+}
+
+func recordActionDelayed(info *reconcileInfo) actionResult {
+
+	counter := delayedProvisioningHostCounters.With(hostMetricLabels(info.request))
+	info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
+
+	info.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed)
+	return actionDelayed{}
 }
 
 func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl.Request, host *metal3v1alpha1.BareMetalHost) (ctrl.Result, error) {
@@ -357,6 +365,40 @@ func clearRebootAnnotations(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	return
 }
 
+// inspectionDisabled checks for existence of inspect.metal3.io=disabled
+// which means we don't inspect even in Inspecting state
+func inspectionDisabled(host *metal3v1alpha1.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations[inspectAnnotationPrefix] == "disabled" {
+		return true
+	}
+	return false
+}
+
+// clearError removes any existing error message.
+func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
+	dirty = host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
+	var emptyErrType metal3v1alpha1.ErrorType = ""
+	if host.Status.ErrorType != emptyErrType {
+		host.Status.ErrorType = emptyErrType
+		dirty = true
+	}
+	if host.Status.ErrorMessage != "" {
+		host.Status.ErrorMessage = ""
+		dirty = true
+	}
+	return dirty
+}
+
+// setErrorMessage updates the ErrorMessage in the host Status struct
+// and increases the ErrorCount
+func setErrorMessage(host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) {
+	host.Status.OperationalStatus = metal3v1alpha1.OperationalStatusError
+	host.Status.ErrorType = errType
+	host.Status.ErrorMessage = message
+	host.Status.ErrorCount++
+}
+
 // Manage deletion of the host
 func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info(
@@ -394,60 +436,90 @@ func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, 
 	if info.host.HasBMCDetails() {
 		return actionComplete{}
 	}
-	return actionContinueNoWrite{actionContinue{unmanagedRetryDelay}}
+	return actionContinue{unmanagedRetryDelay}
 }
 
 // Test the credentials by connecting to the management controller.
-func (r *BareMetalHostReconciler) actionRegistering(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
 		"credentials", info.host.Status.TriedCredentials)
+	dirty := false
 
 	credsChanged := !info.host.Status.TriedCredentials.Match(*info.bmcCredsSecret)
 	if credsChanged {
 		info.log.Info("new credentials")
 		info.host.UpdateTriedCredentials(*info.bmcCredsSecret)
 		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
+		dirty = true
 	}
 
-	provResult, err := prov.ValidateManagementAccess(credsChanged)
+	provResult, provID, err := prov.ValidateManagementAccess(credsChanged, info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
 	}
 
-	info.log.Info("response from validate", "provResult", provResult)
-
 	if provResult.ErrorMessage != "" {
 		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
 	}
 
+	if provID != "" && info.host.Status.Provisioning.ID != provID {
+		info.log.Info("setting provisioning id", "ID", provID)
+		info.host.Status.Provisioning.ID = provID
+		if info.host.Status.Provisioning.State == metal3v1alpha1.StatePreparing {
+			clearHostProvisioningSettings(info.host)
+		}
+		dirty = true
+	}
+
 	if provResult.Dirty {
 		info.log.Info("host not ready", "wait", provResult.RequeueAfter)
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			dirty = true
+		}
+		if dirty {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	// Reaching this point means the credentials are valid and worked,
 	// so clear any previous error and record the success in the
 	// status block.
-	info.log.Info("updating credentials success status fields")
 	registeredNewCreds := !info.host.Status.GoodCredentials.Match(*info.bmcCredsSecret)
-	info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
-	info.log.Info("clearing previous error message")
-	info.host.ClearError()
-
 	if registeredNewCreds {
+		info.log.Info("updating credentials success status fields")
+		info.host.UpdateGoodCredentials(*info.bmcCredsSecret)
 		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
+		dirty = true
+	} else {
+		info.log.Info("verified access to the BMC")
 	}
 
-	return actionComplete{}
+	if info.host.Status.ErrorType == metal3v1alpha1.RegistrationError || registeredNewCreds {
+		info.log.Info("clearing previous error message")
+		dirty = clearError(info.host)
+	}
+
+	if dirty {
+		return actionComplete{}
+	}
+	return nil
 }
 
 // Ensure we have the information about the hardware on the host.
 func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+
+	if inspectionDisabled(info.host) {
+		info.log.Info("inspection disabled by annotation")
+		info.publishEvent("InspectionSkipped", "disabled by annotation")
+		return actionComplete{}
+	}
+
 	info.log.Info("inspecting hardware")
 
-	provResult, details, err := prov.InspectHardware()
+	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
@@ -456,12 +528,15 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
 	}
 
-	info.host.ClearError()
-
 	if provResult.Dirty || details == nil {
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
+	clearError(info.host)
 	info.host.Status.HardwareDetails = details
 	return actionComplete{}
 }
@@ -506,7 +581,45 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 	}
 
-	info.host.ClearError()
+	clearError(info.host)
+	return actionComplete{}
+}
+
+func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	info.log.Info("preparing")
+
+	// Save provisioning settings.
+	provisioningSettings := info.host.Status.Provisioning.DeepCopy()
+	dirty, err := saveHostProvisioningSettings(info.host)
+	if err != nil {
+		return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
+	}
+
+	// Do prepare(manual clean).
+	provResult, started, err := prov.Prepare(dirty)
+	if err != nil {
+		return actionError{errors.Wrap(err, "error preparing host")}
+	}
+
+	if provResult.ErrorMessage != "" {
+		info.log.Info("handling cleaning error in controller")
+		clearHostProvisioningSettings(info.host)
+		return recordActionFailure(info, metal3v1alpha1.PreparationError, provResult.ErrorMessage)
+	}
+
+	if provResult.Dirty {
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) || (dirty && started) {
+			// If clearError return true, but started is false, restore provisioningSettings.
+			if dirty && !started {
+				info.host.Status.Provisioning = *provisioningSettings
+			}
+			return actionUpdate{result}
+		}
+		return result
+	}
+
+	clearError(info.host)
 	return actionComplete{}
 }
 
@@ -523,7 +636,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
-		return actionContinueNoWrite{}
+		return actionContinue{}
 	}
 
 	provResult, err := prov.Provision(hostConf)
@@ -540,8 +653,11 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		// Go back into the queue and wait for the Provision() method
 		// to return false, indicating that it has no more work to
 		// do.
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
@@ -563,23 +679,28 @@ func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	// Adopt the host in case it has been re-registered during the
-	// deprovisioning process before it completed
-	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
-	if err != nil {
-		return actionError{err}
-	}
-	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
-	}
-	if provResult.Dirty {
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
+	if info.host.Status.Provisioning.Image.URL != "" {
+		// Adopt the host in case it has been re-registered during the
+		// deprovisioning process before it completed
+		provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
+		if err != nil {
+			return actionError{err}
+		}
+		if provResult.ErrorMessage != "" {
+			return recordActionFailure(info, metal3v1alpha1.ProvisionedRegistrationError, provResult.ErrorMessage)
+		}
+		if provResult.Dirty {
+			result := actionContinue{provResult.RequeueAfter}
+			if clearError(info.host) {
+				return actionUpdate{result}
+			}
+			return result
+		}
 	}
 
 	info.log.Info("deprovisioning")
 
-	provResult, err = prov.Deprovision()
+	provResult, err := prov.Deprovision(info.host.Status.ErrorType == metal3v1alpha1.ProvisioningError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to deprovision")}
 	}
@@ -589,15 +710,18 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	}
 
 	if provResult.Dirty {
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	if clearRebootAnnotations(info.host) {
 		if err = r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
-		return actionContinueNoWrite{}
+		return actionContinue{}
 	}
 
 	// After the provisioner is done, clear the provisioning settings
@@ -613,18 +737,16 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	var provResult provisioner.Result
 
 	// Check the current status and save it before trying to update it.
-	provResult, err := prov.UpdateHardwareState()
+	hwState, err := prov.UpdateHardwareState()
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to update the host power status")}
 	}
 
-	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
-	}
-
-	if provResult.Dirty {
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
+	if hwState.PoweredOn != nil && *hwState.PoweredOn != info.host.Status.PoweredOn {
+		info.log.Info("updating power status", "discovered", *hwState.PoweredOn)
+		info.host.Status.PoweredOn = *hwState.PoweredOn
+		clearError(info.host)
+		return actionUpdate{}
 	}
 
 	desiredPowerOnState := info.host.Spec.Online
@@ -637,7 +759,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
 			}
 
-			return actionContinueNoWrite{}
+			return actionContinue{}
 		}
 	}
 
@@ -652,7 +774,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// a delay.
 	steadyStateResult := actionContinue{time.Second * 60}
 	if info.host.Status.PoweredOn == desiredPowerOnState {
-		return actionContinueNoWrite{steadyStateResult}
+		return steadyStateResult
 	}
 
 	info.log.Info("power state change needed",
@@ -683,15 +805,19 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 			}
 			powerChangeAttempts.With(metricLabels).Inc()
 		})
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	// The provisioner did not have to do anything to change the power
 	// state and there were no errors, so reflect the new state in the
 	// host status field.
 	info.host.Status.PoweredOn = info.host.Spec.Online
-	return steadyStateResult
+	info.host.Status.ErrorCount = 0
+	return actionUpdate{steadyStateResult}
 }
 
 // A host reaching this action handler should be provisioned or externally
@@ -699,16 +825,19 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 // action. We use the Adopt() API to make sure that the provisioner is aware of
 // the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 	if err != nil {
 		return actionError{err}
 	}
 	if provResult.ErrorMessage != "" {
-		return recordActionFailure(info, metal3v1alpha1.RegistrationError, provResult.ErrorMessage)
+		return recordActionFailure(info, metal3v1alpha1.ProvisionedRegistrationError, provResult.ErrorMessage)
 	}
 	if provResult.Dirty {
-		info.host.ClearError()
-		return actionContinue{provResult.RequeueAfter}
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
 	}
 
 	return r.manageHostPower(prov, info)
@@ -726,9 +855,11 @@ func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner
 			return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
 		}
 		if dirty {
-			info.log.Info("updating host provisioning settings")
+			info.log.Info("Host provisioning settings have been updated, go back to Preparing state")
+			clearHostProvisioningSettings(info.host)
+			return actionUpdate{}
 		}
-		info.host.ClearError()
+		clearError(info.host)
 		return actionComplete{}
 	}
 	return r.manageHostPower(prov, info)
@@ -791,7 +922,7 @@ func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3v1alph
 func (r *BareMetalHostReconciler) setErrorCondition(request ctrl.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (err error) {
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 
-	host.SetErrorMessage(errType, message)
+	setErrorMessage(host, errType, message)
 
 	reqLogger.Info(
 		"adding error message",
@@ -909,6 +1040,30 @@ func hostHasFinalizer(host *metal3v1alpha1.BareMetalHost) bool {
 	return utils.StringInList(host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 }
 
+func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
+	_, oldOK := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
+	_, newOK := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
+	if !(oldOK && newOK) {
+		// The thing that changed wasn't a host, so we
+		// need to assume that we must update. This
+		// happens when, for example, an owned Secret
+		// changes.
+		return true
+	}
+
+	//If the update increased the resource Generation then let's process it
+	if e.MetaNew.GetGeneration() != e.MetaOld.GetGeneration() {
+		return true
+	}
+
+	//Discard updates that did not increase the resource Generation (such as on Status.LastUpdated), except for the finalizers or annotations
+	if reflect.DeepEqual(e.MetaNew.GetFinalizers(), e.MetaOld.GetFinalizers()) && reflect.DeepEqual(e.MetaNew.GetAnnotations(), e.MetaOld.GetAnnotations()) {
+		return false
+	}
+
+	return true
+}
+
 // SetupWithManager reigsters the reconciler to be run by the manager
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
@@ -936,23 +1091,7 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&metal3v1alpha1.BareMetalHost{}).
 		WithEventFilter(
 			predicate.Funcs{
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldHost, oldOK := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
-					newHost, newOK := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
-					if !(oldOK && newOK) {
-						// The thing that changed wasn't a host, so we
-						// need to assume that we must update. This
-						// happens when, for example, an owned Secret
-						// changes.
-						return true
-					}
-
-					if oldHost.Status.ErrorCount != newHost.Status.ErrorCount {
-						//skip reconcile loop
-						return false
-					}
-					return true
-				},
+				UpdateFunc: r.updateEventHandler,
 			}).
 		WithOptions(opts).
 		Owns(&corev1.Secret{}).

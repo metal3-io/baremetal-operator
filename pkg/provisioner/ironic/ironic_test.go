@@ -16,10 +16,10 @@ func init() {
 	logf.SetLogger(logf.ZapLogger(true))
 }
 
-func makeHost() *metal3v1alpha1.BareMetalHost {
+func makeHost() metal3v1alpha1.BareMetalHost {
 	rotational := true
 
-	return &metal3v1alpha1.BareMetalHost{
+	return metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
@@ -69,6 +69,13 @@ func makeHost() *metal3v1alpha1.BareMetalHost {
 			HardwareProfile: "libvirt",
 		},
 	}
+}
+
+func makeHostLiveIso() (host metal3v1alpha1.BareMetalHost) {
+	host = makeHost()
+	format := "live-iso"
+	host.Spec.Image.DiskFormat = &format
+	return host
 }
 
 // Implements provisioner.EventPublisher to swallow events for tests.

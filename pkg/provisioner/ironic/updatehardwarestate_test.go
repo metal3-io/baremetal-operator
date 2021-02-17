@@ -3,7 +3,6 @@ package ironic
 import (
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/stretchr/testify/assert"
@@ -24,9 +23,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		hostCurrentlyPowered bool
 		hostName             string
 
-		expectedDirty        bool
-		expectedRequestAfter int
-		expectedResultError  string
+		expectUnreadablePower bool
 
 		expectedPublish string
 		expectedError   string
@@ -36,6 +33,7 @@ func TestUpdateHardwareState(t *testing.T) {
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID: nodeUUID,
 			}),
+			expectUnreadablePower: true,
 		},
 		{
 			name: "updated-power-on-state",
@@ -52,8 +50,6 @@ func TestUpdateHardwareState(t *testing.T) {
 				PowerState: "power on",
 			}),
 			hostCurrentlyPowered: false,
-
-			expectedDirty: true,
 		},
 		{
 			name: "updated-power-off-state",
@@ -70,8 +66,6 @@ func TestUpdateHardwareState(t *testing.T) {
 				PowerState: "power off",
 			}),
 			hostCurrentlyPowered: true,
-
-			expectedDirty: true,
 		},
 		{
 			name: "no-power",
@@ -79,7 +73,8 @@ func TestUpdateHardwareState(t *testing.T) {
 				UUID:       nodeUUID,
 				PowerState: "None",
 			}),
-			hostCurrentlyPowered: true,
+			hostCurrentlyPowered:  true,
+			expectUnreadablePower: true,
 		},
 		{
 			name: "node-not-found",
@@ -88,6 +83,8 @@ func TestUpdateHardwareState(t *testing.T) {
 			ironic:   testserver.NewIronic(t).Ready().NodeError(nodeUUID, http.StatusGatewayTimeout),
 
 			expectedError: "failed to find existing host: failed to find node by ID 33ce8659-7400-4c68-9535-d10766f07a58: Expected HTTP response code \\[200\\].*",
+
+			expectUnreadablePower: true,
 		},
 		{
 			name: "node-not-found-by-name",
@@ -96,12 +93,16 @@ func TestUpdateHardwareState(t *testing.T) {
 			ironic:   testserver.NewIronic(t).Ready().NoNode(nodeUUID).NodeError("myhost", http.StatusGatewayTimeout),
 
 			expectedError: "failed to find existing host: failed to find node by name worker-0: EOF",
+
+			expectUnreadablePower: true,
 		},
 		{
 			name:   "not-ironic-node",
 			ironic: testserver.NewIronic(t).Ready().NoNode(nodeUUID).NoNode("myhost"),
 
 			expectedError: "Host not registered",
+
+			expectUnreadablePower: true,
 		},
 	}
 
@@ -136,11 +137,9 @@ func TestUpdateHardwareState(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.UpdateHardwareState()
+			hwStatus, err := prov.UpdateHardwareState()
 
-			assert.Equal(t, tc.expectedDirty, result.Dirty)
-			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
-			assert.Equal(t, tc.expectedResultError, result.ErrorMessage)
+			assert.Equal(t, tc.expectUnreadablePower, hwStatus.PoweredOn == nil)
 
 			assert.Equal(t, tc.expectedPublish, publishedMsg)
 			if tc.expectedError == "" {

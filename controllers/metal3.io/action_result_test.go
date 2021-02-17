@@ -11,7 +11,7 @@ import (
 func TestBackoffIncrements(t *testing.T) {
 
 	var backOff time.Duration
-	for i := 0; i < maxBackOffCount; i++ {
+	for i := 1; i <= maxBackOffCount; i++ {
 		prev := backOff
 		backOff = calculateBackoff(i)
 

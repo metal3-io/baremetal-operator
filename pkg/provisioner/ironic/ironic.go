@@ -3,6 +3,7 @@ package ironic
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ var (
 	ironicInsecure            bool
 	ironicAuth                clients.AuthConfig
 	inspectorAuth             clients.AuthConfig
+	maxProvisioningHosts      int = 20
 
 	// Keep pointers to ironic and inspector clients configured with
 	// the global auth settings to reuse the connection between
@@ -56,8 +58,22 @@ const (
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
-	metal3v1alpha1.UEFI:   "boot_mode:uefi",
-	metal3v1alpha1.Legacy: "boot_mode:bios",
+	metal3v1alpha1.UEFI:           "boot_mode:uefi",
+	metal3v1alpha1.UEFISecureBoot: "boot_mode:uefi,secure_boot:true",
+	metal3v1alpha1.Legacy:         "boot_mode:bios",
+}
+
+type macAddressConflictError struct {
+	Address      string
+	ExistingNode string
+}
+
+func (e macAddressConflictError) Error() string {
+	return fmt.Sprintf("MAC address %s conflicts with existing node %s", e.Address, e.ExistingNode)
+}
+
+func NewMacAddressConflictError(address, node string) error {
+	return macAddressConflictError{Address: address, ExistingNode: node}
 }
 
 func init() {
@@ -88,7 +104,7 @@ func init() {
 	}
 	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
 	if inspectorEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set")
+		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set\n")
 		os.Exit(1)
 	}
 	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")
@@ -99,13 +115,22 @@ func init() {
 	if strings.ToLower(ironicInsecureStr) == "true" {
 		ironicInsecure = true
 	}
+
+	if maxHostsStr := os.Getenv("PROVISIONING_LIMIT"); maxHostsStr != "" {
+		value, err := strconv.Atoi(maxHostsStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot start: Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
+			os.Exit(1)
+		}
+		maxProvisioningHosts = value
+	}
 }
 
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
 type ironicProvisioner struct {
 	// the host to be managed by this provisioner
-	host *metal3v1alpha1.BareMetalHost
+	host metal3v1alpha1.BareMetalHost
 	// a shorter path to the provisioning status data structure
 	status *metal3v1alpha1.ProvisionStatus
 	// access parameters for the BMC
@@ -137,7 +162,7 @@ func LogStartup() {
 
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
-func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
+func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
 	tlsConf := clients.TLSConfig{
 		TrustedCAFile:      ironicTrustedCAFile,
 		InsecureSkipVerify: ironicInsecure,
@@ -156,7 +181,7 @@ func newProvisionerWithSettings(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc
 		clientIronic, clientInspector)
 }
 
-func newProvisionerWithIronicClients(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
+func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
 
 	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
 	if err != nil {
@@ -182,7 +207,7 @@ func newProvisionerWithIronicClients(host *metal3v1alpha1.BareMetalHost, bmcCred
 
 // New returns a new Ironic Provisioner using the global configuration
 // for finding the Ironic services.
-func New(host *metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	var err error
 	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
 		tlsConf := clients.TLSConfig{
@@ -233,7 +258,9 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage s
 func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 	var allPorts []ports.Port
 
-	opts := ports.ListOpts{}
+	opts := ports.ListOpts{
+		Fields: []string{"node_uuid"},
+	}
 
 	if address != "" {
 		opts.Address = address
@@ -308,7 +335,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 
 			// If the node has a name, this means we didn't find it above.
 			if ironicNode.Name != "" {
-				return nil, errors.New(fmt.Sprint("node found by MAC but has a name: ", ironicNode.Name))
+				return nil, NewMacAddressConflictError(p.host.Spec.BootMACAddress, ironicNode.Name)
 			}
 
 			return ironicNode, nil
@@ -333,14 +360,20 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	var ironicNode *nodes.Node
 
 	p.log.Info("validating management access")
 
 	ironicNode, err = p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		switch err.(type) {
+		case macAddressConflictError:
+			result, err = operationFailed(err.Error())
+		default:
+			result, err = transientError(errors.Wrap(err, "failed to find existing host"))
+		}
+		return
 	}
 
 	// Some BMC types require a MAC address, so ensure we have one
@@ -348,8 +381,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
 		p.log.Info(msg)
-		result.ErrorMessage = msg
-		return result, nil
+		result, err = operationFailed(msg)
+		return
 	}
 
 	driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
@@ -358,9 +391,18 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	driverInfo["deploy_kernel"] = deployKernelURL
 	driverInfo["deploy_ramdisk"] = deployRamdiskURL
 
+	result, err = operationComplete()
+
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
+
+		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !p.bmcAccess.SupportsSecureBoot() {
+			msg := fmt.Sprintf("BMC driver %s does not support secure boot", p.bmcAccess.Type())
+			p.log.Info(msg)
+			result, err = operationFailed(msg)
+			return
+		}
 
 		ironicNode, err = nodes.Create(
 			p.client,
@@ -369,6 +411,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 				BootInterface:       p.bmcAccess.BootInterface(),
 				Name:                p.host.Name,
 				DriverInfo:          driverInfo,
+				DeployInterface:     p.deployInterface(),
 				InspectInterface:    "inspector",
 				ManagementInterface: p.bmcAccess.ManagementInterface(),
 				PowerInterface:      p.bmcAccess.PowerInterface(),
@@ -380,15 +423,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
 		if err != nil {
-			return result, errors.Wrap(err, "failed to register host in ironic")
+			result, err = transientError(errors.Wrap(err, "failed to register host in ironic"))
+			return
 		}
 		p.publisher("Registered", "Registered new host")
 
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
-		p.status.ID = ironicNode.UUID
-		result.Dirty = true
-		p.log.Info("setting provisioning id", "ID", p.status.ID)
+		provID = ironicNode.UUID
 
 		// If we know the MAC, create a port. Otherwise we will have
 		// to do this after we run the introspection step.
@@ -396,7 +438,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			enable := true
 			p.log.Info("creating port for node in ironic", "MAC",
 				p.host.Spec.BootMACAddress)
-			_, err := ports.Create(
+			_, err = ports.Create(
 				p.client,
 				ports.CreateOpts{
 					NodeUUID:   ironicNode.UUID,
@@ -404,7 +446,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {
-				return result, errors.Wrap(err, "failed to create port in ironic")
+				result, err = transientError(errors.Wrap(err, "failed to create port in ironic"))
+				return
 			}
 		}
 
@@ -420,75 +463,24 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			imageData = p.host.Spec.Image
 		}
 
-		checksum, checksumType, ok := imageData.GetChecksum()
-
-		if ok {
-			p.log.Info("setting instance info",
-				"image_source", imageData.URL,
-				"image_os_hash_value", checksum,
-				"image_os_hash_algo", checksumType,
-			)
-
-			updates := nodes.UpdateOpts{
-				nodes.UpdateOperation{
-					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_source",
-					Value: imageData.URL,
-				},
-				nodes.UpdateOperation{
-					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_os_hash_value",
-					Value: checksum,
-				},
-				nodes.UpdateOperation{
-					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_os_hash_algo",
-					Value: checksumType,
-				},
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/instance_uuid",
-					Value: string(p.host.ObjectMeta.UID),
-				},
+		if imageData != nil {
+			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData)
+			if optsErr != nil {
+				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
+				return
 			}
-
-			// image_checksum
-			//
-			// FIXME: For older versions of ironic that do not have
-			// https://review.opendev.org/#/c/711816/ failing to
-			// include the 'image_checksum' causes ironic to refuse to
-			// provision the image, even if the other hash value
-			// parameters are given. We only want to do that for MD5,
-			// however, because those versions of ironic only support
-			// MD5 checksums.
-			if checksumType == string(metal3v1alpha1.MD5) {
-				updates = append(
-					updates,
-					nodes.UpdateOperation{
-						Op:    nodes.AddOp,
-						Path:  "/instance_info/image_checksum",
-						Value: checksum,
-					},
-				)
-			}
-
-			if imageData.DiskFormat != nil {
-				updates = append(updates, nodes.UpdateOperation{
-					Op:    nodes.AddOp,
-					Path:  "/instance_info/image_disk_format",
-					Value: *imageData.DiskFormat,
-				})
-			}
-			_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-			switch err.(type) {
-			case nil:
-			case gophercloud.ErrDefault409:
-				p.log.Info("could not update host settings in ironic, busy")
-				result.Dirty = true
-				result.RequeueAfter = provisionRequeueDelay
-				return result, nil
-			default:
-				return result, errors.Wrap(err, "failed to update host settings in ironic")
+			if len(updates) != 0 {
+				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+				switch err.(type) {
+				case nil:
+				case gophercloud.ErrDefault409:
+					p.log.Info("could not update host settings in ironic, busy")
+					result, err = retryAfterDelay(provisionRequeueDelay)
+					return
+				default:
+					result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+					return
+				}
 			}
 		}
 	} else {
@@ -496,13 +488,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 		// node in ironic by looking it up. We need to check its
 		// settings against what we have in the host, and change them
 		// if there are differences.
-		if p.status.ID != ironicNode.UUID {
-			// Store the ID so other methods can assume it is set and
-			// so we can find the node using that value next time.
-			p.status.ID = ironicNode.UUID
-			result.Dirty = true
-			p.log.Info("setting provisioning id", "ID", p.status.ID)
-		}
+		provID = ironicNode.UUID
 
 		if ironicNode.Name == "" {
 			updates := nodes.UpdateOpts{
@@ -517,11 +503,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update ironic node name, busy")
-				result.Dirty = true
-				result.RequeueAfter = provisionRequeueDelay
-				return result, nil
+				result, err = retryAfterDelay(provisionRequeueDelay)
+				return
 			default:
-				return result, errors.Wrap(err, "failed to update ironc node name")
+				result, err = transientError(errors.Wrap(err, "failed to update ironc node name"))
+				return
 			}
 			p.log.Info("updated ironic node name")
 
@@ -542,11 +528,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 			case nil:
 			case gophercloud.ErrDefault409:
 				p.log.Info("could not update host driver settings, busy")
-				result.Dirty = true
-				result.RequeueAfter = provisionRequeueDelay
-				return result, nil
+				result, err = retryAfterDelay(provisionRequeueDelay)
+				return
 			default:
-				return result, errors.Wrap(err, "failed to update host driver settings")
+				result, err = transientError(errors.Wrap(err, "failed to update host driver settings"))
+				return
 			}
 			p.log.Info("updated host driver settings")
 			// We don't return here because we also have to set the
@@ -572,49 +558,48 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged bool) (r
 	case nodes.Enroll:
 
 		// If ironic is reporting an error, stop working on the node.
-		if ironicNode.LastError != "" && !credentialsChanged {
-			result.ErrorMessage = ironicNode.LastError
-			return result, nil
+		if ironicNode.LastError != "" && !(credentialsChanged || force) {
+			result, err = operationFailed(ironicNode.LastError)
+			return
 		}
 
 		if ironicNode.TargetProvisionState == string(nodes.TargetManage) {
 			// We have already tried to manage the node and did not
 			// get an error, so do nothing and keep trying.
-			result.Dirty = true
-			result.RequeueAfter = provisionRequeueDelay
-			return result, nil
+			result, err = operationContinuing(provisionRequeueDelay)
+			return
 		}
 
-		return p.changeNodeProvisionState(
+		result, err = p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
+		return
 
 	case nodes.Verifying:
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
-		result.RequeueAfter = provisionRequeueDelay
-		result.Dirty = true
-		return result, nil
+		result, err = operationContinuing(provisionRequeueDelay)
+		return
 
 	case nodes.Manageable:
 		p.log.Info("have manageable host")
-		return result, nil
+		return
 
 	case nodes.Available:
 		// The host is fully registered (and probably wasn't cleanly
 		// deleted previously)
 		p.log.Info("have available host")
-		return result, nil
+		return
 
 	case nodes.Active:
 		// The host is already running, maybe it's a master?
 		p.log.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
-		return result, nil
+		return
 
 	default:
-		return result, nil
+		return
 	}
 }
 
@@ -631,14 +616,15 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 		success = true
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not change state of host, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+		return
 	default:
-		err = errors.Wrap(changeResult.Err,
-			fmt.Sprintf("failed to change provisioning state to %q", opts.Target))
+		result, err = transientError(errors.Wrap(changeResult.Err,
+			fmt.Sprintf("failed to change provisioning state to %q", opts.Target)))
 		return
 	}
 
-	result.Dirty = true
-	result.RequeueAfter = provisionRequeueDelay
+	result, err = operationContinuing(provisionRequeueDelay)
 	return
 }
 
@@ -651,16 +637,17 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		err = errors.Wrap(err, "failed to find existing host")
+		result, err = transientError(errors.Wrap(err, "failed to find existing host"))
 		return
 	}
 	if ironicNode == nil {
-		return result, nil, provisioner.NeedsRegistration
+		result, err = transientError(provisioner.NeedsRegistration)
+		return
 	}
 
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
@@ -669,11 +656,18 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {
 			case nodes.Inspecting, nodes.InspectWait:
 				p.log.Info("inspection already started")
-				result.Dirty = true
-				result.RequeueAfter = introspectionRequeueDelay
-				err = nil
+				result, err = operationContinuing(introspectionRequeueDelay)
 				return
 			default:
+				if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectFail && !force {
+					p.log.Info("starting inspection failed", "error", status.Error)
+					if ironicNode.LastError == "" {
+						result.ErrorMessage = "Inspection failed"
+					} else {
+						result.ErrorMessage = ironicNode.LastError
+					}
+					err = nil
+				}
 				p.log.Info("updating boot mode before hardware inspection")
 				op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
 				updates := nodes.UpdateOpts{
@@ -688,10 +682,10 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				case nil:
 				case gophercloud.ErrDefault409:
 					p.log.Info("could not update host settings in ironic, busy")
-					result.Dirty = true
+					result, err = retryAfterDelay(provisionRequeueDelay)
 					return
 				default:
-					err = errors.Wrap(err, "failed to update host boot mode settings in ironic")
+					result, err = transientError(errors.Wrap(err, "failed to update host boot mode settings in ironic"))
 					return
 				}
 
@@ -707,18 +701,17 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 				return
 			}
 		}
-		err = errors.Wrap(err, "failed to extract hardware inspection status")
-		return
-	}
-	if !status.Finished {
-		p.log.Info("inspection in progress", "started_at", status.StartedAt)
-		result.Dirty = true // make sure we check back
-		result.RequeueAfter = introspectionRequeueDelay
+		result, err = transientError(errors.Wrap(err, "failed to extract hardware inspection status"))
 		return
 	}
 	if status.Error != "" {
 		p.log.Info("inspection failed", "error", status.Error)
-		result.ErrorMessage = status.Error
+		result, err = operationFailed(status.Error)
+		return
+	}
+	if !status.Finished || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait {
+		p.log.Info("inspection in progress", "started_at", status.StartedAt)
+		result, err = operationContinuing(introspectionRequeueDelay)
 		return
 	}
 
@@ -727,66 +720,152 @@ func (p *ironicProvisioner) InspectHardware() (result provisioner.Result, detail
 	introData := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
 	data, err := introData.Extract()
 	if err != nil {
-		err = errors.Wrap(err, "failed to retrieve hardware introspection data")
+		result, err = transientError(errors.Wrap(err, "failed to retrieve hardware introspection data"))
 		return
 	}
 	p.log.Info("received introspection data", "data", introData.Body)
 
 	details = hardwaredetails.GetHardwareDetails(data)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
+	result, err = operationComplete()
 	return
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server
 // and updates the HardwareDetails field of the host with details. It
 // is expected to do this in the least expensive way possible, such as
-// reading from a cache, and return dirty only if any state
-// information has changed.
-func (p *ironicProvisioner) UpdateHardwareState() (result provisioner.Result, err error) {
+// reading from a cache.
+func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	p.log.Info("updating hardware state")
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		err = errors.Wrap(err, "failed to find existing host")
+		return
 	}
 	if ironicNode == nil {
-		return result, provisioner.NeedsRegistration
+		err = provisioner.NeedsRegistration
+		return
 	}
 
-	var discoveredVal bool
 	switch ironicNode.PowerState {
-	case powerOn:
-		discoveredVal = true
-	case powerOff:
-		discoveredVal = false
+	case powerOn, powerOff:
+		discoveredVal := ironicNode.PowerState == powerOn
+		hwState.PoweredOn = &discoveredVal
 	case powerNone:
 		p.log.Info("could not determine power state", "value", ironicNode.PowerState)
-		return result, nil
 	default:
 		p.log.Info("unknown power state", "value", ironicNode.PowerState)
-		return result, nil
 	}
-
-	if discoveredVal != p.host.Status.PoweredOn {
-		p.log.Info("updating power status", "discovered", discoveredVal)
-		p.host.Status.PoweredOn = discoveredVal
-		result.Dirty = true
-	}
-	return result, nil
+	return
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
+	checksum, checksumType, ok := imageData.GetChecksum()
+	if !ok {
+		p.log.Info("image/checksum not found for host")
+		return
+	}
+	// instance_uuid
+	p.log.Info("setting instance_uuid")
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    nodes.ReplaceOp,
+			Path:  "/instance_uuid",
+			Value: string(p.host.ObjectMeta.UID),
+		},
+	)
 
-	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+	// Secure boot is a normal capability that goes into instance_info (we
+	// also put it to properties for consistency, although it's not
+	// strictly required in our case).
 
-	if err != nil {
-		return updates, errors.Wrap(err,
-			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
-				p.host.HardwareProfile()))
+	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:   nodes.AddOp,
+			Path: "/instance_info/capabilities",
+			// Instance info capabilities were invented later and
+			// use a normal JSON mapping instead of a custom
+			// string value.
+			Value: map[string]string{
+				"secure_boot": "true",
+			},
+		})
+	} else {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:    nodes.AddOp,
+			Path:  "/instance_info/capabilities",
+			Value: map[string]string{},
+		})
 	}
 
-	// image_source
+	// live-iso format
 	var op nodes.UpdateOp
+	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
+		if _, ok := ironicNode.InstanceInfo["boot_iso"]; !ok {
+			op = nodes.AddOp
+			p.log.Info("adding boot_iso")
+		} else {
+			op = nodes.ReplaceOp
+			p.log.Info("updating boot_iso")
+		}
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    op,
+				Path:  "/instance_info/boot_iso",
+				Value: imageData.URL,
+			},
+		)
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    nodes.ReplaceOp,
+				Path:  "/deploy_interface",
+				Value: "ramdisk",
+			},
+		)
+		// remove any image_source or checksum options
+		removals := []string{
+			"image_source", "image_os_hash_value", "image_os_hash_algo", "image_checksum"}
+		op = nodes.RemoveOp
+		for _, item := range removals {
+			if _, ok := ironicNode.InstanceInfo[item]; ok {
+				p.log.Info("removing " + item)
+				updates = append(
+					updates,
+					nodes.UpdateOperation{
+						Op:   op,
+						Path: "/instance_info/" + item,
+					},
+				)
+			}
+		}
+		return updates, nil
+	}
+
+	// Set deploy_interface direct when not booting a live-iso
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    nodes.ReplaceOp,
+			Path:  "/deploy_interface",
+			Value: "direct",
+		},
+	)
+	// Remove any boot_iso field
+	if _, ok := ironicNode.InstanceInfo["boot_iso"]; ok {
+		p.log.Info("removing boot_iso")
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:   nodes.RemoveOp,
+				Path: "/instance_info/boot_iso",
+			},
+		)
+	}
+	// image_source
 	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
 		op = nodes.AddOp
 		p.log.Info("adding image_source")
@@ -799,11 +878,9 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		nodes.UpdateOperation{
 			Op:    op,
 			Path:  "/instance_info/image_source",
-			Value: p.host.Spec.Image.URL,
+			Value: imageData.URL,
 		},
 	)
-
-	checksum, checksumType, _ := p.host.GetImageChecksum()
 
 	// image_os_hash_algo
 	if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
@@ -865,45 +942,32 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		)
 	}
 
-	if p.host.Spec.Image.DiskFormat != nil {
+	if imageData.DiskFormat != nil {
 		updates = append(updates, nodes.UpdateOperation{
 			Op:    nodes.AddOp,
 			Path:  "/instance_info/image_disk_format",
-			Value: *p.host.Spec.Image.DiskFormat,
+			Value: *imageData.DiskFormat,
 		})
 	}
 
-	// instance_uuid
-	p.log.Info("setting instance_uuid")
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    nodes.ReplaceOp,
-			Path:  "/instance_uuid",
-			Value: string(p.host.ObjectMeta.UID),
-		},
-	)
+	return updates, nil
+}
 
-	// root_gb
-	//
-	// FIXME(dhellmann): We have to provide something for the disk
-	// size until https://storyboard.openstack.org/#!/story/2005165 is
-	// fixed in ironic.
-	if _, ok := ironicNode.InstanceInfo["root_gb"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding root_gb")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating root_gb")
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
+
+	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
+
+	if err != nil {
+		return updates, errors.Wrap(err,
+			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
+				p.host.HardwareProfile()))
 	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/root_gb",
-			Value: hwProf.RootGB,
-		},
-	)
+
+	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, p.host.Spec.Image)
+	if err != nil {
+		return updates, errors.Wrap(err, "Could not get Image options for node")
+	}
+	updates = append(updates, imageOpts...)
 
 	// root_device
 	//
@@ -911,6 +975,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 	// the image. That should come from some combination of inspecting
 	// the host to see what is available and the hardware profile to
 	// give us instructions.
+	var op nodes.UpdateOp
 	if _, ok := ironicNode.Properties["root_device"]; !ok {
 		op = nodes.AddOp
 		p.log.Info("adding root_device")
@@ -1010,47 +1075,34 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 		return
 	}
 
-	if !strings.Contains(existingCapabilities, "boot_mode") {
-		// No boot_mode is set, append and return
-		value = fmt.Sprintf("%s,%s", existingCapabilities, bootModeCapabilities[bootMode])
-		return
+	var filteredCapabilities []string
+	for _, item := range strings.Split(existingCapabilities, ",") {
+		if !strings.HasPrefix(item, "boot_mode:") && !strings.HasPrefix(item, "secure_boot:") {
+			filteredCapabilities = append(filteredCapabilities, item)
+		}
 	}
+	filteredCapabilities = append(filteredCapabilities, bootModeCapabilities[bootMode])
 
-	// The capabilities value has format "var1:val1,var2:val2". We
-	// know that boot_mode is there but not what value it has.  There
-	// are only 2 values, so we can replace the "wrong" string with
-	// the right one without fully parsing the string. We may want to
-	// change this later when we have more boot modes.
-
-	var fromMode metal3v1alpha1.BootMode
-	if bootMode == metal3v1alpha1.UEFI {
-		fromMode = metal3v1alpha1.Legacy
-	} else {
-		fromMode = metal3v1alpha1.UEFI
-	}
-	value = strings.ReplaceAll(existingCapabilities,
-		bootModeCapabilities[fromMode], bootModeCapabilities[bootMode])
-
+	value = strings.Join(filteredCapabilities, ",")
 	return
 }
 
-func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
 	updates, err := p.getUpdateOptsForNode(ironicNode)
 	if err != nil {
-		return result, errors.Wrap(err, "failed to update opts for node")
+		return transientError(errors.Wrap(err, "failed to update opts for node"))
 	}
 	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 	switch err.(type) {
 	case nil:
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not update host settings in ironic, busy")
-		result.Dirty = true
-		return result, nil
+		return retryAfterDelay(provisionRequeueDelay)
 	default:
-		return result, errors.Wrap(err, "failed to update host settings in ironic")
+		return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
 	}
 
 	p.log.Info("validating host settings")
@@ -1060,15 +1112,12 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 	case nil:
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not validate host during registration, busy")
-		result.Dirty = true
-		return result, nil
+		return retryAfterDelay(provisionRequeueDelay)
 	default:
-		return result, errors.Wrap(err, "failed to validate host during registration")
+		return transientError(errors.Wrap(err, "failed to validate host during registration"))
 	}
 	if errorMessage != "" {
-		result.ErrorMessage = errorMessage
-		result.Dirty = true // validateNode() would have set the errors
-		return result, nil
+		return operationFailed(errorMessage)
 	}
 
 	// If validation is successful we can start moving the host
@@ -1084,23 +1133,29 @@ func (p *ironicProvisioner) startProvisioning(ironicNode *nodes.Node, hostConf p
 	return
 }
 
+func (p *ironicProvisioner) deployInterface() (result string) {
+	result = "direct"
+	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
+		result = "ramdisk"
+	}
+	return result
+}
+
 // Adopt allows an externally-provisioned server to be adopted by Ironic.
 func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
 	var ironicNode *nodes.Node
 
 	if ironicNode, err = p.findExistingHost(); err != nil {
-		err = errors.Wrap(err, "could not find host to adpot")
-		return
+		return transientError(errors.Wrap(err, "could not find host to adpot"))
 	}
 	if ironicNode == nil {
-		err = provisioner.NeedsRegistration
-		return
+		return transientError(provisioner.NeedsRegistration)
 	}
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Enroll, nodes.Verifying:
-		err = fmt.Errorf("Invalid state for adopt: %s",
-			ironicNode.ProvisionState)
+		return transientError(fmt.Errorf("Invalid state for adopt: %s",
+			ironicNode.ProvisionState))
 	case nodes.Manageable:
 		_, hasImageSource := ironicNode.InstanceInfo["image_source"]
 		_, hasBootISO := ironicNode.InstanceInfo["boot_iso"]
@@ -1122,8 +1177,7 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 			},
 		)
 	case nodes.Adopting:
-		result.RequeueAfter = provisionRequeueDelay
-		result.Dirty = true
+		return operationContinuing(provisionRequeueDelay)
 	case nodes.AdoptFail:
 		if force {
 			return p.changeNodeProvisionState(
@@ -1133,11 +1187,122 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 				},
 			)
 		} else {
-			result.ErrorMessage = fmt.Sprintf("Host adoption failed: %s",
-				ironicNode.LastError)
+			return operationFailed(fmt.Sprintf("Host adoption failed: %s",
+				ironicNode.LastError))
 		}
 	case nodes.Active:
 	default:
+	}
+	return operationComplete()
+}
+
+func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImage bool) {
+	// To make it easier to test if ironic is configured with
+	// the same image we are trying to provision to the host.
+	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
+		sameImage = (ironicNode.InstanceInfo["boot_iso"] == p.host.Spec.Image.URL)
+		p.log.Info("checking image settings",
+			"boot_iso", ironicNode.InstanceInfo["boot_iso"],
+			"same", sameImage,
+			"provisionState", ironicNode.ProvisionState)
+	} else {
+		checksum, checksumType, _ := p.host.GetImageChecksum()
+		sameImage = (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+			ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
+			ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
+		p.log.Info("checking image settings",
+			"source", ironicNode.InstanceInfo["image_source"],
+			"image_os_hash_algo", checksumType,
+			"image_os_has_value", checksum,
+			"same", sameImage,
+			"provisionState", ironicNode.ProvisionState)
+	}
+	return sameImage
+}
+
+func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.CleanStep) {
+	// TODO: Add manual cleaning steps for host configuration
+
+	return
+}
+
+func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
+	cleanSteps := p.buildManualCleaningSteps()
+
+	// Start manual clean
+	if len(cleanSteps) != 0 {
+		p.log.Info("remove existing configuration and set new configuration", "steps", cleanSteps)
+		return p.tryChangeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{
+				Target:     nodes.TargetClean,
+				CleanSteps: cleanSteps,
+			},
+		)
+	}
+	result, err = operationComplete()
+	return
+}
+
+// Prepare remove existing configuration and set new configuration.
+// If `started` is true,  it means that we successfully executed `tryChangeNodeProvisionState`.
+func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+	var ironicNode *nodes.Node
+
+	if ironicNode, err = p.findExistingHost(); err != nil {
+		result, err = transientError(errors.Wrap(err, "could not find host to clean"))
+		return
+	}
+	if ironicNode == nil {
+		result, err = transientError(provisioner.NeedsRegistration)
+		return
+	}
+
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.Available:
+		if unprepared && len(p.buildManualCleaningSteps()) != 0 {
+			result, err = p.changeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+			)
+			return
+		}
+		result, err = operationComplete()
+
+	case nodes.Manageable:
+		if unprepared {
+			started, result, err = p.startManualCleaning(ironicNode)
+			return
+		}
+		// Manual clean finished
+		result, err = operationComplete()
+
+	case nodes.CleanFail:
+		// When clean failed, we need to clean host provisioning settings.
+		// If unprepared is false, means the settings aren't cleared.
+		// So we can't set the node's state to manageable, until the settings are cleared.
+		if !unprepared {
+			result, err = operationFailed(ironicNode.LastError)
+			return
+		}
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			result, err = p.setMaintenanceFlag(ironicNode, false)
+			return
+		}
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
+	case nodes.Cleaning, nodes.CleanWait:
+		p.log.Info("waiting for host to become manageable",
+			"state", ironicNode.ProvisionState,
+			"deploy step", ironicNode.DeployStep)
+		result, err = operationContinuing(provisionRequeueDelay)
+
+	default:
+		result, err = transientError(fmt.Errorf("Have unexpected ironic node state %s", ironicNode.ProvisionState))
 	}
 	return
 }
@@ -1149,30 +1314,15 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 	var ironicNode *nodes.Node
 
 	if ironicNode, err = p.findExistingHost(); err != nil {
-		return result, errors.Wrap(err, "could not find host to receive image")
+		return transientError(errors.Wrap(err, "could not find host to receive image"))
 	}
 	if ironicNode == nil {
-		return result, provisioner.NeedsRegistration
+		return transientError(provisioner.NeedsRegistration)
 	}
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	checksum, checksumType, _ := p.host.GetImageChecksum()
-
-	// Local variable to make it easier to test if ironic is
-	// configured with the same image we are trying to provision to
-	// the host.
-	ironicHasSameImage := (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
-		ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
-		ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
-	p.log.Info("checking image settings",
-		"source", ironicNode.InstanceInfo["image_source"],
-		"image_os_hash_algo", checksumType,
-		"image_os_has_value", checksum,
-		"same", ironicHasSameImage,
-		"provisionState", ironicNode.ProvisionState)
-
-	result.RequeueAfter = provisionRequeueDelay
+	ironicHasSameImage := p.ironicHasSameImage(ironicNode)
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
@@ -1188,16 +1338,14 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			// top of relational databases...
 			if ironicNode.LastError == "" {
 				p.log.Info("failed but error message not available")
-				result.Dirty = true
-				return result, nil
+				return retryAfterDelay(0)
 			}
 			p.log.Info("found error", "msg", ironicNode.LastError)
-			result.ErrorMessage = fmt.Sprintf("Image provisioning failed: %s",
-				ironicNode.LastError)
-			return result, nil
+			return operationFailed(fmt.Sprintf("Image provisioning failed: %s",
+				ironicNode.LastError))
 		}
 		p.log.Info("recovering from previous failure")
-		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
@@ -1208,8 +1356,18 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		return p.changeNodeProvisionState(ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetProvide})
 
+	case nodes.CleanFail:
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			return p.setMaintenanceFlag(ironicNode, false)
+		}
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+
 	case nodes.Available:
-		if provResult, err := p.startProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
@@ -1220,17 +1378,17 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		// Retrieve cloud-init user data
 		userData, err := hostConf.UserData()
 		if err != nil {
-			return result, errors.Wrap(err, "could not retrieve user data")
+			return transientError(errors.Wrap(err, "could not retrieve user data"))
 		}
 
 		// Retrieve cloud-init network_data.json. Default value is empty
 		networkDataRaw, err := hostConf.NetworkData()
 		if err != nil {
-			return result, errors.Wrap(err, "could not retrieve network data")
+			return transientError(errors.Wrap(err, "could not retrieve network data"))
 		}
 		var networkData map[string]interface{}
 		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
-			return result, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
+			return transientError(errors.Wrap(err, "failed to unmarshal network_data.json from secret"))
 		}
 
 		// Retrieve cloud-init meta_data.json with falback to default
@@ -1243,11 +1401,11 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		}
 		metaDataRaw, err := hostConf.MetaData()
 		if err != nil {
-			return result, errors.Wrap(err, "could not retrieve metadata")
+			return transientError(errors.Wrap(err, "could not retrieve metadata"))
 		}
 		if metaDataRaw != "" {
 			if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
-				return result, errors.Wrap(err, "failed to unmarshal metadata from secret")
+				return transientError(errors.Wrap(err, "failed to unmarshal metadata from secret"))
 			}
 		}
 
@@ -1259,7 +1417,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 				NetworkData: networkData,
 			}
 			if err != nil {
-				return result, errors.Wrap(err, "failed to build config drive")
+				return transientError(errors.Wrap(err, "failed to build config drive"))
 			}
 			p.log.Info("triggering provisioning with config drive")
 		} else {
@@ -1279,15 +1437,14 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		p.publisher("ProvisioningComplete",
 			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
 		p.log.Info("finished provisioning")
-		return result, nil
+		return operationComplete()
 
 	default:
 		// wait states like cleaning and clean wait
 		p.log.Info("waiting for host to become available",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep)
-		result.Dirty = true
-		return result, nil
+		return operationContinuing(provisionRequeueDelay)
 	}
 }
 
@@ -1307,25 +1464,25 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 	case nil:
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not set host maintenance flag, busy")
+		return retryAfterDelay(provisionRequeueDelay)
 	default:
-		return result, errors.Wrap(err, "failed to set host maintenance flag")
+		return transientError(errors.Wrap(err, "failed to set host maintenance flag"))
 	}
-	result.Dirty = true
-	return result, nil
+	return operationContinuing(0)
 }
 
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		return transientError(errors.Wrap(err, "failed to find existing host"))
 	}
 	if ironicNode == nil {
-		return result, provisioner.NeedsRegistration
+		return transientError(provisioner.NeedsRegistration)
 	}
 
 	p.log.Info("deprovisioning host",
@@ -1339,9 +1496,20 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Error:
+		if !force {
+			p.log.Info("deprovisioning failed")
+			if ironicNode.LastError == "" {
+				result.ErrorMessage = "Deprovisioning failed"
+			} else {
+				result.ErrorMessage = ironicNode.LastError
+			}
+			return result, nil
+		}
+		p.log.Info("retrying deprovisioning")
+		p.publisher("DeprovisioningStarted", "Image deprovisioning restarted")
 		return p.changeNodeProvisionState(
 			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+			nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
 		)
 
 	case nodes.CleanFail:
@@ -1350,6 +1518,10 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 			p.log.Info("clearing maintenance flag")
 			return p.setMaintenanceFlag(ironicNode, false)
 		}
+		// This will return us to the manageable state without completing
+		// cleaning. Because cleaning happens in the process of moving from
+		// manageable to available, the node will still get cleaned before
+		// we provision it again.
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
@@ -1365,29 +1537,23 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 
 	case nodes.Available:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
-		return result, nil
+		return operationComplete()
 
 	case nodes.Deleting:
 		p.log.Info("deleting")
 		// Transitions to Cleaning upon completion
-		result.Dirty = true
-		result.RequeueAfter = deprovisionRequeueDelay
-		return result, nil
+		return operationContinuing(deprovisionRequeueDelay)
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
 		// Transitions to Available upon completion
-		result.Dirty = true
-		result.RequeueAfter = deprovisionRequeueDelay
-		return result, nil
+		return operationContinuing(deprovisionRequeueDelay)
 
 	case nodes.CleanWait:
 		p.log.Info("cleaning")
-		result.Dirty = true
-		result.RequeueAfter = deprovisionRequeueDelay
-		return result, nil
+		return operationContinuing(deprovisionRequeueDelay)
 
-	case nodes.Active:
+	case nodes.Active, nodes.DeployFail:
 		p.log.Info("starting deprovisioning")
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(
@@ -1396,7 +1562,8 @@ func (p *ironicProvisioner) Deprovision() (result provisioner.Result, err error)
 		)
 
 	default:
-		return result, fmt.Errorf("Unhandled ironic state %s", ironicNode.ProvisionState)
+		// FIXME(zaneb): this error is unlikely to actually be transient
+		return transientError(fmt.Errorf("Unhandled ironic state %s", ironicNode.ProvisionState))
 	}
 }
 
@@ -1407,11 +1574,11 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		return transientError(errors.Wrap(err, "failed to find existing host"))
 	}
 	if ironicNode == nil {
 		p.log.Info("no node found, already deleted")
-		return result, nil
+		return operationComplete()
 	}
 
 	p.log.Info("deleting host",
@@ -1453,14 +1620,14 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		p.log.Info("removed")
 	case gophercloud.ErrDefault409:
 		p.log.Info("could not remove host, busy")
+		return retryAfterDelay(provisionRequeueDelay)
 	case gophercloud.ErrDefault404:
 		p.log.Info("did not find host to delete, OK")
 	default:
-		return result, errors.Wrap(err, "failed to remove host")
+		return transientError(errors.Wrap(err, "failed to remove host"))
 	}
 
-	result.Dirty = true
-	return result, nil
+	return operationContinuing(0)
 }
 
 func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {
@@ -1471,9 +1638,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 			"state", ironicNode.ProvisionState,
 			"target state", ironicNode.TargetProvisionState,
 		)
-		result.Dirty = true
-		result.RequeueAfter = powerRequeueDelay
-		return result, nil
+		return operationContinuing(powerRequeueDelay)
 	}
 
 	powerStateOpts := nodes.PowerStateOpts{
@@ -1490,12 +1655,11 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 
 	switch changeResult.Err.(type) {
 	case nil:
-		result.Dirty = true
 		p.log.Info("power change OK")
+		return operationContinuing(0)
 	case gophercloud.ErrDefault409:
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
-		result.Dirty = true
-		result.RequeueAfter = powerRequeueDelay
+		result, _ = retryAfterDelay(powerRequeueDelay)
 		return result, HostLockedError{Address: p.host.Spec.BMC.Address}
 	case gophercloud.ErrDefault400:
 		// Error 400 Bad Request means target power state is not supported by vendor driver
@@ -1503,10 +1667,8 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		return result, SoftPowerOffUnsupportedError{Address: p.host.Spec.BMC.Address}
 	default:
 		p.log.Info("power change error", "message", changeResult.Err)
-		return result, errors.Wrap(changeResult.Err, "failed to change power state")
+		return transientError(errors.Wrap(changeResult.Err, "failed to change power state"))
 	}
-
-	return result, nil
 }
 
 // PowerOn ensures the server is powered on independently of any image
@@ -1516,7 +1678,7 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		return transientError(errors.Wrap(err, "failed to find existing host"))
 	}
 
 	p.log.Info("checking current state",
@@ -1526,13 +1688,14 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 	if ironicNode.PowerState != powerOn {
 		if ironicNode.TargetPowerState == powerOn {
 			p.log.Info("waiting for power status to change")
-			result.RequeueAfter = powerRequeueDelay
-			result.Dirty = true
-			return result, nil
+			return operationContinuing(powerRequeueDelay)
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOn)
-		if err != nil {
-			return result, errors.Wrap(err, "failed to power on host")
+		switch err.(type) {
+		case nil:
+		case HostLockedError:
+		default:
+			return transientError(errors.Wrap(err, "failed to power on host"))
 		}
 		p.publisher("PowerOn", "Host powered on")
 	}
@@ -1553,12 +1716,9 @@ func (p *ironicProvisioner) PowerOff() (result provisioner.Result, err error) {
 		case SoftPowerOffUnsupportedError, SoftPowerOffFailed:
 			return p.hardPowerOff()
 		case HostLockedError:
-			result.RequeueAfter = powerRequeueDelay
-			result.Dirty = true
-			return result, nil
+			return retryAfterDelay(powerRequeueDelay)
 		default:
-			result.RequeueAfter = powerRequeueDelay
-			return result, err
+			return transientError(err)
 		}
 	}
 	return result, nil
@@ -1570,24 +1730,23 @@ func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		return transientError(errors.Wrap(err, "failed to find existing host"))
 	}
 
 	if ironicNode.PowerState != powerOff {
 		if ironicNode.TargetPowerState == powerOff {
 			p.log.Info("waiting for power status to change")
-			result.RequeueAfter = powerRequeueDelay
-			result.Dirty = true
-			return result, nil
+			return operationContinuing(powerRequeueDelay)
 		}
 		result, err = p.changePower(ironicNode, nodes.PowerOff)
 		if err != nil {
-			return result, errors.Wrap(err, "failed to power off host")
+			return transientError(errors.Wrap(err, "failed to power off host"))
 		}
 		p.publisher("PowerOff", "Host powered off")
+		return result, err
 	}
 
-	return result, nil
+	return operationComplete()
 }
 
 // softPowerOff sends 'soft power off' request to BM node.
@@ -1600,7 +1759,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
-		return result, errors.Wrap(err, "failed to find existing host")
+		return transientError(errors.Wrap(err, "failed to find existing host"))
 	}
 
 	if ironicNode.PowerState != powerOff {
@@ -1608,9 +1767,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 		// If the target state is either powerOff or softPowerOff, then we should wait
 		if targetState == powerOff || targetState == softPowerOff {
 			p.log.Info("waiting for power status to change")
-			result.RequeueAfter = powerRequeueDelay
-			result.Dirty = true
-			return result, nil
+			return operationContinuing(powerRequeueDelay)
 		}
 		// If the target state is unset while the last error is set,
 		// then the last execution of soft power off has failed.
@@ -1619,8 +1776,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 		}
 		result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
 		if err != nil {
-			result.RequeueAfter = powerRequeueDelay
-			return result, err
+			return transientError(err)
 		}
 		p.publisher("PowerOff", "Host soft powered off")
 	}
@@ -1634,4 +1790,53 @@ func (p *ironicProvisioner) IsReady() (result bool, err error) {
 
 	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
 	return checker.IsReady()
+}
+
+func (p *ironicProvisioner) HasProvisioningCapacity() (result bool, err error) {
+
+	hosts, err := p.loadProvisioningHosts()
+	if err != nil {
+		p.log.Error(err, "Unable to get hosts currently being provisioned")
+		return false, err
+	}
+
+	// If the current host is already under processing then let's skip the test
+	if _, ok := hosts[p.host.Name]; ok {
+		return true, nil
+	}
+
+	return len(hosts) < maxProvisioningHosts, nil
+}
+
+func (p *ironicProvisioner) loadProvisioningHosts() (hosts map[string]struct{}, err error) {
+
+	hosts = make(map[string]struct{})
+	pager := nodes.List(p.client, nodes.ListOpts{
+		Fields: []string{"uuid,name,provision_state,driver_internal_info,target_provision_state"},
+	})
+	if pager.Err != nil {
+		return nil, pager.Err
+	}
+
+	page, err := pager.AllPages()
+	if err != nil {
+		return nil, err
+	}
+
+	allNodes, err := nodes.ExtractNodes(page)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, node := range allNodes {
+
+		switch nodes.ProvisionState(node.ProvisionState) {
+		case nodes.Cleaning, nodes.CleanWait,
+			nodes.Inspecting, nodes.InspectWait,
+			nodes.Deploying, nodes.DeployWait:
+			hosts[node.Name] = struct{}{}
+		}
+	}
+
+	return hosts, nil
 }

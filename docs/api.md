@@ -92,8 +92,10 @@ The sub-fields are
   only `md5`, `sha256`, `sha512` are recognized. If nothing is specified
   `md5` is assumed.
 * *format* -- This is the disk format of the image. It can be one of `raw`,
-  `qcow2`, `vdi`, `vmdk`, or be left unset. Setting it to raw enables raw
-  image streaming in Ironic agent for that image.
+  `qcow2`, `vdi`, `vmdk`, `live-iso` or be left unset.
+  Setting it to raw enables raw image streaming in Ironic agent for that image.
+  Setting it to live-iso enables iso images to live boot without deploying
+  to disk, in this case the checksum fields are ignored.
 
 Even though the image sub-fields are required by Ironic,
 when the host provisioning is managed externally via `externallyProvisioned: true`,
@@ -232,7 +234,7 @@ The sub-fields are
 * *cpu* -- Details of the CPU(s) in the system.
   * *arch* -- The architecture of the CPU.
   * *model* -- The model string.
-  * *clockMegahertz* -- The speed in GHz of the CPU.
+  * *clockMegahertz* -- The speed in MHz of the CPU.
   * *flags* -- List of CPU flags, e.g. 'mmx','sse','sse2','vmx', ...
   * *count* -- Amount of these CPUs available in the system.
 * *firmware* -- Contains BIOS information like for instance its *vendor*

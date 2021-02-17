@@ -59,6 +59,9 @@ type AccessDetails interface {
 	PowerInterface() string
 	RAIDInterface() string
 	VendorInterface() string
+
+	// Whether the driver supports changing secure boot state.
+	SupportsSecureBoot() bool
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {

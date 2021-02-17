@@ -57,7 +57,9 @@ func init() {
 func printVersion() {
 	setupLog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	setupLog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	setupLog.Info(fmt.Sprintf("baremetal-operator version: %s", version.String))
+	setupLog.Info(fmt.Sprintf("Git commit: %s", version.Commit))
+	setupLog.Info(fmt.Sprintf("Build time: %s", version.BuildTime))
+	setupLog.Info(fmt.Sprintf("Component: %s", version.String))
 }
 
 func setupChecks(mgr ctrl.Manager) {
@@ -118,21 +120,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	provisionerFactory := func(host *metal3iov1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish provisioner.EventPublisher) (provisioner.Provisioner, error) {
+	provisionerFactory := func(host metal3iov1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish provisioner.EventPublisher) (provisioner.Provisioner, error) {
 		isUnmanaged := host.Spec.ExternallyProvisioned && !host.HasBMCDetails()
+
+		hostCopy := host.DeepCopy()
 
 		if runInTestMode {
 			ctrl.Log.Info("using test provisioner")
-			return fixture.New(host, bmcCreds, publish)
+			fix := fixture.Fixture{}
+			return fix.New(*hostCopy, bmcCreds, publish)
 		} else if runInDemoMode {
 			ctrl.Log.Info("using demo provisioner")
-			return demo.New(host, bmcCreds, publish)
+			return demo.New(*hostCopy, bmcCreds, publish)
 		} else if isUnmanaged {
 			ctrl.Log.Info("using empty provisioner")
-			return empty.New(host, bmcCreds, publish)
+			return empty.New(*hostCopy, bmcCreds, publish)
 		}
 		ironic.LogStartup()
-		return ironic.New(host, bmcCreds, publish)
+		return ironic.New(*hostCopy, bmcCreds, publish)
 	}
 
 	if err = (&metal3iocontroller.BareMetalHostReconciler{

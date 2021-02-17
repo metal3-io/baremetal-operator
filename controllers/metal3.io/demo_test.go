@@ -45,7 +45,7 @@ func TestDemoRegistrationError(t *testing.T) {
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.HasError()
+			return host.Status.ErrorMessage != ""
 		},
 	)
 }
@@ -82,6 +82,48 @@ func TestDemoInspecting(t *testing.T) {
 				host.Status.ErrorMessage,
 			)
 			return host.Status.Provisioning.State == metal3v1alpha1.StateInspecting
+		},
+	)
+}
+
+func TestDemoPreparing(t *testing.T) {
+	host := newDefaultNamedHost(demo.PreparingHost, t)
+	host.Spec.Image = &metal3v1alpha1.Image{
+		URL:      "a-url",
+		Checksum: "a-checksum",
+	}
+	host.Spec.Online = true
+	r := newDemoReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("Status: %q State: %q ErrorMessage: %q",
+				host.OperationalStatus(),
+				host.Status.Provisioning.State,
+				host.Status.ErrorMessage,
+			)
+			return host.Status.Provisioning.State == metal3v1alpha1.StatePreparing
+		},
+	)
+}
+
+func TestDemoPreparingError(t *testing.T) {
+	host := newDefaultNamedHost(demo.PreparingErrorHost, t)
+	host.Spec.Image = &metal3v1alpha1.Image{
+		URL:      "a-url",
+		Checksum: "a-checksum",
+	}
+	host.Spec.Online = true
+	r := newDemoReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("Status: %q State: %q ErrorMessage: %q",
+				host.OperationalStatus(),
+				host.Status.Provisioning.State,
+				host.Status.ErrorMessage,
+			)
+			return host.Status.Provisioning.State == metal3v1alpha1.StatePreparing
 		},
 	)
 }
@@ -168,7 +210,7 @@ func TestDemoValidationError(t *testing.T) {
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.HasError()
+			return host.Status.ErrorMessage != ""
 		},
 	)
 }

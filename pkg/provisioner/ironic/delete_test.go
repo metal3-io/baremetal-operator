@@ -50,7 +50,7 @@ func TestDelete(t *testing.T) {
 				},
 			).DeleteError(nodeUUID, http.StatusConflict),
 			expectedDirty:        true,
-			expectedRequestAfter: 0,
+			expectedRequestAfter: provisionRequeueDelay,
 		},
 		{
 			name: "delete-host-not-found",
@@ -122,7 +122,7 @@ func TestDelete(t *testing.T) {
 			).NodeUpdateError(nodeUUID, http.StatusConflict),
 
 			expectedDirty:        true,
-			expectedRequestAfter: 0,
+			expectedRequestAfter: provisionRequeueDelay,
 		},
 		{
 			name: "not-in-maintenance-update",

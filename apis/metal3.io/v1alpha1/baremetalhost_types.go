@@ -483,16 +483,16 @@ type CredentialsStatus struct {
 	Version   string                  `json:"credentialsVersion,omitempty"`
 }
 
-// RebootAnnotation defines known variations of reboot modes
-type RebootAnnotation string
+// RebootMode defines known variations of reboot modes
+type RebootMode string
 
 const (
-	RebootAnnotationHard RebootAnnotation = "hard"
-	RebootAnnotationSoft RebootAnnotation = "soft"
+	RebootModeHard RebootMode = "hard"
+	RebootModeSoft RebootMode = "soft"
 )
 
 type RebootAnnotationArguments struct {
-	Mode	RebootAnnotation	`json:"mode"`
+	Mode RebootMode `json:"mode"`
 }
 
 // Match compares the saved status information with the name and

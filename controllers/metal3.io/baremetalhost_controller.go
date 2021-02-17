@@ -339,43 +339,40 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl
 }
 
 // hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist
-func hasRebootAnnotation(info *reconcileInfo) (hasReboot, hardMode bool) {
+func hasRebootAnnotation(info *reconcileInfo) (hasReboot bool, rebootMode metal3v1alpha1.RebootMode) {
+	rebootMode = metal3v1alpha1.RebootModeSoft
+
 	for annotation, value := range info.host.GetAnnotations() {
-		// Don't use a break here as we may have multiple clients setting
-		// reboot annotations and we always want hard requests honoured
 		if isRebootAnnotation(annotation) {
 			hasReboot = true
-			if isHardReboot(value, info) {
-				hardMode = true
+			newRebootMode := getRebootMode(value, info)
+			// If any annotation has asked for a hard reboot, that
+			// mode takes precedence.
+			if newRebootMode == metal3v1alpha1.RebootModeHard {
+				rebootMode = newRebootMode
 			}
+			// Don't use a break here as we may have multiple clients setting
+			// reboot annotations and we always want hard requests honoured
 		}
 	}
 	return
 }
 
-// isHardReboot checks if reboot annotation requests a hard reboot and returns true if so
-func isHardReboot(annotation string, info *reconcileInfo) bool {
-
-	type RebootAnnotationArguments struct {
-		Mode	metal3v1alpha1.RebootAnnotation	`json:"mode"`
-	}
+func getRebootMode(annotation string, info *reconcileInfo) metal3v1alpha1.RebootMode {
 
 	if annotation == "" {
 		info.log.Info("No reboot annotation value specified, assuming soft-reboot.")
-		return false
+		return metal3v1alpha1.RebootModeSoft
 	}
 
-	annotations := RebootAnnotationArguments{}
+	annotations := metal3v1alpha1.RebootAnnotationArguments{}
 	err := json.Unmarshal([]byte(annotation), &annotations)
 	if err != nil {
 		info.publishEvent("InvalidAnnotationValue", fmt.Sprintf("could not parse reboot annotation (%s) - invalid json, assuming soft-reboot", annotation))
 		info.log.Info(fmt.Sprintf("Could not parse reboot annotation (%q) - invalid json, assuming soft-reboot", annotation))
-		return false
+		return metal3v1alpha1.RebootModeSoft
 	}
-	if annotations.Mode == metal3v1alpha1.RebootAnnotationHard {
-		return true
-	}
-	return false
+	return annotations.Mode
 }
 
 // isRebootAnnotation returns true if the provided annotation is a reboot annotation (either suffixed or not)
@@ -796,7 +793,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	provState := info.host.Status.Provisioning.State
 	isProvisioned := provState == metal3v1alpha1.StateProvisioned || provState == metal3v1alpha1.StateExternallyProvisioned
 
-	desiredReboot, desiredHardReboot := hasRebootAnnotation(info)
+	desiredReboot, desiredRebootMode := hasRebootAnnotation(info)
 	if desiredReboot && isProvisioned {
 		desiredPowerOnState = false
 	}
@@ -812,13 +809,13 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	info.log.Info("power state change needed",
 		"expected", desiredPowerOnState,
 		"actual", info.host.Status.PoweredOn,
-		"hard reboot", desiredHardReboot,
+		"reboot mode", desiredRebootMode,
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
 	if desiredPowerOnState {
 		provResult, err = prov.PowerOn()
 	} else {
-		provResult, err = prov.PowerOff(desiredHardReboot)
+		provResult, err = prov.PowerOff(desiredRebootMode)
 	}
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to manage power state of host")}

@@ -86,7 +86,7 @@ type Provisioner interface {
 	// PowerOff ensures the server is powered off independently of any image
 	// provisioning operation. The boolean argument may be used to specify
 	// if a hard reboot (force power off) is required - true if so.
-	PowerOff(hardMode bool) (result Result, err error)
+	PowerOff(rebootMode metal3v1alpha1.RebootMode) (result Result, err error)
 
 	// IsReady checks if the provisioning backend is available to accept
 	// all the incoming requests.

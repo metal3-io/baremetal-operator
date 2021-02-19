@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.hub.docker.com/library/golang:1.15.3 AS builder
+FROM registry.hub.docker.com/library/golang:1.16 AS builder
 
 WORKDIR /workspace
 

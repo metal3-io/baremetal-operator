@@ -75,9 +75,11 @@ empty if the host is not being currently used.  For example, a
 #### externallyProvisioned
 
 A boolean indicating whether the host provisioning and deprovisioning
-are managed externally. When set, the host's power status and hardware
-inventory will be monitored but no provisioning or deprovisioning
-operations are performed on the host.
+are managed externally. When set:
+
+* Power status can still be managed using the `online` field.
+* Hardware inventory will be monitored, but no provisioning or deprovisioning
+  operations are performed on the host.
 
 #### image
 

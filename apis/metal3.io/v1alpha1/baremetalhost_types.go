@@ -483,6 +483,18 @@ type CredentialsStatus struct {
 	Version   string                  `json:"credentialsVersion,omitempty"`
 }
 
+// RebootMode defines known variations of reboot modes
+type RebootMode string
+
+const (
+	RebootModeHard RebootMode = "hard"
+	RebootModeSoft RebootMode = "soft"
+)
+
+type RebootAnnotationArguments struct {
+	Mode RebootMode `json:"mode"`
+}
+
 // Match compares the saved status information with the name and
 // content of a secret object.
 func (cs CredentialsStatus) Match(secret corev1.Secret) bool {

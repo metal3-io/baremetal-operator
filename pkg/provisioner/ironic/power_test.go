@@ -9,6 +9,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -123,6 +124,7 @@ func TestPowerOff(t *testing.T) {
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		rebootMode           metal3v1alpha1.RebootMode
 	}{
 		{
 			name: "node-already-power-off",
@@ -150,6 +152,18 @@ func TestPowerOff(t *testing.T) {
 				UUID:                 nodeUUID,
 			}),
 			expectedDirty: true,
+			rebootMode:    metal3v1alpha1.RebootModeSoft,
+		},
+		{
+			name: "power-off hard",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+			}),
+			expectedDirty: true,
+			rebootMode:    metal3v1alpha1.RebootModeHard,
 		},
 		{
 			name: "power-off wait for Provisioning state",
@@ -199,7 +213,8 @@ func TestPowerOff(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, err := prov.PowerOff()
+			// We pass the RebootMode type here to define the reboot action
+			result, err := prov.PowerOff(tc.rebootMode)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

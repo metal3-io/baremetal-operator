@@ -304,12 +304,6 @@ spec:
                         type: array
                       model:
                         type: string
-                    required:
-                    - arch
-                    - clockMegahertz
-                    - count
-                    - flags
-                    - model
                     type: object
                   firmware:
                     description: Firmware describes the firmware on the host.
@@ -326,13 +320,7 @@ spec:
                           version:
                             description: The version of the BIOS
                             type: string
-                        required:
-                        - date
-                        - vendor
-                        - version
                         type: object
-                    required:
-                    - bios
                     type: object
                   hostname:
                     type: string
@@ -378,18 +366,8 @@ spec:
                                 type: integer
                               name:
                                 type: string
-                            required:
-                            - id
                             type: object
                           type: array
-                      required:
-                      - ip
-                      - mac
-                      - model
-                      - name
-                      - pxe
-                      - speedGbps
-                      - vlanId
                       type: object
                     type: array
                   ramMebibytes:
@@ -429,11 +407,6 @@ spec:
                         wwnWithExtension:
                           description: The WWN with the extension
                           type: string
-                      required:
-                      - name
-                      - rotational
-                      - serialNumber
-                      - sizeBytes
                       type: object
                     type: array
                   systemVendor:
@@ -445,19 +418,7 @@ spec:
                         type: string
                       serialNumber:
                         type: string
-                    required:
-                    - manufacturer
-                    - productName
-                    - serialNumber
                     type: object
-                required:
-                - cpu
-                - firmware
-                - hostname
-                - nics
-                - ramMebibytes
-                - storage
-                - systemVendor
                 type: object
               hardwareProfile:
                 description: The name of the profile matching the hardware details.

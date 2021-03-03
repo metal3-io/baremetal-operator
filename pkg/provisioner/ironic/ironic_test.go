@@ -2,7 +2,8 @@ package ironic
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func init() {
-	logf.SetLogger(logf.ZapLogger(true))
+	logf.SetLogger(logz.New(logz.UseDevMode(true)))
 }
 
 func makeHost() metal3v1alpha1.BareMetalHost {

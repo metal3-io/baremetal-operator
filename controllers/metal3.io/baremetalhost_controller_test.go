@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	goctx "context"
 	"encoding/base64"
 	"encoding/json"
@@ -14,8 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-
-	"k8s.io/client-go/kubernetes/scheme"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -97,7 +96,6 @@ func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Obje
 
 	return &BareMetalHostReconciler{
 		Client:             c,
-		Scheme:             scheme.Scheme,
 		ProvisionerFactory: fix.New,
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 	}
@@ -128,7 +126,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 			t.Fatal(fmt.Errorf("Exceeded 25 iterations"))
 		}
 
-		result, err := r.Reconcile(request)
+		result, err := r.Reconcile(context.Background(), request)
 
 		if err != nil {
 			t.Fatal(err)
@@ -1265,10 +1263,8 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-generation-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld:   &metav1.ObjectMeta{Generation: 0},
-				MetaNew:   &metav1.ObjectMeta{Generation: 1},
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 0}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 1}},
 			},
 
 			expectedProcess: true,
@@ -1276,22 +1272,20 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "skip-if-same-generation-finalizers-and-annotations",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: false,
@@ -1299,20 +1293,18 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-annotations-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation:  0,
 					Finalizers:  []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: true,
@@ -1320,22 +1312,20 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-finalizers-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: true,
@@ -1343,20 +1333,18 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-finalizers-and-annotation-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation:  0,
 					Finalizers:  []string{},
 					Annotations: map[string]string{},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: true,

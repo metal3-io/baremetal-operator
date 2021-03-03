@@ -13,7 +13,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/pkg/errors"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	log                       = logf.Log.WithName("provisioner").WithName("ironic")
+	log                       = logz.New().WithName("provisioner").WithName("ironic")
 	deprovisionRequeueDelay   = time.Second * 10
 	provisionRequeueDelay     = time.Second * 10
 	powerRequeueDelay         = time.Second * 10

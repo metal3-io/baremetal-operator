@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -58,7 +57,6 @@ const (
 type BareMetalHostReconciler struct {
 	client.Client
 	Log                logr.Logger
-	Scheme             *runtime.Scheme
 	ProvisionerFactory provisioner.Factory
 }
 
@@ -85,7 +83,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 
 // Reconcile handles changes to BareMetalHost resources
-func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.Result, err error) {
+func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
 
 	reconcileCounters.With(hostMetricLabels(request)).Inc()
 	defer func() {
@@ -98,7 +96,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 
 	// Fetch the BareMetalHost
 	host := &metal3v1alpha1.BareMetalHost{}
-	err = r.Get(context.TODO(), request.NamespacedName, host)
+	err = r.Get(ctx, request.NamespacedName, host)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after
@@ -134,7 +132,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 				t := metav1.Now()
 				host.Status.LastUpdated = &t
 			}
-			errStatus := r.Status().Update(context.TODO(), host)
+			errStatus := r.Status().Update(ctx, host)
 			if errStatus != nil {
 				return ctrl.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
 			}
@@ -146,7 +144,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 		// already present. The annotation data will get outdated, so remove it.
 		if _, present := annotations[metal3v1alpha1.StatusAnnotation]; present {
 			delete(annotations, metal3v1alpha1.StatusAnnotation)
-			errStatus := r.Update(context.TODO(), host)
+			errStatus := r.Update(ctx, host)
 			if errStatus != nil {
 				return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
 			}
@@ -168,7 +166,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 		)
 		host.Finalizers = append(host.Finalizers,
 			metal3v1alpha1.BareMetalHostFinalizer)
-		err := r.Update(context.TODO(), host)
+		err := r.Update(ctx, host)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
 		}
@@ -1040,7 +1038,7 @@ func (r *BareMetalHostReconciler) setBMCCredentialsSecretOwner(request ctrl.Requ
 		return nil
 	}
 	reqLogger.Info("updating owner of secret")
-	err = controllerutil.SetControllerReference(host, secret, r.Scheme)
+	err = controllerutil.SetControllerReference(host, secret, r.Scheme())
 	if err != nil {
 		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot set owner: %q", err.Error())}
 	}
@@ -1082,12 +1080,12 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 	}
 
 	//If the update increased the resource Generation then let's process it
-	if e.MetaNew.GetGeneration() != e.MetaOld.GetGeneration() {
+	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 		return true
 	}
 
 	//Discard updates that did not increase the resource Generation (such as on Status.LastUpdated), except for the finalizers or annotations
-	if reflect.DeepEqual(e.MetaNew.GetFinalizers(), e.MetaOld.GetFinalizers()) && reflect.DeepEqual(e.MetaNew.GetAnnotations(), e.MetaOld.GetAnnotations()) {
+	if reflect.DeepEqual(e.ObjectNew.GetFinalizers(), e.ObjectOld.GetFinalizers()) && reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations()) {
 		return false
 	}
 

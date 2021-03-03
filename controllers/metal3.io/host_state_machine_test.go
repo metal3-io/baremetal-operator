@@ -123,7 +123,7 @@ func TestProvisioningCapacity(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			prov := newMockProvisioner()
-			prov.setHasProvisioningCapacity(tc.HasProvisioningCapacity)
+			prov.setHasCapacity(tc.HasProvisioningCapacity)
 			hsm := newHostStateMachine(tc.Host, &BareMetalHostReconciler{}, prov, true)
 			info := makeDefaultReconcileInfo(tc.Host)
 			delayedProvisioningHostCounters.Reset()
@@ -136,6 +136,60 @@ func TestProvisioningCapacity(t *testing.T) {
 
 			if tc.ExpectedDelayed {
 				counter, _ := delayedProvisioningHostCounters.GetMetricWith(hostMetricLabels(info.request))
+				initialCounterValue := promutil.ToFloat64(counter)
+				for _, sb := range info.postSaveCallbacks {
+					sb()
+				}
+				assert.Greater(t, promutil.ToFloat64(counter), initialCounterValue)
+			}
+		})
+	}
+}
+
+func TestDeprovisioningCapacity(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+
+		HasDeprovisioningCapacity bool
+		Host                      *metal3v1alpha1.BareMetalHost
+
+		ExpectedDeprovisioningState metal3v1alpha1.ProvisioningState
+		ExpectedDelayed             bool
+	}{
+		{
+			Scenario:                  "transition-to-deprovisionig-ready",
+			Host:                      host(metal3v1alpha1.StateDeprovisioning).build(),
+			HasDeprovisioningCapacity: true,
+
+			ExpectedDeprovisioningState: metal3v1alpha1.StateReady,
+			ExpectedDelayed:             false,
+		},
+		{
+			Scenario:                  "transition-to-deleting",
+			Host:                      host(metal3v1alpha1.StateDeprovisioning).setDeletion().build(),
+			HasDeprovisioningCapacity: true,
+
+			ExpectedDeprovisioningState: metal3v1alpha1.StateDeleting,
+			ExpectedDelayed:             false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			prov := newMockProvisioner()
+			prov.setHasCapacity(tc.HasDeprovisioningCapacity)
+			hsm := newHostStateMachine(tc.Host, &BareMetalHostReconciler{}, prov, true)
+			info := makeDefaultReconcileInfo(tc.Host)
+			delayedDeprovisioningHostCounters.Reset()
+
+			result := hsm.ReconcileState(info)
+
+			assert.Equal(t, tc.ExpectedDeprovisioningState, tc.Host.Status.Provisioning.State)
+			assert.Equal(t, tc.ExpectedDelayed, metal3v1alpha1.OperationalStatusDelayed == tc.Host.Status.OperationalStatus, "Expected OperationalStatusDelayed")
+			assert.Equal(t, tc.ExpectedDelayed, assert.ObjectsAreEqual(actionDelayed{}, result), "Expected actionDelayed")
+
+			if tc.ExpectedDelayed {
+				counter, _ := delayedDeprovisioningHostCounters.GetMetricWith(hostMetricLabels(info.request))
 				initialCounterValue := promutil.ToFloat64(counter)
 				for _, sb := range info.postSaveCallbacks {
 					sb()
@@ -817,16 +871,16 @@ func makeDefaultReconcileInfo(host *metal3v1alpha1.BareMetalHost) *reconcileInfo
 
 func newMockProvisioner() *mockProvisioner {
 	return &mockProvisioner{
-		hasProvisioningCapacity: true,
-		nextResults:             make(map[string]provisioner.Result),
-		callsNoError:            make(map[string]bool),
+		hasCapacity:  true,
+		nextResults:  make(map[string]provisioner.Result),
+		callsNoError: make(map[string]bool),
 	}
 }
 
 type mockProvisioner struct {
-	hasProvisioningCapacity bool
-	nextResults             map[string]provisioner.Result
-	callsNoError            map[string]bool
+	hasCapacity  bool
+	nextResults  map[string]provisioner.Result
+	callsNoError map[string]bool
 }
 
 func (m *mockProvisioner) getNextResultByMethod(name string) (result provisioner.Result) {
@@ -838,12 +892,12 @@ func (m *mockProvisioner) getNextResultByMethod(name string) (result provisioner
 	return
 }
 
-func (m *mockProvisioner) setHasProvisioningCapacity(hasCapacity bool) {
-	m.hasProvisioningCapacity = hasCapacity
+func (m *mockProvisioner) setHasCapacity(hasCapacity bool) {
+	m.hasCapacity = hasCapacity
 }
 
-func (m *mockProvisioner) HasProvisioningCapacity() (result bool, err error) {
-	return m.hasProvisioningCapacity, nil
+func (m *mockProvisioner) HasCapacity() (result bool, err error) {
+	return m.hasCapacity, nil
 }
 
 func (m *mockProvisioner) setNextError(methodName, msg string) {

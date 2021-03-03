@@ -79,13 +79,14 @@ func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, sta
 	return
 }
 
-func (hsm *hostStateMachine) ensureProvisioningCapacity(info *reconcileInfo) actionResult {
-	hasCapacity, err := hsm.Provisioner.HasProvisioningCapacity()
+func (hsm *hostStateMachine) ensureCapacity(info *reconcileInfo, state metal3v1alpha1.ProvisioningState) actionResult {
+	hasCapacity, err := hsm.Provisioner.HasCapacity()
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to get hosts currently being provisioned")}
+		return actionError{errors.Wrap(err, "failed to determine current provisioner capacity")}
 	}
+
 	if !hasCapacity {
-		return recordActionDelayed(info)
+		return recordActionDelayed(info, state)
 	}
 
 	return nil
@@ -96,12 +97,13 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 	if hsm.NextState != initialState {
 
 		// Check if there is a free slot available when trying to
-		// provision an host - if not the action will be delayed.
-		// The check is limited to only the provisioning states to
+		// (de)provision an host - if not the action will be delayed.
+		// The check is limited to only the (de)provisioning states to
 		// avoid putting an excessive pressure on the provisioner
 		switch hsm.NextState {
-		case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning:
-			if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+		case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning,
+			metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+			if actionRes := hsm.ensureCapacity(info, hsm.NextState); actionRes != nil {
 				return actionRes
 			}
 		}
@@ -144,7 +146,7 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 
 	// Check if there's a free slot for hosts that have been previously delayed
 	if info.host.Status.OperationalStatus == metal3v1alpha1.OperationalStatusDelayed {
-		if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}
 
@@ -156,8 +158,9 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 	// Make sure the check is re-applied when provisioning an
 	// host not yet tracked by the provisioner
 	switch info.host.Status.Provisioning.State {
-	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning:
-		if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning,
+		metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}
 	}

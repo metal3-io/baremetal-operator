@@ -77,7 +77,7 @@ func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (p
 	return p, nil
 }
 
-func (m *demoProvisioner) HasProvisioningCapacity() (result bool, err error) {
+func (m *demoProvisioner) HasCapacity() (result bool, err error) {
 	return true, nil
 }
 

@@ -190,3 +190,101 @@ func TestDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteWithPowerOff(t *testing.T) {
+
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+
+	cases := []struct {
+		name        string
+		ironic      *testserver.IronicMock
+		inspector   *testserver.InspectorMock
+		priorErrors int
+
+		expectedPowerStateInRequest string
+		expectedError               string
+	}{
+		{
+			name: "test-power-change-without-errors",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: "active",
+					Maintenance:    true,
+					PowerState:     powerOn,
+				},
+			),
+			priorErrors:                 0,
+			expectedPowerStateInRequest: "power off",
+			expectedError:               "",
+		},
+		{
+			name: "test-power-change-with-errors",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: "active",
+					Maintenance:    true,
+					PowerState:     powerOn,
+				},
+			),
+			priorErrors:                 maxPowerOffRetryCount - 1,
+			expectedPowerStateInRequest: "power off",
+			expectedError:               "",
+		},
+		{
+			name: "test-power-change-with-max-errors",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: "active",
+					Maintenance:    true,
+					PowerState:     powerOn,
+				},
+			).Delete(nodeUUID),
+			priorErrors:                 maxPowerOffRetryCount + 1,
+			expectedPowerStateInRequest: "",
+			expectedError:               "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.ironic != nil {
+				tc.ironic.Start()
+				defer tc.ironic.Stop()
+			}
+
+			if tc.inspector != nil {
+				tc.inspector.Start()
+				defer tc.inspector.Stop()
+			}
+
+			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
+			host.Status.ErrorCount = tc.priorErrors
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+				tc.ironic.Endpoint(), auth, tc.inspector.Endpoint(), auth,
+			)
+			if err != nil {
+				t.Fatalf("could not create provisioner: %s", err)
+			}
+			prov.status.ID = nodeUUID
+
+			_, err = prov.Delete()
+
+			updates, _ := tc.ironic.GetLastRequestFor("/v1/nodes/"+nodeUUID+"/states/power", http.MethodPut)
+			assert.Contains(t, updates, tc.expectedPowerStateInRequest)
+
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Regexp(t, tc.expectedError, err.Error())
+			}
+
+		})
+	}
+}

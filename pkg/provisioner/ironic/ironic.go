@@ -55,6 +55,10 @@ const (
 	powerOff     = "power off"
 	softPowerOff = "soft power off"
 	powerNone    = "None"
+
+	// Maximum number of times node Power off would be retried before
+	// it would be deleted.
+	maxPowerOffRetryCount = 3
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
@@ -1653,6 +1657,20 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// Nova.
 		p.log.Info("setting host maintenance flag to force image delete")
 		return p.setMaintenanceFlag(ironicNode, true)
+	}
+
+	if ironicNode.PowerState == powerOn && p.host.Status.ErrorCount <= maxPowerOffRetryCount {
+		p.log.Info("host ready to be powered off")
+		_, err := p.hardPowerOff()
+		if err != nil {
+			switch err.(type) {
+			case HostLockedError:
+				p.log.Info("could not power off host, busy")
+				return retryAfterDelay(powerRequeueDelay)
+			default:
+				return operationFailed("failed to power off host")
+			}
+		}
 	}
 
 	p.log.Info("host ready to be removed")

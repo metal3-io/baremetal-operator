@@ -446,6 +446,9 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	if provResult.Dirty {
 		return actionContinue{provResult.RequeueAfter}
 	}
+	if provResult.ErrorMessage != "" {
+		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
+	}
 
 	// Remove finalizer to allow deletion
 	info.host.Finalizers = utils.FilterStringFromList(

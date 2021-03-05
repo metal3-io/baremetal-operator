@@ -22,6 +22,7 @@ func TestDelete(t *testing.T) {
 		ironic    *testserver.IronicMock
 		inspector *testserver.InspectorMock
 		hostName  string
+		powerOn   bool
 
 		expectedDirty        bool
 		expectedRequestAfter time.Duration
@@ -143,6 +144,27 @@ func TestDelete(t *testing.T) {
 				Value: true,
 			},
 		},
+		{
+			name: "test-power-on",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: "active",
+					Maintenance:    false,
+					PowerState:     powerOn,
+				},
+			).NodeUpdate(nodes.Node{
+				UUID: nodeUUID,
+			}),
+			powerOn:              true,
+			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedUpdate: &nodes.UpdateOperation{
+				Op:    "replace",
+				Path:  "/maintenance",
+				Value: true,
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -170,6 +192,13 @@ func TestDelete(t *testing.T) {
 			)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
+			}
+			if tc.powerOn {
+				prov.status.ID = nodeUUID
+				_, err = prov.PowerOn()
+				if err != nil {
+					t.Errorf("could not power on server: %s", err)
+				}
 			}
 
 			result, err := prov.Delete()

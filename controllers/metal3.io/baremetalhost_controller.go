@@ -703,6 +703,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 // fields of a host.
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
+	host.Status.Provisioning.RAID = nil
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -915,6 +916,44 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
 		host.Status.Provisioning.RootDeviceHints = hintSource
 		dirty = true
+	}
+
+	// Copy RAID settings
+	if host.Spec.RAID != host.Status.Provisioning.RAID {
+		// If RAID settings is nil, remove saved settings,
+		// else check hardware RAID and software RAID.
+		if host.Spec.RAID == nil {
+			host.Status.Provisioning.RAID = nil
+			dirty = true
+		} else {
+			if host.Status.Provisioning.RAID == nil {
+				host.Status.Provisioning.RAID = &metal3v1alpha1.RAIDConfig{}
+				dirty = true
+			}
+			// If HardwareRAIDVolumes isn't nil, we will ignore SoftwareRAIDVolumes.
+			if len(host.Spec.RAID.HardwareRAIDVolumes) != 0 {
+				// If software RAID has been saved, remove it.
+				if len(host.Status.Provisioning.RAID.SoftwareRAIDVolumes) != 0 {
+					host.Status.Provisioning.RAID.SoftwareRAIDVolumes = nil
+				}
+				// Compare hardware RAID settings
+				if !reflect.DeepEqual(host.Spec.RAID.HardwareRAIDVolumes, host.Status.Provisioning.RAID.HardwareRAIDVolumes) {
+					host.Status.Provisioning.RAID.HardwareRAIDVolumes = host.Spec.RAID.HardwareRAIDVolumes
+					dirty = true
+				}
+			} else {
+				// If hardware RAID has been saved, remove it.
+				if len(host.Status.Provisioning.RAID.HardwareRAIDVolumes) != 0 {
+					host.Status.Provisioning.RAID.HardwareRAIDVolumes = nil
+					dirty = true
+				}
+				// Compare software RAID settings
+				if !reflect.DeepEqual(host.Spec.RAID.SoftwareRAIDVolumes, host.Status.Provisioning.RAID.SoftwareRAIDVolumes) {
+					host.Status.Provisioning.RAID.SoftwareRAIDVolumes = host.Spec.RAID.SoftwareRAIDVolumes
+					dirty = true
+				}
+			}
+		}
 	}
 
 	return

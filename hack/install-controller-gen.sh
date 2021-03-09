@@ -2,6 +2,10 @@
 
 set -ex
 
+if [ -z "${GOPATH:-}" ]; then
+    eval "$(go env | grep GOPATH)"
+fi
+
 OUTPUT=bin/controller-gen
 
 # Check for a vendor directory if any downstream forks use that dependency

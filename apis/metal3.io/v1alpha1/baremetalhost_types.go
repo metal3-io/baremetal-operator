@@ -238,7 +238,7 @@ type HardwareRAIDVolume struct {
 	// Select disks with only rotational or solid-state storage
 	Rotational *bool `json:"rotational,omitempty"`
 
-	// Integer, number of disks to use for the logical disk. Defaults to minimum number of disks required
+	// Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required
 	// for the particular RAID level.
 	// +kubebuilder:validation:Minimum=1
 	NumberOfPhysicalDisks *int `json:"numberOfPhysicalDisks,omitempty"`
@@ -255,7 +255,7 @@ type SoftwareRAIDVolume struct {
 	// +kubebuilder:validation:Enum="0";"1";"1+0"
 	Level string `json:"level" required:"true"`
 
-	// A list of device hints, the number of item should be greater than or equal to 2.
+	// A list of device hints, the number of items should be greater than or equal to 2.
 	// +kubebuilder:validation:MinItems=2
 	PhysicalDisks []RootDeviceHints `json:"physicalDisks,omitempty"`
 }

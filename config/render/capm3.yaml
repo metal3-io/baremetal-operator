@@ -202,7 +202,7 @@ spec:
                           maxLength: 64
                           type: string
                         numberOfPhysicalDisks:
-                          description: Integer, number of disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
+                          description: Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
                           minimum: 1
                           type: integer
                         rotational:
@@ -229,7 +229,7 @@ spec:
                           - 1+0
                           type: string
                         physicalDisks:
-                          description: A list of device hints, the number of item should be greater than or equal to 2.
+                          description: A list of device hints, the number of items should be greater than or equal to 2.
                           items:
                             description: RootDeviceHints holds the hints for specifying the storage location for the root filesystem for the image.
                             properties:
@@ -657,7 +657,7 @@ spec:
                               maxLength: 64
                               type: string
                             numberOfPhysicalDisks:
-                              description: Integer, number of disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
+                              description: Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
                               minimum: 1
                               type: integer
                             rotational:
@@ -684,7 +684,7 @@ spec:
                               - 1+0
                               type: string
                             physicalDisks:
-                              description: A list of device hints, the number of item should be greater than or equal to 2.
+                              description: A list of device hints, the number of items should be greater than or equal to 2.
                               items:
                                 description: RootDeviceHints holds the hints for specifying the storage location for the root filesystem for the image.
                                 properties:

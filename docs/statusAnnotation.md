@@ -26,6 +26,9 @@ reconciliation of BMH starts from the point it was before pivot. This
 essentially ensures all the critical data residing in BMH _Status_ sub-resource
 is retained and BMH does not suffer any accidental introspection.
 
+Note that in the case where only the hardware field requires update, the
+[inspect annotation](inspectAnnotation.md) may also be used.
+
 Here is an example of a _Status annotation_:
 
 ```yaml

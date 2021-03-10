@@ -3,11 +3,12 @@ package bmc
 import (
 	"testing"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func init() {
-	logf.SetLogger(logf.ZapLogger(true))
+	logf.SetLogger(logz.New(logz.UseDevMode(true)))
 }
 
 func TestParse(t *testing.T) {

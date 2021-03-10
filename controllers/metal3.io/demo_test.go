@@ -6,8 +6,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"k8s.io/client-go/kubernetes/scheme"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -26,7 +24,6 @@ func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 
 	return &BareMetalHostReconciler{
 		Client:             c,
-		Scheme:             scheme.Scheme,
 		ProvisionerFactory: demo.New,
 		Log:                ctrl.Log.WithName("controller").WithName("BareMetalHost"),
 	}

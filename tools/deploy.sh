@@ -24,6 +24,7 @@ IRONIC_HOST_IP="${IRONIC_HOST_IP}"
 MARIADB_HOST="${MARIADB_HOST:-"mariaDB"}"
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
+KUSTOMIZE="go run sigs.k8s.io/kustomize/kustomize/v3"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
@@ -201,18 +202,18 @@ if [ "${DEPLOY_TLS}" == "true" ]; then
     fi
 fi
 
-pushd "${SCRIPTDIR}"
-make bin/kustomize
-popd
-
 if [ "${DEPLOY_BMO}" == "true" ]; then
+    pushd "${SCRIPTDIR}"
     # shellcheck disable=SC2086
-    "${SCRIPTDIR}/bin/kustomize" build "${BMO_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build "${BMO_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    popd
 fi
 
 if [ "${DEPLOY_IRONIC}" == "true" ]; then
+    pushd "${SCRIPTDIR}"
     # shellcheck disable=SC2086
-    "${SCRIPTDIR}/bin/kustomize" build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    popd
 fi
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then

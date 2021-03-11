@@ -143,7 +143,6 @@ func main() {
 	if err = (&metal3iocontroller.BareMetalHostReconciler{
 		Client:             mgr.GetClient(),
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
-		Scheme:             mgr.GetScheme(),
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")

@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -52,13 +51,13 @@ const (
 	provisionerNotReadyRetryDelay = time.Second * 30
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
+	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
 type BareMetalHostReconciler struct {
 	client.Client
 	Log                logr.Logger
-	Scheme             *runtime.Scheme
 	ProvisionerFactory provisioner.Factory
 }
 
@@ -85,7 +84,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 
 // Reconcile handles changes to BareMetalHost resources
-func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.Result, err error) {
+func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
 
 	reconcileCounters.With(hostMetricLabels(request)).Inc()
 	defer func() {
@@ -98,7 +97,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 
 	// Fetch the BareMetalHost
 	host := &metal3v1alpha1.BareMetalHost{}
-	err = r.Get(context.TODO(), request.NamespacedName, host)
+	err = r.Get(ctx, request.NamespacedName, host)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after
@@ -134,7 +133,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 				t := metav1.Now()
 				host.Status.LastUpdated = &t
 			}
-			errStatus := r.Status().Update(context.TODO(), host)
+			errStatus := r.Status().Update(ctx, host)
 			if errStatus != nil {
 				return ctrl.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
 			}
@@ -146,12 +145,20 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 		// already present. The annotation data will get outdated, so remove it.
 		if _, present := annotations[metal3v1alpha1.StatusAnnotation]; present {
 			delete(annotations, metal3v1alpha1.StatusAnnotation)
-			errStatus := r.Update(context.TODO(), host)
+			errStatus := r.Update(ctx, host)
 			if errStatus != nil {
 				return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
 			}
 			return ctrl.Result{Requeue: true}, nil
 		}
+	}
+
+	// Consume hardwaredetails from annotation if present
+	hwdUpdated, err := r.updateHardwareDetails(request, host)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "Could not update Hardware Details")
+	} else if hwdUpdated {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// NOTE(dhellmann): Handle a few steps outside of the phase
@@ -168,7 +175,7 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 		)
 		host.Finalizers = append(host.Finalizers,
 			metal3v1alpha1.BareMetalHostFinalizer)
-		err := r.Update(context.TODO(), host)
+		err := r.Update(ctx, host)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
 		}
@@ -257,6 +264,42 @@ func (r *BareMetalHostReconciler) Reconcile(request ctrl.Request) (result ctrl.R
 	logResult(info, result)
 
 	return
+}
+
+// Consume inspect.metal3.io/hardwaredetails when either
+// inspect.metal3.io=disabled or there are no existing HardwareDetails
+func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, host *metal3v1alpha1.BareMetalHost) (bool, error) {
+	updated := false
+	if host.Status.HardwareDetails == nil || inspectionDisabled(host) {
+		objHardwareDetails, err := r.getHardwareDetailsFromAnnotation(host)
+		if err != nil {
+			return updated, errors.Wrap(err, "Error getting HardwareDetails from annotation")
+		}
+		if objHardwareDetails != nil {
+			host.Status.HardwareDetails = objHardwareDetails
+			err = r.saveHostStatus(host)
+			if err != nil {
+				return updated, errors.Wrap(err, "Could not update hardwaredetails from annotation")
+			}
+			r.publishEvent(request, host.NewEvent("UpdateHardwareDetails", "Set HardwareDetails from annotation"))
+			updated = true
+		}
+	}
+	// We either just processed the annotation, or the status is already set
+	// so we remove it
+	annotations := host.GetAnnotations()
+	if _, present := annotations[hardwareDetailsAnnotation]; present {
+		delete(host.Annotations, hardwareDetailsAnnotation)
+		err := r.Update(context.TODO(), host)
+		if err != nil {
+			return updated, errors.Wrap(err, "Could not update removing hardwaredetails annotation")
+		}
+		// In the case where the value was not just consumed, generate an event
+		if updated != true {
+			r.publishEvent(request, host.NewEvent("RemoveAnnotation", "HardwareDetails annotation ignored, status already set and inspection is not disabled"))
+		}
+	}
+	return updated, nil
 }
 
 func logResult(info *reconcileInfo, result ctrl.Result) {
@@ -703,6 +746,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 // fields of a host.
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
+	host.Status.Provisioning.RAID = nil
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -917,6 +961,44 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 		dirty = true
 	}
 
+	// Copy RAID settings
+	if host.Spec.RAID != host.Status.Provisioning.RAID {
+		// If RAID settings is nil, remove saved settings,
+		// else check hardware RAID and software RAID.
+		if host.Spec.RAID == nil {
+			host.Status.Provisioning.RAID = nil
+			dirty = true
+		} else {
+			if host.Status.Provisioning.RAID == nil {
+				host.Status.Provisioning.RAID = &metal3v1alpha1.RAIDConfig{}
+				dirty = true
+			}
+			// If HardwareRAIDVolumes isn't nil, we will ignore SoftwareRAIDVolumes.
+			if len(host.Spec.RAID.HardwareRAIDVolumes) != 0 {
+				// If software RAID has been saved, remove it.
+				if len(host.Status.Provisioning.RAID.SoftwareRAIDVolumes) != 0 {
+					host.Status.Provisioning.RAID.SoftwareRAIDVolumes = nil
+				}
+				// Compare hardware RAID settings
+				if !reflect.DeepEqual(host.Spec.RAID.HardwareRAIDVolumes, host.Status.Provisioning.RAID.HardwareRAIDVolumes) {
+					host.Status.Provisioning.RAID.HardwareRAIDVolumes = host.Spec.RAID.HardwareRAIDVolumes
+					dirty = true
+				}
+			} else {
+				// If hardware RAID has been saved, remove it.
+				if len(host.Status.Provisioning.RAID.HardwareRAIDVolumes) != 0 {
+					host.Status.Provisioning.RAID.HardwareRAIDVolumes = nil
+					dirty = true
+				}
+				// Compare software RAID settings
+				if !reflect.DeepEqual(host.Spec.RAID.SoftwareRAIDVolumes, host.Status.Provisioning.RAID.SoftwareRAIDVolumes) {
+					host.Status.Provisioning.RAID.SoftwareRAIDVolumes = host.Spec.RAID.SoftwareRAIDVolumes
+					dirty = true
+				}
+			}
+		}
+	}
+
 	return
 }
 
@@ -947,6 +1029,20 @@ func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3v1alph
 		return nil, err
 	}
 	return objStatus, nil
+}
+
+// extract HardwareDetails from annotation if present
+func (r *BareMetalHostReconciler) getHardwareDetailsFromAnnotation(host *metal3v1alpha1.BareMetalHost) (*metal3v1alpha1.HardwareDetails, error) {
+	annotations := host.GetAnnotations()
+	if annotations[hardwareDetailsAnnotation] == "" {
+		return nil, nil
+	}
+	content := []byte(annotations[hardwareDetailsAnnotation])
+	objHardwareDetails := &metal3v1alpha1.HardwareDetails{}
+	if err := json.Unmarshal(content, objHardwareDetails); err != nil {
+		return nil, err
+	}
+	return objHardwareDetails, nil
 }
 
 func (r *BareMetalHostReconciler) setErrorCondition(request ctrl.Request, host *metal3v1alpha1.BareMetalHost, errType metal3v1alpha1.ErrorType, message string) (err error) {
@@ -1040,7 +1136,7 @@ func (r *BareMetalHostReconciler) setBMCCredentialsSecretOwner(request ctrl.Requ
 		return nil
 	}
 	reqLogger.Info("updating owner of secret")
-	err = controllerutil.SetControllerReference(host, secret, r.Scheme)
+	err = controllerutil.SetControllerReference(host, secret, r.Scheme())
 	if err != nil {
 		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot set owner: %q", err.Error())}
 	}
@@ -1082,12 +1178,12 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 	}
 
 	//If the update increased the resource Generation then let's process it
-	if e.MetaNew.GetGeneration() != e.MetaOld.GetGeneration() {
+	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 		return true
 	}
 
 	//Discard updates that did not increase the resource Generation (such as on Status.LastUpdated), except for the finalizers or annotations
-	if reflect.DeepEqual(e.MetaNew.GetFinalizers(), e.MetaOld.GetFinalizers()) && reflect.DeepEqual(e.MetaNew.GetAnnotations(), e.MetaOld.GetAnnotations()) {
+	if reflect.DeepEqual(e.ObjectNew.GetFinalizers(), e.ObjectOld.GetFinalizers()) && reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations()) {
 		return false
 	}
 

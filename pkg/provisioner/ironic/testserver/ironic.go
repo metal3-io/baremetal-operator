@@ -34,6 +34,7 @@ func (m *IronicMock) WithDefaultResponses() *IronicMock {
 	})
 	m.AddDefaultResponse("/v1/nodes/{id}/states/provision", "", http.StatusAccepted, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/states/power", "", http.StatusAccepted, "{}")
+	m.AddDefaultResponse("/v1/nodes/{id}/states/raid", "", http.StatusNoContent, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/validate", "", http.StatusOK, "{}")
 	m.Ready()
 

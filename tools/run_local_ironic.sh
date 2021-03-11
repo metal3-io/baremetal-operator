@@ -17,9 +17,11 @@ PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-"ironicendpoint"}"
 CLUSTER_DHCP_RANGE="${CLUSTER_DHCP_RANGE:-"172.22.0.10,172.22.0.100"}"
 IRONIC_KERNEL_PARAMS="${IRONIC_KERNEL_PARAMS:-"console=ttyS0"}"
 
+
 IRONIC_CACERT_FILE="${IRONIC_CACERT_FILE:-}"
 IRONIC_CERT_FILE="${IRONIC_CERT_FILE:-}"
 IRONIC_KEY_FILE="${IRONIC_KEY_FILE:-}"
+IRONIC_TLS_SETUP=${IRONIC_TLS_SETUP:-"true"}
 
 IRONIC_INSPECTOR_CACERT_FILE="${IRONIC_INSPECTOR_CACERT_FILE:-}"
 IRONIC_INSPECTOR_CERT_FILE="${IRONIC_INSPECTOR_CERT_FILE:-}"
@@ -50,6 +52,11 @@ IRONIC_ENDPOINT="${IRONIC_ENDPOINT:-"${IRONIC_BASE_URL}:6385/v1/"}"
 IRONIC_INSPECTOR_ENDPOINT="${IRONIC_INSPECTOR_ENDPOINT:-"${IRONIC_BASE_URL}:5050/v1/"}"
 CACHEURL="${CACHEURL:-"http://${PROVISIONING_IP}/images"}"
 IRONIC_FAST_TRACK="${IRONIC_FAST_TRACK:-"true"}"
+INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP:-"true"}
+if [[ $IRONIC_TLS_SETUP == *false* ]]
+then
+  INSPECTOR_REVERSE_PROXY_SETUP="false" # No Revese proxy for Ironic inspector if TLS is not used
+fi
 
 sudo mkdir -p "${IRONIC_DATA_DIR}"
 sudo mkdir -p "${IRONIC_DATA_DIR}/auth"
@@ -66,6 +73,7 @@ IRONIC_INSPECTOR_ENDPOINT=${IRONIC_INSPECTOR_ENDPOINT}
 CACHEURL=${CACHEURL}
 IRONIC_FAST_TRACK=${IRONIC_FAST_TRACK}
 IRONIC_KERNEL_PARAMS=${IRONIC_KERNEL_PARAMS}
+INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP}
 EOF
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
@@ -166,13 +174,6 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
      ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
-# For available env vars, see:
-# https://github.com/metal3-io/ironic/blob/master/runhttpd.sh
-# shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
-     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
-
 # https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
@@ -218,6 +219,17 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspect
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"
+
+# Start httpd reverse proxy for Ironic Inspector
+# shellcheck disable=SC2086
+if [[ $INSPECTOR_REVERSE_PROXY_SETUP == "true" ]]
+then
+    sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd-reverse-proxy \
+         ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
+         --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+         --entrypoint /bin/runhttpd \
+         -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"
+fi
 
 # Start ironic-inspector-log-watch
 # shellcheck disable=SC2086

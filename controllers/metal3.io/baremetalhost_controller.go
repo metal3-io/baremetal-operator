@@ -709,6 +709,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		return actionContinue{}
 	}
 
+	info.host.Status.ProvisionCount++
 	provResult, err := prov.Provision(hostConf)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}

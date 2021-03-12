@@ -643,6 +643,10 @@ type BareMetalHostStatus struct {
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
 	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
+
+	// ProvisionCount records how many times the host has been provisioned.
+	// +kubebuilder:default:=0
+	ProvisionCount int `json:"provisionCount"`
 }
 
 // ProvisionStatus holds the state information for a single target.

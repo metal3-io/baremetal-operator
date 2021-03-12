@@ -591,6 +591,10 @@ spec:
               poweredOn:
                 description: indicator for whether or not the host is powered on
                 type: boolean
+              provisionCount:
+                default: 0
+                description: ProvisionCount records how many times the host has been provisioned.
+                type: integer
               provisioning:
                 description: Information tracked by the provisioner.
                 properties:
@@ -796,6 +800,7 @@ spec:
             - hardwareProfile
             - operationalStatus
             - poweredOn
+            - provisionCount
             - provisioning
             type: object
         type: object

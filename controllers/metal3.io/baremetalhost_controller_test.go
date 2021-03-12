@@ -1035,6 +1035,8 @@ func TestProvision(t *testing.T) {
 	host.Spec.Online = true
 	r := newTestReconciler(host)
 
+	assert.Equal(t, 0, host.Status.ProvisionCount)
+
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("image details: %v", host.Spec.Image)
@@ -1046,6 +1048,7 @@ func TestProvision(t *testing.T) {
 			return false
 		},
 	)
+	assert.Equal(t, 1, host.Status.ProvisionCount)
 }
 
 // TestExternallyProvisionedTransitions ensures that host enters the

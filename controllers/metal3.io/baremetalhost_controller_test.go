@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	goctx "context"
 	"encoding/base64"
 	"encoding/json"
@@ -14,8 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-
-	"k8s.io/client-go/kubernetes/scheme"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -32,6 +31,7 @@ const (
 	namespace         string = "test-namespace"
 	defaultSecretName string = "bmc-creds-valid" // #nosec
 	statusAnnotation  string = `{"operationalStatus":"OK","lastUpdated":"2020-04-15T15:00:50Z","hardwareProfile":"StatusProfile","hardware":{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true},{"name":"eth1","model":"0x1af4  0x0001","mac":"00:b7:8b:bb:3d:f8","ip":"192.168.111.20","speedGbps":0,"vlanId":0,"pxe":false}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["aes","apic","arat","avx","clflush","cmov","constant_tsc","cx16","cx8","de","eagerfpu","ept","erms","f16c","flexpriority","fpu","fsgsbase","fxsr","hypervisor","lahf_lm","lm","mca","mce","mmx","msr","mtrr","nopl","nx","pae","pat","pclmulqdq","pge","pni","popcnt","pse","pse36","rdrand","rdtscp","rep_good","sep","smep","sse","sse2","sse4_1","sse4_2","ssse3","syscall","tpr_shadow","tsc","tsc_adjust","tsc_deadline_timer","vme","vmx","vnmi","vpid","x2apic","xsave","xsaveopt","xtopology"],"count":4},"hostname":"node-0"},"provisioning":{"state":"provisioned","ID":"8a0ede17-7b87-44ac-9293-5b7d50b94b08","image":{"url":"bar","checksum":""}},"goodCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"triedCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"errorMessage":"","poweredOn":true,"operationHistory":{"register":{"start":"2020-04-15T12:06:26Z","end":"2020-04-15T12:07:12Z"},"inspect":{"start":"2020-04-15T12:07:12Z","end":"2020-04-15T12:09:29Z"},"provision":{"start":null,"end":null},"deprovision":{"start":null,"end":null}}}`
+	hwdAnnotation     string = `{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}`
 )
 
 func newSecret(name string, data map[string]string) *corev1.Secret {
@@ -97,7 +97,6 @@ func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Obje
 
 	return &BareMetalHostReconciler{
 		Client:             c,
-		Scheme:             scheme.Scheme,
 		ProvisionerFactory: fix.New,
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 	}
@@ -128,7 +127,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 			t.Fatal(fmt.Errorf("Exceeded 25 iterations"))
 		}
 
-		result, err := r.Reconcile(request)
+		result, err := r.Reconcile(context.Background(), request)
 
 		if err != nil {
 			t.Fatal(err)
@@ -188,6 +187,82 @@ func waitForProvisioningState(t *testing.T, r *BareMetalHostReconciler, host *me
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for state %q have state %q", desiredState, host.Status.Provisioning.State)
 			return host.Status.Provisioning.State == desiredState
+		},
+	)
+}
+
+// TestHardwareDetails_EmptyStatus ensures that hardware details in
+// the status field are populated when the hardwaredetails annotation
+// is present and no existing HarwareDetails are present
+func TestHardwareDetails_EmptyStatus(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		hardwareDetailsAnnotation: hwdAnnotation,
+	}
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[hardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestHardwareDetails_StatusPresent ensures that hardware details in
+// the hardwaredetails annotation is ignored with existing Status
+func TestHardwareDetails_StatusPresent(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		hardwareDetailsAnnotation: hwdAnnotation,
+	}
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd.Hostname = "existinghost"
+	host.Status.HardwareDetails = &hwd
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[hardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "existinghost" && !found {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestHardwareDetails_StatusPresentInspectDisabled ensures that
+// hardware details in the hardwaredetails annotation are consumed
+// even when existing status exists, when inspection is disabled
+func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		inspectAnnotationPrefix:   "disabled",
+		hardwareDetailsAnnotation: hwdAnnotation,
+	}
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd.Hostname = "existinghost"
+	host.Status.HardwareDetails = &hwd
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[hardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
+				return true
+			}
+			return false
 		},
 	)
 }
@@ -1265,10 +1340,8 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-generation-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld:   &metav1.ObjectMeta{Generation: 0},
-				MetaNew:   &metav1.ObjectMeta{Generation: 1},
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 0}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 1}},
 			},
 
 			expectedProcess: true,
@@ -1276,22 +1349,20 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "skip-if-same-generation-finalizers-and-annotations",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: false,
@@ -1299,20 +1370,18 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-annotations-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation:  0,
 					Finalizers:  []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: true,
@@ -1320,22 +1389,20 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-finalizers-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: true,
@@ -1343,20 +1410,18 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-finalizers-and-annotation-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{},
-				MetaOld: &metav1.ObjectMeta{
+				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation:  0,
 					Finalizers:  []string{},
 					Annotations: map[string]string{},
-				},
-				MetaNew: &metav1.ObjectMeta{
+				}},
+				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
 					Annotations: map[string]string{
 						metal3v1alpha1.PausedAnnotation: "true",
 					},
-				},
+				}},
 			},
 
 			expectedProcess: true,
@@ -1382,5 +1447,410 @@ func TestErrorCountIncrementsAlways(t *testing.T) {
 		before := b.Status.ErrorCount
 		setErrorMessage(b, c, "An error message")
 		assert.Equal(t, before+1, b.Status.ErrorCount)
+	}
+}
+
+func TestUpdateRAID(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			HardwareProfile: "libvirt",
+			RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+				DeviceName:         "userd_devicename",
+				HCTL:               "1:2:3:4",
+				Model:              "userd_model",
+				Vendor:             "userd_vendor",
+				SerialNumber:       "userd_serial",
+				MinSizeGigabytes:   40,
+				WWN:                "userd_wwn",
+				WWNWithExtension:   "userd_with_extension",
+				WWNVendorExtension: "userd_vendor_extension",
+			},
+			RAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Name: "root",
+					},
+					{
+						Name: "v1",
+					},
+				},
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+					DeviceName:         "userd_devicename",
+					HCTL:               "1:2:3:4",
+					Model:              "userd_model",
+					Vendor:             "userd_vendor",
+					SerialNumber:       "userd_serial",
+					MinSizeGigabytes:   40,
+					WWN:                "userd_wwn",
+					WWNWithExtension:   "userd_with_extension",
+					WWNVendorExtension: "userd_vendor_extension",
+				},
+			},
+		},
+	}
+	cases := []struct {
+		name       string
+		specRAID   *metal3v1alpha1.RAIDConfig
+		statusRAID *metal3v1alpha1.RAIDConfig
+		dirty      bool
+		expected   *metal3v1alpha1.RAIDConfig
+	}{
+		{
+			name:       "not configured, not saved",
+			specRAID:   nil,
+			statusRAID: nil,
+			dirty:      false,
+		},
+		{
+			name:       "not configured, not saved",
+			specRAID:   &metal3v1alpha1.RAIDConfig{},
+			statusRAID: &metal3v1alpha1.RAIDConfig{},
+			dirty:      false,
+			expected:   &metal3v1alpha1.RAIDConfig{},
+		},
+		{
+			name:       "not configured, not saved",
+			specRAID:   &metal3v1alpha1.RAIDConfig{},
+			statusRAID: nil,
+			dirty:      true,
+			expected:   &metal3v1alpha1.RAIDConfig{},
+		},
+		{
+			name:       "not configured, not saved",
+			specRAID:   nil,
+			statusRAID: &metal3v1alpha1.RAIDConfig{},
+			dirty:      true,
+			expected:   nil,
+		},
+		{
+			name: "HardwareRAIDVolumes configured, not saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: nil,
+			dirty:      true,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "SoftwareRAIDVolumes configured, not saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: nil,
+			dirty:      true,
+			expected: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "both configured, not saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: nil,
+			dirty:      true,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "HardwareRAIDVolumes configured, HardwareRAIDVolumes saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: false,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "HardwareRAIDVolumes configured, SoftwareRAIDVolumes saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: true,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "HardwareRAIDVolumes configured, both saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: false,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "SoftwareRAIDVolumes configured, HardwareRAIDVolumes saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: true,
+			expected: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "SoftwareRAIDVolumes configured, SoftwareRAIDVolumes saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: false,
+			expected: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "SoftwareRAIDVolumes configured, both saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: true,
+			expected: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "both configured, HardwareRAIDVolumes saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: false,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "both configured, SoftwareRAIDVolumes saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: true,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+		{
+			name: "both configured, both saved",
+			specRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			statusRAID: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			dirty: false,
+			expected: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			host.Spec.RAID = c.specRAID
+			host.Status.Provisioning.RAID = c.statusRAID
+			dirty, _ := saveHostProvisioningSettings(&host)
+			assert.Equal(t, c.dirty, dirty)
+			assert.Equal(t, c.expected, host.Status.Provisioning.RAID)
+		})
 	}
 }

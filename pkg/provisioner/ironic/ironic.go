@@ -13,7 +13,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/pkg/errors"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	log                       = logf.Log.WithName("provisioner").WithName("ironic")
+	log                       = logz.New().WithName("provisioner").WithName("ironic")
 	deprovisionRequeueDelay   = time.Second * 10
 	provisionRequeueDelay     = time.Second * 10
 	powerRequeueDelay         = time.Second * 10
@@ -1220,14 +1220,35 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImag
 	return sameImage
 }
 
-func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.CleanStep) {
+func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.CleanStep, err error) {
+	// Build raid clean steps
+	if p.bmcAccess.RAIDInterface() != "" {
+		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(p.host.Status.Provisioning.RAID)...)
+	} else if p.host.Status.Provisioning.RAID != nil {
+		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", p.bmcAccess.Driver())
+	}
+
 	// TODO: Add manual cleaning steps for host configuration
 
 	return
 }
 
 func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
-	cleanSteps := p.buildManualCleaningSteps()
+	if p.bmcAccess.RAIDInterface() != "" {
+		// Set raid configuration
+		err = setTargetRAIDCfg(p, ironicNode)
+		if err != nil {
+			result, err = transientError(err)
+			return
+		}
+	}
+
+	// Build manual clean steps
+	cleanSteps, err := p.buildManualCleaningSteps()
+	if err != nil {
+		result, err = operationFailed(err.Error())
+		return
+	}
 
 	// Start manual clean
 	if len(cleanSteps) != 0 {
@@ -1260,7 +1281,13 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Available:
-		if unprepared && len(p.buildManualCleaningSteps()) != 0 {
+		var cleanSteps []nodes.CleanStep
+		cleanSteps, err = p.buildManualCleaningSteps()
+		if err != nil {
+			result, err = operationFailed(err.Error())
+			return
+		}
+		if unprepared && len(cleanSteps) != 0 {
 			result, err = p.changeNodeProvisionState(
 				ironicNode,
 				nodes.ProvisionStateOpts{Target: nodes.TargetManage},

@@ -8,6 +8,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -19,6 +20,7 @@ func TestPrepare(t *testing.T) {
 		name                 string
 		ironic               *testserver.IronicMock
 		unprepared           bool
+		existRaidConfig      bool
 		expectedStarted      bool
 		expectedDirty        bool
 		expectedError        bool
@@ -35,18 +37,18 @@ func TestPrepare(t *testing.T) {
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
 		},
-		// TODO: ADD test case when clean steps aren't empty
-		// {
-		// 	name: "manageable state(have clean steps)",
-		// 	ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-		// 		ProvisionState: string(nodes.Manageable),
-		// 		UUID:           nodeUUID,
-		// 	}),
-		// 	unprepared:           true,
-		// 	expectedStarted:      true,
-		// 	expectedRequestAfter: 10,
-		// 	expectedDirty:        true,
-		// },
+		{
+			name: "manageable state(have clean steps)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			existRaidConfig:      true,
+			expectedStarted:      true,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
 		{
 			name: "cleanFail state(cleaned provision settings)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
@@ -64,6 +66,7 @@ func TestPrepare(t *testing.T) {
 				UUID:           nodeUUID,
 			}),
 			unprepared:           true,
+			existRaidConfig:      true,
 			expectedStarted:      false,
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
@@ -74,6 +77,7 @@ func TestPrepare(t *testing.T) {
 				ProvisionState: string(nodes.Cleaning),
 				UUID:           nodeUUID,
 			}),
+			existRaidConfig:      true,
 			expectedStarted:      false,
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
@@ -84,6 +88,7 @@ func TestPrepare(t *testing.T) {
 				ProvisionState: string(nodes.CleanWait),
 				UUID:           nodeUUID,
 			}),
+			existRaidConfig:      true,
 			expectedStarted:      false,
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
@@ -94,6 +99,7 @@ func TestPrepare(t *testing.T) {
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
 			}),
+			existRaidConfig:      true,
 			expectedStarted:      false,
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
@@ -114,6 +120,21 @@ func TestPrepare(t *testing.T) {
 			defer inspector.Stop()
 
 			host := makeHost()
+			if tc.existRaidConfig {
+				host.Spec.BMC.Address = "irmc://test.bmc/"
+				host.Status.Provisioning.RAID = &metal3v1alpha1.RAIDConfig{
+					HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+						{
+							Name:  "root",
+							Level: "1",
+						},
+						{
+							Name:  "v1",
+							Level: "1",
+						},
+					},
+				}
+			}
 
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}

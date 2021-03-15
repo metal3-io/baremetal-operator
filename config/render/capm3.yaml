@@ -177,6 +177,106 @@ spec:
               online:
                 description: Should the server be online?
                 type: boolean
+              raid:
+                description: RAID configuration for bare metal server
+                properties:
+                  hardwareRAIDVolumes:
+                    description: The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+                    items:
+                      description: HardwareRAIDVolume defines the desired configuration of volume in hardware RAID
+                      properties:
+                        level:
+                          description: 'RAID level for the logical disk. The following levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
+                          enum:
+                          - "0"
+                          - "1"
+                          - "2"
+                          - "5"
+                          - "6"
+                          - 1+0
+                          - 5+0
+                          - 6+0
+                          type: string
+                        name:
+                          description: Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+                          maxLength: 64
+                          type: string
+                        numberOfPhysicalDisks:
+                          description: Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
+                          minimum: 1
+                          type: integer
+                        rotational:
+                          description: Select disks with only rotational or solid-state storage
+                          type: boolean
+                        sizeGibibytes:
+                          description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                          minimum: 0
+                          type: integer
+                      required:
+                      - level
+                      type: object
+                    type: array
+                  softwareRAIDVolumes:
+                    description: The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume. If HardwareRAIDVolumes is set this item will be invalid. The number of created Software RAID devices must be 1 or 2. If there is only one Software RAID device, it has to be a RAID-1. If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0. As the first RAID device will be the deployment device, enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                    items:
+                      description: SoftwareRAIDVolume defines the desired configuration of volume in software RAID
+                      properties:
+                        level:
+                          description: 'RAID level for the logical disk. The following levels are supported: 0;1;1+0.'
+                          enum:
+                          - "0"
+                          - "1"
+                          - 1+0
+                          type: string
+                        physicalDisks:
+                          description: A list of device hints, the number of items should be greater than or equal to 2.
+                          items:
+                            description: RootDeviceHints holds the hints for specifying the storage location for the root filesystem for the image.
+                            properties:
+                              deviceName:
+                                description: A Linux device name like "/dev/vda". The hint must match the actual value exactly.
+                                type: string
+                              hctl:
+                                description: A SCSI bus address like 0:0:0:0. The hint must match the actual value exactly.
+                                type: string
+                              minSizeGigabytes:
+                                description: The minimum size of the device in Gigabytes.
+                                minimum: 0
+                                type: integer
+                              model:
+                                description: A vendor-specific device identifier. The hint can be a substring of the actual value.
+                                type: string
+                              rotational:
+                                description: True if the device should use spinning media, false otherwise.
+                                type: boolean
+                              serialNumber:
+                                description: Device serial number. The hint must match the actual value exactly.
+                                type: string
+                              vendor:
+                                description: The name of the vendor or manufacturer of the device. The hint can be a substring of the actual value.
+                                type: string
+                              wwn:
+                                description: Unique storage identifier. The hint must match the actual value exactly.
+                                type: string
+                              wwnVendorExtension:
+                                description: Unique vendor storage identifier. The hint must match the actual value exactly.
+                                type: string
+                              wwnWithExtension:
+                                description: Unique storage identifier with the vendor extension appended. The hint must match the actual value exactly.
+                                type: string
+                            type: object
+                          minItems: 2
+                          type: array
+                        sizeGibibytes:
+                          description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                          minimum: 0
+                          type: integer
+                      required:
+                      - level
+                      type: object
+                    maxItems: 2
+                    type: array
+                type: object
               rootDeviceHints:
                 description: Provide guidance about how to choose the device for the image being provisioned.
                 properties:
@@ -304,12 +404,6 @@ spec:
                         type: array
                       model:
                         type: string
-                    required:
-                    - arch
-                    - clockMegahertz
-                    - count
-                    - flags
-                    - model
                     type: object
                   firmware:
                     description: Firmware describes the firmware on the host.
@@ -326,13 +420,7 @@ spec:
                           version:
                             description: The version of the BIOS
                             type: string
-                        required:
-                        - date
-                        - vendor
-                        - version
                         type: object
-                    required:
-                    - bios
                     type: object
                   hostname:
                     type: string
@@ -378,18 +466,8 @@ spec:
                                 type: integer
                               name:
                                 type: string
-                            required:
-                            - id
                             type: object
                           type: array
-                      required:
-                      - ip
-                      - mac
-                      - model
-                      - name
-                      - pxe
-                      - speedGbps
-                      - vlanId
                       type: object
                     type: array
                   ramMebibytes:
@@ -429,11 +507,6 @@ spec:
                         wwnWithExtension:
                           description: The WWN with the extension
                           type: string
-                      required:
-                      - name
-                      - rotational
-                      - serialNumber
-                      - sizeBytes
                       type: object
                     type: array
                   systemVendor:
@@ -445,19 +518,7 @@ spec:
                         type: string
                       serialNumber:
                         type: string
-                    required:
-                    - manufacturer
-                    - productName
-                    - serialNumber
                     type: object
-                required:
-                - cpu
-                - firmware
-                - hostname
-                - nics
-                - ramMebibytes
-                - storage
-                - systemVendor
                 type: object
               hardwareProfile:
                 description: The name of the profile matching the hardware details.
@@ -571,6 +632,106 @@ spec:
                     required:
                     - url
                     type: object
+                  raid:
+                    description: The Raid set by the user
+                    properties:
+                      hardwareRAIDVolumes:
+                        description: The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+                        items:
+                          description: HardwareRAIDVolume defines the desired configuration of volume in hardware RAID
+                          properties:
+                            level:
+                              description: 'RAID level for the logical disk. The following levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
+                              enum:
+                              - "0"
+                              - "1"
+                              - "2"
+                              - "5"
+                              - "6"
+                              - 1+0
+                              - 5+0
+                              - 6+0
+                              type: string
+                            name:
+                              description: Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+                              maxLength: 64
+                              type: string
+                            numberOfPhysicalDisks:
+                              description: Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
+                              minimum: 1
+                              type: integer
+                            rotational:
+                              description: Select disks with only rotational or solid-state storage
+                              type: boolean
+                            sizeGibibytes:
+                              description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                              minimum: 0
+                              type: integer
+                          required:
+                          - level
+                          type: object
+                        type: array
+                      softwareRAIDVolumes:
+                        description: The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume. If HardwareRAIDVolumes is set this item will be invalid. The number of created Software RAID devices must be 1 or 2. If there is only one Software RAID device, it has to be a RAID-1. If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0. As the first RAID device will be the deployment device, enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                        items:
+                          description: SoftwareRAIDVolume defines the desired configuration of volume in software RAID
+                          properties:
+                            level:
+                              description: 'RAID level for the logical disk. The following levels are supported: 0;1;1+0.'
+                              enum:
+                              - "0"
+                              - "1"
+                              - 1+0
+                              type: string
+                            physicalDisks:
+                              description: A list of device hints, the number of items should be greater than or equal to 2.
+                              items:
+                                description: RootDeviceHints holds the hints for specifying the storage location for the root filesystem for the image.
+                                properties:
+                                  deviceName:
+                                    description: A Linux device name like "/dev/vda". The hint must match the actual value exactly.
+                                    type: string
+                                  hctl:
+                                    description: A SCSI bus address like 0:0:0:0. The hint must match the actual value exactly.
+                                    type: string
+                                  minSizeGigabytes:
+                                    description: The minimum size of the device in Gigabytes.
+                                    minimum: 0
+                                    type: integer
+                                  model:
+                                    description: A vendor-specific device identifier. The hint can be a substring of the actual value.
+                                    type: string
+                                  rotational:
+                                    description: True if the device should use spinning media, false otherwise.
+                                    type: boolean
+                                  serialNumber:
+                                    description: Device serial number. The hint must match the actual value exactly.
+                                    type: string
+                                  vendor:
+                                    description: The name of the vendor or manufacturer of the device. The hint can be a substring of the actual value.
+                                    type: string
+                                  wwn:
+                                    description: Unique storage identifier. The hint must match the actual value exactly.
+                                    type: string
+                                  wwnVendorExtension:
+                                    description: Unique vendor storage identifier. The hint must match the actual value exactly.
+                                    type: string
+                                  wwnWithExtension:
+                                    description: Unique storage identifier with the vendor extension appended. The hint must match the actual value exactly.
+                                    type: string
+                                type: object
+                              minItems: 2
+                              type: array
+                            sizeGibibytes:
+                              description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                              minimum: 0
+                              type: integer
+                          required:
+                          - level
+                          type: object
+                        maxItems: 2
+                        type: array
+                    type: object
                   rootDeviceHints:
                     description: The RootDevicehints set by the user
                     properties:
@@ -681,6 +842,18 @@ rules:
   - events
   verbs:
   - create
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -3,6 +3,8 @@ package demo
 import (
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/go-logr/logr"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -53,6 +55,8 @@ const (
 type demoProvisioner struct {
 	// the host to be managed by this provisioner
 	host metal3v1alpha1.BareMetalHost
+	// the object metadata of the BareMetalHost resource
+	objectMeta metav1.ObjectMeta
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -64,10 +68,11 @@ type demoProvisioner struct {
 // New returns a new Ironic Provisioner
 func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
-		host:      host,
-		bmcCreds:  bmcCreds,
-		log:       log.WithValues("host", host.Name),
-		publisher: publisher,
+		host:       host,
+		objectMeta: host.ObjectMeta,
+		bmcCreds:   bmcCreds,
+		log:        log.WithValues("host", host.Name),
+		publisher:  publisher,
 	}
 	return p, nil
 }
@@ -81,7 +86,7 @@ func (m *demoProvisioner) HasProvisioningCapacity() (result bool, err error) {
 func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 
 	switch hostName {
 
@@ -98,7 +103,7 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force boo
 
 	default:
 		if p.host.Status.Provisioning.ID == "" {
-			provID = p.host.ObjectMeta.Name
+			provID = p.objectMeta.Name
 			p.log.Info("setting provisioning id",
 				"provisioningID", p.host.Status.Provisioning.ID)
 			result.Dirty = true
@@ -115,7 +120,7 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force boo
 func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 
 	if hostName == InspectingHost {
 		// set dirty so we don't allow the host to progress past this
@@ -192,7 +197,7 @@ func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 
 // Prepare remove existing configuration and set new configuration
 func (p *demoProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
 
 	switch hostName {
@@ -225,7 +230,7 @@ func (p *demoProvisioner) Adopt(force bool) (result provisioner.Result, err erro
 // until the deprovisioning operation is completed.
 func (p *demoProvisioner) Provision(hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
 
 	switch hostName {
@@ -251,7 +256,7 @@ func (p *demoProvisioner) Provision(hostConf provisioner.HostConfigData) (result
 // deprovisioning operation is completed.
 func (p *demoProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
 		return result, nil
@@ -297,7 +302,7 @@ func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
 // provisioning operation.
 func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
 		return result, nil
@@ -318,7 +323,7 @@ func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
 // provisioning operation.
 func (p *demoProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
 		return result, nil

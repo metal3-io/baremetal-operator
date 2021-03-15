@@ -435,7 +435,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 				RAIDInterface:       bmcAccess.RAIDInterface(),
 				VendorInterface:     bmcAccess.VendorInterface(),
 				Properties: map[string]interface{}{
-					"capabilities": bootModeCapabilities[p.host.Status.Provisioning.BootMode],
+					"capabilities": bootModeCapabilities[p.status.BootMode],
 				},
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
@@ -474,8 +474,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		// known but removed/lost because the pod restarted.
 		var imageData *metal3v1alpha1.Image
 		switch {
-		case p.host.Status.Provisioning.Image.URL != "":
-			imageData = &p.host.Status.Provisioning.Image
+		case p.status.Image.URL != "":
+			imageData = &p.status.Image
 		case p.host.Spec.Image != nil && p.host.Spec.Image.URL != "":
 			imageData = p.host.Spec.Image
 		}
@@ -684,7 +684,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 					err = nil
 				}
 				p.log.Info("updating boot mode before hardware inspection")
-				op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
+				op, value := buildCapabilitiesValue(ironicNode, p.status.BootMode)
 				updates := nodes.UpdateOpts{
 					nodes.UpdateOperation{
 						Op:    op,
@@ -1015,7 +1015,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 	//
 	// If the user has provided explicit root device hints, they take
 	// precedence. Otherwise use the values from the hardware profile.
-	hints := devicehints.MakeHintMap(p.host.Status.Provisioning.RootDeviceHints)
+	hints := devicehints.MakeHintMap(p.status.RootDeviceHints)
 	p.log.Info("using root device", "hints", hints)
 	updates = append(
 		updates,
@@ -1064,7 +1064,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 	)
 
 	// boot_mode
-	op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
+	op, value := buildCapabilitiesValue(ironicNode, p.status.BootMode)
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
@@ -1249,8 +1249,8 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImag
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
 	if bmcAccess.RAIDInterface() != "no-raid" {
-		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(p.host.Status.Provisioning.RAID)...)
-	} else if p.host.Status.Provisioning.RAID != nil {
+		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(p.status.RAID)...)
+	} else if p.status.RAID != nil {
 		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
 	}
 

@@ -47,6 +47,8 @@ func (cd *fixtureHostConfigData) MetaData() (string, error) {
 type fixtureProvisioner struct {
 	// the host to be managed by this provisioner
 	host metal3v1alpha1.BareMetalHost
+	// the provisioning ID for this host
+	provID string
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -75,6 +77,7 @@ type Fixture struct {
 func (f *Fixture) New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		host:      *host.DeepCopy(),
+		provID:    host.Status.Provisioning.ID,
 		bmcCreds:  bmcCreds,
 		log:       log.WithValues("host", host.Name),
 		publisher: publisher,
@@ -93,7 +96,7 @@ func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force 
 	p.log.Info("testing management access")
 
 	// Fill in the ID of the host in the provisioning system
-	if p.host.Status.Provisioning.ID == "" {
+	if p.provID == "" {
 		provID = "temporary-fake-id"
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5

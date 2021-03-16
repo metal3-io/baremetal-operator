@@ -139,6 +139,8 @@ type ironicProvisioner struct {
 	status *metal3v1alpha1.ProvisionStatus
 	// the object metadata of the BareMetalHost resource
 	objectMeta metav1.ObjectMeta
+	// the UUID of the node in Ironic
+	nodeID string
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
@@ -198,6 +200,7 @@ func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds
 		host:       host,
 		status:     &(host.Status.Provisioning),
 		objectMeta: host.ObjectMeta,
+		nodeID:     host.Status.Provisioning.ID,
 		bmcCreds:   bmcCreds,
 		client:     clientIronic,
 		inspector:  clientInspector,
@@ -295,11 +298,11 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 }
 
 func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
-	if p.status.ID == "" {
+	if p.nodeID == "" {
 		return nil, provisioner.NeedsRegistration
 	}
 
-	ironicNode, err := nodes.Get(p.client, p.status.ID).Extract()
+	ironicNode, err := nodes.Get(p.client, p.nodeID).Extract()
 	switch err.(type) {
 	case nil:
 		p.debugLog.Info("found existing node by ID")
@@ -310,7 +313,7 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 		return nil, provisioner.NeedsRegistration
 	default:
 		return nil, errors.Wrap(err,
-			fmt.Sprintf("failed to find node by ID %s", p.status.ID))
+			fmt.Sprintf("failed to find node by ID %s", p.nodeID))
 	}
 }
 

@@ -102,6 +102,7 @@ func TestAdopt(t *testing.T) {
 			defer inspector.Stop()
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
@@ -111,7 +112,6 @@ func TestAdopt(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
 			result, err := prov.Adopt(tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

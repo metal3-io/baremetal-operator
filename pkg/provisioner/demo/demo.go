@@ -57,6 +57,8 @@ type demoProvisioner struct {
 	host metal3v1alpha1.BareMetalHost
 	// the object metadata of the BareMetalHost resource
 	objectMeta metav1.ObjectMeta
+	// the provisioning ID for this host
+	provID string
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -70,6 +72,7 @@ func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher 
 	p := &demoProvisioner{
 		host:       host,
 		objectMeta: host.ObjectMeta,
+		provID:     host.Status.Provisioning.ID,
 		bmcCreds:   bmcCreds,
 		log:        log.WithValues("host", host.Name),
 		publisher:  publisher,
@@ -102,10 +105,9 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force boo
 		result.RequeueAfter = time.Second * 5
 
 	default:
-		if p.host.Status.Provisioning.ID == "" {
+		if p.provID == "" {
 			provID = p.objectMeta.Name
-			p.log.Info("setting provisioning id",
-				"provisioningID", p.host.Status.Provisioning.ID)
+			p.log.Info("setting provisioning id", "provisioningID", provID)
 			result.Dirty = true
 		}
 	}

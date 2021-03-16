@@ -120,6 +120,7 @@ func TestPrepare(t *testing.T) {
 			defer inspector.Stop()
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			if tc.existRaidConfig {
 				host.Spec.BMC.Address = "irmc://test.bmc/"
 				host.Status.Provisioning.RAID = &metal3v1alpha1.RAIDConfig{
@@ -145,7 +146,6 @@ func TestPrepare(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
 			result, started, err := prov.Prepare(tc.unprepared)
 
 			assert.Equal(t, tc.expectedStarted, started)

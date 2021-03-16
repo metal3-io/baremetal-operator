@@ -164,6 +164,7 @@ func TestInspectHardware(t *testing.T) {
 			}
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publishedMsg := ""
 			publisher := func(reason, message string) {
 				publishedMsg = reason + " " + message
@@ -176,7 +177,6 @@ func TestInspectHardware(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
 			result, details, err := prov.InspectHardware(false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

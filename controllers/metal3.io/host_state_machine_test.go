@@ -618,7 +618,7 @@ func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
-func (m *mockProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	details = &metal3v1alpha1.HardwareDetails{}
 	return m.getNextResultByMethod("InspectHardware"), details, err
 }

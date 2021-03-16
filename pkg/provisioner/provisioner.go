@@ -36,10 +36,16 @@ type HostConfigData interface {
 
 type ManagementAccessData struct {
 	BootMACAddress string
+	BootMode       metal3v1alpha1.BootMode
+}
+
+type InspectData struct {
+	BootMode metal3v1alpha1.BootMode
 }
 
 type ProvisionData struct {
 	HostConfig HostConfigData
+	BootMode   metal3v1alpha1.BootMode
 }
 
 // Provisioner holds the state information for talking to the
@@ -57,7 +63,7 @@ type Provisioner interface {
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
-	InspectHardware(force bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
+	InspectHardware(data InspectData, force bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with

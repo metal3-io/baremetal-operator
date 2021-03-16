@@ -527,6 +527,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	provResult, provID, err := prov.ValidateManagementAccess(
 		provisioner.ManagementAccessData{
 			BootMACAddress: info.host.Spec.BootMACAddress,
+			BootMode:       info.host.Status.Provisioning.BootMode,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
@@ -595,7 +596,11 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 
 	info.log.Info("inspecting hardware")
 
-	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError)
+	provResult, details, err := prov.InspectHardware(
+		provisioner.InspectData{
+			BootMode: info.host.Status.Provisioning.BootMode,
+		},
+		info.host.Status.ErrorType == metal3v1alpha1.InspectionError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
@@ -717,6 +722,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 
 	provResult, err := prov.Provision(provisioner.ProvisionData{
 		HostConfig: hostConf,
+		BootMode:   info.host.Status.Provisioning.BootMode,
 	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}

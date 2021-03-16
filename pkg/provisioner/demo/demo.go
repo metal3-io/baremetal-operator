@@ -119,7 +119,7 @@ func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	hostName := p.objectMeta.Name

@@ -111,6 +111,7 @@ func TestProvision(t *testing.T) {
 
 			result, err := prov.Provision(provisioner.ProvisionData{
 				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
+				BootMode:   v1alpha1.DefaultBootMode,
 			})
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

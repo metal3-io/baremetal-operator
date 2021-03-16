@@ -434,7 +434,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
-		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+		if data.BootMode == metal3v1alpha1.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
 			msg := fmt.Sprintf("BMC driver %s does not support secure boot", bmcAccess.Type())
 			p.log.Info(msg)
 			result, err = operationFailed(msg)
@@ -455,7 +455,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 				RAIDInterface:       bmcAccess.RAIDInterface(),
 				VendorInterface:     bmcAccess.VendorInterface(),
 				Properties: map[string]interface{}{
-					"capabilities": bootModeCapabilities[p.status.BootMode],
+					"capabilities": bootModeCapabilities[data.BootMode],
 				},
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
@@ -501,7 +501,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		}
 
 		if imageData != nil {
-			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData)
+			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData, data.BootMode)
 			if optsErr != nil {
 				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
 				return
@@ -672,7 +672,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	ironicNode, err := p.getNode()
@@ -700,7 +700,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 					err = nil
 				}
 				p.log.Info("updating boot mode before hardware inspection")
-				op, value := buildCapabilitiesValue(ironicNode, p.status.BootMode)
+				op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
 				updates := nodes.UpdateOpts{
 					nodes.UpdateOperation{
 						Op:    op,
@@ -748,15 +748,15 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 
 	// Introspection is done
 	p.log.Info("getting hardware details from inspection")
-	introData := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
-	data, err := introData.Extract()
+	response := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
+	introData, err := response.Extract()
 	if err != nil {
 		result, err = transientError(errors.Wrap(err, "failed to retrieve hardware introspection data"))
 		return
 	}
-	p.log.Info("received introspection data", "data", introData.Body)
+	p.log.Info("received introspection data", "data", response.Body)
 
-	details = hardwaredetails.GetHardwareDetails(data)
+	details = hardwaredetails.GetHardwareDetails(introData)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 	result, err = operationComplete()
 	return
@@ -947,7 +947,7 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	return updates, nil
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode) (updates nodes.UpdateOpts, err error) {
 	// instance_uuid
 	p.log.Info("setting instance_uuid")
 	updates = append(
@@ -963,7 +963,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	// also put it to properties for consistency, although it's not
 	// strictly required in our case).
 
-	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
+	if bootMode == metal3v1alpha1.UEFISecureBoot {
 		updates = append(updates, nodes.UpdateOperation{
 			Op:   nodes.AddOp,
 			Path: "/instance_info/capabilities",
@@ -991,7 +991,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	return p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updates)
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) (updates nodes.UpdateOpts, err error) {
 
 	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
 
@@ -1001,7 +1001,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 				p.host.HardwareProfile()))
 	}
 
-	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, p.host.Spec.Image)
+	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, p.host.Spec.Image, data.BootMode)
 	if err != nil {
 		return updates, errors.Wrap(err, "Could not get Image options for node")
 	}
@@ -1075,7 +1075,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 	)
 
 	// boot_mode
-	op, value := buildCapabilitiesValue(ironicNode, p.status.BootMode)
+	op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
@@ -1129,7 +1129,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	updates, err := p.getUpdateOptsForNode(ironicNode)
+	updates, err := p.getUpdateOptsForNode(ironicNode, data)
 	if err != nil {
 		return transientError(errors.Wrap(err, "failed to update opts for node"))
 	}

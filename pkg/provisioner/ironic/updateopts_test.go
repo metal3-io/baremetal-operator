@@ -12,6 +12,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
@@ -28,7 +29,10 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	provData := provisioner.ProvisionData{
+		BootMode: metal3v1alpha1.DefaultBootMode,
+	}
+	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +125,10 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	provData := provisioner.ProvisionData{
+		BootMode: metal3v1alpha1.DefaultBootMode,
+	}
+	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +232,10 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	provData := provisioner.ProvisionData{
+		BootMode: metal3v1alpha1.DefaultBootMode,
+	}
+	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +305,10 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	provData := provisioner.ProvisionData{
+		BootMode: metal3v1alpha1.DefaultBootMode,
+	}
+	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +375,10 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 		},
 	}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	provData := provisioner.ProvisionData{
+		BootMode: metal3v1alpha1.DefaultBootMode,
+	}
+	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +456,10 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		},
 	}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	provData := provisioner.ProvisionData{
+		BootMode: metal3v1alpha1.DefaultBootMode,
+	}
+	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -519,7 +538,6 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 			},
 			Online:          true,
 			HardwareProfile: "unknown",
-			BootMode:        metal3v1alpha1.UEFISecureBoot,
 		},
 		Status: metal3v1alpha1.BareMetalHostStatus{
 			HardwareProfile: "libvirt",
@@ -540,7 +558,10 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	patches, err := prov.getUpdateOptsForNode(ironicNode)
+	provData := provisioner.ProvisionData{
+		BootMode: metal3v1alpha1.UEFISecureBoot,
+	}
+	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
 		t.Fatal(err)
 	}

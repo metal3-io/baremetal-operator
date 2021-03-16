@@ -653,7 +653,6 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// requires one.
 	host := makeHost()
-	host.Spec.BootMode = metal3v1alpha1.UEFISecureBoot
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	ironic := testserver.NewIronic(t).Ready().NoNode("myns" + nameSeparator + host.Name).NoNode(host.Name)
@@ -668,7 +667,7 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMode: metal3v1alpha1.UEFISecureBoot}, false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}

@@ -760,92 +760,60 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
-	checksum, checksumType, ok := imageData.GetChecksum()
-	if !ok {
-		p.log.Info("image/checksum not found for host")
-		return
+func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
+	var op nodes.UpdateOp
+
+	if _, ok := ironicNode.InstanceInfo["boot_iso"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding boot_iso")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating boot_iso")
 	}
-	// instance_uuid
-	p.log.Info("setting instance_uuid")
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/boot_iso",
+			Value: imageData.URL,
+		},
+	)
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
 			Op:    nodes.ReplaceOp,
-			Path:  "/instance_uuid",
-			Value: string(p.host.ObjectMeta.UID),
+			Path:  "/deploy_interface",
+			Value: "ramdisk",
 		},
 	)
-
-	// Secure boot is a normal capability that goes into instance_info (we
-	// also put it to properties for consistency, although it's not
-	// strictly required in our case).
-
-	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:   nodes.AddOp,
-			Path: "/instance_info/capabilities",
-			// Instance info capabilities were invented later and
-			// use a normal JSON mapping instead of a custom
-			// string value.
-			Value: map[string]string{
-				"secure_boot": "true",
-			},
-		})
-	} else {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:    nodes.AddOp,
-			Path:  "/instance_info/capabilities",
-			Value: map[string]string{},
-		})
+	// remove any image_source or checksum options
+	removals := []string{
+		"image_source", "image_os_hash_value", "image_os_hash_algo", "image_checksum"}
+	op = nodes.RemoveOp
+	for _, item := range removals {
+		if _, ok := ironicNode.InstanceInfo[item]; ok {
+			p.log.Info("removing " + item)
+			updates = append(
+				updates,
+				nodes.UpdateOperation{
+					Op:   op,
+					Path: "/instance_info/" + item,
+				},
+			)
+		}
 	}
+	return updates, nil
+}
 
-	// live-iso format
-	var op nodes.UpdateOp
-	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
-		if _, ok := ironicNode.InstanceInfo["boot_iso"]; !ok {
-			op = nodes.AddOp
-			p.log.Info("adding boot_iso")
-		} else {
-			op = nodes.ReplaceOp
-			p.log.Info("updating boot_iso")
-		}
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    op,
-				Path:  "/instance_info/boot_iso",
-				Value: imageData.URL,
-			},
-		)
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/deploy_interface",
-				Value: "ramdisk",
-			},
-		)
-		// remove any image_source or checksum options
-		removals := []string{
-			"image_source", "image_os_hash_value", "image_os_hash_algo", "image_checksum"}
-		op = nodes.RemoveOp
-		for _, item := range removals {
-			if _, ok := ironicNode.InstanceInfo[item]; ok {
-				p.log.Info("removing " + item)
-				updates = append(
-					updates,
-					nodes.UpdateOperation{
-						Op:   op,
-						Path: "/instance_info/" + item,
-					},
-				)
-			}
-		}
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
+	checksum, checksumType, ok := imageData.GetChecksum()
+	if !ok {
+		p.log.Info("image/checksum not found for host")
 		return updates, nil
 	}
 
-	// Set deploy_interface direct when not booting a live-iso
+	var op nodes.UpdateOp
+
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
@@ -951,6 +919,50 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	}
 
 	return updates, nil
+}
+
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
+	// instance_uuid
+	p.log.Info("setting instance_uuid")
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    nodes.ReplaceOp,
+			Path:  "/instance_uuid",
+			Value: string(p.host.ObjectMeta.UID),
+		},
+	)
+
+	// Secure boot is a normal capability that goes into instance_info (we
+	// also put it to properties for consistency, although it's not
+	// strictly required in our case).
+
+	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:   nodes.AddOp,
+			Path: "/instance_info/capabilities",
+			// Instance info capabilities were invented later and
+			// use a normal JSON mapping instead of a custom
+			// string value.
+			Value: map[string]string{
+				"secure_boot": "true",
+			},
+		})
+	} else {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:    nodes.AddOp,
+			Path:  "/instance_info/capabilities",
+			Value: map[string]string{},
+		})
+	}
+
+	// Set live-iso format options
+	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
+		return p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updates)
+	}
+
+	// Set deploy_interface direct options when not booting a live-iso
+	return p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updates)
 }
 
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {

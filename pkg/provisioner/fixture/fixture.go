@@ -92,7 +92,7 @@ func (p *fixtureProvisioner) HasProvisioningCapacity() (result bool, err error) 
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	// Fill in the ID of the host in the provisioning system

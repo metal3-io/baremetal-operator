@@ -34,6 +34,10 @@ type HostConfigData interface {
 	MetaData() (string, error)
 }
 
+type ManagementAccessData struct {
+	BootMACAddress string
+}
+
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
@@ -43,7 +47,7 @@ type Provisioner interface {
 	// of credentials it has are different from the credentials it has
 	// previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(credentialsChanged, force bool) (result Result, provID string, err error)
+	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, force bool) (result Result, provID string, err error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called

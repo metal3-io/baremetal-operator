@@ -524,7 +524,12 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		dirty = true
 	}
 
-	provResult, provID, err := prov.ValidateManagementAccess(credsChanged, info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+	provResult, provID, err := prov.ValidateManagementAccess(
+		provisioner.ManagementAccessData{
+			BootMACAddress: info.host.Spec.BootMACAddress,
+		},
+		credsChanged,
+		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}

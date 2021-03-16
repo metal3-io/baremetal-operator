@@ -86,7 +86,7 @@ func (m *demoProvisioner) HasProvisioningCapacity() (result bool, err error) {
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.objectMeta.Name

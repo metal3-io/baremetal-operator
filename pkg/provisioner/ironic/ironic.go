@@ -391,7 +391,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = operationFailed(err.Error())
@@ -402,7 +402,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 	p.debugLog.Info("validating management access")
 
-	ironicNode, err = p.findExistingHost(p.host.Spec.BootMACAddress)
+	ironicNode, err = p.findExistingHost(data.BootMACAddress)
 	if err != nil {
 		switch err.(type) {
 		case macAddressConflictError:
@@ -415,7 +415,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 	// Some BMC types require a MAC address, so ensure we have one
 	// when we need it. If not, place the host in an error state.
-	if bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
+	if bmcAccess.NeedsMAC() && data.BootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type())
 		p.log.Info(msg)
 		result, err = operationFailed(msg)
@@ -471,15 +471,15 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 		// If we know the MAC, create a port. Otherwise we will have
 		// to do this after we run the introspection step.
-		if p.host.Spec.BootMACAddress != "" {
+		if data.BootMACAddress != "" {
 			enable := true
 			p.log.Info("creating port for node in ironic", "MAC",
-				p.host.Spec.BootMACAddress)
+				data.BootMACAddress)
 			_, err = ports.Create(
 				p.client,
 				ports.CreateOpts{
 					NodeUUID:   ironicNode.UUID,
-					Address:    p.host.Spec.BootMACAddress,
+					Address:    data.BootMACAddress,
 					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {

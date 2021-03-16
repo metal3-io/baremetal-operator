@@ -635,7 +635,7 @@ func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err erro
 	return m.getNextResultByMethod("Adopt"), err
 }
 
-func (m *mockProvisioner) Provision(configData provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Provision"), err
 }
 

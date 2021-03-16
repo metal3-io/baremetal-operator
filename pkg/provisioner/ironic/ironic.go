@@ -1125,7 +1125,7 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	return
 }
 
-func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
@@ -1371,7 +1371,7 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
@@ -1402,7 +1402,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 				ironicNode.LastError))
 		}
 		p.log.Info("recovering from previous failure")
-		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
@@ -1424,7 +1424,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		)
 
 	case nodes.Available:
-		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
@@ -1433,13 +1433,13 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		p.log.Info("making host active")
 
 		// Retrieve cloud-init user data
-		userData, err := hostConf.UserData()
+		userData, err := data.HostConfig.UserData()
 		if err != nil {
 			return transientError(errors.Wrap(err, "could not retrieve user data"))
 		}
 
 		// Retrieve cloud-init network_data.json. Default value is empty
-		networkDataRaw, err := hostConf.NetworkData()
+		networkDataRaw, err := data.HostConfig.NetworkData()
 		if err != nil {
 			return transientError(errors.Wrap(err, "could not retrieve network data"))
 		}
@@ -1456,7 +1456,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			"local-hostname":   p.objectMeta.Name,
 			"local_hostname":   p.objectMeta.Name,
 		}
-		metaDataRaw, err := hostConf.MetaData()
+		metaDataRaw, err := data.HostConfig.MetaData()
 		if err != nil {
 			return transientError(errors.Wrap(err, "could not retrieve metadata"))
 		}

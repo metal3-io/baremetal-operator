@@ -38,6 +38,10 @@ type ManagementAccessData struct {
 	BootMACAddress string
 }
 
+type ProvisionData struct {
+	HostConfig HostConfigData
+}
+
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
@@ -71,7 +75,7 @@ type Provisioner interface {
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.
-	Provision(configData HostConfigData) (result Result, err error)
+	Provision(data ProvisionData) (result Result, err error)
 
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until

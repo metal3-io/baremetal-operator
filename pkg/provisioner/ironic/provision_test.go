@@ -10,6 +10,7 @@ import (
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -108,7 +109,9 @@ func TestProvision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.Provision(fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"))
+			result, err := prov.Provision(provisioner.ProvisionData{
+				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
+			})
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

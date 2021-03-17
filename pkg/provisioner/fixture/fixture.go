@@ -181,10 +181,11 @@ func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bo
 	return
 }
 
-// Adopt allows an externally-provisioned server to be adopted.
+// Adopt notifies the provisioner that the state machine believes the host
+// to be currently provisioned, and that it should be managed as such.
 func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
-	if p.host.Spec.ExternallyProvisioned && !p.state.adopted {
+	if !p.state.adopted {
 		p.state.adopted = true
 		result.Dirty = true
 		result.RequeueAfter = provisionRequeueDelay

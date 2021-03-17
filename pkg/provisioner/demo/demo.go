@@ -210,7 +210,8 @@ func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool)
 	return result, false, nil
 }
 
-// Adopt allows an externally-provisioned server to be adopted.
+// Adopt notifies the provisioner that the state machine believes the host
+// to be currently provisioned, and that it should be managed as such.
 func (p *demoProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	result.Dirty = false

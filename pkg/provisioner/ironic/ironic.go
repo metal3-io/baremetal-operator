@@ -1157,7 +1157,8 @@ func (p *ironicProvisioner) deployInterface(image *metal3v1alpha1.Image) (result
 	return result
 }
 
-// Adopt allows an externally-provisioned server to be adopted by Ironic.
+// Adopt notifies the provisioner that the state machine believes the host
+// to be currently provisioned, and that it should be managed as such.
 func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {

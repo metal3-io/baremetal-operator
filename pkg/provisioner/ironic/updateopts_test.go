@@ -32,6 +32,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	ironicNode := &nodes.Node{}
 
 	provData := provisioner.ProvisionData{
+		Image:           *host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		RootDeviceHints: host.Status.Provisioning.RootDeviceHints,
 	}
@@ -130,6 +131,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 
 	hwProf, _ := hardware.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
+		Image:           *host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
@@ -239,6 +241,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 
 	hwProf, _ := hardware.GetProfile("dell")
 	provData := provisioner.ProvisionData{
+		Image:           *host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
@@ -304,7 +307,8 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 	eventPublisher := func(reason, message string) {}
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 
-	prov, err := newProvisionerWithSettings(makeHostLiveIso(), bmc.Credentials{}, eventPublisher,
+	host := makeHostLiveIso()
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
 	if err != nil {
@@ -313,6 +317,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 	ironicNode := &nodes.Node{}
 
 	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
 	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
@@ -368,7 +373,8 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 	eventPublisher := func(reason, message string) {}
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 
-	prov, err := newProvisionerWithSettings(makeHostLiveIso(), bmc.Credentials{}, eventPublisher,
+	host := makeHostLiveIso()
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
 	if err != nil {
@@ -383,6 +389,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 	}
 
 	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
 	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
@@ -464,6 +471,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 	}
 
 	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
 	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
@@ -567,6 +575,7 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 
 	hwProf, _ := hardware.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
+		Image:           *host.Spec.Image,
 		BootMode:        metal3v1alpha1.UEFISecureBoot,
 		HardwareProfile: hwProf,
 	}

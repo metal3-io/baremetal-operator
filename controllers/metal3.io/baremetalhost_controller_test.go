@@ -1450,6 +1450,94 @@ func TestErrorCountIncrementsAlways(t *testing.T) {
 	}
 }
 
+func TestGetImageReady(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateReady,
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.Nil(t, img)
+}
+
+func TestGetImageProvisioning(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateProvisioning,
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, host.Spec.Image, img)
+	assert.Exactly(t, *host.Spec.Image, *img)
+}
+
+func TestGetImageProvisioned(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image2",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateProvisioned,
+				Image: metal3v1alpha1.Image{
+					URL: "http://example.test/image",
+				},
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, &host.Status.Provisioning.Image, img)
+	assert.Exactly(t, host.Status.Provisioning.Image, *img)
+}
+
+func TestGetImageDeprovisioning(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image2",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateDeprovisioning,
+				Image: metal3v1alpha1.Image{
+					URL: "http://example.test/image",
+				},
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, &host.Status.Provisioning.Image, img)
+	assert.Exactly(t, host.Status.Provisioning.Image, *img)
+}
+
 func TestUpdateRAID(t *testing.T) {
 	host := metal3v1alpha1.BareMetalHost{
 		Spec: metal3v1alpha1.BareMetalHostSpec{

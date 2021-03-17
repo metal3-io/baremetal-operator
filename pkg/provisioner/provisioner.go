@@ -38,6 +38,7 @@ type HostConfigData interface {
 type ManagementAccessData struct {
 	BootMACAddress string
 	BootMode       metal3v1alpha1.BootMode
+	CurrentImage   *metal3v1alpha1.Image
 }
 
 type InspectData struct {
@@ -50,6 +51,7 @@ type PrepareData struct {
 }
 
 type ProvisionData struct {
+	Image           metal3v1alpha1.Image
 	HostConfig      HostConfigData
 	BootMode        metal3v1alpha1.BootMode
 	HardwareProfile hardware.Profile

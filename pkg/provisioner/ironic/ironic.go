@@ -447,7 +447,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 				BootInterface:       bmcAccess.BootInterface(),
 				Name:                p.objectMeta.Name,
 				DriverInfo:          driverInfo,
-				DeployInterface:     p.deployInterface(),
+				DeployInterface:     p.deployInterface(data.CurrentImage),
 				InspectInterface:    "inspector",
 				ManagementInterface: bmcAccess.ManagementInterface(),
 				PowerInterface:      bmcAccess.PowerInterface(),
@@ -487,20 +487,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			}
 		}
 
-		// If there is an image to be provisioned, or an image has
-		// previously been provisioned, include those details. Either
-		// case may mean we are re-adopting a host that was already
-		// known but removed/lost because the pod restarted.
-		var imageData *metal3v1alpha1.Image
-		switch {
-		case p.status.Image.URL != "":
-			imageData = &p.status.Image
-		case p.host.Spec.Image != nil && p.host.Spec.Image.URL != "":
-			imageData = p.host.Spec.Image
-		}
-
-		if imageData != nil {
-			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData, data.BootMode)
+		if data.CurrentImage != nil {
+			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
 			if optsErr != nil {
 				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
 				return
@@ -991,7 +979,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 }
 
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) (updates nodes.UpdateOpts, err error) {
-	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, p.host.Spec.Image, data.BootMode)
+	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode)
 	if err != nil {
 		return updates, errors.Wrap(err, "Could not get Image options for node")
 	}
@@ -1157,13 +1145,13 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 		"deploy step", ironicNode.DeployStep,
 	)
 	p.publisher("ProvisioningStarted",
-		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
+		fmt.Sprintf("Image provisioning started for %s", data.Image.URL))
 	return
 }
 
-func (p *ironicProvisioner) deployInterface() (result string) {
+func (p *ironicProvisioner) deployInterface(image *metal3v1alpha1.Image) (result string) {
 	result = "direct"
-	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
+	if image != nil && image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
 		result = "ramdisk"
 	}
 	return result
@@ -1219,18 +1207,18 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 	return operationComplete()
 }
 
-func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImage bool) {
+func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image metal3v1alpha1.Image) (sameImage bool) {
 	// To make it easier to test if ironic is configured with
 	// the same image we are trying to provision to the host.
-	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
-		sameImage = (ironicNode.InstanceInfo["boot_iso"] == p.host.Spec.Image.URL)
+	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+		sameImage = (ironicNode.InstanceInfo["boot_iso"] == image.URL)
 		p.log.Info("checking image settings",
 			"boot_iso", ironicNode.InstanceInfo["boot_iso"],
 			"same", sameImage,
 			"provisionState", ironicNode.ProvisionState)
 	} else {
-		checksum, checksumType, _ := p.host.GetImageChecksum()
-		sameImage = (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+		checksum, checksumType, _ := image.GetChecksum()
+		sameImage = (ironicNode.InstanceInfo["image_source"] == image.URL &&
 			ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
 			ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
 		p.log.Info("checking image settings",
@@ -1369,7 +1357,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	ironicHasSameImage := p.ironicHasSameImage(ironicNode)
+	ironicHasSameImage := p.ironicHasSameImage(ironicNode, data.Image)
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
@@ -1482,7 +1470,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 	case nodes.Active:
 		// provisioning is done
 		p.publisher("ProvisioningComplete",
-			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
+			fmt.Sprintf("Image provisioning completed for %s", data.Image.URL))
 		p.log.Info("finished provisioning")
 		return operationComplete()
 

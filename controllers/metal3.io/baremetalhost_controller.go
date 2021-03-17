@@ -510,6 +510,22 @@ func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, 
 	return actionContinue{unmanagedRetryDelay}
 }
 
+// getCurrentImage() returns the current image that has been or is being
+// provisioned.
+func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
+	// If an image is currently provisioned, return it
+	if host.Status.Provisioning.Image.URL != "" {
+		return host.Status.Provisioning.Image.DeepCopy()
+	}
+
+	// If we are in the process of provisioning an image, return that image
+	if host.Status.Provisioning.State == metal3v1alpha1.StateProvisioning &&
+		host.Spec.Image != nil && host.Spec.Image.URL != "" {
+		return host.Spec.Image.DeepCopy()
+	}
+	return nil
+}
+
 // Test the credentials by connecting to the management controller.
 func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
@@ -528,6 +544,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		provisioner.ManagementAccessData{
 			BootMACAddress: info.host.Spec.BootMACAddress,
 			BootMode:       info.host.Status.Provisioning.BootMode,
+			CurrentImage:   getCurrentImage(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
@@ -732,6 +749,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	provResult, err := prov.Provision(provisioner.ProvisionData{
+		Image:           *info.host.Spec.Image.DeepCopy(),
 		HostConfig:      hostConf,
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,

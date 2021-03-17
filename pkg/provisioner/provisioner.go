@@ -6,6 +6,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 )
 
 /*
@@ -44,8 +45,9 @@ type InspectData struct {
 }
 
 type ProvisionData struct {
-	HostConfig HostConfigData
-	BootMode   metal3v1alpha1.BootMode
+	HostConfig      HostConfigData
+	BootMode        metal3v1alpha1.BootMode
+	HardwareProfile hardware.Profile
 }
 
 // Provisioner holds the state information for talking to the

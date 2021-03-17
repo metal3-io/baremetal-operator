@@ -12,6 +12,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
@@ -125,8 +126,10 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
+	hwProf, _ := hardware.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
-		BootMode: metal3v1alpha1.DefaultBootMode,
+		BootMode:        metal3v1alpha1.DefaultBootMode,
+		HardwareProfile: hwProf,
 	}
 	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
@@ -232,8 +235,10 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
+	hwProf, _ := hardware.GetProfile("dell")
 	provData := provisioner.ProvisionData{
-		BootMode: metal3v1alpha1.DefaultBootMode,
+		BootMode:        metal3v1alpha1.DefaultBootMode,
+		HardwareProfile: hwProf,
 	}
 	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {
@@ -558,8 +563,10 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
+	hwProf, _ := hardware.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
-		BootMode: metal3v1alpha1.UEFISecureBoot,
+		BootMode:        metal3v1alpha1.UEFISecureBoot,
+		HardwareProfile: hwProf,
 	}
 	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {

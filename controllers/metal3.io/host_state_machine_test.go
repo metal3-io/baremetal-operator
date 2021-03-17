@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	corev1 "k8s.io/api/core/v1"
@@ -489,6 +490,7 @@ func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
 				RootDeviceHints: &v1alpha1.RootDeviceHints{},
 			},
 			Status: metal3v1alpha1.BareMetalHostStatus{
+				HardwareProfile: hardware.DefaultProfileName,
 				Provisioning: metal3v1alpha1.ProvisionStatus{
 					State:    state,
 					BootMode: v1alpha1.DefaultBootMode,

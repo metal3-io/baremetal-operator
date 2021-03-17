@@ -713,6 +713,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 	info.log.Info("provisioning")
 
+	hwProf, err := hardware.GetProfile(info.host.HardwareProfile())
+	if err != nil {
+		return actionError{errors.Wrap(err,
+			fmt.Sprintf("could not start provisioning with bad hardware profile %s",
+				info.host.HardwareProfile()))}
+	}
+
 	if clearRebootAnnotations(info.host) {
 		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
@@ -721,8 +728,9 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	provResult, err := prov.Provision(provisioner.ProvisionData{
-		HostConfig: hostConf,
-		BootMode:   info.host.Status.Provisioning.BootMode,
+		HostConfig:      hostConf,
+		BootMode:        info.host.Status.Provisioning.BootMode,
+		HardwareProfile: hwProf,
 	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}

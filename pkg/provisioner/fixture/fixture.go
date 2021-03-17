@@ -182,7 +182,7 @@ func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bo
 }
 
 // Adopt allows an externally-provisioned server to be adopted.
-func (p *fixtureProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	if p.host.Spec.ExternallyProvisioned && !p.state.adopted {
 		p.state.adopted = true

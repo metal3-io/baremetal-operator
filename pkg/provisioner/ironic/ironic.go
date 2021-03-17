@@ -1158,7 +1158,7 @@ func (p *ironicProvisioner) deployInterface(image *metal3v1alpha1.Image) (result
 }
 
 // Adopt allows an externally-provisioned server to be adopted by Ironic.
-func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
@@ -1171,7 +1171,7 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 	case nodes.Manageable:
 		_, hasImageSource := ironicNode.InstanceInfo["image_source"]
 		_, hasBootISO := ironicNode.InstanceInfo["boot_iso"]
-		if p.status.State == metal3v1alpha1.StateDeprovisioning &&
+		if data.State == metal3v1alpha1.StateDeprovisioning &&
 			!(hasImageSource || hasBootISO) {
 			// If we got here after a fresh registration and image data is
 			// available, it should have been added to the node during

@@ -633,7 +633,7 @@ func (m *mockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool)
 	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 
-func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Adopt"), err
 }
 

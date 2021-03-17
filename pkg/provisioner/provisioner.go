@@ -38,7 +38,12 @@ type HostConfigData interface {
 type ManagementAccessData struct {
 	BootMACAddress string
 	BootMode       metal3v1alpha1.BootMode
+	State          metal3v1alpha1.ProvisioningState
 	CurrentImage   *metal3v1alpha1.Image
+}
+
+type AdoptData struct {
+	State metal3v1alpha1.ProvisioningState
 }
 
 type InspectData struct {
@@ -83,7 +88,7 @@ type Provisioner interface {
 
 	// Adopt brings an externally-provisioned host under management by
 	// the provisioner.
-	Adopt(force bool) (result Result, err error)
+	Adopt(data AdoptData, force bool) (result Result, err error)
 
 	// Prepare remove existing configuration and set new configuration
 	Prepare(data PrepareData, unprepared bool) (result Result, started bool, err error)

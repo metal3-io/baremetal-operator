@@ -544,6 +544,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		provisioner.ManagementAccessData{
 			BootMACAddress: info.host.Spec.BootMACAddress,
 			BootMode:       info.host.Status.Provisioning.BootMode,
+			State:          info.host.Status.Provisioning.State,
 			CurrentImage:   getCurrentImage(info.host),
 		},
 		credsChanged,
@@ -798,7 +799,9 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	if info.host.Status.Provisioning.Image.URL != "" {
 		// Adopt the host in case it has been re-registered during the
 		// deprovisioning process before it completed
-		provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
+		provResult, err := prov.Adopt(
+			provisioner.AdoptData{State: info.host.Status.Provisioning.State},
+			info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 		if err != nil {
 			return actionError{err}
 		}
@@ -944,7 +947,9 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 // action. We use the Adopt() API to make sure that the provisioner is aware of
 // the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
+	provResult, err := prov.Adopt(
+		provisioner.AdoptData{State: info.host.Status.Provisioning.State},
+		info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 	if err != nil {
 		return actionError{err}
 	}

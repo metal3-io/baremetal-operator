@@ -45,8 +45,6 @@ func (cd *fixtureHostConfigData) MetaData() (string, error) {
 // fixtureProvisioner implements the provisioning.fixtureProvisioner interface
 // and uses Ironic to manage the host.
 type fixtureProvisioner struct {
-	// the host to be managed by this provisioner
-	host metal3v1alpha1.BareMetalHost
 	// the provisioning ID for this host
 	provID string
 	// the bmc credentials
@@ -76,7 +74,6 @@ type Fixture struct {
 // New returns a new Ironic FixtureProvisioner
 func (f *Fixture) New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
-		host:      *host.DeepCopy(),
 		provID:    host.Status.Provisioning.ID,
 		bmcCreds:  bmcCreds,
 		log:       log.WithValues("host", host.Name),

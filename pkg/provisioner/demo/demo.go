@@ -53,8 +53,6 @@ const (
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
 type demoProvisioner struct {
-	// the host to be managed by this provisioner
-	host metal3v1alpha1.BareMetalHost
 	// the object metadata of the BareMetalHost resource
 	objectMeta metav1.ObjectMeta
 	// the provisioning ID for this host
@@ -70,7 +68,6 @@ type demoProvisioner struct {
 // New returns a new Ironic Provisioner
 func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
-		host:       host,
 		objectMeta: host.ObjectMeta,
 		provID:     host.Status.Provisioning.ID,
 		bmcCreds:   bmcCreds,

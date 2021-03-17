@@ -44,6 +44,11 @@ type InspectData struct {
 	BootMode metal3v1alpha1.BootMode
 }
 
+type PrepareData struct {
+	RAIDConfig      *metal3v1alpha1.RAIDConfig
+	RootDeviceHints *metal3v1alpha1.RootDeviceHints
+}
+
 type ProvisionData struct {
 	HostConfig      HostConfigData
 	BootMode        metal3v1alpha1.BootMode
@@ -79,7 +84,7 @@ type Provisioner interface {
 	Adopt(force bool) (result Result, err error)
 
 	// Prepare remove existing configuration and set new configuration
-	Prepare(unprepared bool) (result Result, started bool, err error)
+	Prepare(data PrepareData, unprepared bool) (result Result, started bool, err error)
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its

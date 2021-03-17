@@ -10,6 +10,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 )
@@ -121,9 +122,10 @@ func TestPrepare(t *testing.T) {
 
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
+			prepData := provisioner.PrepareData{}
 			if tc.existRaidConfig {
 				host.Spec.BMC.Address = "irmc://test.bmc/"
-				host.Status.Provisioning.RAID = &metal3v1alpha1.RAIDConfig{
+				prepData.RAIDConfig = &metal3v1alpha1.RAIDConfig{
 					HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
 						{
 							Name:  "root",
@@ -146,7 +148,7 @@ func TestPrepare(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, started, err := prov.Prepare(tc.unprepared)
+			result, started, err := prov.Prepare(prepData, tc.unprepared)
 
 			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

@@ -731,6 +731,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		HostConfig:      hostConf,
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
+		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
 	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}

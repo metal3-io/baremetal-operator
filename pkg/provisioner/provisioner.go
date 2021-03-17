@@ -48,6 +48,7 @@ type ProvisionData struct {
 	HostConfig      HostConfigData
 	BootMode        metal3v1alpha1.BootMode
 	HardwareProfile hardware.Profile
+	RootDeviceHints *metal3v1alpha1.RootDeviceHints
 }
 
 // Provisioner holds the state information for talking to the

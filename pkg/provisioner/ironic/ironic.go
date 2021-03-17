@@ -1016,7 +1016,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 	//
 	// If the user has provided explicit root device hints, they take
 	// precedence. Otherwise use the values from the hardware profile.
-	hints := devicehints.MakeHintMap(p.status.RootDeviceHints)
+	hints := devicehints.MakeHintMap(data.RootDeviceHints)
 	p.log.Info("using root device", "hints", hints)
 	updates = append(
 		updates,

@@ -22,7 +22,8 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	eventPublisher := func(reason, message string) {}
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 
-	prov, err := newProvisionerWithSettings(makeHost(), bmc.Credentials{}, eventPublisher,
+	host := makeHost()
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
 	if err != nil {
@@ -31,7 +32,8 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	ironicNode := &nodes.Node{}
 
 	provData := provisioner.ProvisionData{
-		BootMode: metal3v1alpha1.DefaultBootMode,
+		BootMode:        metal3v1alpha1.DefaultBootMode,
+		RootDeviceHints: host.Status.Provisioning.RootDeviceHints,
 	}
 	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
 	if err != nil {

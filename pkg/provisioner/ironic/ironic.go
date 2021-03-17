@@ -672,7 +672,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
 func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
-	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
+	p.log.Info("inspecting hardware")
 
 	ironicNode, err := p.getNode()
 	if err != nil {
@@ -1703,11 +1703,11 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 	case gophercloud.ErrDefault409:
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
 		result, _ = retryAfterDelay(powerRequeueDelay)
-		return result, HostLockedError{Address: p.host.Spec.BMC.Address}
+		return result, HostLockedError{}
 	case gophercloud.ErrDefault400:
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		p.log.Info("power change error", "message", changeResult.Err)
-		return result, SoftPowerOffUnsupportedError{Address: p.host.Spec.BMC.Address}
+		return result, SoftPowerOffUnsupportedError{}
 	default:
 		p.log.Info("power change error", "message", changeResult.Err)
 		return transientError(errors.Wrap(changeResult.Err, "failed to change power state"))
@@ -1725,7 +1725,6 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 	}
 
 	p.log.Info("checking current state",
-		"current", p.host.Status.PoweredOn,
 		"target", ironicNode.TargetPowerState)
 
 	if ironicNode.PowerState != powerOn {
@@ -1819,7 +1818,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 		// If the target state is unset while the last error is set,
 		// then the last execution of soft power off has failed.
 		if targetState == "" && ironicNode.LastError != "" {
-			return result, SoftPowerOffFailed{Address: p.host.Spec.BMC.Address}
+			return result, SoftPowerOffFailed{}
 		}
 		result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
 		if err != nil {

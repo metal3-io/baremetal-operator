@@ -120,8 +120,6 @@ func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
 func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
-	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
-
 	hostName := p.objectMeta.Name
 
 	if hostName == InspectingHost {
@@ -132,58 +130,51 @@ func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force bo
 		return
 	}
 
-	// The inspection is ongoing. We'll need to check the demo
-	// status for the server here until it is ready for us to get the
-	// inspection details. Simulate that for now by creating the
-	// hardware details struct as part of a second pass.
-	if p.host.Status.HardwareDetails == nil {
-		p.log.Info("continuing inspection by setting details")
-		details =
-			&metal3v1alpha1.HardwareDetails{
-				RAMMebibytes: 128 * 1024,
-				NIC: []metal3v1alpha1.NIC{
-					{
-						Name:      "nic-1",
-						Model:     "virt-io",
-						MAC:       "some:mac:address",
-						IP:        "192.168.100.1",
-						SpeedGbps: 1,
-						PXE:       true,
-					},
-					{
-						Name:      "nic-2",
-						Model:     "e1000",
-						MAC:       "some:other:mac:address",
-						IP:        "192.168.100.2",
-						SpeedGbps: 1,
-						PXE:       false,
-					},
+	p.log.Info("continuing inspection by setting details")
+	details =
+		&metal3v1alpha1.HardwareDetails{
+			RAMMebibytes: 128 * 1024,
+			NIC: []metal3v1alpha1.NIC{
+				{
+					Name:      "nic-1",
+					Model:     "virt-io",
+					MAC:       "some:mac:address",
+					IP:        "192.168.100.1",
+					SpeedGbps: 1,
+					PXE:       true,
 				},
-				Storage: []metal3v1alpha1.Storage{
-					{
-						Name:       "disk-1 (boot)",
-						Rotational: false,
-						SizeBytes:  metal3v1alpha1.TebiByte * 93,
-						Model:      "Dell CFJ61",
-					},
-					{
-						Name:       "disk-2",
-						Rotational: false,
-						SizeBytes:  metal3v1alpha1.TebiByte * 93,
-						Model:      "Dell CFJ61",
-					},
+				{
+					Name:      "nic-2",
+					Model:     "e1000",
+					MAC:       "some:other:mac:address",
+					IP:        "192.168.100.2",
+					SpeedGbps: 1,
+					PXE:       false,
 				},
-				CPU: metal3v1alpha1.CPU{
-					Arch:           "x86_64",
-					Model:          "Core 2 Duo",
-					ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
-					Flags:          []string{"lm", "hypervisor", "vmx"},
-					Count:          1,
+			},
+			Storage: []metal3v1alpha1.Storage{
+				{
+					Name:       "disk-1 (boot)",
+					Rotational: false,
+					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					Model:      "Dell CFJ61",
 				},
-			}
-		p.publisher("InspectionComplete", "Hardware inspection completed")
-		p.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
-	}
+				{
+					Name:       "disk-2",
+					Rotational: false,
+					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					Model:      "Dell CFJ61",
+				},
+			},
+			CPU: metal3v1alpha1.CPU{
+				Arch:           "x86_64",
+				Model:          "Core 2 Duo",
+				ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+				Flags:          []string{"lm", "hypervisor", "vmx"},
+				Count:          1,
+			},
+		}
+	p.publisher("InspectionComplete", "Hardware inspection completed")
 
 	return
 }
@@ -200,7 +191,6 @@ func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 // Prepare remove existing configuration and set new configuration
 func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
 	hostName := p.objectMeta.Name
-	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
 
 	switch hostName {
 
@@ -233,7 +223,7 @@ func (p *demoProvisioner) Adopt(force bool) (result provisioner.Result, err erro
 func (p *demoProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
-	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
+	p.log.Info("provisioning image to host")
 
 	switch hostName {
 

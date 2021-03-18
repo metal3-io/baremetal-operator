@@ -136,6 +136,10 @@ type ironicProvisioner struct {
 	objectMeta metav1.ObjectMeta
 	// the UUID of the node in Ironic
 	nodeID string
+	// the address of the BMC
+	bmcAddress string
+	// whether to disable SSL certificate verification
+	disableCertVerification bool
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
@@ -166,6 +170,8 @@ func LogStartup() {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
+	hostData := provisioner.BuildHostData(host, bmcCreds)
+
 	tlsConf := clients.TLSConfig{
 		TrustedCAFile:      ironicTrustedCAFile,
 		InsecureSkipVerify: ironicInsecure,
@@ -180,26 +186,28 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 		return nil, err
 	}
 
-	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
+	return newProvisionerWithIronicClients(hostData, publisher,
 		clientIronic, clientInspector)
 }
 
-func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
+func newProvisionerWithIronicClients(hostData provisioner.HostData, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
 	// Ensure we have a microversion high enough to get the features
 	// we need.
 	clientIronic.Microversion = "1.56"
 
-	provisionerLogger := log.WithValues("host", ironicNodeName(host.ObjectMeta))
+	provisionerLogger := log.WithValues("host", ironicNodeName(hostData.ObjectMeta))
 
 	p := &ironicProvisioner{
-		objectMeta: host.ObjectMeta,
-		nodeID:     host.Status.Provisioning.ID,
-		bmcCreds:   bmcCreds,
-		client:     clientIronic,
-		inspector:  clientInspector,
-		log:        provisionerLogger,
-		debugLog:   provisionerLogger.V(1),
-		publisher:  publisher,
+		objectMeta:              hostData.ObjectMeta,
+		nodeID:                  hostData.ProvisionerID,
+		bmcCreds:                hostData.BMCCredentials,
+		bmcAddress:              hostData.BMCAddress,
+		disableCertVerification: hostData.DisableCertificateVerification,
+		client:                  clientIronic,
+		inspector:               clientInspector,
+		log:                     provisionerLogger,
+		debugLog:                provisionerLogger.V(1),
+		publisher:               publisher,
 	}
 
 	return p, nil
@@ -207,7 +215,7 @@ func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds
 
 // New returns a new Ironic Provisioner using the global configuration
 // for finding the Ironic services.
-func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	var err error
 	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
 		tlsConf := clients.TLSConfig{
@@ -226,12 +234,12 @@ func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher 
 			return nil, err
 		}
 	}
-	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
+	return newProvisionerWithIronicClients(hostData, publisher,
 		clientIronicSingleton, clientInspectorSingleton)
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
-	bmcAccess, err := bmc.NewAccessDetails(p.host.Spec.BMC.Address, p.host.Spec.BMC.DisableCertificateVerification)
+	bmcAccess, err := bmc.NewAccessDetails(p.bmcAddress, p.disableCertVerification)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}

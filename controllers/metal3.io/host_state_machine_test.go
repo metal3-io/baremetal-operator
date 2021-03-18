@@ -21,7 +21,7 @@ import (
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
-	p, _ := r.ProvisionerFactory(*host.DeepCopy(), bmc.Credentials{},
+	p, _ := r.ProvisionerFactory(provisioner.BuildHostData(*host, bmc.Credentials{}),
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p, true)
 }

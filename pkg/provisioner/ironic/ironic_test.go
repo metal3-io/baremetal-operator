@@ -10,6 +10,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
 	// We don't use this package directly here, but need it imported
 	// so it registers its test fixture with the other BMC access
@@ -91,7 +92,7 @@ func TestNewNoBMCDetails(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC = metal3v1alpha1.BMCDetails{}
 
-	prov, err := New(host, bmc.Credentials{}, nullEventPublisher)
+	prov, err := New(provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
 	assert.Equal(t, nil, err)
 	assert.NotEqual(t, nil, prov)
 }

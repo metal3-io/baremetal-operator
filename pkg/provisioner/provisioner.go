@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
@@ -17,8 +19,26 @@ Package provisioning defines the API for talking to the provisioning backend.
 // with provisioning.
 type EventPublisher func(reason, message string)
 
+type HostData struct {
+	ObjectMeta                     metav1.ObjectMeta
+	BMCAddress                     string
+	BMCCredentials                 bmc.Credentials
+	DisableCertificateVerification bool
+	ProvisionerID                  string
+}
+
+func BuildHostData(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials) HostData {
+	return HostData{
+		ObjectMeta:                     *host.ObjectMeta.DeepCopy(),
+		BMCAddress:                     host.Spec.BMC.Address,
+		BMCCredentials:                 bmcCreds,
+		DisableCertificateVerification: host.Spec.BMC.DisableCertificateVerification,
+		ProvisionerID:                  host.Status.Provisioning.ID,
+	}
+}
+
 // Factory is the interface for creating new Provisioner objects.
-type Factory func(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
+type Factory func(hostData HostData, publish EventPublisher) (Provisioner, error)
 
 // HostConfigData retrieves host configuration data
 type HostConfigData interface {

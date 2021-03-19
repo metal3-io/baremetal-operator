@@ -543,10 +543,9 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 	provResult, provID, err := prov.ValidateManagementAccess(
 		provisioner.ManagementAccessData{
-			BootMACAddress: info.host.Spec.BootMACAddress,
-			BootMode:       info.host.Status.Provisioning.BootMode,
-			State:          info.host.Status.Provisioning.State,
-			CurrentImage:   getCurrentImage(info.host),
+			BootMode:     info.host.Status.Provisioning.BootMode,
+			State:        info.host.Status.Provisioning.State,
+			CurrentImage: getCurrentImage(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)

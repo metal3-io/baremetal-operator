@@ -142,6 +142,8 @@ type ironicProvisioner struct {
 	disableCertVerification bool
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
+	// the MAC address of the PXE boot interface
+	bootMACAddress string
 	// a client for talking to ironic
 	client *gophercloud.ServiceClient
 	// a client for talking to ironic-inspector
@@ -203,6 +205,7 @@ func newProvisionerWithIronicClients(hostData provisioner.HostData, publisher pr
 		bmcCreds:                hostData.BMCCredentials,
 		bmcAddress:              hostData.BMCAddress,
 		disableCertVerification: hostData.DisableCertificateVerification,
+		bootMACAddress:          hostData.BootMACAddress,
 		client:                  clientIronic,
 		inspector:               clientInspector,
 		log:                     provisionerLogger,
@@ -403,7 +406,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 	p.debugLog.Info("validating management access")
 
-	ironicNode, err = p.findExistingHost(data.BootMACAddress)
+	ironicNode, err = p.findExistingHost(p.bootMACAddress)
 	if err != nil {
 		switch err.(type) {
 		case macAddressConflictError:
@@ -416,7 +419,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 	// Some BMC types require a MAC address, so ensure we have one
 	// when we need it. If not, place the host in an error state.
-	if bmcAccess.NeedsMAC() && data.BootMACAddress == "" {
+	if bmcAccess.NeedsMAC() && p.bootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type())
 		p.log.Info(msg)
 		result, err = operationFailed(msg)
@@ -472,15 +475,15 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 		// If we know the MAC, create a port. Otherwise we will have
 		// to do this after we run the introspection step.
-		if data.BootMACAddress != "" {
+		if p.bootMACAddress != "" {
 			enable := true
 			p.log.Info("creating port for node in ironic", "MAC",
-				data.BootMACAddress)
+				p.bootMACAddress)
 			_, err = ports.Create(
 				p.client,
 				ports.CreateOpts{
 					NodeUUID:   ironicNode.UUID,
-					Address:    data.BootMACAddress,
+					Address:    p.bootMACAddress,
 					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {

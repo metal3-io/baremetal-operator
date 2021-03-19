@@ -24,6 +24,7 @@ type HostData struct {
 	BMCAddress                     string
 	BMCCredentials                 bmc.Credentials
 	DisableCertificateVerification bool
+	BootMACAddress                 string
 	ProvisionerID                  string
 }
 
@@ -33,6 +34,7 @@ func BuildHostData(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials) 
 		BMCAddress:                     host.Spec.BMC.Address,
 		BMCCredentials:                 bmcCreds,
 		DisableCertificateVerification: host.Spec.BMC.DisableCertificateVerification,
+		BootMACAddress:                 host.Spec.BootMACAddress,
 		ProvisionerID:                  host.Status.Provisioning.ID,
 	}
 }
@@ -56,10 +58,9 @@ type HostConfigData interface {
 }
 
 type ManagementAccessData struct {
-	BootMACAddress string
-	BootMode       metal3v1alpha1.BootMode
-	State          metal3v1alpha1.ProvisioningState
-	CurrentImage   *metal3v1alpha1.Image
+	BootMode     metal3v1alpha1.BootMode
+	State        metal3v1alpha1.ProvisioningState
+	CurrentImage *metal3v1alpha1.Image
 }
 
 type AdoptData struct {

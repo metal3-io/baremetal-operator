@@ -20,6 +20,7 @@ func TestValidateManagementAccessNoMAC(t *testing.T) {
 	// requires one.
 	host := makeHost()
 	host.Spec.BMC.Address = "test-needs-mac://"
+	host.Spec.BootMACAddress = ""
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	ironic := testserver.NewIronic(t).Ready().NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
@@ -45,6 +46,7 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
+	host.Spec.BootMACAddress = ""
 
 	// Set up ironic server to return the node
 	ironic := testserver.NewIronic(t).Ready().
@@ -74,6 +76,7 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
+	host.Spec.BootMACAddress = ""
 	host.Spec.Image = nil
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
@@ -185,6 +188,7 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
+	host.Spec.BootMACAddress = ""
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	createCallback := func(node nodes.Node) {
@@ -283,6 +287,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 			// Create a host without a bootMACAddress and with a BMC that
 			// does not require one.
 			host := makeHost()
+			host.Spec.BootMACAddress = ""
 			host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 			createCallback := func(node nodes.Node) {
@@ -326,6 +331,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 			// Create a host without a bootMACAddress and with a BMC that
 			// does not require one.
 			host := makeHost()
+			host.Spec.BootMACAddress = ""
 			host.Status.Provisioning.ID = "uuid"
 
 			createCallback := func(node nodes.Node) {
@@ -363,6 +369,7 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
+	host.Spec.BootMACAddress = ""
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	ironic := testserver.NewIronic(t).
@@ -427,6 +434,7 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 	defer ironic.Stop()
 
 	host := makeHost()
+	host.Spec.BootMACAddress = "11:11:11:11:11:11"
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
@@ -437,7 +445,7 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMACAddress: "11:11:11:11:11:11"}, false, false)
+	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
@@ -470,6 +478,7 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 	defer ironic.Stop()
 
 	host := makeHost()
+	host.Spec.BootMACAddress = "11:11:11:11:11:11"
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
@@ -480,7 +489,7 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, _, err = prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMACAddress: "11:11:11:11:11:11"}, false, false)
+	_, _, err = prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
 	assert.EqualError(t, err, "failed to find existing host: port exists but linked node doesn't random-wrong-id: Resource not found")
 }
 
@@ -512,6 +521,7 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 	defer ironic.Stop()
 
 	host := makeHost()
+	host.Spec.BootMACAddress = "11:11:11:11:11:11"
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
@@ -522,7 +532,7 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	res, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMACAddress: "11:11:11:11:11:11"}, false, false)
+	res, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
 	assert.Nil(t, err)
 	assert.Equal(t, res.ErrorMessage, "MAC address 11:11:11:11:11:11 conflicts with existing node wrong-name")
 }
@@ -548,6 +558,8 @@ func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
 	defer ironic.Stop()
 
 	host := makeHost()
+	// This value is different than the port that actually exists
+	host.Spec.BootMACAddress = "22:22:22:22:22:22"
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
@@ -559,7 +571,7 @@ func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
 	}
 
 	// MAC address value is different than the port that actually exists
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMACAddress: "22:22:22:22:22:22"}, false, false)
+	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}

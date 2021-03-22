@@ -709,7 +709,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 		result, err = operationFailed(status.Error)
 		return
 	}
-	if !status.Finished || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait {
+	if !status.Finished || (nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Inspecting || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait) {
 		p.log.Info("inspection in progress", "started_at", status.StartedAt)
 		result, err = operationContinuing(introspectionRequeueDelay)
 		return

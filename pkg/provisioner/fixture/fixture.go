@@ -57,6 +57,7 @@ type fixtureProvisioner struct {
 	state *Fixture
 }
 
+// Fixture contains persistent state for a particular host
 type Fixture struct {
 	// counter to set the provisioner as ready
 	BecomeReadyCounter int

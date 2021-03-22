@@ -121,7 +121,7 @@ func main() {
 	}
 
 	provisionerFactory := func(host metal3iov1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish provisioner.EventPublisher) (provisioner.Provisioner, error) {
-		isUnmanaged := host.Spec.ExternallyProvisioned && !host.HasBMCDetails()
+		isUnmanaged := !host.HasBMCDetails()
 
 		hostCopy := host.DeepCopy()
 

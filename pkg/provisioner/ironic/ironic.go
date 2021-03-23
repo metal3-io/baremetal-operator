@@ -72,6 +72,7 @@ func (e macAddressConflictError) Error() string {
 	return fmt.Sprintf("MAC address %s conflicts with existing node %s", e.Address, e.ExistingNode)
 }
 
+// NewMacAddressConflictError is a wrap for macAddressConflictError error
 func NewMacAddressConflictError(address, node string) error {
 	return macAddressConflictError{Address: address, ExistingNode: node}
 }
@@ -1198,10 +1199,9 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 					Target: nodes.TargetAdopt,
 				},
 			)
-		} else {
-			return operationFailed(fmt.Sprintf("Host adoption failed: %s",
-				ironicNode.LastError))
 		}
+		return operationFailed(fmt.Sprintf("Host adoption failed: %s",
+			ironicNode.LastError))
 	case nodes.Active:
 	default:
 	}

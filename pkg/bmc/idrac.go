@@ -87,7 +87,7 @@ func (a *iDracAccessDetails) PowerInterface() string {
 }
 
 func (a *iDracAccessDetails) RAIDInterface() string {
-	return ""
+	return "no-raid"
 }
 
 func (a *iDracAccessDetails) VendorInterface() string {

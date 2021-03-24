@@ -1,5 +1,5 @@
 RUN_NAMESPACE = metal3
-GO_TEST_FLAGS = $(VERBOSE)
+GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
 
@@ -63,7 +63,7 @@ test: generate lint manifests unit ## Run common developer tests
 
 .PHONY: unit
 unit: ## Run unit tests
-	go test ./... $(VERBOSE) -coverprofile $(COVER_PROFILE)
+	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
@@ -72,7 +72,7 @@ unit-cover: ## Run unit tests with code coverage
 
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
-	VERBOSE=-v make unit
+	TEST_FLAGS=-v make unit
 
 ## --------------------------------------
 ## Linter Targets

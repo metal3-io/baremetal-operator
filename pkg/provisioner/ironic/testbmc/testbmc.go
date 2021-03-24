@@ -75,7 +75,7 @@ func (a *testAccessDetails) PowerInterface() string {
 }
 
 func (a *testAccessDetails) RAIDInterface() string {
-	return ""
+	return "no-raid"
 }
 
 func (a *testAccessDetails) VendorInterface() string {

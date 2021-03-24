@@ -55,10 +55,6 @@ const (
 	powerOff     = "power off"
 	softPowerOff = "soft power off"
 	powerNone    = "None"
-
-	// Maximum number of times node Power off would be retried before
-	// it would be deleted.
-	maxPowerOffRetryCount = 3
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
@@ -1616,7 +1612,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 // Delete removes the host from the provisioning system. It may be
 // called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Delete(retryPowerOff bool) (result provisioner.Result, err error) {
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
@@ -1659,7 +1655,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		return p.setMaintenanceFlag(ironicNode, true)
 	}
 
-	if ironicNode.PowerState == powerOn && p.host.Status.ErrorCount <= maxPowerOffRetryCount {
+	if ironicNode.PowerState == powerOn && retryPowerOff {
 		p.log.Info("host ready to be powered off")
 		_, err := p.hardPowerOff()
 		if err != nil {
@@ -1668,6 +1664,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 				p.log.Info("could not power off host, busy")
 				return retryAfterDelay(powerRequeueDelay)
 			default:
+				p.log.Info("encountered transient error %s while powering off host", err)
 				return operationFailed("failed to power off host")
 			}
 		}

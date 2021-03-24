@@ -52,6 +52,10 @@ const (
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
 	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
+
+	// Maximum number of times node Power off would be retried before
+	// it would be deleted.
+	maxPowerOffRetryCount = 3
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
@@ -483,7 +487,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 		return deleteComplete{}
 	}
 
-	provResult, err := prov.Delete()
+	provResult, err := prov.Delete(info.host.Status.ErrorCount <= maxPowerOffRetryCount)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to delete")}
 	}

@@ -172,7 +172,7 @@ func TestDelete(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.Delete()
+			result, err := prov.Delete(true)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, tc.expectedRequestAfter, result.RequeueAfter)
@@ -196,44 +196,16 @@ func TestDeleteWithPowerOff(t *testing.T) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 
 	cases := []struct {
-		name        string
-		ironic      *testserver.IronicMock
-		inspector   *testserver.InspectorMock
-		priorErrors int
+		name      string
+		ironic    *testserver.IronicMock
+		inspector *testserver.InspectorMock
+		retryFlag bool
 
 		expectedPowerStateInRequest string
 		expectedError               string
 	}{
 		{
-			name: "test-power-change-without-errors",
-			ironic: testserver.NewIronic(t).Node(
-				nodes.Node{
-					UUID:           nodeUUID,
-					ProvisionState: "active",
-					Maintenance:    true,
-					PowerState:     powerOn,
-				},
-			),
-			priorErrors:                 0,
-			expectedPowerStateInRequest: "power off",
-			expectedError:               "",
-		},
-		{
-			name: "test-power-change-with-errors",
-			ironic: testserver.NewIronic(t).Node(
-				nodes.Node{
-					UUID:           nodeUUID,
-					ProvisionState: "active",
-					Maintenance:    true,
-					PowerState:     powerOn,
-				},
-			),
-			priorErrors:                 maxPowerOffRetryCount - 1,
-			expectedPowerStateInRequest: "power off",
-			expectedError:               "",
-		},
-		{
-			name: "test-power-change-with-max-errors",
+			name: "test-power-change-without-force",
 			ironic: testserver.NewIronic(t).Node(
 				nodes.Node{
 					UUID:           nodeUUID,
@@ -242,8 +214,22 @@ func TestDeleteWithPowerOff(t *testing.T) {
 					PowerState:     powerOn,
 				},
 			).Delete(nodeUUID),
-			priorErrors:                 maxPowerOffRetryCount + 1,
+			retryFlag:                   false,
 			expectedPowerStateInRequest: "",
+			expectedError:               "",
+		},
+		{
+			name: "test-power-change-with-force",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: "active",
+					Maintenance:    true,
+					PowerState:     powerOn,
+				},
+			).Delete(nodeUUID),
+			retryFlag:                   true,
+			expectedPowerStateInRequest: "power off",
 			expectedError:               "",
 		},
 	}
@@ -262,7 +248,6 @@ func TestDeleteWithPowerOff(t *testing.T) {
 
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
-			host.Status.ErrorCount = tc.priorErrors
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
@@ -273,7 +258,7 @@ func TestDeleteWithPowerOff(t *testing.T) {
 			}
 			prov.status.ID = nodeUUID
 
-			_, err = prov.Delete()
+			_, err = prov.Delete(tc.retryFlag)
 
 			updates, _ := tc.ironic.GetLastRequestFor("/v1/nodes/"+nodeUUID+"/states/power", http.MethodPut)
 			assert.Contains(t, updates, tc.expectedPowerStateInRequest)

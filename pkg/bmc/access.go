@@ -4,8 +4,13 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/pkg/errors"
 )
 
@@ -62,6 +67,9 @@ type AccessDetails interface {
 
 	// Whether the driver supports changing secure boot state.
 	SupportsSecureBoot() bool
+
+	// Build bios clean steps for ironic
+	BuildBIOSCleanSteps(firmwareConfig *metal3v1alpha1.FirmwareConfig) ([]nodes.CleanStep, error)
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {
@@ -127,4 +135,65 @@ func NewAccessDetails(address string, disableCertificateVerification bool) (Acce
 	}
 
 	return factory(parsedURL, disableCertificateVerification)
+}
+
+// A private method for building firmware config to BIOS settings for different driver
+// NOTE： firmwareConfig can't be a pointer and can't include pointer
+func buildBIOSSettings(firmwareConfig interface{}, exclude []string, nameMap map[string]string, valueMap map[string]string) (settings []map[string]string, err error) {
+	// Deal possible panic
+	defer func() {
+		r := recover()
+		if r != nil {
+			err = fmt.Errorf("panic in build BIOS settings: %v", r)
+		}
+	}()
+
+	var name string
+	var value string
+
+	t := reflect.TypeOf(firmwareConfig)
+	v := reflect.ValueOf(firmwareConfig)
+
+	for i := 0; v.NumField() > i; i++ {
+		// Get name
+		name = t.Field(i).Name
+		if sort.SearchStrings(exclude, name) != len(exclude) {
+			continue
+		}
+		if len(nameMap) != 0 && nameMap[t.Field(i).Name] != "" {
+			name = nameMap[t.Field(i).Name]
+		}
+
+		// Get value
+		switch v.Field(i).Kind() {
+		case reflect.String:
+			value = v.Field(i).String()
+		case reflect.Bool:
+			value = strconv.FormatBool(v.Field(i).Bool())
+		case reflect.Float32, reflect.Float64:
+			value = strconv.FormatFloat(v.Field(i).Float(), 'f', -1, 64)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			value = strconv.FormatInt(v.Field(i).Int(), 10)
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			value = strconv.FormatUint(v.Field(i).Uint(), 10)
+		default:
+			value = ""
+		}
+		if value == "" {
+			continue
+		}
+		if len(valueMap) != 0 && valueMap[value] != "" {
+			value = valueMap[value]
+		}
+
+		settings = append(
+			settings,
+			map[string]string{
+				"name":  name,
+				"value": value,
+			},
+		)
+	}
+
+	return
 }

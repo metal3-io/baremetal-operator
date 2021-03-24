@@ -758,6 +758,7 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	prepareData := provisioner.PrepareData{
 		RAIDConfig:      newStatus.Provisioning.RAID.DeepCopy(),
 		RootDeviceHints: newStatus.Provisioning.RootDeviceHints.DeepCopy(),
+		FirmwareConfig:  newStatus.Provisioning.Firmware.DeepCopy(),
 	}
 	provResult, started, err := prov.Prepare(prepareData,
 		dirty || info.host.Status.ErrorType == metal3v1alpha1.PreparationError)
@@ -859,6 +860,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
 	host.Status.Provisioning.RAID = nil
+	host.Status.Provisioning.Firmware = nil
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -1113,6 +1115,12 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 				}
 			}
 		}
+	}
+
+	// Copy BIOS settings
+	if !reflect.DeepEqual(host.Status.Provisioning.Firmware, host.Spec.Firmware) {
+		host.Status.Provisioning.Firmware = host.Spec.Firmware.DeepCopy()
+		dirty = true
 	}
 
 	return

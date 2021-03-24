@@ -1,8 +1,12 @@
 package bmc
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -98,4 +102,11 @@ func (a *iDracAccessDetails) VendorInterface() string {
 // by default.
 func (a *iDracAccessDetails) SupportsSecureBoot() bool {
 	return false
+}
+
+func (a *iDracAccessDetails) BuildBIOSCleanSteps(firmwareConfig *metal3v1alpha1.FirmwareConfig) ([]nodes.CleanStep, error) {
+	if firmwareConfig != nil {
+		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
+	}
+	return nil, nil
 }

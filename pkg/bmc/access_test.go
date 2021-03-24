@@ -450,7 +450,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 
@@ -462,7 +462,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 
@@ -474,7 +474,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 
@@ -498,7 +498,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 
@@ -510,7 +510,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 
@@ -522,7 +522,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 
@@ -534,7 +534,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 
@@ -630,7 +630,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ilo-ipxe",
 			management: "",
 			power:      "",
-			raid:       "",
+			raid:       "no-raid",
 			vendor:     "",
 		},
 

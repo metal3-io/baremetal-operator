@@ -143,6 +143,19 @@ func TestDelete(t *testing.T) {
 				Value: true,
 			},
 		},
+		{
+			name: "power-change-with-locked-host",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: "active",
+					Maintenance:    true,
+					PowerState:     powerOn,
+				},
+			).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
+			expectedDirty:        false,
+			expectedRequestAfter: 0,
+		},
 	}
 
 	for _, tc := range cases {
@@ -205,7 +218,7 @@ func TestDeleteWithPowerOff(t *testing.T) {
 		expectedError               string
 	}{
 		{
-			name: "test-power-change-without-force",
+			name: "power-change-without-retry",
 			ironic: testserver.NewIronic(t).Node(
 				nodes.Node{
 					UUID:           nodeUUID,
@@ -219,7 +232,7 @@ func TestDeleteWithPowerOff(t *testing.T) {
 			expectedError:               "",
 		},
 		{
-			name: "test-power-change-with-force",
+			name: "power-change-with-retry",
 			ironic: testserver.NewIronic(t).Node(
 				nodes.Node{
 					UUID:           nodeUUID,

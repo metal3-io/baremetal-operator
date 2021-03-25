@@ -183,6 +183,10 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 		return actionComplete{}
 	}
 
+	if detachedResult := hsm.checkDetachedHost(info); detachedResult != nil {
+		return detachedResult
+	}
+
 	if registerResult := hsm.ensureRegistered(info); registerResult != nil {
 		hostRegistrationRequired.Inc()
 		return registerResult
@@ -216,7 +220,11 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeleting
 	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateProvisioned:
-		hsm.NextState = metal3v1alpha1.StateDeprovisioning
+		if hsm.Host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
+			hsm.NextState = metal3v1alpha1.StateDeleting
+		} else {
+			hsm.NextState = metal3v1alpha1.StateDeprovisioning
+		}
 	case metal3v1alpha1.StateDeprovisioning:
 		// Allow state machine to run to continue deprovisioning.
 		return false
@@ -225,6 +233,46 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 		return false
 	}
 	return true
+}
+
+// hasInspectAnnotation checks for existence of baremetalhost.metal3.io/detached
+func hasDetachedAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[metal3v1alpha1.DetachedAnnotation]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result actionResult) {
+	// If the detached annotation is set we remove any host from the
+	// provisioner and take no further action
+	// Note this doesn't change the current state, only the OperationalStatus
+	if hasDetachedAnnotation(hsm.Host) {
+		// Only allow detaching hosts in Provisioned/ExternallyProvisioned states
+		switch info.host.Status.Provisioning.State {
+		case metal3v1alpha1.StateProvisioned, metal3v1alpha1.StateExternallyProvisioned:
+			return hsm.Reconciler.detachHost(hsm.Provisioner, info)
+		}
+	}
+	if info.host.Status.ErrorType == metal3v1alpha1.DetachError {
+		clearError(info.host)
+		hsm.Host.Status.ErrorCount = 0
+		info.log.Info("removed detach error")
+		return actionUpdate{}
+	}
+	if info.host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
+		newStatus := metal3v1alpha1.OperationalStatusOK
+		if info.host.Status.ErrorType != "" {
+			newStatus = metal3v1alpha1.OperationalStatusError
+		}
+		info.host.SetOperationalStatus(newStatus)
+		info.log.Info("removed detached status")
+		return actionUpdate{}
+	}
+	return nil
 }
 
 func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actionResult) {

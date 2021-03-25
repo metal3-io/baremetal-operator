@@ -155,6 +155,9 @@ const (
 	// PowerManagementError is an error condition occurring when the
 	// controller is unable to modify the power state of the Host.
 	PowerManagementError ErrorType = "power management error"
+	// DetachError is an error condition occurring when the
+	// controller is unable to detatch the host from the provisioner
+	DetachError ErrorType = "detach error"
 )
 
 // ProvisioningState defines the states the provisioner will report

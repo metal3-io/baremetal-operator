@@ -31,10 +31,8 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/empty"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metal3-io/baremetal-operator/pkg/version"
@@ -120,24 +118,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	provisionerFactory := func(host metal3iov1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish provisioner.EventPublisher) (provisioner.Provisioner, error) {
-		isUnmanaged := !host.HasBMCDetails()
-
-		hostCopy := host.DeepCopy()
-
-		if runInTestMode {
-			ctrl.Log.Info("using test provisioner")
-			fix := fixture.Fixture{}
-			return fix.New(*hostCopy, bmcCreds, publish)
-		} else if runInDemoMode {
-			ctrl.Log.Info("using demo provisioner")
-			return demo.New(*hostCopy, bmcCreds, publish)
-		} else if isUnmanaged {
-			ctrl.Log.Info("using empty provisioner")
-			return empty.New(*hostCopy, bmcCreds, publish)
-		}
+	var provisionerFactory provisioner.Factory
+	if runInTestMode {
+		ctrl.Log.Info("using test provisioner")
+		fix := fixture.Fixture{}
+		provisionerFactory = fix.New
+	} else if runInDemoMode {
+		ctrl.Log.Info("using demo provisioner")
+		provisionerFactory = demo.New
+	} else {
 		ironic.LogStartup()
-		return ironic.New(*hostCopy, bmcCreds, publish)
+		provisionerFactory = ironic.New
 	}
 
 	if err = (&metal3iocontroller.BareMetalHostReconciler{

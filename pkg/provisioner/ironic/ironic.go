@@ -134,8 +134,6 @@ type ironicProvisioner struct {
 	host metal3v1alpha1.BareMetalHost
 	// a shorter path to the provisioning status data structure
 	status *metal3v1alpha1.ProvisionStatus
-	// access parameters for the BMC
-	bmcAccess bmc.AccessDetails
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
@@ -185,12 +183,6 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 }
 
 func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
-
-	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
-	}
-
 	provisionerLogger := log.WithValues("host", host.Name)
 
 	// Ensure we have a microversion high enough to get the features
@@ -199,7 +191,6 @@ func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds
 	p := &ironicProvisioner{
 		host:      host,
 		status:    &(host.Status.Provisioning),
-		bmcAccess: bmcAccess,
 		bmcCreds:  bmcCreds,
 		client:    clientIronic,
 		inspector: clientInspector,
@@ -234,6 +225,14 @@ func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher 
 	}
 	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
 		clientIronicSingleton, clientInspectorSingleton)
+}
+
+func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
+	bmcAccess, err := bmc.NewAccessDetails(p.host.Spec.BMC.Address, p.host.Spec.BMC.DisableCertificateVerification)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BMC address information")
+	}
+	return bmcAccess, nil
 }
 
 func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage string, err error) {
@@ -367,6 +366,12 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
 func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+	bmcAccess, err := p.bmcAccess()
+	if err != nil {
+		result, err = operationFailed(err.Error())
+		return
+	}
+
 	var ironicNode *nodes.Node
 
 	p.debugLog.Info("validating management access")
@@ -384,14 +389,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 	// Some BMC types require a MAC address, so ensure we have one
 	// when we need it. If not, place the host in an error state.
-	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
-		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
+	if bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
+		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type())
 		p.log.Info(msg)
 		result, err = operationFailed(msg)
 		return
 	}
 
-	driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
+	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
 	driverInfo["deploy_kernel"] = deployKernelURL
@@ -403,8 +408,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
-		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !p.bmcAccess.SupportsSecureBoot() {
-			msg := fmt.Sprintf("BMC driver %s does not support secure boot", p.bmcAccess.Type())
+		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+			msg := fmt.Sprintf("BMC driver %s does not support secure boot", bmcAccess.Type())
 			p.log.Info(msg)
 			result, err = operationFailed(msg)
 			return
@@ -413,16 +418,16 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
-				Driver:              p.bmcAccess.Driver(),
-				BootInterface:       p.bmcAccess.BootInterface(),
+				Driver:              bmcAccess.Driver(),
+				BootInterface:       bmcAccess.BootInterface(),
 				Name:                p.host.Name,
 				DriverInfo:          driverInfo,
 				DeployInterface:     p.deployInterface(),
 				InspectInterface:    "inspector",
-				ManagementInterface: p.bmcAccess.ManagementInterface(),
-				PowerInterface:      p.bmcAccess.PowerInterface(),
-				RAIDInterface:       p.bmcAccess.RAIDInterface(),
-				VendorInterface:     p.bmcAccess.VendorInterface(),
+				ManagementInterface: bmcAccess.ManagementInterface(),
+				PowerInterface:      bmcAccess.PowerInterface(),
+				RAIDInterface:       bmcAccess.RAIDInterface(),
+				VendorInterface:     bmcAccess.VendorInterface(),
 				Properties: map[string]interface{}{
 					"capabilities": bootModeCapabilities[p.host.Status.Provisioning.BootMode],
 				},
@@ -1235,12 +1240,12 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImag
 	return sameImage
 }
 
-func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.CleanStep, err error) {
+func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
-	if p.bmcAccess.RAIDInterface() != "no-raid" {
+	if bmcAccess.RAIDInterface() != "no-raid" {
 		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(p.host.Status.Provisioning.RAID)...)
 	} else if p.host.Status.Provisioning.RAID != nil {
-		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", p.bmcAccess.Driver())
+		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
 	}
 
 	// TODO: Add manual cleaning steps for host configuration
@@ -1248,8 +1253,8 @@ func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.Clean
 	return
 }
 
-func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
-	if p.bmcAccess.RAIDInterface() != "no-raid" {
+func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
+	if bmcAccess.RAIDInterface() != "no-raid" {
 		// Set raid configuration
 		err = setTargetRAIDCfg(p, ironicNode)
 		if err != nil {
@@ -1259,7 +1264,7 @@ func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success
 	}
 
 	// Build manual clean steps
-	cleanSteps, err := p.buildManualCleaningSteps()
+	cleanSteps, err := p.buildManualCleaningSteps(bmcAccess)
 	if err != nil {
 		result, err = operationFailed(err.Error())
 		return
@@ -1283,8 +1288,13 @@ func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success
 // Prepare remove existing configuration and set new configuration.
 // If `started` is true,  it means that we successfully executed `tryChangeNodeProvisionState`.
 func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
-	var ironicNode *nodes.Node
+	bmcAccess, err := p.bmcAccess()
+	if err != nil {
+		result, err = transientError(err)
+		return
+	}
 
+	var ironicNode *nodes.Node
 	if ironicNode, err = p.findExistingHost(); err != nil {
 		result, err = transientError(errors.Wrap(err, "could not find host to clean"))
 		return
@@ -1297,7 +1307,7 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Available:
 		var cleanSteps []nodes.CleanStep
-		cleanSteps, err = p.buildManualCleaningSteps()
+		cleanSteps, err = p.buildManualCleaningSteps(bmcAccess)
 		if err != nil {
 			result, err = operationFailed(err.Error())
 			return
@@ -1313,7 +1323,7 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 
 	case nodes.Manageable:
 		if unprepared {
-			started, result, err = p.startManualCleaning(ironicNode)
+			started, result, err = p.startManualCleaning(bmcAccess, ironicNode)
 			return
 		}
 		// Manual clean finished

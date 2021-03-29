@@ -646,3 +646,26 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 	}
 	assert.Contains(t, result.ErrorMessage, "does not support secure boot")
 }
+
+func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
+	ironic := testserver.NewIronic(t).Ready()
+	ironic.Start()
+	defer ironic.Stop()
+
+	host := makeHost()
+	host.Spec.BMC = metal3v1alpha1.BMCDetails{}
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, _, err := prov.ValidateManagementAccess(false, false)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "failed to parse BMC address information: missing BMC address", result.ErrorMessage)
+}

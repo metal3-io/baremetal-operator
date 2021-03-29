@@ -1,11 +1,15 @@
 package ironic
 
 import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 
 	// We don't use this package directly here, but need it imported
 	// so it registers its test fixture with the other BMC access
@@ -81,3 +85,13 @@ func makeHostLiveIso() (host metal3v1alpha1.BareMetalHost) {
 
 // Implements provisioner.EventPublisher to swallow events for tests.
 func nullEventPublisher(reason, message string) {}
+
+func TestNewNoBMCDetails(t *testing.T) {
+	// Create a host without BMC details
+	host := makeHost()
+	host.Spec.BMC = metal3v1alpha1.BMCDetails{}
+
+	prov, err := New(host, bmc.Credentials{}, nullEventPublisher)
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, prov)
+}

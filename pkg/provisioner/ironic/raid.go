@@ -16,7 +16,7 @@ func setTargetRAIDCfg(p *ironicProvisioner, ironicNode *nodes.Node) (err error) 
 	var logicalDisks []nodes.LogicalDisk
 
 	// Build target for RAID configuration steps
-	logicalDisks, err = BuildTargetRAIDCfg(p.host.Status.Provisioning.RAID)
+	logicalDisks, err = BuildTargetRAIDCfg(p.host.Spec.RAID)
 	if len(logicalDisks) == 0 || err != nil {
 		return
 	}

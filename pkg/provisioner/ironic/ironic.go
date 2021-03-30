@@ -1665,6 +1665,16 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	return operationContinuing(0)
 }
 
+// Detach removes the host from the provisioning system.
+// Similar to Delete, but ensures non-interruptive behavior
+// for the target system.  It may be called multiple times,
+// and should return true for its dirty  flag until the
+// deletion operation is completed.
+func (p *ironicProvisioner) Detach() (result provisioner.Result, err error) {
+	// Currently the same behavior as Delete()
+	return p.Delete()
+}
+
 func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {
 	p.log.Info("changing power state")
 

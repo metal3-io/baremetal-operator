@@ -288,6 +288,16 @@ func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
 	return result, nil
 }
 
+// Detach removes the host from the provisioning system.
+// Similar to Delete, but ensures non-interruptive behavior
+// for the target system.  It may be called multiple times,
+// and should return true for its dirty  flag until the
+// deletion operation is completed.
+func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
+	p.log.Info("detaching host")
+	return result, nil
+}
+
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
 func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {

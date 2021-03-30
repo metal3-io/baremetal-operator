@@ -649,6 +649,10 @@ func (m *mockProvisioner) Delete() (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Delete"), err
 }
 
+func (m *mockProvisioner) Detach() (result provisioner.Result, err error) {
+	return m.getNextResultByMethod("Detach"), err
+}
+
 func (m *mockProvisioner) PowerOn() (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOn"), err
 }

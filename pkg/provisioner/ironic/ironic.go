@@ -673,8 +673,8 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 				p.log.Info("inspection already started")
 				result, err = operationContinuing(introspectionRequeueDelay)
 				return
-			default:
-				if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectFail && !force {
+			case nodes.InspectFail:
+				if !force {
 					p.log.Info("starting inspection failed", "error", status.Error)
 					failure := ironicNode.LastError
 					if failure == "" {
@@ -683,6 +683,8 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 					result, err = operationFailed(failure)
 					return
 				}
+				fallthrough
+			default:
 				p.log.Info("updating boot mode before hardware inspection")
 				op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
 				updates := nodes.UpdateOpts{

@@ -1535,16 +1535,22 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 			p.log.Info("waiting for power status to change")
 			return operationContinuing(powerRequeueDelay)
 		}
-		result, err = p.changePower(ironicNode, nodes.PowerOn)
-		switch err.(type) {
-		case nil:
-		case HostLockedError:
-		default:
-			return transientError(errors.Wrap(err, "failed to power on host"))
+		if ironicNode.LastError != "" {
+			p.log.Info("PowerOn operation failed", "msg", ironicNode.LastError)
+			return operationFailed(fmt.Sprintf("PowerOn operation failed: %s",
+				ironicNode.LastError))
 		}
-		p.publisher("PowerOn", "Host powered on")
+		if result, err = p.changePower(ironicNode, nodes.PowerOn); err == nil {
+			p.publisher("PowerOn", "Host powered on")
+			return result, nil
+		}
+		switch err.(type) {
+		case HostLockedError:
+			return retryAfterDelay(powerRequeueDelay)
+		default:
+			return transientError(errors.Wrap(err, "failed to PowerOn node"))
+		}
 	}
-
 	return result, nil
 }
 
@@ -1553,21 +1559,35 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (result provisioner.Result, err error) {
 	p.log.Info(fmt.Sprintf("ensuring host is powered off (mode: %s)", rebootMode))
 
-	if rebootMode == metal3v1alpha1.RebootModeHard {
-		result, err = p.hardPowerOff()
-	} else {
-		result, err = p.softPowerOff()
+	if rebootMode != metal3v1alpha1.RebootModeHard && !forceHardPowerOff {
+		if result, err = p.softPowerOff(); err == nil {
+			return result, nil
+		} else {
+			switch err.(type) {
+			// In case of soft power off is unsupported or has failed,
+			// we activate hard power off.
+			case SoftPowerOffUnsupportedError, SoftPowerOffFailed:
+				p.log.Info("soft power off is unsupported or failed. Proceeding to hard power off.")
+				return operationFailed(result.ErrorMessage)
+			case HostLockedError:
+				return retryAfterDelay(powerRequeueDelay)
+			default:
+				return transientError(err)
+			}
+		}
 	}
-	if err != nil {
-		switch err.(type) {
-		// In case of soft power off is unsupported or has failed,
-		// we activate hard power off.
-		case SoftPowerOffUnsupportedError, SoftPowerOffFailed:
-			return p.hardPowerOff()
-		case HostLockedError:
-			return retryAfterDelay(powerRequeueDelay)
-		default:
-			return transientError(err)
+	if rebootMode == metal3v1alpha1.RebootModeHard || forceHardPowerOff {
+		if result, err = p.hardPowerOff(); err == nil {
+			return result, nil
+		} else {
+			switch err.(type) {
+			case HardPowerOffFailed:
+				return operationFailed(result.ErrorMessage)
+			case HostLockedError:
+				return retryAfterDelay(powerRequeueDelay)
+			default:
+				return transientError(err)
+			}
 		}
 	}
 	return result, nil
@@ -1583,6 +1603,11 @@ func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error
 	}
 
 	if ironicNode.PowerState != powerOff {
+		if ironicNode.LastError != "" {
+			p.log.Info("hard power off error", "msg", ironicNode.LastError)
+			result, _ = operationFailed(ironicNode.LastError)
+			return result, HardPowerOffFailed{}
+		}
 		if ironicNode.TargetPowerState == powerOff {
 			p.log.Info("waiting for power status to change")
 			return operationContinuing(powerRequeueDelay)
@@ -1621,6 +1646,8 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 		// If the target state is unset while the last error is set,
 		// then the last execution of soft power off has failed.
 		if targetState == "" && ironicNode.LastError != "" {
+			p.log.Info("soft power off error", "msg", ironicNode.LastError)
+			result, _ = operationFailed(ironicNode.LastError)
 			return result, SoftPowerOffFailed{}
 		}
 		result, err = p.changePower(ironicNode, nodes.SoftPowerOff)

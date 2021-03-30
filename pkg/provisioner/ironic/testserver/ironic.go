@@ -168,6 +168,7 @@ func (m *IronicMock) NodeError(name string, errorCode int) *IronicMock {
 	return m
 }
 
+// NodeCreateCallback type is the callback mock for CreateNodes
 type NodeCreateCallback func(node nodes.Node)
 
 // CreateNodes configures the server so POSTing to /v1/nodes saves the data

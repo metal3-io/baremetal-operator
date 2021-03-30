@@ -118,6 +118,8 @@ const (
 	// has any sort of error.
 	OperationalStatusError OperationalStatus = "error"
 
+	// OperationalStatusDelayed is the status value for when the host
+	// deployment needs to be delayed to limit simultaneous hosts provisioning
 	OperationalStatusDelayed = "delayed"
 )
 
@@ -546,10 +548,13 @@ type CredentialsStatus struct {
 type RebootMode string
 
 const (
+	// RebootModeHard defined for hard reset of a node
 	RebootModeHard RebootMode = "hard"
+	// RebootModeSoft defined for soft reset of a node
 	RebootModeSoft RebootMode = "soft"
 )
 
+// RebootAnnotationArguments defines the arguments of the RebootAnnotation type
 type RebootAnnotationArguments struct {
 	Mode RebootMode `json:"mode"`
 }
@@ -896,6 +901,7 @@ func (host *BareMetalHost) GetImageChecksum() (string, string, bool) {
 	return host.Spec.Image.GetChecksum()
 }
 
+// GetChecksum method returns the checksum of an image
 func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 	if image == nil {
 		return

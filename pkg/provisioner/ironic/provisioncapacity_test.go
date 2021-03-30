@@ -62,7 +62,7 @@ func TestHasProvisioningCapacity(t *testing.T) {
 			allNodes := []nodes.Node{}
 			for n, state := range tc.nodeStates {
 				allNodes = append(allNodes, nodes.Node{
-					Name:           fmt.Sprintf("node-%d", n),
+					Name:           fmt.Sprintf("myns%snode-%d", nameSeparator, n),
 					ProvisionState: string(state),
 				})
 			}

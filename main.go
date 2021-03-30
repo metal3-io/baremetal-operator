@@ -103,13 +103,18 @@ func main() {
 
 	printVersion()
 
+	leaderElectionNamespace := os.Getenv("POD_NAMESPACE")
+	if leaderElectionNamespace == "" {
+		leaderElectionNamespace = watchNamespace
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                  scheme,
 		MetricsBindAddress:      metricsAddr,
 		Port:                    0, // Add flag with default of 9443 when adding webhooks
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "baremetal-operator",
-		LeaderElectionNamespace: watchNamespace,
+		LeaderElectionNamespace: leaderElectionNamespace,
 		Namespace:               watchNamespace,
 		HealthProbeBindAddress:  healthAddr,
 	})

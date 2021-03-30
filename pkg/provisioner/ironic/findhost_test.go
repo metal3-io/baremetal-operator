@@ -23,7 +23,7 @@ func TestFindExistingHost(t *testing.T) {
 			name:           "no-node",
 			hostName:       "name",
 			provisioningID: "uuid",
-			ironic:         testserver.NewIronic(t).NoNode("name").NoNode("uuid"),
+			ironic:         testserver.NewIronic(t).NoNode("myns" + nameSeparator + "name").NoNode("name").NoNode("uuid"),
 		},
 		{
 			name:           "by-name",
@@ -31,21 +31,21 @@ func TestFindExistingHost(t *testing.T) {
 			provisioningID: "uuid",
 			ironic: testserver.NewIronic(t).NoNode("uuid").
 				Node(nodes.Node{
-					Name: "name",
+					Name: "myns" + nameSeparator + "name",
 					UUID: "different-uuid",
 				}),
-			nodeName: "name",
+			nodeName: "myns" + nameSeparator + "name",
 		},
 		{
 			name:           "by-uuid",
 			hostName:       "name",
 			provisioningID: "uuid",
-			ironic: testserver.NewIronic(t).NoNode("name").
+			ironic: testserver.NewIronic(t).NoNode("myns" + nameSeparator + "name").NoNode("name").
 				Node(nodes.Node{
-					Name: "different-name",
+					Name: "myns" + nameSeparator + "different-name",
 					UUID: "uuid",
 				}),
-			nodeName: "different-name",
+			nodeName: "myns" + nameSeparator + "different-name",
 		},
 	}
 

@@ -23,6 +23,8 @@ func TestInspectHardware(t *testing.T) {
 		ironic    *testserver.IronicMock
 		inspector *testserver.InspectorMock
 
+		force bool
+
 		expectedDirty        bool
 		expectedRequestAfter int
 		expectedResultError  string
@@ -130,6 +132,32 @@ func TestInspectHardware(t *testing.T) {
 			expectedRequestAfter: 15,
 		},
 		{
+			name: "inspection-failed",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectFail),
+			}),
+			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+
+			expectedResultError: "Inspection failed",
+		},
+		{
+			name: "inspection-failed force",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectFail),
+			}).NodeUpdate(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectFail),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+			force:     true,
+
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+			expectedPublish:      "InspectionStarted Hardware inspection started",
+		},
+		{
 			name: "inspection-complete",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
@@ -177,7 +205,7 @@ func TestInspectHardware(t *testing.T) {
 			}
 
 			prov.status.ID = nodeUUID
-			result, details, err := prov.InspectHardware(false)
+			result, details, err := prov.InspectHardware(tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

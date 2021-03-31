@@ -828,18 +828,6 @@ func TestMissingBMCParameters(t *testing.T) {
 		},
 
 		{
-			Scenario: "malformed address",
-			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
-			Host: newHost("invalid-bmc-address",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
-						Address:         "unknown://notAvalidIPMIURL",
-						CredentialsName: "bmc-creds-ok",
-					},
-				}),
-		},
-
-		{
 			Scenario: "missing address",
 			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("missing-bmc-address",
@@ -1963,4 +1951,31 @@ func TestUpdateRAID(t *testing.T) {
 			assert.Equal(t, c.expected, host.Status.Provisioning.RAID)
 		})
 	}
+}
+
+func doDeleteHost(host *metal3v1alpha1.BareMetalHost, reconciler *BareMetalHostReconciler) {
+	now := metav1.Now()
+	host.DeletionTimestamp = &now
+	reconciler.Client.Update(context.Background(), host)
+}
+
+func TestInvalidBMHCanBeDeleted(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.BMC.Address = fmt.Sprintf("%s%s%s", "<", host.Spec.BMC.Address, ">")
+
+	var fix fixture.Fixture
+	r := newTestReconcilerWithFixture(&fix, host)
+
+	fix.SetValidateError("malformed url")
+	waitForError(t, r, host)
+	assert.Equal(t, metal3v1alpha1.StateRegistering, host.Status.Provisioning.State)
+	assert.Equal(t, metal3v1alpha1.OperationalStatusError, host.Status.OperationalStatus)
+	assert.Equal(t, metal3v1alpha1.RegistrationError, host.Status.ErrorType)
+	assert.Equal(t, "malformed url", host.Status.ErrorMessage)
+
+	doDeleteHost(host, r)
+
+	tryReconcile(t, r, host, func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		return host.Status.Provisioning.State == metal3v1alpha1.StateDeleting && len(host.Finalizers) == 0
+	})
 }

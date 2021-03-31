@@ -1183,15 +1183,6 @@ func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Re
 		return nil, nil, &EmptyBMCAddressError{message: "Missing BMC connection detail 'Address'"}
 	}
 
-	// pass the bmc address to bmc.NewAccessDetails which will do
-	// more in-depth checking on the url to ensure it is
-	// a valid bmc address, returning a bmc.UnknownBMCTypeError
-	// if it is not conformant
-	_, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	bmcCreds = &bmc.Credentials{
 		Username: string(bmcCredsSecret.Data["username"]),
 		Password: string(bmcCredsSecret.Data["password"]),

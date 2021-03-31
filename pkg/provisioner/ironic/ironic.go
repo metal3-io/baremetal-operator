@@ -1456,6 +1456,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 			"metal3-name":      p.host.ObjectMeta.Name,
 			"local-hostname":   p.host.ObjectMeta.Name,
 			"local_hostname":   p.host.ObjectMeta.Name,
+			"name":             p.host.ObjectMeta.Name,
 		}
 		metaDataRaw, err := hostConf.MetaData()
 		if err != nil {

@@ -346,7 +346,24 @@ type BareMetalHostSpec struct {
 	// the power status and hardware inventory inspection. If the
 	// Image field is filled in, this field is ignored.
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
+
+	// When set to disabled, automated cleaning will be avoided
+	// during provisioning and deprovisioning.
+	// +optional
+	// +kubebuilder:default:=metadata
+	// +kubebuilder:validation:Optional
+	AutomatedCleaningMode AutomatedCleaningMode `json:"automatedCleaningMode,omitempty"`
 }
+
+// AutomatedCleaningMode is the interface to enable/disable automated cleaning
+// +kubebuilder:validation:Enum:=metadata;disabled
+type AutomatedCleaningMode string
+
+// Allowed automated cleaning modes
+const (
+	CleaningModeDisabled AutomatedCleaningMode = "disabled"
+	CleaningModeMetadata AutomatedCleaningMode = "metadata"
+)
 
 // ChecksumType holds the algorithm name for the checksum
 // +kubebuilder:validation:Enum=md5;sha256;sha512

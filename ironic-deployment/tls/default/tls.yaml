@@ -50,6 +50,21 @@ spec:
         - name: cert-mariadb-ca
           mountPath: "/certs/ca/mariadb"
           readOnly: true
+      - name: httpd-reverse-proxy
+        image: quay.io/metal3-io/ironic-inspector
+        imagePullPolicy: Always
+        envFrom:
+          - configMapRef:
+              name: ironic-bmo-configmap
+        command: 
+          - /bin/runhttpd
+        volumeMounts:
+        - name: cert-ironic-ca
+          mountPath: "/certs/ca/ironic"
+          readOnly: true
+        - name: cert-ironic-inspector
+          mountPath: "/certs/ironic-inspector"
+          readOnly: true
       volumes:
       - name: cert-ironic-ca
         secret:

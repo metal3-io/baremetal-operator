@@ -539,8 +539,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		}
 	}
 	if ironicNode.AutomatedClean == nil ||
-		(data.AutomatedCleaningMode == "disabled" && *ironicNode.AutomatedClean) ||
-		(data.AutomatedCleaningMode == "enabled" && !*ironicNode.AutomatedClean) {
+		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled && *ironicNode.AutomatedClean) ||
+		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeMetadata && !*ironicNode.AutomatedClean) {
 		p.log.Info("setting automated cleaning mode to",
 			"ID", ironicNode.UUID,
 			"mode", data.AutomatedCleaningMode)

@@ -379,6 +379,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	}
 
 	var ironicNode *nodes.Node
+	var updates nodes.UpdateOpts
 
 	p.debugLog.Info("validating management access")
 
@@ -481,23 +482,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		}
 
 		if imageData != nil {
-			updates, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData)
+			updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData)
 			if optsErr != nil {
 				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
 				return
 			}
-			if len(updates) != 0 {
-				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-				switch err.(type) {
-				case nil:
-				case gophercloud.ErrDefault409:
-					p.log.Info("could not update host settings in ironic, busy")
-					result, err = retryAfterDelay(provisionRequeueDelay)
-					return
-				default:
-					result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
-					return
-				}
+			if len(updatesImage) != 0 {
+				updates = append(updates, updatesImage...)
+
 			}
 		}
 	} else {
@@ -508,61 +500,64 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		provID = ironicNode.UUID
 
 		if ironicNode.Name != p.ironicNodeNameFromHost() {
-			updates := nodes.UpdateOpts{
+			updates = append(
+				updates,
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
 					Path:  "/name",
 					Value: p.ironicNodeNameFromHost(),
 				},
-			}
-			ironicNode, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-			switch err.(type) {
-			case nil:
-			case gophercloud.ErrDefault409:
-				p.log.Info("could not update ironic node name, busy")
-				result, err = retryAfterDelay(provisionRequeueDelay)
-				return
-			default:
-				result, err = transientError(errors.Wrap(err, "failed to update ironc node name"))
-				return
-			}
-			p.log.Info("updated ironic node name")
-
+			)
 		}
 
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
 		if credentialsChanged {
-			updates := nodes.UpdateOpts{
+			updates = append(
+				updates,
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
 					Path:  "/driver_info",
 					Value: driverInfo,
 				},
-			}
-			ironicNode, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-			switch err.(type) {
-			case nil:
-			case gophercloud.ErrDefault409:
-				p.log.Info("could not update host driver settings, busy")
-				result, err = retryAfterDelay(provisionRequeueDelay)
-				return
-			default:
-				result, err = transientError(errors.Wrap(err, "failed to update host driver settings"))
-				return
-			}
-			p.log.Info("updated host driver settings")
+			)
 			// We don't return here because we also have to set the
 			// target provision state to manageable, which happens
 			// below.
 		}
 	}
+	if ironicNode.AutomatedClean == nil || (p.host.Spec.AutomatedCleaningMode == "disabled" && *ironicNode.AutomatedClean != false) || (p.host.Spec.AutomatedCleaningMode == "enabled" && *ironicNode.AutomatedClean == false) {
+		p.log.Info("setting automated cleaning mode to",
+			"ID", ironicNode.UUID,
+			"mode", p.host.Spec.AutomatedCleaningMode)
 
+		value := p.host.Spec.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled
+		updates = append(
+			updates,
+			nodes.UpdateOperation{
+				Op:    nodes.ReplaceOp,
+				Path:  "/automated_clean",
+				Value: value,
+			},
+		)
+	}
+	if len(updates) != 0 {
+		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+		switch err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not update host driver settings, busy")
+			result, err = retryAfterDelay(provisionRequeueDelay)
+			return
+		default:
+			result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+			return
+		}
+	}
 	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	// if err != nil {
 	// 	return result, errors.Wrap(err, "failed to get provisioning state in ironic")
 	// }
-
 	p.log.Info("current provision state",
 		"lastError", ironicNode.LastError,
 		"current", ironicNode.ProvisionState,

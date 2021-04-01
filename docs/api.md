@@ -176,6 +176,12 @@ The sub-fields are
 * *rotational* -- A boolean indicating whether the device should be
   a rotating disk (`true`) or not (`false`).
 
+#### automatedCleaningMode
+
+An interface to enable/disable automated cleaning during provisioning
+and deprovisioning. When set to `disabled`, automated cleaning will be
+skipped, where `metadata`(default value) enables it.
+
 ### BareMetalHost status
 
 Moving onto the next block, the *BareMetalHost's* *status* which represents

@@ -647,7 +647,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
 
 	ironicNode, err := p.findExistingHost()
@@ -661,8 +661,8 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 	}
 
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
-	if err != nil {
-		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
+	if err != nil || refresh {
+		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound || refresh {
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {
 			case nodes.Inspecting, nodes.InspectWait:
 				p.log.Info("inspection already started")

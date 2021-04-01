@@ -43,6 +43,7 @@ digraph BaremetalHost {
     Ready -> Provisioning [label="NeedsProvisioning()"]
     Ready -> Preparing [label="saveHostProvisioningSettings()"]
     Ready -> Deleting7 [label="!DeletionTimestamp.IsZero()"]
+    Ready -> Inspecting [label="hasInspectAnnotation()"]
 
     Deleting7 [shape=point]
 

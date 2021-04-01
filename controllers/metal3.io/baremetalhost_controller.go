@@ -446,6 +446,18 @@ func inspectionDisabled(host *metal3v1alpha1.BareMetalHost) bool {
 	return false
 }
 
+// hasInspectAnnotation checks for existence of inspect.metal3.io annotation
+// and returns true if it exist
+func hasInspectAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if expect, ok := annotations[inspectAnnotationPrefix]; ok && expect != "disabled" {
+			return true
+		}
+	}
+	return false
+}
+
 // clearError removes any existing error message.
 func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	dirty = host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
@@ -581,6 +593,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 // Ensure we have the information about the hardware on the host.
 func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	info.log.Info("inspecting hardware")
 
 	if inspectionDisabled(info.host) {
 		info.log.Info("inspection disabled by annotation")
@@ -590,13 +603,23 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 
 	info.log.Info("inspecting hardware")
 
-	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError)
+	refresh := hasInspectAnnotation(info.host)
+	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError, refresh)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
 
 	if provResult.ErrorMessage != "" {
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
+	}
+
+	// Delete inspect annotation if exists
+	if hasInspectAnnotation(info.host) {
+		delete(info.host.Annotations, inspectAnnotationPrefix)
+		if err := r.Update(context.TODO(), info.host); err != nil {
+			return actionError{errors.Wrap(err, "failed to remove inspect annotation from host")}
+		}
+		return actionContinue{}
 	}
 
 	if provResult.Dirty || details == nil {

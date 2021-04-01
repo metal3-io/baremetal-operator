@@ -351,6 +351,11 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
+	if hasInspectAnnotation(hsm.Host) {
+		hsm.NextState = metal3v1alpha1.StateInspecting
+		return actionComplete{}
+	}
+
 	// ErrorCount is cleared when appropriate inside actionManageReady
 	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
 	if _, update := actResult.(actionUpdate); update {

@@ -80,6 +80,10 @@ The following environment variables can be passed to configure the ironic:
 - IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
   (default true)
 - IRONIC_KERNEL_PARAMS - Kernel parameters to pass to IPA (default console=ttyS0)
+- IRONIC_INSPECTOR_VLAN_INTERFACES - VLAN interfaces included in introspection,
+       `all` - all VLANs on all interfaces, using LLDP information (default),
+       interface - all VLANs on an interface, using LLDP information,
+       interface.vlan - a particular VLAN interface, not using LLDP
 
 In case you want to run the local ironic containers with TLS and basic
 authentication enabled, you also need to export the following variables:

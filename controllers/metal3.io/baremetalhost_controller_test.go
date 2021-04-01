@@ -267,6 +267,28 @@ func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
 	)
 }
 
+// TestHardwareDetails_Invalid
+// Tests scenario where the hardwaredetails value is invalid
+func TestHardwareDetails_Invalid(t *testing.T) {
+	host := newDefaultHost(t)
+	badAnnotation := fmt.Sprintf("{\"hardware\": %s}", hwdAnnotation)
+	host.Annotations = map[string]string{
+		inspectAnnotationPrefix:   "disabled",
+		hardwareDetailsAnnotation: badAnnotation,
+	}
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd.Hostname = "existinghost"
+	host.Status.HardwareDetails = &hwd
+
+	r := newTestReconciler(host)
+	request := newRequest(host)
+	_, err := r.Reconcile(context.Background(), request)
+	expectedErr := "json: unknown field"
+	assert.Contains(t, err.Error(), expectedErr)
+}
+
 // TestStatusAnnotation_EmptyStatus ensures that status is manually populated
 // when status annotation is present and status field is empty.
 func TestStatusAnnotation_EmptyStatus(t *testing.T) {

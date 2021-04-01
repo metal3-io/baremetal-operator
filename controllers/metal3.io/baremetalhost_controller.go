@@ -274,7 +274,7 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, ho
 	if host.Status.HardwareDetails == nil || inspectionDisabled(host) {
 		objHardwareDetails, err := r.getHardwareDetailsFromAnnotation(host)
 		if err != nil {
-			return updated, errors.Wrap(err, "Error getting HardwareDetails from annotation")
+			return updated, errors.Wrap(err, "Error parsing HardwareDetails from annotation")
 		}
 		if objHardwareDetails != nil {
 			host.Status.HardwareDetails = objHardwareDetails
@@ -1038,9 +1038,10 @@ func (r *BareMetalHostReconciler) getHardwareDetailsFromAnnotation(host *metal3v
 	if annotations[hardwareDetailsAnnotation] == "" {
 		return nil, nil
 	}
-	content := []byte(annotations[hardwareDetailsAnnotation])
 	objHardwareDetails := &metal3v1alpha1.HardwareDetails{}
-	if err := json.Unmarshal(content, objHardwareDetails); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(annotations[hardwareDetailsAnnotation]))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(objHardwareDetails); err != nil {
 		return nil, err
 	}
 	return objHardwareDetails, nil

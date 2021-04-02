@@ -16,13 +16,13 @@ func setTargetRAIDCfg(p *ironicProvisioner, ironicNode *nodes.Node) (err error) 
 	var logicalDisks []nodes.LogicalDisk
 
 	// Build target for RAID configuration steps
-	logicalDisks, err = BuildTargetRAIDCfg(p.host.Status.Provisioning.RAID)
+	logicalDisks, err = BuildTargetRAIDCfg(p.host.Spec.RAID)
 	if len(logicalDisks) == 0 || err != nil {
 		return
 	}
 
 	// set root volume
-	if p.host.Status.Provisioning.RootDeviceHints == nil {
+	if p.host.Spec.RootDeviceHints == nil {
 		logicalDisks[0].IsRootVolume = new(bool)
 		*logicalDisks[0].IsRootVolume = true
 	} else {

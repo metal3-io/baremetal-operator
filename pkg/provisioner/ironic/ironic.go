@@ -1556,10 +1556,10 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force bool) (result provisioner.Result, err error) {
 	p.log.Info(fmt.Sprintf("ensuring host is powered off (mode: %s)", rebootMode))
 
-	if rebootMode != metal3v1alpha1.RebootModeHard && !forceHardPowerOff {
+	if rebootMode != metal3v1alpha1.RebootModeHard && !force {
 		if result, err = p.softPowerOff(); err == nil {
 			return result, nil
 		} else {
@@ -1575,9 +1575,9 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (resu
 				return transientError(err)
 			}
 		}
-	}
-	if rebootMode == metal3v1alpha1.RebootModeHard || forceHardPowerOff {
-		if result, err = p.hardPowerOff(); err == nil {
+	} else {
+		// Reboot mode is hard or force flag is set
+		if result, err = p.hardPowerOff(force); err == nil {
 			return result, nil
 		} else {
 			switch err.(type) {
@@ -1590,11 +1590,10 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (resu
 			}
 		}
 	}
-	return result, nil
 }
 
 // hardPowerOff sends 'power off' request to BM node and waits for the result
-func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) hardPowerOff(force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off by \"hard power off\" command")
 
 	ironicNode, err := p.getNode()
@@ -1603,9 +1602,10 @@ func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error
 	}
 
 	if ironicNode.PowerState != powerOff {
-		if ironicNode.LastError != "" {
+		if ironicNode.LastError != "" && !force {
 			p.log.Info("hard power off error", "msg", ironicNode.LastError)
-			result, _ = operationFailed(ironicNode.LastError)
+			result, _ = operationFailed(fmt.Sprintf("hardPowerOff operation failed: %s",
+				ironicNode.LastError))
 			return result, HardPowerOffFailed{}
 		}
 		if ironicNode.TargetPowerState == powerOff {

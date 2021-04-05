@@ -214,7 +214,7 @@ func TestPowerOff(t *testing.T) {
 			}
 
 			// We pass the RebootMode type here to define the reboot action
-			result, err := prov.PowerOff(tc.rebootMode)
+			result, err := prov.PowerOff(tc.rebootMode, false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

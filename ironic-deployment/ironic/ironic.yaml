@@ -42,20 +42,6 @@ spec:
                 secretKeyRef:
                   name: mariadb-password
                   key: password
-        - name: ironic-httpd
-          image: quay.io/metal3-io/ironic
-          imagePullPolicy: Always
-          securityContext:
-             capabilities:
-               add: ["NET_ADMIN"]
-          command:
-            - /bin/runhttpd
-          volumeMounts:
-            - mountPath: /shared
-              name: ironic-data-volume
-          envFrom:
-            - configMapRef:
-                name: ironic-bmo-configmap
         - name: ironic-api
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
@@ -104,6 +90,14 @@ spec:
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap
+        - name: httpd-reverse-proxy
+          image: quay.io/metal3-io/ironic-inspector
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: ironic-bmo-configmap
+          command: 
+            - /bin/runhttpd
         - name: ironic-inspector-log-watch
           image: quay.io/metal3-io/ironic-inspector
           imagePullPolicy: Always

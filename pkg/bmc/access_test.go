@@ -539,6 +539,18 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
+			Scenario:   "idrac redfish",
+			input:      "idrac-redfish://192.168.122.1",
+			needsMac:   true,
+			driver:     "idrac",
+			boot:       "ipxe",
+			management: "idrac-redfish",
+			power:      "idrac-redfish",
+			raid:       "no-raid",
+			vendor:     "no-vendor",
+		},
+
+		{
 			Scenario: "ilo5 virtual media",
 			input:    "ilo5-virtualmedia://192.168.122.1",
 			needsMac: true,
@@ -877,6 +889,18 @@ func TestDriverInfo(t *testing.T) {
 		{
 			Scenario: "ilo5 virtual media",
 			input:    "ilo5-virtualmedia://192.168.122.1/foo/bar",
+			expects: map[string]interface{}{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
+				"redfish_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "idrac redfish",
+			input:    "idrac-redfish://192.168.122.1/foo/bar",
 			expects: map[string]interface{}{
 				"redfish_address":   "https://192.168.122.1",
 				"redfish_system_id": "/foo/bar",

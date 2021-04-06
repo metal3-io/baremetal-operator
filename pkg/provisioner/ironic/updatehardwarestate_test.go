@@ -90,15 +90,15 @@ func TestUpdateHardwareState(t *testing.T) {
 			name: "node-not-found-by-name",
 
 			hostName: "worker-0",
-			ironic:   testserver.NewIronic(t).Ready().NoNode(nodeUUID).NodeError("myhost", http.StatusGatewayTimeout),
+			ironic:   testserver.NewIronic(t).Ready().NoNode(nodeUUID).NodeError("myns.myhost", http.StatusGatewayTimeout),
 
-			expectedError: "failed to find existing host: failed to find node by name worker-0: EOF",
+			expectedError: "failed to find existing host: failed to find node by name myns.worker-0: EOF",
 
 			expectUnreadablePower: true,
 		},
 		{
 			name:   "not-ironic-node",
-			ironic: testserver.NewIronic(t).Ready().NoNode(nodeUUID).NoNode("myhost"),
+			ironic: testserver.NewIronic(t).Ready().NoNode(nodeUUID).NoNode("myns" + nameSeparator + "myhost").NoNode("myhost"),
 
 			expectedError: "Host not registered",
 

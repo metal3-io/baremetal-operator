@@ -51,10 +51,11 @@ var (
 
 const (
 	// See nodes.Node.PowerState for details
-	powerOn      = "power on"
-	powerOff     = "power off"
-	softPowerOff = "soft power off"
-	powerNone    = "None"
+	powerOn       = "power on"
+	powerOff      = "power off"
+	softPowerOff  = "soft power off"
+	powerNone     = "None"
+	nameSeparator = "~"
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
@@ -72,6 +73,7 @@ func (e macAddressConflictError) Error() string {
 	return fmt.Sprintf("MAC address %s conflicts with existing node %s", e.Address, e.ExistingNode)
 }
 
+// NewMacAddressConflictError is a wrap for macAddressConflictError error
 func NewMacAddressConflictError(address, node string) error {
 	return macAddressConflictError{Address: address, ExistingNode: node}
 }
@@ -133,8 +135,6 @@ type ironicProvisioner struct {
 	host metal3v1alpha1.BareMetalHost
 	// a shorter path to the provisioning status data structure
 	status *metal3v1alpha1.ProvisionStatus
-	// access parameters for the BMC
-	bmcAccess bmc.AccessDetails
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
 	// a client for talking to ironic
@@ -143,6 +143,8 @@ type ironicProvisioner struct {
 	inspector *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
+	// a debug logger configured for this host
+	debugLog logr.Logger
 	// an event publisher for recording significant events
 	publisher provisioner.EventPublisher
 }
@@ -182,25 +184,19 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 }
 
 func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
-
-	bmcAccess, err := bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
-	}
-
 	// Ensure we have a microversion high enough to get the features
 	// we need.
 	clientIronic.Microversion = "1.56"
 	p := &ironicProvisioner{
 		host:      host,
 		status:    &(host.Status.Provisioning),
-		bmcAccess: bmcAccess,
 		bmcCreds:  bmcCreds,
 		client:    clientIronic,
 		inspector: clientInspector,
-		log:       log.WithValues("host", host.Name),
 		publisher: publisher,
 	}
+	p.log = log.WithValues("host", p.ironicNodeNameFromHost())
+	p.debugLog = p.log.V(1)
 
 	return p, nil
 }
@@ -228,6 +224,14 @@ func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher 
 	}
 	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
 		clientIronicSingleton, clientInspectorSingleton)
+}
+
+func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
+	bmcAccess, err := bmc.NewAccessDetails(p.host.Spec.BMC.Address, p.host.Spec.BMC.DisableCertificateVerification)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BMC address information")
+	}
+	return bmcAccess, nil
 }
 
 func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage string, err error) {
@@ -291,7 +295,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 		ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 		switch err.(type) {
 		case nil:
-			p.log.Info("found existing node by ID")
+			p.debugLog.Info("found existing node by ID")
 			return ironicNode, nil
 		case gophercloud.ErrDefault404:
 			// Look by ID failed, trying to lookup by hostname in case it was
@@ -303,18 +307,25 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 	}
 
 	// Try to load the node by name
-	p.log.Info("looking for existing node by name", "name", p.host.Name)
-	ironicNode, err = nodes.Get(p.client, p.host.Name).Extract()
-	switch err.(type) {
-	case nil:
-		p.log.Info("found existing node by name")
-		return ironicNode, nil
-	case gophercloud.ErrDefault404:
-		p.log.Info(
-			fmt.Sprintf("node with name %s doesn't exist", p.host.Name))
-	default:
-		return nil, errors.Wrap(err,
-			fmt.Sprintf("failed to find node by name %s", p.host.Name))
+	nodeSearchList := []string{p.ironicNodeNameFromHost()}
+	if !strings.Contains(p.host.Name, nameSeparator) {
+		nodeSearchList = append(nodeSearchList, p.host.Name)
+	}
+
+	for _, nodeName := range nodeSearchList {
+		p.debugLog.Info("looking for existing node by name", "name", nodeName)
+		ironicNode, err = nodes.Get(p.client, nodeName).Extract()
+		switch err.(type) {
+		case nil:
+			p.debugLog.Info("found existing node by name")
+			return ironicNode, nil
+		case gophercloud.ErrDefault404:
+			p.log.Info(
+				fmt.Sprintf("node with name %s doesn't exist", nodeName))
+		default:
+			return nil, errors.Wrap(err,
+				fmt.Sprintf("failed to find node by name %s", nodeName))
+		}
 	}
 
 	// Try to load the node by port address
@@ -331,7 +342,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 		ironicNode, err = nodes.Get(p.client, nodeUUID).Extract()
 		switch err.(type) {
 		case nil:
-			p.log.Info("found existing node by ID")
+			p.debugLog.Info("found existing node by ID")
 
 			// If the node has a name, this means we didn't find it above.
 			if ironicNode.Name != "" {
@@ -361,9 +372,15 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
 func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+	bmcAccess, err := p.bmcAccess()
+	if err != nil {
+		result, err = operationFailed(err.Error())
+		return
+	}
+
 	var ironicNode *nodes.Node
 
-	p.log.Info("validating management access")
+	p.debugLog.Info("validating management access")
 
 	ironicNode, err = p.findExistingHost()
 	if err != nil {
@@ -378,14 +395,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 	// Some BMC types require a MAC address, so ensure we have one
 	// when we need it. If not, place the host in an error state.
-	if p.bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
-		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", p.bmcAccess.Type())
+	if bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
+		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type())
 		p.log.Info(msg)
 		result, err = operationFailed(msg)
 		return
 	}
 
-	driverInfo := p.bmcAccess.DriverInfo(p.bmcCreds)
+	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
 	driverInfo["deploy_kernel"] = deployKernelURL
@@ -397,8 +414,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
-		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !p.bmcAccess.SupportsSecureBoot() {
-			msg := fmt.Sprintf("BMC driver %s does not support secure boot", p.bmcAccess.Type())
+		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+			msg := fmt.Sprintf("BMC driver %s does not support secure boot", bmcAccess.Type())
 			p.log.Info(msg)
 			result, err = operationFailed(msg)
 			return
@@ -407,16 +424,16 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		ironicNode, err = nodes.Create(
 			p.client,
 			nodes.CreateOpts{
-				Driver:              p.bmcAccess.Driver(),
-				BootInterface:       p.bmcAccess.BootInterface(),
+				Driver:              bmcAccess.Driver(),
+				BootInterface:       bmcAccess.BootInterface(),
 				Name:                p.host.Name,
 				DriverInfo:          driverInfo,
 				DeployInterface:     p.deployInterface(),
 				InspectInterface:    "inspector",
-				ManagementInterface: p.bmcAccess.ManagementInterface(),
-				PowerInterface:      p.bmcAccess.PowerInterface(),
-				RAIDInterface:       p.bmcAccess.RAIDInterface(),
-				VendorInterface:     p.bmcAccess.VendorInterface(),
+				ManagementInterface: bmcAccess.ManagementInterface(),
+				PowerInterface:      bmcAccess.PowerInterface(),
+				RAIDInterface:       bmcAccess.RAIDInterface(),
+				VendorInterface:     bmcAccess.VendorInterface(),
 				Properties: map[string]interface{}{
 					"capabilities": bootModeCapabilities[p.host.Status.Provisioning.BootMode],
 				},
@@ -490,12 +507,12 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		// if there are differences.
 		provID = ironicNode.UUID
 
-		if ironicNode.Name == "" {
+		if ironicNode.Name != p.ironicNodeNameFromHost() {
 			updates := nodes.UpdateOpts{
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
 					Path:  "/name",
-					Value: p.host.Name,
+					Value: p.ironicNodeNameFromHost(),
 				},
 			}
 			ironicNode, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
@@ -584,18 +601,16 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		return
 
 	case nodes.Manageable:
-		p.log.Info("have manageable host")
 		return
 
 	case nodes.Available:
 		// The host is fully registered (and probably wasn't cleanly
 		// deleted previously)
-		p.log.Info("have available host")
 		return
 
 	case nodes.Active:
 		// The host is already running, maybe it's a master?
-		p.log.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
+		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
 		return
 
 	default:
@@ -709,7 +724,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 		result, err = operationFailed(status.Error)
 		return
 	}
-	if !status.Finished || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait {
+	if !status.Finished || (nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Inspecting || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait) {
 		p.log.Info("inspection in progress", "started_at", status.StartedAt)
 		result, err = operationContinuing(introspectionRequeueDelay)
 		return
@@ -736,7 +751,7 @@ func (p *ironicProvisioner) InspectHardware(force bool) (result provisioner.Resu
 // is expected to do this in the least expensive way possible, such as
 // reading from a cache.
 func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
-	p.log.Info("updating hardware state")
+	p.debugLog.Info("updating hardware state")
 
 	ironicNode, err := p.findExistingHost()
 	if err != nil {
@@ -760,92 +775,60 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
-	checksum, checksumType, ok := imageData.GetChecksum()
-	if !ok {
-		p.log.Info("image/checksum not found for host")
-		return
+func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
+	var op nodes.UpdateOp
+
+	if _, ok := ironicNode.InstanceInfo["boot_iso"]; !ok {
+		op = nodes.AddOp
+		p.log.Info("adding boot_iso")
+	} else {
+		op = nodes.ReplaceOp
+		p.log.Info("updating boot_iso")
 	}
-	// instance_uuid
-	p.log.Info("setting instance_uuid")
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    op,
+			Path:  "/instance_info/boot_iso",
+			Value: imageData.URL,
+		},
+	)
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
 			Op:    nodes.ReplaceOp,
-			Path:  "/instance_uuid",
-			Value: string(p.host.ObjectMeta.UID),
+			Path:  "/deploy_interface",
+			Value: "ramdisk",
 		},
 	)
-
-	// Secure boot is a normal capability that goes into instance_info (we
-	// also put it to properties for consistency, although it's not
-	// strictly required in our case).
-
-	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:   nodes.AddOp,
-			Path: "/instance_info/capabilities",
-			// Instance info capabilities were invented later and
-			// use a normal JSON mapping instead of a custom
-			// string value.
-			Value: map[string]string{
-				"secure_boot": "true",
-			},
-		})
-	} else {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:    nodes.AddOp,
-			Path:  "/instance_info/capabilities",
-			Value: map[string]string{},
-		})
+	// remove any image_source or checksum options
+	removals := []string{
+		"image_source", "image_os_hash_value", "image_os_hash_algo", "image_checksum"}
+	op = nodes.RemoveOp
+	for _, item := range removals {
+		if _, ok := ironicNode.InstanceInfo[item]; ok {
+			p.log.Info("removing " + item)
+			updates = append(
+				updates,
+				nodes.UpdateOperation{
+					Op:   op,
+					Path: "/instance_info/" + item,
+				},
+			)
+		}
 	}
+	return updates, nil
+}
 
-	// live-iso format
-	var op nodes.UpdateOp
-	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
-		if _, ok := ironicNode.InstanceInfo["boot_iso"]; !ok {
-			op = nodes.AddOp
-			p.log.Info("adding boot_iso")
-		} else {
-			op = nodes.ReplaceOp
-			p.log.Info("updating boot_iso")
-		}
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    op,
-				Path:  "/instance_info/boot_iso",
-				Value: imageData.URL,
-			},
-		)
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/deploy_interface",
-				Value: "ramdisk",
-			},
-		)
-		// remove any image_source or checksum options
-		removals := []string{
-			"image_source", "image_os_hash_value", "image_os_hash_algo", "image_checksum"}
-		op = nodes.RemoveOp
-		for _, item := range removals {
-			if _, ok := ironicNode.InstanceInfo[item]; ok {
-				p.log.Info("removing " + item)
-				updates = append(
-					updates,
-					nodes.UpdateOperation{
-						Op:   op,
-						Path: "/instance_info/" + item,
-					},
-				)
-			}
-		}
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
+	checksum, checksumType, ok := imageData.GetChecksum()
+	if !ok {
+		p.log.Info("image/checksum not found for host")
 		return updates, nil
 	}
 
-	// Set deploy_interface direct when not booting a live-iso
+	var op nodes.UpdateOp
+
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
@@ -951,6 +934,50 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	}
 
 	return updates, nil
+}
+
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
+	// instance_uuid
+	p.log.Info("setting instance_uuid")
+	updates = append(
+		updates,
+		nodes.UpdateOperation{
+			Op:    nodes.ReplaceOp,
+			Path:  "/instance_uuid",
+			Value: string(p.host.ObjectMeta.UID),
+		},
+	)
+
+	// Secure boot is a normal capability that goes into instance_info (we
+	// also put it to properties for consistency, although it's not
+	// strictly required in our case).
+
+	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:   nodes.AddOp,
+			Path: "/instance_info/capabilities",
+			// Instance info capabilities were invented later and
+			// use a normal JSON mapping instead of a custom
+			// string value.
+			Value: map[string]string{
+				"secure_boot": "true",
+			},
+		})
+	} else {
+		updates = append(updates, nodes.UpdateOperation{
+			Op:    nodes.AddOp,
+			Path:  "/instance_info/capabilities",
+			Value: map[string]string{},
+		})
+	}
+
+	// Set live-iso format options
+	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
+		return p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updates)
+	}
+
+	// Set deploy_interface direct options when not booting a live-iso
+	return p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updates)
 }
 
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
@@ -1186,10 +1213,9 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 					Target: nodes.TargetAdopt,
 				},
 			)
-		} else {
-			return operationFailed(fmt.Sprintf("Host adoption failed: %s",
-				ironicNode.LastError))
 		}
+		return operationFailed(fmt.Sprintf("Host adoption failed: %s",
+			ironicNode.LastError))
 	case nodes.Active:
 	default:
 	}
@@ -1220,12 +1246,12 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImag
 	return sameImage
 }
 
-func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.CleanStep, err error) {
+func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
-	if p.bmcAccess.RAIDInterface() != "no-raid" {
+	if bmcAccess.RAIDInterface() != "no-raid" {
 		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(p.host.Status.Provisioning.RAID)...)
 	} else if p.host.Status.Provisioning.RAID != nil {
-		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", p.bmcAccess.Driver())
+		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
 	}
 
 	// TODO: Add manual cleaning steps for host configuration
@@ -1233,8 +1259,8 @@ func (p *ironicProvisioner) buildManualCleaningSteps() (cleanSteps []nodes.Clean
 	return
 }
 
-func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
-	if p.bmcAccess.RAIDInterface() != "no-raid" {
+func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
+	if bmcAccess.RAIDInterface() != "no-raid" {
 		// Set raid configuration
 		err = setTargetRAIDCfg(p, ironicNode)
 		if err != nil {
@@ -1244,7 +1270,7 @@ func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success
 	}
 
 	// Build manual clean steps
-	cleanSteps, err := p.buildManualCleaningSteps()
+	cleanSteps, err := p.buildManualCleaningSteps(bmcAccess)
 	if err != nil {
 		result, err = operationFailed(err.Error())
 		return
@@ -1268,8 +1294,13 @@ func (p *ironicProvisioner) startManualCleaning(ironicNode *nodes.Node) (success
 // Prepare remove existing configuration and set new configuration.
 // If `started` is true,  it means that we successfully executed `tryChangeNodeProvisionState`.
 func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
-	var ironicNode *nodes.Node
+	bmcAccess, err := p.bmcAccess()
+	if err != nil {
+		result, err = transientError(err)
+		return
+	}
 
+	var ironicNode *nodes.Node
 	if ironicNode, err = p.findExistingHost(); err != nil {
 		result, err = transientError(errors.Wrap(err, "could not find host to clean"))
 		return
@@ -1282,7 +1313,7 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Available:
 		var cleanSteps []nodes.CleanStep
-		cleanSteps, err = p.buildManualCleaningSteps()
+		cleanSteps, err = p.buildManualCleaningSteps(bmcAccess)
 		if err != nil {
 			result, err = operationFailed(err.Error())
 			return
@@ -1298,7 +1329,7 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 
 	case nodes.Manageable:
 		if unprepared {
-			started, result, err = p.startManualCleaning(ironicNode)
+			started, result, err = p.startManualCleaning(bmcAccess, ironicNode)
 			return
 		}
 		// Manual clean finished
@@ -1815,9 +1846,13 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 	return result, nil
 }
 
+func (p *ironicProvisioner) ironicNodeNameFromHost() string {
+	return p.host.Namespace + nameSeparator + p.host.Name
+}
+
 // IsReady checks if the provisioning backend is available
 func (p *ironicProvisioner) IsReady() (result bool, err error) {
-	p.log.Info("verifying ironic provisioner dependencies")
+	p.debugLog.Info("verifying ironic provisioner dependencies")
 
 	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
 	return checker.IsReady()
@@ -1832,7 +1867,7 @@ func (p *ironicProvisioner) HasProvisioningCapacity() (result bool, err error) {
 	}
 
 	// If the current host is already under processing then let's skip the test
-	if _, ok := hosts[p.host.Name]; ok {
+	if _, ok := hosts[p.ironicNodeNameFromHost()]; ok {
 		return true, nil
 	}
 

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
@@ -18,7 +20,6 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
@@ -131,12 +132,18 @@ func init() {
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
 type ironicProvisioner struct {
-	// the host to be managed by this provisioner
-	host metal3v1alpha1.BareMetalHost
-	// a shorter path to the provisioning status data structure
-	status *metal3v1alpha1.ProvisionStatus
+	// the object metadata of the BareMetalHost resource
+	objectMeta metav1.ObjectMeta
+	// the UUID of the node in Ironic
+	nodeID string
+	// the address of the BMC
+	bmcAddress string
+	// whether to disable SSL certificate verification
+	disableCertVerification bool
 	// credentials to log in to the BMC
 	bmcCreds bmc.Credentials
+	// the MAC address of the PXE boot interface
+	bootMACAddress string
 	// a client for talking to ironic
 	client *gophercloud.ServiceClient
 	// a client for talking to ironic-inspector
@@ -165,6 +172,8 @@ func LogStartup() {
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
 func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
+	hostData := provisioner.BuildHostData(host, bmcCreds)
+
 	tlsConf := clients.TLSConfig{
 		TrustedCAFile:      ironicTrustedCAFile,
 		InsecureSkipVerify: ironicInsecure,
@@ -179,31 +188,37 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 		return nil, err
 	}
 
-	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
+	return newProvisionerWithIronicClients(hostData, publisher,
 		clientIronic, clientInspector)
 }
 
-func newProvisionerWithIronicClients(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
+func newProvisionerWithIronicClients(hostData provisioner.HostData, publisher provisioner.EventPublisher, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient) (*ironicProvisioner, error) {
 	// Ensure we have a microversion high enough to get the features
 	// we need.
 	clientIronic.Microversion = "1.56"
+
+	provisionerLogger := log.WithValues("host", ironicNodeName(hostData.ObjectMeta))
+
 	p := &ironicProvisioner{
-		host:      host,
-		status:    &(host.Status.Provisioning),
-		bmcCreds:  bmcCreds,
-		client:    clientIronic,
-		inspector: clientInspector,
-		publisher: publisher,
+		objectMeta:              hostData.ObjectMeta,
+		nodeID:                  hostData.ProvisionerID,
+		bmcCreds:                hostData.BMCCredentials,
+		bmcAddress:              hostData.BMCAddress,
+		disableCertVerification: hostData.DisableCertificateVerification,
+		bootMACAddress:          hostData.BootMACAddress,
+		client:                  clientIronic,
+		inspector:               clientInspector,
+		log:                     provisionerLogger,
+		debugLog:                provisionerLogger.V(1),
+		publisher:               publisher,
 	}
-	p.log = log.WithValues("host", p.ironicNodeNameFromHost())
-	p.debugLog = p.log.V(1)
 
 	return p, nil
 }
 
 // New returns a new Ironic Provisioner using the global configuration
 // for finding the Ironic services.
-func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	var err error
 	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
 		tlsConf := clients.TLSConfig{
@@ -222,12 +237,12 @@ func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher 
 			return nil, err
 		}
 	}
-	return newProvisionerWithIronicClients(host, bmcCreds, publisher,
+	return newProvisionerWithIronicClients(hostData, publisher,
 		clientIronicSingleton, clientInspectorSingleton)
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
-	bmcAccess, err := bmc.NewAccessDetails(p.host.Spec.BMC.Address, p.host.Spec.BMC.DisableCertificateVerification)
+	bmcAccess, err := bmc.NewAccessDetails(p.bmcAddress, p.disableCertVerification)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BMC address information")
 	}
@@ -286,30 +301,38 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 
 }
 
+func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
+	if p.nodeID == "" {
+		return nil, provisioner.NeedsRegistration
+	}
+
+	ironicNode, err := nodes.Get(p.client, p.nodeID).Extract()
+	switch err.(type) {
+	case nil:
+		p.debugLog.Info("found existing node by ID")
+		return ironicNode, nil
+	case gophercloud.ErrDefault404:
+		// Look by ID failed, trying to lookup by hostname in case it was
+		// previously created
+		return nil, provisioner.NeedsRegistration
+	default:
+		return nil, errors.Wrap(err,
+			fmt.Sprintf("failed to find node by ID %s", p.nodeID))
+	}
+}
+
 // Look for an existing registration for the host in Ironic.
-func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err error) {
+func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode *nodes.Node, err error) {
 	// Try to load the node by UUID
-	if p.status.ID != "" {
-		// Look for the node to see if it exists (maybe Ironic was
-		// restarted)
-		ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
-		switch err.(type) {
-		case nil:
-			p.debugLog.Info("found existing node by ID")
-			return ironicNode, nil
-		case gophercloud.ErrDefault404:
-			// Look by ID failed, trying to lookup by hostname in case it was
-			// previously created
-		default:
-			return nil, errors.Wrap(err,
-				fmt.Sprintf("failed to find node by ID %s", p.status.ID))
-		}
+	ironicNode, err = p.getNode()
+	if !errors.Is(err, provisioner.NeedsRegistration) {
+		return
 	}
 
 	// Try to load the node by name
-	nodeSearchList := []string{p.ironicNodeNameFromHost()}
-	if !strings.Contains(p.host.Name, nameSeparator) {
-		nodeSearchList = append(nodeSearchList, p.host.Name)
+	nodeSearchList := []string{ironicNodeName(p.objectMeta)}
+	if !strings.Contains(p.objectMeta.Name, nameSeparator) {
+		nodeSearchList = append(nodeSearchList, p.objectMeta.Name)
 	}
 
 	for _, nodeName := range nodeSearchList {
@@ -329,11 +352,11 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 	}
 
 	// Try to load the node by port address
-	p.log.Info("looking for existing node by MAC", "MAC", p.host.Spec.BootMACAddress)
-	allPorts, err := p.listAllPorts(p.host.Spec.BootMACAddress)
+	p.log.Info("looking for existing node by MAC", "MAC", bootMACAddress)
+	allPorts, err := p.listAllPorts(bootMACAddress)
 
 	if err != nil {
-		p.log.Info("failed to find an existing port with address", "MAC", p.host.Spec.BootMACAddress)
+		p.log.Info("failed to find an existing port with address", "MAC", bootMACAddress)
 		return nil, nil
 	}
 
@@ -346,7 +369,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 
 			// If the node has a name, this means we didn't find it above.
 			if ironicNode.Name != "" {
-				return nil, NewMacAddressConflictError(p.host.Spec.BootMACAddress, ironicNode.Name)
+				return nil, NewMacAddressConflictError(bootMACAddress, ironicNode.Name)
 			}
 
 			return ironicNode, nil
@@ -358,11 +381,12 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 				fmt.Sprintf("port exists but failed to find linked node by ID %s", nodeUUID))
 		}
 	} else {
-		p.log.Info("port with address doesn't exist", "MAC", p.host.Spec.BootMACAddress)
+		p.log.Info("port with address doesn't exist", "MAC", bootMACAddress)
 	}
 
+	// Either the node was never created or the Ironic database has
+	// been dropped.
 	return nil, nil
-
 }
 
 // ValidateManagementAccess registers the host with the provisioning
@@ -371,7 +395,7 @@ func (p *ironicProvisioner) findExistingHost() (ironicNode *nodes.Node, err erro
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = operationFailed(err.Error())
@@ -383,7 +407,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 	p.debugLog.Info("validating management access")
 
-	ironicNode, err = p.findExistingHost()
+	ironicNode, err = p.findExistingHost(p.bootMACAddress)
 	if err != nil {
 		switch err.(type) {
 		case macAddressConflictError:
@@ -396,7 +420,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 	// Some BMC types require a MAC address, so ensure we have one
 	// when we need it. If not, place the host in an error state.
-	if bmcAccess.NeedsMAC() && p.host.Spec.BootMACAddress == "" {
+	if bmcAccess.NeedsMAC() && p.bootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type())
 		p.log.Info(msg)
 		result, err = operationFailed(msg)
@@ -415,7 +439,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
-		if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+		if data.BootMode == metal3v1alpha1.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
 			msg := fmt.Sprintf("BMC driver %s does not support secure boot", bmcAccess.Type())
 			p.log.Info(msg)
 			result, err = operationFailed(msg)
@@ -427,16 +451,16 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			nodes.CreateOpts{
 				Driver:              bmcAccess.Driver(),
 				BootInterface:       bmcAccess.BootInterface(),
-				Name:                p.host.Name,
+				Name:                p.objectMeta.Name,
 				DriverInfo:          driverInfo,
-				DeployInterface:     p.deployInterface(),
+				DeployInterface:     p.deployInterface(data.CurrentImage),
 				InspectInterface:    "inspector",
 				ManagementInterface: bmcAccess.ManagementInterface(),
 				PowerInterface:      bmcAccess.PowerInterface(),
 				RAIDInterface:       bmcAccess.RAIDInterface(),
 				VendorInterface:     bmcAccess.VendorInterface(),
 				Properties: map[string]interface{}{
-					"capabilities": bootModeCapabilities[p.host.Status.Provisioning.BootMode],
+					"capabilities": bootModeCapabilities[data.BootMode],
 				},
 			}).Extract()
 		// FIXME(dhellmann): Handle 409 and 503? errors here.
@@ -452,15 +476,15 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 
 		// If we know the MAC, create a port. Otherwise we will have
 		// to do this after we run the introspection step.
-		if p.host.Spec.BootMACAddress != "" {
+		if p.bootMACAddress != "" {
 			enable := true
 			p.log.Info("creating port for node in ironic", "MAC",
-				p.host.Spec.BootMACAddress)
+				p.bootMACAddress)
 			_, err = ports.Create(
 				p.client,
 				ports.CreateOpts{
 					NodeUUID:   ironicNode.UUID,
-					Address:    p.host.Spec.BootMACAddress,
+					Address:    p.bootMACAddress,
 					PXEEnabled: &enable,
 				}).Extract()
 			if err != nil {
@@ -469,20 +493,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			}
 		}
 
-		// If there is an image to be provisioned, or an image has
-		// previously been provisioned, include those details. Either
-		// case may mean we are re-adopting a host that was already
-		// known but removed/lost because the pod restarted.
-		var imageData *metal3v1alpha1.Image
-		switch {
-		case p.host.Status.Provisioning.Image.URL != "":
-			imageData = &p.host.Status.Provisioning.Image
-		case p.host.Spec.Image != nil && p.host.Spec.Image.URL != "":
-			imageData = p.host.Spec.Image
-		}
-
-		if imageData != nil {
-			updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, imageData)
+		if data.CurrentImage != nil {
+			updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
 			if optsErr != nil {
 				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
 				return
@@ -499,13 +511,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 		// if there are differences.
 		provID = ironicNode.UUID
 
-		if ironicNode.Name != p.ironicNodeNameFromHost() {
+		if ironicNode.Name != ironicNodeName(p.objectMeta) {
 			updates = append(
 				updates,
 				nodes.UpdateOperation{
 					Op:    nodes.ReplaceOp,
 					Path:  "/name",
-					Value: p.ironicNodeNameFromHost(),
+					Value: ironicNodeName(p.objectMeta),
 				},
 			)
 		}
@@ -526,12 +538,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(credentialsChanged, force b
 			// below.
 		}
 	}
-	if ironicNode.AutomatedClean == nil || (p.host.Spec.AutomatedCleaningMode == "disabled" && *ironicNode.AutomatedClean != false) || (p.host.Spec.AutomatedCleaningMode == "enabled" && *ironicNode.AutomatedClean == false) {
+	if ironicNode.AutomatedClean == nil ||
+		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled && *ironicNode.AutomatedClean) ||
+		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeMetadata && !*ironicNode.AutomatedClean) {
 		p.log.Info("setting automated cleaning mode to",
 			"ID", ironicNode.UUID,
-			"mode", p.host.Spec.AutomatedCleaningMode)
+			"mode", data.AutomatedCleaningMode)
 
-		value := p.host.Spec.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled
+		value := data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled
 		updates = append(
 			updates,
 			nodes.UpdateOperation{
@@ -647,16 +661,12 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
-	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
+func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+	p.log.Info("inspecting hardware")
 
-	ironicNode, err := p.findExistingHost()
+	ironicNode, err := p.getNode()
 	if err != nil {
-		result, err = transientError(errors.Wrap(err, "failed to find existing host"))
-		return
-	}
-	if ironicNode == nil {
-		result, err = transientError(provisioner.NeedsRegistration)
+		result, err = transientError(err)
 		return
 	}
 
@@ -681,7 +691,7 @@ func (p *ironicProvisioner) InspectHardware(force, refresh bool) (result provisi
 				fallthrough
 			default:
 				p.log.Info("updating boot mode before hardware inspection")
-				op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
+				op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
 				updates := nodes.UpdateOpts{
 					nodes.UpdateOperation{
 						Op:    op,
@@ -729,15 +739,15 @@ func (p *ironicProvisioner) InspectHardware(force, refresh bool) (result provisi
 
 	// Introspection is done
 	p.log.Info("getting hardware details from inspection")
-	introData := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
-	data, err := introData.Extract()
+	response := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
+	introData, err := response.Extract()
 	if err != nil {
 		result, err = transientError(errors.Wrap(err, "failed to retrieve hardware introspection data"))
 		return
 	}
-	p.log.Info("received introspection data", "data", introData.Body)
+	p.log.Info("received introspection data", "data", response.Body)
 
-	details = hardwaredetails.GetHardwareDetails(data)
+	details = hardwaredetails.GetHardwareDetails(introData)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 	result, err = operationComplete()
 	return
@@ -750,13 +760,8 @@ func (p *ironicProvisioner) InspectHardware(force, refresh bool) (result provisi
 func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
 	p.debugLog.Info("updating hardware state")
 
-	ironicNode, err := p.findExistingHost()
+	ironicNode, err := p.getNode()
 	if err != nil {
-		err = errors.Wrap(err, "failed to find existing host")
-		return
-	}
-	if ironicNode == nil {
-		err = provisioner.NeedsRegistration
 		return
 	}
 
@@ -933,7 +938,7 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	return updates, nil
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode) (updates nodes.UpdateOpts, err error) {
 	// instance_uuid
 	p.log.Info("setting instance_uuid")
 	updates = append(
@@ -941,7 +946,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 		nodes.UpdateOperation{
 			Op:    nodes.ReplaceOp,
 			Path:  "/instance_uuid",
-			Value: string(p.host.ObjectMeta.UID),
+			Value: string(p.objectMeta.UID),
 		},
 	)
 
@@ -949,7 +954,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	// also put it to properties for consistency, although it's not
 	// strictly required in our case).
 
-	if p.host.Spec.BootMode == metal3v1alpha1.UEFISecureBoot {
+	if bootMode == metal3v1alpha1.UEFISecureBoot {
 		updates = append(updates, nodes.UpdateOperation{
 			Op:   nodes.AddOp,
 			Path: "/instance_info/capabilities",
@@ -977,17 +982,8 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	return p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updates)
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (updates nodes.UpdateOpts, err error) {
-
-	hwProf, err := hardware.GetProfile(p.host.HardwareProfile())
-
-	if err != nil {
-		return updates, errors.Wrap(err,
-			fmt.Sprintf("Could not start provisioning with bad hardware profile %s",
-				p.host.HardwareProfile()))
-	}
-
-	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, p.host.Spec.Image)
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) (updates nodes.UpdateOpts, err error) {
+	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode)
 	if err != nil {
 		return updates, errors.Wrap(err, "Could not get Image options for node")
 	}
@@ -1012,7 +1008,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 	//
 	// If the user has provided explicit root device hints, they take
 	// precedence. Otherwise use the values from the hardware profile.
-	hints := devicehints.MakeHintMap(p.host.Status.Provisioning.RootDeviceHints)
+	hints := devicehints.MakeHintMap(data.RootDeviceHints)
 	p.log.Info("using root device", "hints", hints)
 	updates = append(
 		updates,
@@ -1039,7 +1035,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		nodes.UpdateOperation{
 			Op:    op,
 			Path:  "/properties/cpu_arch",
-			Value: hwProf.CPUArch,
+			Value: data.HardwareProfile.CPUArch,
 		},
 	)
 
@@ -1056,12 +1052,12 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node) (update
 		nodes.UpdateOperation{
 			Op:    op,
 			Path:  "/properties/local_gb",
-			Value: hwProf.LocalGB,
+			Value: data.HardwareProfile.LocalGB,
 		},
 	)
 
 	// boot_mode
-	op, value := buildCapabilitiesValue(ironicNode, p.host.Status.Provisioning.BootMode)
+	op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
 	updates = append(
 		updates,
 		nodes.UpdateOperation{
@@ -1111,11 +1107,11 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	return
 }
 
-func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	updates, err := p.getUpdateOptsForNode(ironicNode)
+	updates, err := p.getUpdateOptsForNode(ironicNode, data)
 	if err != nil {
 		return transientError(errors.Wrap(err, "failed to update opts for node"))
 	}
@@ -1153,27 +1149,24 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, hostCon
 		"deploy step", ironicNode.DeployStep,
 	)
 	p.publisher("ProvisioningStarted",
-		fmt.Sprintf("Image provisioning started for %s", p.host.Spec.Image.URL))
+		fmt.Sprintf("Image provisioning started for %s", data.Image.URL))
 	return
 }
 
-func (p *ironicProvisioner) deployInterface() (result string) {
+func (p *ironicProvisioner) deployInterface(image *metal3v1alpha1.Image) (result string) {
 	result = "direct"
-	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
+	if image != nil && image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
 		result = "ramdisk"
 	}
 	return result
 }
 
-// Adopt allows an externally-provisioned server to be adopted by Ironic.
-func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
-	var ironicNode *nodes.Node
-
-	if ironicNode, err = p.findExistingHost(); err != nil {
-		return transientError(errors.Wrap(err, "could not find host to adpot"))
-	}
-	if ironicNode == nil {
-		return transientError(provisioner.NeedsRegistration)
+// Adopt notifies the provisioner that the state machine believes the host
+// to be currently provisioned, and that it should be managed as such.
+func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
+	ironicNode, err := p.getNode()
+	if err != nil {
+		return transientError(err)
 	}
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
@@ -1183,7 +1176,7 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 	case nodes.Manageable:
 		_, hasImageSource := ironicNode.InstanceInfo["image_source"]
 		_, hasBootISO := ironicNode.InstanceInfo["boot_iso"]
-		if p.status.State == metal3v1alpha1.StateDeprovisioning &&
+		if data.State == metal3v1alpha1.StateDeprovisioning &&
 			!(hasImageSource || hasBootISO) {
 			// If we got here after a fresh registration and image data is
 			// available, it should have been added to the node during
@@ -1219,18 +1212,18 @@ func (p *ironicProvisioner) Adopt(force bool) (result provisioner.Result, err er
 	return operationComplete()
 }
 
-func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImage bool) {
+func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image metal3v1alpha1.Image) (sameImage bool) {
 	// To make it easier to test if ironic is configured with
 	// the same image we are trying to provision to the host.
-	if p.host.Spec.Image != nil && p.host.Spec.Image.DiskFormat != nil && *p.host.Spec.Image.DiskFormat == "live-iso" {
-		sameImage = (ironicNode.InstanceInfo["boot_iso"] == p.host.Spec.Image.URL)
+	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+		sameImage = (ironicNode.InstanceInfo["boot_iso"] == image.URL)
 		p.log.Info("checking image settings",
 			"boot_iso", ironicNode.InstanceInfo["boot_iso"],
 			"same", sameImage,
 			"provisionState", ironicNode.ProvisionState)
 	} else {
-		checksum, checksumType, _ := p.host.GetImageChecksum()
-		sameImage = (ironicNode.InstanceInfo["image_source"] == p.host.Spec.Image.URL &&
+		checksum, checksumType, _ := image.GetChecksum()
+		sameImage = (ironicNode.InstanceInfo["image_source"] == image.URL &&
 			ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
 			ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
 		p.log.Info("checking image settings",
@@ -1243,11 +1236,11 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node) (sameImag
 	return sameImage
 }
 
-func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails) (cleanSteps []nodes.CleanStep, err error) {
+func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
 	if bmcAccess.RAIDInterface() != "no-raid" {
-		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(p.host.Status.Provisioning.RAID)...)
-	} else if p.host.Status.Provisioning.RAID != nil {
+		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(data.RAIDConfig)...)
+	} else if data.RAIDConfig != nil {
 		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
 	}
 
@@ -1256,10 +1249,10 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	return
 }
 
-func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node) (success bool, result provisioner.Result, err error) {
+func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.PrepareData) (success bool, result provisioner.Result, err error) {
 	if bmcAccess.RAIDInterface() != "no-raid" {
 		// Set raid configuration
-		err = setTargetRAIDCfg(p, ironicNode)
+		err = setTargetRAIDCfg(p, ironicNode, data)
 		if err != nil {
 			result, err = transientError(err)
 			return
@@ -1267,7 +1260,7 @@ func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, iro
 	}
 
 	// Build manual clean steps
-	cleanSteps, err := p.buildManualCleaningSteps(bmcAccess)
+	cleanSteps, err := p.buildManualCleaningSteps(bmcAccess, data)
 	if err != nil {
 		result, err = operationFailed(err.Error())
 		return
@@ -1290,27 +1283,23 @@ func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, iro
 
 // Prepare remove existing configuration and set new configuration.
 // If `started` is true,  it means that we successfully executed `tryChangeNodeProvisionState`.
-func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = transientError(err)
 		return
 	}
 
-	var ironicNode *nodes.Node
-	if ironicNode, err = p.findExistingHost(); err != nil {
-		result, err = transientError(errors.Wrap(err, "could not find host to clean"))
-		return
-	}
-	if ironicNode == nil {
-		result, err = transientError(provisioner.NeedsRegistration)
+	ironicNode, err := p.getNode()
+	if err != nil {
+		result, err = transientError(err)
 		return
 	}
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Available:
 		var cleanSteps []nodes.CleanStep
-		cleanSteps, err = p.buildManualCleaningSteps(bmcAccess)
+		cleanSteps, err = p.buildManualCleaningSteps(bmcAccess, data)
 		if err != nil {
 			result, err = operationFailed(err.Error())
 			return
@@ -1326,7 +1315,7 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 
 	case nodes.Manageable:
 		if unprepared {
-			started, result, err = p.startManualCleaning(bmcAccess, ironicNode)
+			started, result, err = p.startManualCleaning(bmcAccess, ironicNode, data)
 			return
 		}
 		// Manual clean finished
@@ -1365,19 +1354,15 @@ func (p *ironicProvisioner) Prepare(unprepared bool) (result provisioner.Result,
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
-	var ironicNode *nodes.Node
-
-	if ironicNode, err = p.findExistingHost(); err != nil {
-		return transientError(errors.Wrap(err, "could not find host to receive image"))
-	}
-	if ironicNode == nil {
-		return transientError(provisioner.NeedsRegistration)
+func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+	ironicNode, err := p.getNode()
+	if err != nil {
+		return transientError(err)
 	}
 
 	p.log.Info("provisioning image to host", "state", ironicNode.ProvisionState)
 
-	ironicHasSameImage := p.ironicHasSameImage(ironicNode)
+	ironicHasSameImage := p.ironicHasSameImage(ironicNode, data.Image)
 
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
@@ -1400,7 +1385,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 				ironicNode.LastError))
 		}
 		p.log.Info("recovering from previous failure")
-		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
@@ -1422,7 +1407,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		)
 
 	case nodes.Available:
-		if provResult, err := p.setUpForProvisioning(ironicNode, hostConf); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err := p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
@@ -1431,13 +1416,13 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 		p.log.Info("making host active")
 
 		// Retrieve cloud-init user data
-		userData, err := hostConf.UserData()
+		userData, err := data.HostConfig.UserData()
 		if err != nil {
 			return transientError(errors.Wrap(err, "could not retrieve user data"))
 		}
 
 		// Retrieve cloud-init network_data.json. Default value is empty
-		networkDataRaw, err := hostConf.NetworkData()
+		networkDataRaw, err := data.HostConfig.NetworkData()
 		if err != nil {
 			return transientError(errors.Wrap(err, "could not retrieve network data"))
 		}
@@ -1448,14 +1433,14 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 
 		// Retrieve cloud-init meta_data.json with falback to default
 		metaData := map[string]interface{}{
-			"uuid":             string(p.host.ObjectMeta.UID),
-			"metal3-namespace": p.host.ObjectMeta.Namespace,
-			"metal3-name":      p.host.ObjectMeta.Name,
-			"local-hostname":   p.host.ObjectMeta.Name,
-			"local_hostname":   p.host.ObjectMeta.Name,
-			"name":             p.host.ObjectMeta.Name,
+			"uuid":             string(p.objectMeta.UID),
+			"metal3-namespace": p.objectMeta.Namespace,
+			"metal3-name":      p.objectMeta.Name,
+			"local-hostname":   p.objectMeta.Name,
+			"local_hostname":   p.objectMeta.Name,
+			"name":             p.objectMeta.Name,
 		}
-		metaDataRaw, err := hostConf.MetaData()
+		metaDataRaw, err := data.HostConfig.MetaData()
 		if err != nil {
 			return transientError(errors.Wrap(err, "could not retrieve metadata"))
 		}
@@ -1491,7 +1476,7 @@ func (p *ironicProvisioner) Provision(hostConf provisioner.HostConfigData) (resu
 	case nodes.Active:
 		// provisioning is done
 		p.publisher("ProvisioningComplete",
-			fmt.Sprintf("Image provisioning completed for %s", p.host.Spec.Image.URL))
+			fmt.Sprintf("Image provisioning completed for %s", data.Image.URL))
 		p.log.Info("finished provisioning")
 		return operationComplete()
 
@@ -1533,12 +1518,9 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
-	ironicNode, err := p.findExistingHost()
+	ironicNode, err := p.getNode()
 	if err != nil {
-		return transientError(errors.Wrap(err, "failed to find existing host"))
-	}
-	if ironicNode == nil {
-		return transientError(provisioner.NeedsRegistration)
+		return transientError(err)
 	}
 
 	p.log.Info("deprovisioning host",
@@ -1627,14 +1609,13 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 // called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
 func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
-
-	ironicNode, err := p.findExistingHost()
+	ironicNode, err := p.getNode()
 	if err != nil {
-		return transientError(errors.Wrap(err, "failed to find existing host"))
-	}
-	if ironicNode == nil {
-		p.log.Info("no node found, already deleted")
-		return operationComplete()
+		if errors.Is(err, provisioner.NeedsRegistration) {
+			p.log.Info("no node found, already deleted")
+			return operationComplete()
+		}
+		return transientError(err)
 	}
 
 	p.log.Info("deleting host",
@@ -1716,11 +1697,11 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 	case gophercloud.ErrDefault409:
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
 		result, _ = retryAfterDelay(powerRequeueDelay)
-		return result, HostLockedError{Address: p.host.Spec.BMC.Address}
+		return result, HostLockedError{}
 	case gophercloud.ErrDefault400:
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		p.log.Info("power change error", "message", changeResult.Err)
-		return result, SoftPowerOffUnsupportedError{Address: p.host.Spec.BMC.Address}
+		return result, SoftPowerOffUnsupportedError{}
 	default:
 		p.log.Info("power change error", "message", changeResult.Err)
 		return transientError(errors.Wrap(changeResult.Err, "failed to change power state"))
@@ -1732,13 +1713,12 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	ironicNode, err := p.findExistingHost()
+	ironicNode, err := p.getNode()
 	if err != nil {
-		return transientError(errors.Wrap(err, "failed to find existing host"))
+		return transientError(err)
 	}
 
 	p.log.Info("checking current state",
-		"current", p.host.Status.PoweredOn,
 		"target", ironicNode.TargetPowerState)
 
 	if ironicNode.PowerState != powerOn {
@@ -1788,9 +1768,9 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (resu
 func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off by \"hard power off\" command")
 
-	ironicNode, err := p.findExistingHost()
+	ironicNode, err := p.getNode()
 	if err != nil {
-		return transientError(errors.Wrap(err, "failed to find existing host"))
+		return transientError(err)
 	}
 
 	if ironicNode.PowerState != powerOff {
@@ -1817,9 +1797,9 @@ func (p *ironicProvisioner) hardPowerOff() (result provisioner.Result, err error
 func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off by \"soft power off\" command")
 
-	ironicNode, err := p.findExistingHost()
+	ironicNode, err := p.getNode()
 	if err != nil {
-		return transientError(errors.Wrap(err, "failed to find existing host"))
+		return transientError(err)
 	}
 
 	if ironicNode.PowerState != powerOff {
@@ -1832,7 +1812,7 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 		// If the target state is unset while the last error is set,
 		// then the last execution of soft power off has failed.
 		if targetState == "" && ironicNode.LastError != "" {
-			return result, SoftPowerOffFailed{Address: p.host.Spec.BMC.Address}
+			return result, SoftPowerOffFailed{}
 		}
 		result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
 		if err != nil {
@@ -1844,8 +1824,8 @@ func (p *ironicProvisioner) softPowerOff() (result provisioner.Result, err error
 	return result, nil
 }
 
-func (p *ironicProvisioner) ironicNodeNameFromHost() string {
-	return p.host.Namespace + nameSeparator + p.host.Name
+func ironicNodeName(objMeta metav1.ObjectMeta) string {
+	return objMeta.Namespace + nameSeparator + objMeta.Name
 }
 
 // IsReady checks if the provisioning backend is available
@@ -1865,7 +1845,7 @@ func (p *ironicProvisioner) HasProvisioningCapacity() (result bool, err error) {
 	}
 
 	// If the current host is already under processing then let's skip the test
-	if _, ok := hosts[p.ironicNodeNameFromHost()]; ok {
+	if _, ok := hosts[ironicNodeName(p.objectMeta)]; ok {
 		return true, nil
 	}
 

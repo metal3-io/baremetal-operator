@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
@@ -192,6 +195,7 @@ func TestInspectHardware(t *testing.T) {
 			}
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publishedMsg := ""
 			publisher := func(reason, message string) {
 				publishedMsg = reason + " " + message
@@ -204,8 +208,9 @@ func TestInspectHardware(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
-			result, details, err := prov.InspectHardware(tc.force, false)
+			result, details, err := prov.InspectHardware(
+				provisioner.InspectData{BootMode: metal3v1alpha1.DefaultBootMode},
+				tc.force, false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

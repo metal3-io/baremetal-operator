@@ -70,7 +70,7 @@ func TestFindExistingHost(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			node, err := prov.findExistingHost()
+			node, err := prov.findExistingHost("")
 			t.Logf("requests: %s", tc.ironic.Requests)
 			if err != nil {
 				t.Fatalf("could not look up host: %s", err)

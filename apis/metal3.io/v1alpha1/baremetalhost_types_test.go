@@ -443,7 +443,7 @@ func TestGetImageChecksum(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			_, _, actual := tc.Host.GetImageChecksum()
+			_, _, actual := tc.Host.Spec.Image.GetChecksum()
 			if actual != tc.Expected {
 				t.Errorf("expected %v but got %v", tc.Expected, actual)
 			}

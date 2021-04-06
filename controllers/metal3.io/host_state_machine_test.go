@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +21,7 @@ import (
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
-	p, _ := r.ProvisionerFactory(*host.DeepCopy(), bmc.Credentials{},
+	p, _ := r.ProvisionerFactory(provisioner.BuildHostData(*host, bmc.Credentials{}),
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p, true)
 }
@@ -489,6 +490,7 @@ func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
 				RootDeviceHints: &v1alpha1.RootDeviceHints{},
 			},
 			Status: metal3v1alpha1.BareMetalHostStatus{
+				HardwareProfile: hardware.DefaultProfileName,
 				Provisioning: metal3v1alpha1.ProvisionStatus{
 					State:    state,
 					BootMode: v1alpha1.DefaultBootMode,
@@ -614,11 +616,11 @@ func (m *mockProvisioner) setNextError(methodName, msg string) {
 	}
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
-func (m *mockProvisioner) InspectHardware(force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	details = &metal3v1alpha1.HardwareDetails{}
 	return m.getNextResultByMethod("InspectHardware"), details, err
 }
@@ -627,15 +629,15 @@ func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 	return
 }
 
-func (m *mockProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+func (m *mockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
 	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 
-func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Adopt"), err
 }
 
-func (m *mockProvisioner) Provision(configData provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Provision"), err
 }
 

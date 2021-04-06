@@ -214,7 +214,8 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
 	}
-	prov, err := r.ProvisionerFactory(*host.DeepCopy(), *bmcCreds, info.publishEvent)
+
+	prov, err := r.ProvisionerFactory(provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
@@ -522,6 +523,22 @@ func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, 
 	return actionContinue{unmanagedRetryDelay}
 }
 
+// getCurrentImage() returns the current image that has been or is being
+// provisioned.
+func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
+	// If an image is currently provisioned, return it
+	if host.Status.Provisioning.Image.URL != "" {
+		return host.Status.Provisioning.Image.DeepCopy()
+	}
+
+	// If we are in the process of provisioning an image, return that image
+	if host.Status.Provisioning.State == metal3v1alpha1.StateProvisioning &&
+		host.Spec.Image != nil && host.Spec.Image.URL != "" {
+		return host.Spec.Image.DeepCopy()
+	}
+	return nil
+}
+
 // Test the credentials by connecting to the management controller.
 func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
@@ -536,7 +553,15 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		dirty = true
 	}
 
-	provResult, provID, err := prov.ValidateManagementAccess(credsChanged, info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+	provResult, provID, err := prov.ValidateManagementAccess(
+		provisioner.ManagementAccessData{
+			BootMode:              info.host.Status.Provisioning.BootMode,
+			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
+			State:                 info.host.Status.Provisioning.State,
+			CurrentImage:          getCurrentImage(info.host),
+		},
+		credsChanged,
+		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
@@ -604,7 +629,12 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	info.log.Info("inspecting hardware")
 
 	refresh := hasInspectAnnotation(info.host)
-	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError, refresh)
+	provResult, details, err := prov.InspectHardware(
+		provisioner.InspectData{
+			BootMode: info.host.Status.Provisioning.BootMode,
+		},
+		info.host.Status.ErrorType == metal3v1alpha1.InspectionError,
+		refresh)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
@@ -689,8 +719,12 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
 	}
 
+	prepareData := provisioner.PrepareData{
+		RAIDConfig:      info.host.Status.Provisioning.RAID.DeepCopy(),
+		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+	}
 	// Do prepare(manual clean).
-	provResult, started, err := prov.Prepare(dirty)
+	provResult, started, err := prov.Prepare(prepareData, dirty)
 	if err != nil {
 		return actionError{errors.Wrap(err, "error preparing host")}
 	}
@@ -726,6 +760,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 	info.log.Info("provisioning")
 
+	hwProf, err := hardware.GetProfile(info.host.HardwareProfile())
+	if err != nil {
+		return actionError{errors.Wrap(err,
+			fmt.Sprintf("could not start provisioning with bad hardware profile %s",
+				info.host.HardwareProfile()))}
+	}
+
 	if clearRebootAnnotations(info.host) {
 		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
@@ -733,7 +774,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		return actionContinue{}
 	}
 
-	provResult, err := prov.Provision(hostConf)
+	provResult, err := prov.Provision(provisioner.ProvisionData{
+		Image:           *info.host.Spec.Image.DeepCopy(),
+		HostConfig:      hostConf,
+		BootMode:        info.host.Status.Provisioning.BootMode,
+		HardwareProfile: hwProf,
+		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
 	}
@@ -777,7 +824,9 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	if info.host.Status.Provisioning.Image.URL != "" {
 		// Adopt the host in case it has been re-registered during the
 		// deprovisioning process before it completed
-		provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
+		provResult, err := prov.Adopt(
+			provisioner.AdoptData{State: info.host.Status.Provisioning.State},
+			info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 		if err != nil {
 			return actionError{err}
 		}
@@ -923,7 +972,9 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 // action. We use the Adopt() API to make sure that the provisioner is aware of
 // the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
+	provResult, err := prov.Adopt(
+		provisioner.AdoptData{State: info.host.Status.Provisioning.State},
+		info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 	if err != nil {
 		return actionError{err}
 	}

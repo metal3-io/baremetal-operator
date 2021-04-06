@@ -122,7 +122,8 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 		// the API. That means we can safely update any status fields
 		// along with the state.
 		switch hsm.NextState {
-		case metal3v1alpha1.StateInspecting,
+		case metal3v1alpha1.StateRegistering,
+			metal3v1alpha1.StateInspecting,
 			metal3v1alpha1.StateProvisioning:
 			// TODO: When the user-selectable profile field is
 			// removed, move saveHostProvisioningSettings() from the

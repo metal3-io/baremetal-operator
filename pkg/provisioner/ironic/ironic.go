@@ -492,18 +492,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 				return
 			}
 		}
-
-		if data.CurrentImage != nil {
-			updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
-			if optsErr != nil {
-				result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
-				return
-			}
-			if len(updatesImage) != 0 {
-				updates = append(updates, updatesImage...)
-
-			}
-		}
 	} else {
 		// FIXME(dhellmann): At this point we have found an existing
 		// node in ironic by looking it up. We need to check its
@@ -536,6 +524,16 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			// We don't return here because we also have to set the
 			// target provision state to manageable, which happens
 			// below.
+		}
+	}
+	if data.CurrentImage != nil {
+		updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
+		if optsErr != nil {
+			result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
+			return
+		}
+		if len(updatesImage) != 0 {
+			updates = append(updates, updatesImage...)
 		}
 	}
 	if ironicNode.AutomatedClean == nil ||

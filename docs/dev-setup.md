@@ -37,6 +37,7 @@
 1. Create the CR
 
     ```bash
+    kubectl create namespace metal3
     kubectl apply -f examples/example-host.yaml -n metal3
     ```
 

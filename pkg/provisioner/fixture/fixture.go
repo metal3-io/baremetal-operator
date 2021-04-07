@@ -291,7 +291,7 @@ func (p *fixtureProvisioner) Detach() (result provisioner.Result, err error) {
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
 	if !p.state.poweredOn {

@@ -1519,7 +1519,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
 	ironicNode, err := p.getNode()
@@ -1535,7 +1535,7 @@ func (p *ironicProvisioner) PowerOn() (result provisioner.Result, err error) {
 			p.log.Info("waiting for power status to change")
 			return operationContinuing(powerRequeueDelay)
 		}
-		if ironicNode.LastError != "" {
+		if ironicNode.LastError != "" && !force {
 			p.log.Info("PowerOn operation failed", "msg", ironicNode.LastError)
 			return operationFailed(fmt.Sprintf("PowerOn operation failed: %s",
 				ironicNode.LastError))

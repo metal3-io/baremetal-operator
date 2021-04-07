@@ -305,7 +305,7 @@ func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
 	switch hostName {

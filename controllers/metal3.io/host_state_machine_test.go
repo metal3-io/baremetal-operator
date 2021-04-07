@@ -1172,7 +1172,7 @@ func (m *mockProvisioner) Detach() (result provisioner.Result, err error) {
 	return res, err
 }
 
-func (m *mockProvisioner) PowerOn() (result provisioner.Result, err error) {
+func (m *mockProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOn"), err
 }
 

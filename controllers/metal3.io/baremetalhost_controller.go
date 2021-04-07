@@ -1005,7 +1005,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
 	if desiredPowerOnState {
-		provResult, err = prov.PowerOn()
+		provResult, err = prov.PowerOn(info.host.Status.ErrorType == metal3v1alpha1.PowerManagementError)
 	} else {
 		if info.host.Status.ErrorCount > 0 {
 			desiredRebootMode = metal3v1alpha1.RebootModeHard

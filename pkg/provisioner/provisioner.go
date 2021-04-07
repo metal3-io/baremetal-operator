@@ -144,7 +144,7 @@ type Provisioner interface {
 
 	// PowerOn ensures the server is powered on independently of any image
 	// provisioning operation.
-	PowerOn() (result Result, err error)
+	PowerOn(force bool) (result Result, err error)
 
 	// PowerOff ensures the server is powered off independently of any image
 	// provisioning operation. The boolean argument may be used to specify

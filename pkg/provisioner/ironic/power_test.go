@@ -101,7 +101,7 @@ func TestPowerOn(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.PowerOn()
+			result, err := prov.PowerOn(false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

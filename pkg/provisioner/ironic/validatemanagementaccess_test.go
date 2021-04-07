@@ -638,3 +638,28 @@ func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
 	}
 	assert.Equal(t, "failed to parse BMC address information: missing BMC address", result.ErrorMessage)
 }
+
+func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
+	ironic := testserver.NewIronic(t).Ready()
+	ironic.Start()
+	defer ironic.Stop()
+
+	host := makeHost()
+	host.Spec.BMC = metal3v1alpha1.BMCDetails{
+		Address: "<ipmi://192.168.122.1:6233>",
+	}
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "failed to parse BMC address information: failed to parse BMC address information: parse \"<ipmi://192.168.122.1:6233>\": first path segment in URL cannot contain colon", result.ErrorMessage)
+}

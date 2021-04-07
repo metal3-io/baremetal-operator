@@ -69,6 +69,8 @@ type Fixture struct {
 	image metal3v1alpha1.Image
 	// state to manage power
 	poweredOn bool
+
+	validateError string
 }
 
 // New returns a new Fixture Provisioner
@@ -83,6 +85,10 @@ func (f *Fixture) New(hostData provisioner.HostData, publisher provisioner.Event
 	return p, nil
 }
 
+func (f *Fixture) SetValidateError(message string) {
+	f.validateError = message
+}
+
 func (p *fixtureProvisioner) HasProvisioningCapacity() (result bool, err error) {
 	return true, nil
 }
@@ -91,6 +97,11 @@ func (p *fixtureProvisioner) HasProvisioningCapacity() (result bool, err error) 
 // host to verify that the location and credentials work.
 func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
+
+	if p.state.validateError != "" {
+		result.ErrorMessage = p.state.validateError
+		return
+	}
 
 	// Fill in the ID of the host in the provisioning system
 	if p.provID == "" {

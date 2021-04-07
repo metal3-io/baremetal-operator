@@ -130,6 +130,13 @@ type Provisioner interface {
 	// flag until the deletion operation is completed.
 	Delete() (result Result, err error)
 
+	// Detach removes the host from the provisioning system.
+	// Similar to Delete, but ensures non-interruptive behavior
+	// for the target system.  It may be called multiple times,
+	// and should return true for its dirty  flag until the
+	// deletion operation is completed.
+	Detach() (result Result, err error)
+
 	// PowerOn ensures the server is powered on independently of any image
 	// provisioning operation.
 	PowerOn() (result Result, err error)

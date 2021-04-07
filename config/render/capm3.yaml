@@ -594,6 +594,7 @@ spec:
                 - discovered
                 - error
                 - delayed
+                - detached
                 type: string
               poweredOn:
                 description: indicator for whether or not the host is powered on

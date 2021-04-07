@@ -259,6 +259,15 @@ func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
 	return result, nil
 }
 
+// Detach removes the host from the provisioning system.
+// Similar to Delete, but ensures non-interruptive behavior
+// for the target system.  It may be called multiple times,
+// and should return true for its dirty  flag until the
+// deletion operation is completed.
+func (p *fixtureProvisioner) Detach() (result provisioner.Result, err error) {
+	return p.Delete()
+}
+
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
 func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {

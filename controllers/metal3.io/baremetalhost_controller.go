@@ -322,6 +322,7 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 	setErrorMessage(info.host, errorType, errorMessage)
 
 	eventType := map[metal3v1alpha1.ErrorType]string{
+		metal3v1alpha1.DetachError:                  "DetachError",
 		metal3v1alpha1.ProvisionedRegistrationError: "ProvisionedRegistrationError",
 		metal3v1alpha1.RegistrationError:            "RegistrationError",
 		metal3v1alpha1.InspectionError:              "InspectionError",
@@ -537,6 +538,33 @@ func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
 		return host.Spec.Image.DeepCopy()
 	}
 	return nil
+}
+
+// detachHost() detaches the host from the Provisioner
+func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	provResult, err := prov.Detach()
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to detach")}
+	}
+	if provResult.ErrorMessage != "" {
+		return recordActionFailure(info, metal3v1alpha1.DetachError, provResult.ErrorMessage)
+	}
+	if provResult.Dirty {
+		if info.host.Status.ErrorType == metal3v1alpha1.DetachError && clearError(info.host) {
+			return actionUpdate{actionContinue{provResult.RequeueAfter}}
+		}
+		return actionContinue{provResult.RequeueAfter}
+	}
+	slowPoll := actionContinue{unmanagedRetryDelay}
+	if info.host.Status.ErrorType == metal3v1alpha1.DetachError {
+		clearError(info.host)
+		info.host.Status.ErrorCount = 0
+	}
+	if info.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached) {
+		info.log.Info("host is detached, removed from provisioner")
+		return actionUpdate{slowPoll}
+	}
+	return slowPoll
 }
 
 // Test the credentials by connecting to the management controller.

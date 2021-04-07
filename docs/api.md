@@ -459,3 +459,14 @@ put any value on this annotation **other than `metal3.io/capm3`**. Please make
 sure that you remove the annotation  **only if the value of the annotation is
 not `metal3.io/capm3`, but another value that you have provided**. Removing the
 annotation will enable the reconciliation again.
+
+## Detaching hosts
+
+It is possible to prevent management of a BareMetalHost object by adding
+an annotation `baremetalhost.metal3.io/detached`. This removes the host from
+the provisioner, which prevents any management of the physical host (e.g
+changing power state, or deprovisioning), but still allows the BMH status
+to be updated unlike the `paused` anotation. While in this state the
+OperationalStatus field will be `detached` but the provisioning state will
+be unmodified.  This API only has any effect for BareMetalHost resources
+that are in either `Provisioned` or `ExternallyProvisioned` state.

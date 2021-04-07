@@ -210,8 +210,20 @@ fi
 
 if [ "${DEPLOY_IRONIC}" == "true" ]; then
     pushd "${SCRIPTDIR}"
+    if [[ "${DEPLOY_KEEPALIVED}" == "true" ]]; then
+      IRONIC_BMO_CONFIGMAP="${SCRIPTDIR}/ironic-deployment/keepalived/ironic_bmo_configmap.env"
+    else
+      IRONIC_BMO_CONFIGMAP="${SCRIPTDIR}/ironic-deployment/default/ironic_bmo_configmap.env"
+    fi
+    cp "${IRONIC_BMO_CONFIGMAP}" /tmp/ironic_bmo_configmap.env
+    if grep "INSPECTOR_REVERSE_PROXY_SETUP" "${IRONIC_BMO_CONFIGMAP}" > /dev/null; then
+      sed "s/\(INSPECTOR_REVERSE_PROXY_SETUP\).*/\1=${DEPLOY_TLS}/" -i "${IRONIC_BMO_CONFIGMAP}"
+    else
+      echo "INSPECTOR_REVERSE_PROXY_SETUP=${DEPLOY_TLS}" >> "${IRONIC_BMO_CONFIGMAP}"
+    fi
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    mv /tmp/ironic_bmo_configmap.env "${IRONIC_BMO_CONFIGMAP}"
     popd
 fi
 

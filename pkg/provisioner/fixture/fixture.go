@@ -45,8 +45,8 @@ func (cd *fixtureHostConfigData) MetaData() (string, error) {
 // fixtureProvisioner implements the provisioning.fixtureProvisioner interface
 // and uses Ironic to manage the host.
 type fixtureProvisioner struct {
-	// the host to be managed by this provisioner
-	host metal3v1alpha1.BareMetalHost
+	// the provisioning ID for this host
+	provID string
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -69,18 +69,24 @@ type Fixture struct {
 	image metal3v1alpha1.Image
 	// state to manage power
 	poweredOn bool
+
+	validateError string
 }
 
-// New returns a new Ironic FixtureProvisioner
-func (f *Fixture) New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+// New returns a new Fixture Provisioner
+func (f *Fixture) New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
-		host:      *host.DeepCopy(),
-		bmcCreds:  bmcCreds,
-		log:       log.WithValues("host", host.Name),
+		provID:    hostData.ProvisionerID,
+		bmcCreds:  hostData.BMCCredentials,
+		log:       log.WithValues("host", hostData.ObjectMeta.Name),
 		publisher: publisher,
 		state:     f,
 	}
 	return p, nil
+}
+
+func (f *Fixture) SetValidateError(message string) {
+	f.validateError = message
 }
 
 func (p *fixtureProvisioner) HasProvisioningCapacity() (result bool, err error) {
@@ -89,11 +95,16 @@ func (p *fixtureProvisioner) HasProvisioningCapacity() (result bool, err error) 
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
+	if p.state.validateError != "" {
+		result.ErrorMessage = p.state.validateError
+		return
+	}
+
 	// Fill in the ID of the host in the provisioning system
-	if p.host.Status.Provisioning.ID == "" {
+	if p.provID == "" {
 		provID = "temporary-fake-id"
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
@@ -108,60 +119,56 @@ func (p *fixtureProvisioner) ValidateManagementAccess(credentialsChanged, force 
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *fixtureProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
-	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
-
+func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	// The inspection is ongoing. We'll need to check the fixture
 	// status for the server here until it is ready for us to get the
 	// inspection details. Simulate that for now by creating the
 	// hardware details struct as part of a second pass.
-	if p.host.Status.HardwareDetails == nil {
-		p.log.Info("continuing inspection by setting details")
-		details =
-			&metal3v1alpha1.HardwareDetails{
-				RAMMebibytes: 128 * 1024,
-				NIC: []metal3v1alpha1.NIC{
-					{
-						Name:      "nic-1",
-						Model:     "virt-io",
-						MAC:       "some:mac:address",
-						IP:        "192.168.100.1",
-						SpeedGbps: 1,
-						PXE:       true,
-					},
-					{
-						Name:      "nic-2",
-						Model:     "e1000",
-						MAC:       "some:other:mac:address",
-						IP:        "192.168.100.2",
-						SpeedGbps: 1,
-						PXE:       false,
-					},
+	p.log.Info("continuing inspection by setting details")
+	details =
+		&metal3v1alpha1.HardwareDetails{
+			RAMMebibytes: 128 * 1024,
+			NIC: []metal3v1alpha1.NIC{
+				{
+					Name:      "nic-1",
+					Model:     "virt-io",
+					MAC:       "some:mac:address",
+					IP:        "192.168.100.1",
+					SpeedGbps: 1,
+					PXE:       true,
 				},
-				Storage: []metal3v1alpha1.Storage{
-					{
-						Name:       "disk-1 (boot)",
-						Rotational: false,
-						SizeBytes:  metal3v1alpha1.TebiByte * 93,
-						Model:      "Dell CFJ61",
-					},
-					{
-						Name:       "disk-2",
-						Rotational: false,
-						SizeBytes:  metal3v1alpha1.TebiByte * 93,
-						Model:      "Dell CFJ61",
-					},
+				{
+					Name:      "nic-2",
+					Model:     "e1000",
+					MAC:       "some:other:mac:address",
+					IP:        "192.168.100.2",
+					SpeedGbps: 1,
+					PXE:       false,
 				},
-				CPU: metal3v1alpha1.CPU{
-					Arch:           "x86_64",
-					Model:          "FancyPants CPU",
-					ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
-					Flags:          []string{"fpu", "hypervisor", "sse", "vmx"},
-					Count:          1,
+			},
+			Storage: []metal3v1alpha1.Storage{
+				{
+					Name:       "disk-1 (boot)",
+					Rotational: false,
+					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					Model:      "Dell CFJ61",
 				},
-			}
-		p.publisher("InspectionComplete", "Hardware inspection completed")
-	}
+				{
+					Name:       "disk-2",
+					Rotational: false,
+					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					Model:      "Dell CFJ61",
+				},
+			},
+			CPU: metal3v1alpha1.CPU{
+				Arch:           "x86_64",
+				Model:          "FancyPants CPU",
+				ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+				Flags:          []string{"fpu", "hypervisor", "sse", "vmx"},
+				Count:          1,
+			},
+		}
+	p.publisher("InspectionComplete", "Hardware inspection completed")
 
 	return
 }
@@ -171,23 +178,22 @@ func (p *fixtureProvisioner) InspectHardware(force bool) (result provisioner.Res
 // is expected to do this in the least expensive way possible, such as
 // reading from a cache.
 func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
-	if !p.host.NeedsProvisioning() {
-		hwState.PoweredOn = &p.state.poweredOn
-		p.log.Info("updating hardware state")
-	}
+	hwState.PoweredOn = &p.state.poweredOn
+	p.log.Info("updating hardware state")
 	return
 }
 
 // Prepare remove existing configuration and set new configuration
-func (p *fixtureProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
 	p.log.Info("preparing host")
 	return
 }
 
-// Adopt allows an externally-provisioned server to be adopted.
-func (p *fixtureProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
+// Adopt notifies the provisioner that the state machine believes the host
+// to be currently provisioned, and that it should be managed as such.
+func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
-	if p.host.Spec.ExternallyProvisioned && !p.state.adopted {
+	if !p.state.adopted {
 		p.state.adopted = true
 		result.Dirty = true
 		result.RequeueAfter = provisionRequeueDelay
@@ -198,14 +204,13 @@ func (p *fixtureProvisioner) Adopt(force bool) (result provisioner.Result, err e
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *fixtureProvisioner) Provision(hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
-	p.log.Info("provisioning image to host",
-		"state", p.host.Status.Provisioning.State)
+func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+	p.log.Info("provisioning image to host")
 
 	if p.state.image.URL == "" {
 		p.publisher("ProvisioningComplete", "Image provisioning completed")
 		p.log.Info("moving to done")
-		p.state.image = *p.host.Spec.Image
+		p.state.image = data.Image
 		result.Dirty = true
 		result.RequeueAfter = provisionRequeueDelay
 	}
@@ -252,6 +257,15 @@ func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
 	}
 
 	return result, nil
+}
+
+// Detach removes the host from the provisioning system.
+// Similar to Delete, but ensures non-interruptive behavior
+// for the target system.  It may be called multiple times,
+// and should return true for its dirty  flag until the
+// deletion operation is completed.
+func (p *fixtureProvisioner) Detach() (result provisioner.Result, err error) {
+	return p.Delete()
 }
 
 // PowerOn ensures the server is powered on independently of any image

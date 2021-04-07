@@ -6,23 +6,24 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 
 	"github.com/pkg/errors"
 )
 
 // setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps
-func setTargetRAIDCfg(p *ironicProvisioner, ironicNode *nodes.Node) (err error) {
+func setTargetRAIDCfg(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.PrepareData) (err error) {
 	var logicalDisks []nodes.LogicalDisk
 
 	// Build target for RAID configuration steps
-	logicalDisks, err = BuildTargetRAIDCfg(p.host.Status.Provisioning.RAID)
+	logicalDisks, err = BuildTargetRAIDCfg(data.RAIDConfig)
 	if len(logicalDisks) == 0 || err != nil {
 		return
 	}
 
 	// set root volume
-	if p.host.Status.Provisioning.RootDeviceHints == nil {
+	if data.RootDeviceHints == nil {
 		logicalDisks[0].IsRootVolume = new(bool)
 		*logicalDisks[0].IsRootVolume = true
 	} else {

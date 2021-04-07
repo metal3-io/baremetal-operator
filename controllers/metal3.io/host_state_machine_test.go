@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +21,7 @@ import (
 
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
-	p, _ := r.ProvisionerFactory(*host.DeepCopy(), bmc.Credentials{},
+	p, _ := r.ProvisionerFactory(provisioner.BuildHostData(*host, bmc.Credentials{}),
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p, true)
 }
@@ -141,6 +142,238 @@ func TestProvisioningCapacity(t *testing.T) {
 				}
 				assert.Greater(t, promutil.ToFloat64(counter), initialCounterValue)
 			}
+		})
+	}
+}
+
+func TestDetach(t *testing.T) {
+	testCases := []struct {
+		Scenario                  string
+		Host                      *metal3v1alpha1.BareMetalHost
+		HasDetachedAnnotation     bool
+		ExpectedDetach            bool
+		ExpectedDirty             bool
+		ExpectedOperationalStatus metal3v1alpha1.OperationalStatus
+		ExpectedState             metal3v1alpha1.ProvisioningState
+	}{
+		{
+			Scenario:                  "ProvisionedHost",
+			Host:                      host(metal3v1alpha1.StateProvisioned).build(),
+			ExpectedDetach:            false,
+			ExpectedDirty:             false,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+		},
+		{
+			Scenario:                  "DetachProvisionedHost",
+			Host:                      host(metal3v1alpha1.StateProvisioned).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            true,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+		},
+		{
+			Scenario:                  "DeleteDetachedProvisionedHost",
+			Host:                      host(metal3v1alpha1.StateProvisioned).SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached).setDeletion().build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
+			// Should move to Deleting without any Deprovisioning
+			ExpectedState: metal3v1alpha1.StateDeleting,
+		},
+		{
+			Scenario:                  "ExternallyProvisionedHost",
+			Host:                      host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
+			HasDetachedAnnotation:     false,
+			ExpectedDetach:            false,
+			ExpectedDirty:             false,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateExternallyProvisioned,
+		},
+		{
+			Scenario:                  "DetachExternallyProvisionedHost",
+			Host:                      host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            true,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
+			ExpectedState:             metal3v1alpha1.StateExternallyProvisioned,
+		},
+		{
+			Scenario:                  "NoneHost",
+			Host:                      host(metal3v1alpha1.StateNone).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDiscovered,
+			ExpectedState:             metal3v1alpha1.StateUnmanaged,
+		},
+		{
+			Scenario:                  "UnmanagedHost",
+			Host:                      host(metal3v1alpha1.StateUnmanaged).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             false,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateUnmanaged,
+		},
+		{
+			Scenario:                  "RegisteringHost",
+			Host:                      host(metal3v1alpha1.StateRegistering).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateInspecting,
+		},
+		{
+			Scenario:                  "InspectingHost",
+			Host:                      host(metal3v1alpha1.StateInspecting).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateMatchProfile,
+		},
+		{
+			Scenario:                  "MatchProfileHost",
+			Host:                      host(metal3v1alpha1.StateMatchProfile).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StatePreparing,
+		},
+		{
+			Scenario:                  "AvailableHost",
+			Host:                      host(metal3v1alpha1.StateAvailable).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StatePreparing,
+		},
+		{
+			Scenario:                  "PreparingHost",
+			Host:                      host(metal3v1alpha1.StatePreparing).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateReady,
+		},
+		{
+			Scenario:                  "ReadyHost",
+			Host:                      host(metal3v1alpha1.StateReady).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StatePreparing,
+		},
+		{
+			Scenario:                  "ProvisioningHost",
+			Host:                      host(metal3v1alpha1.StateProvisioning).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+		},
+		{
+			Scenario:                  "DeprovisioningHost",
+			Host:                      host(metal3v1alpha1.StateDeprovisioning).build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateReady,
+		},
+		{
+			Scenario:                  "DeletingHost",
+			Host:                      host(metal3v1alpha1.StateDeleting).setDeletion().build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             false,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateDeleting,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			if tc.HasDetachedAnnotation {
+				tc.Host.Annotations = map[string]string{
+					metal3v1alpha1.DetachedAnnotation: "true",
+				}
+			}
+			prov := newMockProvisioner()
+			hsm := newHostStateMachine(tc.Host, &BareMetalHostReconciler{}, prov, true)
+			info := makeDefaultReconcileInfo(tc.Host)
+			result := hsm.ReconcileState(info)
+
+			assert.Equal(t, tc.ExpectedDetach, prov.calledNoError("Detach"), "ExpectedDetach mismatch")
+			assert.Equal(t, tc.ExpectedDirty, result.Dirty(), "ExpectedDirty mismatch")
+			assert.Equal(t, tc.ExpectedOperationalStatus, info.host.OperationalStatus())
+			assert.Equal(t, tc.ExpectedState, info.host.Status.Provisioning.State)
+		})
+	}
+}
+
+func TestDetachError(t *testing.T) {
+	testCases := []struct {
+		Scenario                  string
+		Host                      *metal3v1alpha1.BareMetalHost
+		ExpectedOperationalStatus metal3v1alpha1.OperationalStatus
+		ExpectedState             metal3v1alpha1.ProvisioningState
+		ClearError                bool
+		RemoveAnnotation          bool
+	}{
+		{
+			Scenario:                  "ProvisionerTemporaryError",
+			Host:                      host(metal3v1alpha1.StateProvisioned).build(),
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+			ClearError:                true,
+		},
+		{
+			Scenario:                  "AnnotationRemovedAfterDetachError",
+			Host:                      host(metal3v1alpha1.StateProvisioned).build(),
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+			RemoveAnnotation:          true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			tc.Host.Annotations = map[string]string{
+				metal3v1alpha1.DetachedAnnotation: "true",
+			}
+			prov := newMockProvisioner()
+			hsm := newHostStateMachine(tc.Host, &BareMetalHostReconciler{}, prov, true)
+			info := makeDefaultReconcileInfo(tc.Host)
+
+			prov.setNextError("Detach", "some error")
+			result := hsm.ReconcileState(info)
+			assert.True(t, result.Dirty())
+			assert.Equal(t, 1, tc.Host.Status.ErrorCount)
+			assert.Equal(t, metal3v1alpha1.OperationalStatusError, info.host.OperationalStatus())
+			assert.Equal(t, v1alpha1.DetachError, info.host.Status.ErrorType)
+			assert.Equal(t, tc.ExpectedState, info.host.Status.Provisioning.State)
+
+			if tc.ClearError {
+				prov.clearNextError("Detach")
+			}
+			if tc.RemoveAnnotation {
+				tc.Host.Annotations = map[string]string{}
+			}
+			result = hsm.ReconcileState(info)
+			assert.Equal(t, 0, tc.Host.Status.ErrorCount)
+			assert.True(t, result.Dirty())
+			assert.Equal(t, tc.ExpectedOperationalStatus, info.host.OperationalStatus())
+			assert.Equal(t, tc.ExpectedState, info.host.Status.Provisioning.State)
+			assert.Empty(t, info.host.Status.ErrorType)
 		})
 	}
 }
@@ -489,6 +722,7 @@ func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
 				RootDeviceHints: &v1alpha1.RootDeviceHints{},
 			},
 			Status: metal3v1alpha1.BareMetalHostStatus{
+				HardwareProfile: hardware.DefaultProfileName,
 				Provisioning: metal3v1alpha1.ProvisionStatus{
 					State:    state,
 					BootMode: v1alpha1.DefaultBootMode,
@@ -585,17 +819,21 @@ func newMockProvisioner() *mockProvisioner {
 	return &mockProvisioner{
 		hasProvisioningCapacity: true,
 		nextResults:             make(map[string]provisioner.Result),
+		callsNoError:            make(map[string]bool),
 	}
 }
 
 type mockProvisioner struct {
 	hasProvisioningCapacity bool
 	nextResults             map[string]provisioner.Result
+	callsNoError            map[string]bool
 }
 
 func (m *mockProvisioner) getNextResultByMethod(name string) (result provisioner.Result) {
 	if value, ok := m.nextResults[name]; ok {
 		result = value
+	} else {
+		m.callsNoError[name] = true
 	}
 	return
 }
@@ -614,11 +852,19 @@ func (m *mockProvisioner) setNextError(methodName, msg string) {
 	}
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (m *mockProvisioner) clearNextError(methodName string) {
+	m.nextResults[methodName] = provisioner.Result{}
+}
+
+func (m *mockProvisioner) calledNoError(methodName string) bool {
+	return m.callsNoError[methodName]
+}
+
+func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
-func (m *mockProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
 	details = &metal3v1alpha1.HardwareDetails{}
 	return m.getNextResultByMethod("InspectHardware"), details, err
 }
@@ -627,15 +873,15 @@ func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 	return
 }
 
-func (m *mockProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
+func (m *mockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
 	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 
-func (m *mockProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Adopt"), err
 }
 
-func (m *mockProvisioner) Provision(configData provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Provision"), err
 }
 
@@ -645,6 +891,11 @@ func (m *mockProvisioner) Deprovision(force bool) (result provisioner.Result, er
 
 func (m *mockProvisioner) Delete() (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Delete"), err
+}
+
+func (m *mockProvisioner) Detach() (result provisioner.Result, err error) {
+	res := m.getNextResultByMethod("Detach")
+	return res, err
 }
 
 func (m *mockProvisioner) PowerOn() (result provisioner.Result, err error) {

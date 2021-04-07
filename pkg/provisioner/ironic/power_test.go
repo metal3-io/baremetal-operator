@@ -20,11 +20,13 @@ func TestPowerOn(t *testing.T) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
 		name   string
+		force  bool
 		ironic *testserver.IronicMock
 
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		expectedErrorResult  bool
 	}{
 		{
 			name: "node-already-power-on",
@@ -75,6 +77,30 @@ func TestPowerOn(t *testing.T) {
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
+		{
+			name: "power-on with LastError",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				PowerState:       powerOff,
+				TargetPowerState: powerOff,
+				UUID:             nodeUUID,
+				LastError:        "power on failed",
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+			expectedErrorResult:  true,
+		},
+		{
+			name:  "power-on with LastError",
+			force: true,
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				PowerState:       powerOff,
+				TargetPowerState: powerOff,
+				UUID:             nodeUUID,
+				LastError:        "power on failed",
+			}),
+			expectedError:       true,
+			expectedErrorResult: false,
+		},
 	}
 
 	for _, tc := range cases {
@@ -101,7 +127,7 @@ func TestPowerOn(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.PowerOn(false)
+			result, err := prov.PowerOn(tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
@@ -109,6 +135,9 @@ func TestPowerOn(t *testing.T) {
 				assert.NoError(t, err)
 			} else {
 				assert.Error(t, err)
+			}
+			if tc.expectedErrorResult {
+				assert.Contains(t, result.ErrorMessage, "PowerOn operation failed")
 			}
 		})
 	}

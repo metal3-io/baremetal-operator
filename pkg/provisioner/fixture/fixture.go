@@ -89,7 +89,7 @@ func (f *Fixture) SetValidateError(message string) {
 	f.validateError = message
 }
 
-func (p *fixtureProvisioner) HasProvisioningCapacity() (result bool, err error) {
+func (p *fixtureProvisioner) HasCapacity() (result bool, err error) {
 	return true, nil
 }
 

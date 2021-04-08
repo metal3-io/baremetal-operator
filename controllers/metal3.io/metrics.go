@@ -65,6 +65,10 @@ var delayedProvisioningHostCounters = prometheus.NewCounterVec(prometheus.Counte
 	Name: "metal3_delayed__provisioning_total",
 	Help: "The number of times hosts have been delayed while provisioning due a busy provisioner",
 }, []string{labelHostNamespace, labelHostName})
+var delayedDeprovisioningHostCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "metal3_delayed__deprovisioning_total",
+	Help: "The number of times hosts have been delayed while deprovisioning due a busy provisioner",
+}, []string{labelHostNamespace, labelHostName})
 
 var slowOperationBuckets = []float64{30, 90, 180, 360, 720, 1440}
 
@@ -116,7 +120,8 @@ func init() {
 		reconcileErrorCounter,
 		actionFailureCounters,
 		powerChangeAttempts,
-		delayedProvisioningHostCounters)
+		delayedProvisioningHostCounters,
+		delayedDeprovisioningHostCounters)
 
 	for _, collector := range stateTime {
 		metrics.Registry.MustRegister(collector)

@@ -41,7 +41,7 @@ var (
 	ironicInsecure            bool
 	ironicAuth                clients.AuthConfig
 	inspectorAuth             clients.AuthConfig
-	maxProvisioningHosts      int = 20
+	maxBusyHosts              int = 20
 
 	// Keep pointers to ironic and inspector clients configured with
 	// the global auth settings to reuse the connection between
@@ -125,7 +125,7 @@ func init() {
 			fmt.Fprintf(os.Stderr, "Cannot start: Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
 			os.Exit(1)
 		}
-		maxProvisioningHosts = value
+		maxBusyHosts = value
 	}
 }
 
@@ -1844,11 +1844,11 @@ func (p *ironicProvisioner) IsReady() (result bool, err error) {
 	return checker.IsReady()
 }
 
-func (p *ironicProvisioner) HasProvisioningCapacity() (result bool, err error) {
+func (p *ironicProvisioner) HasCapacity() (result bool, err error) {
 
-	hosts, err := p.loadProvisioningHosts()
+	hosts, err := p.loadBusyHosts()
 	if err != nil {
-		p.log.Error(err, "Unable to get hosts currently being provisioned")
+		p.log.Error(err, "Unable to get hosts for determining current provisioner capacity")
 		return false, err
 	}
 
@@ -1857,10 +1857,10 @@ func (p *ironicProvisioner) HasProvisioningCapacity() (result bool, err error) {
 		return true, nil
 	}
 
-	return len(hosts) < maxProvisioningHosts, nil
+	return len(hosts) < maxBusyHosts, nil
 }
 
-func (p *ironicProvisioner) loadProvisioningHosts() (hosts map[string]struct{}, err error) {
+func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err error) {
 
 	hosts = make(map[string]struct{})
 	pager := nodes.List(p.client, nodes.ListOpts{
@@ -1885,7 +1885,8 @@ func (p *ironicProvisioner) loadProvisioningHosts() (hosts map[string]struct{}, 
 		switch nodes.ProvisionState(node.ProvisionState) {
 		case nodes.Cleaning, nodes.CleanWait,
 			nodes.Inspecting, nodes.InspectWait,
-			nodes.Deploying, nodes.DeployWait:
+			nodes.Deploying, nodes.DeployWait,
+			nodes.Deleting:
 			hosts[node.Name] = struct{}{}
 		}
 	}

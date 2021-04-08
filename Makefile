@@ -81,12 +81,6 @@ unit-verbose: ## Run unit tests with verbose output
 .PHONY: linters
 linters: lint generate-check fmt-check
 
-.PHONY: sec
-sec: lint
-
-.PHONY: fmt
-fmt: lint
-
 .PHONY: vet
 vet: lint
 
@@ -118,7 +112,7 @@ demo: generate lint manifests ## Run in demo mode
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -demo-mode
 
 .PHONY: run-test-mode
-run-test-mode: generate fmt vet manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+run-test-mode: generate fmt-check lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -test-mode
 
 .PHONY: install

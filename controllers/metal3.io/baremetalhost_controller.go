@@ -541,9 +541,11 @@ func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
 	}
 
 	// If we are in the process of provisioning an image, return that image
-	if host.Status.Provisioning.State == metal3v1alpha1.StateProvisioning &&
-		host.Spec.Image != nil && host.Spec.Image.URL != "" {
-		return host.Spec.Image.DeepCopy()
+	switch host.Status.Provisioning.State {
+	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateExternallyProvisioned:
+		if host.Spec.Image != nil && host.Spec.Image.URL != "" {
+			return host.Spec.Image.DeepCopy()
+		}
 	}
 	return nil
 }

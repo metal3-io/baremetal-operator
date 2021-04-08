@@ -137,8 +137,9 @@ func NewAccessDetails(address string, disableCertificateVerification bool) (Acce
 	return factory(parsedURL, disableCertificateVerification)
 }
 
-// A private method for building firmware config to BIOS settings for different driver
-// NOTE： firmwareConfig can't be a pointer and can't include pointer
+// A private method for building firmware config to BIOS settings for different driver.
+// NOTE： firmwareConfig can't be a pointer
+// NOTE: This function doesn't handle nested structure
 func buildBIOSSettings(firmwareConfig interface{}, exclude []string, nameMap map[string]string, valueMap map[string]string) (settings []map[string]string, err error) {
 	// Deal possible panic
 	defer func() {
@@ -165,20 +166,30 @@ func buildBIOSSettings(firmwareConfig interface{}, exclude []string, nameMap map
 		}
 
 		// Get value
-		switch v.Field(i).Kind() {
+		// Deal pointer
+		valueReflect := v.Field(i)
+		if valueReflect.Kind() == reflect.Ptr {
+			if valueReflect.IsNil() {
+				continue
+			}
+			valueReflect = v.Field(i).Elem()
+		}
+		// Convert value to string
+		switch valueReflect.Kind() {
 		case reflect.String:
-			value = v.Field(i).String()
+			value = valueReflect.String()
 		case reflect.Bool:
-			value = strconv.FormatBool(v.Field(i).Bool())
+			value = strconv.FormatBool(valueReflect.Bool())
 		case reflect.Float32, reflect.Float64:
-			value = strconv.FormatFloat(v.Field(i).Float(), 'f', -1, 64)
+			value = strconv.FormatFloat(valueReflect.Float(), 'f', -1, 64)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			value = strconv.FormatInt(v.Field(i).Int(), 10)
+			value = strconv.FormatInt(valueReflect.Int(), 10)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			value = strconv.FormatUint(v.Field(i).Uint(), 10)
+			value = strconv.FormatUint(valueReflect.Uint(), 10)
 		default:
 			value = ""
 		}
+
 		if value == "" {
 			continue
 		}

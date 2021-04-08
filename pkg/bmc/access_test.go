@@ -1126,6 +1126,9 @@ func TestUnknownType(t *testing.T) {
 }
 
 func TestBuildBIOSCleanSteps(t *testing.T) {
+	var True bool = true
+	var False bool = false
+
 	cases := []struct {
 		name          string
 		address       string
@@ -1139,9 +1142,8 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 			address: "ilo4://192.168.122.1",
 			firmware: &metal3v1alpha1.FirmwareConfig{
 				ResetSettings:                     true,
-				VirtualizationEnabled:             "true",
-				SimultaneousMultithreadingEnabled: "true",
-				SriovEnabled:                      "true",
+				VirtualizationEnabled:             &True,
+				SimultaneousMultithreadingEnabled: &False,
 			},
 			expected: []nodes.CleanStep{
 				{
@@ -1159,11 +1161,7 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 							},
 							{
 								"name":  "ProcHyperthreading",
-								"value": "Enabled",
-							},
-							{
-								"name":  "Sriov",
-								"value": "Enabled",
+								"value": "Disabled",
 							},
 						},
 					},
@@ -1188,9 +1186,8 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 			address: "ilo5://192.168.122.1",
 			firmware: &metal3v1alpha1.FirmwareConfig{
 				ResetSettings:                     true,
-				VirtualizationEnabled:             "true",
-				SimultaneousMultithreadingEnabled: "true",
-				SriovEnabled:                      "true",
+				VirtualizationEnabled:             &True,
+				SimultaneousMultithreadingEnabled: &False,
 			},
 			expected: []nodes.CleanStep{
 				{
@@ -1208,11 +1205,7 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 							},
 							{
 								"name":  "ProcHyperthreading",
-								"value": "Enabled",
-							},
-							{
-								"name":  "Sriov",
-								"value": "Enabled",
+								"value": "Disabled",
 							},
 						},
 					},
@@ -1236,9 +1229,8 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 			name:    "irmc",
 			address: "irmc://192.168.122.1",
 			firmware: &metal3v1alpha1.FirmwareConfig{
-				VirtualizationEnabled:             "true",
-				SimultaneousMultithreadingEnabled: "true",
-				SriovEnabled:                      "true",
+				VirtualizationEnabled:             &True,
+				SimultaneousMultithreadingEnabled: &False,
 			},
 			expected: []nodes.CleanStep{
 				{
@@ -1252,11 +1244,7 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 							},
 							{
 								"name":  "hyper_threading_enabled",
-								"value": "True",
-							},
-							{
-								"name":  "single_root_io_virtualization_support_enabled",
-								"value": "True",
+								"value": "False",
 							},
 						},
 					},

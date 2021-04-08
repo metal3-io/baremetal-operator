@@ -297,18 +297,18 @@ type FirmwareConfig struct {
 
 	// Supports the virtualization of platform hardware.
 	// This supports following options: true, false.
-	// +kubebuilder:validation:Enum="true";"false"
-	VirtualizationEnabled string `json:"virtualizationEnabled,omitempty"`
+	// +kubebuilder:validation:Enum=true;false
+	VirtualizationEnabled *bool `json:"virtualizationEnabled,omitempty"`
 
 	// Allows a single physical processor core to appear as several logical processors.
 	// This supports following options: true, false.
-	// +kubebuilder:validation:Enum="true";"false"
-	SimultaneousMultithreadingEnabled string `json:"simultaneousMultithreadingEnabled,omitempty"`
+	// +kubebuilder:validation:Enum=true;false
+	SimultaneousMultithreadingEnabled *bool `json:"simultaneousMultithreadingEnabled,omitempty"`
 
 	// SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance.
 	// This supports following options: true, false.
-	// +kubebuilder:validation:Enum="true";"false"
-	SriovEnabled string `json:"sriovEnabled,omitempty"`
+	// +kubebuilder:validation:Enum=true;false
+	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost

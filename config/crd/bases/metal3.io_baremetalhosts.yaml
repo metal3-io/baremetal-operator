@@ -141,21 +141,21 @@ spec:
                   simultaneousMultithreadingEnabled:
                     description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
                     enum:
-                    - "true"
-                    - "false"
-                    type: string
+                    - true
+                    - false
+                    type: boolean
                   sriovEnabled:
                     description: 'SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance. This supports following options: true, false.'
                     enum:
-                    - "true"
-                    - "false"
-                    type: string
+                    - true
+                    - false
+                    type: boolean
                   virtualizationEnabled:
                     description: 'Supports the virtualization of platform hardware. This supports following options: true, false.'
                     enum:
-                    - "true"
-                    - "false"
-                    type: string
+                    - true
+                    - false
+                    type: boolean
                 type: object
               hardwareProfile:
                 description: What is the name of the hardware profile for this host? It should only be necessary to set this when inspection cannot automatically determine the profile.
@@ -655,21 +655,21 @@ spec:
                       simultaneousMultithreadingEnabled:
                         description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
                         enum:
-                        - "true"
-                        - "false"
-                        type: string
+                        - true
+                        - false
+                        type: boolean
                       sriovEnabled:
                         description: 'SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance. This supports following options: true, false.'
                         enum:
-                        - "true"
-                        - "false"
-                        type: string
+                        - true
+                        - false
+                        type: boolean
                       virtualizationEnabled:
                         description: 'Supports the virtualization of platform hardware. This supports following options: true, false.'
                         enum:
-                        - "true"
-                        - "false"
-                        type: string
+                        - true
+                        - false
+                        type: boolean
                     type: object
                   image:
                     description: Image holds the details of the last image successfully provisioned to the host.

@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -338,9 +339,16 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
 }
 
-func recordActionDelayed(info *reconcileInfo) actionResult {
+func recordActionDelayed(info *reconcileInfo, state metal3v1alpha1.ProvisioningState) actionResult {
+	var counter prometheus.Counter
 
-	counter := delayedProvisioningHostCounters.With(hostMetricLabels(info.request))
+	switch state {
+	case metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+		counter = delayedDeprovisioningHostCounters.With(hostMetricLabels(info.request))
+	default:
+		counter = delayedProvisioningHostCounters.With(hostMetricLabels(info.request))
+	}
+
 	info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
 
 	info.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed)
@@ -533,9 +541,11 @@ func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
 	}
 
 	// If we are in the process of provisioning an image, return that image
-	if host.Status.Provisioning.State == metal3v1alpha1.StateProvisioning &&
-		host.Spec.Image != nil && host.Spec.Image.URL != "" {
-		return host.Spec.Image.DeepCopy()
+	switch host.Status.Provisioning.State {
+	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateExternallyProvisioned:
+		if host.Spec.Image != nil && host.Spec.Image.URL != "" {
+			return host.Spec.Image.DeepCopy()
+		}
 	}
 	return nil
 }

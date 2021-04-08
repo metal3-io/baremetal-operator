@@ -149,10 +149,12 @@ func TestPowerOff(t *testing.T) {
 	cases := []struct {
 		name   string
 		ironic *testserver.IronicMock
+		force  bool
 
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		expectedErrorResult  bool
 		rebootMode           metal3v1alpha1.RebootMode
 	}{
 		{
@@ -216,6 +218,44 @@ func TestPowerOff(t *testing.T) {
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
+		{
+			name: "power-off soft with force",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+			}),
+			rebootMode:    metal3v1alpha1.RebootModeSoft,
+			force:         true,
+			expectedDirty: true,
+		},
+		{
+			name: "power-off hard with LastError",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+				LastError:            "hard power off failed",
+			}),
+			rebootMode:          metal3v1alpha1.RebootModeHard,
+			expectedDirty:       false,
+			expectedErrorResult: true,
+		},
+		{
+			name: "power-off hard with force",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+				LastError:            "hard power off failed",
+			}),
+			rebootMode:    metal3v1alpha1.RebootModeHard,
+			force:         true,
+			expectedDirty: true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -243,7 +283,7 @@ func TestPowerOff(t *testing.T) {
 			}
 
 			// We pass the RebootMode type here to define the reboot action
-			result, err := prov.PowerOff(tc.rebootMode, false)
+			result, err := prov.PowerOff(tc.rebootMode, tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
@@ -252,6 +292,10 @@ func TestPowerOff(t *testing.T) {
 			} else {
 				assert.Error(t, err)
 			}
+			if tc.expectedErrorResult {
+				assert.Contains(t, result.ErrorMessage, "hardPowerOff operation failed")
+			}
+
 		})
 	}
 }

@@ -214,7 +214,7 @@ github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
 github.com/googleapis/gnostic/jsonschema
 github.com/googleapis/gnostic/openapiv2
-# github.com/gophercloud/gophercloud v0.12.0
+# github.com/gophercloud/gophercloud v0.16.0
 ## explicit
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic
@@ -465,7 +465,7 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
-# golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+# golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/ssh/terminal
@@ -487,10 +487,13 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
+# golang.org/x/sys v0.0.0-20201119102817-f84b799fce68
 golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
+# golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+golang.org/x/term
 # golang.org/x/text v0.3.4
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform

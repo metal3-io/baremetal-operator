@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -214,7 +215,8 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
 	}
-	prov, err := r.ProvisionerFactory(*host.DeepCopy(), *bmcCreds, info.publishEvent)
+
+	prov, err := r.ProvisionerFactory(provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
@@ -274,7 +276,7 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, ho
 	if host.Status.HardwareDetails == nil || inspectionDisabled(host) {
 		objHardwareDetails, err := r.getHardwareDetailsFromAnnotation(host)
 		if err != nil {
-			return updated, errors.Wrap(err, "Error getting HardwareDetails from annotation")
+			return updated, errors.Wrap(err, "Error parsing HardwareDetails from annotation")
 		}
 		if objHardwareDetails != nil {
 			host.Status.HardwareDetails = objHardwareDetails
@@ -321,6 +323,7 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 	setErrorMessage(info.host, errorType, errorMessage)
 
 	eventType := map[metal3v1alpha1.ErrorType]string{
+		metal3v1alpha1.DetachError:                  "DetachError",
 		metal3v1alpha1.ProvisionedRegistrationError: "ProvisionedRegistrationError",
 		metal3v1alpha1.RegistrationError:            "RegistrationError",
 		metal3v1alpha1.InspectionError:              "InspectionError",
@@ -336,9 +339,16 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
 }
 
-func recordActionDelayed(info *reconcileInfo) actionResult {
+func recordActionDelayed(info *reconcileInfo, state metal3v1alpha1.ProvisioningState) actionResult {
+	var counter prometheus.Counter
 
-	counter := delayedProvisioningHostCounters.With(hostMetricLabels(info.request))
+	switch state {
+	case metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+		counter = delayedDeprovisioningHostCounters.With(hostMetricLabels(info.request))
+	default:
+		counter = delayedProvisioningHostCounters.With(hostMetricLabels(info.request))
+	}
+
 	info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
 
 	info.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed)
@@ -446,6 +456,18 @@ func inspectionDisabled(host *metal3v1alpha1.BareMetalHost) bool {
 	return false
 }
 
+// hasInspectAnnotation checks for existence of inspect.metal3.io annotation
+// and returns true if it exist
+func hasInspectAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if expect, ok := annotations[inspectAnnotationPrefix]; ok && expect != "disabled" {
+			return true
+		}
+	}
+	return false
+}
+
 // clearError removes any existing error message.
 func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	dirty = host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
@@ -510,6 +532,51 @@ func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, 
 	return actionContinue{unmanagedRetryDelay}
 }
 
+// getCurrentImage() returns the current image that has been or is being
+// provisioned.
+func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
+	// If an image is currently provisioned, return it
+	if host.Status.Provisioning.Image.URL != "" {
+		return host.Status.Provisioning.Image.DeepCopy()
+	}
+
+	// If we are in the process of provisioning an image, return that image
+	switch host.Status.Provisioning.State {
+	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateExternallyProvisioned:
+		if host.Spec.Image != nil && host.Spec.Image.URL != "" {
+			return host.Spec.Image.DeepCopy()
+		}
+	}
+	return nil
+}
+
+// detachHost() detaches the host from the Provisioner
+func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	provResult, err := prov.Detach()
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to detach")}
+	}
+	if provResult.ErrorMessage != "" {
+		return recordActionFailure(info, metal3v1alpha1.DetachError, provResult.ErrorMessage)
+	}
+	if provResult.Dirty {
+		if info.host.Status.ErrorType == metal3v1alpha1.DetachError && clearError(info.host) {
+			return actionUpdate{actionContinue{provResult.RequeueAfter}}
+		}
+		return actionContinue{provResult.RequeueAfter}
+	}
+	slowPoll := actionContinue{unmanagedRetryDelay}
+	if info.host.Status.ErrorType == metal3v1alpha1.DetachError {
+		clearError(info.host)
+		info.host.Status.ErrorCount = 0
+	}
+	if info.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached) {
+		info.log.Info("host is detached, removed from provisioner")
+		return actionUpdate{slowPoll}
+	}
+	return slowPoll
+}
+
 // Test the credentials by connecting to the management controller.
 func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
@@ -524,7 +591,15 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		dirty = true
 	}
 
-	provResult, provID, err := prov.ValidateManagementAccess(credsChanged, info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+	provResult, provID, err := prov.ValidateManagementAccess(
+		provisioner.ManagementAccessData{
+			BootMode:              info.host.Status.Provisioning.BootMode,
+			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
+			State:                 info.host.Status.Provisioning.State,
+			CurrentImage:          getCurrentImage(info.host),
+		},
+		credsChanged,
+		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
@@ -581,6 +656,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 // Ensure we have the information about the hardware on the host.
 func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	info.log.Info("inspecting hardware")
 
 	if inspectionDisabled(info.host) {
 		info.log.Info("inspection disabled by annotation")
@@ -590,13 +666,28 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 
 	info.log.Info("inspecting hardware")
 
-	provResult, details, err := prov.InspectHardware(info.host.Status.ErrorType == metal3v1alpha1.InspectionError)
+	refresh := hasInspectAnnotation(info.host)
+	provResult, details, err := prov.InspectHardware(
+		provisioner.InspectData{
+			BootMode: info.host.Status.Provisioning.BootMode,
+		},
+		info.host.Status.ErrorType == metal3v1alpha1.InspectionError,
+		refresh)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
 
 	if provResult.ErrorMessage != "" {
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
+	}
+
+	// Delete inspect annotation if exists
+	if hasInspectAnnotation(info.host) {
+		delete(info.host.Annotations, inspectAnnotationPrefix)
+		if err := r.Update(context.TODO(), info.host); err != nil {
+			return actionError{errors.Wrap(err, "failed to remove inspect annotation from host")}
+		}
+		return actionContinue{}
 	}
 
 	if provResult.Dirty || details == nil {
@@ -666,8 +757,12 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
 	}
 
+	prepareData := provisioner.PrepareData{
+		RAIDConfig:      info.host.Status.Provisioning.RAID.DeepCopy(),
+		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+	}
 	// Do prepare(manual clean).
-	provResult, started, err := prov.Prepare(dirty)
+	provResult, started, err := prov.Prepare(prepareData, dirty)
 	if err != nil {
 		return actionError{errors.Wrap(err, "error preparing host")}
 	}
@@ -703,6 +798,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 	info.log.Info("provisioning")
 
+	hwProf, err := hardware.GetProfile(info.host.HardwareProfile())
+	if err != nil {
+		return actionError{errors.Wrap(err,
+			fmt.Sprintf("could not start provisioning with bad hardware profile %s",
+				info.host.HardwareProfile()))}
+	}
+
 	if clearRebootAnnotations(info.host) {
 		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
@@ -710,7 +812,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		return actionContinue{}
 	}
 
-	provResult, err := prov.Provision(hostConf)
+	provResult, err := prov.Provision(provisioner.ProvisionData{
+		Image:           *info.host.Spec.Image.DeepCopy(),
+		HostConfig:      hostConf,
+		BootMode:        info.host.Status.Provisioning.BootMode,
+		HardwareProfile: hwProf,
+		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
 	}
@@ -754,7 +862,9 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	if info.host.Status.Provisioning.Image.URL != "" {
 		// Adopt the host in case it has been re-registered during the
 		// deprovisioning process before it completed
-		provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
+		provResult, err := prov.Adopt(
+			provisioner.AdoptData{State: info.host.Status.Provisioning.State},
+			info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 		if err != nil {
 			return actionError{err}
 		}
@@ -900,7 +1010,9 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 // action. We use the Adopt() API to make sure that the provisioner is aware of
 // the provisioning details. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Adopt(info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
+	provResult, err := prov.Adopt(
+		provisioner.AdoptData{State: info.host.Status.Provisioning.State},
+		info.host.Status.ErrorType == metal3v1alpha1.ProvisionedRegistrationError)
 	if err != nil {
 		return actionError{err}
 	}
@@ -1038,9 +1150,10 @@ func (r *BareMetalHostReconciler) getHardwareDetailsFromAnnotation(host *metal3v
 	if annotations[hardwareDetailsAnnotation] == "" {
 		return nil, nil
 	}
-	content := []byte(annotations[hardwareDetailsAnnotation])
 	objHardwareDetails := &metal3v1alpha1.HardwareDetails{}
-	if err := json.Unmarshal(content, objHardwareDetails); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(annotations[hardwareDetailsAnnotation]))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(objHardwareDetails); err != nil {
 		return nil, err
 	}
 	return objHardwareDetails, nil
@@ -1106,15 +1219,6 @@ func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Re
 	// and find empty Address or CredentialsName fields
 	if host.Spec.BMC.Address == "" {
 		return nil, nil, &EmptyBMCAddressError{message: "Missing BMC connection detail 'Address'"}
-	}
-
-	// pass the bmc address to bmc.NewAccessDetails which will do
-	// more in-depth checking on the url to ensure it is
-	// a valid bmc address, returning a bmc.UnknownBMCTypeError
-	// if it is not conformant
-	_, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
-	if err != nil {
-		return nil, nil, err
 	}
 
 	bmcCreds = &bmc.Credentials{

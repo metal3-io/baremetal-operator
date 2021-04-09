@@ -79,13 +79,14 @@ func recordStateEnd(info *reconcileInfo, host *metal3v1alpha1.BareMetalHost, sta
 	return
 }
 
-func (hsm *hostStateMachine) ensureProvisioningCapacity(info *reconcileInfo) actionResult {
-	hasCapacity, err := hsm.Provisioner.HasProvisioningCapacity()
+func (hsm *hostStateMachine) ensureCapacity(info *reconcileInfo, state metal3v1alpha1.ProvisioningState) actionResult {
+	hasCapacity, err := hsm.Provisioner.HasCapacity()
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to get hosts currently being provisioned")}
+		return actionError{errors.Wrap(err, "failed to determine current provisioner capacity")}
 	}
+
 	if !hasCapacity {
-		return recordActionDelayed(info)
+		return recordActionDelayed(info, state)
 	}
 
 	return nil
@@ -96,12 +97,13 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 	if hsm.NextState != initialState {
 
 		// Check if there is a free slot available when trying to
-		// provision an host - if not the action will be delayed.
-		// The check is limited to only the provisioning states to
+		// (de)provision an host - if not the action will be delayed.
+		// The check is limited to only the (de)provisioning states to
 		// avoid putting an excessive pressure on the provisioner
 		switch hsm.NextState {
-		case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning:
-			if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+		case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning,
+			metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+			if actionRes := hsm.ensureCapacity(info, hsm.NextState); actionRes != nil {
 				return actionRes
 			}
 		}
@@ -122,7 +124,8 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 		// the API. That means we can safely update any status fields
 		// along with the state.
 		switch hsm.NextState {
-		case metal3v1alpha1.StateInspecting,
+		case metal3v1alpha1.StateRegistering,
+			metal3v1alpha1.StateInspecting,
 			metal3v1alpha1.StateProvisioning:
 			// TODO: When the user-selectable profile field is
 			// removed, move saveHostProvisioningSettings() from the
@@ -143,7 +146,7 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 
 	// Check if there's a free slot for hosts that have been previously delayed
 	if info.host.Status.OperationalStatus == metal3v1alpha1.OperationalStatusDelayed {
-		if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}
 
@@ -155,8 +158,9 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 	// Make sure the check is re-applied when provisioning an
 	// host not yet tracked by the provisioner
 	switch info.host.Status.Provisioning.State {
-	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning:
-		if actionRes := hsm.ensureProvisioningCapacity(info); actionRes != nil {
+	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning,
+		metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}
 	}
@@ -180,6 +184,10 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 	if hsm.checkInitiateDelete() {
 		info.log.Info("Initiating host deletion")
 		return actionComplete{}
+	}
+
+	if detachedResult := hsm.checkDetachedHost(info); detachedResult != nil {
+		return detachedResult
 	}
 
 	if registerResult := hsm.ensureRegistered(info); registerResult != nil {
@@ -215,7 +223,11 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeleting
 	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateProvisioned:
-		hsm.NextState = metal3v1alpha1.StateDeprovisioning
+		if hsm.Host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
+			hsm.NextState = metal3v1alpha1.StateDeleting
+		} else {
+			hsm.NextState = metal3v1alpha1.StateDeprovisioning
+		}
 	case metal3v1alpha1.StateDeprovisioning:
 		// Allow state machine to run to continue deprovisioning.
 		return false
@@ -224,6 +236,46 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 		return false
 	}
 	return true
+}
+
+// hasInspectAnnotation checks for existence of baremetalhost.metal3.io/detached
+func hasDetachedAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[metal3v1alpha1.DetachedAnnotation]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result actionResult) {
+	// If the detached annotation is set we remove any host from the
+	// provisioner and take no further action
+	// Note this doesn't change the current state, only the OperationalStatus
+	if hasDetachedAnnotation(hsm.Host) {
+		// Only allow detaching hosts in Provisioned/ExternallyProvisioned states
+		switch info.host.Status.Provisioning.State {
+		case metal3v1alpha1.StateProvisioned, metal3v1alpha1.StateExternallyProvisioned:
+			return hsm.Reconciler.detachHost(hsm.Provisioner, info)
+		}
+	}
+	if info.host.Status.ErrorType == metal3v1alpha1.DetachError {
+		clearError(info.host)
+		hsm.Host.Status.ErrorCount = 0
+		info.log.Info("removed detach error")
+		return actionUpdate{}
+	}
+	if info.host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
+		newStatus := metal3v1alpha1.OperationalStatusOK
+		if info.host.Status.ErrorType != "" {
+			newStatus = metal3v1alpha1.OperationalStatusError
+		}
+		info.host.SetOperationalStatus(newStatus)
+		info.log.Info("removed detached status")
+		return actionUpdate{}
+	}
+	return nil
 }
 
 func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actionResult) {
@@ -348,6 +400,11 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
 		clearHostProvisioningSettings(info.host)
+		return actionComplete{}
+	}
+
+	if hasInspectAnnotation(hsm.Host) {
+		hsm.NextState = metal3v1alpha1.StateInspecting
 		return actionComplete{}
 	}
 

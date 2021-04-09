@@ -10,6 +10,7 @@ import (
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -98,6 +99,7 @@ func TestProvision(t *testing.T) {
 			defer inspector.Stop()
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
@@ -107,8 +109,10 @@ func TestProvision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
-			result, err := prov.Provision(fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"))
+			result, err := prov.Provision(provisioner.ProvisionData{
+				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
+				BootMode:   v1alpha1.DefaultBootMode,
+			})
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
@@ -232,6 +236,7 @@ func TestDeprovision(t *testing.T) {
 			defer inspector.Stop()
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
@@ -241,7 +246,6 @@ func TestDeprovision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
 			result, err := prov.Deprovision(false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
@@ -373,6 +377,7 @@ func TestIronicHasSameImage(t *testing.T) {
 				host.Spec.Image.Checksum = tc.hostChecksum
 				host.Spec.Image.ChecksumType = tc.hostChecksumType
 			}
+			host.Status.Provisioning.ID = nodeUUID
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
@@ -382,8 +387,7 @@ func TestIronicHasSameImage(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
-			sameImage := prov.ironicHasSameImage(&tc.node)
+			sameImage := prov.ironicHasSameImage(&tc.node, *host.Spec.Image)
 			assert.Equal(t, tc.expected, sameImage)
 		})
 	}

@@ -43,6 +43,8 @@ const (
 	RescueFail   ProvisionState = "rescue failed"
 	Rescuing     ProvisionState = "rescuing"
 	UnrescueFail ProvisionState = "unrescue failed"
+	RescueWait   ProvisionState = "rescue wait"
+	Unrescuing   ProvisionState = "unrescuing"
 )
 
 // TargetProvisionState is used when setting the provision state for a node.
@@ -179,6 +181,10 @@ type CreateOptsBuilder interface {
 
 // CreateOpts specifies node creation parameters.
 type CreateOpts struct {
+	// The interface to configure automated cleaning for a Node.
+	// Requires microversion 1.47 or later.
+	AutomatedClean *bool `json:"automated_clean,omitempty"`
+
 	// The boot interface for a Node, e.g. “pxe”.
 	BootInterface string `json:"boot_interface,omitempty"`
 
@@ -392,13 +398,34 @@ func GetSupportedBootDevices(client *gophercloud.ServiceClient, id string) (r Su
 	return
 }
 
+// An interface type for a deploy (or clean) step.
+type StepInterface string
+
+const (
+	InterfaceBIOS       StepInterface = "bios"
+	InterfaceDeploy     StepInterface = "deploy"
+	InterfaceManagement StepInterface = "management"
+	InterfacePower      StepInterface = "power"
+	InterfaceRAID       StepInterface = "raid"
+)
+
 // A cleaning step has required keys ‘interface’ and ‘step’, and optional key ‘args’. If specified,
 // the value for ‘args’ is a keyword variable argument dictionary that is passed to the cleaning step
 // method.
 type CleanStep struct {
-	Interface string                 `json:"interface" required:"true"`
+	Interface StepInterface          `json:"interface" required:"true"`
 	Step      string                 `json:"step" required:"true"`
 	Args      map[string]interface{} `json:"args,omitempty"`
+}
+
+// A deploy step has required keys ‘interface’, ‘step’, ’args’ and ’priority’.
+// The value for ‘args’ is a keyword variable argument dictionary that is passed to the deploy step
+// method. Priority is a numeric priority at which the step is running.
+type DeployStep struct {
+	Interface StepInterface          `json:"interface" required:"true"`
+	Step      string                 `json:"step" required:"true"`
+	Args      map[string]interface{} `json:"args" required:"true"`
+	Priority  int                    `json:"priority" required:"true"`
 }
 
 // ProvisionStateOptsBuilder allows extensions to add additional parameters to the
@@ -416,11 +443,12 @@ type ConfigDrive struct {
 }
 
 // ProvisionStateOpts for a request to change a node's provision state. A config drive should be base64-encoded
-// gzipped ISO9660 image.
+// gzipped ISO9660 image. Deploy steps are supported starting with API 1.69.
 type ProvisionStateOpts struct {
 	Target         TargetProvisionState `json:"target" required:"true"`
 	ConfigDrive    interface{}          `json:"configdrive,omitempty"`
 	CleanSteps     []CleanStep          `json:"clean_steps,omitempty"`
+	DeploySteps    []DeployStep         `json:"deploy_steps,omitempty"`
 	RescuePassword string               `json:"rescue_password,omitempty"`
 }
 
@@ -519,6 +547,7 @@ const (
 	RAID10 RAIDLevel = "1+0"
 	RAID50 RAIDLevel = "5+0"
 	RAID60 RAIDLevel = "6+0"
+	JBOD   RAIDLevel = "JBOD"
 )
 
 // DiskType is used to specify the disk type for a logical disk, e.g. hdd or ssd.

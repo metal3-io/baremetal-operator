@@ -3,6 +3,8 @@ package demo
 import (
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/go-logr/logr"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -51,8 +53,10 @@ const (
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
 type demoProvisioner struct {
-	// the host to be managed by this provisioner
-	host metal3v1alpha1.BareMetalHost
+	// the object metadata of the BareMetalHost resource
+	objectMeta metav1.ObjectMeta
+	// the provisioning ID for this host
+	provID string
 	// the bmc credentials
 	bmcCreds bmc.Credentials
 	// a logger configured for this host
@@ -61,27 +65,28 @@ type demoProvisioner struct {
 	publisher provisioner.EventPublisher
 }
 
-// New returns a new Ironic Provisioner
-func New(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+// New returns a new demo Provisioner
+func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
-		host:      host,
-		bmcCreds:  bmcCreds,
-		log:       log.WithValues("host", host.Name),
-		publisher: publisher,
+		objectMeta: hostData.ObjectMeta,
+		provID:     hostData.ProvisionerID,
+		bmcCreds:   hostData.BMCCredentials,
+		log:        log.WithValues("host", hostData.ObjectMeta.Name),
+		publisher:  publisher,
 	}
 	return p, nil
 }
 
-func (m *demoProvisioner) HasProvisioningCapacity() (result bool, err error) {
+func (m *demoProvisioner) HasCapacity() (result bool, err error) {
 	return true, nil
 }
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 
 	switch hostName {
 
@@ -97,10 +102,9 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force boo
 		result.RequeueAfter = time.Second * 5
 
 	default:
-		if p.host.Status.Provisioning.ID == "" {
-			provID = p.host.ObjectMeta.Name
-			p.log.Info("setting provisioning id",
-				"provisioningID", p.host.Status.Provisioning.ID)
+		if p.provID == "" {
+			provID = p.objectMeta.Name
+			p.log.Info("setting provisioning id", "provisioningID", provID)
 			result.Dirty = true
 		}
 	}
@@ -112,10 +116,8 @@ func (p *demoProvisioner) ValidateManagementAccess(credentialsChanged, force boo
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
-	p.log.Info("inspecting hardware", "status", p.host.OperationalStatus())
-
-	hostName := p.host.ObjectMeta.Name
+func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+	hostName := p.objectMeta.Name
 
 	if hostName == InspectingHost {
 		// set dirty so we don't allow the host to progress past this
@@ -125,58 +127,51 @@ func (p *demoProvisioner) InspectHardware(force bool) (result provisioner.Result
 		return
 	}
 
-	// The inspection is ongoing. We'll need to check the demo
-	// status for the server here until it is ready for us to get the
-	// inspection details. Simulate that for now by creating the
-	// hardware details struct as part of a second pass.
-	if p.host.Status.HardwareDetails == nil {
-		p.log.Info("continuing inspection by setting details")
-		details =
-			&metal3v1alpha1.HardwareDetails{
-				RAMMebibytes: 128 * 1024,
-				NIC: []metal3v1alpha1.NIC{
-					{
-						Name:      "nic-1",
-						Model:     "virt-io",
-						MAC:       "some:mac:address",
-						IP:        "192.168.100.1",
-						SpeedGbps: 1,
-						PXE:       true,
-					},
-					{
-						Name:      "nic-2",
-						Model:     "e1000",
-						MAC:       "some:other:mac:address",
-						IP:        "192.168.100.2",
-						SpeedGbps: 1,
-						PXE:       false,
-					},
+	p.log.Info("continuing inspection by setting details")
+	details =
+		&metal3v1alpha1.HardwareDetails{
+			RAMMebibytes: 128 * 1024,
+			NIC: []metal3v1alpha1.NIC{
+				{
+					Name:      "nic-1",
+					Model:     "virt-io",
+					MAC:       "some:mac:address",
+					IP:        "192.168.100.1",
+					SpeedGbps: 1,
+					PXE:       true,
 				},
-				Storage: []metal3v1alpha1.Storage{
-					{
-						Name:       "disk-1 (boot)",
-						Rotational: false,
-						SizeBytes:  metal3v1alpha1.TebiByte * 93,
-						Model:      "Dell CFJ61",
-					},
-					{
-						Name:       "disk-2",
-						Rotational: false,
-						SizeBytes:  metal3v1alpha1.TebiByte * 93,
-						Model:      "Dell CFJ61",
-					},
+				{
+					Name:      "nic-2",
+					Model:     "e1000",
+					MAC:       "some:other:mac:address",
+					IP:        "192.168.100.2",
+					SpeedGbps: 1,
+					PXE:       false,
 				},
-				CPU: metal3v1alpha1.CPU{
-					Arch:           "x86_64",
-					Model:          "Core 2 Duo",
-					ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
-					Flags:          []string{"lm", "hypervisor", "vmx"},
-					Count:          1,
+			},
+			Storage: []metal3v1alpha1.Storage{
+				{
+					Name:       "disk-1 (boot)",
+					Rotational: false,
+					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					Model:      "Dell CFJ61",
 				},
-			}
-		p.publisher("InspectionComplete", "Hardware inspection completed")
-		p.host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
-	}
+				{
+					Name:       "disk-2",
+					Rotational: false,
+					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					Model:      "Dell CFJ61",
+				},
+			},
+			CPU: metal3v1alpha1.CPU{
+				Arch:           "x86_64",
+				Model:          "Core 2 Duo",
+				ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+				Flags:          []string{"lm", "hypervisor", "vmx"},
+				Count:          1,
+			},
+		}
+	p.publisher("InspectionComplete", "Hardware inspection completed")
 
 	return
 }
@@ -191,9 +186,8 @@ func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 }
 
 // Prepare remove existing configuration and set new configuration
-func (p *demoProvisioner) Prepare(unprepared bool) (result provisioner.Result, started bool, err error) {
-	hostName := p.host.ObjectMeta.Name
-	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
+func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
+	hostName := p.objectMeta.Name
 
 	switch hostName {
 
@@ -213,8 +207,9 @@ func (p *demoProvisioner) Prepare(unprepared bool) (result provisioner.Result, s
 	return result, false, nil
 }
 
-// Adopt allows an externally-provisioned server to be adopted.
-func (p *demoProvisioner) Adopt(force bool) (result provisioner.Result, err error) {
+// Adopt notifies the provisioner that the state machine believes the host
+// to be currently provisioned, and that it should be managed as such.
+func (p *demoProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	result.Dirty = false
 	return
@@ -223,10 +218,10 @@ func (p *demoProvisioner) Adopt(force bool) (result provisioner.Result, err erro
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *demoProvisioner) Provision(hostConf provisioner.HostConfigData) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
-	p.log.Info("provisioning image to host", "state", p.host.Status.Provisioning.State)
+	hostName := p.objectMeta.Name
+	p.log.Info("provisioning image to host")
 
 	switch hostName {
 
@@ -251,7 +246,7 @@ func (p *demoProvisioner) Provision(hostConf provisioner.HostConfigData) (result
 // deprovisioning operation is completed.
 func (p *demoProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
 		return result, nil
@@ -293,11 +288,21 @@ func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
 	return result, nil
 }
 
+// Detach removes the host from the provisioning system.
+// Similar to Delete, but ensures non-interruptive behavior
+// for the target system.  It may be called multiple times,
+// and should return true for its dirty  flag until the
+// deletion operation is completed.
+func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
+	p.log.Info("detaching host")
+	return result, nil
+}
+
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
 func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
 		return result, nil
@@ -318,7 +323,7 @@ func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
 // provisioning operation.
 func (p *demoProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (result provisioner.Result, err error) {
 
-	hostName := p.host.ObjectMeta.Name
+	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
 		return result, nil

@@ -4,8 +4,11 @@ import (
 	"errors"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 )
 
 /*
@@ -16,8 +19,28 @@ Package provisioning defines the API for talking to the provisioning backend.
 // with provisioning.
 type EventPublisher func(reason, message string)
 
+type HostData struct {
+	ObjectMeta                     metav1.ObjectMeta
+	BMCAddress                     string
+	BMCCredentials                 bmc.Credentials
+	DisableCertificateVerification bool
+	BootMACAddress                 string
+	ProvisionerID                  string
+}
+
+func BuildHostData(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials) HostData {
+	return HostData{
+		ObjectMeta:                     *host.ObjectMeta.DeepCopy(),
+		BMCAddress:                     host.Spec.BMC.Address,
+		BMCCredentials:                 bmcCreds,
+		DisableCertificateVerification: host.Spec.BMC.DisableCertificateVerification,
+		BootMACAddress:                 host.Spec.BootMACAddress,
+		ProvisionerID:                  host.Status.Provisioning.ID,
+	}
+}
+
 // Factory is the interface for creating new Provisioner objects.
-type Factory func(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publish EventPublisher) (Provisioner, error)
+type Factory func(hostData HostData, publish EventPublisher) (Provisioner, error)
 
 // HostConfigData retrieves host configuration data
 type HostConfigData interface {
@@ -34,6 +57,34 @@ type HostConfigData interface {
 	MetaData() (string, error)
 }
 
+type ManagementAccessData struct {
+	BootMode              metal3v1alpha1.BootMode
+	AutomatedCleaningMode metal3v1alpha1.AutomatedCleaningMode
+	State                 metal3v1alpha1.ProvisioningState
+	CurrentImage          *metal3v1alpha1.Image
+}
+
+type AdoptData struct {
+	State metal3v1alpha1.ProvisioningState
+}
+
+type InspectData struct {
+	BootMode metal3v1alpha1.BootMode
+}
+
+type PrepareData struct {
+	RAIDConfig      *metal3v1alpha1.RAIDConfig
+	RootDeviceHints *metal3v1alpha1.RootDeviceHints
+}
+
+type ProvisionData struct {
+	Image           metal3v1alpha1.Image
+	HostConfig      HostConfigData
+	BootMode        metal3v1alpha1.BootMode
+	HardwareProfile hardware.Profile
+	RootDeviceHints *metal3v1alpha1.RootDeviceHints
+}
+
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
@@ -43,13 +94,13 @@ type Provisioner interface {
 	// of credentials it has are different from the credentials it has
 	// previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(credentialsChanged, force bool) (result Result, provID string, err error)
+	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, force bool) (result Result, provID string, err error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
-	InspectHardware(force bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
+	InspectHardware(data InspectData, force, refresh bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with
@@ -59,15 +110,15 @@ type Provisioner interface {
 
 	// Adopt brings an externally-provisioned host under management by
 	// the provisioner.
-	Adopt(force bool) (result Result, err error)
+	Adopt(data AdoptData, force bool) (result Result, err error)
 
 	// Prepare remove existing configuration and set new configuration
-	Prepare(unprepared bool) (result Result, started bool, err error)
+	Prepare(data PrepareData, unprepared bool) (result Result, started bool, err error)
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the deprovisioning operation is completed.
-	Provision(configData HostConfigData) (result Result, err error)
+	Provision(data ProvisionData) (result Result, err error)
 
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
@@ -78,6 +129,13 @@ type Provisioner interface {
 	// called multiple times, and should return true for its dirty
 	// flag until the deletion operation is completed.
 	Delete() (result Result, err error)
+
+	// Detach removes the host from the provisioning system.
+	// Similar to Delete, but ensures non-interruptive behavior
+	// for the target system.  It may be called multiple times,
+	// and should return true for its dirty  flag until the
+	// deletion operation is completed.
+	Detach() (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image
 	// provisioning operation.
@@ -92,8 +150,8 @@ type Provisioner interface {
 	// all the incoming requests.
 	IsReady() (result bool, err error)
 
-	// HasProvisioningCapacity checks if the backend has a free provisioning slot for the current host
-	HasProvisioningCapacity() (result bool, err error)
+	// HasCapacity checks if the backend has a free (de)provisioning slot for the current host
+	HasCapacity() (result bool, err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

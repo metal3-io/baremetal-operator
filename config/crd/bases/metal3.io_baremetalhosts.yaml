@@ -67,6 +67,13 @@ spec:
           spec:
             description: BareMetalHostSpec defines the desired state of BareMetalHost
             properties:
+              automatedCleaningMode:
+                default: metadata
+                description: When set to disabled, automated cleaning will be avoided during provisioning and deprovisioning.
+                enum:
+                - metadata
+                - disabled
+                type: string
               bmc:
                 description: How do we connect to the BMC?
                 properties:
@@ -589,6 +596,7 @@ spec:
                 - discovered
                 - error
                 - delayed
+                - detached
                 type: string
               poweredOn:
                 description: indicator for whether or not the host is powered on

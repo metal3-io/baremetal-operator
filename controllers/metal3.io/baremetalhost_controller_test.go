@@ -267,6 +267,28 @@ func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
 	)
 }
 
+// TestHardwareDetails_Invalid
+// Tests scenario where the hardwaredetails value is invalid
+func TestHardwareDetails_Invalid(t *testing.T) {
+	host := newDefaultHost(t)
+	badAnnotation := fmt.Sprintf("{\"hardware\": %s}", hwdAnnotation)
+	host.Annotations = map[string]string{
+		inspectAnnotationPrefix:   "disabled",
+		hardwareDetailsAnnotation: badAnnotation,
+	}
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd.Hostname = "existinghost"
+	host.Status.HardwareDetails = &hwd
+
+	r := newTestReconciler(host)
+	request := newRequest(host)
+	_, err := r.Reconcile(context.Background(), request)
+	expectedErr := "json: unknown field"
+	assert.Contains(t, err.Error(), expectedErr)
+}
+
 // TestStatusAnnotation_EmptyStatus ensures that status is manually populated
 // when status annotation is present and status field is empty.
 func TestStatusAnnotation_EmptyStatus(t *testing.T) {
@@ -801,18 +823,6 @@ func TestMissingBMCParameters(t *testing.T) {
 					BMC: metal3v1alpha1.BMCDetails{
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: "bmc-creds-no-pass",
-					},
-				}),
-		},
-
-		{
-			Scenario: "malformed address",
-			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
-			Host: newHost("invalid-bmc-address",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
-						Address:         "unknown://notAvalidIPMIURL",
-						CredentialsName: "bmc-creds-ok",
 					},
 				}),
 		},
@@ -1450,6 +1460,115 @@ func TestErrorCountIncrementsAlways(t *testing.T) {
 	}
 }
 
+func TestGetImageReady(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateReady,
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.Nil(t, img)
+}
+
+func TestGetImageProvisioning(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateProvisioning,
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, host.Spec.Image, img)
+	assert.Exactly(t, *host.Spec.Image, *img)
+}
+
+func TestGetImageProvisioned(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image2",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateProvisioned,
+				Image: metal3v1alpha1.Image{
+					URL: "http://example.test/image",
+				},
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, &host.Status.Provisioning.Image, img)
+	assert.Exactly(t, host.Status.Provisioning.Image, *img)
+}
+
+func TestGetImageDeprovisioning(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image2",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateDeprovisioning,
+				Image: metal3v1alpha1.Image{
+					URL: "http://example.test/image",
+				},
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, &host.Status.Provisioning.Image, img)
+	assert.Exactly(t, host.Status.Provisioning.Image, *img)
+}
+
+func TestGetImageExternallyPprovisioned(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateExternallyProvisioned,
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, host.Spec.Image, img)
+	assert.Exactly(t, *host.Spec.Image, *img)
+}
+
 func TestUpdateRAID(t *testing.T) {
 	host := metal3v1alpha1.BareMetalHost{
 		Spec: metal3v1alpha1.BareMetalHostSpec{
@@ -1853,4 +1972,31 @@ func TestUpdateRAID(t *testing.T) {
 			assert.Equal(t, c.expected, host.Status.Provisioning.RAID)
 		})
 	}
+}
+
+func doDeleteHost(host *metal3v1alpha1.BareMetalHost, reconciler *BareMetalHostReconciler) {
+	now := metav1.Now()
+	host.DeletionTimestamp = &now
+	reconciler.Client.Update(context.Background(), host)
+}
+
+func TestInvalidBMHCanBeDeleted(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.BMC.Address = fmt.Sprintf("%s%s%s", "<", host.Spec.BMC.Address, ">")
+
+	var fix fixture.Fixture
+	r := newTestReconcilerWithFixture(&fix, host)
+
+	fix.SetValidateError("malformed url")
+	waitForError(t, r, host)
+	assert.Equal(t, metal3v1alpha1.StateRegistering, host.Status.Provisioning.State)
+	assert.Equal(t, metal3v1alpha1.OperationalStatusError, host.Status.OperationalStatus)
+	assert.Equal(t, metal3v1alpha1.RegistrationError, host.Status.ErrorType)
+	assert.Equal(t, "malformed url", host.Status.ErrorMessage)
+
+	doDeleteHost(host, r)
+
+	tryReconcile(t, r, host, func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		return host.Status.Provisioning.State == metal3v1alpha1.StateDeleting && len(host.Finalizers) == 0
+	})
 }

@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
@@ -22,6 +25,8 @@ func TestInspectHardware(t *testing.T) {
 		name      string
 		ironic    *testserver.IronicMock
 		inspector *testserver.InspectorMock
+
+		force bool
 
 		expectedDirty        bool
 		expectedRequestAfter int
@@ -130,6 +135,32 @@ func TestInspectHardware(t *testing.T) {
 			expectedRequestAfter: 15,
 		},
 		{
+			name: "inspection-failed",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectFail),
+			}),
+			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+
+			expectedResultError: "Inspection failed",
+		},
+		{
+			name: "inspection-failed force",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectFail),
+			}).NodeUpdate(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectFail),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+			force:     true,
+
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+			expectedPublish:      "InspectionStarted Hardware inspection started",
+		},
+		{
 			name: "inspection-complete",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
@@ -164,6 +195,7 @@ func TestInspectHardware(t *testing.T) {
 			}
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publishedMsg := ""
 			publisher := func(reason, message string) {
 				publishedMsg = reason + " " + message
@@ -176,8 +208,9 @@ func TestInspectHardware(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
-			result, details, err := prov.InspectHardware(false)
+			result, details, err := prov.InspectHardware(
+				provisioner.InspectData{BootMode: metal3v1alpha1.DefaultBootMode},
+				tc.force, false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

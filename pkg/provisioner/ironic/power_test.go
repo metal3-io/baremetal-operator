@@ -91,6 +91,7 @@ func TestPowerOn(t *testing.T) {
 			defer inspector.Stop()
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
@@ -100,7 +101,6 @@ func TestPowerOn(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
 			result, err := prov.PowerOn()
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
@@ -203,6 +203,7 @@ func TestPowerOff(t *testing.T) {
 			defer inspector.Stop()
 
 			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
@@ -212,7 +213,6 @@ func TestPowerOff(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			prov.status.ID = nodeUUID
 			// We pass the RebootMode type here to define the reboot action
 			result, err := prov.PowerOff(tc.rebootMode)
 

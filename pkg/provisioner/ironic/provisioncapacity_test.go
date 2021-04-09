@@ -12,9 +12,12 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 )
 
-func TestHasProvisioningCapacity(t *testing.T) {
+func TestHasCapacity(t *testing.T) {
 
-	provisioningStates := []nodes.ProvisionState{nodes.Cleaning, nodes.CleanWait, nodes.Inspecting, nodes.InspectWait, nodes.Deploying, nodes.DeployWait}
+	states := []nodes.ProvisionState{
+		nodes.Cleaning, nodes.CleanWait, nodes.Inspecting, nodes.InspectWait, nodes.Deploying, nodes.DeployWait,
+		nodes.Deleting,
+	}
 
 	cases := []struct {
 		name              string
@@ -27,22 +30,22 @@ func TestHasProvisioningCapacity(t *testing.T) {
 	}{
 		{
 			name:              "no-capacity",
-			provisioningLimit: 6,
-			nodeStates:        provisioningStates,
+			provisioningLimit: len(states),
+			nodeStates:        states,
 
 			expectedHasCapacity: false,
 		},
 		{
 			name:              "enough-capacity",
-			provisioningLimit: 7,
-			nodeStates:        provisioningStates,
+			provisioningLimit: len(states) + 1,
+			nodeStates:        states,
 
 			expectedHasCapacity: true,
 		},
 		{
 			name:              "ignore-check-if-already-provisioning",
-			provisioningLimit: 6,
-			nodeStates:        provisioningStates,
+			provisioningLimit: len(states),
+			nodeStates:        states,
 			hostName:          "node-1",
 
 			expectedHasCapacity: true,
@@ -78,7 +81,7 @@ func TestHasProvisioningCapacity(t *testing.T) {
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 
-			maxProvisioningHosts = tc.provisioningLimit
+			maxBusyHosts = tc.provisioningLimit
 
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
 				ironic.Endpoint(), auth, inspector.Endpoint(), auth,
@@ -87,7 +90,7 @@ func TestHasProvisioningCapacity(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.HasProvisioningCapacity()
+			result, err := prov.HasCapacity()
 
 			assert.Equal(t, tc.expectedHasCapacity, result)
 

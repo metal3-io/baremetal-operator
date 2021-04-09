@@ -1548,6 +1548,27 @@ func TestGetImageDeprovisioning(t *testing.T) {
 	assert.Exactly(t, host.Status.Provisioning.Image, *img)
 }
 
+func TestGetImageExternallyPprovisioned(t *testing.T) {
+	host := metal3v1alpha1.BareMetalHost{
+		Spec: metal3v1alpha1.BareMetalHostSpec{
+			Image: &metal3v1alpha1.Image{
+				URL: "http://example.test/image",
+			},
+		},
+		Status: metal3v1alpha1.BareMetalHostStatus{
+			Provisioning: metal3v1alpha1.ProvisionStatus{
+				State: metal3v1alpha1.StateExternallyProvisioned,
+			},
+		},
+	}
+
+	img := getCurrentImage(&host)
+
+	assert.NotNil(t, img)
+	assert.NotSame(t, host.Spec.Image, img)
+	assert.Exactly(t, *host.Spec.Image, *img)
+}
+
 func TestUpdateRAID(t *testing.T) {
 	host := metal3v1alpha1.BareMetalHost{
 		Spec: metal3v1alpha1.BareMetalHostSpec{

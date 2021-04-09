@@ -689,24 +689,24 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 				fallthrough
 			default:
 				p.log.Info("updating boot mode before hardware inspection")
-				op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
-				updates := nodes.UpdateOpts{
-					nodes.UpdateOperation{
-						Op:    op,
-						Path:  "/properties/capabilities",
-						Value: value,
-					},
-				}
-				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-				switch err.(type) {
-				case nil:
-				case gophercloud.ErrDefault409:
-					p.log.Info("could not update host settings in ironic, busy")
-					result, err = retryAfterDelay(provisionRequeueDelay)
-					return
-				default:
-					result, err = transientError(errors.Wrap(err, "failed to update host boot mode settings in ironic"))
-					return
+
+				updates := updateOptsBuilder(p.debugLog).
+					SetPropertiesOpts(optionsData{
+						"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+					}, ironicNode).
+					Updates
+				if len(updates) > 0 {
+					_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+					switch err.(type) {
+					case nil:
+					case gophercloud.ErrDefault409:
+						p.log.Info("could not update host settings in ironic, busy")
+						result, err = retryAfterDelay(provisionRequeueDelay)
+						return
+					default:
+						result, err = transientError(errors.Wrap(err, "failed to update host boot mode settings in ironic"))
+						return
+					}
 				}
 
 				p.log.Info("starting new hardware inspection")
@@ -894,90 +894,27 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 }
 
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) (updates nodes.UpdateOpts, err error) {
+	updater := updateOptsBuilder(p.debugLog)
+
 	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode)
 	if err != nil {
 		return updates, errors.Wrap(err, "Could not get Image options for node")
 	}
 	updates = append(updates, imageOpts...)
 
-	// root_device
-	//
-	// FIXME(dhellmann): We need to specify the root device to receive
-	// the image. That should come from some combination of inspecting
-	// the host to see what is available and the hardware profile to
-	// give us instructions.
-	var op nodes.UpdateOp
-	if _, ok := ironicNode.Properties["root_device"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding root_device")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating root_device")
+	opts := optionsData{
+		"root_device": devicehints.MakeHintMap(data.RootDeviceHints),
+
+		// FIXME(dhellmann): This should come from inspecting the host.
+		"cpu_arch": data.HardwareProfile.CPUArch,
+
+		"local_gb": data.HardwareProfile.LocalGB,
+
+		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 	}
+	updater.SetPropertiesOpts(opts, ironicNode)
 
-	// hints
-	//
-	// If the user has provided explicit root device hints, they take
-	// precedence. Otherwise use the values from the hardware profile.
-	hints := devicehints.MakeHintMap(data.RootDeviceHints)
-	p.log.Info("using root device", "hints", hints)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/root_device",
-			Value: hints,
-		},
-	)
-
-	// cpu_arch
-	//
-	// FIXME(dhellmann): This should come from inspecting the
-	// host.
-	if _, ok := ironicNode.Properties["cpu_arch"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding cpu_arch")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating cpu_arch")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/cpu_arch",
-			Value: data.HardwareProfile.CPUArch,
-		},
-	)
-
-	// local_gb
-	if _, ok := ironicNode.Properties["local_gb"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding local_gb")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating local_gb")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/local_gb",
-			Value: data.HardwareProfile.LocalGB,
-		},
-	)
-
-	// boot_mode
-	op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/capabilities",
-			Value: value,
-		},
-	)
-
+	updates = append(updates, updater.Updates...)
 	return updates, nil
 }
 
@@ -987,23 +924,19 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 // look at the existing value and modify it. This function
 // encapsulates the logic for building the value and knowing which
 // update operation to use with the results.
-func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) (op nodes.UpdateOp, value string) {
+func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) string {
 
 	capabilities, ok := ironicNode.Properties["capabilities"]
 	if !ok {
 		// There is no existing capabilities value
-		return nodes.AddOp, bootModeCapabilities[bootMode]
+		return bootModeCapabilities[bootMode]
 	}
 	existingCapabilities := capabilities.(string)
-
-	// The capabilities value is set, so we will want to replace it.
-	op = nodes.ReplaceOp
 
 	if existingCapabilities == "" {
 		// The existing value is empty so we can replace the whole
 		// thing.
-		value = bootModeCapabilities[bootMode]
-		return
+		return bootModeCapabilities[bootMode]
 	}
 
 	var filteredCapabilities []string
@@ -1014,8 +947,7 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	}
 	filteredCapabilities = append(filteredCapabilities, bootModeCapabilities[bootMode])
 
-	value = strings.Join(filteredCapabilities, ",")
-	return
+	return strings.Join(filteredCapabilities, ",")
 }
 
 func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
@@ -1026,14 +958,16 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 	if err != nil {
 		return transientError(errors.Wrap(err, "failed to update opts for node"))
 	}
-	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-	switch err.(type) {
-	case nil:
-	case gophercloud.ErrDefault409:
-		p.log.Info("could not update host settings in ironic, busy")
-		return retryAfterDelay(provisionRequeueDelay)
-	default:
-		return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+	if len(updates) > 0 {
+		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+		switch err.(type) {
+		case nil:
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not update host settings in ironic, busy")
+			return retryAfterDelay(provisionRequeueDelay)
+		default:
+			return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+		}
 	}
 
 	p.log.Info("validating host settings")

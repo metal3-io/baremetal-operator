@@ -303,7 +303,7 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 
 func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 	if p.nodeID == "" {
-		return nil, provisioner.NeedsRegistration
+		return nil, provisioner.ErrNeedsRegistration
 	}
 
 	ironicNode, err := nodes.Get(p.client, p.nodeID).Extract()
@@ -314,7 +314,7 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 	case gophercloud.ErrDefault404:
 		// Look by ID failed, trying to lookup by hostname in case it was
 		// previously created
-		return nil, provisioner.NeedsRegistration
+		return nil, provisioner.ErrNeedsRegistration
 	default:
 		return nil, errors.Wrap(err,
 			fmt.Sprintf("failed to find node by ID %s", p.nodeID))
@@ -325,7 +325,7 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode *nodes.Node, err error) {
 	// Try to load the node by UUID
 	ironicNode, err = p.getNode()
-	if !errors.Is(err, provisioner.NeedsRegistration) {
+	if !errors.Is(err, provisioner.ErrNeedsRegistration) {
 		return
 	}
 
@@ -1609,7 +1609,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
-		if errors.Is(err, provisioner.NeedsRegistration) {
+		if errors.Is(err, provisioner.ErrNeedsRegistration) {
 			p.log.Info("no node found, already deleted")
 			return operationComplete()
 		}

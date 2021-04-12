@@ -173,4 +173,5 @@ type HardwareState struct {
 	PoweredOn *bool
 }
 
-var NeedsRegistration = errors.New("Host not registered")
+// ErrNeedsRegistration raised if the host is not registered
+var ErrNeedsRegistration = errors.New("Host not registered")

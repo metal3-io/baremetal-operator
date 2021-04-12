@@ -404,6 +404,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 	var ironicNode *nodes.Node
 	var updates nodes.UpdateOpts
+	updater := updateOptsBuilder(p.debugLog)
 
 	p.debugLog.Info("validating management access")
 
@@ -499,32 +500,17 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// if there are differences.
 		provID = ironicNode.UUID
 
-		if ironicNode.Name != ironicNodeName(p.objectMeta) {
-			updates = append(
-				updates,
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/name",
-					Value: ironicNodeName(p.objectMeta),
-				},
-			)
-		}
+		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
 
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
 		if credentialsChanged {
-			updates = append(
-				updates,
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/driver_info",
-					Value: driverInfo,
-				},
-			)
-			// We don't return here because we also have to set the
-			// target provision state to manageable, which happens
-			// below.
+			updater.SetTopLevelOpt("driver_info", driverInfo, nil)
 		}
+
+		// We don't return here because we also have to set the
+		// target provision state to manageable, which happens
+		// below.
 	}
 	if data.CurrentImage != nil {
 		updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
@@ -532,27 +518,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
 			return
 		}
-		if len(updatesImage) != 0 {
-			updates = append(updates, updatesImage...)
-		}
+		updates = append(updates, updatesImage...)
 	}
-	if ironicNode.AutomatedClean == nil ||
-		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled && *ironicNode.AutomatedClean) ||
-		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeMetadata && !*ironicNode.AutomatedClean) {
-		p.log.Info("setting automated cleaning mode to",
-			"ID", ironicNode.UUID,
-			"mode", data.AutomatedCleaningMode)
+	updater.SetTopLevelOpt("automated_clean",
+		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
+		ironicNode.AutomatedClean)
+	updates = append(updates, updater.Updates...)
 
-		value := data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/automated_clean",
-				Value: value,
-			},
-		)
-	}
 	if len(updates) != 0 {
 		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 		switch err.(type) {
@@ -787,21 +759,11 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 		"image_os_hash_algo":  nil,
 		"image_checksum":      nil,
 	}
-	updater.SetInstanceInfoOpts(optValues, ironicNode)
+	updater.
+		SetInstanceInfoOpts(optValues, ironicNode).
+		SetTopLevelOpt("deploy_interface", "ramdisk", ironicNode.DeployInterface)
+
 	updates = append(updates, updater.Updates...)
-
-	deployInterface := "ramdisk"
-	if ironicNode.DeployInterface != deployInterface {
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/deploy_interface",
-				Value: deployInterface,
-			},
-		)
-	}
-
 	return updates, nil
 }
 
@@ -835,20 +797,10 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		"image_checksum":      legacyChecksum,
 		"image_disk_format":   imageData.DiskFormat,
 	}
-	updater.SetInstanceInfoOpts(optValues, ironicNode)
+	updater.
+		SetInstanceInfoOpts(optValues, ironicNode).
+		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
 	updates = append(updates, updater.Updates...)
-
-	deployInterface := "direct"
-	if ironicNode.DeployInterface != deployInterface {
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/deploy_interface",
-				Value: deployInterface,
-			},
-		)
-	}
 
 	return updates, nil
 }
@@ -857,17 +809,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	updater := updateOptsBuilder(p.debugLog)
 
 	// instance_uuid
-	if ironicNode.InstanceUUID != string(p.objectMeta.UID) {
-		p.log.Info("setting instance_uuid")
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/instance_uuid",
-				Value: string(p.objectMeta.UID),
-			},
-		)
-	}
+	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
 	// Secure boot is a normal capability that goes into instance_info (we
 	// also put it to properties for consistency, although it's not
@@ -1338,13 +1280,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 	_, err = nodes.Update(
 		p.client,
 		ironicNode.UUID,
-		nodes.UpdateOpts{
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/maintenance",
-				Value: value,
-			},
-		},
+		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil).Updates,
 	).Extract()
 	switch err.(type) {
 	case nil:

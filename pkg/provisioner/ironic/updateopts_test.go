@@ -391,6 +391,21 @@ func TestGetUpdateOperation(t *testing.T) {
 	}
 }
 
+func TestTopLevelUpdateOpt(t *testing.T) {
+	u := updateOptsBuilder(log)
+	u.SetTopLevelOpt("foo", "baz", "bar")
+	ops := u.Updates
+	assert.Len(t, ops, 1)
+	op := ops[0].(nodes.UpdateOperation)
+	assert.Equal(t, nodes.AddOp, op.Op)
+	assert.Equal(t, "baz", op.Value)
+	assert.Equal(t, "/foo", op.Path)
+
+	u = updateOptsBuilder(log)
+	u.SetTopLevelOpt("foo", "bar", "bar")
+	assert.Len(t, u.Updates, 0)
+}
+
 func TestPropertiesUpdateOpts(t *testing.T) {
 	newValues := optionsData{
 		"foo": "bar",
@@ -761,7 +776,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 		{
 			Path:  "/deploy_interface",
 			Value: "ramdisk",
-			Op:    nodes.ReplaceOp,
+			Op:    nodes.AddOp,
 		},
 	}
 
@@ -829,7 +844,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 		{
 			Path:  "/deploy_interface",
 			Value: "ramdisk",
-			Op:    nodes.ReplaceOp,
+			Op:    nodes.AddOp,
 		},
 		{
 			Path: "/instance_info/image_source",
@@ -910,7 +925,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		{
 			Path:  "/deploy_interface",
 			Value: "direct",
-			Op:    nodes.ReplaceOp,
+			Op:    nodes.AddOp,
 		},
 		{
 			Path:  "/instance_info/image_source",

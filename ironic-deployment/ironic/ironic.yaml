@@ -87,6 +87,8 @@ spec:
         - name: ironic-inspector
           image: quay.io/metal3-io/ironic-inspector
           imagePullPolicy: Always
+          command:
+            - /bin/runironic-inspector
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap

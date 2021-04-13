@@ -22,6 +22,7 @@ MARIADB_HOST="${MARIADB_HOST:-"mariaDB"}"
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 KUSTOMIZE="go run sigs.k8s.io/kustomize/kustomize/v3"
+RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
@@ -214,10 +215,15 @@ if [ "${DEPLOY_IRONIC}" == "true" ]; then
       IRONIC_BMO_CONFIGMAP="${SCRIPTDIR}/ironic-deployment/default/ironic_bmo_configmap.env"
     fi
     cp "${IRONIC_BMO_CONFIGMAP}" /tmp/ironic_bmo_configmap.env
-    if grep "INSPECTOR_REVERSE_PROXY_SETUP" "${IRONIC_BMO_CONFIGMAP}" > /dev/null; then
+    if grep -q "INSPECTOR_REVERSE_PROXY_SETUP" "${IRONIC_BMO_CONFIGMAP}" ; then
       sed "s/\(INSPECTOR_REVERSE_PROXY_SETUP\).*/\1=${DEPLOY_TLS}/" -i "${IRONIC_BMO_CONFIGMAP}"
     else
       echo "INSPECTOR_REVERSE_PROXY_SETUP=${DEPLOY_TLS}" >> "${IRONIC_BMO_CONFIGMAP}"
+    fi
+    if grep -q "RESTART_CONTAINER_CERTIFICATE_UPDATED" "${IRONIC_BMO_CONFIGMAP}" ; then
+      sed "s/\(RESTART_CONTAINER_CERTIFICATE_UPDATED\).*/\1=${RESTART_CONTAINER_CERTIFICATE_UPDATED}/" -i "${IRONIC_BMO_CONFIGMAP}"
+    else
+      echo "RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED}" >> "${IRONIC_BMO_CONFIGMAP}"
     fi
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -

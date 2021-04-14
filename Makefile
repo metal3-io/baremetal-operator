@@ -81,9 +81,6 @@ unit-verbose: ## Run unit tests with verbose output
 .PHONY: linters
 linters: lint generate-check fmt-check
 
-.PHONY: vet
-vet: lint
-
 .PHONY: lint
 lint:
 	$(GOLANGCI_LINT) run

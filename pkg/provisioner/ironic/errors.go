@@ -18,16 +18,6 @@ func (e SoftPowerOffFailed) Error() string {
 	return "Soft power off has failed on BMC"
 }
 
-// HardPowerOffFailed is returned when the hard power off command
-// finishes with failure.
-type HardPowerOffFailed struct {
-	Address string
-}
-
-func (e HardPowerOffFailed) Error() string {
-	return "Hard power off has failed on BMC"
-}
-
 // HostLockedError is returned when the BMC host is
 // locked.
 type HostLockedError struct {

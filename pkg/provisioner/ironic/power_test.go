@@ -293,7 +293,7 @@ func TestPowerOff(t *testing.T) {
 				assert.Error(t, err)
 			}
 			if tc.expectedErrorResult {
-				assert.Contains(t, result.ErrorMessage, "hardPowerOff operation failed")
+				assert.Contains(t, result.ErrorMessage, "hard power off failed")
 			}
 
 		})

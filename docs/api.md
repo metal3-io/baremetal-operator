@@ -142,6 +142,45 @@ devices.
 
 **NOTE:** These are subject to change.
 
+#### raid
+
+This field contains the information about the RAID configuration for bare 
+metal servers. 
+
+The sub-fields are
+
+* *hardwareRAIDVolumes* -- It contains the list of logical disks for hardware 
+  RAID, if rootDeviceHints isn't used, first volume is root volume. Furthermore,
+  it defines the desired configuration of volume in hardware RAID.
+  * *level* -- 'RAID level for the logical disk. The following levels are 
+    supported: 0;1;2;5;6;1+0;5+0;6+0.'
+  * *name* -- Name of the volume. Should be unique within the Node. If not 
+    specified, volume name will be auto-generated.
+  * *numberOfPhysicalDisks* -- Integer, number of physical disks to use for the 
+    logical disk. Defaults to minimum number of disks required for the 
+    particular RAID level.
+  * *rotational* -- Select disks with only rotational or solid-state storage.
+  * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in GiB. 
+    If unspecified or set be 0, the maximum capacity of disk will be used for 
+    logical disk.
+* *softwareRAIDVolumes* -- It contains the list of logical disks for software 
+  RAID, if rootDeviceHints isn't used, first volume is root volume. If 
+  HardwareRAIDVolumes is set this item will be invalid. The number of created 
+  Software RAID devices must be 1 or 2. If there is only one Software RAID 
+  device, it has to be a RAID-1. If there are two, the first one has to be a 
+  RAID-1, while the RAID level for the second one can be 0, 1, or 1+0. As the 
+  first RAID device will be the deployment device, enforcing a RAID-1 reduces 
+  the risk of ending up with a non-booting node in case of a disk failure. 
+  Furthermore, SoftwareRAIDVolume defines the desired configuration of volume 
+  in software RAID.
+  * *level* -- RAID level for the logical disk. The following levels are 
+    supported: 0;1;1+0.
+  * *physicalDisks* -- A list of device hints, the number of items should be
+    greater than or equal to 2.
+  * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in 
+    GiB. If unspecified or set be 0, the maximum capacity of disk will be 
+    used for logical disk.
+
 #### rootDeviceHints
 
 Guidance for how to choose the device to receive the image being
@@ -304,6 +343,7 @@ Settings related to deploying an image to the host.
 * *id* -- The unique identifier for the service in the underlying
   provisioning tool.
 * *image* -- The image most recently provisioned to the host.
+* *raid* -- The list of hardware and software RAID volumes recently set.
 * *rootDeviceHints* -- The root device selection instructions used
   for the most recent provisioning operation.
 
@@ -341,6 +381,11 @@ spec:
     checksum: http://172.16.1.100/images/myOSv1/myOS.qcow2.md5sum
     url: http://172.16.1.100/images/myOSv1/myOS.qcow2
   online: true
+  raid:
+    hardwareRAIDVolumes: 
+    - level: "1"
+      sizeGibibytes: 200
+      rotational: true 
   userData:
     name: bmo-master-user-data
     namespace: bmo-project

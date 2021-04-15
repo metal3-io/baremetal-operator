@@ -291,10 +291,6 @@ type RAIDConfig struct {
 
 // FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server
 type FirmwareConfig struct {
-	// Whether reset firmware settings.
-	// NOTE: IRMC does not support reset firmware settings.
-	ResetSettings bool `json:"resetSettings,omitempty"`
-
 	// Supports the virtualization of platform hardware.
 	// This supports following options: true, false.
 	// +kubebuilder:validation:Enum=true;false

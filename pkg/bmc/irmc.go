@@ -1,10 +1,8 @@
 package bmc
 
 import (
-	"fmt"
 	"net/url"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
@@ -96,46 +94,55 @@ func (a *iRMCAccessDetails) SupportsSecureBoot() bool {
 	return true
 }
 
-func (a *iRMCAccessDetails) BuildBIOSCleanSteps(firmwareConfig *metal3v1alpha1.FirmwareConfig) ([]nodes.CleanStep, error) {
-	// If not configure irmc, only need to clear old configuration,
-	// but irmc bios interface does not support factory_reset.
+func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil
 	}
 
-	var cleanSteps []nodes.CleanStep
-	// Build public bios settings
-	settings, err := buildBIOSSettings(*firmwareConfig,
-		[]string{
-			"ResetSettings",
-		},
-		map[string]string{
-			"SimultaneousMultithreadingEnabled": "hyper_threading_enabled",
-			"VirtualizationEnabled":             "cpu_vt_enabled",
-			"SriovEnabled":                      "single_root_io_virtualization_support_enabled",
-		},
-		map[string]string{
-			"true":  "True",
-			"false": "False",
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("build irmc public bios settings failed: %v", err)
+	if firmwareConfig == nil {
+		return nil, nil
 	}
 
-	if len(settings) != 0 {
-		// This cleaning step applies a set of BIOS settings for a node
-		cleanSteps = append(
-			cleanSteps,
-			nodes.CleanStep{
-				Interface: "bios",
-				Step:      "apply_configuration",
-				Args: map[string]interface{}{
-					"settings": settings,
-				},
+	var value string
+
+	if firmwareConfig.VirtualizationEnabled != nil {
+		value = "False"
+		if *firmwareConfig.VirtualizationEnabled {
+			value = "True"
+		}
+		settings = append(settings,
+			map[string]string{
+				"name":  "cpu_vt_enabled",
+				"value": value,
 			},
 		)
 	}
 
-	return cleanSteps, nil
+	if firmwareConfig.SimultaneousMultithreadingEnabled != nil {
+		value = "False"
+		if *firmwareConfig.SimultaneousMultithreadingEnabled {
+			value = "True"
+		}
+		settings = append(settings,
+			map[string]string{
+				"name":  "hyper_threading_enabled",
+				"value": value,
+			},
+		)
+	}
+
+	if firmwareConfig.SriovEnabled != nil {
+		value = "False"
+		if *firmwareConfig.SriovEnabled {
+			value = "True"
+		}
+		settings = append(settings,
+			map[string]string{
+				"name":  "single_root_io_virtualization_support_enabled",
+				"value": value,
+			},
+		)
+	}
+
+	return
 }

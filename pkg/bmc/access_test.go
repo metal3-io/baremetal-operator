@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -1133,7 +1132,7 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 		name          string
 		address       string
 		firmware      *metal3v1alpha1.FirmwareConfig
-		expected      []nodes.CleanStep
+		expected      []map[string]string
 		expectedError bool
 	}{
 		// ilo4
@@ -1141,30 +1140,17 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 			name:    "ilo4",
 			address: "ilo4://192.168.122.1",
 			firmware: &metal3v1alpha1.FirmwareConfig{
-				ResetSettings:                     true,
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expected: []nodes.CleanStep{
+			expected: []map[string]string{
 				{
-					Interface: "bios",
-					Step:      "factory_reset",
+					"name":  "ProcVirtualization",
+					"value": "Enabled",
 				},
 				{
-					Interface: "bios",
-					Step:      "apply_configuration",
-					Args: map[string]interface{}{
-						"settings": []map[string]string{
-							{
-								"name":  "ProcVirtualization",
-								"value": "Enabled",
-							},
-							{
-								"name":  "ProcHyperthreading",
-								"value": "Disabled",
-							},
-						},
-					},
+					"name":  "ProcHyperthreading",
+					"value": "Disabled",
 				},
 			},
 		},
@@ -1185,30 +1171,17 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 			name:    "ilo5",
 			address: "ilo5://192.168.122.1",
 			firmware: &metal3v1alpha1.FirmwareConfig{
-				ResetSettings:                     true,
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expected: []nodes.CleanStep{
+			expected: []map[string]string{
 				{
-					Interface: "bios",
-					Step:      "factory_reset",
+					"name":  "ProcVirtualization",
+					"value": "Enabled",
 				},
 				{
-					Interface: "bios",
-					Step:      "apply_configuration",
-					Args: map[string]interface{}{
-						"settings": []map[string]string{
-							{
-								"name":  "ProcVirtualization",
-								"value": "Enabled",
-							},
-							{
-								"name":  "ProcHyperthreading",
-								"value": "Disabled",
-							},
-						},
-					},
+					"name":  "ProcHyperthreading",
+					"value": "Disabled",
 				},
 			},
 		},
@@ -1232,22 +1205,14 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expected: []nodes.CleanStep{
+			expected: []map[string]string{
 				{
-					Interface: "bios",
-					Step:      "apply_configuration",
-					Args: map[string]interface{}{
-						"settings": []map[string]string{
-							{
-								"name":  "cpu_vt_enabled",
-								"value": "True",
-							},
-							{
-								"name":  "hyper_threading_enabled",
-								"value": "False",
-							},
-						},
-					},
+					"name":  "cpu_vt_enabled",
+					"value": "True",
+				},
+				{
+					"name":  "hyper_threading_enabled",
+					"value": "False",
 				},
 			},
 		},
@@ -1272,13 +1237,13 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 				t.Fatalf("new AccessDetails failed: %v", err)
 			}
 
-			cleanStep, err := acc.BuildBIOSCleanSteps(c.firmware)
+			settings, err := acc.BuildBIOSSettings(c.firmware)
 			if (err != nil) != c.expectedError {
 				t.Fatalf("got unexpected error: %v", err)
 			}
 
-			if !reflect.DeepEqual(c.expected, cleanStep) {
-				t.Errorf("expected clean steps: %v, got: %v", c.expected, cleanStep)
+			if !reflect.DeepEqual(c.expected, settings) {
+				t.Errorf("expected settings: %v, got: %v", c.expected, settings)
 			}
 		})
 	}

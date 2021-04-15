@@ -1103,11 +1103,22 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	}
 
 	// Build bios clean steps
-	biosCleanSteps, err := bmcAccess.BuildBIOSCleanSteps(data.FirmwareConfig)
+	settings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
 	if err != nil {
 		return nil, err
 	}
-	cleanSteps = append(cleanSteps, biosCleanSteps...)
+	if len(settings) != 0 {
+		cleanSteps = append(
+			cleanSteps,
+			nodes.CleanStep{
+				Interface: "bios",
+				Step:      "apply_configuration",
+				Args: map[string]interface{}{
+					"settings": settings,
+				},
+			},
+		)
+	}
 
 	// TODO: Add manual cleaning steps for host configuration
 

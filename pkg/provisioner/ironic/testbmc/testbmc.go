@@ -3,7 +3,6 @@ package testbmc
 import (
 	"net/url"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
@@ -88,6 +87,6 @@ func (a *testAccessDetails) SupportsSecureBoot() bool {
 	return false
 }
 
-func (a *testAccessDetails) BuildBIOSCleanSteps(firmwareConfig *metal3v1alpha1.FirmwareConfig) ([]nodes.CleanStep, error) {
+func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	return nil, nil
 }

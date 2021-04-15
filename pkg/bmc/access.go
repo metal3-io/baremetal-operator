@@ -4,12 +4,8 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"reflect"
-	"sort"
-	"strconv"
 	"strings"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/pkg/errors"
 )
@@ -69,7 +65,7 @@ type AccessDetails interface {
 	SupportsSecureBoot() bool
 
 	// Build bios clean steps for ironic
-	BuildBIOSCleanSteps(firmwareConfig *metal3v1alpha1.FirmwareConfig) ([]nodes.CleanStep, error)
+	BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error)
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {
@@ -135,76 +131,4 @@ func NewAccessDetails(address string, disableCertificateVerification bool) (Acce
 	}
 
 	return factory(parsedURL, disableCertificateVerification)
-}
-
-// A private method for building firmware config to BIOS settings for different driver.
-// NOTE： firmwareConfig can't be a pointer
-// NOTE: This function doesn't handle nested structure
-func buildBIOSSettings(firmwareConfig interface{}, exclude []string, nameMap map[string]string, valueMap map[string]string) (settings []map[string]string, err error) {
-	// Deal possible panic
-	defer func() {
-		r := recover()
-		if r != nil {
-			err = fmt.Errorf("panic in build BIOS settings: %v", r)
-		}
-	}()
-
-	var name string
-	var value string
-
-	t := reflect.TypeOf(firmwareConfig)
-	v := reflect.ValueOf(firmwareConfig)
-
-	for i := 0; v.NumField() > i; i++ {
-		// Get name
-		name = t.Field(i).Name
-		if sort.SearchStrings(exclude, name) != len(exclude) {
-			continue
-		}
-		if len(nameMap) != 0 && nameMap[t.Field(i).Name] != "" {
-			name = nameMap[t.Field(i).Name]
-		}
-
-		// Get value
-		// Deal pointer
-		valueReflect := v.Field(i)
-		if valueReflect.Kind() == reflect.Ptr {
-			if valueReflect.IsNil() {
-				continue
-			}
-			valueReflect = v.Field(i).Elem()
-		}
-		// Convert value to string
-		switch valueReflect.Kind() {
-		case reflect.String:
-			value = valueReflect.String()
-		case reflect.Bool:
-			value = strconv.FormatBool(valueReflect.Bool())
-		case reflect.Float32, reflect.Float64:
-			value = strconv.FormatFloat(valueReflect.Float(), 'f', -1, 64)
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			value = strconv.FormatInt(valueReflect.Int(), 10)
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			value = strconv.FormatUint(valueReflect.Uint(), 10)
-		default:
-			value = ""
-		}
-
-		if value == "" {
-			continue
-		}
-		if len(valueMap) != 0 && valueMap[value] != "" {
-			value = valueMap[value]
-		}
-
-		settings = append(
-			settings,
-			map[string]string{
-				"name":  name,
-				"value": value,
-			},
-		)
-	}
-
-	return
 }

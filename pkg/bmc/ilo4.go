@@ -3,10 +3,8 @@
 package bmc
 
 import (
-	"fmt"
 	"net/url"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
@@ -98,56 +96,51 @@ func (a *iLOAccessDetails) SupportsSecureBoot() bool {
 	return true
 }
 
-func (a *iLOAccessDetails) BuildBIOSCleanSteps(firmwareConfig *metal3v1alpha1.FirmwareConfig) ([]nodes.CleanStep, error) {
-	// If not configure ILO, only need to clear old configuration
+func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil
 	}
 
-	var cleanSteps []nodes.CleanStep
-	if firmwareConfig.ResetSettings {
-		// This cleaning step resets all BIOS settings to factory default for a given node
-		cleanSteps = append(
-			cleanSteps,
-			nodes.CleanStep{
-				Interface: "bios",
-				Step:      "factory_reset",
+	var value string
+
+	if firmwareConfig.VirtualizationEnabled != nil {
+		value = "Disabled"
+		if *firmwareConfig.VirtualizationEnabled {
+			value = "Enabled"
+		}
+		settings = append(settings,
+			map[string]string{
+				"name":  "ProcVirtualization",
+				"value": value,
 			},
 		)
 	}
 
-	// Build public bios settings
-	settings, err := buildBIOSSettings(*firmwareConfig,
-		[]string{
-			"ResetSettings",
-		},
-		map[string]string{
-			"SimultaneousMultithreadingEnabled": "ProcHyperthreading",
-			"VirtualizationEnabled":             "ProcVirtualization",
-			"SriovEnabled":                      "Sriov",
-		},
-		map[string]string{
-			"true":  "Enabled",
-			"false": "Disabled",
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("build ilo4 public bios settings failed: %v", err)
-	}
-
-	if len(settings) != 0 {
-		// This cleaning step applies a set of BIOS settings for a node
-		cleanSteps = append(
-			cleanSteps,
-			nodes.CleanStep{
-				Interface: "bios",
-				Step:      "apply_configuration",
-				Args: map[string]interface{}{
-					"settings": settings,
-				},
+	if firmwareConfig.SimultaneousMultithreadingEnabled != nil {
+		value = "Disabled"
+		if *firmwareConfig.SimultaneousMultithreadingEnabled {
+			value = "Enabled"
+		}
+		settings = append(settings,
+			map[string]string{
+				"name":  "ProcHyperthreading",
+				"value": value,
 			},
 		)
 	}
 
-	return cleanSteps, nil
+	if firmwareConfig.SriovEnabled != nil {
+		value = "Disabled"
+		if *firmwareConfig.SriovEnabled {
+			value = "Enabled"
+		}
+		settings = append(settings,
+			map[string]string{
+				"name":  "Sriov",
+				"value": value,
+			},
+		)
+	}
+
+	return
 }

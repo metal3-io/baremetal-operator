@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
@@ -101,7 +100,7 @@ func (a *ipmiAccessDetails) SupportsSecureBoot() bool {
 	return false
 }
 
-func (a *ipmiAccessDetails) BuildBIOSCleanSteps(firmwareConfig *metal3v1alpha1.FirmwareConfig) ([]nodes.CleanStep, error) {
+func (a *ipmiAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig != nil {
 		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
 	}

@@ -467,10 +467,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		RootDeviceHints: host.Status.Provisioning.RootDeviceHints,
 	}
-	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData)
 
 	t.Logf("patches: %v", patches)
 
@@ -566,10 +563,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
-	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData)
 
 	t.Logf("patches: %v", patches)
 
@@ -676,10 +670,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
-	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData)
 
 	t.Logf("patches: %v", patches)
 
@@ -751,10 +742,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 		Image:    *host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
-	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData)
 
 	t.Logf("patches: %v", patches)
 
@@ -823,10 +811,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 		Image:    *host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
-	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData)
 
 	t.Logf("patches: %v", patches)
 
@@ -905,10 +890,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		Image:    *host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
-	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData)
 
 	t.Logf("patches: %v", patches)
 
@@ -1010,10 +992,7 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 		BootMode:        metal3v1alpha1.UEFISecureBoot,
 		HardwareProfile: hwProf,
 	}
-	patches, err := prov.getUpdateOptsForNode(ironicNode, provData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData)
 
 	t.Logf("patches: %v", patches)
 

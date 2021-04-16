@@ -403,7 +403,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	var ironicNode *nodes.Node
-	var updates nodes.UpdateOpts
 	updater := updateOptsBuilder(p.debugLog)
 
 	p.debugLog.Info("validating management access")
@@ -513,20 +512,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// below.
 	}
 	if data.CurrentImage != nil {
-		updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
-		if optsErr != nil {
-			result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
-			return
-		}
-		updates = append(updates, updatesImage...)
+		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, updater)
 	}
 	updater.SetTopLevelOpt("automated_clean",
 		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
 		ironicNode.AutomatedClean)
-	updates = append(updates, updater.Updates...)
 
-	if len(updates) != 0 {
-		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
+	if len(updater.Updates) != 0 {
+		_, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
 		switch err.(type) {
 		case nil:
 		case gophercloud.ErrDefault409:
@@ -747,9 +740,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
-	updater := updateOptsBuilder(p.debugLog)
-
+func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
 	optValues := optionsData{
 		"boot_iso": imageData.URL,
 
@@ -762,19 +753,14 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 	updater.
 		SetInstanceInfoOpts(optValues, ironicNode).
 		SetTopLevelOpt("deploy_interface", "ramdisk", ironicNode.DeployInterface)
-
-	updates = append(updates, updater.Updates...)
-	return updates, nil
 }
 
-func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
 	checksum, checksumType, ok := imageData.GetChecksum()
 	if !ok {
 		p.log.Info("image/checksum not found for host")
-		return updates, nil
+		return
 	}
-
-	updater := updateOptsBuilder(p.debugLog)
 
 	// FIXME: For older versions of ironic that do not have
 	// https://review.opendev.org/#/c/711816/ failing to include the
@@ -800,14 +786,9 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	updater.
 		SetInstanceInfoOpts(optValues, ironicNode).
 		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
-	updates = append(updates, updater.Updates...)
-
-	return updates, nil
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode) (updates nodes.UpdateOpts, err error) {
-	updater := updateOptsBuilder(p.debugLog)
-
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode, updater *nodeUpdater) {
 	// instance_uuid
 	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
@@ -824,25 +805,20 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	}
 
 	updater.SetInstanceInfoOpts(optionsData{"capabilities": capabilitiesII}, ironicNode)
-	updates = append(updates, updater.Updates...)
 
-	// Set live-iso format options
 	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
-		return p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updates)
+		// Set live-iso format options
+		p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updater)
+	} else {
+		// Set deploy_interface direct options when not booting a live-iso
+		p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updater)
 	}
-
-	// Set deploy_interface direct options when not booting a live-iso
-	return p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updates)
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) nodes.UpdateOpts {
 	updater := updateOptsBuilder(p.debugLog)
 
-	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode)
-	if err != nil {
-		return updates, errors.Wrap(err, "Could not get Image options for node")
-	}
-	updates = append(updates, imageOpts...)
+	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, updater)
 
 	opts := optionsData{
 		"root_device": devicehints.MakeHintMap(data.RootDeviceHints),
@@ -856,8 +832,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 	}
 	updater.SetPropertiesOpts(opts, ironicNode)
 
-	updates = append(updates, updater.Updates...)
-	return updates, nil
+	return updater.Updates
 }
 
 // We can't just replace the capabilities because we need to keep the
@@ -896,10 +871,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	updates, err := p.getUpdateOptsForNode(ironicNode, data)
-	if err != nil {
-		return transientError(errors.Wrap(err, "failed to update opts for node"))
-	}
+	updates := p.getUpdateOptsForNode(ironicNode, data)
 	if len(updates) > 0 {
 		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
 		switch err.(type) {

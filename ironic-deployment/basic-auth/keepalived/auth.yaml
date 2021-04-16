@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: metal3-ironic
+  name: capm3-ironic
 spec:
   template:
     spec:

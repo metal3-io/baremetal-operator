@@ -115,15 +115,15 @@ func init() {
 	}
 	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")
 	if ironicTrustedCAFile == "" {
-		ironicTrustedCAFile = "/opt/metal3/certs/ca/crt"
+		ironicTrustedCAFile = "/opt/metal3/certs/ca/tls.crt"
 	}
 	ironicClientCertFile = os.Getenv("IRONIC_CLIENT_CERT_FILE")
 	if ironicClientCertFile == "" {
-		ironicClientCertFile = "/opt/metal3/certs/client/crt"
+		ironicClientCertFile = "/opt/metal3/certs/client/tls.crt"
 	}
 	ironicClientPrivKeyFile = os.Getenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
 	if ironicClientPrivKeyFile == "" {
-		ironicClientPrivKeyFile = "/opt/metal3/certs/client/key"
+		ironicClientPrivKeyFile = "/opt/metal3/certs/client/tls.key"
 	}
 	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
 	if strings.ToLower(ironicInsecureStr) == "true" {

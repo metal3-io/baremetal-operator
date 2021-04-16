@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: metal3-ironic
+  name: capm3-ironic
 spec:
   template:
     spec:
@@ -68,10 +68,10 @@ spec:
       volumes:
       - name: cert-ironic-ca
         secret:
-          secretName: ironic-ca-cert
+          secretName: ironic-cacert
       - name: cert-ironic-inspector-ca
         secret:
-          secretName: ironic-inspector-ca-cert
+          secretName: ironic-cacert
       - name: cert-ironic
         secret:
           secretName: ironic-cert
@@ -83,4 +83,4 @@ spec:
           secretName: mariadb-cert
       - name: cert-mariadb-ca
         secret:
-          secretName: mariadb-ca-cert
+          secretName: ironic-cacert

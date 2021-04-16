@@ -1,35 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: metal3
+namespace: capm3-system
 resources:
 - ../../default
-
-secretGenerator:
-- name: ironic-ca-cert
-  files:
-  - tls.crt=ironic-ca.crt
-- name: ironic-inspector-ca-cert
-  files:
-  - tls.crt=ironic-inspector-ca.crt
-- name: ironic-cert
-  files:
-  - tls.crt=ironic.crt
-  - tls.key=ironic.key
-  type: "kubernetes.io/tls"
-- name: ironic-inspector-cert
-  files:
-  - tls.crt=ironic-inspector.crt
-  - tls.key=ironic-inspector.key
-  type: "kubernetes.io/tls"
-- name: mariadb-ca-cert
-  files:
-  - tls.crt=mariadb-ca.crt
-- name: mariadb-cert
-  files:
-  - tls.crt=mariadb.crt
-  - tls.key=mariadb.key
-  type: "kubernetes.io/tls"
+- ../../certmanager
 
 patchesStrategicMerge:
 - tls.yaml
-

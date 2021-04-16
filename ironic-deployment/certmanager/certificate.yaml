@@ -1,0 +1,69 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: capm3-system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ironic-cacert
+  namespace: capm3-system
+spec:
+  isCA: true
+  ipAddresses:
+  - IRONIC_HOST_IP
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: ironic-cacert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ca-issuer
+  namespace: capm3-system
+spec:
+  ca:
+    secretName: ironic-cacert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ironic-cert
+  namespace: capm3-system
+spec:
+  ipAddresses:
+  - IRONIC_HOST_IP
+  issuerRef:
+    kind: Issuer
+    name: ca-issuer
+  secretName: ironic-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ironic-inspector-cert
+  namespace: capm3-system
+spec:
+  ipAddresses:
+  - IRONIC_HOST_IP
+  issuerRef:
+    kind: Issuer
+    name: ca-issuer
+  secretName: ironic-inspector-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mariadb-cert
+  namespace: capm3-system
+spec:
+  ipAddresses:
+  - MARIADB_HOST_IP
+  issuerRef:
+    kind: Issuer
+    name: ca-issuer
+  secretName: mariadb-cert

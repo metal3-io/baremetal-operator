@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: metal3-ironic
+  name: capm3-ironic
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: metal3-ironic
+      name: capm3-ironic
   template:
     metadata:
       labels:
-        name: metal3-ironic
+        name: capm3-ironic
     spec:
       hostNetwork: true
       containers:

@@ -10,5 +10,7 @@ go:
 
 env:
   - TARGET=docker
-
+  - TARGET=unit-verbose
+  - TARGET=lint
+  
 script: make $TARGET

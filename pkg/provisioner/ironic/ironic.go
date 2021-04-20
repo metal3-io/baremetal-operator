@@ -518,18 +518,10 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
 		ironicNode.AutomatedClean)
 
-	if len(updater.Updates) != 0 {
-		_, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not update host driver settings, busy")
-			result, err = retryAfterDelay(provisionRequeueDelay)
-			return
-		default:
-			result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
-			return
-		}
+	var success bool
+	success, result, err = p.tryUpdateNode(ironicNode, updater)
+	if !success {
+		return
 	}
 	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	// if err != nil {
@@ -588,6 +580,26 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	default:
 		return
 	}
+}
+
+func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {
+	if len(updater.Updates) == 0 {
+		success = true
+		return
+	}
+
+	p.log.Info("updating node settings in ironic")
+	_, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
+	switch err.(type) {
+	case nil:
+		success = true
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not update node settings in ironic, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+	default:
+		result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+	}
+	return
 }
 
 func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (success bool, result provisioner.Result, err error) {
@@ -653,29 +665,19 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 				}
 				fallthrough
 			default:
-				p.log.Info("updating boot mode before hardware inspection")
-
-				updates := updateOptsBuilder(p.debugLog).
-					SetPropertiesOpts(optionsData{
-						"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
-					}, ironicNode).
-					Updates
-				if len(updates) > 0 {
-					_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-					switch err.(type) {
-					case nil:
-					case gophercloud.ErrDefault409:
-						p.log.Info("could not update host settings in ironic, busy")
-						result, err = retryAfterDelay(provisionRequeueDelay)
-						return
-					default:
-						result, err = transientError(errors.Wrap(err, "failed to update host boot mode settings in ironic"))
-						return
-					}
+				var success bool
+				success, result, err = p.tryUpdateNode(
+					ironicNode,
+					updateOptsBuilder(p.debugLog).
+						SetPropertiesOpts(optionsData{
+							"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+						}, ironicNode),
+				)
+				if !success {
+					return
 				}
 
 				p.log.Info("starting new hardware inspection")
-				var success bool
 				success, result, err = p.tryChangeNodeProvisionState(
 					ironicNode,
 					nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
@@ -815,7 +817,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	}
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) nodes.UpdateOpts {
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
 	updater := updateOptsBuilder(p.debugLog)
 
 	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, updater)
@@ -832,7 +834,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 	}
 	updater.SetPropertiesOpts(opts, ironicNode)
 
-	return updater.Updates
+	return updater
 }
 
 // We can't just replace the capabilities because we need to keep the
@@ -871,17 +873,10 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	updates := p.getUpdateOptsForNode(ironicNode, data)
-	if len(updates) > 0 {
-		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not update host settings in ironic, busy")
-			return retryAfterDelay(provisionRequeueDelay)
-		default:
-			return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
-		}
+	success, result, err := p.tryUpdateNode(ironicNode,
+		p.getUpdateOptsForNode(ironicNode, data))
+	if !success {
+		return
 	}
 
 	p.log.Info("validating host settings")
@@ -1249,18 +1244,13 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 }
 
 func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
-	_, err = nodes.Update(
-		p.client,
-		ironicNode.UUID,
-		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil).Updates,
-	).Extract()
-	switch err.(type) {
-	case nil:
-	case gophercloud.ErrDefault409:
-		p.log.Info("could not set host maintenance flag, busy")
-		return retryAfterDelay(provisionRequeueDelay)
-	default:
-		return transientError(errors.Wrap(err, "failed to set host maintenance flag"))
+	success, result, err := p.tryUpdateNode(ironicNode,
+		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil))
+	if err != nil {
+		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
+	}
+	if !success {
+		return
 	}
 	return operationContinuing(0)
 }

@@ -403,7 +403,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	var ironicNode *nodes.Node
-	var updates nodes.UpdateOpts
+	updater := updateOptsBuilder(p.debugLog)
 
 	p.debugLog.Info("validating management access")
 
@@ -499,72 +499,29 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// if there are differences.
 		provID = ironicNode.UUID
 
-		if ironicNode.Name != ironicNodeName(p.objectMeta) {
-			updates = append(
-				updates,
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/name",
-					Value: ironicNodeName(p.objectMeta),
-				},
-			)
-		}
+		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
 
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
 		if credentialsChanged {
-			updates = append(
-				updates,
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/driver_info",
-					Value: driverInfo,
-				},
-			)
-			// We don't return here because we also have to set the
-			// target provision state to manageable, which happens
-			// below.
+			updater.SetTopLevelOpt("driver_info", driverInfo, nil)
 		}
+
+		// We don't return here because we also have to set the
+		// target provision state to manageable, which happens
+		// below.
 	}
 	if data.CurrentImage != nil {
-		updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
-		if optsErr != nil {
-			result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
-			return
-		}
-		if len(updatesImage) != 0 {
-			updates = append(updates, updatesImage...)
-		}
+		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, updater)
 	}
-	if ironicNode.AutomatedClean == nil ||
-		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled && *ironicNode.AutomatedClean) ||
-		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeMetadata && !*ironicNode.AutomatedClean) {
-		p.log.Info("setting automated cleaning mode to",
-			"ID", ironicNode.UUID,
-			"mode", data.AutomatedCleaningMode)
+	updater.SetTopLevelOpt("automated_clean",
+		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
+		ironicNode.AutomatedClean)
 
-		value := data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/automated_clean",
-				Value: value,
-			},
-		)
-	}
-	if len(updates) != 0 {
-		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not update host driver settings, busy")
-			result, err = retryAfterDelay(provisionRequeueDelay)
-			return
-		default:
-			result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
-			return
-		}
+	var success bool
+	success, result, err = p.tryUpdateNode(ironicNode, updater)
+	if !success {
+		return
 	}
 	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	// if err != nil {
@@ -623,6 +580,26 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	default:
 		return
 	}
+}
+
+func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {
+	if len(updater.Updates) == 0 {
+		success = true
+		return
+	}
+
+	p.log.Info("updating node settings in ironic")
+	_, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
+	switch err.(type) {
+	case nil:
+		success = true
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not update node settings in ironic, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+	default:
+		result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+	}
+	return
 }
 
 func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (success bool, result provisioner.Result, err error) {
@@ -688,29 +665,19 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 				}
 				fallthrough
 			default:
-				p.log.Info("updating boot mode before hardware inspection")
-				op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
-				updates := nodes.UpdateOpts{
-					nodes.UpdateOperation{
-						Op:    op,
-						Path:  "/properties/capabilities",
-						Value: value,
-					},
-				}
-				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-				switch err.(type) {
-				case nil:
-				case gophercloud.ErrDefault409:
-					p.log.Info("could not update host settings in ironic, busy")
-					result, err = retryAfterDelay(provisionRequeueDelay)
-					return
-				default:
-					result, err = transientError(errors.Wrap(err, "failed to update host boot mode settings in ironic"))
+				var success bool
+				success, result, err = p.tryUpdateNode(
+					ironicNode,
+					updateOptsBuilder(p.debugLog).
+						SetPropertiesOpts(optionsData{
+							"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+						}, ironicNode),
+				)
+				if !success {
 					return
 				}
 
 				p.log.Info("starting new hardware inspection")
-				var success bool
 				success, result, err = p.tryChangeNodeProvisionState(
 					ironicNode,
 					nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
@@ -775,297 +742,99 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
-	var op nodes.UpdateOp
+func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
+	optValues := optionsData{
+		"boot_iso": imageData.URL,
 
-	if _, ok := ironicNode.InstanceInfo["boot_iso"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding boot_iso")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating boot_iso")
+		// remove any image_source or checksum options
+		"image_source":        nil,
+		"image_os_hash_value": nil,
+		"image_os_hash_algo":  nil,
+		"image_checksum":      nil,
 	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/boot_iso",
-			Value: imageData.URL,
-		},
-	)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    nodes.ReplaceOp,
-			Path:  "/deploy_interface",
-			Value: "ramdisk",
-		},
-	)
-	// remove any image_source or checksum options
-	removals := []string{
-		"image_source", "image_os_hash_value", "image_os_hash_algo", "image_checksum"}
-	op = nodes.RemoveOp
-	for _, item := range removals {
-		if _, ok := ironicNode.InstanceInfo[item]; ok {
-			p.log.Info("removing " + item)
-			updates = append(
-				updates,
-				nodes.UpdateOperation{
-					Op:   op,
-					Path: "/instance_info/" + item,
-				},
-			)
-		}
-	}
-	return updates, nil
+	updater.
+		SetInstanceInfoOpts(optValues, ironicNode).
+		SetTopLevelOpt("deploy_interface", "ramdisk", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
 	checksum, checksumType, ok := imageData.GetChecksum()
 	if !ok {
 		p.log.Info("image/checksum not found for host")
-		return updates, nil
+		return
 	}
 
-	var op nodes.UpdateOp
-
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    nodes.ReplaceOp,
-			Path:  "/deploy_interface",
-			Value: "direct",
-		},
-	)
-	// Remove any boot_iso field
-	if _, ok := ironicNode.InstanceInfo["boot_iso"]; ok {
-		p.log.Info("removing boot_iso")
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:   nodes.RemoveOp,
-				Path: "/instance_info/boot_iso",
-			},
-		)
-	}
-	// image_source
-	if _, ok := ironicNode.InstanceInfo["image_source"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding image_source")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating image_source")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/image_source",
-			Value: imageData.URL,
-		},
-	)
-
-	// image_os_hash_algo
-	if _, ok := ironicNode.InstanceInfo["image_os_hash_algo"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding image_os_hash_algo")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating image_os_hash_algo")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/image_os_hash_algo",
-			Value: checksumType,
-		},
-	)
-
-	// image_os_hash_value
-	if _, ok := ironicNode.InstanceInfo["image_os_hash_value"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding image_os_hash_value")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating image_os_hash_value")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/instance_info/image_os_hash_value",
-			Value: checksum,
-		},
-	)
-
-	// image_checksum
-	//
 	// FIXME: For older versions of ironic that do not have
 	// https://review.opendev.org/#/c/711816/ failing to include the
 	// 'image_checksum' causes ironic to refuse to provision the
 	// image, even if the other hash value parameters are given. We
 	// only want to do that for MD5, however, because those versions
 	// of ironic only support MD5 checksums.
+	var legacyChecksum *string
 	if checksumType == string(metal3v1alpha1.MD5) {
-		if _, ok := ironicNode.InstanceInfo["image_checksum"]; !ok {
-			op = nodes.AddOp
-			p.log.Info("adding image_checksum")
-		} else {
-			op = nodes.ReplaceOp
-			p.log.Info("updating image_checksum")
-		}
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    op,
-				Path:  "/instance_info/image_checksum",
-				Value: checksum,
-			},
-		)
+		legacyChecksum = &checksum
 	}
 
-	if imageData.DiskFormat != nil {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:    nodes.AddOp,
-			Path:  "/instance_info/image_disk_format",
-			Value: *imageData.DiskFormat,
-		})
-	}
+	optValues := optionsData{
+		// Remove any boot_iso field
+		"boot_iso": nil,
 
-	return updates, nil
+		"image_source":        imageData.URL,
+		"image_os_hash_algo":  checksumType,
+		"image_os_hash_value": checksum,
+		"image_checksum":      legacyChecksum,
+		"image_disk_format":   imageData.DiskFormat,
+	}
+	updater.
+		SetInstanceInfoOpts(optValues, ironicNode).
+		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode) (updates nodes.UpdateOpts, err error) {
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode, updater *nodeUpdater) {
 	// instance_uuid
-	p.log.Info("setting instance_uuid")
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    nodes.ReplaceOp,
-			Path:  "/instance_uuid",
-			Value: string(p.objectMeta.UID),
-		},
-	)
+	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
 	// Secure boot is a normal capability that goes into instance_info (we
 	// also put it to properties for consistency, although it's not
 	// strictly required in our case).
 
+	// Instance info capabilities were invented later and
+	// use a normal JSON mapping instead of a custom
+	// string value.
+	capabilitiesII := map[string]string{}
 	if bootMode == metal3v1alpha1.UEFISecureBoot {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:   nodes.AddOp,
-			Path: "/instance_info/capabilities",
-			// Instance info capabilities were invented later and
-			// use a normal JSON mapping instead of a custom
-			// string value.
-			Value: map[string]string{
-				"secure_boot": "true",
-			},
-		})
-	} else {
-		updates = append(updates, nodes.UpdateOperation{
-			Op:    nodes.AddOp,
-			Path:  "/instance_info/capabilities",
-			Value: map[string]string{},
-		})
+		capabilitiesII["secure_boot"] = "true"
 	}
 
-	// Set live-iso format options
+	updater.SetInstanceInfoOpts(optionsData{"capabilities": capabilitiesII}, ironicNode)
+
 	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
-		return p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updates)
+		// Set live-iso format options
+		p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updater)
+	} else {
+		// Set deploy_interface direct options when not booting a live-iso
+		p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updater)
 	}
-
-	// Set deploy_interface direct options when not booting a live-iso
-	return p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updates)
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) (updates nodes.UpdateOpts, err error) {
-	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode)
-	if err != nil {
-		return updates, errors.Wrap(err, "Could not get Image options for node")
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
+	updater := updateOptsBuilder(p.debugLog)
+
+	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, updater)
+
+	opts := optionsData{
+		"root_device": devicehints.MakeHintMap(data.RootDeviceHints),
+
+		// FIXME(dhellmann): This should come from inspecting the host.
+		"cpu_arch": data.HardwareProfile.CPUArch,
+
+		"local_gb": data.HardwareProfile.LocalGB,
+
+		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 	}
-	updates = append(updates, imageOpts...)
+	updater.SetPropertiesOpts(opts, ironicNode)
 
-	// root_device
-	//
-	// FIXME(dhellmann): We need to specify the root device to receive
-	// the image. That should come from some combination of inspecting
-	// the host to see what is available and the hardware profile to
-	// give us instructions.
-	var op nodes.UpdateOp
-	if _, ok := ironicNode.Properties["root_device"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding root_device")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating root_device")
-	}
-
-	// hints
-	//
-	// If the user has provided explicit root device hints, they take
-	// precedence. Otherwise use the values from the hardware profile.
-	hints := devicehints.MakeHintMap(data.RootDeviceHints)
-	p.log.Info("using root device", "hints", hints)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/root_device",
-			Value: hints,
-		},
-	)
-
-	// cpu_arch
-	//
-	// FIXME(dhellmann): This should come from inspecting the
-	// host.
-	if _, ok := ironicNode.Properties["cpu_arch"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding cpu_arch")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating cpu_arch")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/cpu_arch",
-			Value: data.HardwareProfile.CPUArch,
-		},
-	)
-
-	// local_gb
-	if _, ok := ironicNode.Properties["local_gb"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding local_gb")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating local_gb")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/local_gb",
-			Value: data.HardwareProfile.LocalGB,
-		},
-	)
-
-	// boot_mode
-	op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/capabilities",
-			Value: value,
-		},
-	)
-
-	return updates, nil
+	return updater
 }
 
 // We can't just replace the capabilities because we need to keep the
@@ -1074,23 +843,19 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 // look at the existing value and modify it. This function
 // encapsulates the logic for building the value and knowing which
 // update operation to use with the results.
-func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) (op nodes.UpdateOp, value string) {
+func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) string {
 
 	capabilities, ok := ironicNode.Properties["capabilities"]
 	if !ok {
 		// There is no existing capabilities value
-		return nodes.AddOp, bootModeCapabilities[bootMode]
+		return bootModeCapabilities[bootMode]
 	}
 	existingCapabilities := capabilities.(string)
-
-	// The capabilities value is set, so we will want to replace it.
-	op = nodes.ReplaceOp
 
 	if existingCapabilities == "" {
 		// The existing value is empty so we can replace the whole
 		// thing.
-		value = bootModeCapabilities[bootMode]
-		return
+		return bootModeCapabilities[bootMode]
 	}
 
 	var filteredCapabilities []string
@@ -1101,26 +866,17 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	}
 	filteredCapabilities = append(filteredCapabilities, bootModeCapabilities[bootMode])
 
-	value = strings.Join(filteredCapabilities, ",")
-	return
+	return strings.Join(filteredCapabilities, ",")
 }
 
 func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	updates, err := p.getUpdateOptsForNode(ironicNode, data)
-	if err != nil {
-		return transientError(errors.Wrap(err, "failed to update opts for node"))
-	}
-	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-	switch err.(type) {
-	case nil:
-	case gophercloud.ErrDefault409:
-		p.log.Info("could not update host settings in ironic, busy")
-		return retryAfterDelay(provisionRequeueDelay)
-	default:
-		return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+	success, result, err := p.tryUpdateNode(ironicNode,
+		p.getUpdateOptsForNode(ironicNode, data))
+	if !success {
+		return
 	}
 
 	p.log.Info("validating host settings")
@@ -1488,24 +1244,13 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 }
 
 func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
-	_, err = nodes.Update(
-		p.client,
-		ironicNode.UUID,
-		nodes.UpdateOpts{
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/maintenance",
-				Value: value,
-			},
-		},
-	).Extract()
-	switch err.(type) {
-	case nil:
-	case gophercloud.ErrDefault409:
-		p.log.Info("could not set host maintenance flag, busy")
-		return retryAfterDelay(provisionRequeueDelay)
-	default:
-		return transientError(errors.Wrap(err, "failed to set host maintenance flag"))
+	success, result, err := p.tryUpdateNode(ironicNode,
+		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil))
+	if err != nil {
+		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
+	}
+	if !success {
+		return
 	}
 	return operationContinuing(0)
 }

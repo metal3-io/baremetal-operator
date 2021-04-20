@@ -149,7 +149,7 @@ func deleteTest(t *testing.T, detach bool) {
 			expectedDirty:        true,
 			expectedRequestAfter: 0,
 			expectedUpdate: &nodes.UpdateOperation{
-				Op:    "replace",
+				Op:    nodes.AddOp,
 				Path:  "/maintenance",
 				Value: true,
 			},

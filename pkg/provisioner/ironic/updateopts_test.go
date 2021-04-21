@@ -262,12 +262,12 @@ func TestOptionValueEqual(t *testing.T) {
 
 func TestGetUpdateOperation(t *testing.T) {
 	var nilp *string
-	bar_exist := "bar"
+	barExist := "bar"
 	bar := "bar"
 	baz := "baz"
 	existingData := map[string]interface{}{
 		"foo":  "bar",
-		"foop": &bar_exist,
+		"foop": &barExist,
 		"nil":  nilp,
 	}
 	cases := []struct {

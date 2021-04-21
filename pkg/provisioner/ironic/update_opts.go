@@ -65,11 +65,11 @@ func deref(v interface{}) interface{} {
 	if reflect.TypeOf(v).Kind() != reflect.Ptr {
 		return v
 	}
-	if ptrVal := reflect.ValueOf(v); ptrVal.IsNil() {
+	ptrVal := reflect.ValueOf(v)
+	if ptrVal.IsNil() {
 		return nil
-	} else {
-		return ptrVal.Elem().Interface()
 	}
+	return ptrVal.Elem().Interface()
 }
 
 func getUpdateOperation(name string, currentData map[string]interface{}, desiredValue interface{}, path string, log logr.Logger) *nodes.UpdateOperation {

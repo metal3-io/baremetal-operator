@@ -433,8 +433,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	driverInfo["deploy_kernel"] = deployKernelURL
 	driverInfo["deploy_ramdisk"] = deployRamdiskURL
 
-	result, err = operationComplete()
-
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
@@ -532,6 +530,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 	)
+
+	result, err = operationComplete()
 
 	// Ensure the node is marked manageable.
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {

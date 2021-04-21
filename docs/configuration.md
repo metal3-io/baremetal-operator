@@ -21,6 +21,17 @@ Ironic Inspector.
 `IRONIC_INSECURE` -- ("True", "False") Whether to skip the ironic certificate
 validation. It is highly recommend to not set it to True.
 
+`IRONIC_CLIENT_CERT_FILE` -- The path of the Client certificate file of Ironic,
+if needed. Both Client certificate and Client private key must be defined for
+client certificate authentication (mTLS) to be enabled.
+
+`IRONIC_CLIENT_PRIVATE_KEY_FILE` -- The path of the Client private key file of Ironic,
+if needed. Both Client certificate and Client private key must be defined for
+client certificate authentication (mTLS) to be enabled.
+
+`IRONIC_SKIP_CLIENT_SAN_VERIFY` -- ("True", "False") Whether to skip the ironic
+client certificate SAN validation.
+
 `BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
 Operator. Default is 3.
 

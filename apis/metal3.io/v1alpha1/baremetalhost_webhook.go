@@ -40,13 +40,13 @@ var _ webhook.Validator = &BareMetalHost{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *BareMetalHost) ValidateCreate() error {
 	baremetalhostlog.Info("validate create", "name", r.Name)
-	return errors.New("Arda error")
+	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *BareMetalHost) ValidateUpdate(old runtime.Object) error {
 	baremetalhostlog.Info("validate update", "name", r.Name)
-	return errors.New("Arda error")
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type

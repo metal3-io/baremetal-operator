@@ -287,6 +287,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 		nodes.Rescuing,
 		nodes.UnrescueFail,
 	}
+	clean := true
 
 	for _, status := range statuses {
 		t.Run(string(status), func(t *testing.T) {
@@ -304,6 +305,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 				Name:           host.Namespace + nameSeparator + host.Name,
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
+				AutomatedClean: &clean,
 			}).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			})
@@ -324,6 +326,93 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 			assert.Equal(t, false, result.Dirty)
+			assert.Len(t, ironic.GetLastNodeUpdateRequestFor("uuid"), 0)
+		})
+	}
+}
+
+func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
+	liveFormat := "live-iso"
+	imageTypes := []struct {
+		DeployInterface string
+		Image           *metal3v1alpha1.Image
+		InstanceInfo    map[string]interface{}
+	}{
+		{
+			DeployInterface: "",
+			InstanceInfo: map[string]interface{}{
+				"capabilities": map[string]interface{}{},
+			},
+		},
+		{
+			DeployInterface: "direct",
+			Image: &metal3v1alpha1.Image{
+				URL:      "theimage",
+				Checksum: "thechecksum",
+			},
+			InstanceInfo: map[string]interface{}{
+				"image_source":        "theimage",
+				"image_os_hash_algo":  "md5",
+				"image_os_hash_value": "thechecksum",
+				"image_checksum":      "thechecksum",
+				"capabilities":        map[string]interface{}{},
+			},
+		},
+		{
+			DeployInterface: "ramdisk",
+			Image: &metal3v1alpha1.Image{
+				URL:        "theimage",
+				DiskFormat: &liveFormat,
+			},
+			InstanceInfo: map[string]interface{}{
+				"boot_iso":     "theimage",
+				"capabilities": map[string]interface{}{},
+			},
+		},
+	}
+	clean := true
+
+	for _, imageType := range imageTypes {
+		t.Run(imageType.DeployInterface, func(t *testing.T) {
+			// Create a host without a bootMACAddress and with a BMC that
+			// does not require one.
+			host := makeHost()
+			host.Spec.BootMACAddress = ""
+			host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+			createCallback := func(node nodes.Node) {
+				t.Fatal("create callback should not be invoked for existing node")
+			}
+
+			ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(nodes.Node{
+				Name:            host.Namespace + nameSeparator + host.Name,
+				UUID:            "uuid", // to match status in host
+				ProvisionState:  string(nodes.Manageable),
+				AutomatedClean:  &clean,
+				InstanceUUID:    string(host.UID),
+				DeployInterface: imageType.DeployInterface,
+				InstanceInfo:    imageType.InstanceInfo,
+			}).NodeUpdate(nodes.Node{
+				UUID: "uuid",
+			})
+			ironic.Start()
+			defer ironic.Stop()
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
+				ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+			)
+			if err != nil {
+				t.Fatalf("could not create provisioner: %s", err)
+			}
+
+			result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{CurrentImage: imageType.Image}, false, false)
+			if err != nil {
+				t.Fatalf("error from ValidateManagementAccess: %s", err)
+			}
+			assert.Equal(t, "", result.ErrorMessage)
+			assert.Equal(t, false, result.Dirty)
+			assert.Len(t, ironic.GetLastNodeUpdateRequestFor("uuid"), 0)
 		})
 	}
 }
@@ -371,6 +460,11 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 			assert.Equal(t, true, result.Dirty)
+
+			updates := ironic.GetLastNodeUpdateRequestFor("uuid")
+			assert.Len(t, updates, 1)
+			assert.Equal(t, "/automated_clean", updates[0].Path)
+			assert.Equal(t, true, updates[0].Value)
 		})
 	}
 }
@@ -415,6 +509,7 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	assert.Equal(t, "uuid", provID)
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
+	assert.Equal(t, "/driver_info", updates[0].Path)
 	newValues := updates[0].Value.(map[string]interface{})
 	assert.Equal(t, "test.bmc", newValues["test_address"])
 }

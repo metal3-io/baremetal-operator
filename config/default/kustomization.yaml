@@ -58,7 +58,6 @@ vars:
 # Add ironic configmap-generator
 generatorOptions:
  disableNameSuffixHash: true
-
 configMapGenerator:
 - behavior: create
   envs:

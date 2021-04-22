@@ -20,4 +20,4 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: baremetal-operator-serving-cert
+            secretName: webhook-server-cert

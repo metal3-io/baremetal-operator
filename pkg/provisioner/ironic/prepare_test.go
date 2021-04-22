@@ -35,8 +35,8 @@ func TestPrepare(t *testing.T) {
 			}),
 			unprepared:           true,
 			expectedStarted:      true,
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
 		},
 		{
 			name: "manageable state(have clean steps)",
@@ -121,6 +121,17 @@ func TestPrepare(t *testing.T) {
 			name: "manageable state(manual clean finished)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "available state(automated clean finished)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
 			}),
 			existRaidConfig:      true,

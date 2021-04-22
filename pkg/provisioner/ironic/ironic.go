@@ -1168,6 +1168,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 			// nothing to do
 			started = true
 		}
+		// Automated clean finished
 		result, err = operationComplete()
 
 	case nodes.Manageable:
@@ -1180,7 +1181,10 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 			started = true
 		}
 		// Manual clean finished
-		result, err = operationComplete()
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetProvide},
+		)
 
 	case nodes.CleanFail:
 		// When clean failed, we need to clean host provisioning settings.

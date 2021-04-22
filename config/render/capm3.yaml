@@ -1066,7 +1066,7 @@ spec:
         envFrom:
         - configMapRef:
             name: baremetal-operator-ironic
-        image: baremetal-operator:latest
+        image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
@@ -1088,7 +1088,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: baremetal-operator-serving-cert
+          secretName: webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -1102,7 +1102,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: baremetal-operator-selfsigned-issuer
-  secretName: baremetal-operator-serving-cert
+  secretName: webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer

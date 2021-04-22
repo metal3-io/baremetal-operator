@@ -51,6 +51,29 @@ func TestPrepare(t *testing.T) {
 			expectedDirty:        true,
 		},
 		{
+			name: "available state(haven't clean steps)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			expectedStarted:      false,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+		},
+		{
+			name: "available state(have clean steps)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
 			name: "cleanFail state(cleaned provision settings)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanFail),

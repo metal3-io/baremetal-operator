@@ -750,18 +750,15 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
-	// Save provisioning settings.
-	provisioningSettings := info.host.Status.Provisioning.DeepCopy()
-	dirty, err := saveHostProvisioningSettings(info.host)
+	dirty, newStatus, err := getHostProvisioningSettings(info.host)
 	if err != nil {
-		return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
+		return actionError{err}
 	}
 
 	prepareData := provisioner.PrepareData{
-		RAIDConfig:      info.host.Status.Provisioning.RAID.DeepCopy(),
-		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		RAIDConfig:      newStatus.Provisioning.RAID.DeepCopy(),
+		RootDeviceHints: newStatus.Provisioning.RootDeviceHints.DeepCopy(),
 	}
-	// Do prepare(manual clean).
 	provResult, started, err := prov.Prepare(prepareData, dirty)
 	if err != nil {
 		return actionError{errors.Wrap(err, "error preparing host")}
@@ -773,19 +770,24 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		return recordActionFailure(info, metal3v1alpha1.PreparationError, provResult.ErrorMessage)
 	}
 
+	if dirty && started {
+		info.log.Info("saving host provisioning settings")
+		_, err := saveHostProvisioningSettings(info.host)
+		if err != nil {
+			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
+		}
+	}
+	if clearError(info.host) {
+		dirty = true
+	}
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) || (dirty && started) {
-			// If clearError return true, but started is false, restore provisioningSettings.
-			if dirty && !started {
-				info.host.Status.Provisioning = *provisioningSettings
-			}
+		if dirty {
 			return actionUpdate{result}
 		}
 		return result
 	}
 
-	clearError(info.host)
 	return actionComplete{}
 }
 
@@ -1037,9 +1039,9 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.NeedsProvisioning() {
 		// Ensure the provisioning settings we're going to use are stored.
-		dirty, err := saveHostProvisioningSettings(info.host)
+		dirty, _, err := getHostProvisioningSettings(info.host)
 		if err != nil {
-			return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
+			return actionError{err}
 		}
 		if dirty {
 			info.log.Info("Host provisioning settings have been updated, go back to Preparing state")
@@ -1050,6 +1052,16 @@ func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner
 		return actionComplete{}
 	}
 	return r.manageHostPower(prov, info)
+}
+
+func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
+	hostCopy := host.DeepCopy()
+	dirty, err = saveHostProvisioningSettings(hostCopy)
+	if err != nil {
+		err = errors.Wrap(err, "could not determine the host provisioning settings")
+	}
+	status = &hostCopy.Status
+	return
 }
 
 // saveHostProvisioningSettings copies the values related to

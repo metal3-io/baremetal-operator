@@ -222,6 +222,7 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-log-wat
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     --entrypoint /bin/runironic-inspector \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"
 
 # Start httpd reverse proxy for Ironic Inspector

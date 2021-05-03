@@ -287,10 +287,6 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 
 	pager := ports.List(p.client, opts)
 
-	if pager.Err != nil {
-		return allPorts, pager.Err
-	}
-
 	allPages, err := pager.AllPages()
 
 	if err != nil {
@@ -329,9 +325,6 @@ func (p *ironicProvisioner) nodeHasAssignedPort(ironicNode *nodes.Node) (bool, e
 	}
 
 	pager := ports.List(p.client, opts)
-	if pager.Err != nil {
-		return false, errors.Wrap(pager.Err, "failed to list ports")
-	}
 
 	allPages, err := pager.AllPages()
 	if err != nil {
@@ -1696,9 +1689,6 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 	pager := nodes.List(p.client, nodes.ListOpts{
 		Fields: []string{"uuid,name,provision_state,driver_internal_info,target_provision_state"},
 	})
-	if pager.Err != nil {
-		return nil, pager.Err
-	}
 
 	page, err := pager.AllPages()
 	if err != nil {

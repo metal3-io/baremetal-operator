@@ -64,6 +64,7 @@ test: generate lint manifests unit ## Run common developer tests
 .PHONY: unit
 unit: ## Run unit tests
 	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
+	cd apis/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage

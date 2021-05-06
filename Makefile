@@ -19,7 +19,8 @@ BIN_DIR := bin
 
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen
-GOLANGCI_LINT ?= GOLANGCI_LINT_CACHE=$(GOLANGCI_LINT_CACHE) go run github.com/golangci/golangci-lint/cmd/golangci-lint
+GOLANGCI_INSTALL_LINT ?= curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.39.0
+GOLANGCI_LINT ?= bin/golangci-lint
 KUSTOMIZE ?= go run sigs.k8s.io/kustomize/kustomize/v3
 
 # See pkg/version.go for details
@@ -70,6 +71,8 @@ unit: ## Run unit tests
 unit-cover: ## Run unit tests with code coverage
 	go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
 	go tool cover -func=$(COVER_PROFILE)
+	cd apis/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
+	cd apis/ && go tool cover -func=$(COVER_PROFILE)
 
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
@@ -84,7 +87,9 @@ linters: lint generate-check fmt-check
 
 .PHONY: lint
 lint:
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_INSTALL_LINT)
+	./$(GOLANGCI_LINT) run
+	cd apis/ && ./../$(GOLANGCI_LINT) run
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation

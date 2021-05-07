@@ -19,8 +19,7 @@ BIN_DIR := bin
 
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen
-GOLANGCI_INSTALL_LINT ?= curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.39.0
-GOLANGCI_LINT ?= bin/golangci-lint
+GOLANGCI_LINT ?= GOLANGCI_LINT_CACHE=$(GOLANGCI_LINT_CACHE) go run github.com/golangci/golangci-lint/cmd/golangci-lint
 KUSTOMIZE ?= go run sigs.k8s.io/kustomize/kustomize/v3
 
 # See pkg/version.go for details
@@ -87,9 +86,7 @@ linters: lint generate-check fmt-check
 
 .PHONY: lint
 lint:
-	$(GOLANGCI_INSTALL_LINT)
-	./$(GOLANGCI_LINT) run
-	cd apis/ && ./../$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation

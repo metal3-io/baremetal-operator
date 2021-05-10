@@ -51,7 +51,7 @@ spec:
           mountPath: "/certs/ca/mariadb"
           readOnly: true
       - name: httpd-reverse-proxy
-        image: quay.io/metal3-io/ironic-inspector
+        image: quay.io/metal3-io/ironic
         imagePullPolicy: Always
         envFrom:
           - configMapRef:

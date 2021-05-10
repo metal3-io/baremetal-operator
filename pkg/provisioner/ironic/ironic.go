@@ -308,10 +308,6 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 
 	pager := ports.List(p.client, opts)
 
-	if pager.Err != nil {
-		return allPorts, pager.Err
-	}
-
 	allPages, err := pager.AllPages()
 
 	if err != nil {
@@ -340,6 +336,50 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 		return nil, errors.Wrap(err,
 			fmt.Sprintf("failed to find node by ID %s", p.nodeID))
 	}
+}
+
+// Verifies that node has port assigned by Ironic.
+func (p *ironicProvisioner) nodeHasAssignedPort(ironicNode *nodes.Node) (bool, error) {
+	opts := ports.ListOpts{
+		Fields:   []string{"node_uuid"},
+		NodeUUID: ironicNode.UUID,
+	}
+
+	pager := ports.List(p.client, opts)
+
+	allPages, err := pager.AllPages()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to page over list of ports")
+	}
+
+	empty, err := allPages.IsEmpty()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to check port list status")
+	}
+
+	if empty {
+		p.debugLog.Info("node has no assigned port")
+		return false, nil
+	}
+
+	p.debugLog.Info("node has assigned port")
+	return true, nil
+}
+
+// Verify that MAC is already allocated to some node port.
+func (p *ironicProvisioner) isAddressAllocatedToPort(address string) (bool, error) {
+	allPorts, err := p.listAllPorts(address)
+	if err != nil {
+		return false, errors.Wrap(err, fmt.Sprintf("failed to list ports for %s", address))
+	}
+
+	if len(allPorts) == 0 {
+		p.debugLog.Info("address does not have allocated ports", "address", address)
+		return false, nil
+	}
+
+	p.debugLog.Info("address is allocated to port", "address", address)
+	return true, nil
 }
 
 // Look for an existing registration for the host in Ironic.
@@ -408,6 +448,25 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 	// Either the node was never created or the Ironic database has
 	// been dropped.
 	return nil, nil
+}
+
+func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) error {
+	p.log.Info("creating PXE enabled ironic port for node", "NodeUUID", uuid, "MAC", macAddress)
+
+	enable := true
+
+	_, err := ports.Create(
+		p.client,
+		ports.CreateOpts{
+			NodeUUID:   uuid,
+			Address:    macAddress,
+			PXEEnabled: &enable,
+		}).Extract()
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to create ironic port for node: %s, MAC: %s", uuid, macAddress))
+	}
+
+	return nil
 }
 
 // ValidateManagementAccess registers the host with the provisioning
@@ -496,18 +555,9 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// If we know the MAC, create a port. Otherwise we will have
 		// to do this after we run the introspection step.
 		if p.bootMACAddress != "" {
-			enable := true
-			p.log.Info("creating port for node in ironic", "MAC",
-				p.bootMACAddress)
-			_, err = ports.Create(
-				p.client,
-				ports.CreateOpts{
-					NodeUUID:   ironicNode.UUID,
-					Address:    p.bootMACAddress,
-					PXEEnabled: &enable,
-				}).Extract()
+			err = p.createPXEEnabledNodePort(ironicNode.UUID, p.bootMACAddress)
 			if err != nil {
-				result, err = transientError(errors.Wrap(err, "failed to create port in ironic"))
+				result, err = transientError(err)
 				return
 			}
 		}
@@ -519,6 +569,34 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		provID = ironicNode.UUID
 
 		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
+
+		// When node exists but has no assigned port to it by Ironic and actuall address (MAC) is present
+		// in host config and is not allocated to different node lets try to create port for this node.
+		if p.bootMACAddress != "" {
+			var nodeHasAssignedPort, addressIsAllocatedToPort bool
+
+			nodeHasAssignedPort, err = p.nodeHasAssignedPort(ironicNode)
+			if err != nil {
+				result, err = transientError(err)
+				return
+			}
+
+			if !nodeHasAssignedPort {
+				addressIsAllocatedToPort, err = p.isAddressAllocatedToPort(p.bootMACAddress)
+				if err != nil {
+					result, err = transientError(err)
+					return
+				}
+
+				if !addressIsAllocatedToPort {
+					err = p.createPXEEnabledNodePort(ironicNode.UUID, p.bootMACAddress)
+					if err != nil {
+						result, err = transientError(err)
+						return
+					}
+				}
+			}
+		}
 
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
@@ -1632,9 +1710,6 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 	pager := nodes.List(p.client, nodes.ListOpts{
 		Fields: []string{"uuid,name,provision_state,driver_internal_info,target_provision_state"},
 	})
-	if pager.Err != nil {
-		return nil, pager.Err
-	}
 
 	page, err := pager.AllPages()
 	if err != nil {

@@ -38,7 +38,10 @@ var (
 	ironicEndpoint            string
 	inspectorEndpoint         string
 	ironicTrustedCAFile       string
+	ironicClientCertFile      string
+	ironicClientPrivKeyFile   string
 	ironicInsecure            bool
+	ironicSkipClientSANVerify bool
 	ironicAuth                clients.AuthConfig
 	inspectorAuth             clients.AuthConfig
 	maxBusyHosts              int = 20
@@ -114,9 +117,21 @@ func init() {
 	if ironicTrustedCAFile == "" {
 		ironicTrustedCAFile = "/opt/metal3/certs/ca/crt"
 	}
+	ironicClientCertFile = os.Getenv("IRONIC_CLIENT_CERT_FILE")
+	if ironicClientCertFile == "" {
+		ironicClientCertFile = "/opt/metal3/certs/client/crt"
+	}
+	ironicClientPrivKeyFile = os.Getenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+	if ironicClientPrivKeyFile == "" {
+		ironicClientPrivKeyFile = "/opt/metal3/certs/client/key"
+	}
 	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
 	if strings.ToLower(ironicInsecureStr) == "true" {
 		ironicInsecure = true
+	}
+	ironicSkipClientSANVerifyStr := os.Getenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	if strings.ToLower(ironicSkipClientSANVerifyStr) == "true" {
+		ironicSkipClientSANVerify = true
 	}
 
 	if maxHostsStr := os.Getenv("PROVISIONING_LIMIT"); maxHostsStr != "" {
@@ -175,8 +190,11 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 	hostData := provisioner.BuildHostData(host, bmcCreds)
 
 	tlsConf := clients.TLSConfig{
-		TrustedCAFile:      ironicTrustedCAFile,
-		InsecureSkipVerify: ironicInsecure,
+		TrustedCAFile:         ironicTrustedCAFile,
+		ClientCertificateFile: ironicClientCertFile,
+		ClientPrivateKeyFile:  ironicClientPrivKeyFile,
+		InsecureSkipVerify:    ironicInsecure,
+		SkipClientSANVerify:   ironicSkipClientSANVerify,
 	}
 	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings, tlsConf)
 	if err != nil {
@@ -222,8 +240,11 @@ func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (p
 	var err error
 	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
 		tlsConf := clients.TLSConfig{
-			TrustedCAFile:      ironicTrustedCAFile,
-			InsecureSkipVerify: ironicInsecure,
+			TrustedCAFile:         ironicTrustedCAFile,
+			ClientCertificateFile: ironicClientCertFile,
+			ClientPrivateKeyFile:  ironicClientPrivKeyFile,
+			InsecureSkipVerify:    ironicInsecure,
+			SkipClientSANVerify:   ironicSkipClientSANVerify,
 		}
 		clientIronicSingleton, err = clients.IronicClient(
 			ironicEndpoint, ironicAuth, tlsConf)

@@ -5,9 +5,9 @@ RUN make build
 RUN make tools
 
 RUN cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/ocp/ocp_kustomization.yaml /go/src/github.com/metal3-io/baremetal-operator/config/crd/kustomization.yaml &&\
-    make manifests &&\
+    go run sigs.k8s.io/kustomize/kustomize/v3 build config/crd > config/crd/baremetalhost.crd.yaml &&\
     mkdir /go/src/github.com/metal3-io/baremetal-operator/manifests &&\
-    cp /go/src/github.com/metal3-io/baremetal-operator/config/render/capm3.yaml /go/src/github.com/metal3-io/baremetal-operator/manifests/0000_30_baremetal-operator_01_baremetalhost.crd.yaml
+    cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/baremetalhost.crd.yaml /go/src/github.com/metal3-io/baremetal-operator/manifests/0000_30_baremetal-operator_01_baremetalhost.crd.yaml
 
 FROM registry.ci.openshift.org/ocp/4.8:base
 COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/baremetal-operator /

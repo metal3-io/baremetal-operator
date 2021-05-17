@@ -1204,6 +1204,20 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 	return bmcCredsSecret, nil
 }
 
+func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
+	// We trim surrounding whitespace because those characters are
+	// unlikely to be part of the username or password and it is
+	// common for users to encode the values with a command like
+	//
+	//     echo "my-password" | base64
+	//
+	// which introduces a trailing newline.
+	return &bmc.Credentials{
+		Username: strings.TrimSpace(string(bmcCredsSecret.Data["username"])),
+		Password: strings.TrimSpace(string(bmcCredsSecret.Data["password"])),
+	}
+}
+
 // Make sure the credentials for the management controller look
 // right and manufacture bmc.Credentials.  This does not actually try
 // to use the credentials.
@@ -1221,10 +1235,7 @@ func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Re
 		return nil, nil, &EmptyBMCAddressError{message: "Missing BMC connection detail 'Address'"}
 	}
 
-	bmcCreds = &bmc.Credentials{
-		Username: string(bmcCredsSecret.Data["username"]),
-		Password: string(bmcCredsSecret.Data["password"]),
-	}
+	bmcCreds = credentialsFromSecret(bmcCredsSecret)
 
 	// Verify that the secret contains the expected info.
 	err = bmcCreds.Validate()

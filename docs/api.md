@@ -475,6 +475,10 @@ data:
   password: cGFzc3dvcmQ=
 ```
 
+NOTE: After decoding the secret content, whitespace is stripped from
+the beginning and end before the username and password values are
+used.
+
 ## Triggering Provisioning
 
 Several conditions must be met in order to initiate provisioning.

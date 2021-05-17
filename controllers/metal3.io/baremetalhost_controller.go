@@ -1038,16 +1038,6 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 // having been provisioned. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.NeedsProvisioning() {
-		// Ensure the provisioning settings we're going to use are stored.
-		dirty, _, err := getHostProvisioningSettings(info.host)
-		if err != nil {
-			return actionError{err}
-		}
-		if dirty {
-			info.log.Info("Host provisioning settings have been updated, go back to Preparing state")
-			clearHostProvisioningSettings(info.host)
-			return actionUpdate{}
-		}
 		clearError(info.host)
 		return actionComplete{}
 	}

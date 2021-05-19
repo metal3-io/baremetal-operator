@@ -598,6 +598,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
 			State:                 info.host.Status.Provisioning.State,
 			CurrentImage:          getCurrentImage(info.host),
+			CustomDeploy:          info.host.Spec.CustomDeploy,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
@@ -817,12 +818,18 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		return actionContinue{}
 	}
 
+	var image metal3v1alpha1.Image
+	if info.host.Spec.Image != nil {
+		image = *info.host.Spec.Image.DeepCopy()
+	}
+
 	provResult, err := prov.Provision(provisioner.ProvisionData{
-		Image:           *info.host.Spec.Image.DeepCopy(),
+		Image:           image,
 		HostConfig:      hostConf,
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
 	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
@@ -845,9 +852,20 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
-	if info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
+	if info.host.Spec.Image == nil && info.host.Status.Provisioning.Image.URL != "" {
+		info.log.Info("removing deployed image in status")
+		info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
+	} else if info.host.Spec.Image != nil && info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
 		info.log.Info("updating deployed image in status")
 		info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
+	}
+
+	if info.host.Spec.CustomDeploy == nil && info.host.Status.Provisioning.CustomDeploy != nil {
+		info.log.Info("removing custom deploy from status")
+		info.host.Status.Provisioning.CustomDeploy = nil
+	} else if info.host.Spec.CustomDeploy != nil && (info.host.Status.Provisioning.CustomDeploy == nil || *(info.host.Spec.CustomDeploy) != *(info.host.Status.Provisioning.CustomDeploy)) {
+		info.log.Info("updating custom deploy in status")
+		info.host.Status.Provisioning.CustomDeploy = info.host.Spec.CustomDeploy.DeepCopy()
 	}
 
 	// After provisioning we always requeue to ensure we enter the
@@ -915,6 +933,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	// After the provisioner is done, clear the provisioning settings
 	// so we transition to the next state.
 	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
+	info.host.Status.Provisioning.CustomDeploy = nil
 	clearHostProvisioningSettings(info.host)
 
 	return actionComplete{}

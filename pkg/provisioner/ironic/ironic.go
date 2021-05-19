@@ -446,8 +446,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// target provision state to manageable, which happens
 		// below.
 	}
-	if data.CurrentImage != nil {
-		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, updater)
+	if data.CurrentImage != nil || data.CustomDeploy != nil {
+		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.CustomDeploy, updater)
 	}
 	updater.SetTopLevelOpt("automated_clean",
 		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
@@ -732,7 +732,37 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode, updater *nodeUpdater) {
+func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
+	var optValues optionsData
+	if imageData != nil && imageData.URL != "" {
+		checksum, checksumType, _ := imageData.GetChecksum()
+		// NOTE(dtantsur): all fields are optional for custom deploy
+		optValues = optionsData{
+			"boot_iso":            nil,
+			"image_checksum":      nil,
+			"image_source":        imageData.URL,
+			"image_os_hash_algo":  checksumType,
+			"image_os_hash_value": checksum,
+			"image_disk_format":   imageData.DiskFormat,
+		}
+	} else {
+		// Clean up everything
+		optValues = optionsData{
+			"boot_iso":            nil,
+			"image_checksum":      nil,
+			"image_source":        nil,
+			"image_os_hash_algo":  nil,
+			"image_os_hash_value": nil,
+			"image_disk_format":   nil,
+		}
+	}
+
+	updater.
+		SetInstanceInfoOpts(optValues, ironicNode).
+		SetTopLevelOpt("deploy_interface", "custom-agent", ironicNode.DeployInterface)
+}
+
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode, customDeploy *metal3v1alpha1.CustomDeploy, updater *nodeUpdater) {
 	// instance_uuid
 	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
@@ -750,7 +780,10 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 
 	updater.SetInstanceInfoOpts(optionsData{"capabilities": capabilitiesII}, ironicNode)
 
-	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
+	if customDeploy != nil {
+		// Custom deploy process
+		p.setCustomDeployUpdateOptsForNode(ironicNode, imageData, updater)
+	} else if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
 		// Set live-iso format options
 		p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updater)
 	} else {
@@ -762,7 +795,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
 	updater := updateOptsBuilder(p.debugLog)
 
-	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, updater)
+	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, data.CustomDeploy, updater)
 
 	opts := optionsData{
 		"root_device": devicehints.MakeHintMap(data.RootDeviceHints),
@@ -1130,6 +1163,19 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	return
 }
 
+func (p *ironicProvisioner) getCustomDeploySteps(customDeploy *metal3v1alpha1.CustomDeploy) (deploySteps []nodes.DeployStep) {
+	if customDeploy != nil && customDeploy.Method != "" {
+		deploySteps = append(deploySteps, nodes.DeployStep{
+			Interface: nodes.InterfaceDeploy,
+			Step:      customDeploy.Method,
+			Args:      map[string]interface{}{},
+			Priority:  80,
+		})
+	}
+
+	return
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
@@ -1178,6 +1224,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 			nodes.ProvisionStateOpts{
 				Target:      nodes.TargetActive,
 				ConfigDrive: configDrive,
+				DeploySteps: p.getCustomDeploySteps(data.CustomDeploy),
 			},
 		)
 
@@ -1214,6 +1261,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 			nodes.ProvisionStateOpts{
 				Target:      nodes.TargetActive,
 				ConfigDrive: configDrive,
+				DeploySteps: p.getCustomDeploySteps(data.CustomDeploy),
 			},
 		)
 

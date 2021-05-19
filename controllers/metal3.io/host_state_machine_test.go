@@ -456,6 +456,23 @@ func TestProvisioningCancelled(t *testing.T) {
 		},
 
 		{
+			Scenario: "with custom deploy, unprovisioned",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					CustomDeploy: &metal3v1alpha1.CustomDeploy{
+						Method: "install_everything",
+					},
+					Online: true,
+				},
+			},
+			Expected: false,
+		},
+
+		{
 			Scenario: "with image, unprovisioned",
 			Host: metal3v1alpha1.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
@@ -502,7 +519,24 @@ func TestProvisioningCancelled(t *testing.T) {
 		},
 
 		{
-			Scenario: "provisioned",
+			Scenario: "with custom deploy, offline",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					CustomDeploy: &metal3v1alpha1.CustomDeploy{
+						Method: "install_everything",
+					},
+					Online: false,
+				},
+			},
+			Expected: false,
+		},
+
+		{
+			Scenario: "provisioned with image",
 			Host: metal3v1alpha1.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
@@ -553,6 +587,31 @@ func TestProvisioningCancelled(t *testing.T) {
 		},
 
 		{
+
+			Scenario: "provisioned with custom deploy",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					CustomDeploy: &metal3v1alpha1.CustomDeploy{
+						Method: "install_everything",
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						CustomDeploy: &metal3v1alpha1.CustomDeploy{
+							Method: "install_everything",
+						},
+					},
+				},
+			},
+			Expected: false,
+		},
+
+		{
 			Scenario: "removed image",
 			Host: metal3v1alpha1.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
@@ -566,6 +625,27 @@ func TestProvisioningCancelled(t *testing.T) {
 					Provisioning: metal3v1alpha1.ProvisionStatus{
 						Image: metal3v1alpha1.Image{
 							URL: "same",
+						},
+					},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "removed custom deploy",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						CustomDeploy: &metal3v1alpha1.CustomDeploy{
+							Method: "install_everything",
 						},
 					},
 				},
@@ -590,6 +670,60 @@ func TestProvisioningCancelled(t *testing.T) {
 					Provisioning: metal3v1alpha1.ProvisionStatus{
 						Image: metal3v1alpha1.Image{
 							URL: "also-not-empty",
+						},
+					},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "changed custom deploy",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					CustomDeploy: &metal3v1alpha1.CustomDeploy{
+						Method: "install_not_everything",
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						CustomDeploy: &metal3v1alpha1.CustomDeploy{
+							Method: "install_everything",
+						},
+					},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "changed image with custom deploy",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL: "not-empty",
+					},
+					CustomDeploy: &metal3v1alpha1.CustomDeploy{
+						Method: "install_everything",
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						Image: metal3v1alpha1.Image{
+							URL: "also-not-empty",
+						},
+						CustomDeploy: &metal3v1alpha1.CustomDeploy{
+							Method: "install_everything",
 						},
 					},
 				},

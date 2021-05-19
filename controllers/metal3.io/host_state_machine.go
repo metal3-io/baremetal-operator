@@ -428,6 +428,10 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {
+	return hsm.imageProvisioningCancelled() && hsm.customDeployProvisioningCancelled()
+}
+
+func (hsm *hostStateMachine) imageProvisioningCancelled() bool {
 	if hsm.Host.Spec.Image == nil {
 		return true
 	}
@@ -438,6 +442,28 @@ func (hsm *hostStateMachine) provisioningCancelled() bool {
 		return false
 	}
 	if hsm.Host.Spec.Image.URL != hsm.Host.Status.Provisioning.Image.URL {
+		return true
+	}
+	return false
+}
+
+func (hsm *hostStateMachine) customDeployProvisioningCancelled() bool {
+	if hsm.Host.Spec.CustomDeploy == nil {
+		return true
+	}
+	if hsm.Host.Spec.CustomDeploy.Method == "" {
+		return true
+	}
+	if hsm.Host.Status.Provisioning.CustomDeploy == nil {
+		return false
+	}
+	if hsm.Host.Status.Provisioning.CustomDeploy.Method == "" {
+		return false
+	}
+	if hsm.Host.Spec.CustomDeploy.Method != hsm.Host.Status.Provisioning.CustomDeploy.Method {
+		return true
+	}
+	if hsm.Host.Spec.Image != nil && hsm.Host.Spec.Image.URL != hsm.Host.Status.Provisioning.Image.URL {
 		return true
 	}
 	return false

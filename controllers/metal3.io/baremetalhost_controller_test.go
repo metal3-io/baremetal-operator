@@ -1035,6 +1035,45 @@ func TestNeedsProvisioning(t *testing.T) {
 	}
 }
 
+// TestNeedsProvisioning verifies the logic for deciding when a host
+// needs to be provisioned when custom deploy is used.
+func TestNeedsProvisioningCustomDeploy(t *testing.T) {
+	host := newDefaultHost(t)
+
+	if host.NeedsProvisioning() {
+		t.Fatal("host without spec image should not need provisioning")
+	}
+
+	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+		Method: "install_everything",
+	}
+
+	if host.NeedsProvisioning() {
+		t.Fatal("host with spec custom deploy but not online should not need provisioning")
+	}
+
+	host.Spec.Online = true
+
+	if !host.NeedsProvisioning() {
+		t.Fatal("host with spec custom deploy and online without provisioning image should need provisioning")
+	}
+
+	host.Status.Provisioning.CustomDeploy = host.Spec.CustomDeploy.DeepCopy()
+
+	if host.NeedsProvisioning() {
+		t.Fatal("host with spec custom deploy matching status custom deploy should not need provisioning")
+	}
+
+	host.Spec.Image = &metal3v1alpha1.Image{
+		URL:      "https://example.com/image-name",
+		Checksum: "12345",
+	}
+
+	if !host.NeedsProvisioning() {
+		t.Fatal("host with spec custom deploy and a new image should need provisioning")
+	}
+}
+
 // TestProvision ensures that the Provisioning.Image portion of the
 // status block is filled in for provisioned hosts.
 func TestProvision(t *testing.T) {
@@ -1055,6 +1094,52 @@ func TestProvision(t *testing.T) {
 				return true
 			}
 			return false
+		},
+	)
+}
+
+// TestProvisionCustomDeploy ensures that the Provisioning.CustomDeploy portion
+// of the status block is filled in for provisioned hosts.
+func TestProvisionCustomDeploy(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+		Method: "install_everything",
+	}
+	host.Spec.Online = true
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("custom deploy: %v", host.Spec.CustomDeploy)
+			t.Logf("provisioning custom deploy: %v", host.Status.Provisioning.CustomDeploy)
+			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
+			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method != ""
+		},
+	)
+}
+
+// TestProvisionCustomDeployWithURL ensures that the Provisioning.CustomDeploy
+// portion of the status block is filled in for provisioned hosts.
+func TestProvisionCustomDeployWithURL(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+		Method: "install_everything",
+	}
+	host.Spec.Image = &metal3v1alpha1.Image{
+		URL:      "https://example.com/image-name",
+		Checksum: "12345",
+	}
+	host.Spec.Online = true
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("image details: %v", host.Spec.Image)
+			t.Logf("custom deploy: %v", host.Spec.CustomDeploy)
+			t.Logf("provisioning image details: %v", host.Status.Provisioning.Image)
+			t.Logf("provisioning custom deploy: %v", host.Status.Provisioning.CustomDeploy)
+			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
+			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method != "" && host.Status.Provisioning.Image.URL != ""
 		},
 	)
 }

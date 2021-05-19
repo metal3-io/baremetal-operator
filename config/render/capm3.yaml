@@ -124,6 +124,15 @@ spec:
                     description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                     type: string
                 type: object
+              customDeploy:
+                description: A custom deploy procedure.
+                properties:
+                  method:
+                    description: Custom deploy method name. This name is specific to the deploy ramdisk used. If you don't have a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                    type: string
+                required:
+                - method
+                type: object
               description:
                 description: Description is a human-entered text used to help identify the host
                 type: string
@@ -641,6 +650,15 @@ spec:
                     - UEFISecureBoot
                     - legacy
                     type: string
+                  customDeploy:
+                    description: Custom deploy procedure applied to the host.
+                    properties:
+                      method:
+                        description: Custom deploy method name. This name is specific to the deploy ramdisk used. If you don't have a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                        type: string
+                    required:
+                    - method
+                    type: object
                   firmware:
                     description: The Bios set by the user
                     properties:

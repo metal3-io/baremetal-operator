@@ -64,6 +64,7 @@ type ManagementAccessData struct {
 	AutomatedCleaningMode metal3v1alpha1.AutomatedCleaningMode
 	State                 metal3v1alpha1.ProvisioningState
 	CurrentImage          *metal3v1alpha1.Image
+	CustomDeploy          *metal3v1alpha1.CustomDeploy
 }
 
 type AdoptData struct {
@@ -86,6 +87,7 @@ type ProvisionData struct {
 	BootMode        metal3v1alpha1.BootMode
 	HardwareProfile hardware.Profile
 	RootDeviceHints *metal3v1alpha1.RootDeviceHints
+	CustomDeploy    *metal3v1alpha1.CustomDeploy
 }
 
 // Provisioner holds the state information for talking to the

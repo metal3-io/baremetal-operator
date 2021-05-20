@@ -131,11 +131,13 @@ deploy: manifests ## Deploy controller in the configured Kubernetes cluster in ~
 .PHONY: manifests
 manifests: ## Generate manifests e.g. CRD, RBAC etc.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	cd apis; $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=../config/crd/bases
 	$(KUSTOMIZE) build config/default > config/render/capm3.yaml
 
 .PHONY: generate
 generate: ## Generate code
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	cd apis; $(CONTROLLER_GEN) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 
 ## --------------------------------------
 ## Docker Targets

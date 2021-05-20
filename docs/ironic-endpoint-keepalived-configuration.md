@@ -11,7 +11,7 @@ reachable in the target cluster.
 
 ```bash
 
-kustomize build $BMOPATH/ironic-deployment/keepalived | kubectl apply -f-
+kustomize build $BMOPATH/ironic-deployment/keepalived | kubectl apply -f -
 
 ```
 

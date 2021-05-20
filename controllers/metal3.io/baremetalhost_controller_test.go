@@ -1311,7 +1311,14 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			dirty, err := saveHostProvisioningSettings(&tc.Host)
+			dirty, newStatus, err := getHostProvisioningSettings(&tc.Host)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
+			assert.Equal(t, tc.Expected, newStatus.Provisioning.RootDeviceHints)
+
+			dirty, err = saveHostProvisioningSettings(&tc.Host)
 			if err != nil {
 				t.Fatal(err)
 			}

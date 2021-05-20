@@ -1151,28 +1151,40 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Available:
-		var cleanSteps []nodes.CleanStep
-		cleanSteps, err = p.buildManualCleaningSteps(bmcAccess, data)
-		if err != nil {
-			result, err = operationFailed(err.Error())
-			return
+		if unprepared {
+			var cleanSteps []nodes.CleanStep
+			cleanSteps, err = p.buildManualCleaningSteps(bmcAccess, data)
+			if err != nil {
+				result, err = operationFailed(err.Error())
+				return
+			}
+			if len(cleanSteps) != 0 {
+				result, err = p.changeNodeProvisionState(
+					ironicNode,
+					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+				)
+				return
+			}
+			// nothing to do
+			started = true
 		}
-		if unprepared && len(cleanSteps) != 0 {
-			result, err = p.changeNodeProvisionState(
-				ironicNode,
-				nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-			)
-			return
-		}
+		// Automated clean finished
 		result, err = operationComplete()
 
 	case nodes.Manageable:
 		if unprepared {
 			started, result, err = p.startManualCleaning(bmcAccess, ironicNode, data)
-			return
+			if started || result.Dirty || result.ErrorMessage != "" || err != nil {
+				return
+			}
+			// nothing to do
+			started = true
 		}
 		// Manual clean finished
-		result, err = operationComplete()
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetProvide},
+		)
 
 	case nodes.CleanFail:
 		// When clean failed, we need to clean host provisioning settings.

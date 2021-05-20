@@ -197,14 +197,16 @@ func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool)
 
 	case PreparingHost:
 		p.log.Info("preparing host")
+		started = unprepared
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
 
 	default:
 		p.log.Info("finished preparing")
+		started = true
 	}
 
-	return result, false, nil
+	return
 }
 
 // Adopt notifies the provisioner that the state machine believes the host

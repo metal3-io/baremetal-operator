@@ -463,7 +463,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	ironicNode := &nodes.Node{}
 
 	provData := provisioner.ProvisionData{
-		Image:           *host.Spec.Image,
+		Image:           host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		RootDeviceHints: host.Status.Provisioning.RootDeviceHints,
 	}
@@ -559,7 +559,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 
 	hwProf, _ := hardware.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
-		Image:           *host.Spec.Image,
+		Image:           host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
@@ -666,7 +666,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 
 	hwProf, _ := hardware.GetProfile("dell")
 	provData := provisioner.ProvisionData{
-		Image:           *host.Spec.Image,
+		Image:           host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
@@ -739,7 +739,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 	ironicNode := &nodes.Node{}
 
 	provData := provisioner.ProvisionData{
-		Image:    *host.Spec.Image,
+		Image:    host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -808,7 +808,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 	}
 
 	provData := provisioner.ProvisionData{
-		Image:    *host.Spec.Image,
+		Image:    host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -887,7 +887,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 	}
 
 	provData := provisioner.ProvisionData{
-		Image:    *host.Spec.Image,
+		Image:    host.Spec.Image,
 		BootMode: metal3v1alpha1.DefaultBootMode,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -988,7 +988,7 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 
 	hwProf, _ := hardware.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
-		Image:           *host.Spec.Image,
+		Image:           host.Spec.Image,
 		BootMode:        metal3v1alpha1.UEFISecureBoot,
 		HardwareProfile: hwProf,
 	}

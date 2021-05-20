@@ -210,7 +210,7 @@ func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData) (result p
 	if p.state.image.URL == "" {
 		p.publisher("ProvisioningComplete", "Image provisioning completed")
 		p.log.Info("moving to done")
-		p.state.image = data.Image
+		p.state.image = *data.Image
 		result.Dirty = true
 		result.RequeueAfter = provisionRequeueDelay
 	}

@@ -813,7 +813,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	provResult, err := prov.Provision(provisioner.ProvisionData{
-		Image:           *info.host.Spec.Image.DeepCopy(),
+		Image:           info.host.Spec.Image.DeepCopy(),
 		HostConfig:      hostConf,
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
@@ -840,7 +840,10 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
-	if info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
+	if info.host.Spec.Image == nil && info.host.Status.Provisioning.Image.URL != "" {
+		info.log.Info("removing deployed image in status")
+		info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
+	} else if info.host.Spec.Image != nil && info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
 		info.log.Info("updating deployed image in status")
 		info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
 	}

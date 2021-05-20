@@ -919,7 +919,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
 	updater := updateOptsBuilder(p.debugLog)
 
-	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, updater)
+	p.getImageUpdateOptsForNode(ironicNode, data.Image, data.BootMode, updater)
 
 	opts := optionsData{
 		"root_device": devicehints.MakeHintMap(data.RootDeviceHints),
@@ -1065,10 +1065,10 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (resul
 	return operationComplete()
 }
 
-func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image metal3v1alpha1.Image) (sameImage bool) {
+func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image *metal3v1alpha1.Image) (sameImage bool) {
 	// To make it easier to test if ironic is configured with
 	// the same image we are trying to provision to the host.
-	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+	if image != nil && image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
 		sameImage = (ironicNode.InstanceInfo["boot_iso"] == image.URL)
 		p.log.Info("checking image settings",
 			"boot_iso", ironicNode.InstanceInfo["boot_iso"],
@@ -1076,7 +1076,11 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 			"provisionState", ironicNode.ProvisionState)
 	} else {
 		checksum, checksumType, _ := image.GetChecksum()
-		sameImage = (ironicNode.InstanceInfo["image_source"] == image.URL &&
+		var url string
+		if image != nil {
+			url = image.URL
+		}
+		sameImage = (ironicNode.InstanceInfo["image_source"] == url &&
 			ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
 			ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
 		p.log.Info("checking image settings",

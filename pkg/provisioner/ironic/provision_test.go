@@ -112,6 +112,7 @@ func TestProvision(t *testing.T) {
 			result, err := prov.Provision(provisioner.ProvisionData{
 				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
 				BootMode:   v1alpha1.DefaultBootMode,
+				Image:      host.Spec.Image.DeepCopy(),
 			})
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
@@ -387,7 +388,7 @@ func TestIronicHasSameImage(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			sameImage := prov.ironicHasSameImage(&tc.node, *host.Spec.Image)
+			sameImage := prov.ironicHasSameImage(&tc.node, host.Spec.Image)
 			assert.Equal(t, tc.expected, sameImage)
 		})
 	}

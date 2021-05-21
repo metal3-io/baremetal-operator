@@ -667,7 +667,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	info.log.Info("inspecting hardware")
 
 	refresh := hasInspectAnnotation(info.host)
-	provResult, details, err := prov.InspectHardware(
+	provResult, started, details, err := prov.InspectHardware(
 		provisioner.InspectData{
 			BootMode: info.host.Status.Provisioning.BootMode,
 		},
@@ -682,7 +682,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	}
 
 	// Delete inspect annotation if exists
-	if hasInspectAnnotation(info.host) {
+	if started && hasInspectAnnotation(info.host) {
 		delete(info.host.Annotations, inspectAnnotationPrefix)
 		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove inspect annotation from host")}

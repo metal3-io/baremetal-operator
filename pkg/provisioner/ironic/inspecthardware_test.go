@@ -28,6 +28,7 @@ func TestInspectHardware(t *testing.T) {
 
 		force bool
 
+		expectedStarted      bool
 		expectedDirty        bool
 		expectedRequestAfter int
 		expectedResultError  string
@@ -37,6 +38,18 @@ func TestInspectHardware(t *testing.T) {
 		expectedError   string
 	}{
 		{
+			name: "introspection-status-move-from-available",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: "available",
+			}),
+			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+
+			expectedStarted:      false,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+		},
+		{
 			name: "introspection-status-start-new-hardware-inspection",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				UUID:           nodeUUID,
@@ -44,6 +57,7 @@ func TestInspectHardware(t *testing.T) {
 			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 
+			expectedStarted:      true,
 			expectedDirty:        true,
 			expectedRequestAfter: 10,
 			expectedPublish:      "InspectionStarted Hardware inspection started",
@@ -156,6 +170,7 @@ func TestInspectHardware(t *testing.T) {
 			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 			force:     true,
 
+			expectedStarted:      true,
 			expectedDirty:        true,
 			expectedRequestAfter: 10,
 			expectedPublish:      "InspectionStarted Hardware inspection started",
@@ -208,10 +223,11 @@ func TestInspectHardware(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, details, err := prov.InspectHardware(
+			result, started, details, err := prov.InspectHardware(
 				provisioner.InspectData{BootMode: metal3v1alpha1.DefaultBootMode},
 				tc.force, false)
 
+			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
 			assert.Equal(t, tc.expectedResultError, result.ErrorMessage)

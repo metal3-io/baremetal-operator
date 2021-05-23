@@ -735,7 +735,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware")
 
 	ironicNode, err := p.getNode()
@@ -748,6 +748,12 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 	if err != nil || refresh {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound || refresh {
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {
+			case nodes.Available:
+				result, err = p.changeNodeProvisionState(
+					ironicNode,
+					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+				)
+				return
 			case nodes.Inspecting, nodes.InspectWait:
 				p.log.Info("inspection already started")
 				result, err = operationContinuing(introspectionRequeueDelay)
@@ -764,24 +770,23 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 				}
 				fallthrough
 			default:
-				var success bool
-				success, result, err = p.tryUpdateNode(
+				started, result, err = p.tryUpdateNode(
 					ironicNode,
 					updateOptsBuilder(p.debugLog).
 						SetPropertiesOpts(optionsData{
 							"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 						}, ironicNode),
 				)
-				if !success {
+				if !started {
 					return
 				}
 
 				p.log.Info("starting new hardware inspection")
-				success, result, err = p.tryChangeNodeProvisionState(
+				started, result, err = p.tryChangeNodeProvisionState(
 					ironicNode,
 					nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
 				)
-				if success {
+				if started {
 					p.publisher("InspectionStarted", "Hardware inspection started")
 				}
 				return

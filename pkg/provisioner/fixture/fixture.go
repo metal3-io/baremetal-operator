@@ -119,12 +119,13 @@ func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.Managemen
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	// The inspection is ongoing. We'll need to check the fixture
 	// status for the server here until it is ready for us to get the
 	// inspection details. Simulate that for now by creating the
 	// hardware details struct as part of a second pass.
 	p.log.Info("continuing inspection by setting details")
+	started = true
 	details =
 		&metal3v1alpha1.HardwareDetails{
 			RAMMebibytes: 128 * 1024,

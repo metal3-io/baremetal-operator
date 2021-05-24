@@ -133,11 +133,13 @@ tools/bin/controller-gen: go.mod
 .PHONY: manifests
 manifests: tools/bin/controller-gen ## Generate manifests e.g. CRD, RBAC etc.
 	cd apis; ../$< $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=../config/crd/bases
+	$< rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/rbac
 	$(KUSTOMIZE) build config/default > config/render/capm3.yaml
 
 .PHONY: generate
 generate: tools/bin/controller-gen ## Generate code
 	cd apis; ../$< object:headerFile="../hack/boilerplate.go.txt" paths="./..."
+	$< object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 ## --------------------------------------
 ## Docker Targets

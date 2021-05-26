@@ -42,6 +42,11 @@ spec:
                 secretKeyRef:
                   name: mariadb-password
                   key: password
+            - name: RESTART_CONTAINER_CERTIFICATE_UPDATED
+              valueFrom:
+                 configMapKeyRef:
+                  name: ironic-bmo-configmap
+                  key: RESTART_CONTAINER_CERTIFICATE_UPDATED 
         - name: ironic-api
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always

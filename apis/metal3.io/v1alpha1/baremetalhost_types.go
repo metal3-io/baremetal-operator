@@ -39,7 +39,7 @@ const (
 	// an immediate requeue)
 	PausedAnnotation = "baremetalhost.metal3.io/paused"
 
-	// Detached is the annotation which stops provisioner management of the host
+	// DetachedAnnotation is the annotation which stops provisioner management of the host
 	// unlike in the paused case, the host status may be updated
 	DetachedAnnotation = "baremetalhost.metal3.io/detached"
 

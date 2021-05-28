@@ -18,7 +18,6 @@ DEPLOY_IRONIC="${2,,}"
 DEPLOY_TLS="${3,,}"
 DEPLOY_BASIC_AUTH="${4,,}"
 DEPLOY_KEEPALIVED="${5,,}"
-MARIADB_HOST="${MARIADB_HOST:-"mariaDB"}"
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 KUSTOMIZE="go run sigs.k8s.io/kustomize/kustomize/v3"
@@ -49,12 +48,10 @@ fi
 
 IRONIC_DATA_DIR="${IRONIC_DATA_DIR:-/opt/metal3/ironic/}"
 IRONIC_AUTH_DIR="${IRONIC_AUTH_DIR:-"${IRONIC_DATA_DIR}auth/"}"
-IRONIC_CERTS_DIR="${IRONIC_CERTS_DIR:-"${IRONIC_DATA_DIR}certs/"}"
 
 sudo mkdir -p "${IRONIC_DATA_DIR}"
 sudo chown -R "${USER}:$(id -gn)" "${IRONIC_DATA_DIR}"
 mkdir -p "${IRONIC_AUTH_DIR}"
-mkdir -p "${IRONIC_CERTS_DIR}"
 
 #If usernames and passwords are unset, read them from file or generate them
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
@@ -114,92 +111,6 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     fi
 fi
 
-if [ "${DEPLOY_TLS}" == "true" ]; then
-    IRONIC_CAKEY_FILE="${IRONIC_CAKEY_FILE:-"${IRONIC_DATA_DIR}certs/ca.key"}"
-    IRONIC_CACERT_FILE="${IRONIC_CACERT_FILE:-"${IRONIC_DATA_DIR}certs/ca.crt"}"
-    IRONIC_CERT_FILE="${IRONIC_CERT_FILE:-"${IRONIC_DATA_DIR}certs/ironic.crt"}"
-    IRONIC_KEY_FILE="${IRONIC_KEY_FILE:-"${IRONIC_DATA_DIR}certs/ironic.key"}"
-
-    IRONIC_INSPECTOR_CACERT_FILE="${IRONIC_INSPECTOR_CACERT_FILE:-"${IRONIC_CACERT_FILE}"}"
-    IRONIC_INSPECTOR_CAKEY_FILE="${IRONIC_INSPECTOR_CAKEY_FILE:-"${IRONIC_CAKEY_FILE}"}"
-    IRONIC_INSPECTOR_CERT_FILE="${IRONIC_INSPECTOR_CERT_FILE:-"${IRONIC_DATA_DIR}certs/ironic-inspector.crt"}"
-    IRONIC_INSPECTOR_KEY_FILE="${IRONIC_INSPECTOR_KEY_FILE:-"${IRONIC_DATA_DIR}certs/ironic-inspector.key"}"
-
-    MARIADB_CACERT_FILE="${MARIADB_CACERT_FILE:-"${IRONIC_CACERT_FILE}"}"
-    MARIADB_CAKEY_FILE="${MARIADB_CAKEY_FILE:-"${IRONIC_CAKEY_FILE}"}"
-    MARIADB_CERT_FILE="${MARIADB_CERT_FILE:-"${IRONIC_DATA_DIR}certs/mariadb.crt"}"
-    MARIADB_KEY_FILE="${MARIADB_KEY_FILE:-"${IRONIC_DATA_DIR}certs/mariadb.key"}"
-
-    if [ ! -f "${IRONIC_CAKEY_FILE}" ]; then
-        openssl genrsa -out "${IRONIC_CAKEY_FILE}" 2048
-    fi
-    if [ ! -f "${IRONIC_INSPECTOR_CAKEY_FILE}" ]; then
-        openssl genrsa -out "${IRONIC_INSPECTOR_CAKEY_FILE}" 2048
-    fi
-    if [ ! -f "${MARIADB_CAKEY_FILE}" ]; then
-        openssl genrsa -out "${MARIADB_CAKEY_FILE}" 2048
-    fi
-
-    if [ ! -f "${IRONIC_CACERT_FILE}" ]; then
-        openssl req -x509 -new -nodes -key "${IRONIC_CAKEY_FILE}" -sha256 -days 1825 -out "${IRONIC_CACERT_FILE}" -subj /CN="ironic CA"/
-    fi
-    if [ ! -f "${IRONIC_INSPECTOR_CACERT_FILE}" ]; then
-        openssl req -x509 -new -nodes -key "${IRONIC_INSPECTOR_CAKEY_FILE}" -sha256 -days 1825 -out "${IRONIC_INSPECTOR_CACERT_FILE}" -subj /CN="ironic inspector CA"/
-    fi
-    if [ ! -f "${MARIADB_CACERT_FILE}" ]; then
-        openssl req -x509 -new -nodes -key "${MARIADB_CAKEY_FILE}" -sha256 -days 1825 -out "${MARIADB_CACERT_FILE}" -subj /CN="mariadb CA"/
-    fi
-
-    if [ ! -f "${IRONIC_KEY_FILE}" ]; then
-        openssl genrsa -out "${IRONIC_KEY_FILE}" 2048
-    fi
-    if [ ! -f "${IRONIC_INSPECTOR_KEY_FILE}" ]; then
-        openssl genrsa -out "${IRONIC_INSPECTOR_KEY_FILE}" 2048
-    fi
-    if [ ! -f "${MARIADB_KEY_FILE}" ]; then
-        openssl genrsa -out "${MARIADB_KEY_FILE}" 2048
-    fi
-
-    if [ ! -f "${IRONIC_CERT_FILE}" ]; then
-        openssl req -new -key "${IRONIC_KEY_FILE}" -out /tmp/ironic.csr -subj /CN="${IRONIC_HOST}"/
-        openssl x509 -req -in /tmp/ironic.csr -CA "${IRONIC_CACERT_FILE}" -CAkey "${IRONIC_CAKEY_FILE}" -CAcreateserial -out "${IRONIC_CERT_FILE}" -days 825 -sha256 -extfile <(printf "subjectAltName=IP:%s" "${IRONIC_HOST_IP}")
-    fi
-    if [ ! -f "${IRONIC_INSPECTOR_CERT_FILE}" ]; then
-        openssl req -new -key "${IRONIC_INSPECTOR_KEY_FILE}" -out /tmp/ironic.csr -subj /CN="${IRONIC_HOST}"/
-        openssl x509 -req -in /tmp/ironic.csr -CA "${IRONIC_INSPECTOR_CACERT_FILE}" -CAkey "${IRONIC_INSPECTOR_CAKEY_FILE}" -CAcreateserial -out "${IRONIC_INSPECTOR_CERT_FILE}" -days 825 -sha256 -extfile <(printf "subjectAltName=IP:%s" "${IRONIC_HOST_IP}")
-    fi
-    if [ ! -f "${MARIADB_CERT_FILE}" ]; then
-        openssl req -new -key "${MARIADB_KEY_FILE}" -out /tmp/mariadb.csr -subj /CN="${MARIADB_HOST}"/
-        openssl x509 -req -in /tmp/mariadb.csr -CA "${MARIADB_CACERT_FILE}" -CAkey "${MARIADB_CAKEY_FILE}" -CAcreateserial -out "${MARIADB_CERT_FILE}" -days 825 -sha256 -extfile <(printf "subjectAltName=IP:%s" "${MARIADB_HOST_IP}")
-    fi
-
-
-    if [ "${DEPLOY_BMO}" == "true" ]; then
-        cp "${IRONIC_CACERT_FILE}" "${SCRIPTDIR}/config/tls/ca.crt"
-        [ "${IRONIC_CACERT_FILE}" == "${IRONIC_INSPECTOR_CACERT_FILE}" ] || \
-        cat "${IRONIC_INSPECTOR_CACERT_FILE}" >> "${SCRIPTDIR}/config/tls/ca.crt"
-    fi
-
-    if [ "${DEPLOY_IRONIC}" == "true" ]; then
-        if [ "${DEPLOY_KEEPALIVED}" == "true" ]; then
-            IRONIC_TLS_SCENARIO="${SCRIPTDIR}/ironic-deployment/tls/keepalived"
-        else
-            IRONIC_TLS_SCENARIO="${SCRIPTDIR}/ironic-deployment/tls/default"
-        fi
-        # Ensure that the MariaDB key file allow a non-owned user to read.
-        chmod 604 "${MARIADB_KEY_FILE}"
-        cp "${IRONIC_CACERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-ca.crt"
-        cp "${IRONIC_INSPECTOR_CACERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-inspector-ca.crt"
-        cp "${MARIADB_CACERT_FILE}" "${IRONIC_TLS_SCENARIO}/mariadb-ca.crt"
-        cp "${IRONIC_CERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic.crt"
-        cp "${IRONIC_INSPECTOR_CERT_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-inspector.crt"
-        cp "${MARIADB_CERT_FILE}" "${IRONIC_TLS_SCENARIO}/mariadb.crt"
-        cp "${IRONIC_KEY_FILE}" "${IRONIC_TLS_SCENARIO}/ironic.key"
-        cp "${IRONIC_INSPECTOR_KEY_FILE}" "${IRONIC_TLS_SCENARIO}/ironic-inspector.key"
-        cp "${MARIADB_KEY_FILE}" "${IRONIC_TLS_SCENARIO}/mariadb.key"
-    fi
-fi
-
 if [ "${DEPLOY_BMO}" == "true" ]; then
     pushd "${SCRIPTDIR}"
     # shellcheck disable=SC2086
@@ -225,6 +136,8 @@ if [ "${DEPLOY_IRONIC}" == "true" ]; then
     else
       echo "RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED}" >> "${IRONIC_BMO_CONFIGMAP}"
     fi
+    IRONIC_CERTIFICATE_FILE="${SCRIPTDIR}/ironic-deployment/certmanager/certificate.yaml"
+    sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g; s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${IRONIC_CERTIFICATE_FILE}"
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
     mv /tmp/ironic_bmo_configmap.env "${IRONIC_BMO_CONFIGMAP}"
@@ -246,23 +159,5 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
 
         rm "${IRONIC_SCENARIO}/ironic-htpasswd"
         rm "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
-    fi
-fi
-
-if [ "${DEPLOY_TLS}" == "true" ]; then
-    if [ "${DEPLOY_BMO}" == "true" ]; then
-        rm "${SCRIPTDIR}/config/tls/ca.crt"
-    fi
-
-    if [ "${DEPLOY_IRONIC}" == "true" ]; then
-        rm "${IRONIC_TLS_SCENARIO}/ironic-ca.crt"
-        rm "${IRONIC_TLS_SCENARIO}/ironic-inspector-ca.crt"
-        rm "${IRONIC_TLS_SCENARIO}/ironic.crt"
-        rm "${IRONIC_TLS_SCENARIO}/ironic.key"
-        rm "${IRONIC_TLS_SCENARIO}/ironic-inspector.crt"
-        rm "${IRONIC_TLS_SCENARIO}/ironic-inspector.key"
-        rm "${IRONIC_TLS_SCENARIO}/mariadb-ca.crt"
-        rm "${IRONIC_TLS_SCENARIO}/mariadb.crt"
-        rm "${IRONIC_TLS_SCENARIO}/mariadb.key"
     fi
 fi

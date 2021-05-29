@@ -1,6 +1,40 @@
 resources:
-- manifests.yaml
-- service_patch.yaml
+  - manifests.yaml
+  - service_patch.yaml
+  - ../certmanager
+  - ../manager
 
 configurations:
-- kustomizeconfig.yaml
+  - kustomizeconfig.yaml
+
+patchesStrategicMerge:
+  - manager_webhook_patch.yaml
+  - webhookcainjection_patch.yaml # Disable this value if you don't have any defaulting or validation webhook. If you don't know, you can check if the manifests.yaml file in the same directory has any contents.
+
+vars:
+  - name: CERTIFICATE_NAMESPACE # namespace of the certificate CR
+    objref:
+      kind: Certificate
+      group: cert-manager.io
+      version: v1
+      name: serving-cert # this name should match the one in certificate.yaml
+    fieldref:
+      fieldpath: metadata.namespace
+  - name: CERTIFICATE_NAME
+    objref:
+      kind: Certificate
+      group: cert-manager.io
+      version: v1
+      name: serving-cert # this name should match the one in certificate.yaml
+  - name: SERVICE_NAMESPACE # namespace of the service
+    objref:
+      kind: Service
+      version: v1
+      name: webhook-service
+    fieldref:
+      fieldpath: metadata.namespace
+  - name: SERVICE_NAME
+    objref:
+      kind: Service
+      version: v1
+      name: webhook-service

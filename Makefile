@@ -18,6 +18,7 @@ COVER_PROFILE = cover.out
 BIN_DIR := bin
 
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
+CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen
 GOLANGCI_LINT ?= GOLANGCI_LINT_CACHE=$(GOLANGCI_LINT_CACHE) go run github.com/golangci/golangci-lint/cmd/golangci-lint
 KUSTOMIZE ?= go run sigs.k8s.io/kustomize/kustomize/v3
 
@@ -63,14 +64,11 @@ test: generate lint manifests unit ## Run common developer tests
 .PHONY: unit
 unit: ## Run unit tests
 	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
-	cd apis/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
 	go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
 	go tool cover -func=$(COVER_PROFILE)
-	cd apis/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
-	cd apis/ && go tool cover -func=$(COVER_PROFILE)
 
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
@@ -82,6 +80,9 @@ unit-verbose: ## Run unit tests with verbose output
 
 .PHONY: linters
 linters: lint generate-check fmt-check
+
+.PHONY: vet
+vet: lint
 
 .PHONY: lint
 lint:
@@ -127,17 +128,14 @@ deploy: manifests ## Deploy controller in the configured Kubernetes cluster in ~
 	cd config/manager && kustomize edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-tools/bin/controller-gen: go.mod
-	go build -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
-
 .PHONY: manifests
-manifests: tools/bin/controller-gen ## Generate manifests e.g. CRD, RBAC etc.
-	cd apis; ../$< $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=../config/crd/bases
+manifests: ## Generate manifests e.g. CRD, RBAC etc.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	$(KUSTOMIZE) build config/default > config/render/capm3.yaml
 
 .PHONY: generate
-generate: tools/bin/controller-gen ## Generate code
-	cd apis; ../$< object:headerFile="../hack/boilerplate.go.txt" paths="./..."
+generate: ## Generate code
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 ## --------------------------------------
 ## Docker Targets

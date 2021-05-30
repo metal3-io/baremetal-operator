@@ -1088,7 +1088,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: webhook-server-cert
+          secretName: $(SERVICE_NAME)-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -1102,7 +1102,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: baremetal-operator-selfsigned-issuer
-  secretName: webhook-server-cert
+  secretName: $(SERVICE_NAME)-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
@@ -1120,7 +1120,6 @@ metadata:
   name: baremetal-operator-validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
-  - v1
   - v1beta1
   clientConfig:
     service:

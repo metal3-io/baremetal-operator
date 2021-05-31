@@ -13,7 +13,8 @@ webhooks:
         name: webhook-service
         namespace: system
         path: /validate-metal3-io-v1alpha1-baremetalhost
-    failurePolicy: Ignore
+    failurePolicy: Fail
+    matchPolicy: Equivalent
     name: vbaremetalhost.kb.io
     rules:
       - apiGroups:

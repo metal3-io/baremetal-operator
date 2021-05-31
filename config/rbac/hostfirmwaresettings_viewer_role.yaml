@@ -1,0 +1,20 @@
+# permissions for end users to view hostfirmwaresettings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hostfirmwaresettings-viewer-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwaresettings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwaresettings/status
+  verbs:
+  - get

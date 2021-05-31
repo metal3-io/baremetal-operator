@@ -1239,6 +1239,59 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 	return
 }
 
+func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (configDrive nodes.ConfigDrive, err error) {
+	// Retrieve instance specific user data (cloud-init, ignition, etc).
+	userData, err := data.HostConfig.UserData()
+	if err != nil {
+		return configDrive, errors.Wrap(err, "could not retrieve user data")
+	}
+	if userData != "" {
+		configDrive.UserData = userData
+	}
+
+	// Retrieve OpenStack network_data. Default value is empty.
+	networkDataRaw, err := data.HostConfig.NetworkData()
+	if err != nil {
+		return configDrive, errors.Wrap(err, "could not retrieve network data")
+	}
+	if networkDataRaw != "" {
+		var networkData map[string]interface{}
+		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
+			return configDrive, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
+		}
+		configDrive.NetworkData = networkData
+	}
+
+	// Retrieve meta data with fallback to defaults from provisioner.
+	metaData := map[string]interface{}{
+		"uuid":             string(p.objectMeta.UID),
+		"metal3-namespace": p.objectMeta.Namespace,
+		"metal3-name":      p.objectMeta.Name,
+		"local-hostname":   p.objectMeta.Name,
+		"local_hostname":   p.objectMeta.Name,
+		"name":             p.objectMeta.Name,
+	}
+	metaDataRaw, err := data.HostConfig.MetaData()
+	if err != nil {
+		return configDrive, errors.Wrap(err, "could not retrieve metadata")
+	}
+	if metaDataRaw != "" {
+		if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
+			return configDrive, errors.Wrap(err, "failed to unmarshal metadata from secret")
+		}
+	}
+
+	// Set metaData if any field is populated by a user.
+	if metaDataRaw != "" || networkDataRaw != "" || userData != "" {
+		configDrive.MetaData = metaData
+		p.log.Info("triggering provisioning with config drive")
+	} else {
+		p.log.Info("triggering provisioning without config drive")
+	}
+
+	return
+}
+
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
@@ -1277,8 +1330,18 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 			return provResult, err
 		}
 
-		return p.changeNodeProvisionState(ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetActive})
+		configDrive, err := p.getConfigDrive(data)
+		if err != nil {
+			return transientError(err)
+		}
+
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{
+				Target:      nodes.TargetActive,
+				ConfigDrive: configDrive,
+			},
+		)
 
 	case nodes.Manageable:
 		return p.changeNodeProvisionState(ironicNode,
@@ -1303,54 +1366,9 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 		// setting the state to "active".
 		p.log.Info("making host active")
 
-		// Retrieve cloud-init user data
-		userData, err := data.HostConfig.UserData()
+		configDrive, err := p.getConfigDrive(data)
 		if err != nil {
-			return transientError(errors.Wrap(err, "could not retrieve user data"))
-		}
-
-		// Retrieve cloud-init network_data.json. Default value is empty
-		networkDataRaw, err := data.HostConfig.NetworkData()
-		if err != nil {
-			return transientError(errors.Wrap(err, "could not retrieve network data"))
-		}
-		var networkData map[string]interface{}
-		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
-			return transientError(errors.Wrap(err, "failed to unmarshal network_data.json from secret"))
-		}
-
-		// Retrieve cloud-init meta_data.json with falback to default
-		metaData := map[string]interface{}{
-			"uuid":             string(p.objectMeta.UID),
-			"metal3-namespace": p.objectMeta.Namespace,
-			"metal3-name":      p.objectMeta.Name,
-			"local-hostname":   p.objectMeta.Name,
-			"local_hostname":   p.objectMeta.Name,
-			"name":             p.objectMeta.Name,
-		}
-		metaDataRaw, err := data.HostConfig.MetaData()
-		if err != nil {
-			return transientError(errors.Wrap(err, "could not retrieve metadata"))
-		}
-		if metaDataRaw != "" {
-			if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
-				return transientError(errors.Wrap(err, "failed to unmarshal metadata from secret"))
-			}
-		}
-
-		var configDrive nodes.ConfigDrive
-		if userData != "" {
-			configDrive = nodes.ConfigDrive{
-				UserData:    userData,
-				MetaData:    metaData,
-				NetworkData: networkData,
-			}
-			if err != nil {
-				return transientError(errors.Wrap(err, "failed to build config drive"))
-			}
-			p.log.Info("triggering provisioning with config drive")
-		} else {
-			p.log.Info("triggering provisioning without config drive")
+			return transientError(err)
 		}
 
 		return p.changeNodeProvisionState(

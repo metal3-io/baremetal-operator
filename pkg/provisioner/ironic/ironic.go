@@ -1450,7 +1450,12 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 		p.log.Info("cleaning")
 		return operationContinuing(deprovisionRequeueDelay)
 
-	case nodes.Active, nodes.DeployFail:
+	case nodes.Deploying:
+		p.log.Info("previous deploy running")
+		// Deploying cannot be stopped, wait for DeployWait or Active
+		return operationContinuing(deprovisionRequeueDelay)
+
+	case nodes.Active, nodes.DeployFail, nodes.DeployWait:
 		p.log.Info("starting deprovisioning")
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(

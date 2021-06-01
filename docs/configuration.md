@@ -33,7 +33,7 @@ client certificate authentication (mTLS) to be enabled.
 client certificate SAN validation.
 
 `BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
-Operator. Default is 3.
+Operator. Default is the number of CPUs, but no less than 2 and no more than 8.
 
 `PROVISIONING_LIMIT` -- The desired maximum number of hosts that could be (de)provisioned
 simultaneously by the Operator. The Operator will try to enforce this limit,

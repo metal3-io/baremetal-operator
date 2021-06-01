@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -1312,7 +1313,13 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 // SetupWithManager reigsters the reconciler to be run by the manager
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	maxConcurrentReconciles := 3
+	maxConcurrentReconciles := runtime.NumCPU()
+	if maxConcurrentReconciles > 8 {
+		maxConcurrentReconciles = 8
+	}
+	if maxConcurrentReconciles < 2 {
+		maxConcurrentReconciles = 2
+	}
 	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
 		mcr, err := strconv.Atoi(mcrEnv)
 		if err != nil {

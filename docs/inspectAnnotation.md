@@ -5,7 +5,7 @@ which contains the result of introspection which is carried out during
 BMH registration.
 
 In some circumstances it may be desirable to disable this inspection process,
-and provide data from external source.  The _Inspect Annotation_ provides some
+and provide data from external source. The _Inspect Annotation_ provides some
 interfaces to enable this.
 
 Note the `inspect.metal3.io/hardwaredetails` annotation is consumed:
@@ -33,3 +33,16 @@ inspect.metal3.io/hardwaredetails: '{"systemVendor":{"manufacturer":"QEMU",
 "model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,
 "flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}'
 ```
+
+Apart from that, sometimes you might want to request re-inspection for an
+already inspected host. This might be necessary when there was a hardware
+change on the host and you want to ensure that BMH status contains the latest
+inspection data about your host. To request a new inspection, simply annotating
+the host with `inspect.metal3.io` is enough. Once inspection is requested, you should
+see the BMH in `inspecting` state until inspection is completed and by the end of
+inspection the `inspect.metal3.io` annotation will be removed by Baremetal Operator.
+
+Note that, inspection can be requested only when BMH is in `Ready` state (i.e. before
+it is provisioned). The reason for this limitation is because requesting an inspection
+for provisioned BMH will result in rebooting the host, which will result in application
+downtime running on that host.

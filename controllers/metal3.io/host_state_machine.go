@@ -291,6 +291,10 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		// We haven't yet reached the Registration state, so don't attempt
 		// to register the Host.
 		return
+	case metal3v1alpha1.StateMatchProfile:
+		// We don't call the provisioner in this state, so there is no point
+		// in checking the registration.
+		return
 	case metal3v1alpha1.StateDeleting:
 		// In the deleting state the whole idea is to de-register the host
 		return

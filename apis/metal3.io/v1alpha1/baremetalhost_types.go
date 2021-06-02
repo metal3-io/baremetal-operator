@@ -442,6 +442,16 @@ const (
 	TeraByte          = GigaByte * 1000
 )
 
+// DiskType is a disk type, i.e. HDD, SSD, NVME.
+type DiskType string
+
+// DiskType constants.
+const (
+	HDD  DiskType = "HDD"
+	SSD  DiskType = "SSD"
+	NVME DiskType = "NVME"
+)
+
 // CPU describes one processor on the host.
 type CPU struct {
 	Arch           string     `json:"arch,omitempty"`
@@ -457,8 +467,16 @@ type Storage struct {
 	// may not be stable across reboots.
 	Name string `json:"name,omitempty"`
 
-	// Whether this disk represents rotational storage
+	// Whether this disk represents rotational storage.
+	// This field is not recommended for usage, please
+	// prefer using 'Type' field instead, this field
+	// will be deprecated eventually.
 	Rotational bool `json:"rotational,omitempty"`
+
+	// Device type, one of: HDD, SSD, NVME.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=HDD;SSD;NVME;
+	Type DiskType `json:"type,omitempty"`
 
 	// The size of the disk in Bytes
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`

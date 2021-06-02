@@ -495,7 +495,7 @@ spec:
                           description: The Linux device name of the disk, e.g. "/dev/sda". Note that this may not be stable across reboots.
                           type: string
                         rotational:
-                          description: Whether this disk represents rotational storage
+                          description: Whether this disk represents rotational storage. This field is not recommended for usage, please prefer using 'Type' field instead, this field will be deprecated eventually.
                           type: boolean
                         serialNumber:
                           description: The serial number of the device
@@ -504,6 +504,13 @@ spec:
                           description: The size of the disk in Bytes
                           format: int64
                           type: integer
+                        type:
+                          description: 'Device type, one of: HDD, SSD, NVME.'
+                          enum:
+                          - HDD
+                          - SSD
+                          - NVME
+                          type: string
                         vendor:
                           description: The name of the vendor of the device
                           type: string

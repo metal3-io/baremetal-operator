@@ -35,6 +35,7 @@ var (
 	softPowerOffTimeout       = time.Second * 180
 	deployKernelURL           string
 	deployRamdiskURL          string
+	deployISOURL              string
 	ironicEndpoint            string
 	inspectorEndpoint         string
 	ironicTrustedCAFile       string
@@ -94,14 +95,12 @@ func init() {
 	}
 
 	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
-	if deployKernelURL == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_KERNEL_URL variable set\n")
-		os.Exit(1)
-	}
 	deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
-	if deployRamdiskURL == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_RAMDISK_URL variable set\n")
+	deployISOURL = os.Getenv("DEPLOY_ISO_URL")
+	if deployISOURL == "" && (deployKernelURL == "" || deployRamdiskURL == "") {
+		fmt.Fprintf(os.Stderr, "Cannot start: Either DEPLOY_ISO_URL or DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL must be set\n")
 		os.Exit(1)
+
 	}
 	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
 	if ironicEndpoint == "" {
@@ -181,6 +180,7 @@ func LogStartup() {
 		"inspectorAuthType", inspectorAuth.Type,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
+		"deployISOURL", deployISOURL,
 	)
 }
 
@@ -510,8 +510,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
-	driverInfo["deploy_kernel"] = deployKernelURL
-	driverInfo["deploy_ramdisk"] = deployRamdiskURL
+	if deployKernelURL != "" && deployRamdiskURL != "" {
+		driverInfo["deploy_kernel"] = deployKernelURL
+		driverInfo["deploy_ramdisk"] = deployRamdiskURL
+	}
+	if deployISOURL != "" {
+		driverInfo["deploy_iso"] = deployISOURL
+	}
 
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {

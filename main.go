@@ -166,9 +166,10 @@ func main() {
 
 	if preprovImgEnable {
 		imgReconciler := metal3iocontroller.PreprovisioningImageReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("PreprovisioningImage"),
-			Scheme: mgr.GetScheme(),
+			Client:    mgr.GetClient(),
+			Log:       ctrl.Log.WithName("controllers").WithName("PreprovisioningImage"),
+			APIReader: mgr.GetAPIReader(),
+			Scheme:    mgr.GetScheme(),
 		}
 		if imgReconciler.CanStart() {
 			if err = (&imgReconciler).SetupWithManager(mgr); err != nil {

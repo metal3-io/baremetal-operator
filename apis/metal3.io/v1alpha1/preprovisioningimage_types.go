@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,25 +18,72 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// ImageFormat enumerates the allowed image formats
+// +kubebuilder:validation:Enum=iso;initrd
+type ImageFormat string
+
+const (
+	ImageFormatISO    ImageFormat = "iso"
+	ImageFormatInitRD ImageFormat = "initrd"
+)
 
 // PreprovisioningImageSpec defines the desired state of PreprovisioningImage
 type PreprovisioningImageSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// networkDataName is the name of a Secret in the local namespace that
+	// contains network data to build in to the image.
+	// +optional
+	NetworkDataName string `json:"networkDataName,omitempty"`
 
-	// Foo is an example field of PreprovisioningImage. Edit PreprovisioningImage_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// architecture is the processor architecture for which to build the image.
+	// +optional
+	Architecture string `json:"architecture,omitempty"`
 }
+
+type SecretStatus struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
+type ImageStatusConditionType string
+
+const (
+	// Ready indicates that the Image is available and ready to be downloaded.
+	ConditionImageReady ImageStatusConditionType = "Ready"
+
+	// Error indicates that the operator was unable to build an image.
+	ConditionImageError ImageStatusConditionType = "Error"
+)
 
 // PreprovisioningImageStatus defines the observed state of PreprovisioningImage
 type PreprovisioningImageStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// imageUrl is the URL from which the built image can be downloaded.
+	ImageUrl string `json:"imageUrl,omitempty"`
+
+	// format is the type of image that is available at the download url:
+	// either iso or initrd.
+	// +optional
+	Format ImageFormat `json:"format,omitempty"`
+
+	// networkData is a reference to the version of the Secret containing the
+	// network data used to build the image.
+	// +optional
+	NetworkData SecretStatus `json:"networkData,omitempty"`
+
+	// architecture is the processor architecture for which the image is built
+	Architecture string `json:"architecture,omitempty"`
+
+	// conditions describe the state of the built image
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=ppimg
+// +kubebuilder:subresource:status
 
 // PreprovisioningImage is the Schema for the preprovisioningimages API
 type PreprovisioningImage struct {

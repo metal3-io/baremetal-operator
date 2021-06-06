@@ -135,9 +135,6 @@ spec:
               firmware:
                 description: BIOS configuration for bare metal server
                 properties:
-                  resetSettings:
-                    description: 'Whether reset firmware settings. NOTE: IRMC does not support reset firmware settings.'
-                    type: boolean
                   simultaneousMultithreadingEnabled:
                     description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
                     enum:
@@ -649,9 +646,6 @@ spec:
                   firmware:
                     description: The Bios set by the user
                     properties:
-                      resetSettings:
-                        description: 'Whether reset firmware settings. NOTE: IRMC does not support reset firmware settings.'
-                        type: boolean
                       simultaneousMultithreadingEnabled:
                         description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
                         enum:

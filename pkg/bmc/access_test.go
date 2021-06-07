@@ -1,10 +1,13 @@
 package bmc
 
 import (
+	"reflect"
 	"testing"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -1119,5 +1122,130 @@ func TestUnknownType(t *testing.T) {
 	acc, err := NewAccessDetails("foo://192.168.122.1", false)
 	if err == nil || acc != nil {
 		t.Fatalf("unexpected parse success")
+	}
+}
+
+func TestBuildBIOSCleanSteps(t *testing.T) {
+	var True bool = true
+	var False bool = false
+
+	cases := []struct {
+		name          string
+		address       string
+		firmware      *metal3v1alpha1.FirmwareConfig
+		expected      []map[string]string
+		expectedError bool
+	}{
+		// ilo4
+		{
+			name:    "ilo4",
+			address: "ilo4://192.168.122.1",
+			firmware: &metal3v1alpha1.FirmwareConfig{
+				VirtualizationEnabled:             &True,
+				SimultaneousMultithreadingEnabled: &False,
+			},
+			expected: []map[string]string{
+				{
+					"name":  "ProcVirtualization",
+					"value": "Enabled",
+				},
+				{
+					"name":  "ProcHyperthreading",
+					"value": "Disabled",
+				},
+			},
+		},
+		{
+			name:     "ilo4, firmware is nil",
+			address:  "ilo4://192.168.122.1",
+			firmware: nil,
+			expected: nil,
+		},
+		{
+			name:     "ilo4, firmware is empty",
+			address:  "ilo4://192.168.122.1",
+			firmware: &metal3v1alpha1.FirmwareConfig{},
+			expected: nil,
+		},
+		// ilo5
+		{
+			name:    "ilo5",
+			address: "ilo5://192.168.122.1",
+			firmware: &metal3v1alpha1.FirmwareConfig{
+				VirtualizationEnabled:             &True,
+				SimultaneousMultithreadingEnabled: &False,
+			},
+			expected: []map[string]string{
+				{
+					"name":  "ProcVirtualization",
+					"value": "Enabled",
+				},
+				{
+					"name":  "ProcHyperthreading",
+					"value": "Disabled",
+				},
+			},
+		},
+		{
+			name:     "ilo5, firmware is nil",
+			address:  "ilo5://192.168.122.1",
+			firmware: nil,
+			expected: nil,
+		},
+		{
+			name:     "ilo5, firmware is empty",
+			address:  "ilo5://192.168.122.1",
+			firmware: &metal3v1alpha1.FirmwareConfig{},
+			expected: nil,
+		},
+		// irmc
+		{
+			name:    "irmc",
+			address: "irmc://192.168.122.1",
+			firmware: &metal3v1alpha1.FirmwareConfig{
+				VirtualizationEnabled:             &True,
+				SimultaneousMultithreadingEnabled: &False,
+			},
+			expected: []map[string]string{
+				{
+					"name":  "cpu_vt_enabled",
+					"value": "True",
+				},
+				{
+					"name":  "hyper_threading_enabled",
+					"value": "False",
+				},
+			},
+		},
+		{
+			name:     "irmc, firmware is nil",
+			address:  "irmc://192.168.122.1",
+			firmware: nil,
+			expected: nil,
+		},
+		{
+			name:     "irmc, firmware is empty",
+			address:  "irmc://192.168.122.1",
+			firmware: &metal3v1alpha1.FirmwareConfig{},
+			expected: nil,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			acc, err := NewAccessDetails(c.address, false)
+			if err != nil {
+				t.Fatalf("new AccessDetails failed: %v", err)
+			}
+
+			settings, err := acc.BuildBIOSSettings(c.firmware)
+			if (err != nil) != c.expectedError {
+				t.Fatalf("got unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(c.expected, settings) {
+				t.Errorf("expected settings: %v, got: %v", c.expected, settings)
+			}
+		})
 	}
 }

@@ -1102,6 +1102,24 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
 	}
 
+	// Build bios clean steps
+	settings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) != 0 {
+		cleanSteps = append(
+			cleanSteps,
+			nodes.CleanStep{
+				Interface: "bios",
+				Step:      "apply_configuration",
+				Args: map[string]interface{}{
+					"settings": settings,
+				},
+			},
+		)
+	}
+
 	// TODO: Add manual cleaning steps for host configuration
 
 	return

@@ -289,6 +289,24 @@ type RAIDConfig struct {
 	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes,omitempty"`
 }
 
+// FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server
+type FirmwareConfig struct {
+	// Supports the virtualization of platform hardware.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum=true;false
+	VirtualizationEnabled *bool `json:"virtualizationEnabled,omitempty"`
+
+	// Allows a single physical processor core to appear as several logical processors.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum=true;false
+	SimultaneousMultithreadingEnabled *bool `json:"simultaneousMultithreadingEnabled,omitempty"`
+
+	// SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance.
+	// This supports following options: true, false.
+	// +kubebuilder:validation:Enum=true;false
+	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
+}
+
 // BareMetalHostSpec defines the desired state of BareMetalHost
 type BareMetalHostSpec struct {
 	// Important: Run "make generate manifests" to regenerate code
@@ -305,6 +323,9 @@ type BareMetalHostSpec struct {
 
 	// RAID configuration for bare metal server
 	RAID *RAIDConfig `json:"raid,omitempty"`
+
+	// BIOS configuration for bare metal server
+	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// What is the name of the hardware profile for this host? It
 	// should only be necessary to set this when inspection cannot
@@ -716,6 +737,9 @@ type ProvisionStatus struct {
 
 	// The Raid set by the user
 	RAID *RAIDConfig `json:"raid,omitempty"`
+
+	// The Bios set by the user
+	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

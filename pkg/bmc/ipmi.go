@@ -1,7 +1,10 @@
 package bmc
 
 import (
+	"fmt"
 	"net/url"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -95,4 +98,11 @@ func (a *ipmiAccessDetails) VendorInterface() string {
 
 func (a *ipmiAccessDetails) SupportsSecureBoot() bool {
 	return false
+}
+
+func (a *ipmiAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+	if firmwareConfig != nil {
+		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
+	}
+	return nil, nil
 }

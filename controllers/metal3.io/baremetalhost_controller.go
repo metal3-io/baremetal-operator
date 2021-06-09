@@ -914,9 +914,11 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	}
 
 	// After the provisioner is done, clear the provisioning settings
-	// so we transition to the next state.
 	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
-	clearHostProvisioningSettings(info.host)
+	// We don't expect software RAID configuration to survive the deprovisioning
+	if info.host.Status.Provisioning.RAID != nil {
+		info.host.Status.Provisioning.RAID.SoftwareRAIDVolumes = nil
+	}
 
 	return actionComplete{}
 }

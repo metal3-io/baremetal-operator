@@ -752,15 +752,24 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
+	dirty, err := saveHostProvisioningSettings(info.host)
+	if err != nil {
+		return actionError{err}
+	}
+	if dirty {
+		info.log.Info("saving provisioning settings")
+		return actionUpdate{}
+	}
+
 	dirty, newStatus, err := getPreparationSettings(info.host)
 	if err != nil {
 		return actionError{err}
 	}
 
 	prepareData := provisioner.PrepareData{
-		RAIDConfig:      newStatus.Provisioning.RAID.DeepCopy(),
-		RootDeviceHints: newStatus.Provisioning.RootDeviceHints.DeepCopy(),
-		FirmwareConfig:  newStatus.Provisioning.Firmware.DeepCopy(),
+		RAIDConfig:         newStatus.Provisioning.RAID.DeepCopy(),
+		HasRootDeviceHints: newStatus.Provisioning.RootDeviceHints != nil,
+		FirmwareConfig:     newStatus.Provisioning.Firmware.DeepCopy(),
 	}
 	provResult, started, err := prov.Prepare(prepareData,
 		dirty || info.host.Status.ErrorType == metal3v1alpha1.PreparationError)
@@ -775,11 +784,8 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	}
 
 	if dirty && started {
-		info.log.Info("saving host provisioning settings")
-		_, err := savePreparationSettings(info.host)
-		if err != nil {
-			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
-		}
+		info.log.Info("saving preparation settings")
+		savePreparationSettings(info.host)
 	}
 	if started && clearError(info.host) {
 		dirty = true
@@ -1044,9 +1050,12 @@ func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner
 
 func getPreparationSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
 	hostCopy := host.DeepCopy()
-	dirty, err = savePreparationSettings(hostCopy)
+	dirty, err = saveHostProvisioningSettings(hostCopy)
 	if err != nil {
 		err = errors.Wrap(err, "could not determine the host provisioning settings")
+	}
+	if savePreparationSettings(hostCopy) {
+		dirty = true
 	}
 	status = &hostCopy.Status
 	return
@@ -1054,25 +1063,7 @@ func getPreparationSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, sta
 
 // savePreparationSettings copies the values that are configured during host
 // preparation
-func savePreparationSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
-
-	// Ensure the root device hints we're going to use are stored.
-	//
-	// If the user has provided explicit root device hints, they take
-	// precedence. Otherwise use the values from the hardware profile.
-	hintSource := host.Spec.RootDeviceHints
-	if hintSource == nil {
-		hwProf, err := hardware.GetProfile(host.HardwareProfile())
-		if err != nil {
-			return false, errors.Wrap(err, "Could not update root device hints")
-		}
-		hintSource = &hwProf.RootDeviceHints
-	}
-	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
-		host.Status.Provisioning.RootDeviceHints = hintSource
-		dirty = true
-	}
-
+func savePreparationSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	// Copy RAID settings
 	if host.Spec.RAID != host.Status.Provisioning.RAID {
 		// If RAID settings is nil, remove saved settings,
@@ -1126,6 +1117,29 @@ func clearPreparationSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
 	host.Status.Provisioning.RAID = nil
 	host.Status.Provisioning.Firmware = nil
+}
+
+// saveHostProvisioningSettings copies the values related to
+// provisioning that do not trigger re-provisioning into the status
+// fields of the host.
+func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
+	// Ensure the root device hints we're going to use are stored.
+	//
+	// If the user has provided explicit root device hints, they take
+	// precedence. Otherwise use the values from the hardware profile.
+	hintSource := host.Spec.RootDeviceHints
+	if hintSource == nil {
+		hwProf, err := hardware.GetProfile(host.HardwareProfile())
+		if err != nil {
+			return false, errors.Wrap(err, "Could not update root device hints")
+		}
+		hintSource = &hwProf.RootDeviceHints
+	}
+	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
+		host.Status.Provisioning.RootDeviceHints = hintSource
+		dirty = true
+	}
+	return
 }
 
 func (r *BareMetalHostReconciler) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {

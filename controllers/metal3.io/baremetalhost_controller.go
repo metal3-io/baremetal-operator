@@ -615,7 +615,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		info.log.Info("setting provisioning id", "ID", provID)
 		info.host.Status.Provisioning.ID = provID
 		if info.host.Status.Provisioning.State == metal3v1alpha1.StatePreparing {
-			clearHostProvisioningSettings(info.host)
+			clearPreparationSettings(info.host)
 		}
 		dirty = true
 	}
@@ -752,7 +752,7 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
-	dirty, newStatus, err := getHostProvisioningSettings(info.host)
+	dirty, newStatus, err := getPreparationSettings(info.host)
 	if err != nil {
 		return actionError{err}
 	}
@@ -770,13 +770,13 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling cleaning error in controller")
-		clearHostProvisioningSettings(info.host)
+		clearPreparationSettings(info.host)
 		return recordActionFailure(info, metal3v1alpha1.PreparationError, provResult.ErrorMessage)
 	}
 
 	if dirty && started {
 		info.log.Info("saving host provisioning settings")
-		_, err := saveHostProvisioningSettings(info.host)
+		_, err := savePreparationSettings(info.host)
 		if err != nil {
 			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
 		}
@@ -854,15 +854,6 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	// After provisioning we always requeue to ensure we enter the
 	// "provisioned" state and start monitoring power status.
 	return actionComplete{}
-}
-
-// clearHostProvisioningSettings removes the values related to
-// provisioning that do not trigger re-provisioning from the status
-// fields of a host.
-func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
-	host.Status.Provisioning.RootDeviceHints = nil
-	host.Status.Provisioning.RAID = nil
-	host.Status.Provisioning.Firmware = nil
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -1051,9 +1042,9 @@ func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner
 	return r.manageHostPower(prov, info)
 }
 
-func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
+func getPreparationSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
 	hostCopy := host.DeepCopy()
-	dirty, err = saveHostProvisioningSettings(hostCopy)
+	dirty, err = savePreparationSettings(hostCopy)
 	if err != nil {
 		err = errors.Wrap(err, "could not determine the host provisioning settings")
 	}
@@ -1061,10 +1052,9 @@ func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool
 	return
 }
 
-// saveHostProvisioningSettings copies the values related to
-// provisioning that do not trigger re-provisioning into the status
-// fields of the host.
-func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
+// savePreparationSettings copies the values that are configured during host
+// preparation
+func savePreparationSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
 
 	// Ensure the root device hints we're going to use are stored.
 	//
@@ -1128,6 +1118,14 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 
 	return
+}
+
+// clearPreparationSettings removes the values that are configured during host
+// preparation
+func clearPreparationSettings(host *metal3v1alpha1.BareMetalHost) {
+	host.Status.Provisioning.RootDeviceHints = nil
+	host.Status.Provisioning.RAID = nil
+	host.Status.Provisioning.Firmware = nil
 }
 
 func (r *BareMetalHostReconciler) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {

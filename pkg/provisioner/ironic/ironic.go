@@ -1124,6 +1124,15 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 }
 
 func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (configDrive nodes.ConfigDrive, err error) {
+	// In theory, Ironic can support configdrive with live ISO by attaching
+	// it to another virtual media slot. However, some hardware does not
+	// support two virtual media devices at the same time, so we shouldn't
+	// try it.
+	if data.Image.DiskFormat != nil && *data.Image.DiskFormat == "live-iso" {
+		p.log.Info("not providing config drive for live ISO")
+		return
+	}
+
 	// Retrieve instance specific user data (cloud-init, ignition, etc).
 	userData, err := data.HostConfig.UserData()
 	if err != nil {
@@ -1147,7 +1156,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	}
 
 	// Retrieve meta data with fallback to defaults from provisioner.
-	metaData := map[string]interface{}{
+	configDrive.MetaData = map[string]interface{}{
 		"uuid":             string(p.objectMeta.UID),
 		"metal3-namespace": p.objectMeta.Namespace,
 		"metal3-name":      p.objectMeta.Name,
@@ -1160,17 +1169,9 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 		return configDrive, errors.Wrap(err, "could not retrieve metadata")
 	}
 	if metaDataRaw != "" {
-		if err = yaml.Unmarshal([]byte(metaDataRaw), &metaData); err != nil {
+		if err = yaml.Unmarshal([]byte(metaDataRaw), &configDrive.MetaData); err != nil {
 			return configDrive, errors.Wrap(err, "failed to unmarshal metadata from secret")
 		}
-	}
-
-	// Set metaData if any field is populated by a user.
-	if metaDataRaw != "" || networkDataRaw != "" || userData != "" {
-		configDrive.MetaData = metaData
-		p.log.Info("triggering provisioning with config drive")
-	} else {
-		p.log.Info("triggering provisioning without config drive")
 	}
 
 	return

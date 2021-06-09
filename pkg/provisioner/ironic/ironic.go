@@ -542,6 +542,14 @@ func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.Imag
 	var formats []metal3v1alpha1.ImageFormat
 	if accessDetails.SupportsISOPreprovisioningImage() {
 		formats = append(formats, metal3v1alpha1.ImageFormatISO)
+	} else {
+		if p.config.deployKernelURL != "" && p.config.deployRamdiskURL != "" {
+			// This is a PXE driver (no ISO support) so it shouldn't require any
+			// network customisation to boot the image, and we have sufficient
+			// data available to configure. Therefore, do not request an image
+			// build.
+			return nil, nil
+		}
 	}
 	if p.config.deployKernelURL != "" {
 		formats = append(formats, metal3v1alpha1.ImageFormatInitRD)

@@ -159,7 +159,7 @@ func main() {
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 		ProvisionerFactory: provisionerFactory,
 		APIReader:          mgr.GetAPIReader(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, preprovImgEnable); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)
 	}

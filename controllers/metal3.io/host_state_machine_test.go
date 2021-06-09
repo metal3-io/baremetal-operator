@@ -1007,7 +1007,9 @@ func TestErrorClean(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := newMockProvisioner()
-			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov, true)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{
+				Client: fakeclient.NewFakeClient(),
+			}, prov, true)
 
 			info := makeDefaultReconcileInfo(tt.Host)
 			if tt.SecretName != "" {

@@ -792,7 +792,7 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 			Name:              "enabled ipmi",
 			Address:           "ipmi://example.test",
 			PreprovImgEnabled: true,
-			Expected:          []metal3v1alpha1.ImageFormat{"initrd"},
+			Expected:          nil,
 		},
 		{
 			Name:              "enabled virtualmedia",

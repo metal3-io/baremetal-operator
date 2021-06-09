@@ -68,11 +68,17 @@ type HostConfigData interface {
 	MetaData() (string, error)
 }
 
+type PreprovisioningImage struct {
+	ImageURL string
+	Format   metal3v1alpha1.ImageFormat
+}
+
 type ManagementAccessData struct {
 	BootMode              metal3v1alpha1.BootMode
 	AutomatedCleaningMode metal3v1alpha1.AutomatedCleaningMode
 	State                 metal3v1alpha1.ProvisioningState
 	CurrentImage          *metal3v1alpha1.Image
+	PreprovisioningImage  *PreprovisioningImage
 	HasCustomDeploy       bool
 }
 
@@ -204,5 +210,9 @@ type HardwareState struct {
 	PoweredOn *bool
 }
 
-// ErrNeedsRegistration raised if the host is not registered
+// ErrNeedsRegistration is returned if the host is not registered
 var ErrNeedsRegistration = errors.New("Host not registered")
+
+// ErrNeedsPreprovisioningImage is returned if a preprovisioning image is
+// required
+var ErrNeedsPreprovisioningImage = errors.New("No suitable Preprovisioning image available")

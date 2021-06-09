@@ -351,19 +351,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
-	deployImageInfo := optionsData{}
-	// FIXME(dhellmann): We need to get our IP on the
-	// provisioning network from somewhere.
-	if p.config.deployKernelURL != "" && p.config.deployRamdiskURL != "" {
-		deployImageInfo[deployKernelKey] = p.config.deployKernelURL
-		deployImageInfo[deployRamdiskKey] = p.config.deployRamdiskURL
-	}
-	if p.config.deployISOURL != "" {
-		deployImageInfo[deployISOKey] = p.config.deployISOURL
-	}
-	for k, v := range deployImageInfo {
-		driverInfo[k] = v
-	}
+	deployImageInfo := setDeployImage(driverInfo, p.config, bmcAccess, data.PreprovisioningImage)
 
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
@@ -519,20 +507,33 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		result, err = operationContinuing(provisionRequeueDelay)
 		return
 
+	case nodes.Active:
+		// The host is already running, maybe it's a master?
+		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
+		fallthrough
+
 	case nodes.Manageable:
-		return
+		fallthrough
 
 	case nodes.Available:
 		// The host is fully registered (and probably wasn't cleanly
 		// deleted previously)
-		return
-
-	case nodes.Active:
-		// The host is already running, maybe it's a master?
-		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
-		return
+		fallthrough
 
 	default:
+		switch data.State {
+		case metal3v1alpha1.StateInspecting,
+			metal3v1alpha1.StatePreparing,
+			metal3v1alpha1.StateProvisioning,
+			metal3v1alpha1.StateDeprovisioning:
+			if deployImageInfo == nil {
+				if p.config.havePreprovImgBuilder {
+					result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
+				} else {
+					result, err = operationFailed("no preprovisioning image available")
+				}
+			}
+		}
 		return
 	}
 }
@@ -567,6 +568,59 @@ func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.Imag
 	}
 
 	return formats, nil
+}
+
+func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) optionsData {
+	deployImageInfo := optionsData{
+		deployKernelKey:  nil,
+		deployRamdiskKey: nil,
+		deployISOKey:     nil,
+	}
+
+	defer func() {
+		// Copy into driverInfo so that if we end up creating a new Node, the
+		// info will be there from the outset.
+		for k, v := range deployImageInfo {
+			if v != nil {
+				driverInfo[k] = v
+			}
+		}
+	}()
+
+	allowISO := accessDetails.SupportsISOPreprovisioningImage()
+	allowInitRD := config.deployKernelURL != ""
+
+	if hostImage != nil {
+		switch hostImage.Format {
+		case metal3v1alpha1.ImageFormatISO:
+			if allowISO {
+				deployImageInfo[deployISOKey] = hostImage.ImageURL
+				return deployImageInfo
+			}
+		case metal3v1alpha1.ImageFormatInitRD:
+			if allowInitRD {
+				deployImageInfo[deployKernelKey] = config.deployKernelURL
+				deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
+				return deployImageInfo
+			}
+		}
+	}
+
+	if !config.havePreprovImgBuilder {
+		if allowISO && config.deployISOURL != "" {
+			deployImageInfo[deployISOKey] = config.deployISOURL
+			return deployImageInfo
+		}
+	}
+	if !config.havePreprovImgBuilder || !allowISO {
+		if allowInitRD && config.deployRamdiskURL != "" {
+			deployImageInfo[deployKernelKey] = config.deployKernelURL
+			deployImageInfo[deployRamdiskKey] = config.deployRamdiskURL
+			return deployImageInfo
+		}
+	}
+
+	return nil
 }
 
 func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {

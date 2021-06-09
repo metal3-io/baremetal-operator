@@ -598,6 +598,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
 			State:                 info.host.Status.Provisioning.State,
 			CurrentImage:          getCurrentImage(info.host),
+			CurrentRAIDConfig:     info.host.Status.Provisioning.RAID,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)

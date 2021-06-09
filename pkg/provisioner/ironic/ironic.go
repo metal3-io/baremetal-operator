@@ -620,6 +620,17 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	if !success {
 		return
 	}
+
+	if data.CurrentRAIDConfig != nil && bmcAccess.RAIDInterface() != "no-raid" {
+		// Set target raid configuration
+		err = setTargetRAIDCfg(p, ironicNode, data.CurrentRAIDConfig, false)
+		if err != nil {
+			result, err = transientError(err)
+			return
+		}
+		// TODO: set current raid configuration also/instead?
+	}
+
 	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	// if err != nil {
 	// 	return result, errors.Wrap(err, "failed to get provisioning state in ironic")

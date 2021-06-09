@@ -29,6 +29,8 @@ func setTargetRAIDCfg(p *ironicProvisioner, ironicNode *nodes.Node, raid *metal3
 		p.log.Info("rootDeviceHints is used, the first volume of raid will not be set to root")
 	}
 
+	// TODO(zaneb) use nodeUpdater to avoid excessive writes
+
 	// Set target for RAID configuration steps
 	return nodes.SetRAIDConfig(
 		p.client,

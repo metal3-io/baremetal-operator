@@ -1,18 +1,91 @@
 package controllers
 
 import (
+	"context"
 	goctx "context"
 	"encoding/base64"
 	"fmt"
 	"testing"
 
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestLabelSecrets(t *testing.T) {
+
+	testCases := []struct {
+		name     string
+		getter   func(hcd *hostConfigData) (string, error)
+		hostSpec *metal3v1alpha1.BareMetalHostSpec
+	}{
+		{
+			name: "user-data",
+			getter: func(hcd *hostConfigData) (string, error) {
+				return hcd.UserData()
+			},
+			hostSpec: &metal3v1alpha1.BareMetalHostSpec{
+				UserData: &corev1.SecretReference{
+					Name:      "user-data",
+					Namespace: namespace,
+				},
+			},
+		},
+		{
+			name: "meta-data",
+			getter: func(hcd *hostConfigData) (string, error) {
+				return hcd.MetaData()
+			},
+			hostSpec: &metal3v1alpha1.BareMetalHostSpec{
+				MetaData: &corev1.SecretReference{
+					Name:      "meta-data",
+					Namespace: namespace,
+				},
+			},
+		},
+		{
+			name: "network-data",
+			getter: func(hcd *hostConfigData) (string, error) {
+				return hcd.NetworkData()
+			},
+			hostSpec: &metal3v1alpha1.BareMetalHostSpec{
+				NetworkData: &corev1.SecretReference{
+					Name:      "network-data",
+					Namespace: namespace,
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			host := newHost("host", tc.hostSpec)
+			c := fakeclient.NewClientBuilder().Build()
+			hcd := &hostConfigData{
+				host:      host,
+				log:       ctrl.Log.WithName("controllers").WithName("BareMetalHost").WithName("host_config_data"),
+				client:    c,
+				apiReader: c,
+			}
+
+			secret := newSecret(tc.name, map[string]string{"value": "somedata"})
+			c.Create(context.TODO(), secret)
+
+			_, err := tc.getter(hcd)
+			assert.NoError(t, err)
+
+			actualSecret := &corev1.Secret{}
+			c.Get(context.TODO(), types.NamespacedName{Name: tc.name, Namespace: namespace}, actualSecret)
+			assert.Equal(t, actualSecret.Labels[LabelEnvironmentName], LabelEnvironmentValue)
+		})
+	}
+
+}
 
 func TestProvisionWithHostConfig(t *testing.T) {
 	testBMCSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
@@ -221,14 +294,15 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			}
 			tc.Host.Spec.Online = true
 
-			c := fakeclient.NewFakeClient(tc.Host)
+			c := fakeclient.NewClientBuilder().WithObjects(tc.Host).Build()
 			c.Create(goctx.TODO(), testBMCSecret)
 			c.Create(goctx.TODO(), tc.UserDataSecret)
 			c.Create(goctx.TODO(), tc.NetworkDataSecret)
 			hcd := &hostConfigData{
-				host:   tc.Host,
-				log:    ctrl.Log.WithName("controllers").WithName("BareMetalHost").WithName("host_config_data"),
-				client: c,
+				host:      tc.Host,
+				log:       ctrl.Log.WithName("controllers").WithName("BareMetalHost").WithName("host_config_data"),
+				client:    c,
+				apiReader: c,
 			}
 
 			actualUserData, err := hcd.UserData()

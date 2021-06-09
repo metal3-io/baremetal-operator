@@ -154,7 +154,9 @@ spec:
                 description: A custom deploy procedure.
                 properties:
                   method:
-                    description: Custom deploy method name. This name is specific to the deploy ramdisk used. If you don't have a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                    description: Custom deploy method name. This name is specific
+                      to the deploy ramdisk used. If you don't have a custom deploy
+                      ramdisk, you shouldn't use CustomDeploy.
                     type: string
                 required:
                 - method
@@ -779,7 +781,9 @@ spec:
                     description: Custom deploy procedure applied to the host.
                     properties:
                       method:
-                        description: Custom deploy method name. This name is specific to the deploy ramdisk used. If you don't have a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                        description: Custom deploy method name. This name is specific
+                          to the deploy ramdisk used. If you don't have a custom deploy
+                          ramdisk, you shouldn't use CustomDeploy.
                         type: string
                     required:
                     - method

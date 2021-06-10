@@ -767,9 +767,9 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	}
 
 	prepareData := provisioner.PrepareData{
-		RAIDConfig:         newStatus.Provisioning.RAID.DeepCopy(),
-		HasRootDeviceHints: newStatus.Provisioning.RootDeviceHints != nil,
-		FirmwareConfig:     newStatus.Provisioning.Firmware.DeepCopy(),
+		PrebootSettings:  provisioner.BuildPrebootSettings(newStatus),
+		ExistingSettings: provisioner.BuildPrebootSettings(&info.host.Status),
+		PreviousError:    info.host.Status.ErrorType == metal3v1alpha1.PreparationError,
 	}
 	provResult, started, err := prov.Prepare(prepareData,
 		dirty || info.host.Status.ErrorType == metal3v1alpha1.PreparationError)

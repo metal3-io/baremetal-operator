@@ -73,10 +73,24 @@ type InspectData struct {
 	BootMode metal3v1alpha1.BootMode
 }
 
-type PrepareData struct {
+type PrebootSettings struct {
 	RAIDConfig         *metal3v1alpha1.RAIDConfig
 	HasRootDeviceHints bool
 	FirmwareConfig     *metal3v1alpha1.FirmwareConfig
+}
+
+func BuildPrebootSettings(status *metal3v1alpha1.BareMetalHostStatus) PrebootSettings {
+	return PrebootSettings{
+		RAIDConfig:         status.Provisioning.RAID.DeepCopy(),
+		HasRootDeviceHints: status.Provisioning.RootDeviceHints != nil,
+		FirmwareConfig:     status.Provisioning.Firmware.DeepCopy(),
+	}
+}
+
+type PrepareData struct {
+	PrebootSettings
+	ExistingSettings PrebootSettings
+	PreviousError    bool
 }
 
 type ProvisionData struct {

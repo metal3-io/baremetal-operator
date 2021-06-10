@@ -158,7 +158,7 @@ func TestPrepare(t *testing.T) {
 			host.Status.Provisioning.ID = nodeUUID
 			prepData := provisioner.PrepareData{}
 			if tc.existRaidConfig {
-				host.Spec.BMC.Address = "irmc://test.bmc/"
+				host.Spec.BMC.Address = "idrac://test.bmc/"
 				prepData.RAIDConfig = &metal3v1alpha1.RAIDConfig{
 					HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
 						{

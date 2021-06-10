@@ -1109,7 +1109,7 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
 	if bmcAccess.RAIDInterface() != "no-raid" {
-		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(data.RAIDConfig)...)
+		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(data)...)
 	} else if data.RAIDConfig != nil {
 		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
 	}

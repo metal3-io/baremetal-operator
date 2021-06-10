@@ -2,10 +2,12 @@ package ironic
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 
 	"github.com/pkg/errors"
@@ -138,22 +140,47 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3v1alpha1.SoftwareRAIDVolume) (lo
 	return
 }
 
+// hwRaidConfigured returns true if HardwareRAIDVolumes is non-nil.
+// Note that it still returns true if it is an empty list - in this case we
+// still want to clear the RAID settings. When it is nil, we just leave the
+// existing settings in place.
+func hwRaidConfigured(config *metal3v1alpha1.RAIDConfig) bool {
+	return config != nil && config.HardwareRAIDVolumes != nil
+}
+
 // BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec
-func BuildRAIDCleanSteps(raid *metal3v1alpha1.RAIDConfig) (cleanSteps []nodes.CleanStep) {
-	// Add ‘delete_configuration’ before ‘create_configuration’ to make sure
-	// that only the desired logical disks exist in the system after manual cleaning.
-	cleanSteps = append(
-		cleanSteps,
-		nodes.CleanStep{
-			Interface: "raid",
-			Step:      "delete_configuration",
-		},
-	)
+func BuildRAIDCleanSteps(data provisioner.PrepareData) (cleanSteps []nodes.CleanStep) {
+	updatedHWRaidConfig := hwRaidConfigured(data.RAIDConfig) &&
+		(data.PreviousError ||
+			!(hwRaidConfigured(data.ExistingSettings.RAIDConfig) &&
+				reflect.DeepEqual(
+					data.RAIDConfig.HardwareRAIDVolumes,
+					data.ExistingSettings.RAIDConfig.HardwareRAIDVolumes,
+				)))
+	existingHWRaidConfig := data.ExistingSettings.RAIDConfig != nil &&
+		(len(data.ExistingSettings.RAIDConfig.HardwareRAIDVolumes) > 0 ||
+			(data.PreviousError &&
+				data.ExistingSettings.RAIDConfig.HardwareRAIDVolumes != nil))
+	if updatedHWRaidConfig ||
+		(!hwRaidConfigured(data.RAIDConfig) && existingHWRaidConfig) {
+		// Add ‘delete_configuration’ before ‘create_configuration’ to make sure
+		// that only the desired logical disks exist in the system after manual cleaning.
+		cleanSteps = append(
+			cleanSteps,
+			nodes.CleanStep{
+				Interface: "raid",
+				Step:      "delete_configuration",
+			},
+		)
+	}
 	// If not configure raid, only need to clear old configuration
-	if raid == nil || (len(raid.HardwareRAIDVolumes) == 0 && len(raid.SoftwareRAIDVolumes) == 0) {
+	if data.RAIDConfig == nil ||
+		(len(data.RAIDConfig.HardwareRAIDVolumes) == 0 &&
+			len(data.RAIDConfig.SoftwareRAIDVolumes) == 0) {
 		return
 	}
-	if len(raid.HardwareRAIDVolumes) == 0 && len(raid.SoftwareRAIDVolumes) != 0 {
+	if len(data.RAIDConfig.HardwareRAIDVolumes) == 0 &&
+		len(data.RAIDConfig.SoftwareRAIDVolumes) != 0 {
 		cleanSteps = append(
 			cleanSteps,
 			nodes.CleanStep{
@@ -161,6 +188,8 @@ func BuildRAIDCleanSteps(raid *metal3v1alpha1.RAIDConfig) (cleanSteps []nodes.Cl
 				Step:      "erase_devices_metadata",
 			},
 		)
+	} else if !updatedHWRaidConfig {
+		return
 	}
 	// ‘create_configuration’ doesn’t remove existing disks. It is recommended
 	// that only the desired logical disks exist in the system after manual cleaning.

@@ -1090,7 +1090,7 @@ func savePreparationSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 			} else {
 				// If hardware RAID has been saved, remove it.
 				if len(host.Status.Provisioning.RAID.HardwareRAIDVolumes) != 0 {
-					host.Status.Provisioning.RAID.HardwareRAIDVolumes = nil
+					host.Status.Provisioning.RAID.HardwareRAIDVolumes = []metal3v1alpha1.HardwareRAIDVolume{}
 					dirty = true
 				}
 				// Compare software RAID settings

@@ -520,3 +520,6 @@ to be updated unlike the `paused` anotation. While in this state the
 OperationalStatus field will be `detached` but the provisioning state will
 be unmodified.  This API only has any effect for BareMetalHost resources
 that are in either `Provisioned` or `ExternallyProvisioned` state.
+
+Please note only the existence of the annotation is important to treat the BMH
+as detached and the value of the annotation is always ignored.

@@ -3,6 +3,7 @@ package ironic
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -1114,24 +1115,28 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	}
 
 	// Build bios clean steps
-	settings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
-	if err != nil {
-		return nil, err
-	}
-	if len(settings) != 0 {
-		cleanSteps = append(
-			cleanSteps,
-			nodes.CleanStep{
-				Interface: "bios",
-				Step:      "apply_configuration",
-				Args: map[string]interface{}{
-					"settings": settings,
+	if data.PreviousError ||
+		!reflect.DeepEqual(
+			data.FirmwareConfig,
+			data.ExistingSettings.FirmwareConfig,
+		) {
+		settings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
+		if err != nil {
+			return nil, err
+		}
+		if len(settings) != 0 {
+			cleanSteps = append(
+				cleanSteps,
+				nodes.CleanStep{
+					Interface: "bios",
+					Step:      "apply_configuration",
+					Args: map[string]interface{}{
+						"settings": settings,
+					},
 				},
-			},
-		)
+			)
+		}
 	}
-
-	// TODO: Add manual cleaning steps for host configuration
 
 	return
 }

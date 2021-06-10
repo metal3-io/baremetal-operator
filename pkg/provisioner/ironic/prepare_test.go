@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"net/url"
 	"testing"
 	"time"
 
@@ -15,7 +16,25 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 )
 
+type RAIDTestBMC struct{}
+
+func (r *RAIDTestBMC) Type() string                                          { return "raid-test" }
+func (r *RAIDTestBMC) NeedsMAC() bool                                        { return false }
+func (r *RAIDTestBMC) Driver() string                                        { return "raid-test" }
+func (r *RAIDTestBMC) DisableCertificateVerification() bool                  { return false }
+func (r *RAIDTestBMC) DriverInfo(bmc.Credentials) (i map[string]interface{}) { return }
+func (r *RAIDTestBMC) BootInterface() string                                 { return "" }
+func (r *RAIDTestBMC) ManagementInterface() string                           { return "" }
+func (r *RAIDTestBMC) PowerInterface() string                                { return "" }
+func (r *RAIDTestBMC) RAIDInterface() string                                 { return "" }
+func (r *RAIDTestBMC) VendorInterface() string                               { return "" }
+func (r *RAIDTestBMC) SupportsSecureBoot() bool                              { return false }
+
 func TestPrepare(t *testing.T) {
+	bmc.RegisterFactory("raid-test", func(u *url.URL, dcv bool) (bmc.AccessDetails, error) {
+		return &RAIDTestBMC{}, nil
+	}, []string{})
+
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
 		name                 string
@@ -124,7 +143,7 @@ func TestPrepare(t *testing.T) {
 			host.Status.Provisioning.ID = nodeUUID
 			prepData := provisioner.PrepareData{}
 			if tc.existRaidConfig {
-				host.Spec.BMC.Address = "idrac://test.bmc/"
+				host.Spec.BMC.Address = "raid-test://test.bmc/"
 				prepData.RAIDConfig = &metal3v1alpha1.RAIDConfig{
 					HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
 						{

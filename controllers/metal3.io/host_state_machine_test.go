@@ -19,6 +19,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+type DetachedAnnotation struct {
+	is    bool
+	value string
+}
+
 func testStateMachine(host *metal3v1alpha1.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
 	p, _ := r.ProvisionerFactory(provisioner.BuildHostData(*host, bmc.Credentials{}),
@@ -204,7 +209,7 @@ func TestDetach(t *testing.T) {
 	testCases := []struct {
 		Scenario                  string
 		Host                      *metal3v1alpha1.BareMetalHost
-		HasDetachedAnnotation     bool
+		DetachedAnnotation        DetachedAnnotation
 		ExpectedDetach            bool
 		ExpectedDirty             bool
 		ExpectedOperationalStatus metal3v1alpha1.OperationalStatus
@@ -219,9 +224,18 @@ func TestDetach(t *testing.T) {
 			ExpectedState:             metal3v1alpha1.StateProvisioned,
 		},
 		{
+			Scenario:                  "ProvisionedHostWithDetachedFalse",
+			Host:                      host(metal3v1alpha1.StateProvisioned).build(),
+			DetachedAnnotation:        DetachedAnnotation{true, "false"},
+			ExpectedDetach:            false,
+			ExpectedDirty:             false,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+		},
+		{
 			Scenario:                  "DetachProvisionedHost",
 			Host:                      host(metal3v1alpha1.StateProvisioned).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            true,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
@@ -230,7 +244,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "DeleteDetachedProvisionedHost",
 			Host:                      host(metal3v1alpha1.StateProvisioned).SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached).setDeletion().build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
@@ -240,7 +254,16 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "ExternallyProvisionedHost",
 			Host:                      host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
-			HasDetachedAnnotation:     false,
+			DetachedAnnotation:        DetachedAnnotation{false, ""},
+			ExpectedDetach:            false,
+			ExpectedDirty:             false,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateExternallyProvisioned,
+		},
+		{
+			Scenario:                  "ExternallyProvisionedHostWithDetachedFalse",
+			Host:                      host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
+			DetachedAnnotation:        DetachedAnnotation{true, "false"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             false,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -249,7 +272,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "DetachExternallyProvisionedHost",
 			Host:                      host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            true,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
@@ -258,7 +281,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "NoneHost",
 			Host:                      host(metal3v1alpha1.StateNone).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDiscovered,
@@ -267,7 +290,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "UnmanagedHost",
 			Host:                      host(metal3v1alpha1.StateUnmanaged).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             false,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -276,7 +299,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "RegisteringHost",
 			Host:                      host(metal3v1alpha1.StateRegistering).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -285,7 +308,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "InspectingHost",
 			Host:                      host(metal3v1alpha1.StateInspecting).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -294,7 +317,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "MatchProfileHost",
 			Host:                      host(metal3v1alpha1.StateMatchProfile).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -303,7 +326,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "AvailableHost",
 			Host:                      host(metal3v1alpha1.StateAvailable).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -312,7 +335,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "PreparingHost",
 			Host:                      host(metal3v1alpha1.StatePreparing).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -321,7 +344,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "ReadyHost",
 			Host:                      host(metal3v1alpha1.StateReady).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -330,7 +353,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "ProvisioningHost",
 			Host:                      host(metal3v1alpha1.StateProvisioning).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -339,7 +362,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "DeprovisioningHost",
 			Host:                      host(metal3v1alpha1.StateDeprovisioning).build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -348,7 +371,7 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "DeletingHost",
 			Host:                      host(metal3v1alpha1.StateDeleting).setDeletion().build(),
-			HasDetachedAnnotation:     true,
+			DetachedAnnotation:        DetachedAnnotation{true, "true"},
 			ExpectedDetach:            false,
 			ExpectedDirty:             false,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
@@ -357,9 +380,9 @@ func TestDetach(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			if tc.HasDetachedAnnotation {
+			if tc.DetachedAnnotation.is {
 				tc.Host.Annotations = map[string]string{
-					metal3v1alpha1.DetachedAnnotation: "true",
+					metal3v1alpha1.DetachedAnnotation: tc.DetachedAnnotation.value,
 				}
 			}
 			prov := newMockProvisioner()

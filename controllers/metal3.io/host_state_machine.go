@@ -238,22 +238,22 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	return true
 }
 
-// hasInspectAnnotation checks for existence of baremetalhost.metal3.io/detached
-func hasDetachedAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
+// hasInspectAnnotation checks for existence and value of baremetalhost.metal3.io/detached
+func hasDetachedAnnotationTrue(host *metal3v1alpha1.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	if annotations != nil {
-		if _, ok := annotations[metal3v1alpha1.DetachedAnnotation]; ok {
-			return true
+		if val, ok := annotations[metal3v1alpha1.DetachedAnnotation]; ok {
+			return val == "true"
 		}
 	}
 	return false
 }
 
 func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result actionResult) {
-	// If the detached annotation is set we remove any host from the
+	// If the detached annotation is set to "true" we remove any host from the
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
-	if hasDetachedAnnotation(hsm.Host) {
+	if hasDetachedAnnotationTrue(hsm.Host) {
 		// Only allow detaching hosts in Provisioned/ExternallyProvisioned states
 		switch info.host.Status.Provisioning.State {
 		case metal3v1alpha1.StateProvisioned, metal3v1alpha1.StateExternallyProvisioned:

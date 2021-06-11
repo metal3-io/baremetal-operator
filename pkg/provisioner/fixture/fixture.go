@@ -74,7 +74,7 @@ type Fixture struct {
 }
 
 // New returns a new Fixture Provisioner
-func (f *Fixture) New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func (f *Fixture) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		provID:    hostData.ProvisionerID,
 		bmcCreds:  hostData.BMCCredentials,

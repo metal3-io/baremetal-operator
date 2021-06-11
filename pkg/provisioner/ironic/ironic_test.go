@@ -92,7 +92,8 @@ func TestNewNoBMCDetails(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC = metal3v1alpha1.BMCDetails{}
 
-	prov, err := New(provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
+	factory := NewProvisionerFactory()
+	prov, err := factory.NewProvisioner(provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
 	assert.Equal(t, nil, err)
 	assert.NotEqual(t, nil, prov)
 }

@@ -178,9 +178,10 @@ type ironicProvisioner struct {
 	publisher provisioner.EventPublisher
 }
 
-// LogStartup produces useful logging information that we only want to
-// emit once on startup but that is interal to this package.
-func LogStartup() {
+type ironicProvisionerFactory struct{}
+
+func NewProvisionerFactory() provisioner.Factory {
+	factory := ironicProvisionerFactory{}
 	log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
 		"ironicAuthType", ironicAuth.Type,
@@ -190,6 +191,7 @@ func LogStartup() {
 		"deployRamdiskURL", deployRamdiskURL,
 		"deployISOURL", deployISOURL,
 	)
+	return factory
 }
 
 // A private function to construct an ironicProvisioner (rather than a
@@ -242,9 +244,9 @@ func newProvisionerWithIronicClients(hostData provisioner.HostData, publisher pr
 	return p, nil
 }
 
-// New returns a new Ironic Provisioner using the global configuration
-// for finding the Ironic services.
-func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+// NewProvisioner returns a new Ironic Provisioner using the global
+// configuration for finding the Ironic services.
+func (f ironicProvisionerFactory) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	var err error
 	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
 		tlsConf := clients.TLSConfig{

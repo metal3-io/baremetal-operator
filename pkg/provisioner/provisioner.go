@@ -40,7 +40,9 @@ func BuildHostData(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials) 
 }
 
 // Factory is the interface for creating new Provisioner objects.
-type Factory func(hostData HostData, publish EventPublisher) (Provisioner, error)
+type Factory interface {
+	NewProvisioner(hostData HostData, publish EventPublisher) (Provisioner, error)
+}
 
 // HostConfigData retrieves host configuration data
 type HostConfigData interface {

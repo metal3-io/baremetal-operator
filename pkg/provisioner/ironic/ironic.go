@@ -795,7 +795,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	if hasCustomDeploy {
 		// Custom deploy process
 		p.setCustomDeployUpdateOptsForNode(ironicNode, imageData, updater)
-	} else if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
+	} else if imageData.IsLiveISO() {
 		// Set live-iso format options
 		p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updater)
 	} else {
@@ -897,7 +897,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 
 func (p *ironicProvisioner) deployInterface(image *metal3v1alpha1.Image) (result string) {
 	result = "direct"
-	if image != nil && image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+	if image.IsLiveISO() {
 		result = "ramdisk"
 	}
 	return result
@@ -957,7 +957,7 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (resul
 func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image metal3v1alpha1.Image) (sameImage bool) {
 	// To make it easier to test if ironic is configured with
 	// the same image we are trying to provision to the host.
-	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+	if image.IsLiveISO() {
 		sameImage = (ironicNode.InstanceInfo["boot_iso"] == image.URL)
 		p.log.Info("checking image settings",
 			"boot_iso", ironicNode.InstanceInfo["boot_iso"],
@@ -1128,7 +1128,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	// it to another virtual media slot. However, some hardware does not
 	// support two virtual media devices at the same time, so we shouldn't
 	// try it.
-	if data.Image.DiskFormat != nil && *data.Image.DiskFormat == "live-iso" {
+	if data.Image.IsLiveISO() {
 		p.log.Info("not providing config drive for live ISO")
 		return
 	}

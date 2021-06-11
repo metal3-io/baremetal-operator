@@ -109,10 +109,6 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 }
 
 func newProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher, log logr.Logger, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient, config ironicConfig) (*ironicProvisioner, error) {
-	// Ensure we have a microversion high enough to get the features
-	// we need.
-	clientIronic.Microversion = "1.56"
-
 	provisionerLogger := log.WithValues("host", ironicNodeName(hostData.ObjectMeta))
 
 	p := &ironicProvisioner{

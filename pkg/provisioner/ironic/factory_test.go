@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,36 +13,36 @@ type EnvFixture struct {
 	kernelURL         string
 	ramdiskURL        string
 	isoURL            string
+
+	origEnv map[string]string
 }
 
-func tearDown() {
-	for _, e := range os.Environ() {
-		if !strings.HasPrefix(e, "IRONIC_") && !strings.HasPrefix(e, "DEPLOY_") {
-			continue
+func (f *EnvFixture) TearDown() {
+	for e, v := range f.origEnv {
+		if v == "" {
+			os.Unsetenv(e)
+		} else {
+			os.Setenv(e, v)
 		}
-		parts := strings.SplitN(e, "=", 2)
-		os.Unsetenv(parts[0])
 	}
 }
 
-func (f EnvFixture) SetUp() {
-	tearDown()
+func (f *EnvFixture) replace(env, value string) {
+	f.origEnv[env] = os.Getenv(env)
+	if value == "" {
+		os.Unsetenv(env)
+	} else {
+		os.Setenv(env, value)
+	}
+}
 
-	if f.ironicEndpoint != "" {
-		os.Setenv("IRONIC_ENDPOINT", f.ironicEndpoint)
-	}
-	if f.inspectorEndpoint != "" {
-		os.Setenv("IRONIC_INSPECTOR_ENDPOINT", f.inspectorEndpoint)
-	}
-	if f.kernelURL != "" {
-		os.Setenv("DEPLOY_KERNEL_URL", f.kernelURL)
-	}
-	if f.ramdiskURL != "" {
-		os.Setenv("DEPLOY_RAMDISK_URL", f.ramdiskURL)
-	}
-	if f.isoURL != "" {
-		os.Setenv("DEPLOY_ISO_URL", f.isoURL)
-	}
+func (f *EnvFixture) SetUp() {
+	f.origEnv = map[string]string{}
+	f.replace("IRONIC_ENDPOINT", f.ironicEndpoint)
+	f.replace("IRONIC_INSPECTOR_ENDPOINT", f.inspectorEndpoint)
+	f.replace("DEPLOY_KERNEL_URL", f.kernelURL)
+	f.replace("DEPLOY_RAMDISK_URL", f.ramdiskURL)
+	f.replace("DEPLOY_ISO_URL", f.isoURL)
 }
 
 func (f EnvFixture) Verify(t *testing.T) {
@@ -55,7 +54,6 @@ func (f EnvFixture) Verify(t *testing.T) {
 }
 
 func TestLoadFromEnv(t *testing.T) {
-	defer tearDown()
 
 	cases := []struct {
 		name          string
@@ -139,6 +137,7 @@ func TestLoadFromEnv(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			defer tc.env.TearDown()
 			tc.env.SetUp()
 			err := loadConfigFromEnv()
 			if tc.expectedError != "" {

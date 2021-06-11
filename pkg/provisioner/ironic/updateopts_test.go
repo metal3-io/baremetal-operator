@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
@@ -392,7 +393,7 @@ func TestGetUpdateOperation(t *testing.T) {
 }
 
 func TestTopLevelUpdateOpt(t *testing.T) {
-	u := updateOptsBuilder(log)
+	u := updateOptsBuilder(logf.Log)
 	u.SetTopLevelOpt("foo", "baz", "bar")
 	ops := u.Updates
 	assert.Len(t, ops, 1)
@@ -401,7 +402,7 @@ func TestTopLevelUpdateOpt(t *testing.T) {
 	assert.Equal(t, "baz", op.Value)
 	assert.Equal(t, "/foo", op.Path)
 
-	u = updateOptsBuilder(log)
+	u = updateOptsBuilder(logf.Log)
 	u.SetTopLevelOpt("foo", "bar", "bar")
 	assert.Len(t, u.Updates, 0)
 }
@@ -417,7 +418,7 @@ func TestPropertiesUpdateOpts(t *testing.T) {
 		},
 	}
 
-	u := updateOptsBuilder(log)
+	u := updateOptsBuilder(logf.Log)
 	u.SetPropertiesOpts(newValues, &node)
 	ops := u.Updates
 	assert.Len(t, ops, 1)
@@ -438,7 +439,7 @@ func TestInstanceInfoUpdateOpts(t *testing.T) {
 		},
 	}
 
-	u := updateOptsBuilder(log)
+	u := updateOptsBuilder(logf.Log)
 	u.SetInstanceInfoOpts(newValues, &node)
 	ops := u.Updates
 	assert.Len(t, ops, 1)

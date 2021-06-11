@@ -59,9 +59,18 @@ func NewMacAddressConflictError(address, node string) error {
 	return macAddressConflictError{Address: address, ExistingNode: node}
 }
 
+type ironicConfig struct {
+	deployKernelURL  string
+	deployRamdiskURL string
+	deployISOURL     string
+	maxBusyHosts     int
+}
+
 // Provisioner implements the provisioning.Provisioner interface
 // and uses Ironic to manage the host.
 type ironicProvisioner struct {
+	// the global ironic settings
+	config ironicConfig
 	// the object metadata of the BareMetalHost resource
 	objectMeta metav1.ObjectMeta
 	// the UUID of the node in Ironic
@@ -334,12 +343,12 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
-	if deployKernelURL != "" && deployRamdiskURL != "" {
-		driverInfo["deploy_kernel"] = deployKernelURL
-		driverInfo["deploy_ramdisk"] = deployRamdiskURL
+	if p.config.deployKernelURL != "" && p.config.deployRamdiskURL != "" {
+		driverInfo["deploy_kernel"] = p.config.deployKernelURL
+		driverInfo["deploy_ramdisk"] = p.config.deployRamdiskURL
 	}
-	if deployISOURL != "" {
-		driverInfo["deploy_iso"] = deployISOURL
+	if p.config.deployISOURL != "" {
+		driverInfo["deploy_iso"] = p.config.deployISOURL
 	}
 
 	// If we have not found a node yet, we need to create one
@@ -1565,7 +1574,7 @@ func (p *ironicProvisioner) HasCapacity() (result bool, err error) {
 		return true, nil
 	}
 
-	return len(hosts) < maxBusyHosts, nil
+	return len(hosts) < p.config.maxBusyHosts, nil
 }
 
 func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err error) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -104,23 +105,29 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 	if err != nil {
 		return nil, err
 	}
-	log := logz.New().WithName("provisioner").WithName("ironic")
-	return newProvisioner(hostData, publisher, log, clientIronic, clientInspector, config)
+
+	factory := ironicProvisionerFactory{
+		log:             logf.Log,
+		config:          config,
+		clientIronic:    clientIronic,
+		clientInspector: clientInspector,
+	}
+	return factory.ironicProvisioner(hostData, publisher)
 }
 
-func newProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher, log logr.Logger, clientIronic *gophercloud.ServiceClient, clientInspector *gophercloud.ServiceClient, config ironicConfig) (*ironicProvisioner, error) {
-	provisionerLogger := log.WithValues("host", ironicNodeName(hostData.ObjectMeta))
+func (f ironicProvisionerFactory) ironicProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+	provisionerLogger := f.log.WithValues("host", ironicNodeName(hostData.ObjectMeta))
 
 	p := &ironicProvisioner{
-		config:                  config,
+		config:                  f.config,
 		objectMeta:              hostData.ObjectMeta,
 		nodeID:                  hostData.ProvisionerID,
 		bmcCreds:                hostData.BMCCredentials,
 		bmcAddress:              hostData.BMCAddress,
 		disableCertVerification: hostData.DisableCertificateVerification,
 		bootMACAddress:          hostData.BootMACAddress,
-		client:                  clientIronic,
-		inspector:               clientInspector,
+		client:                  f.clientIronic,
+		inspector:               f.clientInspector,
 		log:                     provisionerLogger,
 		debugLog:                provisionerLogger.V(1),
 		publisher:               publisher,
@@ -132,8 +139,7 @@ func newProvisioner(hostData provisioner.HostData, publisher provisioner.EventPu
 // NewProvisioner returns a new Ironic Provisioner using the global
 // configuration for finding the Ironic services.
 func (f ironicProvisionerFactory) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
-	return newProvisioner(hostData, publisher, f.log,
-		f.clientIronic, f.clientInspector, f.config)
+	return f.ironicProvisioner(hostData, publisher)
 }
 
 func loadConfigFromEnv() (ironicConfig, error) {

@@ -10,6 +10,9 @@ containing the Ironic agent.
 `DEPLOY_KERNEL_URL` -- The URL for the kernel to go with the deploy
 ramdisk.
 
+`DEPLOY_ISO_URL` -- The URL for the ISO containing the Ironic agent for
+drivers that support ISO boot. Optional if kernel/ramdisk are set.
+
 `IRONIC_ENDPOINT` -- The URL for the operator to use when talking to
 Ironic.
 

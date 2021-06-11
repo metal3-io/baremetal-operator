@@ -35,6 +35,7 @@ var (
 	softPowerOffTimeout       = time.Second * 180
 	deployKernelURL           string
 	deployRamdiskURL          string
+	deployISOURL              string
 	ironicEndpoint            string
 	inspectorEndpoint         string
 	ironicTrustedCAFile       string
@@ -82,36 +83,23 @@ func NewMacAddressConflictError(address, node string) error {
 	return macAddressConflictError{Address: address, ExistingNode: node}
 }
 
-func init() {
-	// NOTE(dhellmann): Use Fprintf() to report errors instead of
-	// logging, because logging is not configured yet in init().
-
-	var authErr error
-	ironicAuth, inspectorAuth, authErr = clients.LoadAuth()
-	if authErr != nil {
-		fmt.Fprintf(os.Stderr, "Cannot start: %s\n", authErr)
-		os.Exit(1)
-	}
-
+func loadConfigFromEnv() error {
 	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
-	if deployKernelURL == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_KERNEL_URL variable set\n")
-		os.Exit(1)
-	}
 	deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
-	if deployRamdiskURL == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_RAMDISK_URL variable set\n")
-		os.Exit(1)
+	deployISOURL = os.Getenv("DEPLOY_ISO_URL")
+	if deployISOURL == "" && (deployKernelURL == "" || deployRamdiskURL == "") {
+		return errors.New("Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set")
+	}
+	if (deployKernelURL == "" && deployRamdiskURL != "") || (deployKernelURL != "" && deployRamdiskURL == "") {
+		return errors.New("DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together")
 	}
 	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
 	if ironicEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_ENDPOINT variable set\n")
-		os.Exit(1)
+		return errors.New("No IRONIC_ENDPOINT variable set")
 	}
 	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
 	if inspectorEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set\n")
-		os.Exit(1)
+		return errors.New("No IRONIC_INSPECTOR_ENDPOINT variable set")
 	}
 	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")
 	if ironicTrustedCAFile == "" {
@@ -137,10 +125,29 @@ func init() {
 	if maxHostsStr := os.Getenv("PROVISIONING_LIMIT"); maxHostsStr != "" {
 		value, err := strconv.Atoi(maxHostsStr)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot start: Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
-			os.Exit(1)
+			return errors.Errorf("Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
 		}
 		maxBusyHosts = value
+	}
+
+	return nil
+}
+
+func init() {
+	// NOTE(dhellmann): Use Fprintf() to report errors instead of
+	// logging, because logging is not configured yet in init().
+
+	var authErr error
+	ironicAuth, inspectorAuth, authErr = clients.LoadAuth()
+	if authErr != nil {
+		fmt.Fprintf(os.Stderr, "Cannot start: %s\n", authErr)
+		os.Exit(1)
+	}
+
+	err := loadConfigFromEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot start: %s\n", err)
+		os.Exit(1)
 	}
 }
 
@@ -181,6 +188,7 @@ func LogStartup() {
 		"inspectorAuthType", inspectorAuth.Type,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
+		"deployISOURL", deployISOURL,
 	)
 }
 
@@ -510,8 +518,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
-	driverInfo["deploy_kernel"] = deployKernelURL
-	driverInfo["deploy_ramdisk"] = deployRamdiskURL
+	if deployKernelURL != "" && deployRamdiskURL != "" {
+		driverInfo["deploy_kernel"] = deployKernelURL
+		driverInfo["deploy_ramdisk"] = deployRamdiskURL
+	}
+	if deployISOURL != "" {
+		driverInfo["deploy_iso"] = deployISOURL
+	}
 
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {

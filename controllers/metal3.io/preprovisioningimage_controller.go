@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"os"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,6 +44,23 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	// your logic here
 
 	return ctrl.Result{}, nil
+}
+
+func (r *PreprovisioningImageReconciler) CanStart() bool {
+	deployKernelURL := os.Getenv("DEPLOY_KERNEL_URL")
+	deployRamdiskURL := os.Getenv("DEPLOY_RAMDISK_URL")
+	deployISOURL := os.Getenv("DEPLOY_ISO_URL")
+	hasCfg := (deployISOURL != "" ||
+		(deployKernelURL != "" && deployRamdiskURL != ""))
+	if hasCfg {
+		r.Log.Info("found deploy image data",
+			"iso_url", deployISOURL,
+			"ramdisk_url", deployRamdiskURL,
+			"kernel_url", deployKernelURL)
+	} else {
+		r.Log.Info("not starting preprovisioning image controller; no image data found")
+	}
+	return hasCfg
 }
 
 func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager) error {

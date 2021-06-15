@@ -526,6 +526,33 @@ func TestProvisioningCancelled(t *testing.T) {
 		},
 
 		{
+			Scenario: "provisioned with error",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL: "same",
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					ErrorType:    metal3v1alpha1.ProvisionedRegistrationError,
+					ErrorMessage: "Adoption failed",
+					ErrorCount:   1,
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						Image: metal3v1alpha1.Image{
+							URL: "same",
+						},
+					},
+				},
+			},
+			Expected: false,
+		},
+
+		{
 			Scenario: "removed image",
 			Host: metal3v1alpha1.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{

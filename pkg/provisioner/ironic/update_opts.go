@@ -65,11 +65,11 @@ func deref(v interface{}) interface{} {
 	if reflect.TypeOf(v).Kind() != reflect.Ptr {
 		return v
 	}
-	if ptrVal := reflect.ValueOf(v); ptrVal.IsNil() {
+	ptrVal := reflect.ValueOf(v)
+	if ptrVal.IsNil() {
 		return nil
-	} else {
-		return ptrVal.Elem().Interface()
 	}
+	return ptrVal.Elem().Interface()
 }
 
 func getUpdateOperation(name string, currentData map[string]interface{}, desiredValue interface{}, path string, log logr.Logger) *nodes.UpdateOperation {
@@ -122,7 +122,10 @@ func (nu *nodeUpdater) logger(basepath, option string) logr.Logger {
 	if nu.log == nil {
 		return nil
 	}
-	log := nu.log.WithValues("option", option, "section", basepath[1:])
+	log := nu.log.WithValues("option", option)
+	if basepath != "" {
+		log = log.WithValues("section", basepath[1:])
+	}
 	return log
 }
 
@@ -138,6 +141,14 @@ func (nu *nodeUpdater) setSectionUpdateOpts(currentData map[string]interface{}, 
 			nu.Updates = append(nu.Updates, *updateOp)
 		}
 	}
+}
+
+func (nu *nodeUpdater) SetTopLevelOpt(name string, desiredValue, currentValue interface{}) *nodeUpdater {
+	currentData := map[string]interface{}{name: currentValue}
+	desiredData := optionsData{name: desiredValue}
+
+	nu.setSectionUpdateOpts(currentData, desiredData, "")
+	return nu
 }
 
 func (nu *nodeUpdater) SetPropertiesOpts(settings optionsData, node *nodes.Node) *nodeUpdater {

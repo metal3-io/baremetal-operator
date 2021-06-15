@@ -95,12 +95,25 @@ func getNICDetails(ifdata []introspection.InterfaceType,
 	return nics
 }
 
+func getDiskType(diskdata introspection.RootDiskType) metal3v1alpha1.DiskType {
+	if diskdata.Rotational {
+		return metal3v1alpha1.HDD
+	}
+
+	if strings.HasPrefix(diskdata.Name, "/dev/nvme") {
+		return metal3v1alpha1.NVME
+	}
+
+	return metal3v1alpha1.SSD
+}
+
 func getStorageDetails(diskdata []introspection.RootDiskType) []metal3v1alpha1.Storage {
 	storage := make([]metal3v1alpha1.Storage, len(diskdata))
 	for i, disk := range diskdata {
 		storage[i] = metal3v1alpha1.Storage{
 			Name:               disk.Name,
 			Rotational:         disk.Rotational,
+			Type:               getDiskType(disk),
 			SizeBytes:          metal3v1alpha1.Capacity(disk.Size),
 			Vendor:             disk.Vendor,
 			Model:              disk.Model,

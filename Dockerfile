@@ -7,6 +7,8 @@ WORKDIR /workspace
 # advantage of caching these layers in future builds.
 COPY go.mod go.mod
 COPY go.sum go.sum
+COPY apis/go.mod apis/go.mod
+COPY apis/go.sum apis/go.sum
 RUN go mod download
 
 COPY . .

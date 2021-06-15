@@ -19,15 +19,23 @@ var tlsConnectionTimeout = time.Second * 30
 // TLSConfig contains the TLS configuration for the Ironic connection.
 // Using Go default values for this will result in no additional trusted
 // CA certificates and a secure connection.
+// When specifying Certificate and Private key, TLS connection will use
+// client certificate authentication.
 type TLSConfig struct {
-	TrustedCAFile      string
-	InsecureSkipVerify bool
+	TrustedCAFile         string
+	ClientCertificateFile string
+	ClientPrivateKeyFile  string
+	InsecureSkipVerify    bool
+	SkipClientSANVerify   bool
 }
 
 func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*gophercloud.ServiceClient, error) {
 	tlsInfo := transport.TLSInfo{
-		TrustedCAFile:      tlsConf.TrustedCAFile,
-		InsecureSkipVerify: tlsConf.InsecureSkipVerify,
+		TrustedCAFile:       tlsConf.TrustedCAFile,
+		CertFile:            tlsConf.ClientCertificateFile,
+		KeyFile:             tlsConf.ClientPrivateKeyFile,
+		InsecureSkipVerify:  tlsConf.InsecureSkipVerify,
+		SkipClientSANVerify: tlsConf.SkipClientSANVerify,
 	}
 	if _, err := os.Stat(tlsConf.TrustedCAFile); err != nil {
 		if os.IsNotExist(err) {
@@ -36,6 +44,24 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*go
 			return client, err
 		}
 	}
+	if _, err := os.Stat(tlsConf.ClientCertificateFile); err != nil {
+		if os.IsNotExist(err) {
+			tlsInfo.CertFile = ""
+		} else {
+			return client, err
+		}
+	}
+	if _, err := os.Stat(tlsConf.ClientPrivateKeyFile); err != nil {
+		if os.IsNotExist(err) {
+			tlsInfo.KeyFile = ""
+		} else {
+			return client, err
+		}
+	}
+	if tlsInfo.CertFile != "" && tlsInfo.KeyFile != "" {
+		tlsInfo.ClientCertAuth = true
+	}
+
 	tlsTransport, err := transport.NewTransport(tlsInfo, tlsConnectionTimeout)
 	if err != nil {
 		return client, err

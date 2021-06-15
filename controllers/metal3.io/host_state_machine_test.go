@@ -307,7 +307,7 @@ func TestDetach(t *testing.T) {
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
-			ExpectedState:             metal3v1alpha1.StatePreparing,
+			ExpectedState:             metal3v1alpha1.StateProvisioning,
 		},
 		{
 			Scenario:                  "PreparingHost",
@@ -325,7 +325,7 @@ func TestDetach(t *testing.T) {
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
-			ExpectedState:             metal3v1alpha1.StatePreparing,
+			ExpectedState:             metal3v1alpha1.StateProvisioning,
 		},
 		{
 			Scenario:                  "ProvisioningHost",
@@ -613,12 +613,12 @@ func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
 		},
 		{
 			Scenario:           "ready-power-on",
-			Host:               host(metal3v1alpha1.StateReady).SetStatusImageURL("imageSpecUrl").SetStatusPoweredOn(false).build(),
+			Host:               host(metal3v1alpha1.StateReady).SetImageURL("").SetStatusPoweredOn(false).build(),
 			ProvisionerErrorOn: "PowerOn",
 		},
 		{
 			Scenario:           "ready-power-off",
-			Host:               host(metal3v1alpha1.StateReady).SetStatusImageURL("imageSpecUrl").SetOnline(false).build(),
+			Host:               host(metal3v1alpha1.StateReady).SetImageURL("").SetOnline(false).build(),
 			ProvisionerErrorOn: "PowerOff",
 		},
 		{
@@ -642,6 +642,7 @@ func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
 			result := hsm.ReconcileState(info)
 
 			assert.Equal(t, 1, tt.Host.Status.ErrorCount)
+			assert.Equal(t, "some error", tt.Host.Status.ErrorMessage)
 			assert.True(t, result.Dirty())
 		})
 	}
@@ -778,8 +779,9 @@ func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
 			Status: metal3v1alpha1.BareMetalHostStatus{
 				HardwareProfile: hardware.DefaultProfileName,
 				Provisioning: metal3v1alpha1.ProvisionStatus{
-					State:    state,
-					BootMode: v1alpha1.DefaultBootMode,
+					State:           state,
+					BootMode:        v1alpha1.DefaultBootMode,
+					RootDeviceHints: &metal3v1alpha1.RootDeviceHints{},
 					Image: v1alpha1.Image{
 						URL: "", //needs provisioning
 					},
@@ -918,9 +920,9 @@ func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
-func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	details = &metal3v1alpha1.HardwareDetails{}
-	return m.getNextResultByMethod("InspectHardware"), details, err
+	return m.getNextResultByMethod("InspectHardware"), true, details, err
 }
 
 func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {

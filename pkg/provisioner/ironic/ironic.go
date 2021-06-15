@@ -35,10 +35,14 @@ var (
 	softPowerOffTimeout       = time.Second * 180
 	deployKernelURL           string
 	deployRamdiskURL          string
+	deployISOURL              string
 	ironicEndpoint            string
 	inspectorEndpoint         string
 	ironicTrustedCAFile       string
+	ironicClientCertFile      string
+	ironicClientPrivKeyFile   string
 	ironicInsecure            bool
+	ironicSkipClientSANVerify bool
 	ironicAuth                clients.AuthConfig
 	inspectorAuth             clients.AuthConfig
 	maxBusyHosts              int = 20
@@ -79,6 +83,56 @@ func NewMacAddressConflictError(address, node string) error {
 	return macAddressConflictError{Address: address, ExistingNode: node}
 }
 
+func loadConfigFromEnv() error {
+	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
+	deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
+	deployISOURL = os.Getenv("DEPLOY_ISO_URL")
+	if deployISOURL == "" && (deployKernelURL == "" || deployRamdiskURL == "") {
+		return errors.New("Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set")
+	}
+	if (deployKernelURL == "" && deployRamdiskURL != "") || (deployKernelURL != "" && deployRamdiskURL == "") {
+		return errors.New("DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together")
+	}
+	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
+	if ironicEndpoint == "" {
+		return errors.New("No IRONIC_ENDPOINT variable set")
+	}
+	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
+	if inspectorEndpoint == "" {
+		return errors.New("No IRONIC_INSPECTOR_ENDPOINT variable set")
+	}
+	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")
+	if ironicTrustedCAFile == "" {
+		ironicTrustedCAFile = "/opt/metal3/certs/ca/tls.crt"
+	}
+	ironicClientCertFile = os.Getenv("IRONIC_CLIENT_CERT_FILE")
+	if ironicClientCertFile == "" {
+		ironicClientCertFile = "/opt/metal3/certs/client/tls.crt"
+	}
+	ironicClientPrivKeyFile = os.Getenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+	if ironicClientPrivKeyFile == "" {
+		ironicClientPrivKeyFile = "/opt/metal3/certs/client/tls.key"
+	}
+	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
+	if strings.ToLower(ironicInsecureStr) == "true" {
+		ironicInsecure = true
+	}
+	ironicSkipClientSANVerifyStr := os.Getenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	if strings.ToLower(ironicSkipClientSANVerifyStr) == "true" {
+		ironicSkipClientSANVerify = true
+	}
+
+	if maxHostsStr := os.Getenv("PROVISIONING_LIMIT"); maxHostsStr != "" {
+		value, err := strconv.Atoi(maxHostsStr)
+		if err != nil {
+			return errors.Errorf("Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
+		}
+		maxBusyHosts = value
+	}
+
+	return nil
+}
+
 func init() {
 	// NOTE(dhellmann): Use Fprintf() to report errors instead of
 	// logging, because logging is not configured yet in init().
@@ -90,42 +144,10 @@ func init() {
 		os.Exit(1)
 	}
 
-	deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
-	if deployKernelURL == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_KERNEL_URL variable set\n")
+	err := loadConfigFromEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot start: %s\n", err)
 		os.Exit(1)
-	}
-	deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
-	if deployRamdiskURL == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No DEPLOY_RAMDISK_URL variable set\n")
-		os.Exit(1)
-	}
-	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
-	if ironicEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_ENDPOINT variable set\n")
-		os.Exit(1)
-	}
-	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
-	if inspectorEndpoint == "" {
-		fmt.Fprintf(os.Stderr, "Cannot start: No IRONIC_INSPECTOR_ENDPOINT variable set\n")
-		os.Exit(1)
-	}
-	ironicTrustedCAFile = os.Getenv("IRONIC_CACERT_FILE")
-	if ironicTrustedCAFile == "" {
-		ironicTrustedCAFile = "/opt/metal3/certs/ca/crt"
-	}
-	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
-	if strings.ToLower(ironicInsecureStr) == "true" {
-		ironicInsecure = true
-	}
-
-	if maxHostsStr := os.Getenv("PROVISIONING_LIMIT"); maxHostsStr != "" {
-		value, err := strconv.Atoi(maxHostsStr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot start: Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
-			os.Exit(1)
-		}
-		maxBusyHosts = value
 	}
 }
 
@@ -166,6 +188,7 @@ func LogStartup() {
 		"inspectorAuthType", inspectorAuth.Type,
 		"deployKernelURL", deployKernelURL,
 		"deployRamdiskURL", deployRamdiskURL,
+		"deployISOURL", deployISOURL,
 	)
 }
 
@@ -175,8 +198,11 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 	hostData := provisioner.BuildHostData(host, bmcCreds)
 
 	tlsConf := clients.TLSConfig{
-		TrustedCAFile:      ironicTrustedCAFile,
-		InsecureSkipVerify: ironicInsecure,
+		TrustedCAFile:         ironicTrustedCAFile,
+		ClientCertificateFile: ironicClientCertFile,
+		ClientPrivateKeyFile:  ironicClientPrivKeyFile,
+		InsecureSkipVerify:    ironicInsecure,
+		SkipClientSANVerify:   ironicSkipClientSANVerify,
 	}
 	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings, tlsConf)
 	if err != nil {
@@ -222,8 +248,11 @@ func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (p
 	var err error
 	if clientIronicSingleton == nil || clientInspectorSingleton == nil {
 		tlsConf := clients.TLSConfig{
-			TrustedCAFile:      ironicTrustedCAFile,
-			InsecureSkipVerify: ironicInsecure,
+			TrustedCAFile:         ironicTrustedCAFile,
+			ClientCertificateFile: ironicClientCertFile,
+			ClientPrivateKeyFile:  ironicClientPrivKeyFile,
+			InsecureSkipVerify:    ironicInsecure,
+			SkipClientSANVerify:   ironicSkipClientSANVerify,
 		}
 		clientIronicSingleton, err = clients.IronicClient(
 			ironicEndpoint, ironicAuth, tlsConf)
@@ -287,10 +316,6 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 
 	pager := ports.List(p.client, opts)
 
-	if pager.Err != nil {
-		return allPorts, pager.Err
-	}
-
 	allPages, err := pager.AllPages()
 
 	if err != nil {
@@ -303,7 +328,7 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 
 func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 	if p.nodeID == "" {
-		return nil, provisioner.NeedsRegistration
+		return nil, provisioner.ErrNeedsRegistration
 	}
 
 	ironicNode, err := nodes.Get(p.client, p.nodeID).Extract()
@@ -314,18 +339,62 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 	case gophercloud.ErrDefault404:
 		// Look by ID failed, trying to lookup by hostname in case it was
 		// previously created
-		return nil, provisioner.NeedsRegistration
+		return nil, provisioner.ErrNeedsRegistration
 	default:
 		return nil, errors.Wrap(err,
 			fmt.Sprintf("failed to find node by ID %s", p.nodeID))
 	}
 }
 
+// Verifies that node has port assigned by Ironic.
+func (p *ironicProvisioner) nodeHasAssignedPort(ironicNode *nodes.Node) (bool, error) {
+	opts := ports.ListOpts{
+		Fields:   []string{"node_uuid"},
+		NodeUUID: ironicNode.UUID,
+	}
+
+	pager := ports.List(p.client, opts)
+
+	allPages, err := pager.AllPages()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to page over list of ports")
+	}
+
+	empty, err := allPages.IsEmpty()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to check port list status")
+	}
+
+	if empty {
+		p.debugLog.Info("node has no assigned port")
+		return false, nil
+	}
+
+	p.debugLog.Info("node has assigned port")
+	return true, nil
+}
+
+// Verify that MAC is already allocated to some node port.
+func (p *ironicProvisioner) isAddressAllocatedToPort(address string) (bool, error) {
+	allPorts, err := p.listAllPorts(address)
+	if err != nil {
+		return false, errors.Wrap(err, fmt.Sprintf("failed to list ports for %s", address))
+	}
+
+	if len(allPorts) == 0 {
+		p.debugLog.Info("address does not have allocated ports", "address", address)
+		return false, nil
+	}
+
+	p.debugLog.Info("address is allocated to port", "address", address)
+	return true, nil
+}
+
 // Look for an existing registration for the host in Ironic.
 func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode *nodes.Node, err error) {
 	// Try to load the node by UUID
 	ironicNode, err = p.getNode()
-	if !errors.Is(err, provisioner.NeedsRegistration) {
+	if !errors.Is(err, provisioner.ErrNeedsRegistration) {
 		return
 	}
 
@@ -389,6 +458,25 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 	return nil, nil
 }
 
+func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) error {
+	p.log.Info("creating PXE enabled ironic port for node", "NodeUUID", uuid, "MAC", macAddress)
+
+	enable := true
+
+	_, err := ports.Create(
+		p.client,
+		ports.CreateOpts{
+			NodeUUID:   uuid,
+			Address:    macAddress,
+			PXEEnabled: &enable,
+		}).Extract()
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to create ironic port for node: %s, MAC: %s", uuid, macAddress))
+	}
+
+	return nil
+}
+
 // ValidateManagementAccess registers the host with the provisioning
 // system and tests the connection information for the host to verify
 // that the location and credentials work.
@@ -403,7 +491,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	var ironicNode *nodes.Node
-	var updates nodes.UpdateOpts
+	updater := updateOptsBuilder(p.debugLog)
 
 	p.debugLog.Info("validating management access")
 
@@ -430,10 +518,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
-	driverInfo["deploy_kernel"] = deployKernelURL
-	driverInfo["deploy_ramdisk"] = deployRamdiskURL
-
-	result, err = operationComplete()
+	if deployKernelURL != "" && deployRamdiskURL != "" {
+		driverInfo["deploy_kernel"] = deployKernelURL
+		driverInfo["deploy_ramdisk"] = deployRamdiskURL
+	}
+	if deployISOURL != "" {
+		driverInfo["deploy_iso"] = deployISOURL
+	}
 
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
@@ -477,18 +568,9 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// If we know the MAC, create a port. Otherwise we will have
 		// to do this after we run the introspection step.
 		if p.bootMACAddress != "" {
-			enable := true
-			p.log.Info("creating port for node in ironic", "MAC",
-				p.bootMACAddress)
-			_, err = ports.Create(
-				p.client,
-				ports.CreateOpts{
-					NodeUUID:   ironicNode.UUID,
-					Address:    p.bootMACAddress,
-					PXEEnabled: &enable,
-				}).Extract()
+			err = p.createPXEEnabledNodePort(ironicNode.UUID, p.bootMACAddress)
 			if err != nil {
-				result, err = transientError(errors.Wrap(err, "failed to create port in ironic"))
+				result, err = transientError(err)
 				return
 			}
 		}
@@ -499,72 +581,57 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// if there are differences.
 		provID = ironicNode.UUID
 
-		if ironicNode.Name != ironicNodeName(p.objectMeta) {
-			updates = append(
-				updates,
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/name",
-					Value: ironicNodeName(p.objectMeta),
-				},
-			)
+		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
+
+		// When node exists but has no assigned port to it by Ironic and actuall address (MAC) is present
+		// in host config and is not allocated to different node lets try to create port for this node.
+		if p.bootMACAddress != "" {
+			var nodeHasAssignedPort, addressIsAllocatedToPort bool
+
+			nodeHasAssignedPort, err = p.nodeHasAssignedPort(ironicNode)
+			if err != nil {
+				result, err = transientError(err)
+				return
+			}
+
+			if !nodeHasAssignedPort {
+				addressIsAllocatedToPort, err = p.isAddressAllocatedToPort(p.bootMACAddress)
+				if err != nil {
+					result, err = transientError(err)
+					return
+				}
+
+				if !addressIsAllocatedToPort {
+					err = p.createPXEEnabledNodePort(ironicNode.UUID, p.bootMACAddress)
+					if err != nil {
+						result, err = transientError(err)
+						return
+					}
+				}
+			}
 		}
 
 		// Look for the case where we previously enrolled this node
 		// and now the credentials have changed.
 		if credentialsChanged {
-			updates = append(
-				updates,
-				nodes.UpdateOperation{
-					Op:    nodes.ReplaceOp,
-					Path:  "/driver_info",
-					Value: driverInfo,
-				},
-			)
-			// We don't return here because we also have to set the
-			// target provision state to manageable, which happens
-			// below.
+			updater.SetTopLevelOpt("driver_info", driverInfo, nil)
 		}
+
+		// We don't return here because we also have to set the
+		// target provision state to manageable, which happens
+		// below.
 	}
 	if data.CurrentImage != nil {
-		updatesImage, optsErr := p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode)
-		if optsErr != nil {
-			result, err = transientError(errors.Wrap(optsErr, "Could not get Image options for node"))
-			return
-		}
-		if len(updatesImage) != 0 {
-			updates = append(updates, updatesImage...)
-		}
+		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, updater)
 	}
-	if ironicNode.AutomatedClean == nil ||
-		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled && *ironicNode.AutomatedClean) ||
-		(data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeMetadata && !*ironicNode.AutomatedClean) {
-		p.log.Info("setting automated cleaning mode to",
-			"ID", ironicNode.UUID,
-			"mode", data.AutomatedCleaningMode)
+	updater.SetTopLevelOpt("automated_clean",
+		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
+		ironicNode.AutomatedClean)
 
-		value := data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/automated_clean",
-				Value: value,
-			},
-		)
-	}
-	if len(updates) != 0 {
-		_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-		switch err.(type) {
-		case nil:
-		case gophercloud.ErrDefault409:
-			p.log.Info("could not update host driver settings, busy")
-			result, err = retryAfterDelay(provisionRequeueDelay)
-			return
-		default:
-			result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
-			return
-		}
+	var success bool
+	success, result, err = p.tryUpdateNode(ironicNode, updater)
+	if !success {
+		return
 	}
 	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	// if err != nil {
@@ -575,6 +642,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 	)
+
+	result, err = operationComplete()
 
 	// Ensure the node is marked manageable.
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
@@ -625,6 +694,26 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 }
 
+func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {
+	if len(updater.Updates) == 0 {
+		success = true
+		return
+	}
+
+	p.log.Info("updating node settings in ironic")
+	_, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
+	switch err.(type) {
+	case nil:
+		success = true
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not update node settings in ironic, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+	default:
+		result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+	}
+	return
+}
+
 func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, opts nodes.ProvisionStateOpts) (success bool, result provisioner.Result, err error) {
 	p.log.Info("changing provisioning state",
 		"current", ironicNode.ProvisionState,
@@ -659,7 +748,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware")
 
 	ironicNode, err := p.getNode()
@@ -672,6 +761,12 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 	if err != nil || refresh {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound || refresh {
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {
+			case nodes.Available:
+				result, err = p.changeNodeProvisionState(
+					ironicNode,
+					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+				)
+				return
 			case nodes.Inspecting, nodes.InspectWait:
 				p.log.Info("inspection already started")
 				result, err = operationContinuing(introspectionRequeueDelay)
@@ -688,34 +783,23 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 				}
 				fallthrough
 			default:
-				p.log.Info("updating boot mode before hardware inspection")
-				op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
-				updates := nodes.UpdateOpts{
-					nodes.UpdateOperation{
-						Op:    op,
-						Path:  "/properties/capabilities",
-						Value: value,
-					},
-				}
-				_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-				switch err.(type) {
-				case nil:
-				case gophercloud.ErrDefault409:
-					p.log.Info("could not update host settings in ironic, busy")
-					result, err = retryAfterDelay(provisionRequeueDelay)
-					return
-				default:
-					result, err = transientError(errors.Wrap(err, "failed to update host boot mode settings in ironic"))
+				started, result, err = p.tryUpdateNode(
+					ironicNode,
+					updateOptsBuilder(p.debugLog).
+						SetPropertiesOpts(optionsData{
+							"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+						}, ironicNode),
+				)
+				if !started {
 					return
 				}
 
 				p.log.Info("starting new hardware inspection")
-				var success bool
-				success, result, err = p.tryChangeNodeProvisionState(
+				started, result, err = p.tryChangeNodeProvisionState(
 					ironicNode,
 					nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
 				)
-				if success {
+				if started {
 					p.publisher("InspectionStarted", "Hardware inspection started")
 				}
 				return
@@ -775,9 +859,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
-	updater := updateOptsBuilder(p.debugLog)
-
+func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
 	optValues := optionsData{
 		"boot_iso": imageData.URL,
 
@@ -787,32 +869,17 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 		"image_os_hash_algo":  nil,
 		"image_checksum":      nil,
 	}
-	updater.SetInstanceInfoOpts(optValues, ironicNode)
-	updates = append(updates, updater.Updates...)
-
-	deployInterface := "ramdisk"
-	if ironicNode.DeployInterface != deployInterface {
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/deploy_interface",
-				Value: deployInterface,
-			},
-		)
-	}
-
-	return updates, nil
+	updater.
+		SetInstanceInfoOpts(optValues, ironicNode).
+		SetTopLevelOpt("deploy_interface", "ramdisk", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updates nodes.UpdateOpts) (nodes.UpdateOpts, error) {
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
 	checksum, checksumType, ok := imageData.GetChecksum()
 	if !ok {
 		p.log.Info("image/checksum not found for host")
-		return updates, nil
+		return
 	}
-
-	updater := updateOptsBuilder(p.debugLog)
 
 	// FIXME: For older versions of ironic that do not have
 	// https://review.opendev.org/#/c/711816/ failing to include the
@@ -835,39 +902,14 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		"image_checksum":      legacyChecksum,
 		"image_disk_format":   imageData.DiskFormat,
 	}
-	updater.SetInstanceInfoOpts(optValues, ironicNode)
-	updates = append(updates, updater.Updates...)
-
-	deployInterface := "direct"
-	if ironicNode.DeployInterface != deployInterface {
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/deploy_interface",
-				Value: deployInterface,
-			},
-		)
-	}
-
-	return updates, nil
+	updater.
+		SetInstanceInfoOpts(optValues, ironicNode).
+		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode) (updates nodes.UpdateOpts, err error) {
-	updater := updateOptsBuilder(p.debugLog)
-
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode, updater *nodeUpdater) {
 	// instance_uuid
-	if ironicNode.InstanceUUID != string(p.objectMeta.UID) {
-		p.log.Info("setting instance_uuid")
-		updates = append(
-			updates,
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/instance_uuid",
-				Value: string(p.objectMeta.UID),
-			},
-		)
-	}
+	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
 	// Secure boot is a normal capability that goes into instance_info (we
 	// also put it to properties for consistency, although it's not
@@ -882,103 +924,34 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	}
 
 	updater.SetInstanceInfoOpts(optionsData{"capabilities": capabilitiesII}, ironicNode)
-	updates = append(updates, updater.Updates...)
 
-	// Set live-iso format options
 	if imageData.DiskFormat != nil && *imageData.DiskFormat == "live-iso" {
-		return p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updates)
+		// Set live-iso format options
+		p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updater)
+	} else {
+		// Set deploy_interface direct options when not booting a live-iso
+		p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updater)
 	}
-
-	// Set deploy_interface direct options when not booting a live-iso
-	return p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updates)
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) (updates nodes.UpdateOpts, err error) {
-	imageOpts, err := p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode)
-	if err != nil {
-		return updates, errors.Wrap(err, "Could not get Image options for node")
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
+	updater := updateOptsBuilder(p.debugLog)
+
+	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, updater)
+
+	opts := optionsData{
+		"root_device": devicehints.MakeHintMap(data.RootDeviceHints),
+
+		// FIXME(dhellmann): This should come from inspecting the host.
+		"cpu_arch": data.HardwareProfile.CPUArch,
+
+		"local_gb": data.HardwareProfile.LocalGB,
+
+		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 	}
-	updates = append(updates, imageOpts...)
+	updater.SetPropertiesOpts(opts, ironicNode)
 
-	// root_device
-	//
-	// FIXME(dhellmann): We need to specify the root device to receive
-	// the image. That should come from some combination of inspecting
-	// the host to see what is available and the hardware profile to
-	// give us instructions.
-	var op nodes.UpdateOp
-	if _, ok := ironicNode.Properties["root_device"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding root_device")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating root_device")
-	}
-
-	// hints
-	//
-	// If the user has provided explicit root device hints, they take
-	// precedence. Otherwise use the values from the hardware profile.
-	hints := devicehints.MakeHintMap(data.RootDeviceHints)
-	p.log.Info("using root device", "hints", hints)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/root_device",
-			Value: hints,
-		},
-	)
-
-	// cpu_arch
-	//
-	// FIXME(dhellmann): This should come from inspecting the
-	// host.
-	if _, ok := ironicNode.Properties["cpu_arch"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding cpu_arch")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating cpu_arch")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/cpu_arch",
-			Value: data.HardwareProfile.CPUArch,
-		},
-	)
-
-	// local_gb
-	if _, ok := ironicNode.Properties["local_gb"]; !ok {
-		op = nodes.AddOp
-		p.log.Info("adding local_gb")
-	} else {
-		op = nodes.ReplaceOp
-		p.log.Info("updating local_gb")
-	}
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/local_gb",
-			Value: data.HardwareProfile.LocalGB,
-		},
-	)
-
-	// boot_mode
-	op, value := buildCapabilitiesValue(ironicNode, data.BootMode)
-	updates = append(
-		updates,
-		nodes.UpdateOperation{
-			Op:    op,
-			Path:  "/properties/capabilities",
-			Value: value,
-		},
-	)
-
-	return updates, nil
+	return updater
 }
 
 // We can't just replace the capabilities because we need to keep the
@@ -987,23 +960,19 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 // look at the existing value and modify it. This function
 // encapsulates the logic for building the value and knowing which
 // update operation to use with the results.
-func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) (op nodes.UpdateOp, value string) {
+func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) string {
 
 	capabilities, ok := ironicNode.Properties["capabilities"]
 	if !ok {
 		// There is no existing capabilities value
-		return nodes.AddOp, bootModeCapabilities[bootMode]
+		return bootModeCapabilities[bootMode]
 	}
 	existingCapabilities := capabilities.(string)
-
-	// The capabilities value is set, so we will want to replace it.
-	op = nodes.ReplaceOp
 
 	if existingCapabilities == "" {
 		// The existing value is empty so we can replace the whole
 		// thing.
-		value = bootModeCapabilities[bootMode]
-		return
+		return bootModeCapabilities[bootMode]
 	}
 
 	var filteredCapabilities []string
@@ -1014,26 +983,17 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	}
 	filteredCapabilities = append(filteredCapabilities, bootModeCapabilities[bootMode])
 
-	value = strings.Join(filteredCapabilities, ",")
-	return
+	return strings.Join(filteredCapabilities, ",")
 }
 
 func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	updates, err := p.getUpdateOptsForNode(ironicNode, data)
-	if err != nil {
-		return transientError(errors.Wrap(err, "failed to update opts for node"))
-	}
-	_, err = nodes.Update(p.client, ironicNode.UUID, updates).Extract()
-	switch err.(type) {
-	case nil:
-	case gophercloud.ErrDefault409:
-		p.log.Info("could not update host settings in ironic, busy")
-		return retryAfterDelay(provisionRequeueDelay)
-	default:
-		return transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+	success, result, err := p.tryUpdateNode(ironicNode,
+		p.getUpdateOptsForNode(ironicNode, data))
+	if !success {
+		return
 	}
 
 	p.log.Info("validating host settings")
@@ -1155,6 +1115,24 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
 	}
 
+	// Build bios clean steps
+	settings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) != 0 {
+		cleanSteps = append(
+			cleanSteps,
+			nodes.CleanStep{
+				Interface: "bios",
+				Step:      "apply_configuration",
+				Args: map[string]interface{}{
+					"settings": settings,
+				},
+			},
+		)
+	}
+
 	// TODO: Add manual cleaning steps for host configuration
 
 	return
@@ -1209,28 +1187,40 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Available:
-		var cleanSteps []nodes.CleanStep
-		cleanSteps, err = p.buildManualCleaningSteps(bmcAccess, data)
-		if err != nil {
-			result, err = operationFailed(err.Error())
-			return
+		if unprepared {
+			var cleanSteps []nodes.CleanStep
+			cleanSteps, err = p.buildManualCleaningSteps(bmcAccess, data)
+			if err != nil {
+				result, err = operationFailed(err.Error())
+				return
+			}
+			if len(cleanSteps) != 0 {
+				result, err = p.changeNodeProvisionState(
+					ironicNode,
+					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+				)
+				return
+			}
+			// nothing to do
+			started = true
 		}
-		if unprepared && len(cleanSteps) != 0 {
-			result, err = p.changeNodeProvisionState(
-				ironicNode,
-				nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-			)
-			return
-		}
+		// Automated clean finished
 		result, err = operationComplete()
 
 	case nodes.Manageable:
 		if unprepared {
 			started, result, err = p.startManualCleaning(bmcAccess, ironicNode, data)
-			return
+			if started || result.Dirty || result.ErrorMessage != "" || err != nil {
+				return
+			}
+			// nothing to do
+			started = true
 		}
 		// Manual clean finished
-		result, err = operationComplete()
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetProvide},
+		)
 
 	case nodes.CleanFail:
 		// When clean failed, we need to clean host provisioning settings.
@@ -1401,24 +1391,13 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 }
 
 func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
-	_, err = nodes.Update(
-		p.client,
-		ironicNode.UUID,
-		nodes.UpdateOpts{
-			nodes.UpdateOperation{
-				Op:    nodes.ReplaceOp,
-				Path:  "/maintenance",
-				Value: value,
-			},
-		},
-	).Extract()
-	switch err.(type) {
-	case nil:
-	case gophercloud.ErrDefault409:
-		p.log.Info("could not set host maintenance flag, busy")
-		return retryAfterDelay(provisionRequeueDelay)
-	default:
-		return transientError(errors.Wrap(err, "failed to set host maintenance flag"))
+	success, result, err := p.tryUpdateNode(ironicNode,
+		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil))
+	if err != nil {
+		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
+	}
+	if !success {
+		return
 	}
 	return operationContinuing(0)
 }
@@ -1522,7 +1501,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
-		if errors.Is(err, provisioner.NeedsRegistration) {
+		if errors.Is(err, provisioner.ErrNeedsRegistration) {
 			p.log.Info("no node found, already deleted")
 			return operationComplete()
 		}
@@ -1779,9 +1758,6 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 	pager := nodes.List(p.client, nodes.ListOpts{
 		Fields: []string{"uuid,name,provision_state,driver_internal_info,target_provision_state"},
 	})
-	if pager.Err != nil {
-		return nil, pager.Err
-	}
 
 	page, err := pager.AllPages()
 	if err != nil {

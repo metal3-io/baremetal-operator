@@ -10,5 +10,5 @@ go:
 
 env:
   - TARGET=docker
-
+  
 script: make $TARGET

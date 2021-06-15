@@ -113,7 +113,7 @@ func (r actionError) Dirty() bool {
 }
 
 func (r actionError) NeedsRegistration() bool {
-	return errors.Is(r.err, provisioner.NeedsRegistration)
+	return errors.Is(r.err, provisioner.ErrNeedsRegistration)
 }
 
 // actionFailed is a result indicating that the current action has failed,

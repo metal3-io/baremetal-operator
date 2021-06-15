@@ -85,6 +85,9 @@ The following environment variables can be passed to configure the ironic:
        `all` - all VLANs on all interfaces, using LLDP information (default),
        interface - all VLANs on an interface, using LLDP information,
        interface.vlan - a particular VLAN interface, not using LLDP
+- IRONIC_BOOT_ISO_SOURCE - where the boot iso image will be served from, possible
+  values are: local (default), to download the image, prepare it and serve it from
+  the conductor; http, to serve it directly from its HTTP URL.
 
 In case you want to run the local ironic containers with TLS and basic
 authentication enabled, you also need to export the following variables:

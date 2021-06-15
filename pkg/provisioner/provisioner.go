@@ -75,6 +75,7 @@ type InspectData struct {
 type PrepareData struct {
 	RAIDConfig      *metal3v1alpha1.RAIDConfig
 	RootDeviceHints *metal3v1alpha1.RootDeviceHints
+	FirmwareConfig  *metal3v1alpha1.FirmwareConfig
 }
 
 type ProvisionData struct {
@@ -100,7 +101,7 @@ type Provisioner interface {
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
-	InspectHardware(data InspectData, force, refresh bool) (result Result, details *metal3v1alpha1.HardwareDetails, err error)
+	InspectHardware(data InspectData, force, refresh bool) (result Result, started bool, details *metal3v1alpha1.HardwareDetails, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with
@@ -173,4 +174,5 @@ type HardwareState struct {
 	PoweredOn *bool
 }
 
-var NeedsRegistration = errors.New("Host not registered")
+// ErrNeedsRegistration raised if the host is not registered
+var ErrNeedsRegistration = errors.New("Host not registered")

@@ -77,7 +77,7 @@ func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (p
 	return p, nil
 }
 
-func (m *demoProvisioner) HasCapacity() (result bool, err error) {
+func (p *demoProvisioner) HasCapacity() (result bool, err error) {
 	return true, nil
 }
 
@@ -116,7 +116,8 @@ func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+	started = true
 	hostName := p.objectMeta.Name
 
 	if hostName == InspectingHost {
@@ -197,14 +198,16 @@ func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool)
 
 	case PreparingHost:
 		p.log.Info("preparing host")
+		started = unprepared
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
 
 	default:
 		p.log.Info("finished preparing")
+		started = true
 	}
 
-	return result, false, nil
+	return
 }
 
 // Adopt notifies the provisioner that the state machine believes the host

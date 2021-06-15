@@ -130,6 +130,28 @@ spec:
               externallyProvisioned:
                 description: ExternallyProvisioned means something else is managing the image running on the host and the operator should only manage the power status and hardware inventory inspection. If the Image field is filled in, this field is ignored.
                 type: boolean
+              firmware:
+                description: BIOS configuration for bare metal server
+                properties:
+                  simultaneousMultithreadingEnabled:
+                    description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
+                    enum:
+                    - true
+                    - false
+                    type: boolean
+                  sriovEnabled:
+                    description: 'SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance. This supports following options: true, false.'
+                    enum:
+                    - true
+                    - false
+                    type: boolean
+                  virtualizationEnabled:
+                    description: 'Supports the virtualization of platform hardware. This supports following options: true, false.'
+                    enum:
+                    - true
+                    - false
+                    type: boolean
+                type: object
               hardwareProfile:
                 description: What is the name of the hardware profile for this host? It should only be necessary to set this when inspection cannot automatically determine the profile.
                 type: string
@@ -493,7 +515,7 @@ spec:
                           description: The Linux device name of the disk, e.g. "/dev/sda". Note that this may not be stable across reboots.
                           type: string
                         rotational:
-                          description: Whether this disk represents rotational storage
+                          description: Whether this disk represents rotational storage. This field is not recommended for usage, please prefer using 'Type' field instead, this field will be deprecated eventually.
                           type: boolean
                         serialNumber:
                           description: The serial number of the device
@@ -502,6 +524,13 @@ spec:
                           description: The size of the disk in Bytes
                           format: int64
                           type: integer
+                        type:
+                          description: 'Device type, one of: HDD, SSD, NVME.'
+                          enum:
+                          - HDD
+                          - SSD
+                          - NVME
+                          type: string
                         vendor:
                           description: The name of the vendor of the device
                           type: string
@@ -612,6 +641,28 @@ spec:
                     - UEFISecureBoot
                     - legacy
                     type: string
+                  firmware:
+                    description: The Bios set by the user
+                    properties:
+                      simultaneousMultithreadingEnabled:
+                        description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
+                        enum:
+                        - true
+                        - false
+                        type: boolean
+                      sriovEnabled:
+                        description: 'SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance. This supports following options: true, false.'
+                        enum:
+                        - true
+                        - false
+                        type: boolean
+                      virtualizationEnabled:
+                        description: 'Supports the virtualization of platform hardware. This supports following options: true, false.'
+                        enum:
+                        - true
+                        - false
+                        type: boolean
+                    type: object
                   image:
                     description: Image holds the details of the last image successfully provisioned to the host.
                     properties:
@@ -1032,7 +1083,7 @@ spec:
         - --upstream=http://127.0.0.1:8085/
         - --logtostderr=true
         - --v=10
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443

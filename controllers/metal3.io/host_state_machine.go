@@ -423,9 +423,6 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {
-	if hsm.Host.Status.ErrorMessage != "" {
-		return true
-	}
 	if hsm.Host.Spec.Image == nil {
 		return true
 	}
@@ -442,7 +439,7 @@ func (hsm *hostStateMachine) provisioningCancelled() bool {
 }
 
 func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResult {
-	if hsm.provisioningCancelled() {
+	if hsm.Host.Status.ErrorType != "" || hsm.provisioningCancelled() {
 		hsm.NextState = metal3v1alpha1.StateDeprovisioning
 		return actionComplete{}
 	}

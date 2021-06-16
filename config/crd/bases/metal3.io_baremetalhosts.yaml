@@ -57,10 +57,14 @@ spec:
         description: BareMetalHost is the Schema for the baremetalhosts API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -69,7 +73,8 @@ spec:
             properties:
               automatedCleaningMode:
                 default: metadata
-                description: When set to disabled, automated cleaning will be avoided during provisioning and deprovisioning.
+                description: When set to disabled, automated cleaning will be avoided
+                  during provisioning and deprovisioning.
                 enum:
                 - metadata
                 - disabled
@@ -78,37 +83,57 @@ spec:
                 description: How do we connect to the BMC?
                 properties:
                   address:
-                    description: Address holds the URL for accessing the controller on the network.
+                    description: Address holds the URL for accessing the controller
+                      on the network.
                     type: string
                   credentialsName:
-                    description: The name of the secret containing the BMC credentials (requires keys "username" and "password").
+                    description: The name of the secret containing the BMC credentials
+                      (requires keys "username" and "password").
                     type: string
                   disableCertificateVerification:
-                    description: DisableCertificateVerification disables verification of server certificates when using HTTPS to connect to the BMC. This is required when the server certificate is self-signed, but is insecure because it allows a man-in-the-middle to intercept the connection.
+                    description: DisableCertificateVerification disables verification
+                      of server certificates when using HTTPS to connect to the BMC.
+                      This is required when the server certificate is self-signed,
+                      but is insecure because it allows a man-in-the-middle to intercept
+                      the connection.
                     type: boolean
                 required:
                 - address
                 - credentialsName
                 type: object
               bootMACAddress:
-                description: Which MAC address will PXE boot? This is optional for some types, but required for libvirt VMs driven by vbmc.
+                description: Which MAC address will PXE boot? This is optional for
+                  some types, but required for libvirt VMs driven by vbmc.
                 pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                 type: string
               bootMode:
-                description: Select the method of initializing the hardware during boot. Defaults to UEFI.
+                description: Select the method of initializing the hardware during
+                  boot. Defaults to UEFI.
                 enum:
                 - UEFI
                 - UEFISecureBoot
                 - legacy
                 type: string
               consumerRef:
-                description: ConsumerRef can be used to store information about something that is using a host. When it is not empty, the host is considered "in use".
+                description: ConsumerRef can be used to store information about something
+                  that is using a host. When it is not empty, the host is considered
+                  "in use".
                 properties:
                   apiVersion:
                     description: API version of the referent.
                     type: string
                   fieldPath:
-                    description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                    description: 'If referring to a piece of an object instead of
+                      an entire object, this string should contain a valid JSON/Go
+                      field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within
+                      a pod, this would take on a value like: "spec.containers{name}"
+                      (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]"
+                      (container with index 2 in this pod). This syntax is chosen
+                      only to have some well-defined way of referencing a part of
+                      an object. TODO: this design is not final and this field is
+                      subject to change in the future.'
                     type: string
                   kind:
                     description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -120,7 +145,8 @@ spec:
                     description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                     type: string
                   resourceVersion:
-                    description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                    description: 'Specific resourceVersion to which this reference
+                      is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                     type: string
                   uid:
                     description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -136,35 +162,46 @@ spec:
                 - method
                 type: object
               description:
-                description: Description is a human-entered text used to help identify the host
+                description: Description is a human-entered text used to help identify
+                  the host
                 type: string
               externallyProvisioned:
-                description: ExternallyProvisioned means something else is managing the image running on the host and the operator should only manage the power status and hardware inventory inspection. If the Image field is filled in, this field is ignored.
+                description: ExternallyProvisioned means something else is managing
+                  the image running on the host and the operator should only manage
+                  the power status and hardware inventory inspection. If the Image
+                  field is filled in, this field is ignored.
                 type: boolean
               firmware:
                 description: BIOS configuration for bare metal server
                 properties:
                   simultaneousMultithreadingEnabled:
-                    description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
+                    description: 'Allows a single physical processor core to appear
+                      as several logical processors. This supports following options:
+                      true, false.'
                     enum:
                     - true
                     - false
                     type: boolean
                   sriovEnabled:
-                    description: 'SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance. This supports following options: true, false.'
+                    description: 'SR-IOV support enables a hypervisor to create virtual
+                      instances of a PCI-express device, potentially increasing performance.
+                      This supports following options: true, false.'
                     enum:
                     - true
                     - false
                     type: boolean
                   virtualizationEnabled:
-                    description: 'Supports the virtualization of platform hardware. This supports following options: true, false.'
+                    description: 'Supports the virtualization of platform hardware.
+                      This supports following options: true, false.'
                     enum:
                     - true
                     - false
                     type: boolean
                 type: object
               hardwareProfile:
-                description: What is the name of the hardware profile for this host? It should only be necessary to set this when inspection cannot automatically determine the profile.
+                description: What is the name of the hardware profile for this host?
+                  It should only be necessary to set this when inspection cannot automatically
+                  determine the profile.
                 type: string
               image:
                 description: Image holds the details of the image to be provisioned.
@@ -173,14 +210,19 @@ spec:
                     description: Checksum is the checksum for the image.
                     type: string
                   checksumType:
-                    description: ChecksumType is the checksum algorithm for the image. e.g md5, sha256, sha512
+                    description: ChecksumType is the checksum algorithm for the image.
+                      e.g md5, sha256, sha512
                     enum:
                     - md5
                     - sha256
                     - sha512
                     type: string
                   format:
-                    description: DiskFormat contains the format of the image (raw, qcow2, ...). Needs to be set to raw for raw images streaming. Note live-iso means an iso referenced by the url will be live-booted and not deployed to disk, and in this case the checksum options are not required and if specified will be ignored.
+                    description: DiskFormat contains the format of the image (raw,
+                      qcow2, ...). Needs to be set to raw for raw images streaming.
+                      Note live-iso means an iso referenced by the url will be live-booted
+                      and not deployed to disk, and in this case the checksum options
+                      are not required and if specified will be ignored.
                     enum:
                     - raw
                     - qcow2
@@ -195,23 +237,30 @@ spec:
                 - url
                 type: object
               metaData:
-                description: MetaData holds the reference to the Secret containing host metadata (e.g. meta_data.json which is passed to Config Drive).
+                description: MetaData holds the reference to the Secret containing
+                  host metadata (e.g. meta_data.json which is passed to Config Drive).
                 properties:
                   name:
-                    description: Name is unique within a namespace to reference a secret resource.
+                    description: Name is unique within a namespace to reference a
+                      secret resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the secret name must be unique.
+                    description: Namespace defines the space within which the secret
+                      name must be unique.
                     type: string
                 type: object
               networkData:
-                description: NetworkData holds the reference to the Secret containing network configuration (e.g content of network_data.json which is passed to Config Drive).
+                description: NetworkData holds the reference to the Secret containing
+                  network configuration (e.g content of network_data.json which is
+                  passed to Config Drive).
                 properties:
                   name:
-                    description: Name is unique within a namespace to reference a secret resource.
+                    description: Name is unique within a namespace to reference a
+                      secret resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the secret name must be unique.
+                    description: Namespace defines the space within which the secret
+                      name must be unique.
                     type: string
                 type: object
               online:
@@ -221,12 +270,15 @@ spec:
                 description: RAID configuration for bare metal server
                 properties:
                   hardwareRAIDVolumes:
-                    description: The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+                    description: The list of logical disks for hardware RAID, if rootDeviceHints
+                      isn't used, first volume is root volume.
                     items:
-                      description: HardwareRAIDVolume defines the desired configuration of volume in hardware RAID
+                      description: HardwareRAIDVolume defines the desired configuration
+                        of volume in hardware RAID
                       properties:
                         level:
-                          description: 'RAID level for the logical disk. The following levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
+                          description: 'RAID level for the logical disk. The following
+                            levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
                           enum:
                           - "0"
                           - "1"
@@ -238,18 +290,24 @@ spec:
                           - 6+0
                           type: string
                         name:
-                          description: Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+                          description: Name of the volume. Should be unique within
+                            the Node. If not specified, volume name will be auto-generated.
                           maxLength: 64
                           type: string
                         numberOfPhysicalDisks:
-                          description: Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
+                          description: Integer, number of physical disks to use for
+                            the logical disk. Defaults to minimum number of disks
+                            required for the particular RAID level.
                           minimum: 1
                           type: integer
                         rotational:
-                          description: Select disks with only rotational or solid-state storage
+                          description: Select disks with only rotational or solid-state
+                            storage
                           type: boolean
                         sizeGibibytes:
-                          description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                          description: Size (Integer) of the logical disk to be created
+                            in GiB. If unspecified or set be 0, the maximum capacity
+                            of disk will be used for logical disk.
                           minimum: 0
                           type: integer
                       required:
@@ -257,58 +315,84 @@ spec:
                       type: object
                     type: array
                   softwareRAIDVolumes:
-                    description: The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume. If HardwareRAIDVolumes is set this item will be invalid. The number of created Software RAID devices must be 1 or 2. If there is only one Software RAID device, it has to be a RAID-1. If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0. As the first RAID device will be the deployment device, enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                    description: The list of logical disks for software RAID, if rootDeviceHints
+                      isn't used, first volume is root volume. If HardwareRAIDVolumes
+                      is set this item will be invalid. The number of created Software
+                      RAID devices must be 1 or 2. If there is only one Software RAID
+                      device, it has to be a RAID-1. If there are two, the first one
+                      has to be a RAID-1, while the RAID level for the second one
+                      can be 0, 1, or 1+0. As the first RAID device will be the deployment
+                      device, enforcing a RAID-1 reduces the risk of ending up with
+                      a non-booting node in case of a disk failure.
                     items:
-                      description: SoftwareRAIDVolume defines the desired configuration of volume in software RAID
+                      description: SoftwareRAIDVolume defines the desired configuration
+                        of volume in software RAID
                       properties:
                         level:
-                          description: 'RAID level for the logical disk. The following levels are supported: 0;1;1+0.'
+                          description: 'RAID level for the logical disk. The following
+                            levels are supported: 0;1;1+0.'
                           enum:
                           - "0"
                           - "1"
                           - 1+0
                           type: string
                         physicalDisks:
-                          description: A list of device hints, the number of items should be greater than or equal to 2.
+                          description: A list of device hints, the number of items
+                            should be greater than or equal to 2.
                           items:
-                            description: RootDeviceHints holds the hints for specifying the storage location for the root filesystem for the image.
+                            description: RootDeviceHints holds the hints for specifying
+                              the storage location for the root filesystem for the
+                              image.
                             properties:
                               deviceName:
-                                description: A Linux device name like "/dev/vda". The hint must match the actual value exactly.
+                                description: A Linux device name like "/dev/vda".
+                                  The hint must match the actual value exactly.
                                 type: string
                               hctl:
-                                description: A SCSI bus address like 0:0:0:0. The hint must match the actual value exactly.
+                                description: A SCSI bus address like 0:0:0:0. The
+                                  hint must match the actual value exactly.
                                 type: string
                               minSizeGigabytes:
                                 description: The minimum size of the device in Gigabytes.
                                 minimum: 0
                                 type: integer
                               model:
-                                description: A vendor-specific device identifier. The hint can be a substring of the actual value.
+                                description: A vendor-specific device identifier.
+                                  The hint can be a substring of the actual value.
                                 type: string
                               rotational:
-                                description: True if the device should use spinning media, false otherwise.
+                                description: True if the device should use spinning
+                                  media, false otherwise.
                                 type: boolean
                               serialNumber:
-                                description: Device serial number. The hint must match the actual value exactly.
+                                description: Device serial number. The hint must match
+                                  the actual value exactly.
                                 type: string
                               vendor:
-                                description: The name of the vendor or manufacturer of the device. The hint can be a substring of the actual value.
+                                description: The name of the vendor or manufacturer
+                                  of the device. The hint can be a substring of the
+                                  actual value.
                                 type: string
                               wwn:
-                                description: Unique storage identifier. The hint must match the actual value exactly.
+                                description: Unique storage identifier. The hint must
+                                  match the actual value exactly.
                                 type: string
                               wwnVendorExtension:
-                                description: Unique vendor storage identifier. The hint must match the actual value exactly.
+                                description: Unique vendor storage identifier. The
+                                  hint must match the actual value exactly.
                                 type: string
                               wwnWithExtension:
-                                description: Unique storage identifier with the vendor extension appended. The hint must match the actual value exactly.
+                                description: Unique storage identifier with the vendor
+                                  extension appended. The hint must match the actual
+                                  value exactly.
                                 type: string
                             type: object
                           minItems: 2
                           type: array
                         sizeGibibytes:
-                          description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                          description: Size (Integer) of the logical disk to be created
+                            in GiB. If unspecified or set be 0, the maximum capacity
+                            of disk will be used for logical disk.
                           minimum: 0
                           type: integer
                       required:
@@ -318,53 +402,69 @@ spec:
                     type: array
                 type: object
               rootDeviceHints:
-                description: Provide guidance about how to choose the device for the image being provisioned.
+                description: Provide guidance about how to choose the device for the
+                  image being provisioned.
                 properties:
                   deviceName:
-                    description: A Linux device name like "/dev/vda". The hint must match the actual value exactly.
+                    description: A Linux device name like "/dev/vda". The hint must
+                      match the actual value exactly.
                     type: string
                   hctl:
-                    description: A SCSI bus address like 0:0:0:0. The hint must match the actual value exactly.
+                    description: A SCSI bus address like 0:0:0:0. The hint must match
+                      the actual value exactly.
                     type: string
                   minSizeGigabytes:
                     description: The minimum size of the device in Gigabytes.
                     minimum: 0
                     type: integer
                   model:
-                    description: A vendor-specific device identifier. The hint can be a substring of the actual value.
+                    description: A vendor-specific device identifier. The hint can
+                      be a substring of the actual value.
                     type: string
                   rotational:
-                    description: True if the device should use spinning media, false otherwise.
+                    description: True if the device should use spinning media, false
+                      otherwise.
                     type: boolean
                   serialNumber:
-                    description: Device serial number. The hint must match the actual value exactly.
+                    description: Device serial number. The hint must match the actual
+                      value exactly.
                     type: string
                   vendor:
-                    description: The name of the vendor or manufacturer of the device. The hint can be a substring of the actual value.
+                    description: The name of the vendor or manufacturer of the device.
+                      The hint can be a substring of the actual value.
                     type: string
                   wwn:
-                    description: Unique storage identifier. The hint must match the actual value exactly.
+                    description: Unique storage identifier. The hint must match the
+                      actual value exactly.
                     type: string
                   wwnVendorExtension:
-                    description: Unique vendor storage identifier. The hint must match the actual value exactly.
+                    description: Unique vendor storage identifier. The hint must match
+                      the actual value exactly.
                     type: string
                   wwnWithExtension:
-                    description: Unique storage identifier with the vendor extension appended. The hint must match the actual value exactly.
+                    description: Unique storage identifier with the vendor extension
+                      appended. The hint must match the actual value exactly.
                     type: string
                 type: object
               taints:
-                description: Taints is the full, authoritative list of taints to apply to the corresponding Machine. This list will overwrite any modifications made to the Machine on an ongoing basis.
+                description: Taints is the full, authoritative list of taints to apply
+                  to the corresponding Machine. This list will overwrite any modifications
+                  made to the Machine on an ongoing basis.
                 items:
-                  description: The node this Taint is attached to has the "effect" on any pod that does not tolerate the Taint.
+                  description: The node this Taint is attached to has the "effect"
+                    on any pod that does not tolerate the Taint.
                   properties:
                     effect:
-                      description: Required. The effect of the taint on pods that do not tolerate the taint. Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+                      description: Required. The effect of the taint on pods that
+                        do not tolerate the taint. Valid effects are NoSchedule, PreferNoSchedule
+                        and NoExecute.
                       type: string
                     key:
                       description: Required. The taint key to be applied to a node.
                       type: string
                     timeAdded:
-                      description: TimeAdded represents the time at which the taint was added. It is only written for NoExecute taints.
+                      description: TimeAdded represents the time at which the taint
+                        was added. It is only written for NoExecute taints.
                       format: date-time
                       type: string
                     value:
@@ -376,13 +476,16 @@ spec:
                   type: object
                 type: array
               userData:
-                description: UserData holds the reference to the Secret containing the user data to be passed to the host before it boots.
+                description: UserData holds the reference to the Secret containing
+                  the user data to be passed to the host before it boots.
                 properties:
                   name:
-                    description: Name is unique within a namespace to reference a secret resource.
+                    description: Name is unique within a namespace to reference a
+                      secret resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the secret name must be unique.
+                    description: Namespace defines the space within which the secret
+                      name must be unique.
                     type: string
                 type: object
             required:
@@ -393,13 +496,15 @@ spec:
             properties:
               errorCount:
                 default: 0
-                description: ErrorCount records how many times the host has encoutered an error since the last successful operation
+                description: ErrorCount records how many times the host has encoutered
+                  an error since the last successful operation
                 type: integer
               errorMessage:
                 description: the last error message reported by the provisioning subsystem
                 type: string
               errorType:
-                description: ErrorType indicates the type of failure encountered when the OperationalStatus is OperationalStatusError
+                description: ErrorType indicates the type of failure encountered when
+                  the OperationalStatus is OperationalStatusError
                 enum:
                 - provisioned registration error
                 - registration error
@@ -412,13 +517,16 @@ spec:
                 description: the last credentials we were able to validate as working
                 properties:
                   credentials:
-                    description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
-                        description: Name is unique within a namespace to reference a secret resource.
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
                         type: string
                       namespace:
-                        description: Namespace defines the space within which the secret name must be unique.
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
                         type: string
                     type: object
                   credentialsVersion:
@@ -469,14 +577,18 @@ spec:
                       description: NIC describes one network interface on the host.
                       properties:
                         ip:
-                          description: The IP address of the interface. This will be an IPv4 or IPv6 address if one is present.  If both IPv4 and IPv6 addresses are present in a dual-stack environment, two nics will be output, one with each IP.
+                          description: The IP address of the interface. This will
+                            be an IPv4 or IPv6 address if one is present.  If both
+                            IPv4 and IPv6 addresses are present in a dual-stack environment,
+                            two nics will be output, one with each IP.
                           type: string
                         mac:
                           description: The device MAC address
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
                         model:
-                          description: The vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+                          description: The vendor and product IDs of the NIC, e.g.
+                            "0x8086 0x1572"
                           type: string
                         name:
                           description: The name of the network interface, e.g. "en0"
@@ -514,7 +626,8 @@ spec:
                     type: integer
                   storage:
                     items:
-                      description: Storage describes one storage device (disk, SSD, etc.) on the host.
+                      description: Storage describes one storage device (disk, SSD,
+                        etc.) on the host.
                       properties:
                         hctl:
                           description: The SCSI location of the device
@@ -523,10 +636,14 @@ spec:
                           description: Hardware model
                           type: string
                         name:
-                          description: The Linux device name of the disk, e.g. "/dev/sda". Note that this may not be stable across reboots.
+                          description: The Linux device name of the disk, e.g. "/dev/sda".
+                            Note that this may not be stable across reboots.
                           type: string
                         rotational:
-                          description: Whether this disk represents rotational storage. This field is not recommended for usage, please prefer using 'Type' field instead, this field will be deprecated eventually.
+                          description: Whether this disk represents rotational storage.
+                            This field is not recommended for usage, please prefer
+                            using 'Type' field instead, this field will be deprecated
+                            eventually.
                           type: boolean
                         serialNumber:
                           description: The serial number of the device
@@ -557,7 +674,8 @@ spec:
                       type: object
                     type: array
                   systemVendor:
-                    description: HardwareSystemVendor stores details about the whole hardware system.
+                    description: HardwareSystemVendor stores details about the whole
+                      hardware system.
                     properties:
                       manufacturer:
                         type: string
@@ -575,10 +693,12 @@ spec:
                 format: date-time
                 type: string
               operationHistory:
-                description: OperationHistory holds information about operations performed on this host.
+                description: OperationHistory holds information about operations performed
+                  on this host.
                 properties:
                   deprovision:
-                    description: OperationMetric contains metadata about an operation (inspection, provisioning, etc.) used for tracking metrics.
+                    description: OperationMetric contains metadata about an operation
+                      (inspection, provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -590,7 +710,8 @@ spec:
                         type: string
                     type: object
                   inspect:
-                    description: OperationMetric contains metadata about an operation (inspection, provisioning, etc.) used for tracking metrics.
+                    description: OperationMetric contains metadata about an operation
+                      (inspection, provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -602,7 +723,8 @@ spec:
                         type: string
                     type: object
                   provision:
-                    description: OperationMetric contains metadata about an operation (inspection, provisioning, etc.) used for tracking metrics.
+                    description: OperationMetric contains metadata about an operation
+                      (inspection, provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -614,7 +736,8 @@ spec:
                         type: string
                     type: object
                   register:
-                    description: OperationMetric contains metadata about an operation (inspection, provisioning, etc.) used for tracking metrics.
+                    description: OperationMetric contains metadata about an operation
+                      (inspection, provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -643,10 +766,12 @@ spec:
                 description: Information tracked by the provisioner.
                 properties:
                   ID:
-                    description: The machine's UUID from the underlying provisioning tool
+                    description: The machine's UUID from the underlying provisioning
+                      tool
                     type: string
                   bootMode:
-                    description: BootMode indicates the boot mode used to provision the node
+                    description: BootMode indicates the boot mode used to provision
+                      the node
                     enum:
                     - UEFI
                     - UEFISecureBoot
@@ -665,39 +790,51 @@ spec:
                     description: The Bios set by the user
                     properties:
                       simultaneousMultithreadingEnabled:
-                        description: 'Allows a single physical processor core to appear as several logical processors. This supports following options: true, false.'
+                        description: 'Allows a single physical processor core to appear
+                          as several logical processors. This supports following options:
+                          true, false.'
                         enum:
                         - true
                         - false
                         type: boolean
                       sriovEnabled:
-                        description: 'SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance. This supports following options: true, false.'
+                        description: 'SR-IOV support enables a hypervisor to create
+                          virtual instances of a PCI-express device, potentially increasing
+                          performance. This supports following options: true, false.'
                         enum:
                         - true
                         - false
                         type: boolean
                       virtualizationEnabled:
-                        description: 'Supports the virtualization of platform hardware. This supports following options: true, false.'
+                        description: 'Supports the virtualization of platform hardware.
+                          This supports following options: true, false.'
                         enum:
                         - true
                         - false
                         type: boolean
                     type: object
                   image:
-                    description: Image holds the details of the last image successfully provisioned to the host.
+                    description: Image holds the details of the last image successfully
+                      provisioned to the host.
                     properties:
                       checksum:
                         description: Checksum is the checksum for the image.
                         type: string
                       checksumType:
-                        description: ChecksumType is the checksum algorithm for the image. e.g md5, sha256, sha512
+                        description: ChecksumType is the checksum algorithm for the
+                          image. e.g md5, sha256, sha512
                         enum:
                         - md5
                         - sha256
                         - sha512
                         type: string
                       format:
-                        description: DiskFormat contains the format of the image (raw, qcow2, ...). Needs to be set to raw for raw images streaming. Note live-iso means an iso referenced by the url will be live-booted and not deployed to disk, and in this case the checksum options are not required and if specified will be ignored.
+                        description: DiskFormat contains the format of the image (raw,
+                          qcow2, ...). Needs to be set to raw for raw images streaming.
+                          Note live-iso means an iso referenced by the url will be
+                          live-booted and not deployed to disk, and in this case the
+                          checksum options are not required and if specified will
+                          be ignored.
                         enum:
                         - raw
                         - qcow2
@@ -715,12 +852,15 @@ spec:
                     description: The Raid set by the user
                     properties:
                       hardwareRAIDVolumes:
-                        description: The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+                        description: The list of logical disks for hardware RAID,
+                          if rootDeviceHints isn't used, first volume is root volume.
                         items:
-                          description: HardwareRAIDVolume defines the desired configuration of volume in hardware RAID
+                          description: HardwareRAIDVolume defines the desired configuration
+                            of volume in hardware RAID
                           properties:
                             level:
-                              description: 'RAID level for the logical disk. The following levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
+                              description: 'RAID level for the logical disk. The following
+                                levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
                               enum:
                               - "0"
                               - "1"
@@ -732,18 +872,24 @@ spec:
                               - 6+0
                               type: string
                             name:
-                              description: Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+                              description: Name of the volume. Should be unique within
+                                the Node. If not specified, volume name will be auto-generated.
                               maxLength: 64
                               type: string
                             numberOfPhysicalDisks:
-                              description: Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required for the particular RAID level.
+                              description: Integer, number of physical disks to use
+                                for the logical disk. Defaults to minimum number of
+                                disks required for the particular RAID level.
                               minimum: 1
                               type: integer
                             rotational:
-                              description: Select disks with only rotational or solid-state storage
+                              description: Select disks with only rotational or solid-state
+                                storage
                               type: boolean
                             sizeGibibytes:
-                              description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                              description: Size (Integer) of the logical disk to be
+                                created in GiB. If unspecified or set be 0, the maximum
+                                capacity of disk will be used for logical disk.
                               minimum: 0
                               type: integer
                           required:
@@ -751,58 +897,86 @@ spec:
                           type: object
                         type: array
                       softwareRAIDVolumes:
-                        description: The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume. If HardwareRAIDVolumes is set this item will be invalid. The number of created Software RAID devices must be 1 or 2. If there is only one Software RAID device, it has to be a RAID-1. If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0. As the first RAID device will be the deployment device, enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                        description: The list of logical disks for software RAID,
+                          if rootDeviceHints isn't used, first volume is root volume.
+                          If HardwareRAIDVolumes is set this item will be invalid.
+                          The number of created Software RAID devices must be 1 or
+                          2. If there is only one Software RAID device, it has to
+                          be a RAID-1. If there are two, the first one has to be a
+                          RAID-1, while the RAID level for the second one can be 0,
+                          1, or 1+0. As the first RAID device will be the deployment
+                          device, enforcing a RAID-1 reduces the risk of ending up
+                          with a non-booting node in case of a disk failure.
                         items:
-                          description: SoftwareRAIDVolume defines the desired configuration of volume in software RAID
+                          description: SoftwareRAIDVolume defines the desired configuration
+                            of volume in software RAID
                           properties:
                             level:
-                              description: 'RAID level for the logical disk. The following levels are supported: 0;1;1+0.'
+                              description: 'RAID level for the logical disk. The following
+                                levels are supported: 0;1;1+0.'
                               enum:
                               - "0"
                               - "1"
                               - 1+0
                               type: string
                             physicalDisks:
-                              description: A list of device hints, the number of items should be greater than or equal to 2.
+                              description: A list of device hints, the number of items
+                                should be greater than or equal to 2.
                               items:
-                                description: RootDeviceHints holds the hints for specifying the storage location for the root filesystem for the image.
+                                description: RootDeviceHints holds the hints for specifying
+                                  the storage location for the root filesystem for
+                                  the image.
                                 properties:
                                   deviceName:
-                                    description: A Linux device name like "/dev/vda". The hint must match the actual value exactly.
+                                    description: A Linux device name like "/dev/vda".
+                                      The hint must match the actual value exactly.
                                     type: string
                                   hctl:
-                                    description: A SCSI bus address like 0:0:0:0. The hint must match the actual value exactly.
+                                    description: A SCSI bus address like 0:0:0:0.
+                                      The hint must match the actual value exactly.
                                     type: string
                                   minSizeGigabytes:
-                                    description: The minimum size of the device in Gigabytes.
+                                    description: The minimum size of the device in
+                                      Gigabytes.
                                     minimum: 0
                                     type: integer
                                   model:
-                                    description: A vendor-specific device identifier. The hint can be a substring of the actual value.
+                                    description: A vendor-specific device identifier.
+                                      The hint can be a substring of the actual value.
                                     type: string
                                   rotational:
-                                    description: True if the device should use spinning media, false otherwise.
+                                    description: True if the device should use spinning
+                                      media, false otherwise.
                                     type: boolean
                                   serialNumber:
-                                    description: Device serial number. The hint must match the actual value exactly.
+                                    description: Device serial number. The hint must
+                                      match the actual value exactly.
                                     type: string
                                   vendor:
-                                    description: The name of the vendor or manufacturer of the device. The hint can be a substring of the actual value.
+                                    description: The name of the vendor or manufacturer
+                                      of the device. The hint can be a substring of
+                                      the actual value.
                                     type: string
                                   wwn:
-                                    description: Unique storage identifier. The hint must match the actual value exactly.
+                                    description: Unique storage identifier. The hint
+                                      must match the actual value exactly.
                                     type: string
                                   wwnVendorExtension:
-                                    description: Unique vendor storage identifier. The hint must match the actual value exactly.
+                                    description: Unique vendor storage identifier.
+                                      The hint must match the actual value exactly.
                                     type: string
                                   wwnWithExtension:
-                                    description: Unique storage identifier with the vendor extension appended. The hint must match the actual value exactly.
+                                    description: Unique storage identifier with the
+                                      vendor extension appended. The hint must match
+                                      the actual value exactly.
                                     type: string
                                 type: object
                               minItems: 2
                               type: array
                             sizeGibibytes:
-                              description: Size (Integer) of the logical disk to be created in GiB. If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                              description: Size (Integer) of the logical disk to be
+                                created in GiB. If unspecified or set be 0, the maximum
+                                capacity of disk will be used for logical disk.
                               minimum: 0
                               type: integer
                           required:
@@ -815,39 +989,49 @@ spec:
                     description: The RootDevicehints set by the user
                     properties:
                       deviceName:
-                        description: A Linux device name like "/dev/vda". The hint must match the actual value exactly.
+                        description: A Linux device name like "/dev/vda". The hint
+                          must match the actual value exactly.
                         type: string
                       hctl:
-                        description: A SCSI bus address like 0:0:0:0. The hint must match the actual value exactly.
+                        description: A SCSI bus address like 0:0:0:0. The hint must
+                          match the actual value exactly.
                         type: string
                       minSizeGigabytes:
                         description: The minimum size of the device in Gigabytes.
                         minimum: 0
                         type: integer
                       model:
-                        description: A vendor-specific device identifier. The hint can be a substring of the actual value.
+                        description: A vendor-specific device identifier. The hint
+                          can be a substring of the actual value.
                         type: string
                       rotational:
-                        description: True if the device should use spinning media, false otherwise.
+                        description: True if the device should use spinning media,
+                          false otherwise.
                         type: boolean
                       serialNumber:
-                        description: Device serial number. The hint must match the actual value exactly.
+                        description: Device serial number. The hint must match the
+                          actual value exactly.
                         type: string
                       vendor:
-                        description: The name of the vendor or manufacturer of the device. The hint can be a substring of the actual value.
+                        description: The name of the vendor or manufacturer of the
+                          device. The hint can be a substring of the actual value.
                         type: string
                       wwn:
-                        description: Unique storage identifier. The hint must match the actual value exactly.
+                        description: Unique storage identifier. The hint must match
+                          the actual value exactly.
                         type: string
                       wwnVendorExtension:
-                        description: Unique vendor storage identifier. The hint must match the actual value exactly.
+                        description: Unique vendor storage identifier. The hint must
+                          match the actual value exactly.
                         type: string
                       wwnWithExtension:
-                        description: Unique storage identifier with the vendor extension appended. The hint must match the actual value exactly.
+                        description: Unique storage identifier with the vendor extension
+                          appended. The hint must match the actual value exactly.
                         type: string
                     type: object
                   state:
-                    description: An indiciator for what the provisioner is doing with the host.
+                    description: An indiciator for what the provisioner is doing with
+                      the host.
                     type: string
                 required:
                 - ID
@@ -857,13 +1041,16 @@ spec:
                 description: the last credentials we sent to the provisioning backend
                 properties:
                   credentials:
-                    description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
-                        description: Name is unique within a namespace to reference a secret resource.
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
                         type: string
                       namespace:
-                        description: Namespace defines the space within which the secret name must be unique.
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
                         type: string
                     type: object
                   credentialsVersion:

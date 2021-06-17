@@ -15,14 +15,12 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		Node          nodes.Node
 		Mode          metal3v1alpha1.BootMode
 		ExpectedValue string
-		ExpectedOp    nodes.UpdateOp
 	}{
 		{
 			Scenario:      "unset",
 			Node:          nodes.Node{},
 			Mode:          metal3v1alpha1.UEFI,
 			ExpectedValue: "boot_mode:uefi",
-			ExpectedOp:    nodes.AddOp,
 		},
 		{
 			Scenario: "empty",
@@ -33,7 +31,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.UEFI,
 			ExpectedValue: "boot_mode:uefi",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "not-there",
@@ -44,7 +41,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "add-secure-boot",
@@ -55,7 +51,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.UEFISecureBoot,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi,secure_boot:true",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "uefi-to-uefi",
@@ -66,7 +61,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "bios-to-bios",
@@ -77,7 +71,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.Legacy,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:bios",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "bios-to-uefi",
@@ -88,7 +81,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "uefi-to-bios",
@@ -99,7 +91,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.Legacy,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:bios",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "uefi-to-secure",
@@ -110,7 +101,6 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.UEFISecureBoot,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi,secure_boot:true",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 		{
 			Scenario: "secure-to-uefi",
@@ -121,14 +111,12 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 			},
 			Mode:          metal3v1alpha1.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
-			ExpectedOp:    nodes.ReplaceOp,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			actualOp, actualVal := buildCapabilitiesValue(&tc.Node, tc.Mode)
-			assert.Equal(t, tc.ExpectedOp, actualOp)
+			actualVal := buildCapabilitiesValue(&tc.Node, tc.Mode)
 			assert.Equal(t, tc.ExpectedValue, actualVal)
 		})
 	}

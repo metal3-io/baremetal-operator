@@ -29,6 +29,9 @@ func (r *RAIDTestBMC) PowerInterface() string                                { r
 func (r *RAIDTestBMC) RAIDInterface() string                                 { return "" }
 func (r *RAIDTestBMC) VendorInterface() string                               { return "" }
 func (r *RAIDTestBMC) SupportsSecureBoot() bool                              { return false }
+func (r *RAIDTestBMC) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+	return nil, nil
+}
 
 func TestPrepare(t *testing.T) {
 	bmc.RegisterFactory("raid-test", func(u *url.URL, dcv bool) (bmc.AccessDetails, error) {
@@ -53,9 +56,9 @@ func TestPrepare(t *testing.T) {
 				UUID:           nodeUUID,
 			}),
 			unprepared:           true,
-			expectedStarted:      false,
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
+			expectedStarted:      true,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
 		},
 		{
 			name: "manageable state(have clean steps)",
@@ -66,6 +69,29 @@ func TestPrepare(t *testing.T) {
 			unprepared:           true,
 			existRaidConfig:      true,
 			expectedStarted:      true,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "available state(haven't clean steps)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			expectedStarted:      true,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+		},
+		{
+			name: "available state(have clean steps)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			existRaidConfig:      true,
+			expectedStarted:      false,
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
@@ -117,6 +143,17 @@ func TestPrepare(t *testing.T) {
 			name: "manageable state(manual clean finished)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "available state(automated clean finished)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
 			}),
 			existRaidConfig:      true,

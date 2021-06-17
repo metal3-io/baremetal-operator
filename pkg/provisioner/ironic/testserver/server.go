@@ -201,7 +201,7 @@ func (m *MockServer) GetLastRequestFor(pattern string, method string) (string, b
 
 // AddDefaultResponse adds a default response for the specified pattern/method.
 // It is possible to use variables in the pattern using curly braces, ie `/v1/nodes/{id}/power`
-// Pattern variables can be reused in the payload, so that they will be substitued with the actual value when sending the response
+// Pattern variables can be reused in the payload, so that they will be substituted with the actual value when sending the response
 // If httpMethod is empty, the response will be applied for any method
 func (m *MockServer) AddDefaultResponse(patternWithVars string, httpMethod string, code int, payload string) *MockServer {
 

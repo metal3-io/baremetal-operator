@@ -412,11 +412,16 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
+	if dirty, _, err := getHostProvisioningSettings(info.host); err != nil {
+		return actionError{err}
+	} else if dirty {
+		hsm.NextState = metal3v1alpha1.StatePreparing
+		return actionComplete{}
+	}
+
 	// ErrorCount is cleared when appropriate inside actionManageReady
 	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
-	if _, update := actResult.(actionUpdate); update {
-		hsm.NextState = metal3v1alpha1.StatePreparing
-	} else if _, complete := actResult.(actionComplete); complete {
+	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateProvisioning
 	}
 	return actResult

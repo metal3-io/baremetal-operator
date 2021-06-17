@@ -5,9 +5,10 @@ set -ex
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
-IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic-inspector"}
+IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic"}
 IRONIC_KEEPALIVED_IMAGE=${IRONIC_KEEPALIVED_IMAGE:-"quay.io/metal3-io/keepalived"}
 IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:master"}
+IPA_BASEURI=${IPA_BASEURI:-}
 IRONIC_DATA_DIR=${IRONIC_DATA_DIR:-"/opt/metal3-dev-env/ironic"}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 HTTP_PORT="6180"
@@ -16,6 +17,7 @@ CLUSTER_PROVISIONING_IP="${CLUSTER_PROVISIONING_IP:-"172.22.0.2"}"
 PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-"ironicendpoint"}"
 CLUSTER_DHCP_RANGE="${CLUSTER_DHCP_RANGE:-"172.22.0.10,172.22.0.100"}"
 IRONIC_KERNEL_PARAMS="${IRONIC_KERNEL_PARAMS:-"console=ttyS0"}"
+IRONIC_BOOT_ISO_SOURCE="${IRONIC_BOOT_ISO_SOURCE:-"local"}"
 
 
 IRONIC_CACERT_FILE="${IRONIC_CACERT_FILE:-}"
@@ -48,6 +50,7 @@ fi
 
 DEPLOY_KERNEL_URL="${DEPLOY_KERNEL_URL:-"http://${CLUSTER_PROVISIONING_IP}:${HTTP_PORT}/images/ironic-python-agent.kernel"}"
 DEPLOY_RAMDISK_URL="${DEPLOY_RAMDISK_URL:-"http://${CLUSTER_PROVISIONING_IP}:${HTTP_PORT}/images/ironic-python-agent.initramfs"}"
+DEPLOY_ISO_URL=${DEPLOY_ISO_URL:-}
 IRONIC_ENDPOINT="${IRONIC_ENDPOINT:-"${IRONIC_BASE_URL}:6385/v1/"}"
 IRONIC_INSPECTOR_ENDPOINT="${IRONIC_INSPECTOR_ENDPOINT:-"${IRONIC_BASE_URL}:5050/v1/"}"
 CACHEURL="${CACHEURL:-"http://${PROVISIONING_IP}/images"}"
@@ -69,13 +72,28 @@ PROVISIONING_INTERFACE=${PROVISIONING_INTERFACE}
 DHCP_RANGE=${CLUSTER_DHCP_RANGE}
 DEPLOY_KERNEL_URL=${DEPLOY_KERNEL_URL}
 DEPLOY_RAMDISK_URL=${DEPLOY_RAMDISK_URL}
+DEPLOY_ISO_URL=${DEPLOY_ISO_URL}
 IRONIC_ENDPOINT=${IRONIC_ENDPOINT}
 IRONIC_INSPECTOR_ENDPOINT=${IRONIC_INSPECTOR_ENDPOINT}
 CACHEURL=${CACHEURL}
 IRONIC_FAST_TRACK=${IRONIC_FAST_TRACK}
 IRONIC_KERNEL_PARAMS=${IRONIC_KERNEL_PARAMS}
+IRONIC_BOOT_ISO_SOURCE=${IRONIC_BOOT_ISO_SOURCE}
 INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP}
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES}
+IPA_BASEURI=${IPA_BASEURI}
+EOF
+
+# shellcheck disable=SC2086
+cat << EOF | kubectl apply -f -
+apiVersion: v1
+data:
+  tls.crt: ${IRONIC_CA_CERT_B64:-""}
+kind: Secret
+metadata:
+   name: ironic-cacert
+   namespace: capm3-system
+type: Opaque
 EOF
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
@@ -220,18 +238,8 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-log-wat
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     --entrypoint /bin/runironic-inspector \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"
-
-# Start httpd reverse proxy for Ironic Inspector
-# shellcheck disable=SC2086
-if [[ $INSPECTOR_REVERSE_PROXY_SETUP == "true" ]]
-then
-    sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd-reverse-proxy \
-         ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
-         --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-         --entrypoint /bin/runhttpd \
-         -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"
-fi
 
 # Start ironic-inspector-log-watch
 # shellcheck disable=SC2086

@@ -668,7 +668,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	info.log.Info("inspecting hardware")
 
 	refresh := hasInspectAnnotation(info.host)
-	provResult, details, err := prov.InspectHardware(
+	provResult, started, details, err := prov.InspectHardware(
 		provisioner.InspectData{
 			BootMode: info.host.Status.Provisioning.BootMode,
 		},
@@ -683,7 +683,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	}
 
 	// Delete inspect annotation if exists
-	if hasInspectAnnotation(info.host) {
+	if started && hasInspectAnnotation(info.host) {
 		delete(info.host.Annotations, inspectAnnotationPrefix)
 		if err := r.Update(context.TODO(), info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove inspect annotation from host")}
@@ -751,19 +751,18 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
-	// Save provisioning settings.
-	provisioningSettings := info.host.Status.Provisioning.DeepCopy()
-	dirty, err := saveHostProvisioningSettings(info.host)
+	dirty, newStatus, err := getHostProvisioningSettings(info.host)
 	if err != nil {
-		return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
+		return actionError{err}
 	}
 
 	prepareData := provisioner.PrepareData{
-		RAIDConfig:      info.host.Status.Provisioning.RAID.DeepCopy(),
-		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		RAIDConfig:      newStatus.Provisioning.RAID.DeepCopy(),
+		RootDeviceHints: newStatus.Provisioning.RootDeviceHints.DeepCopy(),
+		FirmwareConfig:  newStatus.Provisioning.Firmware.DeepCopy(),
 	}
-	// Do prepare(manual clean).
-	provResult, started, err := prov.Prepare(prepareData, dirty)
+	provResult, started, err := prov.Prepare(prepareData,
+		dirty || info.host.Status.ErrorType == metal3v1alpha1.PreparationError)
 	if err != nil {
 		return actionError{errors.Wrap(err, "error preparing host")}
 	}
@@ -774,19 +773,24 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		return recordActionFailure(info, metal3v1alpha1.PreparationError, provResult.ErrorMessage)
 	}
 
+	if dirty && started {
+		info.log.Info("saving host provisioning settings")
+		_, err := saveHostProvisioningSettings(info.host)
+		if err != nil {
+			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
+		}
+	}
+	if started && clearError(info.host) {
+		dirty = true
+	}
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) || (dirty && started) {
-			// If clearError return true, but started is false, restore provisioningSettings.
-			if dirty && !started {
-				info.host.Status.Provisioning = *provisioningSettings
-			}
+		if dirty {
 			return actionUpdate{result}
 		}
 		return result
 	}
 
-	clearError(info.host)
 	return actionComplete{}
 }
 
@@ -857,6 +861,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
 	host.Status.Provisioning.RAID = nil
+	host.Status.Provisioning.Firmware = nil
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -1037,20 +1042,20 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 // having been provisioned. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.NeedsProvisioning() {
-		// Ensure the provisioning settings we're going to use are stored.
-		dirty, err := saveHostProvisioningSettings(info.host)
-		if err != nil {
-			return actionError{errors.Wrap(err, "Could not save the host provisioning settings")}
-		}
-		if dirty {
-			info.log.Info("Host provisioning settings have been updated, go back to Preparing state")
-			clearHostProvisioningSettings(info.host)
-			return actionUpdate{}
-		}
 		clearError(info.host)
 		return actionComplete{}
 	}
 	return r.manageHostPower(prov, info)
+}
+
+func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
+	hostCopy := host.DeepCopy()
+	dirty, err = saveHostProvisioningSettings(hostCopy)
+	if err != nil {
+		err = errors.Wrap(err, "could not determine the host provisioning settings")
+	}
+	status = &hostCopy.Status
+	return
 }
 
 // saveHostProvisioningSettings copies the values related to
@@ -1111,6 +1116,12 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 				}
 			}
 		}
+	}
+
+	// Copy BIOS settings
+	if !reflect.DeepEqual(host.Status.Provisioning.Firmware, host.Spec.Firmware) {
+		host.Status.Provisioning.Firmware = host.Spec.Firmware.DeepCopy()
+		dirty = true
 	}
 
 	return
@@ -1205,6 +1216,20 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 	return bmcCredsSecret, nil
 }
 
+func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
+	// We trim surrounding whitespace because those characters are
+	// unlikely to be part of the username or password and it is
+	// common for users to encode the values with a command like
+	//
+	//     echo "my-password" | base64
+	//
+	// which introduces a trailing newline.
+	return &bmc.Credentials{
+		Username: strings.TrimSpace(string(bmcCredsSecret.Data["username"])),
+		Password: strings.TrimSpace(string(bmcCredsSecret.Data["password"])),
+	}
+}
+
 // Make sure the credentials for the management controller look
 // right and manufacture bmc.Credentials.  This does not actually try
 // to use the credentials.
@@ -1222,10 +1247,7 @@ func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Re
 		return nil, nil, &EmptyBMCAddressError{message: "Missing BMC connection detail 'Address'"}
 	}
 
-	bmcCreds = &bmc.Credentials{
-		Username: string(bmcCredsSecret.Data["username"]),
-		Password: string(bmcCredsSecret.Data["password"]),
-	}
+	bmcCreds = credentialsFromSecret(bmcCredsSecret)
 
 	// Verify that the secret contains the expected info.
 	err = bmcCreds.Validate()

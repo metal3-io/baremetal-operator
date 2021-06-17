@@ -3,6 +3,7 @@ package testbmc
 import (
 	"net/url"
 
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
@@ -84,4 +85,8 @@ func (a *testAccessDetails) VendorInterface() string {
 
 func (a *testAccessDetails) SupportsSecureBoot() bool {
 	return false
+}
+
+func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+	return nil, nil
 }

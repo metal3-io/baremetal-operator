@@ -29,7 +29,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		expectedError   string
 	}{
 		{
-			name: "unkown-power-state",
+			name: "unknown-power-state",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID: nodeUUID,
 			}),

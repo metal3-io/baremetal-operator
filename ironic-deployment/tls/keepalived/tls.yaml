@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: metal3-ironic
+  name: capm3-ironic
 spec:
   template:
     spec:
@@ -16,6 +16,9 @@ spec:
           readOnly: true
         - name: cert-ironic-inspector-ca
           mountPath: "/certs/ca/ironic-inspector"
+          readOnly: true
+        - name: cert-ironic-inspector
+          mountPath: "/certs/ironic-inspector"
           readOnly: true
         - name: cert-mariadb-ca
           mountPath: "/certs/ca/mariadb"
@@ -50,28 +53,13 @@ spec:
         - name: cert-mariadb-ca
           mountPath: "/certs/ca/mariadb"
           readOnly: true
-      - name: httpd-reverse-proxy
-        image: quay.io/metal3-io/ironic-inspector
-        imagePullPolicy: Always
-        envFrom:
-          - configMapRef:
-              name: ironic-bmo-configmap
-        command: 
-          - /bin/runhttpd
-        volumeMounts:
-        - name: cert-ironic-ca
-          mountPath: "/certs/ca/ironic"
-          readOnly: true
-        - name: cert-ironic-inspector
-          mountPath: "/certs/ironic-inspector"
-          readOnly: true
       volumes:
       - name: cert-ironic-ca
         secret:
-          secretName: ironic-ca-cert
+          secretName: ironic-cacert
       - name: cert-ironic-inspector-ca
         secret:
-          secretName: ironic-inspector-ca-cert
+          secretName: ironic-cacert
       - name: cert-ironic
         secret:
           secretName: ironic-cert
@@ -83,4 +71,4 @@ spec:
           secretName: mariadb-cert
       - name: cert-mariadb-ca
         secret:
-          secretName: mariadb-ca-cert
+          secretName: ironic-cacert

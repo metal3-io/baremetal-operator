@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
@@ -1310,7 +1311,14 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			dirty, err := saveHostProvisioningSettings(&tc.Host)
+			dirty, newStatus, err := getHostProvisioningSettings(&tc.Host)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
+			assert.Equal(t, tc.Expected, newStatus.Provisioning.RootDeviceHints)
+
+			dirty, err = saveHostProvisioningSettings(&tc.Host)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1999,4 +2007,64 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 	tryReconcile(t, r, host, func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 		return host.Status.Provisioning.State == metal3v1alpha1.StateDeleting && len(host.Finalizers) == 0
 	})
+}
+
+func TestCredentialsFromSecret(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    corev1.Secret
+		expected bmc.Credentials
+	}{
+		{
+			name:     "empty",
+			input:    corev1.Secret{},
+			expected: bmc.Credentials{},
+		},
+		{
+			name: "clean",
+			input: corev1.Secret{
+				Data: map[string][]byte{
+					"username": []byte("username"),
+					"password": []byte("password"),
+				},
+			},
+			expected: bmc.Credentials{
+				Username: "username",
+				Password: "password",
+			},
+		},
+		{
+			name: "newline",
+			input: corev1.Secret{
+				Data: map[string][]byte{
+					"username": []byte("username\n"),
+					"password": []byte("password\n"),
+				},
+			},
+			expected: bmc.Credentials{
+				Username: "username",
+				Password: "password",
+			},
+		},
+		{
+			name: "non-newline",
+			input: corev1.Secret{
+				Data: map[string][]byte{
+					"username": []byte(" username\t"),
+					"password": []byte(" password\t"),
+				},
+			},
+			expected: bmc.Credentials{
+				Username: "username",
+				Password: "password",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := credentialsFromSecret(&c.input)
+			assert.Equal(t, c.expected, *actual)
+		})
+	}
 }

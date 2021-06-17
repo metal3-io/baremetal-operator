@@ -182,6 +182,24 @@ The sub-fields are:
     GiB. If unspecified or set to 0, the maximum capacity of disk will be
     used for logical disk.
 
+#### firmware
+
+This field contains the information about the BIOS configuration for bare
+metal servers.
+
+The sub-fields are:
+
+* *simultaneousMultithreadingEnabled* -- Allows a single physical processor
+  core to appear as several logical processors. This supports following
+  options: true, false.
+* *sriovEnabled* -- SR-IOV support enables a hypervisor to create virtual
+  instances of a PCI-express device, potentially increasing performance.
+  This supports following options: true, false.
+* *virtualizationEnabled* -- Supports the virtualization of platform
+  hardware. This supports following options: true, false.
+
+**NOTE:** Currently the `firmware` field is only supported by ilo4/ilo5/irmc.
+
 #### rootDeviceHints
 
 Guidance for how to choose the device to receive the image being
@@ -345,6 +363,7 @@ Settings related to deploying an image to the host.
   provisioning tool.
 * *image* -- The image most recently provisioned to the host.
 * *raid* -- The list of hardware or software RAID volumes recently set.
+* *firmware* -- The BIOS configuration for bare metal server.
 * *rootDeviceHints* -- The root device selection instructions used
   for the most recent provisioning operation.
 
@@ -387,6 +406,8 @@ spec:
     - level: "1"
       sizeGibibytes: 200
       rotational: true
+  firmware:
+    virtualizationEnabled: true
   userData:
     name: bmo-master-user-data
     namespace: bmo-project

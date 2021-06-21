@@ -1318,7 +1318,7 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 	return true
 }
 
-// SetupWithManager reigsters the reconciler to be run by the manager
+// SetupWithManager registers the reconciler to be run by the manager
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	maxConcurrentReconciles := runtime.NumCPU()

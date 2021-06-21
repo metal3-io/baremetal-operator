@@ -1307,7 +1307,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
-// until the deprovisioning operation is completed.
+// until the provisioning operation is completed.
 func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {

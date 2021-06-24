@@ -852,18 +852,12 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
-	if info.host.Spec.Image == nil && info.host.Status.Provisioning.Image.URL != "" {
-		info.log.Info("removing deployed image in status")
-		info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
-	} else if info.host.Spec.Image != nil && info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
+	if info.host.Spec.Image != nil && info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
 		info.log.Info("updating deployed image in status")
 		info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
 	}
 
-	if info.host.Spec.CustomDeploy == nil && info.host.Status.Provisioning.CustomDeploy != nil {
-		info.log.Info("removing custom deploy from status")
-		info.host.Status.Provisioning.CustomDeploy = nil
-	} else if info.host.Spec.CustomDeploy != nil && (info.host.Status.Provisioning.CustomDeploy == nil || *(info.host.Spec.CustomDeploy) != *(info.host.Status.Provisioning.CustomDeploy)) {
+	if info.host.Spec.CustomDeploy != nil && (info.host.Status.Provisioning.CustomDeploy == nil || *(info.host.Spec.CustomDeploy) != *(info.host.Status.Provisioning.CustomDeploy)) {
 		info.log.Info("updating custom deploy in status")
 		info.host.Status.Provisioning.CustomDeploy = info.host.Spec.CustomDeploy.DeepCopy()
 	}

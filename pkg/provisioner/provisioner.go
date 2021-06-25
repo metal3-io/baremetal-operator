@@ -118,7 +118,7 @@ type Provisioner interface {
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
-	// dirty flag until the deprovisioning operation is completed.
+	// dirty flag until the provisioning operation is completed.
 	Provision(data ProvisionData) (result Result, err error)
 
 	// Deprovision removes the host from the image. It may be called

@@ -9,11 +9,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
@@ -83,40 +80,6 @@ func (f *ironicProvisionerFactory) init() error {
 	}
 
 	return nil
-}
-
-func newTestProvisionerFactory() ironicProvisionerFactory {
-	return ironicProvisionerFactory{
-		log: logf.Log,
-		config: ironicConfig{
-			deployKernelURL:  "http://deploy.test/ipa.kernel",
-			deployRamdiskURL: "http://deploy.test/ipa.initramfs",
-			deployISOURL:     "http://deploy.test/ipa.iso",
-			maxBusyHosts:     20,
-		},
-	}
-}
-
-// A private function to construct an ironicProvisioner (rather than a
-// Provisioner interface) in a consistent way for tests.
-func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
-	hostData := provisioner.BuildHostData(host, bmcCreds)
-
-	tlsConf := clients.TLSConfig{}
-	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings, tlsConf)
-	if err != nil {
-		return nil, err
-	}
-
-	clientInspector, err := clients.InspectorClient(inspectorURL, inspectorAuthSettings, tlsConf)
-	if err != nil {
-		return nil, err
-	}
-
-	factory := newTestProvisionerFactory()
-	factory.clientIronic = clientIronic
-	factory.clientInspector = clientInspector
-	return factory.ironicProvisioner(hostData, publisher)
 }
 
 func (f ironicProvisionerFactory) ironicProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {

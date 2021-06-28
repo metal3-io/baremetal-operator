@@ -1237,6 +1237,22 @@ spec:
             description: HostFirmwareSettingsStatus defines the observed state of
               HostFirmwareSettings
             properties:
+              provStatus:
+                description: Fields used to manage reading Firmware settings from
+                  provisioner
+                properties:
+                  lastUpdate:
+                    description: Stores the time that resource was last updated by
+                      hostfirmwaresettings_controller
+                    format: date-time
+                    type: string
+                  update:
+                    description: Indicates that the hostfirmwaresettings_controller
+                      should read the settings and update resource
+                    type: boolean
+                required:
+                - update
+                type: object
               schema:
                 description: FirmwareSchema is a reference to the Schema used to describe
                   each FirmwareSetting. By default, this will be a Schema in the same
@@ -1361,6 +1377,46 @@ rules:
   - metal3.io
   resources:
   - baremetalhosts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - firmwareschemas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - firmwareschemas/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwaresettings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwaresettings/status
   verbs:
   - get
   - patch

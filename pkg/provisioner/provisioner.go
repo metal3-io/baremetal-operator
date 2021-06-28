@@ -39,6 +39,13 @@ func BuildHostData(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials) 
 	}
 }
 
+// For controllers that do not need to manage the BMC just set the node ID to use with Ironic API
+func BuildEmptyHostData(provisionerID string) HostData {
+	return HostData{
+		ProvisionerID: provisionerID,
+	}
+}
+
 // Factory is the interface for creating new Provisioner objects.
 type Factory interface {
 	NewProvisioner(hostData HostData, publish EventPublisher) (Provisioner, error)
@@ -75,11 +82,19 @@ type InspectData struct {
 	BootMode metal3v1alpha1.BootMode
 }
 
+// FirmwareConfig and FirmwareSettings are used for implementation of similar functionality
+// FirmwareConfig contains a small subset of common names/values for the BIOS settings and the BMC
+// driver converts them to vendor specific name/values.
+// ActualFirmwareSettings are the complete settings retrieved from the BMC, the names and
+// values are vendor specific.
+// TargetFirmwareSettings contains values that the user has changed.
 type PrepareData struct {
-	TargetRAIDConfig *metal3v1alpha1.RAIDConfig
-	ActualRAIDConfig *metal3v1alpha1.RAIDConfig
-	RootDeviceHints  *metal3v1alpha1.RootDeviceHints
-	FirmwareConfig   *metal3v1alpha1.FirmwareConfig
+	TargetRAIDConfig       *metal3v1alpha1.RAIDConfig
+	ActualRAIDConfig       *metal3v1alpha1.RAIDConfig
+	RootDeviceHints        *metal3v1alpha1.RootDeviceHints
+	FirmwareConfig         *metal3v1alpha1.FirmwareConfig
+	TargetFirmwareSettings metal3v1alpha1.DesiredSettingsMap
+	ActualFirmwareSettings metal3v1alpha1.SettingsMap
 }
 
 type ProvisionData struct {
@@ -158,6 +173,9 @@ type Provisioner interface {
 
 	// HasCapacity checks if the backend has a free (de)provisioning slot for the current host
 	HasCapacity() (result bool, err error)
+
+	// GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
+	GetFirmwareSettings(includeSchema bool) (settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

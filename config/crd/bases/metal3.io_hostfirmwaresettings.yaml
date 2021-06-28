@@ -55,6 +55,22 @@ spec:
             description: HostFirmwareSettingsStatus defines the observed state of
               HostFirmwareSettings
             properties:
+              provStatus:
+                description: Fields used to manage reading Firmware settings from
+                  provisioner
+                properties:
+                  lastUpdate:
+                    description: Stores the time that resource was last updated by
+                      hostfirmwaresettings_controller
+                    format: date-time
+                    type: string
+                  update:
+                    description: Indicates that the hostfirmwaresettings_controller
+                      should read the settings and update resource
+                    type: boolean
+                required:
+                - update
+                type: object
               schema:
                 description: FirmwareSchema is a reference to the Schema used to describe
                   each FirmwareSetting. By default, this will be a Schema in the same

@@ -26,11 +26,26 @@ import (
 type SettingsMap map[string]string
 type DesiredSettingsMap map[string]intstr.IntOrString
 
+const (
+	// strings for storing Annotations
+	ProvisionerIdAnnotation  = "provisionierID"
+	HardwareVendorAnnotation = "hardwareVendor"
+	HardwareModelAnnotation  = "hardwareModel"
+)
+
 type SchemaReference struct {
 	// `namespace` is the namespace of the where the schema is stored.
 	Namespace string `json:"namespace"`
 	// `name` is the reference to the schema.
 	Name string `json:"name"`
+}
+
+type ProvisioningInfo struct {
+	// Indicates that the hostfirmwaresettings_controller should read the settings and update resource
+	Update bool `json:"update"`
+
+	// Stores the time that resource was last updated by hostfirmwaresettings_controller
+	LastUpdated *metav1.Time `json:"lastUpdate,omitempty"`
 }
 
 // HostFirmwareSettingsSpec defines the desired state of HostFirmwareSettings
@@ -53,6 +68,9 @@ type HostFirmwareSettingsStatus struct {
 
 	// Settings are the actual firmware settings stored as name/value pairs
 	Settings SettingsMap `json:"settings" required:"true"`
+
+	// Fields used to manage reading Firmware settings from provisioner 
+	ProvStatus ProvisioningInfo `json:"provStatus,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -65,4 +65,4 @@ When an external Ironic is used, the following requirements must be met:
 * Either HTTP basic or no-auth authentication must be used (Keystone is not
   supported).
 
-* API version 1.69 (Wallaby release cycle) or newer must be available.
+* API version 1.74 (Xena release cycle) or newer must be available.

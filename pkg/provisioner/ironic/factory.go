@@ -65,6 +65,11 @@ func (f *ironicProvisionerFactory) init() error {
 		"deployKernelURL", f.config.deployKernelURL,
 		"deployRamdiskURL", f.config.deployRamdiskURL,
 		"deployISOURL", f.config.deployISOURL,
+		"CACertFile", tlsConf.TrustedCAFile,
+		"ClientCertFile", tlsConf.ClientCertificateFile,
+		"ClientPrivKeyFile", tlsConf.ClientPrivateKeyFile,
+		"TLSInsecure", tlsConf.InsecureSkipVerify,
+		"SkipClientSANVerify", tlsConf.SkipClientSANVerify,
 	)
 
 	f.clientIronic, err = clients.IronicClient(

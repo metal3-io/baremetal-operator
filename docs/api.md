@@ -32,6 +32,9 @@ communicate with them.
 * IPMI
   * `ipmi://<host>:<port>`, an unadorned `<host>:<port>` is also accepted
     and the port is optional, if using the default one (623).
+  * The ipmi privilege level can be set from the default(`ADMINISTRATOR`)
+    to `OPERATOR` with an option URL parameter `privilegelevel`.
+    `ipmi://<host>:<port>?privilegelevel=OPERATOR`
 * Dell iDRAC
   * `idrac://` (or `idrac+http://` to disable TLS).
   * `idrac-virtualmedia://` to use virtual media instead of PXE

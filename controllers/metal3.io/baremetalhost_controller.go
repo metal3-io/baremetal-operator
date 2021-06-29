@@ -95,6 +95,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // Allow for managing hostfirmwaresettings and firmwareschema
 //+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
 
 // Reconcile handles changes to BareMetalHost resources
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {

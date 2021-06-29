@@ -116,6 +116,14 @@ func (m *hsfMockProvisioner) GetFirmwareSettings(includeSchema bool) (settings m
 	return m.Settings, m.Schema, m.Error
 }
 
+func (m *hsfMockProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+	return result, nil
+}
+
+func (m *hsfMockProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+	return result, nil
+}
+
 func getSchema() *metal3v1alpha1.FirmwareSchema {
 
 	schema := &metal3v1alpha1.FirmwareSchema{

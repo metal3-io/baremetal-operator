@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -638,7 +639,9 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 	}
 
 	_, _, err = prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
-	assert.EqualError(t, err, "failed to find existing host: port 11:11:11:11:11:11 exists but linked node doesn't random-wrong-id: Resource not found")
+	endpoint := ironic.MockServer.Endpoint()
+	expected := fmt.Sprintf("failed to find existing host: port 11:11:11:11:11:11 exists but linked node doesn't random-wrong-id: Resource not found: [GET %snodes/random-wrong-id], error message: ", endpoint)
+	assert.EqualError(t, err, expected)
 }
 
 func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {

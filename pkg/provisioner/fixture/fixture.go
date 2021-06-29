@@ -340,3 +340,11 @@ func (p *fixtureProvisioner) GetFirmwareSettings(includeSchema bool) (settings m
 	p.log.Info("getting BIOS settings")
 	return
 }
+
+func (p *fixtureProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+	return result, nil
+}
+
+func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+	return result, nil
+}

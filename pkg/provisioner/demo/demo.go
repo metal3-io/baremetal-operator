@@ -359,3 +359,11 @@ func (p *demoProvisioner) GetFirmwareSettings(includeSchema bool) (settings meta
 	p.log.Info("getting BIOS settings")
 	return
 }
+
+func (p *demoProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+	return result, nil
+}
+
+func (p *demoProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+	return result, nil
+}

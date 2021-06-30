@@ -1,7 +1,7 @@
 package bmc
 
 import (
-	//"fmt"
+	"fmt"
 	"net/url"
 	"strings"
 

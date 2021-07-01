@@ -730,6 +730,63 @@ func TestProvisioningCancelled(t *testing.T) {
 			},
 			Expected: true,
 		},
+
+		{
+			Scenario: "changed custom deploy with image",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL: "not-empty",
+					},
+					CustomDeploy: &metal3v1alpha1.CustomDeploy{
+						Method: "install_not_everything",
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						Image: metal3v1alpha1.Image{
+							URL: "not-empty",
+						},
+						CustomDeploy: &metal3v1alpha1.CustomDeploy{
+							Method: "install_everything",
+						},
+					},
+				},
+			},
+			Expected: true,
+		},
+
+		{
+			Scenario: "removed custom deploy with image",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					Image: &metal3v1alpha1.Image{
+						URL: "not-empty",
+					},
+					Online: true,
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						Image: metal3v1alpha1.Image{
+							URL: "not-empty",
+						},
+						CustomDeploy: &metal3v1alpha1.CustomDeploy{
+							Method: "install_everything",
+						},
+					},
+				},
+			},
+			Expected: true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {

@@ -551,6 +551,19 @@ func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
 	return nil
 }
 
+func hasCustomDeploy(host *metal3v1alpha1.BareMetalHost) bool {
+	if host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method != "" {
+		return true
+	}
+
+	switch host.Status.Provisioning.State {
+	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateExternallyProvisioned:
+		return host.Spec.CustomDeploy != nil && host.Spec.CustomDeploy.Method != ""
+	default:
+		return false
+	}
+}
+
 // detachHost() detaches the host from the Provisioner
 func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	provResult, err := prov.Detach()
@@ -598,7 +611,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
 			State:                 info.host.Status.Provisioning.State,
 			CurrentImage:          getCurrentImage(info.host),
-			CustomDeploy:          info.host.Spec.CustomDeploy,
+			HasCustomDeploy:       hasCustomDeploy(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
@@ -825,11 +838,11 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 
 	provResult, err := prov.Provision(provisioner.ProvisionData{
 		Image:           image,
+		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
 		HostConfig:      hostConf,
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
-		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
 	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
@@ -857,7 +870,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
 	}
 
-	if info.host.Spec.CustomDeploy != nil && (info.host.Status.Provisioning.CustomDeploy == nil || *(info.host.Spec.CustomDeploy) != *(info.host.Status.Provisioning.CustomDeploy)) {
+	if info.host.Spec.CustomDeploy != nil && (info.host.Status.Provisioning.CustomDeploy == nil || !reflect.DeepEqual(*info.host.Spec.CustomDeploy, *info.host.Status.Provisioning.CustomDeploy)) {
 		info.log.Info("updating custom deploy in status")
 		info.host.Status.Provisioning.CustomDeploy = info.host.Spec.CustomDeploy.DeepCopy()
 	}

@@ -64,7 +64,7 @@ type ManagementAccessData struct {
 	AutomatedCleaningMode metal3v1alpha1.AutomatedCleaningMode
 	State                 metal3v1alpha1.ProvisioningState
 	CurrentImage          *metal3v1alpha1.Image
-	CustomDeploy          *metal3v1alpha1.CustomDeploy
+	HasCustomDeploy       bool
 }
 
 type AdoptData struct {

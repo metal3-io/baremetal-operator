@@ -1038,39 +1038,71 @@ func TestNeedsProvisioning(t *testing.T) {
 // TestNeedsProvisioning verifies the logic for deciding when a host
 // needs to be provisioned when custom deploy is used.
 func TestNeedsProvisioningCustomDeploy(t *testing.T) {
-	host := newDefaultHost(t)
+	cases := []struct {
+		name string
 
-	if host.NeedsProvisioning() {
-		t.Fatal("host without spec image should not need provisioning")
+		customDeploy        string
+		currentCustomDeploy string
+		online              bool
+		image               *metal3v1alpha1.Image
+
+		needsProvisioning bool
+	}{
+		{
+			name:              "empty host",
+			needsProvisioning: false,
+		},
+		{
+			name:              "with custom deploy but not online",
+			customDeploy:      "install_everything",
+			needsProvisioning: false,
+		},
+		{
+			name:              "with custom deploy and online",
+			customDeploy:      "install_everything",
+			online:            true,
+			needsProvisioning: true,
+		},
+		{
+			name:                "with matching custom deploy and online",
+			customDeploy:        "install_everything",
+			currentCustomDeploy: "install_everything",
+			online:              true,
+			needsProvisioning:   false,
+		},
+		{
+			name:                "with custom deploy and new image",
+			customDeploy:        "install_everything",
+			currentCustomDeploy: "install_everything",
+			image: &metal3v1alpha1.Image{
+				URL:      "https://example.com/image-name",
+				Checksum: "12345",
+			},
+			online:            true,
+			needsProvisioning: true,
+		},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			host := newDefaultHost(t)
 
-	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
-		Method: "install_everything",
-	}
+			host.Spec.Online = tc.online
+			if tc.customDeploy != "" {
+				host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+					Method: tc.customDeploy,
+				}
+			}
+			if tc.currentCustomDeploy != "" {
+				host.Status.Provisioning.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+					Method: tc.currentCustomDeploy,
+				}
+			}
+			if tc.image != nil {
+				host.Spec.Image = tc.image
+			}
 
-	if host.NeedsProvisioning() {
-		t.Fatal("host with spec custom deploy but not online should not need provisioning")
-	}
-
-	host.Spec.Online = true
-
-	if !host.NeedsProvisioning() {
-		t.Fatal("host with spec custom deploy and online without provisioning image should need provisioning")
-	}
-
-	host.Status.Provisioning.CustomDeploy = host.Spec.CustomDeploy.DeepCopy()
-
-	if host.NeedsProvisioning() {
-		t.Fatal("host with spec custom deploy matching status custom deploy should not need provisioning")
-	}
-
-	host.Spec.Image = &metal3v1alpha1.Image{
-		URL:      "https://example.com/image-name",
-		Checksum: "12345",
-	}
-
-	if !host.NeedsProvisioning() {
-		t.Fatal("host with spec custom deploy and a new image should need provisioning")
+			assert.Equal(t, tc.needsProvisioning, host.NeedsProvisioning())
+		})
 	}
 }
 
@@ -1113,7 +1145,7 @@ func TestProvisionCustomDeploy(t *testing.T) {
 			t.Logf("custom deploy: %v", host.Spec.CustomDeploy)
 			t.Logf("provisioning custom deploy: %v", host.Status.Provisioning.CustomDeploy)
 			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
-			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method != ""
+			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method == "install_everything" && host.Status.Provisioning.State == metal3v1alpha1.StateProvisioned
 		},
 	)
 }

@@ -81,14 +81,13 @@ func TestHasCapacity(t *testing.T) {
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 
-			maxBusyHosts = tc.provisioningLimit
-
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
 				ironic.Endpoint(), auth, inspector.Endpoint(), auth,
 			)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
+			prov.config.maxBusyHosts = tc.provisioningLimit
 
 			result, err := prov.HasCapacity()
 

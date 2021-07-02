@@ -4,6 +4,10 @@ metadata:
   name: capm3-ironic
 spec:
   replicas: 1
+  strategy:
+    # We cannot run Ironic with more than one replica at a time. The recreate
+    # strategy makes sure that the old pod is gone before a new is started.
+    type: Recreate
   selector:
     matchLabels:
       name: capm3-ironic
@@ -46,7 +50,7 @@ spec:
               valueFrom:
                  configMapKeyRef:
                   name: ironic-bmo-configmap
-                  key: RESTART_CONTAINER_CERTIFICATE_UPDATED 
+                  key: RESTART_CONTAINER_CERTIFICATE_UPDATED
         - name: ironic-api
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always

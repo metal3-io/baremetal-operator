@@ -12,11 +12,24 @@ func init() {
 	RegisterFactory("libvirt", newIPMIAccessDetails, []string{})
 }
 
+func getPrivilegeLevel(rawquery string) string {
+	privilegelevel := "ADMINISTRATOR"
+	q, err := url.ParseQuery(rawquery)
+	if err != nil {
+		return privilegelevel
+	}
+	if val, ok := q["privilegelevel"]; ok {
+		return val[0]
+	}
+	return privilegelevel
+}
+
 func newIPMIAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
 	return &ipmiAccessDetails{
 		bmcType:                        parsedURL.Scheme,
 		portNum:                        parsedURL.Port(),
 		hostname:                       parsedURL.Hostname(),
+		privilegelevel:                 getPrivilegeLevel(parsedURL.RawQuery),
 		disableCertificateVerification: disableCertificateVerification,
 	}, nil
 }
@@ -25,6 +38,7 @@ type ipmiAccessDetails struct {
 	bmcType                        string
 	portNum                        string
 	hostname                       string
+	privilegelevel                 string
 	disableCertificateVerification bool
 }
 
@@ -61,10 +75,11 @@ func (a *ipmiAccessDetails) DisableCertificateVerification() bool {
 // the kernel and ramdisk locations).
 func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
 	result := map[string]interface{}{
-		"ipmi_port":     a.portNum,
-		"ipmi_username": bmcCreds.Username,
-		"ipmi_password": bmcCreds.Password,
-		"ipmi_address":  a.hostname,
+		"ipmi_port":       a.portNum,
+		"ipmi_username":   bmcCreds.Username,
+		"ipmi_password":   bmcCreds.Password,
+		"ipmi_address":    a.hostname,
+		"ipmi_priv_level": a.privilegelevel,
 	}
 
 	if a.disableCertificateVerification {

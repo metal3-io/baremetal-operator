@@ -217,7 +217,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		bmcCredsSecret: bmcCredsSecret,
 	}
 
-	prov, err := r.ProvisionerFactory(provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
+	prov, err := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}

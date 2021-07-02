@@ -161,6 +161,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)
 	}
+	// +kubebuilder:scaffold:builder
 
 	if err = (&metal3iocontroller.HostFirmwareSettingsReconciler{
 		Client:             mgr.GetClient(),
@@ -176,8 +177,6 @@ func main() {
 	if enableWebhook {
 		setupWebhooks(mgr)
 	}
-
-	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

@@ -385,6 +385,10 @@ type BareMetalHostSpec struct {
 	// +kubebuilder:default:=metadata
 	// +kubebuilder:validation:Optional
 	AutomatedCleaningMode AutomatedCleaningMode `json:"automatedCleaningMode,omitempty"`
+
+	// A custom deploy procedure.
+	// +optional
+	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
 }
 
 // AutomatedCleaningMode is the interface to enable/disable automated cleaning
@@ -432,6 +436,14 @@ type Image struct {
 	// are not required and if specified will be ignored.
 	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
 	DiskFormat *string `json:"format,omitempty"`
+}
+
+// Custom deploy is a description of a customized deploy process.
+type CustomDeploy struct {
+	// Custom deploy method name.
+	// This name is specific to the deploy ramdisk used. If you don't have
+	// a custom deploy ramdisk, you shouldn't use CustomDeploy.
+	Method string `json:"method"`
 }
 
 // FIXME(dhellmann): We probably want some other module to own these
@@ -740,6 +752,9 @@ type ProvisionStatus struct {
 
 	// The Bios set by the user
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
+
+	// Custom deploy procedure applied to the host.
+	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -869,6 +884,11 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		// The host is not supposed to be powered on.
 		return false
 	}
+
+	return host.hasNewImage() || host.hasNewCustomDeploy()
+}
+
+func (host *BareMetalHost) hasNewImage() bool {
 	if host.Spec.Image == nil {
 		// Without an image, there is nothing to provision.
 		return false
@@ -879,6 +899,22 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 	}
 	if host.Status.Provisioning.Image.URL == "" {
 		// We have an image set, but not provisioned.
+		return true
+	}
+	return false
+}
+
+func (host *BareMetalHost) hasNewCustomDeploy() bool {
+	if host.Spec.CustomDeploy == nil {
+		return false
+	}
+	if host.Spec.CustomDeploy.Method == "" {
+		return false
+	}
+	if host.Status.Provisioning.CustomDeploy == nil {
+		return true
+	}
+	if host.Status.Provisioning.CustomDeploy.Method != host.Spec.CustomDeploy.Method {
 		return true
 	}
 	return false

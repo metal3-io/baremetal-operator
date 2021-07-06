@@ -94,8 +94,9 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 	}
 
 	// Ensure we have a microversion high enough to get the features
-	// we need.
-	client.Microversion = "1.56"
+	// we need. Update docs/configuration.md when updating the version.
+	// Version 1.69 introduces deploySteps argument to provisioning.
+	client.Microversion = "1.69"
 
 	return updateHTTPClient(client, tls)
 }

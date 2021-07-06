@@ -678,11 +678,25 @@ func TestDriverInfo(t *testing.T) {
 			Scenario: "ipmi default port",
 			input:    "ipmi://192.168.122.1",
 			expects: map[string]interface{}{
-				"ipmi_port":      ipmiDefaultPort,
-				"ipmi_password":  "",
-				"ipmi_username":  "",
-				"ipmi_address":   "192.168.122.1",
-				"ipmi_verify_ca": false,
+				"ipmi_port":       ipmiDefaultPort,
+				"ipmi_password":   "",
+				"ipmi_username":   "",
+				"ipmi_address":    "192.168.122.1",
+				"ipmi_verify_ca":  false,
+				"ipmi_priv_level": "ADMINISTRATOR",
+			},
+		},
+
+		{
+			Scenario: "ipmi setting privilege level",
+			input:    "ipmi://192.168.122.1?privilegelevel=OPERATOR",
+			expects: map[string]interface{}{
+				"ipmi_port":       ipmiDefaultPort,
+				"ipmi_password":   "",
+				"ipmi_username":   "",
+				"ipmi_address":    "192.168.122.1",
+				"ipmi_verify_ca":  false,
+				"ipmi_priv_level": "OPERATOR",
 			},
 		},
 

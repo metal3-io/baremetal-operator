@@ -92,6 +92,11 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 	if err != nil {
 		return
 	}
+
+	// Ensure we have a microversion high enough to get the features
+	// we need.
+	client.Microversion = "1.56"
+
 	return updateHTTPClient(client, tls)
 }
 

@@ -65,8 +65,10 @@ type demoProvisioner struct {
 	publisher provisioner.EventPublisher
 }
 
+type Demo struct{}
+
 // New returns a new demo Provisioner
-func New(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func (d Demo) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
 		objectMeta: hostData.ObjectMeta,
 		provID:     hostData.ProvisionerID,

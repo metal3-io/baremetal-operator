@@ -98,7 +98,7 @@ func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Obje
 
 	return &BareMetalHostReconciler{
 		Client:             c,
-		ProvisionerFactory: fix.New,
+		ProvisionerFactory: fix,
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 	}
 }

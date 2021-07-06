@@ -126,14 +126,12 @@ func main() {
 	var provisionerFactory provisioner.Factory
 	if runInTestMode {
 		ctrl.Log.Info("using test provisioner")
-		fix := fixture.Fixture{}
-		provisionerFactory = fix.New
+		provisionerFactory = &fixture.Fixture{}
 	} else if runInDemoMode {
 		ctrl.Log.Info("using demo provisioner")
-		provisionerFactory = demo.New
+		provisionerFactory = &demo.Demo{}
 	} else {
-		ironic.LogStartup()
-		provisionerFactory = ironic.New
+		provisionerFactory = ironic.NewProvisionerFactory()
 	}
 
 	if err = (&metal3iocontroller.BareMetalHostReconciler{

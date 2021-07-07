@@ -276,7 +276,8 @@ type SoftwareRAIDVolume struct {
 // RAIDConfig contains the configuration that are required to config RAID in Bare Metal server
 type RAIDConfig struct {
 	// The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
-	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes,omitempty"`
+	// +optional
+	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
 
 	// The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// If HardwareRAIDVolumes is set this item will be invalid.
@@ -286,7 +287,8 @@ type RAIDConfig struct {
 	// As the first RAID device will be the deployment device,
 	// enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
 	// +kubebuilder:validation:MaxItems=2
-	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes,omitempty"`
+	// +optional
+	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
 }
 
 // FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server

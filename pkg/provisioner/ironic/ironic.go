@@ -64,6 +64,7 @@ func NewMacAddressConflictError(address, node string) error {
 }
 
 type ironicConfig struct {
+	havePreprovImgBuilder            bool
 	deployKernelURL                  string
 	deployRamdiskURL                 string
 	deployISOURL                     string
@@ -523,6 +524,30 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	default:
 		return
 	}
+}
+
+// PreprovisioningImageFormats returns a list of acceptable formats for a
+// pre-provisioning image to be built by a PreprovisioningImage object. The
+// list should be nil if no image build is requested.
+func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+	if !p.config.havePreprovImgBuilder {
+		return nil, nil
+	}
+
+	accessDetails, err := p.bmcAccess()
+	if err != nil {
+		return nil, err
+	}
+
+	var formats []metal3v1alpha1.ImageFormat
+	if accessDetails.SupportsISOPreprovisioningImage() {
+		formats = append(formats, metal3v1alpha1.ImageFormatISO)
+	}
+	if p.config.deployKernelURL != "" {
+		formats = append(formats, metal3v1alpha1.ImageFormatInitRD)
+	}
+
+	return formats, nil
 }
 
 func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {

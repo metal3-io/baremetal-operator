@@ -1198,6 +1198,10 @@ func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
+func (m *mockProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+	return nil, nil
+}
+
 func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	details = &metal3v1alpha1.HardwareDetails{}
 	return m.getNextResultByMethod("InspectHardware"), true, details, err

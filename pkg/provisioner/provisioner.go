@@ -119,6 +119,11 @@ type Provisioner interface {
 	// credentials is correct.
 	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, force bool) (result Result, provID string, err error)
 
+	// PreprovisioningImageFormats returns a list of acceptable formats for a
+	// pre-provisioning image to be built by a PreprovisioningImage object. The
+	// list should be nil if no image build is requested.
+	PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error)
+
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the

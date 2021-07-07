@@ -116,7 +116,9 @@ func (f ironicProvisionerFactory) NewProvisioner(hostData provisioner.HostData, 
 }
 
 func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
-	c := ironicConfig{}
+	c := ironicConfig{
+		havePreprovImgBuilder: havePreprovImgBuilder,
+	}
 
 	c.deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
 	c.deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")

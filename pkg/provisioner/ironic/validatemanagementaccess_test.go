@@ -767,3 +767,56 @@ func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
 	}
 	assert.Equal(t, "failed to parse BMC address information: failed to parse BMC address information: parse \"<ipmi://192.168.122.1:6233>\": first path segment in URL cannot contain colon", result.ErrorMessage)
 }
+
+func TestPreprovisioningImageFormats(t *testing.T) {
+	ironicEndpoint := "http://ironic.test"
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	testCases := []struct {
+		Name              string
+		Address           string
+		PreprovImgEnabled bool
+		Expected          []metal3v1alpha1.ImageFormat
+	}{
+		{
+			Name:     "disabled ipmi",
+			Address:  "ipmi://example.test",
+			Expected: nil,
+		},
+		{
+			Name:     "disabled virtualmedia",
+			Address:  "redfish-virtualmedia://example.test",
+			Expected: nil,
+		},
+		{
+			Name:              "enabled ipmi",
+			Address:           "ipmi://example.test",
+			PreprovImgEnabled: true,
+			Expected:          []metal3v1alpha1.ImageFormat{"initrd"},
+		},
+		{
+			Name:              "enabled virtualmedia",
+			Address:           "redfish-virtualmedia://example.test",
+			PreprovImgEnabled: true,
+			Expected:          []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			host := makeHost()
+			host.Spec.BMC.Address = tc.Address
+
+			prov, _ := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
+				ironicEndpoint, auth,
+				ironicEndpoint, auth,
+			)
+			prov.config.havePreprovImgBuilder = tc.PreprovImgEnabled
+
+			fmts, err := prov.PreprovisioningImageFormats()
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.Expected, fmts)
+		})
+	}
+}

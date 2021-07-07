@@ -307,6 +307,15 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
 				AutomatedClean: &clean,
+				DriverInfo: map[string]interface{}{
+					"deploy_iso":     "http://deploy.test/ipa.iso",
+					"deploy_kernel":  "http://deploy.test/ipa.kernel",
+					"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+					"test_address":   "test.bmc",
+					"test_username":  "",
+					"test_password":  "******", // ironic returns a placeholder
+					"test_port":      "42",
+				},
 			}).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			})
@@ -345,7 +354,15 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			InstanceInfo: map[string]interface{}{
 				"capabilities": map[string]interface{}{},
 			},
-			DriverInfo: map[string]interface{}{},
+			DriverInfo: map[string]interface{}{
+				"deploy_iso":     "http://deploy.test/ipa.iso",
+				"deploy_kernel":  "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+				"test_address":   "test.bmc",
+				"test_username":  "",
+				"test_password":  "******", // ironic returns a placeholder
+				"test_port":      "42",
+			},
 		},
 		{
 			Image: &metal3v1alpha1.Image{
@@ -361,6 +378,13 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			},
 			DriverInfo: map[string]interface{}{
 				"force_persistent_boot_device": "Default",
+				"deploy_iso":                   "http://deploy.test/ipa.iso",
+				"deploy_kernel":                "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
+				"test_address":                 "test.bmc",
+				"test_username":                "",
+				"test_password":                "******", // ironic returns a placeholder
+				"test_port":                    "42",
 			},
 		},
 		{
@@ -375,6 +399,13 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			},
 			DriverInfo: map[string]interface{}{
 				"force_persistent_boot_device": "Default",
+				"deploy_iso":                   "http://deploy.test/ipa.iso",
+				"deploy_kernel":                "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
+				"test_address":                 "test.bmc",
+				"test_username":                "",
+				"test_password":                "******", // ironic returns a placeholder
+				"test_port":                    "42",
 			},
 		},
 	}
@@ -448,6 +479,15 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 				Name:           host.Namespace + nameSeparator + host.Name,
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
+				DriverInfo: map[string]interface{}{
+					"deploy_iso":     "http://deploy.test/ipa.iso",
+					"deploy_kernel":  "http://deploy.test/ipa.kernel",
+					"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+					"test_address":   "test.bmc",
+					"test_username":  "",
+					"test_password":  "******", // ironic returns a placeholder
+					"test_port":      "42",
+				},
 			}
 			ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(node).NodeUpdate(nodes.Node{
 				UUID: "uuid",

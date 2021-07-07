@@ -347,14 +347,18 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
+	deployImageInfo := optionsData{}
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
 	if p.config.deployKernelURL != "" && p.config.deployRamdiskURL != "" {
-		driverInfo["deploy_kernel"] = p.config.deployKernelURL
-		driverInfo["deploy_ramdisk"] = p.config.deployRamdiskURL
+		deployImageInfo["deploy_kernel"] = p.config.deployKernelURL
+		deployImageInfo["deploy_ramdisk"] = p.config.deployRamdiskURL
 	}
 	if p.config.deployISOURL != "" {
-		driverInfo["deploy_iso"] = p.config.deployISOURL
+		deployImageInfo["deploy_iso"] = p.config.deployISOURL
+	}
+	for k, v := range deployImageInfo {
+		driverInfo[k] = v
 	}
 
 	// If we have not found a node yet, we need to create one
@@ -443,10 +447,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			}
 		}
 
-		// Look for the case where we previously enrolled this node
-		// and now the credentials have changed.
+		// The actual password is not returned from ironic, so we want to
+		// update the whole DriverInfo only if the credentials have changed
+		// otherwise we will be writing on every call to this function.
 		if credentialsChanged {
-			updater.SetTopLevelOpt("driver_info", driverInfo, nil)
+			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
+		} else {
+			updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 		}
 
 		// We don't return here because we also have to set the

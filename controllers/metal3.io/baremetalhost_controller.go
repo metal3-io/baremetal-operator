@@ -775,12 +775,18 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	}
 
 	prepareData := provisioner.PrepareData{
-		RAIDConfig:      newStatus.Provisioning.RAID.DeepCopy(),
-		RootDeviceHints: newStatus.Provisioning.RootDeviceHints.DeepCopy(),
-		FirmwareConfig:  newStatus.Provisioning.Firmware.DeepCopy(),
+		TargetRAIDConfig:  newStatus.Provisioning.RAID.DeepCopy(),
+		ExistedRAIDConfig: info.host.Status.Provisioning.RAID,
+		RootDeviceHints:   newStatus.Provisioning.RootDeviceHints.DeepCopy(),
+		FirmwareConfig:    newStatus.Provisioning.Firmware.DeepCopy(),
 	}
-	provResult, started, err := prov.Prepare(prepareData,
-		dirty || info.host.Status.ErrorType == metal3v1alpha1.PreparationError)
+	// When manual cleaning fails, we think that the existed RAID configuration
+	// is invalid and needs to be reconfigured.
+	if info.host.Status.ErrorType == metal3v1alpha1.PreparationError {
+		prepareData.ExistedRAIDConfig = nil
+		dirty = true
+	}
+	provResult, started, err := prov.Prepare(prepareData, dirty)
 	if err != nil {
 		return actionError{errors.Wrap(err, "error preparing host")}
 	}
@@ -890,7 +896,10 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 // fields of a host.
 func clearHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) {
 	host.Status.Provisioning.RootDeviceHints = nil
-	host.Status.Provisioning.RAID = nil
+	// Only clear software raid volumes
+	if host.Status.Provisioning.RAID != nil {
+		host.Status.Provisioning.RAID.SoftwareRAIDVolumes = nil
+	}
 	host.Status.Provisioning.Firmware = nil
 }
 

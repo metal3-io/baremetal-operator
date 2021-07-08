@@ -92,16 +92,17 @@ func TestProvisionWithHostConfig(t *testing.T) {
 	testBMCSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
 
 	testCases := []struct {
-		Scenario            string
-		Host                *metal3v1alpha1.BareMetalHost
-		UserDataSecret      *corev1.Secret
-		NetworkDataSecret   *corev1.Secret
-		ExpectedUserData    string
-		ErrUserData         bool
-		ExpectedNetworkData string
-		ErrNetworkData      bool
-		ExpectedMetaData    string
-		ErrMetaData         bool
+		Scenario                 string
+		Host                     *metal3v1alpha1.BareMetalHost
+		UserDataSecret           *corev1.Secret
+		PreprovNetworkDataSecret *corev1.Secret
+		NetworkDataSecret        *corev1.Secret
+		ExpectedUserData         string
+		ErrUserData              bool
+		ExpectedNetworkData      string
+		ErrNetworkData           bool
+		ExpectedMetaData         string
+		ErrMetaData              bool
 	}{
 		{
 			Scenario: "host with user data only",
@@ -138,6 +139,42 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			ExpectedUserData:    base64.StdEncoding.EncodeToString([]byte("somedata")),
 			ErrUserData:         false,
 			ExpectedNetworkData: "",
+			ErrNetworkData:      false,
+		},
+		{
+			Scenario: "host with preprov network data only",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					PreprovisioningNetworkDataName: "net-data",
+				}),
+			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),
+			ExpectedUserData:    "",
+			ErrUserData:         false,
+			ExpectedNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ErrNetworkData:      false,
+		},
+		{
+			Scenario: "host with preprov and regular network data",
+			Host: newHost("host-user-data",
+				&metal3v1alpha1.BareMetalHostSpec{
+					BMC: metal3v1alpha1.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					PreprovisioningNetworkDataName: "preprov-net-data",
+					NetworkData: &corev1.SecretReference{
+						Name:      "net-data",
+						Namespace: namespace,
+					},
+				}),
+			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),
+			ExpectedUserData:    "",
+			ErrUserData:         false,
+			ExpectedNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
 			ErrNetworkData:      false,
 		},
 		{

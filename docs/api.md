@@ -184,6 +184,8 @@ The sub-fields are:
   * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in
     GiB. If unspecified or set to 0, the maximum capacity of disk will be
     used for logical disk.
+    
+**NOTE:** Currently the 'raid' field is only supported by ilo5/idrac.    
 
 #### firmware
 
@@ -201,7 +203,8 @@ The sub-fields are:
 * *virtualizationEnabled* -- Supports the virtualization of platform
   hardware. This supports following options: true, false.
 
-**NOTE:** Currently the `firmware` field is only supported by ilo4/ilo5/irmc.
+**NOTE:** Currently the `firmware` field is only supported by ilo4/ilo5/irmc
+/idrac.
 
 #### rootDeviceHints
 

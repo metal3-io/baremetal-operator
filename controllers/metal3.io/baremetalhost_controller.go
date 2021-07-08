@@ -54,6 +54,9 @@ const (
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
 	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
+
+	LabelEnvironmentName  = "environment.metal3.io"
+	LabelEnvironmentValue = "baremetal"
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
@@ -61,6 +64,7 @@ type BareMetalHostReconciler struct {
 	client.Client
 	Log                logr.Logger
 	ProvisionerFactory provisioner.Factory
+	APIReader          client.Reader
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -811,9 +815,10 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 // Start/continue provisioning if we need to.
 func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	hostConf := &hostConfigData{
-		host:   info.host,
-		log:    info.log.WithName("host_config_data"),
-		client: r,
+		host:      info.host,
+		log:       info.log.WithName("host_config_data"),
+		client:    r,
+		apiReader: r.APIReader,
 	}
 	info.log.Info("provisioning")
 
@@ -1220,14 +1225,10 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 	if host.Spec.BMC.CredentialsName == "" {
 		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
 	}
-	secretKey := host.CredentialsKey()
-	bmcCredsSecret = &corev1.Secret{}
-	err = r.Get(context.TODO(), secretKey, bmcCredsSecret)
+
+	bmcCredsSecret, err = getSecret(r.Client, r.APIReader, host.CredentialsKey())
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", secretKey)}
-		}
-		return nil, err
+		return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", host.CredentialsKey())}
 	}
 
 	// Make sure the secret has the correct owner as soon as we can.
@@ -1286,7 +1287,7 @@ func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Re
 
 func (r *BareMetalHostReconciler) setBMCCredentialsSecretOwner(request ctrl.Request, host *metal3v1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
-	if metav1.IsControlledBy(secret, host) {
+	if metav1.IsControlledBy(secret, host) && metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
 		return nil
 	}
 	reqLogger.Info("updating owner of secret")
@@ -1294,9 +1295,12 @@ func (r *BareMetalHostReconciler) setBMCCredentialsSecretOwner(request ctrl.Requ
 	if err != nil {
 		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot set owner: %q", err.Error())}
 	}
+	reqLogger.Info("updating secret environment label", "secret", secret.Name, "namespace", secret.Namespace)
+	metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
+
 	err = r.Update(context.TODO(), secret)
 	if err != nil {
-		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot save owner: %q", err.Error())}
+		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot update secret: %q", err.Error())}
 	}
 	return nil
 }

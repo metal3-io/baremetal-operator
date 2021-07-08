@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -100,6 +101,7 @@ func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Obje
 		Client:             c,
 		ProvisionerFactory: fix,
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		APIReader:          c,
 	}
 }
 
@@ -137,10 +139,13 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 
 		// The FakeClient keeps a copy of the object we update, so we
 		// need to replace the one we have with the updated data in
-		// order to test it.
+		// order to test it. In case it was not found, let's set it to nil
 		updatedHost := &metal3v1alpha1.BareMetalHost{}
-		r.Get(goctx.TODO(), request.NamespacedName, updatedHost)
-		updatedHost.DeepCopyInto(host)
+		if err = r.Get(goctx.TODO(), request.NamespacedName, updatedHost); errors.IsNotFound(err) {
+			host = nil
+		} else {
+			updatedHost.DeepCopyInto(host)
+		}
 
 		if isDone(host, result) {
 			t.Logf("tryReconcile: loop done %d", i)
@@ -669,6 +674,39 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 			return true
 		},
 	)
+}
+
+func getHostSecret(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) (secret *corev1.Secret) {
+	secret = &corev1.Secret{}
+	secretName := types.NamespacedName{
+		Namespace: host.Namespace,
+		Name:      host.Spec.BMC.CredentialsName,
+	}
+	err := r.Get(goctx.TODO(), secretName, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return secret
+}
+
+func TestSecretUpdateOwnerRefAndEnvironmentLabelOnStartup(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host)
+
+	secret := getHostSecret(t, r, host)
+	assert.Empty(t, secret.OwnerReferences)
+	assert.Empty(t, secret.Labels)
+
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateInspecting)
+
+	secret = getHostSecret(t, r, host)
+	assert.Equal(t, host.Name, secret.OwnerReferences[0].Name)
+	assert.Equal(t, "BareMetalHost", secret.OwnerReferences[0].Kind)
+	assert.True(t, *secret.OwnerReferences[0].Controller)
+	assert.True(t, *secret.OwnerReferences[0].BlockOwnerDeletion)
+
+	assert.Equal(t, LabelEnvironmentValue, secret.Labels[LabelEnvironmentName])
+
 }
 
 // TestUpdateCredentialsSecretSuccessFields ensures that the
@@ -1323,7 +1361,7 @@ func TestDeleteHost(t *testing.T) {
 
 			tryReconcile(t, r, host,
 				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-					return fix.Deleted
+					return fix.Deleted && host == nil
 				},
 			)
 		})
@@ -2122,7 +2160,7 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 	doDeleteHost(host, r)
 
 	tryReconcile(t, r, host, func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-		return host.Status.Provisioning.State == metal3v1alpha1.StateDeleting && len(host.Finalizers) == 0
+		return host == nil
 	})
 }
 

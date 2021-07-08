@@ -1995,3 +1995,54 @@ func TestCredentialsFromSecret(t *testing.T) {
 		})
 	}
 }
+
+func TestGetHardwareProfileName(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		Address       string
+		StatusProfile string
+		SpecProfile   string
+		Expected      string
+	}{
+		{
+			Scenario: "default",
+			Expected: "unknown",
+		},
+		{
+			Scenario: "infer libvirt",
+			Address:  "libvirt://example.test",
+			Expected: "libvirt",
+		},
+		{
+			Scenario:    "not yet set",
+			SpecProfile: "foo",
+			Expected:    "foo",
+		},
+		{
+			Scenario:      "already set",
+			SpecProfile:   "foo",
+			StatusProfile: "foo",
+			Expected:      "foo",
+		},
+		{
+			Scenario:      "changed",
+			SpecProfile:   "bar",
+			StatusProfile: "foo",
+			Expected:      "foo",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := newHost("test", &metal3v1alpha1.BareMetalHostSpec{
+				BMC: metal3v1alpha1.BMCDetails{
+					Address: tc.Address,
+				},
+				HardwareProfile: tc.SpecProfile,
+			})
+			host.Status.HardwareProfile = tc.StatusProfile
+
+			assert.Equal(t, tc.Expected, getHardwareProfileName(host))
+		})
+	}
+}

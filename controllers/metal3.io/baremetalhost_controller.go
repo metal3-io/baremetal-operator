@@ -725,39 +725,35 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	return actionComplete{}
 }
 
-func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-
-	var hardwareProfile string
-
-	info.log.Info("determining hardware profile")
-
-	// Start by looking for an override value from the user
-	if info.host.Spec.HardwareProfile != "" {
-		info.log.Info("using spec value for profile name",
-			"name", info.host.Spec.HardwareProfile)
-		hardwareProfile = info.host.Spec.HardwareProfile
-		_, err := hardware.GetProfile(hardwareProfile)
-		if err != nil {
-			info.log.Info("invalid hardware profile", "profile", hardwareProfile)
-			return actionError{err}
-		}
+func getHardwareProfileName(host *metal3v1alpha1.BareMetalHost) string {
+	if host.Status.HardwareProfile != "" {
+		// Profile name already set
+		return host.Status.HardwareProfile
+	}
+	if host.Spec.HardwareProfile != "" {
+		// Profile name supplied by user
+		return host.Spec.HardwareProfile
 	}
 
-	// Now do a bit of matching.
-	//
 	// FIXME(dhellmann): Insert more robust logic to match
 	// hardware profiles here.
-	if hardwareProfile == "" {
-		if strings.HasPrefix(info.host.Spec.BMC.Address, "libvirt") {
-			hardwareProfile = "libvirt"
-			info.log.Info("determining from BMC address", "name", hardwareProfile)
-		}
+	if strings.HasPrefix(host.Spec.BMC.Address, "libvirt") {
+		return "libvirt"
 	}
+	return hardware.DefaultProfileName
+}
 
-	// Now default to a value just in case there is no match
-	if hardwareProfile == "" {
-		hardwareProfile = hardware.DefaultProfileName
-		info.log.Info("using the default", "name", hardwareProfile)
+func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+
+	hardwareProfile := getHardwareProfileName(info.host)
+	info.log.Info("using hardware profile", "profile", hardwareProfile)
+
+	_, err := hardware.GetProfile(hardwareProfile)
+	if err != nil {
+		info.log.Info("invalid hardware profile", "profile", hardwareProfile)
+		// FIXME(zaneb): This error requires a Spec change to fix, so we
+		// shouldn't treat it as transient
+		return actionError{err}
 	}
 
 	if info.host.SetHardwareProfile(hardwareProfile) {
@@ -765,7 +761,6 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 	}
 
-	clearError(info.host)
 	return actionComplete{}
 }
 

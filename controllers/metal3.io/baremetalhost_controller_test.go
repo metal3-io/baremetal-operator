@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -2121,8 +2122,24 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 
 	doDeleteHost(host, r)
 
+	seenDeletingState := false
+	seenDeleted := false
 	tryReconcile(t, r, host, func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-		return host.Status.Provisioning.State == metal3v1alpha1.StateDeleting && len(host.Finalizers) == 0
+		if host.Status.Provisioning.State == metal3v1alpha1.StateDeleting {
+			seenDeletingState = true
+		}
+		if len(host.Finalizers) == 0 {
+			seenDeleted = true
+		}
+		if seenDeletingState && !seenDeleted {
+			// might be deleted already
+			err := r.Get(goctx.TODO(), newRequest(host).NamespacedName, host)
+			seenDeleted = k8serrors.IsNotFound(err)
+		}
+		t.Logf("state %s, len(fin) %d", host.Status.Provisioning.State, len(host.Finalizers))
+		t.Logf("seenDeletingState %v, seenDeleted %v", seenDeletingState, seenDeleted)
+
+		return seenDeletingState && seenDeleted
 	})
 }
 

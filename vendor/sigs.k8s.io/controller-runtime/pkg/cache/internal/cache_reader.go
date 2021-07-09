@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/tools/cache"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,10 +43,16 @@ type CacheReader struct {
 
 	// groupVersionKind is the group-version-kind of the resource.
 	groupVersionKind schema.GroupVersionKind
+
+	// scopeName is the scope of the resource (namespaced or cluster-scoped).
+	scopeName apimeta.RESTScopeName
 }
 
 // Get checks the indexer for the object and writes a copy of it if found
 func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Object) error {
+	if c.scopeName == apimeta.RESTScopeNameRoot {
+		key.Namespace = ""
+	}
 	storeKey := objectKeyToStoreKey(key)
 
 	// Lookup the object from the indexer cache
@@ -118,8 +125,15 @@ func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...cli
 		labelSel = listOpts.LabelSelector
 	}
 
+	limitSet := listOpts.Limit > 0
+
 	runtimeObjs := make([]runtime.Object, 0, len(objs))
-	for _, item := range objs {
+	for i, item := range objs {
+		// if the Limit option is set and the number of items
+		// listed exceeds this limit, then stop reading.
+		if limitSet && int64(i) >= listOpts.Limit {
+			break
+		}
 		obj, isObj := item.(runtime.Object)
 		if !isObj {
 			return fmt.Errorf("cache contained %T, which is not an Object", obj)

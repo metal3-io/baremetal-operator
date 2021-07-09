@@ -54,9 +54,6 @@ const (
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
 	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
-
-	LabelEnvironmentName  = secretutils.LabelEnvironmentName
-	LabelEnvironmentValue = secretutils.LabelEnvironmentValue
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object

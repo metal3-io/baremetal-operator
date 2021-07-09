@@ -82,7 +82,7 @@ func TestLabelSecrets(t *testing.T) {
 
 			actualSecret := &corev1.Secret{}
 			c.Get(context.TODO(), types.NamespacedName{Name: tc.name, Namespace: namespace}, actualSecret)
-			assert.Equal(t, actualSecret.Labels[LabelEnvironmentName], LabelEnvironmentValue)
+			assert.Equal(t, "baremetal", actualSecret.Labels["environment.metal3.io"])
 		})
 	}
 

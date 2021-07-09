@@ -42,9 +42,6 @@ func getSecret(client client.Client, apiReader client.Reader, secretKey types.Na
 	// Secret not in cache; check API directly for unlabelled Secret
 	err = apiReader.Get(context.TODO(), secretKey, secret)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, err
-		}
 		return nil, err
 	}
 

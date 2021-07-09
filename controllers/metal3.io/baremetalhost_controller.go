@@ -1228,7 +1228,10 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 
 	bmcCredsSecret, err = getSecret(r.Client, r.APIReader, host.CredentialsKey())
 	if err != nil {
-		return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", host.CredentialsKey())}
+		if k8serrors.IsNotFound(err) {
+			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", host.CredentialsKey())}
+		}
+		return nil, err
 	}
 
 	// Make sure the secret has the correct owner as soon as we can.

@@ -44,6 +44,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
@@ -55,8 +56,8 @@ const (
 	inspectAnnotationPrefix       = "inspect.metal3.io"
 	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
 
-	LabelEnvironmentName  = "environment.metal3.io"
-	LabelEnvironmentValue = "baremetal"
+	LabelEnvironmentName  = secretutils.LabelEnvironmentName
+	LabelEnvironmentValue = secretutils.LabelEnvironmentValue
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object

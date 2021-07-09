@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: capm3-ironic
+  name: ${NAMEPREFIX}-ironic
 spec:
   replicas: 1
   strategy:
@@ -10,11 +10,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      name: capm3-ironic
+      name: ${NAMEPREFIX}-ironic
   template:
     metadata:
       labels:
-        name: capm3-ironic
+        name: ${NAMEPREFIX}-ironic
     spec:
       hostNetwork: true
       containers:

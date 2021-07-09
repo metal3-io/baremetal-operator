@@ -93,7 +93,7 @@ data:
 kind: Secret
 metadata:
    name: ironic-cacert
-   namespace: capm3-system
+   namespace: ${IRONIC_NAMESPACE}
 type: Opaque
 EOF
 fi

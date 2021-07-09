@@ -25,6 +25,32 @@ RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
+IRONIC_DEPLOY_FILES="${SCRIPTDIR}/ironic-deployment/basic-auth/default/auth.yaml \
+	${SCRIPTDIR}/ironic-deployment/basic-auth/default/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/basic-auth/keepalived/auth.yaml \
+	${SCRIPTDIR}/ironic-deployment/basic-auth/keepalived/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/default/auth.yaml \
+	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/default/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/keepalived/auth.yaml \
+	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/keepalived/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/certmanager/certificate.yaml \
+	${SCRIPTDIR}/ironic-deployment/default/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/ironic/ironic.yaml \
+	${SCRIPTDIR}/ironic-deployment/keepalived/keepalived_patch.yaml \
+	${SCRIPTDIR}/ironic-deployment/keepalived/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/tls/default/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/tls/default/tls.yaml \
+	${SCRIPTDIR}/ironic-deployment/tls/keepalived/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/tls/keepalived/tls.yaml"
+
+for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
+  cp "$DEPLOY_FILE" "$DEPLOY_FILE".orig
+  # shellcheck disable=SC2094
+  envsubst <"$DEPLOY_FILE".orig> "$DEPLOY_FILE"
+  # To use sed need to change ${NAMEPREFIX} to NAMEPREFIX to every IRONIC_DEPLOY_FILES
+  #sed -i "s/NAMEPREFIX/${NAMEPREFIX}/g" "${DEPLOY_FILE}"
+done
+
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     BMO_SCENARIO="${SCRIPTDIR}/config/basic-auth"
     IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment/basic-auth"
@@ -143,6 +169,11 @@ if [ "${DEPLOY_IRONIC}" == "true" ]; then
     mv /tmp/ironic_bmo_configmap.env "${IRONIC_BMO_CONFIGMAP}"
     popd
 fi
+
+# Move back the original IRONIC_DEPLOY_FILES
+ for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
+    mv "$DEPLOY_FILE".orig "$DEPLOY_FILE"
+ done
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     if [ "${DEPLOY_BMO}" == "true" ]; then

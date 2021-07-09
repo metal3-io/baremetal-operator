@@ -815,10 +815,9 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 // Start/continue provisioning if we need to.
 func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	hostConf := &hostConfigData{
-		host:      info.host,
-		log:       info.log.WithName("host_config_data"),
-		client:    r,
-		apiReader: r.APIReader,
+		host:          info.host,
+		log:           info.log.WithName("host_config_data"),
+		secretManager: r.secretManager(info.log),
 	}
 	info.log.Info("provisioning")
 

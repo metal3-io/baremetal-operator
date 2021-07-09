@@ -54,6 +54,9 @@ const (
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
 	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
+
+	LabelEnvironmentName  = "environment.metal3.io"
+	LabelEnvironmentValue = "baremetal"
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
@@ -61,6 +64,7 @@ type BareMetalHostReconciler struct {
 	client.Client
 	Log                logr.Logger
 	ProvisionerFactory provisioner.Factory
+	APIReader          client.Reader
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -551,6 +555,19 @@ func getCurrentImage(host *metal3v1alpha1.BareMetalHost) *metal3v1alpha1.Image {
 	return nil
 }
 
+func hasCustomDeploy(host *metal3v1alpha1.BareMetalHost) bool {
+	if host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method != "" {
+		return true
+	}
+
+	switch host.Status.Provisioning.State {
+	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateExternallyProvisioned:
+		return host.Spec.CustomDeploy != nil && host.Spec.CustomDeploy.Method != ""
+	default:
+		return false
+	}
+}
+
 // detachHost() detaches the host from the Provisioner
 func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	provResult, err := prov.Detach()
@@ -598,6 +615,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
 			State:                 info.host.Status.Provisioning.State,
 			CurrentImage:          getCurrentImage(info.host),
+			HasCustomDeploy:       hasCustomDeploy(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
@@ -797,9 +815,10 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 // Start/continue provisioning if we need to.
 func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	hostConf := &hostConfigData{
-		host:   info.host,
-		log:    info.log.WithName("host_config_data"),
-		client: r,
+		host:      info.host,
+		log:       info.log.WithName("host_config_data"),
+		client:    r,
+		apiReader: r.APIReader,
 	}
 	info.log.Info("provisioning")
 
@@ -817,8 +836,14 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		return actionContinue{}
 	}
 
+	var image metal3v1alpha1.Image
+	if info.host.Spec.Image != nil {
+		image = *info.host.Spec.Image.DeepCopy()
+	}
+
 	provResult, err := prov.Provision(provisioner.ProvisionData{
-		Image:           *info.host.Spec.Image.DeepCopy(),
+		Image:           image,
+		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
 		HostConfig:      hostConf,
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
@@ -845,9 +870,14 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	// If the provisioner had no work, ensure the image settings match.
-	if info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
+	if info.host.Spec.Image != nil && info.host.Status.Provisioning.Image != *(info.host.Spec.Image) {
 		info.log.Info("updating deployed image in status")
 		info.host.Status.Provisioning.Image = *(info.host.Spec.Image)
+	}
+
+	if info.host.Spec.CustomDeploy != nil && (info.host.Status.Provisioning.CustomDeploy == nil || !reflect.DeepEqual(*info.host.Spec.CustomDeploy, *info.host.Status.Provisioning.CustomDeploy)) {
+		info.log.Info("updating custom deploy in status")
+		info.host.Status.Provisioning.CustomDeploy = info.host.Spec.CustomDeploy.DeepCopy()
 	}
 
 	// After provisioning we always requeue to ensure we enter the
@@ -915,6 +945,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	// After the provisioner is done, clear the provisioning settings
 	// so we transition to the next state.
 	info.host.Status.Provisioning.Image = metal3v1alpha1.Image{}
+	info.host.Status.Provisioning.CustomDeploy = nil
 	clearHostProvisioningSettings(info.host)
 
 	return actionComplete{}
@@ -1194,14 +1225,10 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 	if host.Spec.BMC.CredentialsName == "" {
 		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
 	}
-	secretKey := host.CredentialsKey()
-	bmcCredsSecret = &corev1.Secret{}
-	err = r.Get(context.TODO(), secretKey, bmcCredsSecret)
+
+	bmcCredsSecret, err = getSecret(r.Client, r.APIReader, host.CredentialsKey())
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", secretKey)}
-		}
-		return nil, err
+		return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", host.CredentialsKey())}
 	}
 
 	// Make sure the secret has the correct owner as soon as we can.
@@ -1260,7 +1287,7 @@ func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Re
 
 func (r *BareMetalHostReconciler) setBMCCredentialsSecretOwner(request ctrl.Request, host *metal3v1alpha1.BareMetalHost, secret *corev1.Secret) (err error) {
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
-	if metav1.IsControlledBy(secret, host) {
+	if metav1.IsControlledBy(secret, host) && metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
 		return nil
 	}
 	reqLogger.Info("updating owner of secret")
@@ -1268,9 +1295,12 @@ func (r *BareMetalHostReconciler) setBMCCredentialsSecretOwner(request ctrl.Requ
 	if err != nil {
 		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot set owner: %q", err.Error())}
 	}
+	reqLogger.Info("updating secret environment label", "secret", secret.Name, "namespace", secret.Namespace)
+	metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
+
 	err = r.Update(context.TODO(), secret)
 	if err != nil {
-		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot save owner: %q", err.Error())}
+		return &SaveBMCSecretOwnerError{message: fmt.Sprintf("cannot update secret: %q", err.Error())}
 	}
 	return nil
 }

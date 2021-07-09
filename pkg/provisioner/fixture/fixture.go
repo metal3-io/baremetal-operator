@@ -71,6 +71,8 @@ type Fixture struct {
 	poweredOn bool
 
 	validateError string
+
+	customDeploy *metal3v1alpha1.CustomDeploy
 }
 
 // New returns a new Fixture Provisioner
@@ -209,7 +211,16 @@ func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, force bool) (resu
 func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
 	p.log.Info("provisioning image to host")
 
-	if p.state.image.URL == "" {
+	if data.CustomDeploy != nil && p.state.customDeploy == nil {
+		p.publisher("ProvisioningComplete", "Custom deploy provisioning completed")
+		p.log.Info("moving to done")
+		p.state.customDeploy = data.CustomDeploy.DeepCopy()
+		result.Dirty = true
+		result.RequeueAfter = provisionRequeueDelay
+		return result, nil
+	}
+
+	if data.Image.URL != "" && p.state.image.URL == "" {
 		p.publisher("ProvisioningComplete", "Image provisioning completed")
 		p.log.Info("moving to done")
 		p.state.image = data.Image
@@ -237,6 +248,14 @@ func (p *fixtureProvisioner) Deprovision(force bool) (result provisioner.Result,
 		p.publisher("DeprovisionStarted", "Image deprovisioning started")
 		p.log.Info("clearing hardware details")
 		p.state.image = metal3v1alpha1.Image{}
+		result.Dirty = true
+		return result, nil
+	}
+
+	if p.state.customDeploy != nil {
+		p.publisher("DeprovisionStarted", "Custom deploy deprovisioning started")
+		p.log.Info("clearing hardware details")
+		p.state.customDeploy = nil
 		result.Dirty = true
 		return result, nil
 	}

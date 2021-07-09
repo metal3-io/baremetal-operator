@@ -84,17 +84,19 @@ IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES}
 IPA_BASEURI=${IPA_BASEURI}
 EOF
 
+if [ "$IRONIC_TLS_SETUP" == "true" ]; then
 # shellcheck disable=SC2086
 cat << EOF | kubectl apply -f -
 apiVersion: v1
 data:
-  tls.crt: ${IRONIC_CA_CERT_B64:-""}
+  tls.crt: ${IRONIC_CA_CERT_B64}
 kind: Secret
 metadata:
    name: ironic-cacert
    namespace: capm3-system
 type: Opaque
 EOF
+fi
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_INSPECTOR_IMAGE"

@@ -428,6 +428,28 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {
+	if hsm.Host.Spec.CustomDeploy != nil && hsm.Host.Spec.CustomDeploy.Method != "" {
+		if hsm.Host.Status.Provisioning.CustomDeploy != nil && hsm.Host.Status.Provisioning.CustomDeploy.Method != "" &&
+			hsm.Host.Spec.CustomDeploy.Method != hsm.Host.Status.Provisioning.CustomDeploy.Method {
+			return true
+		}
+		// At this point spec.CustomDeploy value didn't change (and it's not empty). Only a discrepancy in the Image
+		// could require a deprovisioning, but if it isn't set or empty then is fine
+		if hsm.Host.Status.Provisioning.Image.URL != "" &&
+			(hsm.Host.Spec.Image == nil ||
+				hsm.Host.Spec.Image.URL != hsm.Host.Status.Provisioning.Image.URL) {
+			return true
+		}
+
+		return false
+	} else if hsm.Host.Status.Provisioning.CustomDeploy != nil && hsm.Host.Status.Provisioning.CustomDeploy.Method != "" {
+		return true
+	}
+
+	return hsm.imageProvisioningCancelled()
+}
+
+func (hsm *hostStateMachine) imageProvisioningCancelled() bool {
 	if hsm.Host.Spec.Image == nil {
 		return true
 	}

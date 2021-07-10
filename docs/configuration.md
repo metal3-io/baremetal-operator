@@ -56,3 +56,13 @@ configurations, namely:
 
 A detailed overview of the configuration is presented in [Bare Metal Operator
 and Ironic Configuration](deploying.md).
+
+Notes on external Ironic
+------------------------
+
+When an external Ironic is used, the following requirements must be met:
+
+* Either HTTP basic or no-auth authentication must be used (Keystone is not
+  supported).
+
+* API version 1.69 (Wallaby release cycle) or newer must be available.

@@ -948,6 +948,202 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 	}
 }
 
+func TestGetUpdateOptsForNodeCustomDeploy(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHostCustomDeploy(true)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
+		"https://ironic.test", auth, "https://ironic.test", auth,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{}
+
+	provData := provisioner.ProvisionData{
+		Image:        metal3v1alpha1.Image{},
+		BootMode:     metal3v1alpha1.DefaultBootMode,
+		CustomDeploy: host.Spec.CustomDeploy,
+	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	expected := []struct {
+		Path  string         // the node property path
+		Key   string         // if value is a map, the key we care about
+		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Op    nodes.UpdateOp // The operation add/replace/remove
+	}{
+		{
+			Path:  "/instance_uuid",
+			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		{
+			Path:  "/deploy_interface",
+			Value: "custom-agent",
+			Op:    nodes.AddOp,
+		},
+	}
+
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			t.Logf("expected: %v", e)
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == e.Path {
+					break
+				}
+			}
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
+			}
+			t.Logf("update: %v", update)
+			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+		})
+	}
+}
+
+func TestGetUpdateOptsForNodeCustomDeployWithImage(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHostCustomDeploy(false)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
+		"https://ironic.test", auth, "https://ironic.test", auth,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{}
+
+	provData := provisioner.ProvisionData{
+		Image:        *host.Spec.Image,
+		BootMode:     metal3v1alpha1.DefaultBootMode,
+		CustomDeploy: host.Spec.CustomDeploy,
+	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	expected := []struct {
+		Path  string         // the node property path
+		Key   string         // if value is a map, the key we care about
+		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Op    nodes.UpdateOp // The operation add/replace/remove
+	}{
+		{
+			Path:  "/instance_info/image_source",
+			Value: "not-empty",
+		},
+		{
+			Path:  "/instance_uuid",
+			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+		},
+		{
+			Path:  "/deploy_interface",
+			Value: "custom-agent",
+			Op:    nodes.AddOp,
+		},
+	}
+
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			t.Logf("expected: %v", e)
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == e.Path {
+					break
+				}
+			}
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
+			}
+			t.Logf("update: %v", update)
+			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+		})
+	}
+}
+
+func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHostCustomDeploy(false)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
+		"https://ironic.test", auth, "https://ironic.test", auth,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{
+		InstanceInfo: map[string]interface{}{
+			"image_source":        "oldimage",
+			"image_os_hash_value": "thechecksum",
+			"image_os_hash_algo":  "md5",
+		},
+	}
+
+	provData := provisioner.ProvisionData{
+		Image:        metal3v1alpha1.Image{},
+		BootMode:     metal3v1alpha1.DefaultBootMode,
+		CustomDeploy: host.Spec.CustomDeploy,
+	}
+	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	expected := []struct {
+		Path  string         // the node property path
+		Key   string         // if value is a map, the key we care about
+		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Op    nodes.UpdateOp // The operation add/replace/remove
+	}{
+		{
+			Path:  "/deploy_interface",
+			Value: "custom-agent",
+			Op:    nodes.AddOp,
+		},
+		{
+			Path: "/instance_info/image_source",
+			Op:   nodes.RemoveOp,
+		},
+		{
+			Path: "/instance_info/image_os_hash_algo",
+			Op:   nodes.RemoveOp,
+		},
+		{
+			Path: "/instance_info/image_os_hash_value",
+			Op:   nodes.RemoveOp,
+		},
+	}
+
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			t.Logf("expected: %v", e)
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				update = patch.(nodes.UpdateOperation)
+				if update.Path == e.Path {
+					break
+				}
+			}
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
+			}
+			t.Logf("update: %v", update)
+			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s value does not match", e.Path))
+			assert.Equal(t, e.Op, update.Op, fmt.Sprintf("%s operation does not match", e.Path))
+		})
+	}
+}
+
 func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	host := metal3v1alpha1.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{

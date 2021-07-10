@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -100,6 +101,7 @@ func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Obje
 		Client:             c,
 		ProvisionerFactory: fix,
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		APIReader:          c,
 	}
 }
 
@@ -137,10 +139,13 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 
 		// The FakeClient keeps a copy of the object we update, so we
 		// need to replace the one we have with the updated data in
-		// order to test it.
+		// order to test it. In case it was not found, let's set it to nil
 		updatedHost := &metal3v1alpha1.BareMetalHost{}
-		r.Get(goctx.TODO(), request.NamespacedName, updatedHost)
-		updatedHost.DeepCopyInto(host)
+		if err = r.Get(goctx.TODO(), request.NamespacedName, updatedHost); errors.IsNotFound(err) {
+			host = nil
+		} else {
+			updatedHost.DeepCopyInto(host)
+		}
 
 		if isDone(host, result) {
 			t.Logf("tryReconcile: loop done %d", i)
@@ -671,6 +676,39 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	)
 }
 
+func getHostSecret(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) (secret *corev1.Secret) {
+	secret = &corev1.Secret{}
+	secretName := types.NamespacedName{
+		Namespace: host.Namespace,
+		Name:      host.Spec.BMC.CredentialsName,
+	}
+	err := r.Get(goctx.TODO(), secretName, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return secret
+}
+
+func TestSecretUpdateOwnerRefAndEnvironmentLabelOnStartup(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host)
+
+	secret := getHostSecret(t, r, host)
+	assert.Empty(t, secret.OwnerReferences)
+	assert.Empty(t, secret.Labels)
+
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateInspecting)
+
+	secret = getHostSecret(t, r, host)
+	assert.Equal(t, host.Name, secret.OwnerReferences[0].Name)
+	assert.Equal(t, "BareMetalHost", secret.OwnerReferences[0].Kind)
+	assert.True(t, *secret.OwnerReferences[0].Controller)
+	assert.True(t, *secret.OwnerReferences[0].BlockOwnerDeletion)
+
+	assert.Equal(t, LabelEnvironmentValue, secret.Labels[LabelEnvironmentName])
+
+}
+
 // TestUpdateCredentialsSecretSuccessFields ensures that the
 // GoodCredentials fields are updated in the status block of a host
 // when the secret used exists and has all of the right fields.
@@ -1035,6 +1073,77 @@ func TestNeedsProvisioning(t *testing.T) {
 	}
 }
 
+// TestNeedsProvisioning verifies the logic for deciding when a host
+// needs to be provisioned when custom deploy is used.
+func TestNeedsProvisioningCustomDeploy(t *testing.T) {
+	cases := []struct {
+		name string
+
+		customDeploy        string
+		currentCustomDeploy string
+		online              bool
+		image               *metal3v1alpha1.Image
+
+		needsProvisioning bool
+	}{
+		{
+			name:              "empty host",
+			needsProvisioning: false,
+		},
+		{
+			name:              "with custom deploy but not online",
+			customDeploy:      "install_everything",
+			needsProvisioning: false,
+		},
+		{
+			name:              "with custom deploy and online",
+			customDeploy:      "install_everything",
+			online:            true,
+			needsProvisioning: true,
+		},
+		{
+			name:                "with matching custom deploy and online",
+			customDeploy:        "install_everything",
+			currentCustomDeploy: "install_everything",
+			online:              true,
+			needsProvisioning:   false,
+		},
+		{
+			name:                "with custom deploy and new image",
+			customDeploy:        "install_everything",
+			currentCustomDeploy: "install_everything",
+			image: &metal3v1alpha1.Image{
+				URL:      "https://example.com/image-name",
+				Checksum: "12345",
+			},
+			online:            true,
+			needsProvisioning: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			host := newDefaultHost(t)
+
+			host.Spec.Online = tc.online
+			if tc.customDeploy != "" {
+				host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+					Method: tc.customDeploy,
+				}
+			}
+			if tc.currentCustomDeploy != "" {
+				host.Status.Provisioning.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+					Method: tc.currentCustomDeploy,
+				}
+			}
+			if tc.image != nil {
+				host.Spec.Image = tc.image
+			}
+
+			assert.Equal(t, tc.needsProvisioning, host.NeedsProvisioning())
+		})
+	}
+}
+
 // TestProvision ensures that the Provisioning.Image portion of the
 // status block is filled in for provisioned hosts.
 func TestProvision(t *testing.T) {
@@ -1055,6 +1164,52 @@ func TestProvision(t *testing.T) {
 				return true
 			}
 			return false
+		},
+	)
+}
+
+// TestProvisionCustomDeploy ensures that the Provisioning.CustomDeploy portion
+// of the status block is filled in for provisioned hosts.
+func TestProvisionCustomDeploy(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+		Method: "install_everything",
+	}
+	host.Spec.Online = true
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("custom deploy: %v", host.Spec.CustomDeploy)
+			t.Logf("provisioning custom deploy: %v", host.Status.Provisioning.CustomDeploy)
+			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
+			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method == "install_everything" && host.Status.Provisioning.State == metal3v1alpha1.StateProvisioned
+		},
+	)
+}
+
+// TestProvisionCustomDeployWithURL ensures that the Provisioning.CustomDeploy
+// portion of the status block is filled in for provisioned hosts.
+func TestProvisionCustomDeployWithURL(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+		Method: "install_everything",
+	}
+	host.Spec.Image = &metal3v1alpha1.Image{
+		URL:      "https://example.com/image-name",
+		Checksum: "12345",
+	}
+	host.Spec.Online = true
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("image details: %v", host.Spec.Image)
+			t.Logf("custom deploy: %v", host.Spec.CustomDeploy)
+			t.Logf("provisioning image details: %v", host.Status.Provisioning.Image)
+			t.Logf("provisioning custom deploy: %v", host.Status.Provisioning.CustomDeploy)
+			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
+			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method != "" && host.Status.Provisioning.Image.URL != ""
 		},
 	)
 }
@@ -1206,7 +1361,7 @@ func TestDeleteHost(t *testing.T) {
 
 			tryReconcile(t, r, host,
 				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-					return fix.Deleted
+					return fix.Deleted && host == nil
 				},
 			)
 		})
@@ -2005,7 +2160,7 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 	doDeleteHost(host, r)
 
 	tryReconcile(t, r, host, func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-		return host.Status.Provisioning.State == metal3v1alpha1.StateDeleting && len(host.Finalizers) == 0
+		return host == nil
 	})
 }
 

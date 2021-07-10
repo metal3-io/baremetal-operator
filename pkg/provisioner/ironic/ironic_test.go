@@ -119,6 +119,17 @@ func makeHostLiveIso() (host metal3v1alpha1.BareMetalHost) {
 	return host
 }
 
+func makeHostCustomDeploy(only bool) (host metal3v1alpha1.BareMetalHost) {
+	host = makeHost()
+	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+		Method: "install_everything",
+	}
+	if only {
+		host.Spec.Image = nil
+	}
+	return host
+}
+
 // Implements provisioner.EventPublisher to swallow events for tests.
 func nullEventPublisher(reason, message string) {}
 

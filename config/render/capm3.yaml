@@ -1358,6 +1358,62 @@ status:
   conditions: []
   storedVersions: []
 ---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.2
+  creationTimestamp: null
+  name: preprovisioningimages.metal3.io
+spec:
+  group: metal3.io
+  names:
+    kind: PreprovisioningImage
+    listKind: PreprovisioningImageList
+    plural: preprovisioningimages
+    singular: preprovisioningimage
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PreprovisioningImage is the Schema for the preprovisioningimages
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PreprovisioningImageSpec defines the desired state of PreprovisioningImage
+            properties:
+              foo:
+                description: Foo is an example field of PreprovisioningImage. Edit
+                  PreprovisioningImage_types.go to remove/update
+                type: string
+            type: object
+          status:
+            description: PreprovisioningImageStatus defines the observed state of
+              PreprovisioningImage
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -1485,6 +1541,26 @@ rules:
   - metal3.io
   resources:
   - hostfirmwaresettings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - preprovisioningimages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - preprovisioningimages/status
   verbs:
   - get
   - patch

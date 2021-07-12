@@ -85,7 +85,7 @@ linters: lint generate-check fmt-check
 
 .PHONY: lint
 lint:
-	$(GOLANGCI_LINT) run
+	./hack/golangci_lint.sh
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation

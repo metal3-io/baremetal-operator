@@ -20,11 +20,13 @@ func TestPowerOn(t *testing.T) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
 		name   string
+		force  bool
 		ironic *testserver.IronicMock
 
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		expectedErrorResult  bool
 	}{
 		{
 			name: "node-already-power-on",
@@ -75,6 +77,30 @@ func TestPowerOn(t *testing.T) {
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
+		{
+			name: "power-on with LastError",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				PowerState:       powerOff,
+				TargetPowerState: powerOff,
+				UUID:             nodeUUID,
+				LastError:        "power on failed",
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+			expectedErrorResult:  true,
+		},
+		{
+			name:  "power-on with LastError",
+			force: true,
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				PowerState:       powerOff,
+				TargetPowerState: powerOff,
+				UUID:             nodeUUID,
+				LastError:        "power on failed",
+			}),
+			expectedError:       true,
+			expectedErrorResult: false,
+		},
 	}
 
 	for _, tc := range cases {
@@ -101,7 +127,7 @@ func TestPowerOn(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.PowerOn()
+			result, err := prov.PowerOn(tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
@@ -109,6 +135,9 @@ func TestPowerOn(t *testing.T) {
 				assert.NoError(t, err)
 			} else {
 				assert.Error(t, err)
+			}
+			if tc.expectedErrorResult {
+				assert.Contains(t, result.ErrorMessage, "PowerOn operation failed")
 			}
 		})
 	}
@@ -120,10 +149,12 @@ func TestPowerOff(t *testing.T) {
 	cases := []struct {
 		name   string
 		ironic *testserver.IronicMock
+		force  bool
 
 		expectedDirty        bool
 		expectedError        bool
 		expectedRequestAfter int
+		expectedErrorResult  bool
 		rebootMode           metal3v1alpha1.RebootMode
 	}{
 		{
@@ -187,6 +218,44 @@ func TestPowerOff(t *testing.T) {
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
+		{
+			name: "power-off soft with force",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+			}),
+			rebootMode:    metal3v1alpha1.RebootModeSoft,
+			force:         true,
+			expectedDirty: true,
+		},
+		{
+			name: "power-off hard with LastError",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+				LastError:            "hard power off failed",
+			}),
+			rebootMode:          metal3v1alpha1.RebootModeHard,
+			expectedDirty:       false,
+			expectedErrorResult: true,
+		},
+		{
+			name: "power-off hard with force",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				TargetPowerState:     powerOn,
+				TargetProvisionState: "",
+				UUID:                 nodeUUID,
+				LastError:            "hard power off failed",
+			}),
+			rebootMode:    metal3v1alpha1.RebootModeHard,
+			force:         true,
+			expectedDirty: true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -214,7 +283,7 @@ func TestPowerOff(t *testing.T) {
 			}
 
 			// We pass the RebootMode type here to define the reboot action
-			result, err := prov.PowerOff(tc.rebootMode)
+			result, err := prov.PowerOff(tc.rebootMode, tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
@@ -223,6 +292,10 @@ func TestPowerOff(t *testing.T) {
 			} else {
 				assert.Error(t, err)
 			}
+			if tc.expectedErrorResult {
+				assert.Contains(t, result.ErrorMessage, "hard power off failed")
+			}
+
 		})
 	}
 }

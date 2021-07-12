@@ -618,6 +618,19 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 		return false, nil
 	}
 
+	validFormat := false
+	for _, f := range image.Spec.AcceptFormats {
+		if image.Status.Format == f {
+			validFormat = true
+			break
+		}
+	}
+	if !validFormat {
+		info.log.Info("pre-provisioning image format not accepted",
+			"format", image.Status.Format)
+		return false, nil
+	}
+
 	if image.Spec.NetworkDataName != "" {
 		secretKey := client.ObjectKey{
 			Name:      image.Spec.NetworkDataName,
@@ -681,6 +694,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 	expectedSpec := metal3v1alpha1.PreprovisioningImageSpec{
 		NetworkDataName: info.host.Spec.PreprovisioningNetworkDataName,
 		Architecture:    getHostArchitecture(info.host),
+		AcceptFormats:   formats,
 	}
 
 	preprovImage := metal3v1alpha1.PreprovisioningImage{}

@@ -185,6 +185,19 @@ The sub-fields are:
     GiB. If unspecified or set to 0, the maximum capacity of disk will be
     used for logical disk.
 
+If you do not set the RAID field, we will keep the current RAID configuration.
+
+You can set the `hardwareRAIDVolume` as an empty slice to clear the hardware
+RAID configuration, for example:
+
+```yaml
+spec:
+   raid:
+     hardwareRAIDVolume: []
+```
+
+**NOTE:** Software RAID will always be deleted.
+
 **NOTE:** Currently the 'raid' field is only supported by ilo5/idrac.
 
 #### firmware

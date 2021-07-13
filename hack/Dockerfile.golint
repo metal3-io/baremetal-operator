@@ -1,4 +1,4 @@
-FROM registry.hub.docker.com/golangci/golangci-lint:latest
+FROM registry.hub.docker.com/golangci/golangci-lint:1.41
 
 LABEL io.k8s.display-name="Metal3 golint test image" \
       io.k8s.description="This image is for running tests requiring golint"

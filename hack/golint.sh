@@ -15,6 +15,6 @@ else
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:ro,z" \
     --entrypoint sh \
     --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    docker.io/golangci/golangci-lint:latest \
+    quay.io/metal3-io/golint:latest \
     /go/src/github.com/metal3-io/baremetal-operator/hack/golint.sh "${@}"
 fi;

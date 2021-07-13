@@ -1,0 +1,17 @@
+apiVersion: metal3.io/v1alpha1
+kind: HostFirmwareSettings
+metadata:
+  name: hostfirmwaresettings-sample
+spec:
+  settings:
+    - "ProcVirtualization": "Enabled"
+    - "SRIOV": "Enabled"
+    - "NetworkBootRetryCount": "20"
+status:
+  settings:
+    - "ProcVirtualization": "Enabled"
+    - "ProcCPUCores": "100"
+    - "SRIOV": "Enabled"
+    - "SystemModelName":  "QYZ12345"
+    - "SerialNumber": "22654891"
+    - "NetworkBootRetryCount": "10"

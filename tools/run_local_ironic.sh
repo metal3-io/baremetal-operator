@@ -18,7 +18,7 @@ PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-"ironicendpoint"}"
 CLUSTER_DHCP_RANGE="${CLUSTER_DHCP_RANGE:-"172.22.0.10,172.22.0.100"}"
 IRONIC_KERNEL_PARAMS="${IRONIC_KERNEL_PARAMS:-"console=ttyS0"}"
 IRONIC_BOOT_ISO_SOURCE="${IRONIC_BOOT_ISO_SOURCE:-"local"}"
-
+export NAMEPREFIX=${NAMEPREFIX:-"capm3"}
 
 IRONIC_CACERT_FILE="${IRONIC_CACERT_FILE:-}"
 IRONIC_CERT_FILE="${IRONIC_CERT_FILE:-}"
@@ -93,7 +93,7 @@ data:
 kind: Secret
 metadata:
    name: ironic-cacert
-   namespace: capm3-system
+   namespace: ${NAMEPREFIX}-system
 type: Opaque
 EOF
 fi

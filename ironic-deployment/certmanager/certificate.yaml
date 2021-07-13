@@ -2,7 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: selfsigned-issuer
-  namespace: capm3-system
+  namespace: ${NAMEPREFIX}-system
 spec:
   selfSigned: {}
 ---
@@ -10,7 +10,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ironic-cacert
-  namespace: capm3-system
+  namespace: ${NAMEPREFIX}-system
 spec:
   isCA: true
   ipAddresses:
@@ -24,7 +24,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: ca-issuer
-  namespace: capm3-system
+  namespace: ${NAMEPREFIX}-system
 spec:
   ca:
     secretName: ironic-cacert
@@ -33,7 +33,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ironic-cert
-  namespace: capm3-system
+  namespace: ${NAMEPREFIX}-system
 spec:
   ipAddresses:
   - IRONIC_HOST_IP
@@ -46,7 +46,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ironic-inspector-cert
-  namespace: capm3-system
+  namespace: ${NAMEPREFIX}-system
 spec:
   ipAddresses:
   - IRONIC_HOST_IP
@@ -59,7 +59,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: mariadb-cert
-  namespace: capm3-system
+  namespace: ${NAMEPREFIX}-system
 spec:
   ipAddresses:
   - MARIADB_HOST_IP

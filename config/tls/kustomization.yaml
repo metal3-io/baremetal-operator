@@ -5,10 +5,5 @@ resources:
 - ../default
 - ../namespace
 
-secretGenerator:
-  - name: ironic-cacert
-    files:
-    - crt=ca.crt
-
 patchesStrategicMerge:
 - tls_ca_patch.yaml

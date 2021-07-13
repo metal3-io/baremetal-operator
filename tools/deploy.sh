@@ -22,6 +22,7 @@ MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 KUSTOMIZE="go run sigs.k8s.io/kustomize/kustomize/v3"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
+export NAMEPREFIX=${NAMEPREFIX:-"capm3"}
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
@@ -44,11 +45,9 @@ IRONIC_DEPLOY_FILES="${SCRIPTDIR}/ironic-deployment/basic-auth/default/auth.yaml
 	${SCRIPTDIR}/ironic-deployment/tls/keepalived/tls.yaml"
 
 for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
-  cp "$DEPLOY_FILE" "$DEPLOY_FILE".orig
+  cp "$DEPLOY_FILE" "$DEPLOY_FILE".bak
   # shellcheck disable=SC2094
-  envsubst <"$DEPLOY_FILE".orig> "$DEPLOY_FILE"
-  # To use sed need to change ${NAMEPREFIX} to NAMEPREFIX to every IRONIC_DEPLOY_FILES
-  #sed -i "s/NAMEPREFIX/${NAMEPREFIX}/g" "${DEPLOY_FILE}"
+  envsubst <"$DEPLOY_FILE".bak> "$DEPLOY_FILE"
 done
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
@@ -172,7 +171,7 @@ fi
 
 # Move back the original IRONIC_DEPLOY_FILES
  for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
-    mv "$DEPLOY_FILE".orig "$DEPLOY_FILE"
+    mv "$DEPLOY_FILE".bak "$DEPLOY_FILE"
  done
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then

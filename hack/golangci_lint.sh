@@ -8,7 +8,7 @@ if ! hash golangci-lint 2>/dev/null;
 then
   GOLANGCI_LINT=bin/golangci-lint
   if [ ! -f "${GOLANGCI_LINT}" ]; then
-    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.41.0
+    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.41.1
   fi
   ${GOLANGCI_LINT} run
 else

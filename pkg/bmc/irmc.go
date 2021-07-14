@@ -99,10 +99,6 @@ func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.Fir
 		return nil, nil
 	}
 
-	if firmwareConfig == nil {
-		return nil, nil
-	}
-
 	var value string
 
 	if firmwareConfig.VirtualizationEnabled != nil {

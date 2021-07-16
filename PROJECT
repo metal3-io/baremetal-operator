@@ -4,4 +4,10 @@ resources:
 - group: metal3.io
   kind: BareMetalHost
   version: v1alpha1
+- group: metal3.io
+  kind: HostFirmwareSettings
+  version: v1alpha1
+- group: metal3.io
+  kind: FirmwareSchema
+  version: v1alpha1
 version: "2"

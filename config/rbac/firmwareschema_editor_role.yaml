@@ -1,0 +1,24 @@
+# permissions for end users to edit firmwareschemas.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: firmwareschema-editor-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - firmwareschemas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - firmwareschemas/status
+  verbs:
+  - get

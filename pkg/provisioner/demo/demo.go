@@ -305,7 +305,7 @@ func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
 	switch hostName {
@@ -326,7 +326,7 @@ func (p *demoProvisioner) PowerOn() (result provisioner.Result, err error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force bool) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
 	switch hostName {

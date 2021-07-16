@@ -291,7 +291,7 @@ func (p *fixtureProvisioner) Detach() (result provisioner.Result, err error) {
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
 	if !p.state.poweredOn {
@@ -307,7 +307,7 @@ func (p *fixtureProvisioner) PowerOn() (result provisioner.Result, err error) {
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
 	if p.state.poweredOn {

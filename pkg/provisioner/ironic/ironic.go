@@ -980,7 +980,7 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
-	raidCleanSteps, err := BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ExistedRAIDConfig)
+	raidCleanSteps, err := BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	noRAIDInterface       string = "no-raid"
+	softwareRAIDInterface string = "agent"
+)
+
 // setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps
 func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (err error) {
 	err = checkRAIDConfigure(raidInterface, data.TargetRAIDConfig)
@@ -144,27 +149,27 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3v1alpha1.SoftwareRAIDVolume) (lo
 }
 
 // BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec
-func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig, existed *metal3v1alpha1.RAIDConfig) (cleanSteps []nodes.CleanStep, err error) {
+func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig, actual *metal3v1alpha1.RAIDConfig) (cleanSteps []nodes.CleanStep, err error) {
 	err = checkRAIDConfigure(raidInterface, target)
 	if err != nil {
 		return nil, err
 	}
 
 	// No RAID
-	if raidInterface == "no-raid" {
+	if raidInterface == noRAIDInterface {
 		return
 	}
 
 	// Software RAID
-	if raidInterface == "agent" {
+	if raidInterface == softwareRAIDInterface {
 		// Ignore HardwareRAIDVolumes
 		if target != nil {
 			target.HardwareRAIDVolumes = nil
 		}
-		if existed != nil {
-			existed.HardwareRAIDVolumes = nil
+		if actual != nil {
+			actual.HardwareRAIDVolumes = nil
 		}
-		if reflect.DeepEqual(target, existed) {
+		if reflect.DeepEqual(target, actual) {
 			return
 		}
 
@@ -202,10 +207,10 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 	if target != nil {
 		target.SoftwareRAIDVolumes = nil
 	}
-	if existed != nil {
-		existed.SoftwareRAIDVolumes = nil
+	if actual != nil {
+		actual.SoftwareRAIDVolumes = nil
 	}
-	if reflect.DeepEqual(target, existed) {
+	if reflect.DeepEqual(target, actual) {
 		return
 	}
 
@@ -237,17 +242,19 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 }
 
 func checkRAIDConfigure(raidInterface string, raid *metal3v1alpha1.RAIDConfig) error {
-	if raidInterface == "no-raid" && raid != nil && (len(raid.HardwareRAIDVolumes) != 0 || len(raid.SoftwareRAIDVolumes) != 0) {
-		return fmt.Errorf("raid settings are defined, but the node's driver %s does not support RAID", raidInterface)
+	switch raidInterface {
+	case noRAIDInterface:
+		if raid != nil && (len(raid.HardwareRAIDVolumes) != 0 || len(raid.SoftwareRAIDVolumes) != 0) {
+			return fmt.Errorf("raid settings are defined, but the node's driver %s does not support RAID", raidInterface)
+		}
+	case softwareRAIDInterface:
+		if raid != nil && len(raid.HardwareRAIDVolumes) != 0 {
+			return fmt.Errorf("node's driver %s does not support hardware RAID", raidInterface)
+		}
+	default:
+		if raid != nil && len(raid.HardwareRAIDVolumes) == 0 && len(raid.SoftwareRAIDVolumes) != 0 {
+			return fmt.Errorf("node's driver %s does not support software RAID", raidInterface)
+		}
 	}
-
-	if raidInterface == "agent" && raid != nil && len(raid.HardwareRAIDVolumes) != 0 {
-		return fmt.Errorf("node's driver %s does not support hardware RAID", raidInterface)
-	}
-
-	if raidInterface != "agent" && raid != nil && len(raid.HardwareRAIDVolumes) == 0 && len(raid.SoftwareRAIDVolumes) != 0 {
-		return fmt.Errorf("node's driver %s does not support software RAID", raidInterface)
-	}
-
 	return nil
 }

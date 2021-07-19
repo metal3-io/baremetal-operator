@@ -193,7 +193,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		name          string
 		raidInterface string
 		target        *metal3v1alpha1.RAIDConfig
-		existed       *metal3v1alpha1.RAIDConfig
+		actual        *metal3v1alpha1.RAIDConfig
 		expected      []nodes.CleanStep
 		expectedError bool
 	}{
@@ -240,7 +240,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 					},
 				},
 			},
-			existed: &metal3v1alpha1.RAIDConfig{
+			actual: &metal3v1alpha1.RAIDConfig{
 				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
 					{
 						Name:  "root",
@@ -255,7 +255,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 			target: &metal3v1alpha1.RAIDConfig{
 				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
 			},
-			existed: &metal3v1alpha1.RAIDConfig{
+			actual: &metal3v1alpha1.RAIDConfig{
 				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
 					{
 						Name:  "root",
@@ -305,7 +305,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 					},
 				},
 			},
-			existed: &metal3v1alpha1.RAIDConfig{
+			actual: &metal3v1alpha1.RAIDConfig{
 				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
 					{
 						Level: "1",
@@ -319,7 +319,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 			target: &metal3v1alpha1.RAIDConfig{
 				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
 			},
-			existed: &metal3v1alpha1.RAIDConfig{
+			actual: &metal3v1alpha1.RAIDConfig{
 				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
 					{
 						Level: "1",
@@ -341,7 +341,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			step, err := BuildRAIDCleanSteps(c.raidInterface, c.target, c.existed)
+			step, err := BuildRAIDCleanSteps(c.raidInterface, c.target, c.actual)
 			if !reflect.DeepEqual(c.expected, step) {
 				t.Errorf("expected: %v, got: %v", c.expected, step)
 			}

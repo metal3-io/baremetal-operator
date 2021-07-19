@@ -1121,7 +1121,7 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 
 	// Copy RAID settings
-	specRAID := host.Spec.RAID.DeepCopy()
+	specRAID := host.Spec.RAID
 	// If RAID configure is nil or empty, means that we need to keep the current hardware RAID configuration
 	// or clear current software RAID configuration
 	if specRAID == nil || reflect.DeepEqual(specRAID, &metal3v1alpha1.RAIDConfig{}) {
@@ -1132,13 +1132,9 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 		// }
 		specRAID = &metal3v1alpha1.RAIDConfig{}
 		if host.Status.Provisioning.RAID != nil && len(host.Status.Provisioning.RAID.HardwareRAIDVolumes) != 0 {
-			specRAID.HardwareRAIDVolumes = host.Status.Provisioning.RAID.DeepCopy().HardwareRAIDVolumes
+			specRAID.HardwareRAIDVolumes = host.Status.Provisioning.RAID.HardwareRAIDVolumes
 		}
 		specRAID.SoftwareRAIDVolumes = []metal3v1alpha1.SoftwareRAIDVolume{}
-	}
-	// If HardwareRAIDVolumes isn't nil, ignore SoftwareRAIDVolumes
-	if specRAID.HardwareRAIDVolumes != nil {
-		specRAID.SoftwareRAIDVolumes = nil
 	}
 	if !reflect.DeepEqual(host.Status.Provisioning.RAID, specRAID) {
 		host.Status.Provisioning.RAID = specRAID
@@ -1147,7 +1143,7 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 
 	// Copy BIOS settings
 	if !reflect.DeepEqual(host.Status.Provisioning.Firmware, host.Spec.Firmware) {
-		host.Status.Provisioning.Firmware = host.Spec.Firmware.DeepCopy()
+		host.Status.Provisioning.Firmware = host.Spec.Firmware
 		dirty = true
 	}
 

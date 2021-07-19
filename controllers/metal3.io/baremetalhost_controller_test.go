@@ -1831,9 +1831,14 @@ func TestUpdateRAID(t *testing.T) {
 					},
 				},
 			},
-			dirty: false,
+			dirty: true,
 			expected: &metal3v1alpha1.RAIDConfig{
 				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -1856,9 +1861,10 @@ func TestUpdateRAID(t *testing.T) {
 				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
 				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
 			},
-			dirty: false,
+			dirty: true,
 			expected: &metal3v1alpha1.RAIDConfig{
 				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
 			},
 		},
 		{

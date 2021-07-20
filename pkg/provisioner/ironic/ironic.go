@@ -1026,7 +1026,7 @@ func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, iro
 
 	// Start manual clean
 	if len(cleanSteps) != 0 {
-		p.log.Info("remove existing configuration and set new configuration", "steps", cleanSteps)
+		p.log.Info("remove existing configuration and set new configuration", "clean steps", cleanSteps)
 		return p.tryChangeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{
@@ -1064,6 +1064,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 				return
 			}
 			if len(cleanSteps) != 0 {
+				p.log.Info("the node needs to be reconfigured", "clean steps", cleanSteps)
 				result, err = p.changeNodeProvisionState(
 					ironicNode,
 					nodes.ProvisionStateOpts{Target: nodes.TargetManage},

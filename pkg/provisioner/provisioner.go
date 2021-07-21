@@ -76,9 +76,10 @@ type InspectData struct {
 }
 
 type PrepareData struct {
-	RAIDConfig      *metal3v1alpha1.RAIDConfig
-	RootDeviceHints *metal3v1alpha1.RootDeviceHints
-	FirmwareConfig  *metal3v1alpha1.FirmwareConfig
+	TargetRAIDConfig *metal3v1alpha1.RAIDConfig
+	ActualRAIDConfig *metal3v1alpha1.RAIDConfig
+	RootDeviceHints  *metal3v1alpha1.RootDeviceHints
+	FirmwareConfig   *metal3v1alpha1.FirmwareConfig
 }
 
 type ProvisionData struct {

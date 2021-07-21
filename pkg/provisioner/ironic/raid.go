@@ -19,18 +19,21 @@ const (
 )
 
 // setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps
-func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (err error) {
-	err = checkRAIDConfigure(raidInterface, data.TargetRAIDConfig)
+func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (provisioner.Result, error) {
+	err := checkRAIDConfigure(raidInterface, data.TargetRAIDConfig)
 	if err != nil {
-		return err
+		return operationFailed(err.Error())
 	}
 
 	var logicalDisks []nodes.LogicalDisk
 
 	// Build target for RAID configuration steps
 	logicalDisks, err = BuildTargetRAIDCfg(data.TargetRAIDConfig)
-	if len(logicalDisks) == 0 || err != nil {
-		return
+	if err != nil {
+		return operationFailed(err.Error())
+	}
+	if len(logicalDisks) == 0 {
+		return provisioner.Result{}, nil
 	}
 
 	// set root volume
@@ -42,11 +45,15 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 	}
 
 	// Set target for RAID configuration steps
-	return nodes.SetRAIDConfig(
+	err = nodes.SetRAIDConfig(
 		p.client,
 		ironicNode.UUID,
 		nodes.RAIDConfigOpts{LogicalDisks: logicalDisks},
 	).ExtractErr()
+	if err != nil {
+		return transientError(err)
+	}
+	return provisioner.Result{}, nil
 }
 
 // BuildTargetRAIDCfg build RAID logical disks, this method doesn't set the root volume

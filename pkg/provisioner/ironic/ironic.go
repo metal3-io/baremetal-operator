@@ -1011,9 +1011,8 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 
 func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.PrepareData) (success bool, result provisioner.Result, err error) {
 	// Set raid configuration
-	err = setTargetRAIDCfg(p, bmcAccess.RAIDInterface(), ironicNode, data)
-	if err != nil {
-		result, err = transientError(err)
+	result, err = setTargetRAIDCfg(p, bmcAccess.RAIDInterface(), ironicNode, data)
+	if result.Dirty || result.ErrorMessage != "" || err != nil {
 		return
 	}
 

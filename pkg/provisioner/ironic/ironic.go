@@ -980,11 +980,11 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
-	if bmcAccess.RAIDInterface() != "no-raid" {
-		cleanSteps = append(cleanSteps, BuildRAIDCleanSteps(data.RAIDConfig)...)
-	} else if data.RAIDConfig != nil {
-		return nil, fmt.Errorf("RAID settings are defined, but the node's driver %s does not support RAID", bmcAccess.Driver())
+	raidCleanSteps, err := BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
+	if err != nil {
+		return nil, err
 	}
+	cleanSteps = append(cleanSteps, raidCleanSteps...)
 
 	// Build bios clean steps
 	settings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
@@ -1010,13 +1010,10 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 }
 
 func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.PrepareData) (success bool, result provisioner.Result, err error) {
-	if bmcAccess.RAIDInterface() != "no-raid" {
-		// Set raid configuration
-		err = setTargetRAIDCfg(p, ironicNode, data)
-		if err != nil {
-			result, err = transientError(err)
-			return
-		}
+	// Set raid configuration
+	result, err = setTargetRAIDCfg(p, bmcAccess.RAIDInterface(), ironicNode, data)
+	if result.Dirty || result.ErrorMessage != "" || err != nil {
+		return
 	}
 
 	// Build manual clean steps
@@ -1028,7 +1025,7 @@ func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, iro
 
 	// Start manual clean
 	if len(cleanSteps) != 0 {
-		p.log.Info("remove existing configuration and set new configuration", "steps", cleanSteps)
+		p.log.Info("remove existing configuration and set new configuration", "clean steps", cleanSteps)
 		return p.tryChangeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{
@@ -1066,6 +1063,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 				return
 			}
 			if len(cleanSteps) != 0 {
+				p.log.Info("the node needs to be reconfigured", "clean steps", cleanSteps)
 				result, err = p.changeNodeProvisionState(
 					ironicNode,
 					nodes.ProvisionStateOpts{Target: nodes.TargetManage},

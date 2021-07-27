@@ -163,6 +163,7 @@ if [ "${DEPLOY_IRONIC}" == "true" ]; then
     fi
     IRONIC_CERTIFICATE_FILE="${SCRIPTDIR}/ironic-deployment/certmanager/certificate.yaml"
     sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g; s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${IRONIC_CERTIFICATE_FILE}"
+    kubectl create ns "${NAMEPREFIX}-system" || true
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
     mv /tmp/ironic_bmo_configmap.env "${IRONIC_BMO_CONFIGMAP}"

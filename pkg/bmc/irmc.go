@@ -70,6 +70,10 @@ func (a *iRMCAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfac
 	return result
 }
 
+func (a *iRMCAccessDetails) BIOSInterface() string {
+	return ""
+}
+
 func (a *iRMCAccessDetails) BootInterface() string {
 	return "pxe"
 }

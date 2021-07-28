@@ -100,6 +100,10 @@ func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]inter
 	return result
 }
 
+func (a *redfishAccessDetails) BIOSInterface() string {
+	return ""
+}
+
 // That can be either pxe or redfish-virtual-media
 func (a *redfishAccessDetails) BootInterface() string {
 	return "ipxe"
@@ -133,9 +137,12 @@ func (a *redfishAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.
 }
 
 // iDrac Redfish Overrides
-
 func (a *redfishiDracAccessDetails) Driver() string {
 	return "idrac"
+}
+
+func (a *redfishiDracAccessDetails) BIOSInterface() string {
+	return "idrac-redfish"
 }
 
 func (a *redfishiDracAccessDetails) BootInterface() string {

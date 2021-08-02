@@ -20,7 +20,7 @@ DEPLOY_BASIC_AUTH="${4,,}"
 DEPLOY_KEEPALIVED="${5,,}"
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
-KUSTOMIZE="go run sigs.k8s.io/kustomize/kustomize/v3"
+KUSTOMIZE="go run -modfile=hack/tools/go.mod sigs.k8s.io/kustomize/kustomize/v3"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
 export NAMEPREFIX=${NAMEPREFIX:-"capm3"}
 

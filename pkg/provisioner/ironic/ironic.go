@@ -61,10 +61,11 @@ func NewMacAddressConflictError(address, node string) error {
 }
 
 type ironicConfig struct {
-	deployKernelURL  string
-	deployRamdiskURL string
-	deployISOURL     string
-	maxBusyHosts     int
+	deployKernelURL                  string
+	deployRamdiskURL                 string
+	deployISOURL                     string
+	liveISOForcePersistentBootDevice string
+	maxBusyHosts                     int
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -699,6 +700,14 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 	updater.
 		SetInstanceInfoOpts(optValues, ironicNode).
 		SetTopLevelOpt("deploy_interface", "ramdisk", ironicNode.DeployInterface)
+
+	driverOptValues := optionsData{"force_persistent_boot_device": "Default"}
+	if p.config.liveISOForcePersistentBootDevice != "" {
+		driverOptValues = optionsData{
+			"force_persistent_boot_device": p.config.liveISOForcePersistentBootDevice,
+		}
+	}
+	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
 func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
@@ -732,6 +741,11 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	updater.
 		SetInstanceInfoOpts(optValues, ironicNode).
 		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
+
+	driverOptValues := optionsData{
+		"force_persistent_boot_device": "Default",
+	}
+	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
 func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {

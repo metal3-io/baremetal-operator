@@ -8,11 +8,12 @@ import (
 )
 
 type EnvFixture struct {
-	ironicEndpoint    string
-	inspectorEndpoint string
-	kernelURL         string
-	ramdiskURL        string
-	isoURL            string
+	ironicEndpoint                   string
+	inspectorEndpoint                string
+	kernelURL                        string
+	ramdiskURL                       string
+	isoURL                           string
+	liveISOForcePersistentBootDevice string
 
 	origEnv map[string]string
 }
@@ -43,12 +44,14 @@ func (f *EnvFixture) SetUp() {
 	f.replace("DEPLOY_KERNEL_URL", f.kernelURL)
 	f.replace("DEPLOY_RAMDISK_URL", f.ramdiskURL)
 	f.replace("DEPLOY_ISO_URL", f.isoURL)
+	f.replace("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE", f.liveISOForcePersistentBootDevice)
 }
 
-func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig) {
+func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, forcePersistent string) {
 	assert.Equal(t, f.kernelURL, c.deployKernelURL)
 	assert.Equal(t, f.ramdiskURL, c.deployRamdiskURL)
 	assert.Equal(t, f.isoURL, c.deployISOURL)
+	assert.Equal(t, f.liveISOForcePersistentBootDevice, c.liveISOForcePersistentBootDevice)
 }
 
 func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic, inspector string) {
@@ -58,9 +61,10 @@ func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic, inspector string) {
 
 func TestLoadConfigFromEnv(t *testing.T) {
 	cases := []struct {
-		name          string
-		env           EnvFixture
-		expectedError string
+		name            string
+		env             EnvFixture
+		expectedError   string
+		forcePersistent string
 	}{
 		{
 			name: "kernel and ramdisk",
@@ -118,6 +122,38 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			},
 			expectedError: "DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together",
 		},
+		{
+			name: "Force Persistent Default",
+			env: EnvFixture{
+				isoURL:                           "http://iso",
+				liveISOForcePersistentBootDevice: "Default",
+			},
+			forcePersistent: "Default",
+		},
+		{
+			name: "Force Persistent Never",
+			env: EnvFixture{
+				isoURL:                           "http://iso",
+				liveISOForcePersistentBootDevice: "Never",
+			},
+			forcePersistent: "Never",
+		},
+		{
+			name: "Force Persistent Always",
+			env: EnvFixture{
+				isoURL:                           "http://iso",
+				liveISOForcePersistentBootDevice: "Always",
+			},
+			forcePersistent: "Always",
+		},
+		{
+			name: "Force Persistent Invalid",
+			env: EnvFixture{
+				isoURL:                           "http://iso",
+				liveISOForcePersistentBootDevice: "NotAValidOption",
+			},
+			expectedError: "Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
+		},
 	}
 
 	for _, tc := range cases {
@@ -129,7 +165,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 				assert.Regexp(t, tc.expectedError, err, "error message")
 			} else {
 				assert.Nil(t, err)
-				tc.env.VerifyConfig(t, config)
+				tc.env.VerifyConfig(t, config, tc.forcePersistent)
 			}
 		})
 	}

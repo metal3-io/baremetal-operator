@@ -198,16 +198,6 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "keep hardware RAID",
-			raidInterface: "irmc",
-			target:        nil,
-		},
-		{
-			name:          "keep hardware RAID",
-			raidInterface: "irmc",
-			target:        &metal3v1alpha1.RAIDConfig{},
-		},
-		{
 			name:          "configure hardware RAID",
 			raidInterface: "irmc",
 			target: &metal3v1alpha1.RAIDConfig{

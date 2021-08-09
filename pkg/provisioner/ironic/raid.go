@@ -210,10 +210,9 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 	}
 
 	// Hardware RAID
-	// If hardware RAID configuration is nil,
-	// keep old hardware RAID configuration
-	if target == nil || target.HardwareRAIDVolumes == nil {
-		return
+	// Ignore SoftwareRAIDVolumes
+	if target != nil {
+		target.SoftwareRAIDVolumes = nil
 	}
 
 	// Ignore SoftwareRAIDVolumes

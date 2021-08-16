@@ -12,6 +12,7 @@ metadata:
   name: ironic-cacert
   namespace: ${NAMEPREFIX}-system
 spec:
+  commonName: ironic-ca
   isCA: true
   ipAddresses:
   - IRONIC_HOST_IP
@@ -35,6 +36,7 @@ metadata:
   name: ironic-cert
   namespace: ${NAMEPREFIX}-system
 spec:
+  commonName: ironic-cert
   ipAddresses:
   - IRONIC_HOST_IP
   issuerRef:
@@ -48,6 +50,7 @@ metadata:
   name: ironic-inspector-cert
   namespace: ${NAMEPREFIX}-system
 spec:
+  commonName: ironic-inspector-cert
   ipAddresses:
   - IRONIC_HOST_IP
   issuerRef:
@@ -61,6 +64,7 @@ metadata:
   name: mariadb-cert
   namespace: ${NAMEPREFIX}-system
 spec:
+  commonName: mariadb-cert
   ipAddresses:
   - MARIADB_HOST_IP
   issuerRef:

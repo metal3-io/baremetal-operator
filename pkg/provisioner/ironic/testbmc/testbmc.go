@@ -63,6 +63,10 @@ func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials) map[string]inte
 	return result
 }
 
+func (a *testAccessDetails) BIOSInterface() string {
+	return ""
+}
+
 func (a *testAccessDetails) BootInterface() string {
 	return "ipxe"
 }

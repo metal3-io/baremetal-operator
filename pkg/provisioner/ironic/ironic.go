@@ -367,6 +367,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			p.client,
 			nodes.CreateOpts{
 				Driver:              bmcAccess.Driver(),
+				BIOSInterface:       bmcAccess.BIOSInterface(),
 				BootInterface:       bmcAccess.BootInterface(),
 				Name:                p.objectMeta.Name,
 				DriverInfo:          driverInfo,

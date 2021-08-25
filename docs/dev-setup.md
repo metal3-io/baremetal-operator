@@ -88,6 +88,29 @@ The following environment variables can be passed to configure the ironic:
 - IRONIC_BOOT_ISO_SOURCE - where the boot iso image will be served from, possible
   values are: local (default), to download the image, prepare it and serve it from
   the conductor; http, to serve it directly from its HTTP URL.
+- IPA_DOWNLOAD_ENABLED - Enables the use of the Ironic Python Agent Downloader
+  container to download IPA archive (default true)
+- USE_LOCAL_IPA - Enables the use of locally supplied IPA archive. This
+  condition is handled by BMO and this has effect only when
+  IPA_DOWNLOAD_ENABLED is "false", otherwise IPA_DOWNLOAD_ENABLED takes
+  precedence. (default false)
+- LOCAL_IPA_PATH - This has effect only when USE_LOCAL_IPA is set to "true",
+  points to the directory where
+  the IPA archive is located. This variable is handled by BMO. The variable
+  should contain an arbitrary path pointing to the
+  directory that contains the `ironic-python-agent.tar`.
+
+**NOTES**
+In case both `IPA_DOWNLOAD_ENABLED` and `USE_LOCAL_IPA` are set to true then
+the IPA archive will be downloaded and the use of local IPA
+archive will be skipped.
+
+In case both `IPA_DOWNLOAD_ENABLED` and `USE_LOCAL_IPA` are set to false then
+the IPA download/copy process won't start at all. Skipping the IPA
+download/copy process could help in avoiding unwanted overwrites of the
+"ironic-python-agent.tar" in case somebody
+is testing some functionality where the unwanted overwrite of the archive
+would cause issues.
 
 In case you want to run the local ironic containers with TLS and basic
 authentication enabled, you also need to export the following variables:

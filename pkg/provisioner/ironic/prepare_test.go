@@ -58,8 +58,8 @@ func TestPrepare(t *testing.T) {
 			}),
 			unprepared:           true,
 			expectedStarted:      true,
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
 		},
 		{
 			name: "manageable state(have clean steps)",
@@ -148,8 +148,8 @@ func TestPrepare(t *testing.T) {
 			}),
 			existRaidConfig:      true,
 			expectedStarted:      false,
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
 		},
 		{
 			name: "available state(automated clean finished)",

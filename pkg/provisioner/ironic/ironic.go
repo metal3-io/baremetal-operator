@@ -61,10 +61,11 @@ func NewMacAddressConflictError(address, node string) error {
 }
 
 type ironicConfig struct {
-	deployKernelURL  string
-	deployRamdiskURL string
-	deployISOURL     string
-	maxBusyHosts     int
+	deployKernelURL                  string
+	deployRamdiskURL                 string
+	deployISOURL                     string
+	liveISOForcePersistentBootDevice string
+	maxBusyHosts                     int
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -699,6 +700,14 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 	updater.
 		SetInstanceInfoOpts(optValues, ironicNode).
 		SetTopLevelOpt("deploy_interface", "ramdisk", ironicNode.DeployInterface)
+
+	driverOptValues := optionsData{"force_persistent_boot_device": "Default"}
+	if p.config.liveISOForcePersistentBootDevice != "" {
+		driverOptValues = optionsData{
+			"force_persistent_boot_device": p.config.liveISOForcePersistentBootDevice,
+		}
+	}
+	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
 func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
@@ -732,6 +741,11 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	updater.
 		SetInstanceInfoOpts(optValues, ironicNode).
 		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
+
+	driverOptValues := optionsData{
+		"force_persistent_boot_device": "Default",
+	}
+	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
 func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
@@ -829,8 +843,9 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 // GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
 func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, err error) {
 
-	if p.nodeID == "" {
-		return nil, nil, provisioner.ErrNeedsRegistration
+	ironicNode, err := p.getNode()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("could not get node for BIOS settings"))
 	}
 
 	// Get the settings from Ironic via Gophercloud
@@ -838,15 +853,15 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 	var biosListErr error
 	if includeSchema {
 		opts := nodes.ListBIOSSettingsOpts{Detail: true}
-		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, p.nodeID, opts).Extract()
+		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, ironicNode.UUID, opts).Extract()
 	} else {
-		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, p.nodeID, nil).Extract()
+		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, ironicNode.UUID, nil).Extract()
 	}
 	if biosListErr != nil {
 		return nil, nil, errors.Wrap(biosListErr,
-			fmt.Sprintf("could not get BIOS settings for node %s", p.nodeID))
+			fmt.Sprintf("could not get BIOS settings for node %s", ironicNode.UUID))
 	}
-	p.log.Info("retrieved BIOS settings for node", "node", p.nodeID)
+	p.log.Info("retrieved BIOS settings for node", "node", ironicNode.UUID, "size", len(settingsList))
 
 	settings = make(map[string]string)
 	schema = make(map[string]metal3v1alpha1.SettingSchema)
@@ -1050,7 +1065,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 					newSettings = buildFirmwareSettings(newSettings, bmcsetting["name"], bmcsetting["value"])
 				}
 			} else {
-				p.log.Info("name converted from bmc driver not found in firmware settings", "name", bmcsetting["name"])
+				p.log.Info("name converted from bmc driver not found in firmware settings", "name", bmcsetting["name"], "node", p.nodeID)
 			}
 		}
 
@@ -1181,11 +1196,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 			started = true
 		}
 		// Manual clean finished
-
-		result, err = p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetProvide},
-		)
+		result, err = operationComplete()
 
 	case nodes.CleanFail:
 		// When clean failed, we need to clean host provisioning settings.

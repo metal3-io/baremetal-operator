@@ -39,10 +39,11 @@ func BuildHostData(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials) 
 	}
 }
 
-// For controllers that do not need to manage the BMC just set the node ID to use with Ironic API
-func BuildEmptyHostData(provisionerID string) HostData {
+// For controllers that do not need to manage the BMC just set the host and node ID to use with Ironic API
+func BuildHostDataNoBMC(host metal3v1alpha1.BareMetalHost) HostData {
 	return HostData{
-		ProvisionerID: provisionerID,
+		ObjectMeta:    *host.ObjectMeta.DeepCopy(),
+		ProvisionerID: host.Status.Provisioning.ID,
 	}
 }
 

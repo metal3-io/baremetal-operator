@@ -10,7 +10,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,19 +33,6 @@ var (
 	upperBound int  = 20
 )
 
-// Test support for HostFirmwareSettings in the BareMetalHostReconciler
-func getTestHostReconciler(host *metal3v1alpha1.BareMetalHost) *BareMetalHostReconciler {
-
-	c := fakeclient.NewFakeClient(host)
-	reconciler := &BareMetalHostReconciler{
-		Client:             c,
-		ProvisionerFactory: nil,
-		Log:                ctrl.Log.WithName("host_state_machine").WithName("BareMetalHost"),
-	}
-
-	return reconciler
-}
-
 // Test support for HostFirmwareSettings in the HostFirmwareSettingsReconciler
 func getTestHFSReconciler(host *metal3v1alpha1.HostFirmwareSettings) *HostFirmwareSettingsReconciler {
 
@@ -57,17 +43,6 @@ func getTestHFSReconciler(host *metal3v1alpha1.HostFirmwareSettings) *HostFirmwa
 	}
 
 	return reconciler
-}
-
-func getDefaultHostReconcileInfo(host *metal3v1alpha1.BareMetalHost, name string, namespace string) *reconcileInfo {
-	r := &reconcileInfo{
-		log:     logf.Log.WithName("controllers").WithName("HostFirmwareSettings"),
-		host:    host,
-		request: ctrl.Request{},
-	}
-	r.request.NamespacedName = types.NamespacedName{Namespace: namespace, Name: name}
-
-	return r
 }
 
 func getMockProvisioner(settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema) *hsfMockProvisioner {
@@ -163,6 +138,19 @@ func getSchema() *metal3v1alpha1.FirmwareSchema {
 	return schema
 }
 
+// Mock settings to return from provisioner
+func getCurrentSettings() metal3v1alpha1.SettingsMap {
+
+	return metal3v1alpha1.SettingsMap{
+		"L2Cache":               "10x512 KB",
+		"NetworkBootRetryCount": "20",
+		"ProcVirtualization":    "Disabled",
+		"SecureBoot":            "Enabled",
+		"AssetTag":              "X45672917",
+	}
+}
+
+// Mock schema to return from provisioner
 func getCurrentSchemaSettings() map[string]metal3v1alpha1.SettingSchema {
 
 	return map[string]metal3v1alpha1.SettingSchema{
@@ -204,12 +192,22 @@ func getCurrentSchemaSettings() map[string]metal3v1alpha1.SettingSchema {
 	}
 }
 
-func createSchemaResource(ctx context.Context, r *BareMetalHostReconciler) {
-	firmwareSchema := getSchema()
-	firmwareSchema.Spec.Schema = getCurrentSchemaSettings()
+// Create the baremetalhost reconciler and use that to create bmh in same namespace
+func createBaremetalHost() *metal3v1alpha1.BareMetalHost {
 
-	r.Client.Create(ctx, firmwareSchema)
-	r.Client.Update(ctx, firmwareSchema) // needed to make sure ResourceVersion matches existing schemas
+	bmh := &metal3v1alpha1.BareMetalHost{}
+	bmh.ObjectMeta = metav1.ObjectMeta{Name: hostName, Namespace: hostNamespace}
+	c := fakeclient.NewFakeClient(bmh)
+
+	reconciler := &BareMetalHostReconciler{
+		Client:             c,
+		ProvisionerFactory: nil,
+		Log:                ctrl.Log.WithName("bmh_reconciler").WithName("BareMetalHost"),
+	}
+
+	reconciler.Create(context.TODO(), bmh)
+
+	return bmh
 }
 
 func getExpectedSchemaResource() *metal3v1alpha1.FirmwareSchema {
@@ -219,7 +217,10 @@ func getExpectedSchemaResource() *metal3v1alpha1.FirmwareSchema {
 	return firmwareSchema
 }
 
-func createHFSResource(ctx context.Context, r *BareMetalHostReconciler, hfs *metal3v1alpha1.HostFirmwareSettings, createSchema bool) {
+// Create an HFS with input spec settings
+func getHFS(spec metal3v1alpha1.HostFirmwareSettingsSpec) *metal3v1alpha1.HostFirmwareSettings {
+
+	hfs := &metal3v1alpha1.HostFirmwareSettings{}
 
 	hfs.Status = metal3v1alpha1.HostFirmwareSettingsStatus{
 		Settings: metal3v1alpha1.SettingsMap{
@@ -238,15 +239,9 @@ func createHFSResource(ctx context.Context, r *BareMetalHostReconciler, hfs *met
 		Name:      hostName,
 		Namespace: hostNamespace}
 
-	if createSchema {
-		hfs.Status.FirmwareSchema =
-			&metal3v1alpha1.SchemaReference{
-				Name:      schemaName,
-				Namespace: hostNamespace}
-	}
+	hfs.Spec = spec
 
-	r.Client.Create(ctx, hfs)
-	r.Client.Update(ctx, hfs)
+	return hfs
 }
 
 // Test the hostfirmwaresettings reconciler functions
@@ -258,13 +253,13 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 		CurrentHFSResource *metal3v1alpha1.HostFirmwareSettings
 		// whether to create a schema resource before calling reconciler
 		CreateSchemaResource bool
-		// mock data returned from Ironic via the provisioner
-		CurrentSettings metal3v1alpha1.SettingsMap
 		// the expected created or updated resource
 		ExpectedSettings *metal3v1alpha1.HostFirmwareSettings
+		// whether the spec values pass the validity test
+		SpecIsValid bool
 	}{
 		{
-			Scenario: "inital hfs resource with no schema",
+			Scenario: "initial hfs resource with no schema",
 			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "HostFirmwareSettings",
@@ -279,19 +274,9 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				Status: metal3v1alpha1.HostFirmwareSettingsStatus{},
 			},
 			CreateSchemaResource: false,
-			CurrentSettings: metal3v1alpha1.SettingsMap{
-				"L2Cache":               "10x512 KB",
-				"NetworkBootRetryCount": "20",
-				"ProcVirtualization":    "Disabled",
-				"SecureBoot":            "Enabled",
-				"AssetTag":              "X45672917",
-			},
 			ExpectedSettings: &metal3v1alpha1.HostFirmwareSettings{
 				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"NetworkBootRetryCount": intstr.FromString("20"),
-						"ProcVirtualization":    intstr.FromString("Disabled"),
-					},
+					Settings: metal3v1alpha1.DesiredSettingsMap{},
 				},
 				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
 					FirmwareSchema: &metal3v1alpha1.SchemaReference{
@@ -305,11 +290,16 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						"ProcVirtualization":    "Disabled",
 						"SecureBoot":            "Enabled",
 					},
+					Conditions: []metav1.Condition{
+						{Type: "UpdateRequested", Status: "False", Reason: "Success"},
+						{Type: "Valid", Status: "True", Reason: "Success"},
+					},
 				},
 			},
+			SpecIsValid: true,
 		},
 		{
-			Scenario: "inital hfs resource with existing schema",
+			Scenario: "initial hfs resource with existing schema",
 			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "HostFirmwareSettings",
@@ -324,19 +314,9 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				Status: metal3v1alpha1.HostFirmwareSettingsStatus{},
 			},
 			CreateSchemaResource: true,
-			CurrentSettings: metal3v1alpha1.SettingsMap{
-				"L2Cache":               "10x512 KB",
-				"NetworkBootRetryCount": "20",
-				"ProcVirtualization":    "Disabled",
-				"SecureBoot":            "Enabled",
-				"AssetTag":              "X45672917",
-			},
 			ExpectedSettings: &metal3v1alpha1.HostFirmwareSettings{
 				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"NetworkBootRetryCount": intstr.FromString("20"),
-						"ProcVirtualization":    intstr.FromString("Disabled"),
-					},
+					Settings: metal3v1alpha1.DesiredSettingsMap{},
 				},
 				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
 					FirmwareSchema: &metal3v1alpha1.SchemaReference{
@@ -350,8 +330,13 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						"ProcVirtualization":    "Disabled",
 						"SecureBoot":            "Enabled",
 					},
+					Conditions: []metav1.Condition{
+						{Type: "UpdateRequested", Status: "False", Reason: "Success"},
+						{Type: "Valid", Status: "True", Reason: "Success"},
+					},
 				},
 			},
+			SpecIsValid: true,
 		},
 		{
 			Scenario: "updated settings",
@@ -362,7 +347,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            hostName,
 					Namespace:       hostNamespace,
-					ResourceVersion: "2"},
+					ResourceVersion: "1"},
 				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
 					Settings: metal3v1alpha1.DesiredSettingsMap{
 						"NetworkBootRetryCount": intstr.FromString("10"),
@@ -382,13 +367,6 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				},
 			},
 			CreateSchemaResource: true,
-			CurrentSettings: metal3v1alpha1.SettingsMap{
-				"L2Cache":               "10x512 KB",
-				"NetworkBootRetryCount": "20",
-				"ProcVirtualization":    "Disabled",
-				"SecureBoot":            "Enabled",
-				"AssetTag":              "X45672917",
-			},
 			ExpectedSettings: &metal3v1alpha1.HostFirmwareSettings{
 				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
 					Settings: metal3v1alpha1.DesiredSettingsMap{
@@ -408,8 +386,69 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						"ProcVirtualization":    "Disabled",
 						"SecureBoot":            "Enabled",
 					},
+					Conditions: []metav1.Condition{
+						{Type: "UpdateRequested", Status: "True", Reason: "Success"},
+						{Type: "Valid", Status: "True", Reason: "Success"},
+					},
 				},
 			},
+			SpecIsValid: true,
+		},
+		{
+			Scenario: "spec updated with invalid setting",
+			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "HostFirmwareSettings",
+					APIVersion: "metal3.io/v1alpha1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            hostName,
+					Namespace:       hostNamespace,
+					ResourceVersion: "1"},
+				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
+					Settings: metal3v1alpha1.DesiredSettingsMap{
+						"NetworkBootRetryCount": intstr.FromString("1000"),
+						"ProcVirtualization":    intstr.FromString("Enabled"),
+					},
+				},
+				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
+					FirmwareSchema: &metal3v1alpha1.SchemaReference{
+						Name:      schemaName,
+						Namespace: hostNamespace,
+					},
+					Settings: metal3v1alpha1.SettingsMap{
+						"L2Cache":               "10x256 KB",
+						"NetworkBootRetryCount": "10",
+						"ProcVirtualization":    "Enabled",
+					},
+				},
+			},
+			CreateSchemaResource: true,
+			ExpectedSettings: &metal3v1alpha1.HostFirmwareSettings{
+				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
+					Settings: metal3v1alpha1.DesiredSettingsMap{
+						"NetworkBootRetryCount": intstr.FromString("1000"),
+						"ProcVirtualization":    intstr.FromString("Enabled"),
+					},
+				},
+				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
+					FirmwareSchema: &metal3v1alpha1.SchemaReference{
+						Name:      schemaName,
+						Namespace: hostNamespace,
+					},
+					Settings: metal3v1alpha1.SettingsMap{
+						"AssetTag":              "X45672917",
+						"L2Cache":               "10x512 KB",
+						"NetworkBootRetryCount": "20",
+						"ProcVirtualization":    "Disabled",
+						"SecureBoot":            "Enabled",
+					},
+					Conditions: []metav1.Condition{
+						{Type: "UpdateRequested", Status: "True", Reason: "Success"},
+						{Type: "Valid", Status: "False", Reason: "ConfigurationError", Message: "Invalid BIOS setting"},
+					},
+				},
+			},
+			SpecIsValid: false,
 		},
 	}
 
@@ -417,7 +456,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 		t.Run(tc.Scenario, func(t *testing.T) {
 
 			ctx := context.TODO()
-			prov := getMockProvisioner(tc.CurrentSettings, getCurrentSchemaSettings())
+			prov := getMockProvisioner(getCurrentSettings(), getCurrentSchemaSettings())
 
 			tc.ExpectedSettings.TypeMeta = metav1.TypeMeta{
 				Kind:       "HostFirmwareSettings",
@@ -425,13 +464,17 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 			tc.ExpectedSettings.ObjectMeta = metav1.ObjectMeta{
 				Name:            hostName,
 				Namespace:       hostNamespace,
-				ResourceVersion: "3"}
+				ResourceVersion: "2"}
 
 			hfs := tc.CurrentHFSResource
 			r := getTestHFSReconciler(hfs)
+			// Create bmh resource needed by hfs reconciler
+			bmh := createBaremetalHost()
+
 			info := &rInfo{
 				log: logf.Log.WithName("controllers").WithName("HostFirmwareSettings"),
 				hfs: tc.CurrentHFSResource,
+				bmh: bmh,
 			}
 
 			if tc.CreateSchemaResource {
@@ -454,8 +497,10 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 
 			// Use the same time for expected and actual
 			currentTime := metav1.Now()
-			actualSettings.Status.ProvStatus.LastUpdated = &currentTime
-			tc.ExpectedSettings.Status.ProvStatus.LastUpdated = &currentTime
+			for i := 0; i < 2; i++ {
+				tc.ExpectedSettings.Status.Conditions[i].LastTransitionTime = currentTime
+				actualSettings.Status.Conditions[i].LastTransitionTime = currentTime
+			}
 
 			assert.Equal(t, tc.ExpectedSettings, actualSettings)
 
@@ -471,183 +516,98 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 	}
 }
 
-// Test the function to get hostFirmwareSettings for cleaning in the baremtalhost_controller
-func TestGetValidHostFirmwareSettings(t *testing.T) {
+// Test the function to validate hostFirmwareSettings
+func TestValidateHostFirmwareSettings(t *testing.T) {
 
 	testCases := []struct {
-		Scenario string
-		// the existing resources
-		CurrentHFSResource   *metal3v1alpha1.HostFirmwareSettings
-		CreateSchemaResource bool
-		// the expected updated resource
-		ExpectedStatusSettings metal3v1alpha1.SettingsMap
-		ExpectedSpecSettings   metal3v1alpha1.DesiredSettingsMap
-		ExpectedError          string
+		Scenario      string
+		SpecSettings  metal3v1alpha1.HostFirmwareSettingsSpec
+		ExpectedError string
 	}{
 		{
-			Scenario: "valid spec changes no schema",
-			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
-				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"L2Cache":               intstr.FromString("10x512 KB"),
-						"ProcVirtualization":    intstr.FromString("Disabled"),
-						"NetworkBootRetryCount": intstr.FromString("20"),
-					},
-				},
-			},
-			CreateSchemaResource: false,
-			ExpectedStatusSettings: metal3v1alpha1.SettingsMap{
-				"CustomPostMessage":     "All tests passed",
-				"L2Cache":               "10x256 KB",
-				"NetworkBootRetryCount": "10",
-				"ProcVirtualization":    "Enabled",
-				"SecureBoot":            "Enabled",
-				"AssetTag":              "X45672917",
-			},
-			ExpectedSpecSettings: metal3v1alpha1.DesiredSettingsMap{
-				"L2Cache":               intstr.FromString("10x512 KB"),
-				"ProcVirtualization":    intstr.FromString("Disabled"),
-				"NetworkBootRetryCount": intstr.FromString("20"),
-			},
-			ExpectedError: "",
-		},
-		{
 			Scenario: "valid spec changes with schema",
-			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
-				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"CustomPostMessage":     intstr.FromString("All tests passed"),
-						"ProcVirtualization":    intstr.FromString("Disabled"),
-						"NetworkBootRetryCount": intstr.FromString("20"),
-					},
+			SpecSettings: metal3v1alpha1.HostFirmwareSettingsSpec{
+				Settings: metal3v1alpha1.DesiredSettingsMap{
+					"CustomPostMessage":     intstr.FromString("All tests passed"),
+					"ProcVirtualization":    intstr.FromString("Disabled"),
+					"NetworkBootRetryCount": intstr.FromString("20"),
 				},
-			},
-			CreateSchemaResource: true,
-			ExpectedStatusSettings: metal3v1alpha1.SettingsMap{
-				"CustomPostMessage":     "All tests passed",
-				"L2Cache":               "10x256 KB",
-				"NetworkBootRetryCount": "10",
-				"ProcVirtualization":    "Enabled",
-				"SecureBoot":            "Enabled",
-				"AssetTag":              "X45672917",
-			},
-			ExpectedSpecSettings: metal3v1alpha1.DesiredSettingsMap{
-				"CustomPostMessage":     intstr.FromString("All tests passed"),
-				"ProcVirtualization":    intstr.FromString("Disabled"),
-				"NetworkBootRetryCount": intstr.FromString("20"),
 			},
 			ExpectedError: "",
 		},
 		{
 			Scenario: "invalid string",
-			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
-				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"CustomPostMessage":     intstr.FromString("A really long POST message"),
-						"ProcVirtualization":    intstr.FromString("Disabled"),
-						"NetworkBootRetryCount": intstr.FromString("20"),
-					},
+			SpecSettings: metal3v1alpha1.HostFirmwareSettingsSpec{
+				Settings: metal3v1alpha1.DesiredSettingsMap{
+					"CustomPostMessage":     intstr.FromString("A really long POST message"),
+					"ProcVirtualization":    intstr.FromString("Disabled"),
+					"NetworkBootRetryCount": intstr.FromString("20"),
 				},
 			},
-			CreateSchemaResource:   true,
-			ExpectedStatusSettings: nil,
-			ExpectedSpecSettings:   nil,
-			ExpectedError:          "Setting CustomPostMessage is invalid, string A really long POST message length is above range 20",
+			ExpectedError: "Setting CustomPostMessage is invalid, string A really long POST message length is above maximum length 20",
 		},
 		{
 			Scenario: "invalid int",
-			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
-				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"CustomPostMessage":     intstr.FromString("All tests passed"),
-						"ProcVirtualization":    intstr.FromString("Disabled"),
-						"NetworkBootRetryCount": intstr.FromString("2000"),
-					},
+			SpecSettings: metal3v1alpha1.HostFirmwareSettingsSpec{
+				Settings: metal3v1alpha1.DesiredSettingsMap{
+					"CustomPostMessage":     intstr.FromString("All tests passed"),
+					"ProcVirtualization":    intstr.FromString("Disabled"),
+					"NetworkBootRetryCount": intstr.FromString("2000"),
 				},
 			},
-			CreateSchemaResource:   true,
-			ExpectedStatusSettings: nil,
-			ExpectedSpecSettings:   nil,
-			ExpectedError:          "Setting NetworkBootRetryCount is invalid, integer 2000 is above range 20",
+			ExpectedError: "Setting NetworkBootRetryCount is invalid, integer 2000 is above maximum value 20",
 		},
 		{
 			Scenario: "invalid enum",
-			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
-				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"CustomPostMessage":     intstr.FromString("All tests passed"),
-						"ProcVirtualization":    intstr.FromString("Not enabled"),
-						"NetworkBootRetryCount": intstr.FromString("20"),
-					},
+			SpecSettings: metal3v1alpha1.HostFirmwareSettingsSpec{
+				Settings: metal3v1alpha1.DesiredSettingsMap{
+					"CustomPostMessage":     intstr.FromString("All tests passed"),
+					"ProcVirtualization":    intstr.FromString("Not enabled"),
+					"NetworkBootRetryCount": intstr.FromString("20"),
 				},
 			},
-			CreateSchemaResource:   true,
-			ExpectedStatusSettings: nil,
-			ExpectedSpecSettings:   nil,
-			ExpectedError:          "Setting ProcVirtualization is invalid, unknown enumeration value - Not enabled",
+			ExpectedError: "Setting ProcVirtualization is invalid, unknown enumeration value - Not enabled",
 		},
 		{
 			Scenario: "invalid name",
-			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
-				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"SomeNewSetting": intstr.FromString("foo"),
-					},
+			SpecSettings: metal3v1alpha1.HostFirmwareSettingsSpec{
+				Settings: metal3v1alpha1.DesiredSettingsMap{
+					"SomeNewSetting": intstr.FromString("foo"),
 				},
 			},
-			CreateSchemaResource:   true,
-			ExpectedStatusSettings: nil,
-			ExpectedSpecSettings:   nil,
-			ExpectedError:          "Setting SomeNewSetting is not in the Status field",
+			ExpectedError: "Setting SomeNewSetting is not in the Status field",
 		},
 		{
 			Scenario: "invalid password in spec",
-			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
-				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"CustomPostMessage":     intstr.FromString("All tests passed"),
-						"ProcVirtualization":    intstr.FromString("Disabled"),
-						"NetworkBootRetryCount": intstr.FromString("20"),
-						"SysPassword":           intstr.FromString("Pa%$word"),
-					},
+			SpecSettings: metal3v1alpha1.HostFirmwareSettingsSpec{
+				Settings: metal3v1alpha1.DesiredSettingsMap{
+					"CustomPostMessage":     intstr.FromString("All tests passed"),
+					"ProcVirtualization":    intstr.FromString("Disabled"),
+					"NetworkBootRetryCount": intstr.FromString("20"),
+					"SysPassword":           intstr.FromString("Pa%$word"),
 				},
 			},
-			CreateSchemaResource:   true,
-			ExpectedStatusSettings: nil,
-			ExpectedSpecSettings:   nil,
-			ExpectedError:          "Cannot set Password field",
+			ExpectedError: "Cannot set Password field",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 
-			ctx := context.TODO()
-			host := &metal3v1alpha1.BareMetalHost{}
-			host.ObjectMeta.Name = hostName
-			host.ObjectMeta.Namespace = hostNamespace
-
-			r := getTestHostReconciler(host)
-			info := getDefaultHostReconcileInfo(host, hostName, hostNamespace)
-
-			// Create the resources using fakeclient
-			if tc.CurrentHFSResource != nil {
-
-				createHFSResource(ctx, r, tc.CurrentHFSResource, tc.CreateSchemaResource)
-			}
-			if tc.CreateSchemaResource {
-				createSchemaResource(ctx, r)
+			hfs := getHFS(tc.SpecSettings)
+			r := getTestHFSReconciler(hfs)
+			info := &rInfo{
+				log: logf.Log.WithName("controllers").WithName("HostFirmwareSettings"),
+				hfs: hfs,
 			}
 
-			hfs, err := r.getValidHostFirmwareSettings(info)
-			if err == nil {
+			errors := r.validateHostFirmwareSettings(info, getExpectedSchemaResource())
+			if len(errors) == 0 {
 				assert.Equal(t, tc.ExpectedError, "")
 			} else {
-				assert.Equal(t, tc.ExpectedError, err.Error())
-			}
-			if tc.ExpectedStatusSettings != nil {
-				assert.Equal(t, tc.ExpectedStatusSettings, hfs.Status.Settings)
-				assert.Equal(t, tc.ExpectedSpecSettings, hfs.Spec.Settings)
+				for _, error := range errors {
+					assert.Equal(t, tc.ExpectedError, error.Error())
+				}
 			}
 		})
 	}

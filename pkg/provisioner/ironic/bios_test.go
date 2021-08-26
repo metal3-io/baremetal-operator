@@ -93,7 +93,7 @@ func TestGetFirmwareSettings(t *testing.T) {
 			expectedSchemaMap:   map[string]metal3v1alpha1.SettingSchema(nil),
 			ironic:              testserver.NewIronic(t).NoBIOS(nodeUUID),
 			includeSchema:       false,
-			expectedError:       "could not get BIOS settings for node",
+			expectedError:       "could not get node for BIOS settings: Host not registered",
 		},
 	}
 

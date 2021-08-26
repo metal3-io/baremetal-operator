@@ -32,6 +32,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -721,11 +722,6 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		return result
 	}
 
-	// Indicate that the hostFirmwareSettings resource should be updated by its controller
-	if err = r.markHostFirmwareSettingsForUpdate(info); err != nil {
-		info.log.Error(err, "could not hostFirmwareSettings resource for update")
-	}
-
 	clearError(info.host)
 	info.host.Status.HardwareDetails = details
 	return actionComplete{}
@@ -797,10 +793,9 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	}
 
 	// Use settings in hostFirmwareSettings if available
-	hfs, err := r.getValidHostFirmwareSettings(info)
+	hfs, err := r.getHostFirmwareSettings(info)
 	if err != nil {
-		// Return error if settings available but invalid
-		return actionError{errors.Wrap(err, "error with hostFirmwareSettings")}
+		info.log.Info("hostFirmwareSettings not available for cleaning")
 	}
 	if hfs != nil {
 		prepareData.ActualFirmwareSettings = hfs.Status.Settings.DeepCopy()
@@ -835,11 +830,6 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 			return actionUpdate{result}
 		}
 		return result
-	}
-
-	// Indicate that the hostFirmwareSettings resource should be updated by its controller
-	if err = r.markHostFirmwareSettingsForUpdate(info); err != nil {
-		info.log.Error(err, "could not hostFirmwareSettings resource for update")
 	}
 
 	return actionComplete{}
@@ -1180,8 +1170,8 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	return
 }
 
-// Get the stored firmware settings and validate the Spec settings against the schema
-func (r *BareMetalHostReconciler) getValidHostFirmwareSettings(info *reconcileInfo) (hfs *metal3v1alpha1.HostFirmwareSettings, err error) {
+// Get the stored firmware settings if there are valid changes
+func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (hfs *metal3v1alpha1.HostFirmwareSettings, err error) {
 
 	hfs = &metal3v1alpha1.HostFirmwareSettings{}
 	if err = r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
@@ -1196,79 +1186,19 @@ func (r *BareMetalHostReconciler) getValidHostFirmwareSettings(info *reconcileIn
 		return nil, nil
 	}
 
-	schema := &metal3v1alpha1.FirmwareSchema{}
-	if hfs.Status.FirmwareSchema != nil {
-		if err = r.Get(context.TODO(), client.ObjectKey{
-			Namespace: hfs.Status.FirmwareSchema.Namespace,
-			Name:      hfs.Status.FirmwareSchema.Name}, schema); err != nil {
+	// Check if there are settings in the Spec that are different than the Status
+	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.UpdateRequested)) {
 
-			info.log.Error(err, "failed to get schema for hostFirmwareSettings")
-			return nil, err
+		if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.SettingsValid)) {
+			return hfs, nil
 		}
-	} else {
-		// No schema is available
-		schema = nil
+
+		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
+		return nil, nil
 	}
 
-	// Validate the Spec setting using schema, if available
-	if err = ValidateHostFirmwareSettings(hfs, schema); err != nil {
-		return nil, err
-	}
-
-	return hfs, nil
-}
-
-// Get or create HostFirmwareSettings resource and indicate that its controller should get Firmware Settings from provisioner
-func (r *BareMetalHostReconciler) markHostFirmwareSettingsForUpdate(info *reconcileInfo) (err error) {
-
-	// Check if there is a hostFirmwareSettings resource for this host
-	hfs := &metal3v1alpha1.HostFirmwareSettings{}
-	if err = r.Get(context.TODO(), info.request.NamespacedName, hfs); err == nil {
-		info.log.Info("found existing hostFirmwareSettings resource")
-	} else if !k8serrors.IsNotFound(err) {
-		// Error reading the object
-		return errors.Wrap(err, "could not load host firmware settings")
-	} else {
-
-		return r.newHostFirmwareSettings(info)
-	}
-
-	// Set flag for hostFirmwareSetting_controller to update settings
-	if hfs.Status.ProvStatus.Update == false {
-		hfs.Status.ProvStatus.Update = true
-		r.Status().Update(context.TODO(), hfs)
-		info.log.Info("set hostFirmwareSettings resource update flag")
-	}
-
-	return nil
-}
-
-func (r *BareMetalHostReconciler) newHostFirmwareSettings(info *reconcileInfo) (err error) {
-
-	hfs := &metal3v1alpha1.HostFirmwareSettings{}
-	// Create an empty hostFirmwareSetting with same name and namespace as host
-	hfs.ObjectMeta = metav1.ObjectMeta{
-		Name:      info.host.ObjectMeta.Name,
-		Namespace: info.host.ObjectMeta.Namespace}
-	hfs.Status.Settings = make(metal3v1alpha1.SettingsMap)
-	hfs.Spec.Settings = make(metal3v1alpha1.DesiredSettingsMap)
-	hfs.Annotations = make(map[string]string)
-	// Store info in annotation that will persist if settings is cleared during pivot
-	// Provisioner ID is needed to access Ironic API
-	hfs.Annotations[metal3v1alpha1.ProvisionerIdAnnotation] = info.host.Status.Provisioning.ID
-	// Hardware info is optional
-	if info.host.Status.HardwareDetails != nil {
-		hfs.Annotations[metal3v1alpha1.HardwareVendorAnnotation] = info.host.Status.HardwareDetails.SystemVendor.Manufacturer
-		hfs.Annotations[metal3v1alpha1.HardwareModelAnnotation] = info.host.Status.HardwareDetails.SystemVendor.ProductName
-	}
-	hfs.Status.ProvStatus.Update = true
-
-	if err = r.Create(context.TODO(), hfs); err != nil {
-		return errors.Wrap(err, "could not create hostFirmwareSettings resource")
-	}
-	info.log.Info("created new hostFirmwareSettings resource")
-
-	return nil
+	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)
+	return nil, nil
 }
 
 func (r *BareMetalHostReconciler) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {

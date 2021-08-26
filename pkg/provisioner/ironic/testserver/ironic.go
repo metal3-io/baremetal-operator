@@ -331,6 +331,9 @@ func (m *IronicMock) BIOSSettings(nodeUUID string) *IronicMock {
 	}
 
 	m.ResponseJSON(m.buildURL("/v1/nodes/"+nodeUUID+"/bios", http.MethodGet), resp)
+	m.AddDefaultResponseJSON("/v1/nodes/"+nodeUUID, "", http.StatusOK, nodes.Node{
+		UUID: nodeUUID,
+	})
 	return m
 }
 
@@ -393,6 +396,9 @@ func (m *IronicMock) BIOSDetailSettings(nodeUUID string) *IronicMock {
 	}
 
 	m.ResponseJSON(m.buildURL("/v1/nodes/"+nodeUUID+"/bios", http.MethodGet), resp)
+	m.AddDefaultResponseJSON("/v1/nodes/"+nodeUUID, "", http.StatusOK, nodes.Node{
+		UUID: nodeUUID,
+	})
 	return m
 }
 

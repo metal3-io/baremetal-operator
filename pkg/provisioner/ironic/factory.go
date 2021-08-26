@@ -65,6 +65,7 @@ func (f *ironicProvisionerFactory) init() error {
 		"deployKernelURL", f.config.deployKernelURL,
 		"deployRamdiskURL", f.config.deployRamdiskURL,
 		"deployISOURL", f.config.deployISOURL,
+		"liveISOForcePersistentBootDevice", f.config.liveISOForcePersistentBootDevice,
 		"CACertFile", tlsConf.TrustedCAFile,
 		"ClientCertFile", tlsConf.ClientCertificateFile,
 		"ClientPrivKeyFile", tlsConf.ClientPrivateKeyFile,
@@ -136,6 +137,13 @@ func loadConfigFromEnv() (ironicConfig, error) {
 			return c, fmt.Errorf("Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
 		}
 		c.maxBusyHosts = value
+	}
+
+	if forcePersistentBootDevice := os.Getenv("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE"); forcePersistentBootDevice != "" {
+		if forcePersistentBootDevice != "Default" && forcePersistentBootDevice != "Always" && forcePersistentBootDevice != "Never" {
+			return c, fmt.Errorf("Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
+		}
+		c.liveISOForcePersistentBootDevice = forcePersistentBootDevice
 	}
 
 	return c, nil

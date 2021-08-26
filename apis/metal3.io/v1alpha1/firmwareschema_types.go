@@ -65,7 +65,7 @@ func (e SchemaSettingError) Error() string {
 	return fmt.Sprintf("Setting %s is invalid, %s", e.name, e.message)
 }
 
-func (schema *SettingSchema) IsValid(name string, value intstr.IntOrString) error {
+func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) error {
 
 	if schema.ReadOnly != nil && *schema.ReadOnly == true {
 		return SchemaSettingError{name: name, message: "it is ReadOnly"}
@@ -82,29 +82,21 @@ func (schema *SettingSchema) IsValid(name string, value intstr.IntOrString) erro
 		return SchemaSettingError{name: name, message: fmt.Sprintf("unknown enumeration value - %s", value.String())}
 
 	case "Integer":
-		if schema.LowerBound == nil && schema.UpperBound == nil {
-			// return true if no settings to check validity
-			return nil
-		}
 		if schema.LowerBound != nil && value.IntValue() < *schema.LowerBound {
-			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is below range %d", value.String(), *schema.LowerBound)}
+			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is below minimum value %d", value.String(), *schema.LowerBound)}
 		}
 		if schema.UpperBound != nil && value.IntValue() > *schema.UpperBound {
-			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is above range %d", value.String(), *schema.UpperBound)}
+			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is above maximum value %d", value.String(), *schema.UpperBound)}
 		}
 		return nil
 
 	case "String":
-		if schema.MinLength == nil && schema.MaxLength == nil {
-			// return true if no settings to check validity
-			return nil
-		}
 		strLen := len(value.String())
 		if schema.MinLength != nil && strLen < *schema.MinLength {
-			return SchemaSettingError{name: name, message: fmt.Sprintf("string %s length is below range %d", value.String(), *schema.MinLength)}
+			return SchemaSettingError{name: name, message: fmt.Sprintf("string %s length is below minimum length %d", value.String(), *schema.MinLength)}
 		}
 		if schema.MaxLength != nil && strLen > *schema.MaxLength {
-			return SchemaSettingError{name: name, message: fmt.Sprintf("string %s length is above range %d", value.String(), *schema.MaxLength)}
+			return SchemaSettingError{name: name, message: fmt.Sprintf("string %s length is above maximum length %d", value.String(), *schema.MaxLength)}
 		}
 		return nil
 
@@ -116,7 +108,7 @@ func (schema *SettingSchema) IsValid(name string, value intstr.IntOrString) erro
 
 	case "Password":
 		// Prevent sets of password types
-		return SchemaSettingError{name: name, message: "it is a Password type"}
+		return SchemaSettingError{name: name, message: "passwords are immutable"}
 
 	case "":
 		// allow the set as BIOS registry fields may not have been available
@@ -154,14 +146,14 @@ type FirmwareSchema struct {
 }
 
 // Check whether the setting's name and value is valid using the schema
-func (host *FirmwareSchema) CheckSettingIsValid(name string, value intstr.IntOrString, schemas map[string]SettingSchema) error {
+func (host *FirmwareSchema) ValidateSetting(name string, value intstr.IntOrString, schemas map[string]SettingSchema) error {
 
 	schema, ok := schemas[name]
 	if !ok {
 		return SchemaSettingError{name: name, message: "it is not in the associated schema"}
 	}
 
-	return schema.IsValid(name, value)
+	return schema.Validate(name, value)
 }
 
 //+kubebuilder:object:root=true

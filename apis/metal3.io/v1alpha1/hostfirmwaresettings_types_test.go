@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestCheckSettingIsValid(t *testing.T) {
+func TestValidateSetting(t *testing.T) {
 
 	lower_bound := 1
 	upper_bound := 20
@@ -54,13 +54,13 @@ func TestCheckSettingIsValid(t *testing.T) {
 			Scenario: "StringTypeFailUpper",
 			Name:     "AssetTag",
 			Value:    intstr.FromString("NewServerPutInServiceIn2021"),
-			Expected: "Setting AssetTag is invalid, string NewServerPutInServiceIn2021 length is above range 16",
+			Expected: "Setting AssetTag is invalid, string NewServerPutInServiceIn2021 length is above maximum length 16",
 		},
 		{
 			Scenario: "StringTypeFailLower",
 			Name:     "AssetTag",
 			Value:    intstr.FromString(""),
-			Expected: "Setting AssetTag is invalid, string  length is below range 1",
+			Expected: "Setting AssetTag is invalid, string  length is below minimum length 1",
 		},
 		{
 			Scenario: "EnumerationTypePass",
@@ -90,13 +90,13 @@ func TestCheckSettingIsValid(t *testing.T) {
 			Scenario: "IntegerTypeFailUpper",
 			Name:     "NetworkBootRetryCount",
 			Value:    intstr.FromString("42"),
-			Expected: "Setting NetworkBootRetryCount is invalid, integer 42 is above range 20",
+			Expected: "Setting NetworkBootRetryCount is invalid, integer 42 is above maximum value 20",
 		},
 		{
 			Scenario: "IntegerTypeFailLower",
 			Name:     "NetworkBootRetryCount",
 			Value:    intstr.FromInt(0),
-			Expected: "Setting NetworkBootRetryCount is invalid, integer 0 is below range 1",
+			Expected: "Setting NetworkBootRetryCount is invalid, integer 0 is below minimum value 1",
 		},
 		{
 			Scenario: "BooleanTypePass",
@@ -130,7 +130,7 @@ func TestCheckSettingIsValid(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			err := fwSchema.CheckSettingIsValid(tc.Name, tc.Value, fwSchema.Spec.Schema)
+			err := fwSchema.ValidateSetting(tc.Name, tc.Value, fwSchema.Spec.Schema)
 			if err == nil {
 				assert.Equal(t, tc.Expected, "")
 			} else {

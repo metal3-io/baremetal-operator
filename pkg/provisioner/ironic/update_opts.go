@@ -160,3 +160,8 @@ func (nu *nodeUpdater) SetInstanceInfoOpts(settings optionsData, node *nodes.Nod
 	nu.setSectionUpdateOpts(node.InstanceInfo, settings, "/instance_info")
 	return nu
 }
+
+func (nu *nodeUpdater) SetDriverInfoOpts(settings optionsData, node *nodes.Node) *nodeUpdater {
+	nu.setSectionUpdateOpts(node.DriverInfo, settings, "/driver_info")
+	return nu
+}

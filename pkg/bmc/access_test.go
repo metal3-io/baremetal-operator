@@ -439,6 +439,7 @@ func TestStaticDriverInfo(t *testing.T) {
 		input      string
 		needsMac   bool
 		driver     string
+		bios       string
 		boot       string
 		management string
 		power      string
@@ -450,6 +451,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "ipmi://192.168.122.1:6233",
 			needsMac:   false,
 			driver:     "ipmi",
+			bios:       "",
 			boot:       "ipxe",
 			management: "",
 			power:      "",
@@ -462,6 +464,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "libvirt://192.168.122.1",
 			needsMac:   true,
 			driver:     "ipmi",
+			bios:       "",
 			boot:       "ipxe",
 			management: "",
 			power:      "",
@@ -474,6 +477,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "idrac://192.168.122.1",
 			needsMac:   false,
 			driver:     "idrac",
+			bios:       "",
 			boot:       "ipxe",
 			management: "",
 			power:      "",
@@ -486,6 +490,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "irmc://192.168.122.1",
 			needsMac:   false,
 			driver:     "irmc",
+			bios:       "",
 			boot:       "pxe",
 			management: "",
 			power:      "",
@@ -498,6 +503,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "redfish://192.168.122.1",
 			needsMac:   true,
 			driver:     "redfish",
+			bios:       "",
 			boot:       "ipxe",
 			management: "",
 			power:      "",
@@ -510,6 +516,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "redfish-virtualmedia://192.168.122.1",
 			needsMac:   true,
 			driver:     "redfish",
+			bios:       "",
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
@@ -522,6 +529,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "redfish-virtualmedia+http://192.168.122.1",
 			needsMac:   true,
 			driver:     "redfish",
+			bios:       "",
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
@@ -534,6 +542,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "redfish-virtualmedia+https://192.168.122.1",
 			needsMac:   true,
 			driver:     "redfish",
+			bios:       "",
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
@@ -546,6 +555,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "idrac-redfish://192.168.122.1",
 			needsMac:   true,
 			driver:     "idrac",
+			bios:       "idrac-redfish",
 			boot:       "ipxe",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -558,6 +568,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:    "ilo5-virtualmedia://192.168.122.1",
 			needsMac: true,
 			driver:   "redfish",
+			bios:     "",
 			boot:     "redfish-virtual-media",
 		},
 
@@ -566,6 +577,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:    "ilo5-virtualmedia+http://192.168.122.1",
 			needsMac: true,
 			driver:   "redfish",
+			bios:     "",
 			boot:     "redfish-virtual-media",
 		},
 
@@ -574,6 +586,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:    "ilo5-virtualmedia+https://192.168.122.1",
 			needsMac: true,
 			driver:   "redfish",
+			bios:     "",
 			boot:     "redfish-virtual-media",
 		},
 
@@ -582,6 +595,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "idrac-virtualmedia://192.168.122.1",
 			needsMac:   true,
 			driver:     "idrac",
+			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -594,6 +608,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "idrac-virtualmedia+http://192.168.122.1",
 			needsMac:   true,
 			driver:     "idrac",
+			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -606,6 +621,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "idrac-virtualmedia+https://192.168.122.1",
 			needsMac:   true,
 			driver:     "idrac",
+			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -618,6 +634,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "ibmc://192.168.122.1:6233",
 			needsMac:   true,
 			driver:     "ibmc",
+			bios:       "",
 			boot:       "pxe",
 			management: "ibmc",
 			power:      "ibmc",
@@ -630,6 +647,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "ilo4://192.168.122.1",
 			needsMac:   true,
 			driver:     "ilo",
+			bios:       "",
 			boot:       "ilo-ipxe",
 			management: "",
 			power:      "",
@@ -642,6 +660,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "ilo5://192.168.122.1",
 			needsMac:   true,
 			driver:     "ilo5",
+			bios:       "",
 			boot:       "ilo-ipxe",
 			management: "",
 			power:      "",
@@ -663,6 +682,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			if acc.BootInterface() != tc.boot {
 				t.Fatalf("Unexpected boot interface %q, expected %q",
 					acc.BootInterface(), tc.boot)
+			}
+			if acc.BIOSInterface() != tc.bios {
+				t.Fatalf("Unexpected bios interface %q, expected %q",
+					acc.BIOSInterface(), tc.bios)
 			}
 		})
 	}

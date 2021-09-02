@@ -23,6 +23,7 @@ func (r *RAIDTestBMC) NeedsMAC() bool                                        { r
 func (r *RAIDTestBMC) Driver() string                                        { return "raid-test" }
 func (r *RAIDTestBMC) DisableCertificateVerification() bool                  { return false }
 func (r *RAIDTestBMC) DriverInfo(bmc.Credentials) (i map[string]interface{}) { return }
+func (r *RAIDTestBMC) BIOSInterface() string                                 { return "" }
 func (r *RAIDTestBMC) BootInterface() string                                 { return "" }
 func (r *RAIDTestBMC) ManagementInterface() string                           { return "" }
 func (r *RAIDTestBMC) PowerInterface() string                                { return "" }
@@ -57,8 +58,8 @@ func TestPrepare(t *testing.T) {
 			}),
 			unprepared:           true,
 			expectedStarted:      true,
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
 		},
 		{
 			name: "manageable state(have clean steps)",
@@ -147,8 +148,8 @@ func TestPrepare(t *testing.T) {
 			}),
 			existRaidConfig:      true,
 			expectedStarted:      false,
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
 		},
 		{
 			name: "available state(automated clean finished)",

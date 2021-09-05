@@ -316,6 +316,7 @@ spec:
                       required:
                       - level
                       type: object
+                    nullable: true
                     type: array
                   softwareRAIDVolumes:
                     description: The list of logical disks for software RAID, if rootDeviceHints
@@ -403,6 +404,7 @@ spec:
                       - level
                       type: object
                     maxItems: 2
+                    nullable: true
                     type: array
                 type: object
               rootDeviceHints:
@@ -903,6 +905,7 @@ spec:
                           required:
                           - level
                           type: object
+                        nullable: true
                         type: array
                       softwareRAIDVolumes:
                         description: The list of logical disks for software RAID,
@@ -992,6 +995,7 @@ spec:
                           - level
                           type: object
                         maxItems: 2
+                        nullable: true
                         type: array
                     type: object
                   rootDeviceHints:

@@ -278,7 +278,7 @@ type RAIDConfig struct {
 	// The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
 	// +optional
-	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
+	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes,omitempty"`
 
 	// The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// If HardwareRAIDVolumes is set this item will be invalid.
@@ -290,7 +290,7 @@ type RAIDConfig struct {
 	// Software RAID will always be deleted.
 	// +kubebuilder:validation:MaxItems=2
 	// +optional
-	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
+	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes,omitempty"`
 }
 
 // FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server

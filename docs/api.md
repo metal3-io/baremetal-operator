@@ -574,7 +574,7 @@ changing power state, or deprovisioning), but still allows the BMH status
 to be updated unlike the `paused` anotation. While in this state the
 OperationalStatus field will be `detached` but the provisioning state will
 be unmodified.  This API only has any effect for BareMetalHost resources
-that are in either `Provisioned`, `ExternallyProvisioned`, `Ready` or `Available`
+that are in either `Provisioned`, `ExternallyProvisioned` or `Ready`/`Available`
 state.
 
 Please note only the existence of the annotation is important to treat the BMH

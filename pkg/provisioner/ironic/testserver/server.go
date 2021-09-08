@@ -3,7 +3,7 @@ package testserver
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -72,7 +72,7 @@ func (m *MockServer) logRequest(r *http.Request, response string) {
 	m.t.Logf("%s: %s %s -> %s", m.name, r.Method, r.URL, response)
 	m.Requests += r.URL.Path + ";"
 
-	bodyRaw, _ := ioutil.ReadAll(r.Body)
+	bodyRaw, _ := io.ReadAll(r.Body)
 
 	m.FullRequests = append(m.FullRequests, simpleRequest{
 		pattern: r.URL.Path,

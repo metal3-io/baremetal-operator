@@ -3,7 +3,7 @@ package testserver
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"testing"
@@ -179,7 +179,7 @@ func (m *IronicMock) CreateNodes(callback NodeCreateCallback) *IronicMock {
 				http.StatusNotImplemented)
 		}
 
-		bodyRaw, err := ioutil.ReadAll(r.Body)
+		bodyRaw, err := io.ReadAll(r.Body)
 		if err != nil {
 			m.logRequest(r, fmt.Sprintf("ERROR: %s", err))
 			http.Error(w, fmt.Sprintf("%s", err), http.StatusInternalServerError)

@@ -41,6 +41,10 @@ const (
 	powerNone            = "None"
 	nameSeparator        = "~"
 	customDeployPriority = 80
+
+	deployKernelKey  = "deploy_kernel"
+	deployRamdiskKey = "deploy_ramdisk"
+	deployISOKey     = "deploy_iso"
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
@@ -351,11 +355,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	// FIXME(dhellmann): We need to get our IP on the
 	// provisioning network from somewhere.
 	if p.config.deployKernelURL != "" && p.config.deployRamdiskURL != "" {
-		deployImageInfo["deploy_kernel"] = p.config.deployKernelURL
-		deployImageInfo["deploy_ramdisk"] = p.config.deployRamdiskURL
+		deployImageInfo[deployKernelKey] = p.config.deployKernelURL
+		deployImageInfo[deployRamdiskKey] = p.config.deployRamdiskURL
 	}
 	if p.config.deployISOURL != "" {
-		deployImageInfo["deploy_iso"] = p.config.deployISOURL
+		deployImageInfo[deployISOKey] = p.config.deployISOURL
 	}
 	for k, v := range deployImageInfo {
 		driverInfo[k] = v

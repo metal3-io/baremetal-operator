@@ -83,6 +83,8 @@ type PreprovisioningImageStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=ppimg
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="Whether the image is ready"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",description="The reason for the image readiness status"
 // +kubebuilder:subresource:status
 
 // PreprovisioningImage is the Schema for the preprovisioningimages API

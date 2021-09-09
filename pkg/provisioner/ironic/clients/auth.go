@@ -2,7 +2,6 @@ package clients
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -36,7 +35,7 @@ func authRoot() string {
 }
 
 func readAuthFile(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filepath.Clean(filename))
+	content, err := os.ReadFile(filepath.Clean(filename))
 	return strings.TrimSpace(string(content)), err
 }
 

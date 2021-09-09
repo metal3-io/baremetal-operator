@@ -193,11 +193,11 @@ func (p *ironicProvisioner) nodeHasAssignedPort(ironicNode *nodes.Node) (bool, e
 	}
 
 	if empty {
-		p.debugLog.Info("node has no assigned port")
+		p.debugLog.Info("node has no assigned port", "node", ironicNode.UUID)
 		return false, nil
 	}
 
-	p.debugLog.Info("node has assigned port")
+	p.debugLog.Info("node has assigned port", "node", ironicNode.UUID)
 	return true, nil
 }
 
@@ -213,7 +213,7 @@ func (p *ironicProvisioner) isAddressAllocatedToPort(address string) (bool, erro
 		return false, nil
 	}
 
-	p.debugLog.Info("address is allocated to port", "address", address)
+	p.debugLog.Info("address is allocated to port", "address", address, "node", allPorts[0].NodeUUID)
 	return true, nil
 }
 
@@ -236,7 +236,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 		ironicNode, err = nodes.Get(p.client, nodeName).Extract()
 		switch err.(type) {
 		case nil:
-			p.debugLog.Info("found existing node by name")
+			p.debugLog.Info("found existing node by name", "name", nodeName, "node", ironicNode.UUID)
 			return ironicNode, nil
 		case gophercloud.ErrDefault404:
 			p.log.Info(
@@ -261,7 +261,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 		ironicNode, err = nodes.Get(p.client, nodeUUID).Extract()
 		switch err.(type) {
 		case nil:
-			p.debugLog.Info("found existing node by ID")
+			p.debugLog.Info("found existing node by MAC", "MAC", bootMACAddress, "node", ironicNode.UUID, "name", ironicNode.Name)
 
 			// If the node has a name, this means we didn't find it above.
 			if ironicNode.Name != "" {
@@ -271,10 +271,10 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 			return ironicNode, nil
 		case gophercloud.ErrDefault404:
 			return nil, errors.Wrap(err,
-				fmt.Sprintf("port exists but linked node doesn't %s", nodeUUID))
+				fmt.Sprintf("port %s exists but linked node doesn't %s", bootMACAddress, nodeUUID))
 		default:
 			return nil, errors.Wrap(err,
-				fmt.Sprintf("port exists but failed to find linked node by ID %s", nodeUUID))
+				fmt.Sprintf("port %s exists but failed to find linked node by ID %s", bootMACAddress, nodeUUID))
 		}
 	} else {
 		p.log.Info("port with address doesn't exist", "MAC", bootMACAddress)

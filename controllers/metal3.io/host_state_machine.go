@@ -254,9 +254,9 @@ func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result acti
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
 	if hasDetachedAnnotation(hsm.Host) {
-		// Only allow detaching hosts in Provisioned/ExternallyProvisioned states
+		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
 		switch info.host.Status.Provisioning.State {
-		case metal3v1alpha1.StateProvisioned, metal3v1alpha1.StateExternallyProvisioned, metal3v1alpha1.StateReady:
+		case metal3v1alpha1.StateProvisioned, metal3v1alpha1.StateExternallyProvisioned, metal3v1alpha1.StateReady, metal3v1alpha1.StateAvailable:
 			return hsm.Reconciler.detachHost(hsm.Provisioner, info)
 		}
 	}

@@ -3,9 +3,10 @@ WORKDIR /go/src/github.com/metal3-io/baremetal-operator
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/baremetal-operator main.go
 RUN make tools
+RUN make tools/bin/kustomize
 
 RUN cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/ocp/ocp_kustomization.yaml /go/src/github.com/metal3-io/baremetal-operator/config/crd/kustomization.yaml &&\
-    go run sigs.k8s.io/kustomize/kustomize/v3 build config/crd > config/crd/baremetalhost.crd.yaml &&\
+    tools/bin/kustomize build config/crd > config/crd/baremetalhost.crd.yaml &&\
     mkdir /go/src/github.com/metal3-io/baremetal-operator/manifests &&\
     cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/baremetalhost.crd.yaml /go/src/github.com/metal3-io/baremetal-operator/manifests/0000_30_baremetal-operator_01_baremetalhost.crd.yaml
 

@@ -278,6 +278,7 @@ type RAIDConfig struct {
 	// The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
 	// +optional
+	// +nullable
 	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
 
 	// The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
@@ -290,6 +291,7 @@ type RAIDConfig struct {
 	// Software RAID will always be deleted.
 	// +kubebuilder:validation:MaxItems=2
 	// +optional
+	// +nullable
 	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
 }
 
@@ -440,6 +442,10 @@ type Image struct {
 	// are not required and if specified will be ignored.
 	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
 	DiskFormat *string `json:"format,omitempty"`
+}
+
+func (image *Image) IsLiveISO() bool {
+	return image != nil && image.DiskFormat != nil && *image.DiskFormat == "live-iso"
 }
 
 // Custom deploy is a description of a customized deploy process.

@@ -372,7 +372,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 				BootInterface:       bmcAccess.BootInterface(),
 				Name:                p.objectMeta.Name,
 				DriverInfo:          driverInfo,
-				DeployInterface:     p.deployInterface(data.CurrentImage),
+				DeployInterface:     p.deployInterface(data),
 				InspectInterface:    "inspector",
 				ManagementInterface: bmcAccess.ManagementInterface(),
 				PowerInterface:      bmcAccess.PowerInterface(),
@@ -913,9 +913,12 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 	return
 }
 
-func (p *ironicProvisioner) deployInterface(image *metal3v1alpha1.Image) (result string) {
-	if image.IsLiveISO() {
+func (p *ironicProvisioner) deployInterface(data provisioner.ManagementAccessData) (result string) {
+	if data.CurrentImage.IsLiveISO() {
 		result = "ramdisk"
+	}
+	if data.HasCustomDeploy {
+		result = "custom-agent"
 	}
 	return result
 }

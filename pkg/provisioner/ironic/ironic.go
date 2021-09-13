@@ -739,8 +739,11 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		"image_disk_format":   imageData.DiskFormat,
 	}
 	updater.
-		SetInstanceInfoOpts(optValues, ironicNode).
-		SetTopLevelOpt("deploy_interface", "direct", ironicNode.DeployInterface)
+		SetInstanceInfoOpts(optValues, ironicNode)
+
+	if ironicNode.DeployInterface == "ramdisk" || ironicNode.DeployInterface == "custom-agent" {
+		updater.SetTopLevelOpt("deploy_interface", nil, ironicNode.DeployInterface)
+	}
 
 	driverOptValues := optionsData{
 		"force_persistent_boot_device": "Default",
@@ -911,7 +914,6 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 }
 
 func (p *ironicProvisioner) deployInterface(image *metal3v1alpha1.Image) (result string) {
-	result = "direct"
 	if image.IsLiveISO() {
 		result = "ramdisk"
 	}

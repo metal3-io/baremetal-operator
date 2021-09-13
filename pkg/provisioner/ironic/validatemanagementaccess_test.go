@@ -108,7 +108,7 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, createdNode.DeployInterface, "direct")
+	assert.Equal(t, createdNode.DeployInterface, "")
 }
 
 func TestValidateManagementAccessCreateWithImage(t *testing.T) {
@@ -143,7 +143,7 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, createdNode.DeployInterface, "direct")
+	assert.Equal(t, createdNode.DeployInterface, "")
 	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
 	assert.Contains(t, updates, "/instance_info/image_source")
 	assert.Contains(t, updates, host.Spec.Image.URL)
@@ -347,7 +347,6 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			DriverInfo: map[string]interface{}{},
 		},
 		{
-			DeployInterface: "direct",
 			Image: &metal3v1alpha1.Image{
 				URL:      "theimage",
 				Checksum: "thechecksum",

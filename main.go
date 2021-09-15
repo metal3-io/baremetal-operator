@@ -41,6 +41,10 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
+const (
+	certDir = "/tmp/baremetal-operator/serving-certs"
+)
+
 var (
 	scheme     = k8sruntime.NewScheme()
 	setupLog   = ctrl.Log.WithName("setup")
@@ -135,6 +139,7 @@ func main() {
 		NewCache: cache.BuilderWithOptions(cache.Options{
 			SelectorsByObject: secretutils.AddSecretSelector(nil),
 		}),
+		CertDir: certDir,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

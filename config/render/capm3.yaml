@@ -1543,7 +1543,7 @@ spec:
           name: webhook-server
           protocol: TCP
         volumeMounts:
-        - mountPath: /tmp/k8s-webhook-server/serving-certs
+        - mountPath: /tmp/baremetal-operator/serving-certs
           name: cert
           readOnly: true
       terminationGracePeriodSeconds: 10

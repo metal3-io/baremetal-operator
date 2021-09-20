@@ -144,7 +144,8 @@ func TestPowerOn(t *testing.T) {
 }
 
 func TestPowerOff(t *testing.T) {
-
+	hardPowerOffReason := "Host powered off"
+	softPowerOffReason := "Host soft powered off"
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
 		name   string
@@ -155,6 +156,7 @@ func TestPowerOff(t *testing.T) {
 		expectedError        bool
 		expectedRequestAfter int
 		expectedErrorResult  bool
+		expectedReason       string
 		rebootMode           metal3v1alpha1.RebootMode
 	}{
 		{
@@ -178,40 +180,39 @@ func TestPowerOff(t *testing.T) {
 			name: "power-off normal",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				PowerState:           powerOn,
-				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}),
-			expectedDirty: true,
-			rebootMode:    metal3v1alpha1.RebootModeSoft,
+			rebootMode:     metal3v1alpha1.RebootModeSoft,
+			expectedDirty:  true,
+			expectedReason: softPowerOffReason,
 		},
 		{
 			name: "power-off hard",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				PowerState:           powerOn,
-				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}),
-			expectedDirty: true,
-			rebootMode:    metal3v1alpha1.RebootModeHard,
+			expectedDirty:  true,
+			rebootMode:     metal3v1alpha1.RebootModeHard,
+			expectedReason: hardPowerOffReason,
 		},
 		{
 			name: "power-off wait for Provisioning state",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:           powerOn,
-				TargetPowerState:     powerOn,
 				TargetProvisionState: string(nodes.TargetDeleted),
 				UUID:                 nodeUUID,
 			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
+			expectedReason:       hardPowerOffReason,
 		},
 		{
 			name: "power-off wait for locked host",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				PowerState:           powerOn,
-				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
@@ -222,19 +223,18 @@ func TestPowerOff(t *testing.T) {
 			name: "power-off soft with force",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				PowerState:           powerOn,
-				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}),
-			rebootMode:    metal3v1alpha1.RebootModeSoft,
-			force:         true,
-			expectedDirty: true,
+			rebootMode:     metal3v1alpha1.RebootModeSoft,
+			force:          true,
+			expectedDirty:  true,
+			expectedReason: hardPowerOffReason,
 		},
 		{
 			name: "power-off hard with LastError",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				PowerState:           powerOn,
-				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 				LastError:            "hard power off failed",
@@ -247,14 +247,14 @@ func TestPowerOff(t *testing.T) {
 			name: "power-off hard with force",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				PowerState:           powerOn,
-				TargetPowerState:     powerOn,
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 				LastError:            "hard power off failed",
 			}),
-			rebootMode:    metal3v1alpha1.RebootModeHard,
-			force:         true,
-			expectedDirty: true,
+			rebootMode:     metal3v1alpha1.RebootModeHard,
+			force:          true,
+			expectedDirty:  true,
+			expectedReason: hardPowerOffReason,
 		},
 	}
 
@@ -273,7 +273,10 @@ func TestPowerOff(t *testing.T) {
 
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
-			publisher := func(reason, message string) {}
+			var eventReasons []string
+			publisher := func(reason, message string) {
+				eventReasons = append(eventReasons, message)
+			}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
 				tc.ironic.Endpoint(), auth, inspector.Endpoint(), auth,
@@ -295,7 +298,12 @@ func TestPowerOff(t *testing.T) {
 			if tc.expectedErrorResult {
 				assert.Contains(t, result.ErrorMessage, "hard power off failed")
 			}
-
+			if tc.expectedReason != "" {
+				assert.Len(t, eventReasons, 1)
+				assert.Contains(t, eventReasons, tc.expectedReason)
+			} else {
+				assert.Empty(t, eventReasons)
+			}
 		})
 	}
 }

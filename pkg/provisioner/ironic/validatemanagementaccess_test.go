@@ -604,7 +604,7 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 	}
 
 	_, _, err = prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
-	assert.EqualError(t, err, "failed to find existing host: port exists but linked node doesn't random-wrong-id: Resource not found")
+	assert.EqualError(t, err, "failed to find existing host: port 11:11:11:11:11:11 exists but linked node doesn't random-wrong-id: Resource not found")
 }
 
 func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {

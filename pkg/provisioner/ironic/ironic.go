@@ -1520,12 +1520,13 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		return result, HostLockedError{}
 	case gophercloud.ErrDefault400:
 		// Error 400 Bad Request means target power state is not supported by vendor driver
-		p.log.Info("power change error", "message", changeResult.Err)
-		return result, SoftPowerOffUnsupportedError{}
-	default:
-		p.log.Info("power change error", "message", changeResult.Err)
-		return transientError(errors.Wrap(changeResult.Err, "failed to change power state"))
+		if target == nodes.SoftPowerOff {
+			p.log.Info("power change error", "message", changeResult.Err)
+			return result, SoftPowerOffUnsupportedError{}
+		}
 	}
+	p.log.Info("power change error", "message", changeResult.Err)
+	return transientError(errors.Wrap(changeResult.Err, "failed to change power state"))
 }
 
 // PowerOn ensures the server is powered on independently of any image
@@ -1590,9 +1591,12 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force
 		}
 
 		if rebootMode == metal3v1alpha1.RebootModeSoft && !force {
-			return p.softPowerOff(ironicNode)
+			result, err := p.softPowerOff(ironicNode)
+			if !errors.As(err, &SoftPowerOffUnsupportedError{}) {
+				return result, err
+			}
 		}
-		// Reboot mode is hard or force flag is set
+		// Reboot mode is hard, force flag is set, or soft power off is not supported
 		return p.hardPowerOff(ironicNode)
 	}
 

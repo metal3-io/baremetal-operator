@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -306,4 +307,44 @@ func TestPowerOff(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSoftPowerOffFallback(t *testing.T) {
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+	node := nodes.Node{
+		PowerState: powerOn,
+		UUID:       nodeUUID,
+	}
+	ironic := testserver.NewIronic(t).Ready().Node(node).WithNodeStatesPowerUpdate(nodeUUID, http.StatusBadRequest)
+	ironic.Start()
+	defer ironic.Stop()
+	inspector := testserver.NewInspector(t).Ready()
+	inspector.Start()
+	defer inspector.Stop()
+
+	host := makeHost()
+	host.Status.Provisioning.ID = nodeUUID
+	var eventReasons []string
+	publisher := func(reason, message string) {
+		eventReasons = append(eventReasons, message)
+	}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
+		ironic.Endpoint(), auth, inspector.Endpoint(), auth,
+	)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	_, err = prov.PowerOff(metal3v1alpha1.RebootModeSoft, false)
+	assert.Error(t, err)
+	assert.False(t, errors.As(err, &SoftPowerOffUnsupportedError{}))
+
+	_, err = prov.changePower(&node, nodes.PowerOff)
+	assert.Error(t, err)
+	assert.False(t, errors.As(err, &SoftPowerOffUnsupportedError{}))
+
+	_, err = prov.changePower(&node, nodes.SoftPowerOff)
+	assert.Error(t, err)
+	assert.True(t, errors.As(err, &SoftPowerOffUnsupportedError{}))
 }

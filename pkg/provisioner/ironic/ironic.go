@@ -32,9 +32,9 @@ var (
 
 const (
 	// See nodes.Node.PowerState for details
-	powerOn              = "power on"
-	powerOff             = "power off"
-	softPowerOff         = "soft power off"
+	powerOn              = string(nodes.PowerOn)
+	powerOff             = string(nodes.PowerOff)
+	softPowerOff         = string(nodes.SoftPowerOff)
 	powerNone            = "None"
 	nameSeparator        = "~"
 	customDeployPriority = 80
@@ -1515,7 +1515,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 	powerStateOpts := nodes.PowerStateOpts{
 		Target: target,
 	}
-	if target == softPowerOff {
+	if target == nodes.SoftPowerOff {
 		powerStateOpts.Timeout = int(softPowerOffTimeout.Seconds())
 	}
 

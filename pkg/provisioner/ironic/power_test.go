@@ -208,7 +208,6 @@ func TestPowerOff(t *testing.T) {
 			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
-			expectedReason:       hardPowerOffReason,
 		},
 		{
 			name: "power-off wait for locked host",

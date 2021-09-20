@@ -1513,11 +1513,16 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 	switch changeResult.Err.(type) {
 	case nil:
 		p.log.Info("power change OK")
+		event := map[nodes.TargetPowerState]struct{ Event, Reason string }{
+			nodes.PowerOn:      {Event: "PowerOn", Reason: "Host powered on"},
+			nodes.PowerOff:     {Event: "PowerOff", Reason: "Host powered off"},
+			nodes.SoftPowerOff: {Event: "PowerOff", Reason: "Host soft powered off"},
+		}[target]
+		p.publisher(event.Event, event.Reason)
 		return operationContinuing(0)
 	case gophercloud.ErrDefault409:
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
-		result, _ = retryAfterDelay(powerRequeueDelay)
-		return result, HostLockedError{}
+		return retryAfterDelay(powerRequeueDelay)
 	case gophercloud.ErrDefault400:
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		if target == nodes.SoftPowerOff {
@@ -1526,7 +1531,8 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		}
 	}
 	p.log.Info("power change error", "message", changeResult.Err)
-	return transientError(errors.Wrap(changeResult.Err, "failed to change power state"))
+	return transientError(errors.Wrap(changeResult.Err,
+		fmt.Sprintf("failed to %s node", target)))
 }
 
 // PowerOn ensures the server is powered on independently of any image
@@ -1552,16 +1558,7 @@ func (p *ironicProvisioner) PowerOn(force bool) (result provisioner.Result, err 
 			return operationFailed(fmt.Sprintf("PowerOn operation failed: %s",
 				ironicNode.LastError))
 		}
-		if result, err = p.changePower(ironicNode, nodes.PowerOn); err == nil {
-			p.publisher("PowerOn", "Host powered on")
-			return result, nil
-		}
-		switch err.(type) {
-		case HostLockedError:
-			return retryAfterDelay(powerRequeueDelay)
-		default:
-			return transientError(errors.Wrap(err, "failed to PowerOn node"))
-		}
+		return p.changePower(ironicNode, nodes.PowerOn)
 	}
 	return result, nil
 }
@@ -1591,54 +1588,16 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force
 		}
 
 		if rebootMode == metal3v1alpha1.RebootModeSoft && !force {
-			result, err := p.softPowerOff(ironicNode)
+			result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
 			if !errors.As(err, &SoftPowerOffUnsupportedError{}) {
 				return result, err
 			}
 		}
 		// Reboot mode is hard, force flag is set, or soft power off is not supported
-		return p.hardPowerOff(ironicNode)
+		return p.changePower(ironicNode, nodes.PowerOff)
 	}
 
 	return operationComplete()
-}
-
-// hardPowerOff sends 'power off' request to BM node and waits for the result
-func (p *ironicProvisioner) hardPowerOff(ironicNode *nodes.Node) (result provisioner.Result, err error) {
-	p.log.Info("ensuring host is powered off by \"hard power off\" command")
-
-	result, err = p.changePower(ironicNode, nodes.PowerOff)
-	if err != nil {
-		switch err.(type) {
-		case HostLockedError:
-			return retryAfterDelay(powerRequeueDelay)
-		default:
-			return transientError(errors.Wrap(err, "failed to power off host"))
-		}
-	}
-	p.publisher("PowerOff", "Host powered off")
-	return result, err
-}
-
-// softPowerOff sends 'soft power off' request to BM node.
-// If soft power off is not supported, the request ends with an error.
-// Otherwise the request ends with no error and the result should be
-// checked later via node fields "power_state", "target_power_state"
-// and "last_error".
-func (p *ironicProvisioner) softPowerOff(ironicNode *nodes.Node) (result provisioner.Result, err error) {
-	p.log.Info("ensuring host is powered off by \"soft power off\" command")
-
-	result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
-	if err != nil {
-		switch err.(type) {
-		case HostLockedError:
-			return retryAfterDelay(powerRequeueDelay)
-		default:
-			return transientError(errors.Wrap(err, "failed to power off host"))
-		}
-	}
-	p.publisher("PowerOff", "Host soft powered off")
-	return result, nil
 }
 
 func ironicNodeName(objMeta metav1.ObjectMeta) string {

@@ -1490,6 +1490,11 @@ func (p *ironicProvisioner) Detach() (result provisioner.Result, err error) {
 // softPowerOffUnsupportedError is returned when the BMC does not
 // support soft power off.
 type softPowerOffUnsupportedError struct {
+	cause error
+}
+
+func (e softPowerOffUnsupportedError) Unwrap() error {
+	return e.cause
 }
 
 func (e softPowerOffUnsupportedError) Error() string {
@@ -1535,8 +1540,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 	case gophercloud.ErrDefault400:
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		if target == nodes.SoftPowerOff {
-			p.log.Info("power change error", "message", changeResult.Err)
-			return result, softPowerOffUnsupportedError{}
+			changeResult.Err = softPowerOffUnsupportedError{changeResult.Err}
 		}
 	}
 	p.log.Info("power change error", "message", changeResult.Err)

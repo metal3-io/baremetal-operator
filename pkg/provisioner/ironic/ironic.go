@@ -1487,6 +1487,15 @@ func (p *ironicProvisioner) Detach() (result provisioner.Result, err error) {
 	return p.Delete()
 }
 
+// softPowerOffUnsupportedError is returned when the BMC does not
+// support soft power off.
+type softPowerOffUnsupportedError struct {
+}
+
+func (e softPowerOffUnsupportedError) Error() string {
+	return "soft power off is unsupported on BMC"
+}
+
 func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.TargetPowerState) (result provisioner.Result, err error) {
 	p.log.Info("changing power state")
 
@@ -1527,7 +1536,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		if target == nodes.SoftPowerOff {
 			p.log.Info("power change error", "message", changeResult.Err)
-			return result, SoftPowerOffUnsupportedError{}
+			return result, softPowerOffUnsupportedError{}
 		}
 	}
 	p.log.Info("power change error", "message", changeResult.Err)
@@ -1589,7 +1598,7 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force
 
 		if rebootMode == metal3v1alpha1.RebootModeSoft && !force {
 			result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
-			if !errors.As(err, &SoftPowerOffUnsupportedError{}) {
+			if !errors.As(err, &softPowerOffUnsupportedError{}) {
 				return result, err
 			}
 		}

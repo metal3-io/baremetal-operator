@@ -337,13 +337,13 @@ func TestSoftPowerOffFallback(t *testing.T) {
 
 	_, err = prov.PowerOff(metal3v1alpha1.RebootModeSoft, false)
 	assert.Error(t, err)
-	assert.False(t, errors.As(err, &SoftPowerOffUnsupportedError{}))
+	assert.False(t, errors.As(err, &softPowerOffUnsupportedError{}))
 
 	_, err = prov.changePower(&node, nodes.PowerOff)
 	assert.Error(t, err)
-	assert.False(t, errors.As(err, &SoftPowerOffUnsupportedError{}))
+	assert.False(t, errors.As(err, &softPowerOffUnsupportedError{}))
 
 	_, err = prov.changePower(&node, nodes.SoftPowerOff)
 	assert.Error(t, err)
-	assert.True(t, errors.As(err, &SoftPowerOffUnsupportedError{}))
+	assert.True(t, errors.As(err, &softPowerOffUnsupportedError{}))
 }

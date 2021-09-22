@@ -109,7 +109,8 @@ func main() {
 		"use the demo provisioner to set host states")
 	flag.StringVar(&healthAddr, "health-addr", ":9440",
 		"The address the health endpoint binds to.")
-	flag.IntVar(&webhookPort, "webhook-port", 9443,
+	// NOTE (honza): Downstream only: disabling webhooks until CBO supports them
+	flag.IntVar(&webhookPort, "webhook-port", 0,
 		"Webhook Server port (set to 0 to disable)")
 	flag.Parse()
 

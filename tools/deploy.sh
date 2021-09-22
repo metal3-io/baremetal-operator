@@ -20,7 +20,6 @@ DEPLOY_BASIC_AUTH="${4,,}"
 DEPLOY_KEEPALIVED="${5,,}"
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
-KUSTOMIZE="go run sigs.k8s.io/kustomize/kustomize/v3"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
 export NAMEPREFIX=${NAMEPREFIX:-"capm3"}
 
@@ -43,6 +42,9 @@ IRONIC_DEPLOY_FILES="${SCRIPTDIR}/ironic-deployment/basic-auth/default/auth.yaml
 	${SCRIPTDIR}/ironic-deployment/tls/default/tls.yaml \
 	${SCRIPTDIR}/ironic-deployment/tls/keepalived/kustomization.yaml \
 	${SCRIPTDIR}/ironic-deployment/tls/keepalived/tls.yaml"
+
+KUSTOMIZE="tools/bin/kustomize"
+make -C "$(dirname "$0")/.." "${KUSTOMIZE}"
 
 for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
   cp "$DEPLOY_FILE" "$DEPLOY_FILE".bak

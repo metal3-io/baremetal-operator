@@ -18,8 +18,8 @@ COVER_PROFILE = cover.out
 BIN_DIR := bin
 
 CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
-GOLANGCI_LINT ?= GOLANGCI_LINT_CACHE=$(GOLANGCI_LINT_CACHE) go run github.com/golangci/golangci-lint/cmd/golangci-lint
-KUSTOMIZE ?= go run sigs.k8s.io/kustomize/kustomize/v3
+KUSTOMIZE = tools/bin/kustomize
+CONTROLLER_GEN = tools/bin/controller-gen
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
@@ -83,9 +83,12 @@ unit-verbose: ## Run unit tests with verbose output
 .PHONY: linters
 linters: lint generate-check fmt-check
 
+tools/bin/golangci-lint: hack/tools/go.mod
+	cd hack/tools; go build -o $(abspath $@) github.com/golangci/golangci-lint/cmd/golangci-lint
+
 .PHONY: lint
-lint:
-	$(GOLANGCI_LINT) run
+lint: tools/bin/golangci-lint
+	$< run
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation
@@ -104,41 +107,50 @@ manager: generate lint ## Build manager binary
 
 .PHONY: run
 run: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev
+	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -webhook-port=0
 
 .PHONY: demo
 demo: generate lint manifests ## Run in demo mode
-	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -demo-mode
+	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -demo-mode -webhook-port=0
 
 .PHONY: run-test-mode
 run-test-mode: generate fmt-check lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -test-mode
+	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -test-mode -webhook-port=0
 
 .PHONY: install
-install: manifests ## Install CRDs into a cluster
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+install: $(KUSTOMIZE) manifests ## Install CRDs into a cluster
+	$< build config/crd | kubectl apply -f -
 
 .PHONY: uninstall
-uninstall: manifests ## Uninstall CRDs from a cluster
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+uninstall: $(KUSTOMIZE) manifests ## Uninstall CRDs from a cluster
+	$< build config/crd | kubectl delete -f -
 
 .PHONY: deploy
-deploy: manifests ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: $(KUSTOMIZE) manifests ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	cd config/manager && kustomize edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+	$< build config/default | kubectl apply -f -
 
-tools/bin/controller-gen: go.mod
-	go build -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
+$(CONTROLLER_GEN): hack/tools/go.mod
+	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen
+
+$(KUSTOMIZE): hack/tools/go.mod
+	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v3
 
 .PHONY: manifests
-manifests: tools/bin/controller-gen ## Generate manifests e.g. CRD, RBAC etc.
-	cd apis; ../$< $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=../config/crd/bases
+manifests: manifests-generate manifests-kustomize ## Generate manifests e.g. CRD, RBAC etc.
+
+.PHONY: manifests-generate
+manifests-generate: $(CONTROLLER_GEN)
+	cd apis; $(abspath $<) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:webhook:dir=../config/webhook/ output:crd:artifacts:config=../config/crd/bases
 	$< rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/rbac
-	$(KUSTOMIZE) build config/default > config/render/capm3.yaml
+
+.PHONY: manifests-kustomize
+manifests-kustomize: $(KUSTOMIZE)
+	$< build config/default > config/render/capm3.yaml
 
 .PHONY: generate
-generate: tools/bin/controller-gen ## Generate code
-	cd apis; ../$< object:headerFile="../hack/boilerplate.go.txt" paths="./..."
+generate: $(CONTROLLER_GEN) ## Generate code
+	cd apis; $(abspath $<) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 	$< object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 ## --------------------------------------
@@ -214,3 +226,7 @@ kind-reset: ## Destroys the "bmo" kind cluster.
 mod: ## Clean up go module settings
 	go mod tidy
 	go mod verify
+	cd apis; go mod tidy
+	cd apis; go mod verify
+	cd hack/tools; go mod tidy
+	cd hack/tools; go mod verify

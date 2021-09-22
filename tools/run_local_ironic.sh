@@ -33,6 +33,11 @@ MARIADB_CACERT_FILE="${MARIADB_CACERT_FILE:-}"
 MARIADB_CERT_FILE="${MARIADB_CERT_FILE:-}"
 MARIADB_KEY_FILE="${MARIADB_KEY_FILE:-}"
 
+# Variables used to configure IPA handling
+IPA_DOWNLOAD_ENABLED="${IPA_DOWNLOAD_ENABLED:-true}"
+USE_LOCAL_IPA="${USE_LOCAL_IPA:-false}"
+LOCAL_IPA_PATH="${LOCAL_IPA_PATH:-/tmp/dib}"
+
 # Ensure that the MariaDB key file allow a non-owned user to read.
 if [ -n "${MARIADB_KEY_FILE}" ]
 then
@@ -153,8 +158,14 @@ if [ -n "$IRONIC_INSPECTOR_USERNAME" ]; then
      IRONIC_INSPECTOR_HTPASSWD="--env HTTP_BASIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" "${IRONIC_INSPECTOR_PASSWORD}")"
 fi
 
-
 sudo mkdir -p "$IRONIC_DATA_DIR/html/images"
+# Locally supplied IPA images are imported here when the environment variables are set accordingly.
+# Name of the IPA archive is expected to be "ironic-python-agent.tar" at all times.
+if ${USE_LOCAL_IPA} && ! ${IPA_DOWNLOAD_ENABLED}; then
+    sudo cp "${LOCAL_IPA_PATH}/ironic-python-agent.tar" "$IRONIC_DATA_DIR/html/images"
+    sudo tar --extract --file "$IRONIC_DATA_DIR/html/images/ironic-python-agent.tar" \
+        --directory "$IRONIC_DATA_DIR/html/images"
+fi
 
 # The images directory should contain images and an associated md5sum.
 #   - image.qcow2
@@ -180,12 +191,14 @@ if [[ "${CONTAINER_RUNTIME}" == "podman" ]]; then
 fi
 
 # Start image downloader container
-# shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader \
-     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     -v "$IRONIC_DATA_DIR:/shared" "${IPA_DOWNLOADER_IMAGE}" /usr/local/bin/get-resource.sh
+if ${IPA_DOWNLOAD_ENABLED}; then
+  # shellcheck disable=SC2086
+  sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader \
+    ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+    -v "$IRONIC_DATA_DIR:/shared" "${IPA_DOWNLOADER_IMAGE}" /usr/local/bin/get-resource.sh
 
-sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
+  sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
+fi
 
 # Start dnsmasq, http, mariadb, and ironic containers using same image
 

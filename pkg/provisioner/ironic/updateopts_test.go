@@ -1229,3 +1229,31 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 		})
 	}
 }
+
+func TestSanitisedValue(t *testing.T) {
+	unchanged := []interface{}{
+		"foo",
+		42,
+		true,
+		[]string{"bar", "baz"},
+		map[string]string{"foo": "bar"},
+		map[string][]string{"foo": {"bar", "baz"}},
+		map[string]interface{}{"foo": []string{"bar", "baz"}, "bar": 42},
+	}
+
+	for _, u := range unchanged {
+		assert.Exactly(t, u, sanitisedValue(u))
+	}
+
+	unsafe := map[string]interface{}{
+		"foo":           "bar",
+		"password":      "secret",
+		"ipmi_password": "secret",
+	}
+	safe := map[string]interface{}{
+		"foo":           "bar",
+		"password":      "<redacted>",
+		"ipmi_password": "<redacted>",
+	}
+	assert.Exactly(t, safe, sanitisedValue(unsafe))
+}

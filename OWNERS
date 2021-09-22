@@ -1,16 +1,15 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
 approvers:
+ - andfasano
  - dtantsur
+ - fmuyassarov
  - hardys
  - maelk
- - russellb
  - stbenjam
  - zaneb
 
 reviewers:
- - andfasano
- - fmuyassarov
  - honza
  - dukov
  - kashifest

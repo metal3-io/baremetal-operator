@@ -885,6 +885,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		InstanceInfo: map[string]interface{}{
 			"boot_iso": "oldimage",
 		},
+		DeployInterface: "ramdisk",
 	}
 
 	provData := provisioner.ProvisionData{
@@ -906,9 +907,8 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 			Op:   nodes.RemoveOp,
 		},
 		{
-			Path:  "/deploy_interface",
-			Value: "direct",
-			Op:    nodes.AddOp,
+			Path: "/deploy_interface",
+			Op:   nodes.RemoveOp,
 		},
 		{
 			Path:  "/instance_info/image_source",

@@ -49,6 +49,10 @@ spec:
       jsonPath: .status.errorType
       name: Error
       type: string
+    - description: Time duration since creation of BaremetalHost
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:

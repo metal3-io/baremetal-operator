@@ -182,6 +182,10 @@ generate-check-local:
 fmt-check: ## Run gofmt and report an error if any changes are made
 	./hack/gofmt.sh
 
+.PHONY: fmt
+fmt: ## Run gofmt and fix files with formatting issues
+	gofmt -s -w .
+
 ## --------------------------------------
 ## Documentation
 ## --------------------------------------

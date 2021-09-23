@@ -13,7 +13,7 @@ if [ "${IS_CONTAINER}" != "false" ]; then
 
   # shellcheck disable=SC2086
   if [ -n "$(gofmt -l .)" ]; then
-      make fmt
+      gofmt -s -d -e .
       exit 1
   fi
 else

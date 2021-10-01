@@ -101,14 +101,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap
-        - name: ironic-inspector-log-watch
-          image: quay.io/metal3-io/ironic
-          imagePullPolicy: Always
-          command:
-            - /bin/runlogwatch.sh
-          volumeMounts:
-            - mountPath: /shared
-              name: ironic-data-volume
       initContainers:
         - name: ironic-ipa-downloader
           image: quay.io/metal3-io/ironic-ipa-downloader

@@ -456,7 +456,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -469,7 +468,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -482,7 +480,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -495,7 +492,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "irmc",
-			vendor:     "",
 		},
 
 		{
@@ -508,7 +504,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -521,7 +516,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -534,7 +528,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -547,7 +540,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -560,7 +552,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			raid:       "no-raid",
-			vendor:     "no-vendor",
+			vendor:     "idrac-redfish",
 		},
 
 		{
@@ -600,7 +592,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			raid:       "no-raid",
-			vendor:     "no-vendor",
+			vendor:     "idrac-redfish",
 		},
 
 		{
@@ -613,7 +605,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			raid:       "no-raid",
-			vendor:     "no-vendor",
+			vendor:     "idrac-redfish",
 		},
 
 		{
@@ -626,7 +618,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			raid:       "no-raid",
-			vendor:     "no-vendor",
+			vendor:     "idrac-redfish",
 		},
 
 		{
@@ -639,7 +631,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "ibmc",
 			power:      "ibmc",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -652,7 +643,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "no-raid",
-			vendor:     "",
 		},
 
 		{
@@ -665,7 +655,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			management: "",
 			power:      "",
 			raid:       "ilo5",
-			vendor:     "",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
@@ -686,6 +675,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			if acc.BIOSInterface() != tc.bios {
 				t.Fatalf("Unexpected bios interface %q, expected %q",
 					acc.BIOSInterface(), tc.bios)
+			}
+			if acc.VendorInterface() != tc.vendor {
+				t.Fatalf("Unexpected vendor interface %q, expected %q",
+					acc.VendorInterface(), tc.vendor)
 			}
 		})
 	}

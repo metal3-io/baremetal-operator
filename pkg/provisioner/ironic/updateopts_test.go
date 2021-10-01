@@ -885,6 +885,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		InstanceInfo: map[string]interface{}{
 			"boot_iso": "oldimage",
 		},
+		DeployInterface: "ramdisk",
 	}
 
 	provData := provisioner.ProvisionData{
@@ -906,9 +907,8 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 			Op:   nodes.RemoveOp,
 		},
 		{
-			Path:  "/deploy_interface",
-			Value: "direct",
-			Op:    nodes.AddOp,
+			Path: "/deploy_interface",
+			Op:   nodes.RemoveOp,
 		},
 		{
 			Path:  "/instance_info/image_source",
@@ -1228,4 +1228,32 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
 		})
 	}
+}
+
+func TestSanitisedValue(t *testing.T) {
+	unchanged := []interface{}{
+		"foo",
+		42,
+		true,
+		[]string{"bar", "baz"},
+		map[string]string{"foo": "bar"},
+		map[string][]string{"foo": {"bar", "baz"}},
+		map[string]interface{}{"foo": []string{"bar", "baz"}, "bar": 42},
+	}
+
+	for _, u := range unchanged {
+		assert.Exactly(t, u, sanitisedValue(u))
+	}
+
+	unsafe := map[string]interface{}{
+		"foo":           "bar",
+		"password":      "secret",
+		"ipmi_password": "secret",
+	}
+	safe := map[string]interface{}{
+		"foo":           "bar",
+		"password":      "<redacted>",
+		"ipmi_password": "<redacted>",
+	}
+	assert.Exactly(t, safe, sanitisedValue(unsafe))
 }

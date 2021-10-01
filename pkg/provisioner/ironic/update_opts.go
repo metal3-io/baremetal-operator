@@ -3,6 +3,7 @@ package ironic
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 
@@ -72,6 +73,27 @@ func deref(v interface{}) interface{} {
 	return ptrVal.Elem().Interface()
 }
 
+func sanitisedValue(data interface{}) interface{} {
+	dataType := reflect.TypeOf(data)
+	if dataType.Kind() != reflect.Map ||
+		dataType.Key().Kind() != reflect.String {
+		return data
+	}
+
+	value := reflect.ValueOf(data)
+	safeValue := reflect.MakeMap(dataType)
+
+	for _, k := range value.MapKeys() {
+		safeDatumValue := value.MapIndex(k)
+		if strings.Contains(k.String(), "password") {
+			safeDatumValue = reflect.ValueOf("<redacted>")
+		}
+		safeValue.SetMapIndex(k, safeDatumValue)
+	}
+
+	return safeValue.Interface()
+}
+
 func getUpdateOperation(name string, currentData map[string]interface{}, desiredValue interface{}, path string, log logr.Logger) *nodes.UpdateOperation {
 	current, present := currentData[name]
 
@@ -81,10 +103,11 @@ func getUpdateOperation(name string, currentData map[string]interface{}, desired
 			if log != nil {
 				if present {
 					log.Info("updating option data",
-						"value", desiredValue, "old_value", current)
+						"value", sanitisedValue(desiredValue),
+						"old_value", current)
 				} else {
 					log.Info("adding option data",
-						"value", desiredValue)
+						"value", sanitisedValue(desiredValue))
 				}
 			}
 			return &nodes.UpdateOperation{

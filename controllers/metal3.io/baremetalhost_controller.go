@@ -32,6 +32,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,6 +86,10 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
+
+// Allow for managing hostfirmwaresettings and firmwareschema
+//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch
 
 // Reconcile handles changes to BareMetalHost resources
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
@@ -783,7 +788,19 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		prepareData.ActualRAIDConfig = nil
 		dirty = true
 	}
+
+	// Use settings in hostFirmwareSettings if available
+	hfs, err := r.getHostFirmwareSettings(info)
+	if err != nil {
+		info.log.Info("hostFirmwareSettings not available for cleaning")
+	}
+	if hfs != nil {
+		prepareData.ActualFirmwareSettings = hfs.Status.Settings.DeepCopy()
+		prepareData.TargetFirmwareSettings = hfs.Spec.Settings.DeepCopy()
+	}
+
 	provResult, started, err := prov.Prepare(prepareData, dirty)
+
 	if err != nil {
 		return actionError{errors.Wrap(err, "error preparing host")}
 	}
@@ -1147,6 +1164,37 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 
 	return
+}
+
+// Get the stored firmware settings if there are valid changes
+func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (hfs *metal3v1alpha1.HostFirmwareSettings, err error) {
+
+	hfs = &metal3v1alpha1.HostFirmwareSettings{}
+	if err = r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
+
+		if !k8serrors.IsNotFound(err) {
+			// Error reading the object
+			return nil, errors.Wrap(err, "could not load host firmware settings")
+		}
+
+		// Could not get settings, log it but don't return error as settings may not have been available at provisioner
+		info.log.Info("could not get hostFirmwareSettings", "namespacename", info.request.NamespacedName)
+		return nil, nil
+	}
+
+	// Check if there are settings in the Spec that are different than the Status
+	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.UpdateRequested)) {
+
+		if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.SettingsValid)) {
+			return hfs, nil
+		}
+
+		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
+		return nil, nil
+	}
+
+	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)
+	return nil, nil
 }
 
 func (r *BareMetalHostReconciler) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {

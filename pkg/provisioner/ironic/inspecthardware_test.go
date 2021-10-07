@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/ironic/testserver"
+
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 

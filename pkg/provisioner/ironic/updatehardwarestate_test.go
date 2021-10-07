@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/ironic/testserver"
+
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 )
 
 func TestUpdateHardwareState(t *testing.T) {

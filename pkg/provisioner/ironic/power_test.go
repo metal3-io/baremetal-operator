@@ -6,14 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/ironic/testserver"
+
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 )
 
 func TestPowerOn(t *testing.T) {

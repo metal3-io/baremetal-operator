@@ -95,8 +95,8 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 
 	// Ensure we have a microversion high enough to get the features
 	// we need. Update docs/configuration.md when updating the version.
-	// Version 1.69 introduces deploySteps argument to provisioning.
-	client.Microversion = "1.69"
+	// Version 1.74 allows retrival of the BIOS Registry
+	client.Microversion = "1.74"
 
 	return updateHTTPClient(client, tls)
 }

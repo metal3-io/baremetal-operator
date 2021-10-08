@@ -843,6 +843,54 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 	return updater
 }
 
+// GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
+func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, err error) {
+
+	ironicNode, err := p.getNode()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("could not get node for BIOS settings"))
+	}
+
+	// Get the settings from Ironic via Gophercloud
+	var settingsList []nodes.BIOSSetting
+	var biosListErr error
+	if includeSchema {
+		opts := nodes.ListBIOSSettingsOpts{Detail: true}
+		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, ironicNode.UUID, opts).Extract()
+	} else {
+		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, ironicNode.UUID, nil).Extract()
+	}
+	if biosListErr != nil {
+		return nil, nil, errors.Wrap(biosListErr,
+			fmt.Sprintf("could not get BIOS settings for node %s", ironicNode.UUID))
+	}
+	p.log.Info("retrieved BIOS settings for node", "node", ironicNode.UUID, "size", len(settingsList))
+
+	settings = make(map[string]string)
+	schema = make(map[string]metal3v1alpha1.SettingSchema)
+
+	for _, v := range settingsList {
+		settings[v.Name] = v.Value
+
+		if includeSchema {
+			// add to schema
+			schema[v.Name] = metal3v1alpha1.SettingSchema{
+				AttributeType:   v.AttributeType,
+				AllowableValues: v.AllowableValues,
+				LowerBound:      v.LowerBound,
+				UpperBound:      v.UpperBound,
+				MinLength:       v.MinLength,
+				MaxLength:       v.MaxLength,
+				ReadOnly:        v.ReadOnly,
+				ResetRequired:   v.ResetRequired,
+				Unique:          v.Unique,
+			}
+		}
+	}
+
+	return settings, schema, nil
+}
+
 // We can't just replace the capabilities because we need to keep the
 // values provided by inspection. We can't replace only the boot_mode
 // because the API isn't fine-grained enough for that. So we have to
@@ -1006,19 +1054,50 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	}
 	cleanSteps = append(cleanSteps, raidCleanSteps...)
 
-	// Build bios clean steps
-	settings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
+	// Get the subset (currently 3) of vendor specific BIOS settings converted from common names
+	bmcsettings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
 	if err != nil {
 		return nil, err
 	}
-	if len(settings) != 0 {
+
+	var newSettings []map[string]string
+	if data.ActualFirmwareSettings != nil {
+		// If we have the current settings from Ironic, update the settings to contain:
+		// 1. settings converted by BMC drivers that are different than current settings
+		for _, bmcsetting := range bmcsettings {
+			if val, exists := data.ActualFirmwareSettings[bmcsetting["name"]]; exists {
+				if bmcsetting["value"] != val {
+					newSettings = buildFirmwareSettings(newSettings, bmcsetting["name"], bmcsetting["value"])
+				}
+			} else {
+				p.log.Info("name converted from bmc driver not found in firmware settings", "name", bmcsetting["name"], "node", p.nodeID)
+			}
+		}
+
+		// 2. target settings that are different than current settings
+		if data.TargetFirmwareSettings != nil {
+			for k, v := range data.TargetFirmwareSettings {
+				if data.ActualFirmwareSettings[k] != v.String() {
+					newSettings = buildFirmwareSettings(newSettings, k, v.String())
+				}
+			}
+		}
+	} else {
+		// use only the settings converted by bmc driver
+		for _, bmcsetting := range bmcsettings {
+			newSettings = append(newSettings, bmcsetting)
+		}
+	}
+
+	if len(newSettings) != 0 {
+		p.log.Info("Applying BIOS config clean steps", "settings", newSettings)
 		cleanSteps = append(
 			cleanSteps,
 			nodes.CleanStep{
 				Interface: "bios",
 				Step:      "apply_configuration",
 				Args: map[string]interface{}{
-					"settings": settings,
+					"settings": newSettings,
 				},
 			},
 		)
@@ -1027,6 +1106,21 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	// TODO: Add manual cleaning steps for host configuration
 
 	return
+}
+
+func buildFirmwareSettings(settings []map[string]string, name string, value string) []map[string]string {
+	// if name already exists, don't add it
+	for _, setting := range settings {
+		if setting["name"] == name {
+			return settings
+		}
+	}
+
+	return append(settings,
+		map[string]string{
+			"name":  name,
+			"value": value},
+	)
 }
 
 func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.PrepareData) (success bool, result provisioner.Result, err error) {
@@ -1094,6 +1188,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 			started = true
 		}
 		// Automated clean finished
+
 		result, err = operationComplete()
 
 	case nodes.Manageable:

@@ -33,6 +33,16 @@ type SchemaReference struct {
 	Name string `json:"name"`
 }
 
+type SettingsConditionType string
+
+const (
+	// Indicates that the settings in the Spec are different than Status
+	UpdateRequested SettingsConditionType = "UpdateRequested"
+
+	// Indicates if the settings are valid and can be configured on the host
+	SettingsValid SettingsConditionType = "Valid"
+)
+
 // HostFirmwareSettingsSpec defines the desired state of HostFirmwareSettings
 type HostFirmwareSettingsSpec struct {
 
@@ -53,9 +63,18 @@ type HostFirmwareSettingsStatus struct {
 
 	// Settings are the actual firmware settings stored as name/value pairs
 	Settings SettingsMap `json:"settings" required:"true"`
+
+	// Track whether settings stored in the spec are valid based on the schema
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:shortName=hfs
 //+kubebuilder:subresource:status
 
 // HostFirmwareSettings is the Schema for the hostfirmwaresettings API

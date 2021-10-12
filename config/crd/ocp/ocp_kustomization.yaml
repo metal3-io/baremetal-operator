@@ -7,6 +7,8 @@ commonAnnotations:
 # It should be run by config/default
 resources:
 - bases/metal3.io_baremetalhosts.yaml
+- bases/metal3.io_firmwareschemas.yaml
+- bases/metal3.io_hostfirmwaresettings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

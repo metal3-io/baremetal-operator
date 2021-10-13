@@ -101,6 +101,10 @@ func (a *redfishVirtualMediaAccessDetails) SupportsISOPreprovisioningImage() boo
 	return true
 }
 
+func (a *redfishVirtualMediaAccessDetails) RequiresProvisioningNetwork() bool {
+	return false
+}
+
 func (a *redfishVirtualMediaAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig != nil {
 		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())

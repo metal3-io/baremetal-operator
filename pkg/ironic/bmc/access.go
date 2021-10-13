@@ -70,6 +70,9 @@ type AccessDetails interface {
 	// Whether the driver supports booting a preprovisioning image in ISO format
 	SupportsISOPreprovisioningImage() bool
 
+	// RequiresProvisioningNetwork checks the driver requires provisioning network
+	RequiresProvisioningNetwork() bool
+
 	// Build bios clean steps for ironic
 	BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error)
 }

@@ -104,6 +104,10 @@ func (a *iLO5AccessDetails) SupportsISOPreprovisioningImage() bool {
 	return false
 }
 
+func (a *iLO5AccessDetails) RequiresProvisioningNetwork() bool {
+	return true
+}
+
 func (a *iLO5AccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil

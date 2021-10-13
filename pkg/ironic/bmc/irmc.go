@@ -102,6 +102,10 @@ func (a *iRMCAccessDetails) SupportsISOPreprovisioningImage() bool {
 	return false
 }
 
+func (a *iRMCAccessDetails) RequiresProvisioningNetwork() bool {
+	return true
+}
+
 func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil

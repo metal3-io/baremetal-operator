@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestCheckSettingIsValid(t *testing.T) {
+func TestValidateSetting(t *testing.T) {
 
 	lower_bound := 1
 	upper_bound := 20
@@ -42,96 +42,100 @@ func TestCheckSettingIsValid(t *testing.T) {
 		Scenario string
 		Name     string
 		Value    intstr.IntOrString
-		Expected bool
+		Expected string
 	}{
 		{
 			Scenario: "StringTypePass",
 			Name:     "AssetTag",
 			Value:    intstr.FromString("NewServer"),
-			Expected: true,
+			Expected: "",
 		},
 		{
 			Scenario: "StringTypeFailUpper",
 			Name:     "AssetTag",
 			Value:    intstr.FromString("NewServerPutInServiceIn2021"),
-			Expected: false,
+			Expected: "Setting AssetTag is invalid, string NewServerPutInServiceIn2021 length is above maximum length 16",
 		},
 		{
 			Scenario: "StringTypeFailLower",
 			Name:     "AssetTag",
 			Value:    intstr.FromString(""),
-			Expected: false,
+			Expected: "Setting AssetTag is invalid, string  length is below minimum length 1",
 		},
 		{
 			Scenario: "EnumerationTypePass",
 			Name:     "ProcVirtualization",
 			Value:    intstr.FromString("Disabled"),
-			Expected: true,
+			Expected: "",
 		},
 		{
 			Scenario: "EnumerationTypeFail",
 			Name:     "ProcVirtualization",
 			Value:    intstr.FromString("Foo"),
-			Expected: false,
+			Expected: "Setting ProcVirtualization is invalid, unknown enumeration value - Foo",
 		},
 		{
 			Scenario: "IntegerTypePassAsString",
 			Name:     "NetworkBootRetryCount",
 			Value:    intstr.FromString("10"),
-			Expected: true,
+			Expected: "",
 		},
 		{
 			Scenario: "IntegerTypePassAsInt",
 			Name:     "NetworkBootRetryCount",
 			Value:    intstr.FromInt(10),
-			Expected: true,
+			Expected: "",
 		},
 		{
 			Scenario: "IntegerTypeFailUpper",
 			Name:     "NetworkBootRetryCount",
 			Value:    intstr.FromString("42"),
-			Expected: false,
+			Expected: "Setting NetworkBootRetryCount is invalid, integer 42 is above maximum value 20",
 		},
 		{
 			Scenario: "IntegerTypeFailLower",
 			Name:     "NetworkBootRetryCount",
 			Value:    intstr.FromInt(0),
-			Expected: false,
+			Expected: "Setting NetworkBootRetryCount is invalid, integer 0 is below minimum value 1",
 		},
 		{
 			Scenario: "BooleanTypePass",
 			Name:     "QuietBoot",
 			Value:    intstr.FromString("true"),
-			Expected: true,
+			Expected: "",
 		},
 		{
 			Scenario: "BooleanTypeFail",
 			Name:     "QuietBoot",
 			Value:    intstr.FromString("Enabled"),
-			Expected: false,
+			Expected: "Setting QuietBoot is invalid, Enabled is not a boolean",
 		},
 		{
 			Scenario: "ReadOnlyTypeFail",
 			Name:     "SerialNumber",
 			Value:    intstr.FromString("42"),
-			Expected: false,
+			Expected: "Setting SerialNumber is invalid, it is ReadOnly",
 		},
 		{
 			Scenario: "MissingEnumerationField",
 			Name:     "SriovEnable",
 			Value:    intstr.FromString("Disabled"),
-			Expected: true,
+			Expected: "",
 		},
 		{
 			Scenario: "UnknownSettingFail",
 			Name:     "IceCream",
 			Value:    intstr.FromString("Vanilla"),
-			Expected: false,
+			Expected: "Setting IceCream is invalid, it is not in the associated schema",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			actual := fwSchema.CheckSettingIsValid(tc.Name, tc.Value, fwSchema.Spec.Schema)
-			assert.Equal(t, tc.Expected, actual)
+			err := fwSchema.ValidateSetting(tc.Name, tc.Value, fwSchema.Spec.Schema)
+			if err == nil {
+				assert.Equal(t, tc.Expected, "")
+			} else {
+				assert.Equal(t, tc.Expected, err.Error())
+			}
 		})
 	}
 }

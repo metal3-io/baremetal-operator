@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -54,6 +56,70 @@ type SettingSchema struct {
 	Unique *bool `json:"unique,omitempty"`
 }
 
+type SchemaSettingError struct {
+	name    string
+	message string
+}
+
+func (e SchemaSettingError) Error() string {
+	return fmt.Sprintf("Setting %s is invalid, %s", e.name, e.message)
+}
+
+func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) error {
+
+	if schema.ReadOnly != nil && *schema.ReadOnly == true {
+		return SchemaSettingError{name: name, message: "it is ReadOnly"}
+	}
+
+	// Check if valid based on type
+	switch schema.AttributeType {
+	case "Enumeration":
+		for _, av := range schema.AllowableValues {
+			if value.String() == av {
+				return nil
+			}
+		}
+		return SchemaSettingError{name: name, message: fmt.Sprintf("unknown enumeration value - %s", value.String())}
+
+	case "Integer":
+		if schema.LowerBound != nil && value.IntValue() < *schema.LowerBound {
+			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is below minimum value %d", value.String(), *schema.LowerBound)}
+		}
+		if schema.UpperBound != nil && value.IntValue() > *schema.UpperBound {
+			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is above maximum value %d", value.String(), *schema.UpperBound)}
+		}
+		return nil
+
+	case "String":
+		strLen := len(value.String())
+		if schema.MinLength != nil && strLen < *schema.MinLength {
+			return SchemaSettingError{name: name, message: fmt.Sprintf("string %s length is below minimum length %d", value.String(), *schema.MinLength)}
+		}
+		if schema.MaxLength != nil && strLen > *schema.MaxLength {
+			return SchemaSettingError{name: name, message: fmt.Sprintf("string %s length is above maximum length %d", value.String(), *schema.MaxLength)}
+		}
+		return nil
+
+	case "Boolean":
+		if value.String() == "true" || value.String() == "false" {
+			return nil
+		}
+		return SchemaSettingError{name: name, message: fmt.Sprintf("%s is not a boolean", value.String())}
+
+	case "Password":
+		// Prevent sets of password types
+		return SchemaSettingError{name: name, message: "passwords are immutable"}
+
+	case "":
+		// allow the set as BIOS registry fields may not have been available
+		return nil
+
+	default:
+		// Unexpected attribute type
+		return SchemaSettingError{name: name, message: fmt.Sprintf("unexpected attribute type %s", schema.AttributeType)}
+	}
+}
+
 // FirmwareSchemaSpec defines the desired state of FirmwareSchema
 type FirmwareSchemaSpec struct {
 
@@ -80,57 +146,14 @@ type FirmwareSchema struct {
 }
 
 // Check whether the setting's name and value is valid using the schema
-func (host *FirmwareSchema) CheckSettingIsValid(name string, value intstr.IntOrString, schemas map[string]SettingSchema) bool {
+func (host *FirmwareSchema) ValidateSetting(name string, value intstr.IntOrString, schemas map[string]SettingSchema) error {
 
 	schema, ok := schemas[name]
 	if !ok {
-		// The setting must exist in the status
-		return false
+		return SchemaSettingError{name: name, message: "it is not in the associated schema"}
 	}
 
-	if schema.ReadOnly != nil && *schema.ReadOnly == true {
-		return false
-	}
-
-	// Check if valid based on type
-	switch schema.AttributeType {
-	case "Enumeration":
-		for _, av := range schema.AllowableValues {
-			if value.String() == av {
-				return true
-			}
-		}
-		return false
-
-	case "Integer":
-		if schema.LowerBound == nil || schema.UpperBound == nil {
-			// return true if no settings to check validity
-			return true
-		}
-		return (value.IntValue() >= *schema.LowerBound && value.IntValue() <= *schema.UpperBound)
-
-	case "String":
-		if schema.MinLength == nil || schema.MaxLength == nil {
-			// return true if no settings to check validity
-			return true
-		}
-		return (len(value.String()) >= *schema.MinLength && len(value.String()) <= *schema.MaxLength)
-
-	case "Boolean":
-		return (value.String() == "true" || value.String() == "false")
-
-	case "Password":
-		// Prevent sets of password types
-		return false
-
-	case "":
-		// allow the set as BIOS registry fields may not have been available
-		return true
-
-	default:
-		// Unexpected attribute type
-		return false
-	}
+	return schema.Validate(name, value)
 }
 
 //+kubebuilder:object:root=true

@@ -10,8 +10,8 @@ import (
 
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
+	"github.com/metal3-io/baremetal-operator/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/ironic/hardwaredetails"
 )
 
 type options struct {

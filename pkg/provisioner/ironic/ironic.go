@@ -5,6 +5,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/metal3-io/baremetal-operator/ironic"
+	"github.com/metal3-io/baremetal-operator/ironic/devicehints"
+	"github.com/metal3-io/baremetal-operator/ironic/hardwaredetails"
+
+	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
@@ -16,10 +22,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
 var (
@@ -1048,7 +1051,7 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
-	raidCleanSteps, err := BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
+	raidCleanSteps, err := ironic.BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1721,7 +1724,7 @@ func ironicNodeName(objMeta metav1.ObjectMeta) string {
 func (p *ironicProvisioner) IsReady() (result bool, err error) {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
 
-	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
+	checker := ironic.NewIronicDependenciesChecker(p.client, p.inspector, p.log)
 	return checker.IsReady()
 }
 

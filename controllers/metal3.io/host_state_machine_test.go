@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

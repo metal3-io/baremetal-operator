@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -41,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"

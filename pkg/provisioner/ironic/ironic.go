@@ -1161,7 +1161,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		bmcConfig := bmc.FirmwareConfig(*data.FirmwareConfig)
 		firmwareConfig = &bmcConfig
 	}
-	bmcsettings, err := bmcAccess.BuildBIOSSettings(firmwareConfig)
+	fwConfigSettings, err := bmcAccess.BuildBIOSSettings(firmwareConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1170,13 +1170,13 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	if data.ActualFirmwareSettings != nil {
 		// If we have the current settings from Ironic, update the settings to contain:
 		// 1. settings converted by BMC drivers that are different than current settings
-		for _, bmcsetting := range bmcsettings {
-			if val, exists := data.ActualFirmwareSettings[bmcsetting["name"]]; exists {
-				if bmcsetting["value"] != val {
-					newSettings = buildFirmwareSettings(newSettings, bmcsetting["name"], bmcsetting["value"])
+		for _, fwConfigSetting := range fwConfigSettings {
+			if val, exists := data.ActualFirmwareSettings[fwConfigSetting["name"]]; exists {
+				if fwConfigSetting["value"] != val {
+					newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], fwConfigSetting["value"])
 				}
 			} else {
-				p.log.Info("name converted from bmc driver not found in firmware settings", "name", bmcsetting["name"], "node", p.nodeID)
+				p.log.Info("name converted from bmc driver not found in firmware settings", "name", fwConfigSetting["name"], "node", p.nodeID)
 			}
 		}
 
@@ -1184,14 +1184,20 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		if data.TargetFirmwareSettings != nil {
 			for k, v := range data.TargetFirmwareSettings {
 				if data.ActualFirmwareSettings[k] != v.String() {
+					// Skip changing this setting if it was defined in the vendor specific settings
+					for _, fwConfigSetting := range fwConfigSettings {
+						if fwConfigSetting["name"] == k {
+							continue
+						}
+					}
 					newSettings = buildFirmwareSettings(newSettings, k, v.String())
 				}
 			}
 		}
 	} else {
 		// use only the settings converted by bmc driver
-		for _, bmcsetting := range bmcsettings {
-			newSettings = append(newSettings, bmcsetting)
+		for _, fwConfigSetting := range fwConfigSettings {
+			newSettings = append(newSettings, fwConfigSetting)
 		}
 	}
 

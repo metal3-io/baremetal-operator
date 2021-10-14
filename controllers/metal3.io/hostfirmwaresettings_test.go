@@ -21,7 +21,7 @@ import (
 const (
 	hostName      string = "myHostName"
 	hostNamespace string = "myHostNamespace"
-	schemaName    string = "schema-17e7ebad" // Hash generated from schema, change this if the schema is changed
+	schemaName    string = "schema-4bcc035f" // Hash generated from schema, change this if the schema is changed
 )
 
 var (
@@ -65,10 +65,6 @@ func (m *hsfMockProvisioner) HasCapacity() (result bool, err error) {
 
 func (m *hsfMockProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	return
-}
-
-func (m *hsfMockProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
-	return nil, nil
 }
 
 func (m *hsfMockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
@@ -133,7 +129,7 @@ func getSchema() *metal3v1alpha1.FirmwareSchema {
 				{
 					APIVersion: "metal3.io/v1alpha1",
 					Kind:       "HostFirmwareSettings",
-					Name:       hostName,
+					Name:       "dummyhfs",
 				},
 			},
 		},
@@ -214,8 +210,36 @@ func createBaremetalHost() *metal3v1alpha1.BareMetalHost {
 	return bmh
 }
 
-func getExpectedSchemaResource() *metal3v1alpha1.FirmwareSchema {
+func getExpectedSchema() *metal3v1alpha1.FirmwareSchema {
 	firmwareSchema := getSchema()
+	firmwareSchema.ObjectMeta.ResourceVersion = "1"
+	firmwareSchema.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: "metal3.io/v1alpha1",
+			Kind:       "HostFirmwareSettings",
+			Name:       hostName,
+		},
+	}
+	firmwareSchema.Spec.Schema = getCurrentSchemaSettings()
+
+	return firmwareSchema
+}
+
+func getExpectedSchemaTwoOwners() *metal3v1alpha1.FirmwareSchema {
+	firmwareSchema := getSchema()
+	firmwareSchema.ObjectMeta.ResourceVersion = "2"
+	firmwareSchema.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: "metal3.io/v1alpha1",
+			Kind:       "HostFirmwareSettings",
+			Name:       "dummyhfs",
+		},
+		{
+			APIVersion: "metal3.io/v1alpha1",
+			Kind:       "HostFirmwareSettings",
+			Name:       hostName,
+		},
+	}
 	firmwareSchema.Spec.Schema = getCurrentSchemaSettings()
 
 	return firmwareSchema
@@ -295,7 +319,6 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						"SecureBoot":            "Enabled",
 					},
 					Conditions: []metav1.Condition{
-						{Type: "UpdateRequested", Status: "False", Reason: "Success"},
 						{Type: "Valid", Status: "True", Reason: "Success"},
 					},
 				},
@@ -335,7 +358,6 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						"SecureBoot":            "Enabled",
 					},
 					Conditions: []metav1.Condition{
-						{Type: "UpdateRequested", Status: "False", Reason: "Success"},
 						{Type: "Valid", Status: "True", Reason: "Success"},
 					},
 				},
@@ -356,6 +378,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 					Settings: metal3v1alpha1.DesiredSettingsMap{
 						"NetworkBootRetryCount": intstr.FromString("10"),
 						"ProcVirtualization":    intstr.FromString("Enabled"),
+						"AssetTag":              intstr.FromString("Z98765432"),
 					},
 				},
 				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
@@ -364,6 +387,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						Namespace: hostNamespace,
 					},
 					Settings: metal3v1alpha1.SettingsMap{
+						"AssetTag":              "Z98765432",
 						"L2Cache":               "10x256 KB",
 						"NetworkBootRetryCount": "10",
 						"ProcVirtualization":    "Enabled",
@@ -376,6 +400,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 					Settings: metal3v1alpha1.DesiredSettingsMap{
 						"NetworkBootRetryCount": intstr.FromString("10"),
 						"ProcVirtualization":    intstr.FromString("Enabled"),
+						"AssetTag":              intstr.FromString("Z98765432"),
 					},
 				},
 				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
@@ -391,7 +416,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						"SecureBoot":            "Enabled",
 					},
 					Conditions: []metav1.Condition{
-						{Type: "UpdateRequested", Status: "True", Reason: "Success"},
+						{Type: "ChangeDetected", Status: "True", Reason: "Success"},
 						{Type: "Valid", Status: "True", Reason: "Success"},
 					},
 				},
@@ -447,7 +472,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 						"SecureBoot":            "Enabled",
 					},
 					Conditions: []metav1.Condition{
-						{Type: "UpdateRequested", Status: "True", Reason: "Success"},
+						{Type: "ChangeDetected", Status: "True", Reason: "Success"},
 						{Type: "Valid", Status: "False", Reason: "ConfigurationError", Message: "Invalid BIOS setting"},
 					},
 				},
@@ -482,14 +507,17 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 			}
 
 			if tc.CreateSchemaResource {
+				// Create an existing schema with different hfs owner
 				firmwareSchema := getSchema()
 				firmwareSchema.Spec.Schema = getCurrentSchemaSettings()
 
 				r.Client.Create(ctx, firmwareSchema)
-				r.Client.Update(ctx, firmwareSchema) // in order to set resource version
 			}
 
-			err := r.updateHostFirmwareSettings(prov, info)
+			currentSettings, schema, err := prov.GetFirmwareSettings(true)
+			assert.Equal(t, nil, err)
+
+			err = r.updateHostFirmwareSettings(currentSettings, schema, info)
 			assert.Equal(t, nil, err)
 
 			// Check that resources get created or updated
@@ -501,11 +529,12 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 
 			// Use the same time for expected and actual
 			currentTime := metav1.Now()
-			for i := 0; i < 2; i++ {
+			tc.ExpectedSettings.Status.LastUpdated = &currentTime
+			actualSettings.Status.LastUpdated = &currentTime
+			for i := range tc.ExpectedSettings.Status.Conditions {
 				tc.ExpectedSettings.Status.Conditions[i].LastTransitionTime = currentTime
 				actualSettings.Status.Conditions[i].LastTransitionTime = currentTime
 			}
-
 			assert.Equal(t, tc.ExpectedSettings, actualSettings)
 
 			key = client.ObjectKey{
@@ -513,8 +542,12 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 			actualSchema := &metal3v1alpha1.FirmwareSchema{}
 			err = r.Client.Get(ctx, key, actualSchema)
 			assert.Equal(t, nil, err)
-			expectedSchema := getExpectedSchemaResource()
-			expectedSchema.ObjectMeta.ResourceVersion = "2"
+			var expectedSchema *metal3v1alpha1.FirmwareSchema
+			if tc.CreateSchemaResource {
+				expectedSchema = getExpectedSchemaTwoOwners()
+			} else {
+				expectedSchema = getExpectedSchema()
+			}
 			assert.Equal(t, expectedSchema, actualSchema)
 		})
 	}
@@ -605,7 +638,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 				hfs: hfs,
 			}
 
-			errors := r.validateHostFirmwareSettings(info, getExpectedSchemaResource())
+			errors := r.validateHostFirmwareSettings(info, getExpectedSchema())
 			if len(errors) == 0 {
 				assert.Equal(t, tc.ExpectedError, "")
 			} else {

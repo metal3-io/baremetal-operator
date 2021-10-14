@@ -3,7 +3,7 @@ package testbmc
 import (
 	"net/url"
 
-	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )

@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"

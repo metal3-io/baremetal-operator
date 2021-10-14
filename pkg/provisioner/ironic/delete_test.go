@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metal3-io/baremetal-operator/ironic/testserver"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/testserver"
 
-	"github.com/metal3-io/baremetal-operator/ironic/bmc"
-	"github.com/metal3-io/baremetal-operator/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/clients"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/stretchr/testify/assert"

@@ -3,7 +3,7 @@ package ironic
 import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 
-	"github.com/metal3-io/baremetal-operator/ironic"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 

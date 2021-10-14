@@ -1,4 +1,4 @@
-module github.com/metal3-io/baremetal-operator/ironic
+module github.com/metal3-io/baremetal-operator/pkg/ironic
 
 go 1.16
 

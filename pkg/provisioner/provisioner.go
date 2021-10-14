@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

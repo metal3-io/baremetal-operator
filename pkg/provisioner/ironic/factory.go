@@ -11,7 +11,7 @@ import (
 	"github.com/gophercloud/gophercloud"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/metal3-io/baremetal-operator/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 

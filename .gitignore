@@ -51,6 +51,8 @@ smex-items
 company-statistics-cache.el
 # anaconda-mode
 anaconda-mode/
+# IntelliJ IDEA
+.idea
 ### Go ###
 # Binaries for programs and plugins
 *.exe

@@ -5,22 +5,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metal3-io/baremetal-operator/ironic/bmc"
-	"github.com/metal3-io/baremetal-operator/ironic/clients"
-	"github.com/metal3-io/baremetal-operator/ironic/testserver"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/testserver"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/ironic/testbmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/testbmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	_ "github.com/metal3-io/baremetal-operator/ironic/bmc"
+	_ "github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
 )
 
 func TestProvision(t *testing.T) {

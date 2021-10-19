@@ -3,7 +3,7 @@ package fixture
 import (
 	"time"
 
-	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
 
 	"github.com/go-logr/logr"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"

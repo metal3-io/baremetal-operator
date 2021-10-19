@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/metal3-io/baremetal-operator/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
 
 	"github.com/stretchr/testify/assert"
 

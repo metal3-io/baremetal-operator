@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -64,16 +65,22 @@ func (hcd *hostConfigData) UserData() (string, error) {
 
 // NetworkData get network configuration
 func (hcd *hostConfigData) NetworkData() (string, error) {
-	if hcd.host.Spec.NetworkData == nil {
-		hcd.log.Info("NetworkData is not set returning epmty(nil) data")
+	networkData := hcd.host.Spec.NetworkData
+	if networkData == nil && hcd.host.Spec.PreprovisioningNetworkDataName != "" {
+		networkData = &corev1.SecretReference{
+			Name: hcd.host.Spec.PreprovisioningNetworkDataName,
+		}
+	}
+	if networkData == nil {
+		hcd.log.Info("NetworkData is not set, returning empty data")
 		return "", nil
 	}
-	namespace := hcd.host.Spec.NetworkData.Namespace
+	namespace := networkData.Namespace
 	if namespace == "" {
 		namespace = hcd.host.Namespace
 	}
 	return hcd.getSecretData(
-		hcd.host.Spec.NetworkData.Name,
+		networkData.Name,
 		namespace,
 		"networkData",
 	)

@@ -67,6 +67,10 @@ func (m *hsfMockProvisioner) ValidateManagementAccess(data provisioner.Managemen
 	return
 }
 
+func (m *hsfMockProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+	return nil, nil
+}
+
 func (m *hsfMockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	return
 }

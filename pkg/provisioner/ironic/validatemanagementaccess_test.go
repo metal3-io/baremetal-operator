@@ -307,6 +307,14 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
 				AutomatedClean: &clean,
+				DriverInfo: map[string]interface{}{
+					"deploy_kernel":  "http://deploy.test/ipa.kernel",
+					"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+					"test_address":   "test.bmc",
+					"test_username":  "",
+					"test_password":  "******", // ironic returns a placeholder
+					"test_port":      "42",
+				},
 			}).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			})
@@ -345,7 +353,14 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			InstanceInfo: map[string]interface{}{
 				"capabilities": map[string]interface{}{},
 			},
-			DriverInfo: map[string]interface{}{},
+			DriverInfo: map[string]interface{}{
+				"deploy_kernel":  "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+				"test_address":   "test.bmc",
+				"test_username":  "",
+				"test_password":  "******", // ironic returns a placeholder
+				"test_port":      "42",
+			},
 		},
 		{
 			Image: &metal3v1alpha1.Image{
@@ -361,6 +376,12 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			},
 			DriverInfo: map[string]interface{}{
 				"force_persistent_boot_device": "Default",
+				"deploy_kernel":                "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
+				"test_address":                 "test.bmc",
+				"test_username":                "",
+				"test_password":                "******", // ironic returns a placeholder
+				"test_port":                    "42",
 			},
 		},
 		{
@@ -375,6 +396,12 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			},
 			DriverInfo: map[string]interface{}{
 				"force_persistent_boot_device": "Default",
+				"deploy_kernel":                "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
+				"test_address":                 "test.bmc",
+				"test_username":                "",
+				"test_password":                "******", // ironic returns a placeholder
+				"test_port":                    "42",
 			},
 		},
 	}
@@ -448,6 +475,14 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 				Name:           host.Namespace + nameSeparator + host.Name,
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
+				DriverInfo: map[string]interface{}{
+					"deploy_kernel":  "http://deploy.test/ipa.kernel",
+					"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+					"test_address":   "test.bmc",
+					"test_username":  "",
+					"test_password":  "******", // ironic returns a placeholder
+					"test_port":      "42",
+				},
 			}
 			ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(node).NodeUpdate(nodes.Node{
 				UUID: "uuid",
@@ -766,4 +801,293 @@ func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
 	assert.Equal(t, "failed to parse BMC address information: failed to parse BMC address information: parse \"<ipmi://192.168.122.1:6233>\": first path segment in URL cannot contain colon", result.ErrorMessage)
+}
+
+func TestPreprovisioningImageFormats(t *testing.T) {
+	ironicEndpoint := "http://ironic.test"
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	testCases := []struct {
+		Name              string
+		Address           string
+		PreprovImgEnabled bool
+		Expected          []metal3v1alpha1.ImageFormat
+	}{
+		{
+			Name:     "disabled ipmi",
+			Address:  "ipmi://example.test",
+			Expected: nil,
+		},
+		{
+			Name:     "disabled virtualmedia",
+			Address:  "redfish-virtualmedia://example.test",
+			Expected: nil,
+		},
+		{
+			Name:              "enabled ipmi",
+			Address:           "ipmi://example.test",
+			PreprovImgEnabled: true,
+			Expected:          nil,
+		},
+		{
+			Name:              "enabled virtualmedia",
+			Address:           "redfish-virtualmedia://example.test",
+			PreprovImgEnabled: true,
+			Expected:          []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			host := makeHost()
+			host.Spec.BMC.Address = tc.Address
+
+			prov, _ := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
+				ironicEndpoint, auth,
+				ironicEndpoint, auth,
+			)
+			prov.config.havePreprovImgBuilder = tc.PreprovImgEnabled
+
+			fmts, err := prov.PreprovisioningImageFormats()
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.Expected, fmts)
+		})
+	}
+}
+
+func TestSetDeployImage(t *testing.T) {
+	isoDriver, _ := bmc.NewAccessDetails("redfish-virtualmedia://example.test/", true)
+	pxeDriver, _ := bmc.NewAccessDetails("ipmi://example.test/", true)
+
+	const (
+		localKernel  = "http://local.test/ipa.kernel"
+		localRamdisk = "http://local.test/ipa.initrd"
+		localIso     = "http://local.test/ipa.iso"
+
+		buildKernel  = localKernel
+		buildRamdisk = "http://build.test/ipa.initrd"
+		buildIso     = "http://build.test/ipa.iso"
+	)
+
+	testCases := []struct {
+		Scenario    string
+		Config      ironicConfig
+		Driver      bmc.AccessDetails
+		Image       *provisioner.PreprovisioningImage
+		ExpectBuild bool
+		ExpectISO   bool
+		ExpectPXE   bool
+	}{
+		{
+			Scenario: "iso no imgbuilder",
+			Config: ironicConfig{
+				havePreprovImgBuilder: false,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver:      isoDriver,
+			ExpectBuild: false,
+			ExpectISO:   true,
+			ExpectPXE:   false,
+		},
+		{
+			Scenario: "no imgbuilder no iso",
+			Config: ironicConfig{
+				havePreprovImgBuilder: false,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+			},
+			Driver:      isoDriver,
+			ExpectBuild: false,
+			ExpectISO:   false,
+			ExpectPXE:   true,
+		},
+		{
+			Scenario: "pxe no imgbuilder",
+			Config: ironicConfig{
+				havePreprovImgBuilder: false,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver:      pxeDriver,
+			ExpectBuild: false,
+			ExpectISO:   false,
+			ExpectPXE:   true,
+		},
+		{
+			Scenario: "iso no build",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver:    isoDriver,
+			ExpectISO: false,
+			ExpectPXE: false,
+		},
+		{
+			Scenario: "iso build",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver: isoDriver,
+			Image: &provisioner.PreprovisioningImage{
+				ImageURL: buildIso,
+				Format:   metal3v1alpha1.ImageFormatISO,
+			},
+			ExpectBuild: true,
+			ExpectISO:   true,
+			ExpectPXE:   false,
+		},
+		{
+			Scenario: "pxe build",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver: pxeDriver,
+			Image: &provisioner.PreprovisioningImage{
+				ImageURL: buildRamdisk,
+				Format:   metal3v1alpha1.ImageFormatInitRD,
+			},
+			ExpectBuild: true,
+			ExpectISO:   false,
+			ExpectPXE:   true,
+		},
+		{
+			Scenario: "pxe iso build",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver: pxeDriver,
+			Image: &provisioner.PreprovisioningImage{
+				ImageURL: buildIso,
+				Format:   metal3v1alpha1.ImageFormatISO,
+			},
+			ExpectBuild: false,
+			ExpectISO:   false,
+			ExpectPXE:   true,
+		},
+		{
+			Scenario: "pxe build no kernel",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployISOURL:          localIso,
+			},
+			Driver: pxeDriver,
+			Image: &provisioner.PreprovisioningImage{
+				ImageURL: buildRamdisk,
+				Format:   metal3v1alpha1.ImageFormatInitRD,
+			},
+			ExpectISO: false,
+			ExpectPXE: false,
+		},
+		{
+			Scenario: "pxe iso build no kernel",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+			},
+			Driver: pxeDriver,
+			Image: &provisioner.PreprovisioningImage{
+				ImageURL: buildRamdisk,
+				Format:   metal3v1alpha1.ImageFormatISO,
+			},
+			ExpectISO: false,
+			ExpectPXE: false,
+		},
+		{
+			Scenario: "pxe iso build no initrd",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+			},
+			Driver: pxeDriver,
+			Image: &provisioner.PreprovisioningImage{
+				ImageURL: buildRamdisk,
+				Format:   metal3v1alpha1.ImageFormatISO,
+			},
+			ExpectISO: false,
+			ExpectPXE: false,
+		},
+		{
+			Scenario: "no build no initrd",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+			},
+			Driver:    pxeDriver,
+			ExpectISO: false,
+			ExpectPXE: false,
+		},
+		{
+			Scenario: "pxe no imgbuilder no pxe",
+			Config: ironicConfig{
+				havePreprovImgBuilder: false,
+				deployISOURL:          localIso,
+			},
+			Driver:    pxeDriver,
+			ExpectISO: false,
+			ExpectPXE: false,
+		},
+		{
+			Scenario: "iso no imgbuilder no images",
+			Config: ironicConfig{
+				havePreprovImgBuilder: false,
+			},
+			Driver:    isoDriver,
+			ExpectISO: false,
+			ExpectPXE: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			driverInfo := make(map[string]interface{}, 0)
+			opts := setDeployImage(driverInfo, tc.Config, tc.Driver, tc.Image)
+
+			switch {
+			case tc.ExpectISO:
+				if tc.ExpectBuild {
+					assert.Equal(t, buildIso, opts["deploy_iso"])
+					assert.Equal(t, buildIso, driverInfo["deploy_iso"])
+				} else {
+					assert.Equal(t, localIso, opts["deploy_iso"])
+					assert.Equal(t, localIso, driverInfo["deploy_iso"])
+				}
+				assert.Nil(t, opts["deploy_kernel"])
+				assert.Nil(t, opts["deploy_ramdisk"])
+				assert.Nil(t, driverInfo["deploy_kernel"])
+				assert.Nil(t, driverInfo["deploy_ramdisk"])
+			case tc.ExpectPXE:
+				assert.Nil(t, opts["deploy_iso"])
+				assert.Nil(t, driverInfo["deploy_iso"])
+				if tc.ExpectBuild {
+					assert.Equal(t, buildKernel, opts["deploy_kernel"])
+					assert.Equal(t, buildRamdisk, opts["deploy_ramdisk"])
+					assert.Equal(t, buildKernel, driverInfo["deploy_kernel"])
+					assert.Equal(t, buildRamdisk, driverInfo["deploy_ramdisk"])
+				} else {
+					assert.Equal(t, localKernel, opts["deploy_kernel"])
+					assert.Equal(t, localRamdisk, opts["deploy_ramdisk"])
+					assert.Equal(t, localKernel, driverInfo["deploy_kernel"])
+					assert.Equal(t, localRamdisk, driverInfo["deploy_ramdisk"])
+				}
+			default:
+				assert.Nil(t, opts)
+				assert.Empty(t, driverInfo)
+			}
+		})
+	}
 }

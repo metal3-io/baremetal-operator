@@ -41,6 +41,10 @@ const (
 	powerNone            = "None"
 	nameSeparator        = "~"
 	customDeployPriority = 80
+
+	deployKernelKey  = "deploy_kernel"
+	deployRamdiskKey = "deploy_ramdisk"
+	deployISOKey     = "deploy_iso"
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
@@ -64,6 +68,7 @@ func NewMacAddressConflictError(address, node string) error {
 }
 
 type ironicConfig struct {
+	havePreprovImgBuilder            bool
 	deployKernelURL                  string
 	deployRamdiskURL                 string
 	deployISOURL                     string
@@ -346,15 +351,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
-	// FIXME(dhellmann): We need to get our IP on the
-	// provisioning network from somewhere.
-	if p.config.deployKernelURL != "" && p.config.deployRamdiskURL != "" {
-		driverInfo["deploy_kernel"] = p.config.deployKernelURL
-		driverInfo["deploy_ramdisk"] = p.config.deployRamdiskURL
-	}
-	if p.config.deployISOURL != "" {
-		driverInfo["deploy_iso"] = p.config.deployISOURL
-	}
+	deployImageInfo := setDeployImage(driverInfo, p.config, bmcAccess, data.PreprovisioningImage)
 
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
@@ -442,10 +439,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			}
 		}
 
-		// Look for the case where we previously enrolled this node
-		// and now the credentials have changed.
+		// The actual password is not returned from ironic, so we want to
+		// update the whole DriverInfo only if the credentials have changed
+		// otherwise we will be writing on every call to this function.
 		if credentialsChanged {
-			updater.SetTopLevelOpt("driver_info", driverInfo, nil)
+			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
+		} else {
+			updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 		}
 
 		// We don't return here because we also have to set the
@@ -507,22 +507,120 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		result, err = operationContinuing(provisionRequeueDelay)
 		return
 
+	case nodes.Active:
+		// The host is already running, maybe it's a master?
+		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
+		fallthrough
+
 	case nodes.Manageable:
-		return
+		fallthrough
 
 	case nodes.Available:
 		// The host is fully registered (and probably wasn't cleanly
 		// deleted previously)
-		return
-
-	case nodes.Active:
-		// The host is already running, maybe it's a master?
-		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
-		return
+		fallthrough
 
 	default:
+		switch data.State {
+		case metal3v1alpha1.StateInspecting,
+			metal3v1alpha1.StatePreparing,
+			metal3v1alpha1.StateProvisioning,
+			metal3v1alpha1.StateDeprovisioning:
+			if deployImageInfo == nil {
+				if p.config.havePreprovImgBuilder {
+					result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
+				} else {
+					result, err = operationFailed("no preprovisioning image available")
+				}
+			}
+		}
 		return
 	}
+}
+
+// PreprovisioningImageFormats returns a list of acceptable formats for a
+// pre-provisioning image to be built by a PreprovisioningImage object. The
+// list should be nil if no image build is requested.
+func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+	if !p.config.havePreprovImgBuilder {
+		return nil, nil
+	}
+
+	accessDetails, err := p.bmcAccess()
+	if err != nil {
+		return nil, err
+	}
+
+	var formats []metal3v1alpha1.ImageFormat
+	if accessDetails.SupportsISOPreprovisioningImage() {
+		formats = append(formats, metal3v1alpha1.ImageFormatISO)
+	} else {
+		if p.config.deployKernelURL != "" && p.config.deployRamdiskURL != "" {
+			// This is a PXE driver (no ISO support) so it shouldn't require any
+			// network customisation to boot the image, and we have sufficient
+			// data available to configure. Therefore, do not request an image
+			// build.
+			return nil, nil
+		}
+	}
+	if p.config.deployKernelURL != "" {
+		formats = append(formats, metal3v1alpha1.ImageFormatInitRD)
+	}
+
+	return formats, nil
+}
+
+func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) optionsData {
+	deployImageInfo := optionsData{
+		deployKernelKey:  nil,
+		deployRamdiskKey: nil,
+		deployISOKey:     nil,
+	}
+
+	defer func() {
+		// Copy into driverInfo so that if we end up creating a new Node, the
+		// info will be there from the outset.
+		for k, v := range deployImageInfo {
+			if v != nil {
+				driverInfo[k] = v
+			}
+		}
+	}()
+
+	allowISO := accessDetails.SupportsISOPreprovisioningImage()
+	allowInitRD := config.deployKernelURL != ""
+
+	if hostImage != nil {
+		switch hostImage.Format {
+		case metal3v1alpha1.ImageFormatISO:
+			if allowISO {
+				deployImageInfo[deployISOKey] = hostImage.ImageURL
+				return deployImageInfo
+			}
+		case metal3v1alpha1.ImageFormatInitRD:
+			if allowInitRD {
+				deployImageInfo[deployKernelKey] = config.deployKernelURL
+				deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
+				return deployImageInfo
+			}
+		}
+	}
+
+	if !config.havePreprovImgBuilder {
+		if allowISO && config.deployISOURL != "" {
+			deployImageInfo[deployISOKey] = config.deployISOURL
+			return deployImageInfo
+		}
+	}
+	if !config.havePreprovImgBuilder || !allowISO {
+		if allowInitRD && config.deployRamdiskURL != "" {
+			deployImageInfo[deployKernelKey] = config.deployKernelURL
+			deployImageInfo[deployRamdiskKey] = config.deployRamdiskURL
+			return deployImageInfo
+		}
+	}
+
+	return nil
 }
 
 func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {

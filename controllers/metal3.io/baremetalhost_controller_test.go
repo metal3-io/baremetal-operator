@@ -5,6 +5,7 @@ import (
 	goctx "context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -14,12 +15,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -154,7 +156,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 		// need to replace the one we have with the updated data in
 		// order to test it. In case it was not found, let's set it to nil
 		updatedHost := &metal3v1alpha1.BareMetalHost{}
-		if err = r.Get(goctx.TODO(), request.NamespacedName, updatedHost); errors.IsNotFound(err) {
+		if err = r.Get(goctx.TODO(), request.NamespacedName, updatedHost); k8serrors.IsNotFound(err) {
 			host = nil
 		} else {
 			updatedHost.DeepCopyInto(host)
@@ -1992,6 +1994,397 @@ func TestCredentialsFromSecret(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			actual := credentialsFromSecret(&c.input)
 			assert.Equal(t, c.expected, *actual)
+		})
+	}
+}
+
+func TestGetHardwareProfileName(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		Address       string
+		StatusProfile string
+		SpecProfile   string
+		Expected      string
+	}{
+		{
+			Scenario: "default",
+			Expected: "unknown",
+		},
+		{
+			Scenario: "infer libvirt",
+			Address:  "libvirt://example.test",
+			Expected: "libvirt",
+		},
+		{
+			Scenario:    "not yet set",
+			SpecProfile: "foo",
+			Expected:    "foo",
+		},
+		{
+			Scenario:      "already set",
+			SpecProfile:   "foo",
+			StatusProfile: "foo",
+			Expected:      "foo",
+		},
+		{
+			Scenario:      "changed",
+			SpecProfile:   "bar",
+			StatusProfile: "foo",
+			Expected:      "foo",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := newHost("test", &metal3v1alpha1.BareMetalHostSpec{
+				BMC: metal3v1alpha1.BMCDetails{
+					Address: tc.Address,
+				},
+				HardwareProfile: tc.SpecProfile,
+			})
+			host.Status.HardwareProfile = tc.StatusProfile
+
+			assert.Equal(t, tc.Expected, getHardwareProfileName(host))
+		})
+	}
+}
+
+func TestGetHostArchitecture(t *testing.T) {
+	host := newDefaultHost(t)
+	assert.Equal(t, "x86_64", getHostArchitecture(host))
+
+	host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{
+		CPU: metal3v1alpha1.CPU{
+			Arch: "aarch64",
+		},
+	}
+	assert.Equal(t, "aarch64", getHostArchitecture(host))
+}
+
+func TestGetPreprovImageNoFormats(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host)
+	i := makeReconcileInfo(host)
+
+	imgData, err := r.getPreprovImage(i, nil)
+
+	assert.NoError(t, err)
+	assert.Nil(t, imgData)
+
+	imgData, err = r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{})
+	assert.True(t, errors.As(err, &imageBuildError{}))
+	assert.EqualError(t, err, "no acceptable formats for preprovisioning image")
+	assert.Nil(t, imgData)
+
+	assert.Error(t, r.Client.Get(goctx.TODO(), client.ObjectKey{
+		Name:      host.Name,
+		Namespace: host.Namespace,
+	},
+		&metal3v1alpha1.PreprovisioningImage{}))
+}
+
+func TestGetPreprovImageCreateUpdate(t *testing.T) {
+	secretName := "net_secret"
+	host := newDefaultHost(t)
+	host.Spec.PreprovisioningNetworkDataName = secretName
+	r := newTestReconciler(host, newSecret(secretName, nil))
+	i := makeReconcileInfo(host)
+
+	imgData, err := r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{"iso"})
+	assert.NoError(t, err)
+	assert.Nil(t, imgData)
+
+	img := metal3v1alpha1.PreprovisioningImage{}
+	assert.NoError(t, r.Client.Get(goctx.TODO(), client.ObjectKey{
+		Name:      host.Name,
+		Namespace: host.Namespace,
+	},
+		&img))
+	assert.Equal(t, "x86_64", img.Spec.Architecture)
+	assert.Equal(t, secretName, img.Spec.NetworkDataName)
+
+	newSecretName := "new_net_secret"
+	host.Spec.PreprovisioningNetworkDataName = newSecretName
+
+	imgData, err = r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{"iso"})
+	assert.NoError(t, err)
+	assert.Nil(t, imgData)
+
+	assert.NoError(t, r.Client.Get(goctx.TODO(), client.ObjectKey{
+		Name:      host.Name,
+		Namespace: host.Namespace,
+	},
+		&img))
+	assert.Equal(t, newSecretName, img.Spec.NetworkDataName)
+}
+
+func TestGetPreprovImage(t *testing.T) {
+	host := newDefaultHost(t)
+	imageURL := "http://example.test/image.iso"
+	image := &metal3v1alpha1.PreprovisioningImage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: namespace,
+		},
+		Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Architecture: "x86_64",
+		},
+		Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Architecture: "x86_64",
+			Format:       metal3v1alpha1.ImageFormatISO,
+			ImageUrl:     imageURL,
+			Conditions: []metav1.Condition{
+				{
+					Type:   string(metal3v1alpha1.ConditionImageReady),
+					Status: metav1.ConditionTrue,
+				},
+				{
+					Type:   string(metal3v1alpha1.ConditionImageError),
+					Status: metav1.ConditionFalse,
+				},
+			},
+		},
+	}
+	r := newTestReconciler(host, image)
+	i := makeReconcileInfo(host)
+
+	imgData, err := r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatISO})
+	assert.NoError(t, err)
+	assert.NotNil(t, imgData)
+	assert.Equal(t, imageURL, imgData.ImageURL)
+	assert.Equal(t, metal3v1alpha1.ImageFormatISO, imgData.Format)
+}
+
+func TestGetPreprovImageNotCurrent(t *testing.T) {
+	host := newDefaultHost(t)
+	imageURL := "http://example.test/image.iso"
+	image := &metal3v1alpha1.PreprovisioningImage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: namespace,
+		},
+		Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Architecture: "x86_64",
+		},
+		Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Architecture: "x86_64",
+			Format:       metal3v1alpha1.ImageFormatISO,
+			ImageUrl:     imageURL,
+			Conditions: []metav1.Condition{
+				{
+					Type:   string(metal3v1alpha1.ConditionImageReady),
+					Status: metav1.ConditionFalse,
+				},
+				{
+					Type:   string(metal3v1alpha1.ConditionImageError),
+					Status: metav1.ConditionFalse,
+				},
+			},
+		},
+	}
+	r := newTestReconciler(host, image)
+	i := makeReconcileInfo(host)
+
+	imgData, err := r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatISO})
+	assert.NoError(t, err)
+	assert.Nil(t, imgData)
+}
+
+func TestPreprovImageAvailable(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host, newSecret("network_secret_1", nil))
+
+	testCases := []struct {
+		Scenario   string
+		Spec       metal3v1alpha1.PreprovisioningImageSpec
+		Status     metal3v1alpha1.PreprovisioningImageStatus
+		Available  bool
+		BuildError bool
+	}{
+		{
+			Scenario: "ready no netdata",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture: "x86_64",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: true,
+		},
+		{
+			Scenario: "ready",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture:    "x86_64",
+				NetworkDataName: "network_secret_1",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				NetworkData: metal3v1alpha1.SecretStatus{
+					Name:    "network_secret_1",
+					Version: "1000",
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: true,
+		},
+		{
+			Scenario: "ready secret outdated",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture:    "x86_64",
+				NetworkDataName: "network_secret_1",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				NetworkData: metal3v1alpha1.SecretStatus{
+					Name:    "network_secret_1",
+					Version: "42",
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: false,
+		},
+		{
+			Scenario: "ready secret mismatch",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture:    "x86_64",
+				NetworkDataName: "network_secret_1",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				NetworkData: metal3v1alpha1.SecretStatus{
+					Name:    "network_secret_0",
+					Version: "1",
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: false,
+		},
+		{
+			Scenario: "ready arch mismatch",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture: "aarch64",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: false,
+		},
+		{
+			Scenario: "not ready",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture: "x86_64",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionFalse,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: false,
+		},
+		{
+			Scenario: "failed",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture: "x86_64",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionFalse,
+					},
+					{
+						Type:    string(metal3v1alpha1.ConditionImageError),
+						Status:  metav1.ConditionTrue,
+						Message: "oops",
+					},
+				},
+			},
+			Available:  false,
+			BuildError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			image := metal3v1alpha1.PreprovisioningImage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      host.Name,
+					Namespace: namespace,
+				},
+				Spec:   tc.Spec,
+				Status: tc.Status,
+			}
+			available, err := r.preprovImageAvailable(makeReconcileInfo(host), &image)
+			if tc.BuildError {
+				assert.EqualError(t, err, "oops")
+				assert.True(t, errors.As(err, &imageBuildError{}))
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.Available, available)
 		})
 	}
 }

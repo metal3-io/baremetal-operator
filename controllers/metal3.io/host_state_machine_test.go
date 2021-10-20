@@ -1007,7 +1007,9 @@ func TestErrorClean(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {
 			prov := newMockProvisioner()
-			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{}, prov, true)
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{
+				Client: fakeclient.NewFakeClient(),
+			}, prov, true)
 
 			info := makeDefaultReconcileInfo(tt.Host)
 			if tt.SecretName != "" {
@@ -1196,6 +1198,10 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 
 func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
+}
+
+func (m *mockProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+	return nil, nil
 }
 
 func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {

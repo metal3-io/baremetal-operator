@@ -3,14 +3,7 @@ package bmc
 import (
 	"reflect"
 	"testing"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
-
-func init() {
-	logf.SetLogger(logz.New(logz.UseDevMode(true)))
-}
 
 func TestParse(t *testing.T) {
 	for _, tc := range []struct {

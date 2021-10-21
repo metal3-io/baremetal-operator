@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -137,7 +135,7 @@ func (a *redfishAccessDetails) RequiresProvisioningNetwork() bool {
 	return true
 }
 
-func (a *redfishAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+func (a *redfishAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig != nil {
 		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
 	}
@@ -174,7 +172,7 @@ func (a *redfishiDracAccessDetails) VendorInterface() string {
 	return "idrac-redfish"
 }
 
-func (a *redfishiDracAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+func (a *redfishiDracAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig != nil {
 		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
 	}

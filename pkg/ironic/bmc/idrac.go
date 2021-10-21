@@ -3,8 +3,6 @@ package bmc
 import (
 	"net/url"
 	"strings"
-
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -114,7 +112,7 @@ func (a *iDracAccessDetails) RequiresProvisioningNetwork() bool {
 	return true
 }
 
-func (a *iDracAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+func (a *iDracAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil
 	}

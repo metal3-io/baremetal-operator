@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 // AccessDetailsFactory describes a callable that returns a new
@@ -28,6 +26,17 @@ func RegisterFactory(name string, factory AccessDetailsFactory, schemes []string
 	for _, scheme := range schemes {
 		factories[fmt.Sprintf("%s+%s", name, scheme)] = factory
 	}
+}
+
+type FirmwareConfig struct {
+	// Supports the virtualization of platform hardware.
+	VirtualizationEnabled *bool
+
+	// Allows a single physical processor core to appear as several logical processors.
+	SimultaneousMultithreadingEnabled *bool
+
+	// SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance.
+	SriovEnabled *bool
 }
 
 // AccessDetails contains the information about how to get to a BMC.
@@ -74,7 +83,7 @@ type AccessDetails interface {
 	RequiresProvisioningNetwork() bool
 
 	// Build bios clean steps for ironic
-	BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error)
+	BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error)
 }
 
 func getParsedURL(address string) (parsedURL *url.URL, err error) {

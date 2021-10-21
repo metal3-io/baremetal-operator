@@ -1156,7 +1156,12 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	cleanSteps = append(cleanSteps, raidCleanSteps...)
 
 	// Get the subset (currently 3) of vendor specific BIOS settings converted from common names
-	bmcsettings, err := bmcAccess.BuildBIOSSettings(data.FirmwareConfig)
+	var firmwareConfig *bmc.FirmwareConfig
+	if data.FirmwareConfig != nil {
+		bmcConfig := bmc.FirmwareConfig(*data.FirmwareConfig)
+		firmwareConfig = &bmcConfig
+	}
+	bmcsettings, err := bmcAccess.BuildBIOSSettings(firmwareConfig)
 	if err != nil {
 		return nil, err
 	}

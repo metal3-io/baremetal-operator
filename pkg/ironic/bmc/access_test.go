@@ -6,8 +6,6 @@ import (
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -1162,7 +1160,7 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 	cases := []struct {
 		name          string
 		address       string
-		firmware      *metal3v1alpha1.FirmwareConfig
+		firmware      *FirmwareConfig
 		expected      []map[string]string
 		expectedError bool
 	}{
@@ -1170,7 +1168,7 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 		{
 			name:    "ilo4",
 			address: "ilo4://192.168.122.1",
-			firmware: &metal3v1alpha1.FirmwareConfig{
+			firmware: &FirmwareConfig{
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
@@ -1194,14 +1192,14 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 		{
 			name:     "ilo4, firmware is empty",
 			address:  "ilo4://192.168.122.1",
-			firmware: &metal3v1alpha1.FirmwareConfig{},
+			firmware: &FirmwareConfig{},
 			expected: nil,
 		},
 		// ilo5
 		{
 			name:    "ilo5",
 			address: "ilo5://192.168.122.1",
-			firmware: &metal3v1alpha1.FirmwareConfig{
+			firmware: &FirmwareConfig{
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
@@ -1225,14 +1223,14 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 		{
 			name:     "ilo5, firmware is empty",
 			address:  "ilo5://192.168.122.1",
-			firmware: &metal3v1alpha1.FirmwareConfig{},
+			firmware: &FirmwareConfig{},
 			expected: nil,
 		},
 		// irmc
 		{
 			name:    "irmc",
 			address: "irmc://192.168.122.1",
-			firmware: &metal3v1alpha1.FirmwareConfig{
+			firmware: &FirmwareConfig{
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
@@ -1256,7 +1254,7 @@ func TestBuildBIOSCleanSteps(t *testing.T) {
 		{
 			name:     "irmc, firmware is empty",
 			address:  "irmc://192.168.122.1",
-			firmware: &metal3v1alpha1.FirmwareConfig{},
+			firmware: &FirmwareConfig{},
 			expected: nil,
 		},
 	}

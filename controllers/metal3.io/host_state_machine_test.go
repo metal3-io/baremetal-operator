@@ -61,6 +61,14 @@ func TestProvisioningCapacity(t *testing.T) {
 		},
 		{
 			Scenario:                "transition-to-provisioning-delayed",
+			Host:                    host(metal3v1alpha1.StateAvailable).SaveHostProvisioningSettings().build(),
+			HasProvisioningCapacity: false,
+
+			ExpectedProvisioningState: metal3v1alpha1.StateAvailable,
+			ExpectedDelayed:           true,
+		},
+		{
+			Scenario:                "transition-to-provisioning-delayed-deprecated-ready",
 			Host:                    host(metal3v1alpha1.StateReady).SaveHostProvisioningSettings().build(),
 			HasProvisioningCapacity: false,
 
@@ -77,7 +85,7 @@ func TestProvisioningCapacity(t *testing.T) {
 		},
 		{
 			Scenario:                "transition-to-provisioning-ok",
-			Host:                    host(metal3v1alpha1.StateReady).SaveHostProvisioningSettings().build(),
+			Host:                    host(metal3v1alpha1.StateAvailable).SaveHostProvisioningSettings().build(),
 			HasProvisioningCapacity: true,
 
 			ExpectedProvisioningState: metal3v1alpha1.StateProvisioning,
@@ -86,18 +94,18 @@ func TestProvisioningCapacity(t *testing.T) {
 
 		{
 			Scenario:                "already-delayed-delayed",
-			Host:                    host(metal3v1alpha1.StateReady).SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed).build(),
+			Host:                    host(metal3v1alpha1.StateAvailable).SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed).build(),
 			HasProvisioningCapacity: false,
 
-			ExpectedProvisioningState: metal3v1alpha1.StateReady,
+			ExpectedProvisioningState: metal3v1alpha1.StateAvailable,
 			ExpectedDelayed:           true,
 		},
 		{
 			Scenario:                "already-delayed-ok",
-			Host:                    host(metal3v1alpha1.StateReady).SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed).build(),
+			Host:                    host(metal3v1alpha1.StateAvailable).SetOperationalStatus(metal3v1alpha1.OperationalStatusDelayed).build(),
 			HasProvisioningCapacity: true,
 
-			ExpectedProvisioningState: metal3v1alpha1.StateReady,
+			ExpectedProvisioningState: metal3v1alpha1.StateAvailable,
 			ExpectedDelayed:           false,
 		},
 
@@ -177,7 +185,7 @@ func TestDeprovisioningCapacity(t *testing.T) {
 			Host:                      host(metal3v1alpha1.StateDeprovisioning).build(),
 			HasDeprovisioningCapacity: true,
 
-			ExpectedDeprovisioningState: metal3v1alpha1.StateReady,
+			ExpectedDeprovisioningState: metal3v1alpha1.StateAvailable,
 			ExpectedDelayed:             false,
 		},
 		{
@@ -345,35 +353,44 @@ func TestDetach(t *testing.T) {
 			ExpectedState:             metal3v1alpha1.StateProvisioning,
 		},
 		{
+			Scenario:                  "DeprecatedReadyHost",
+			Host:                      host(metal3v1alpha1.StateReady).build(),
+			HasDetachedAnnotation:     false,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+			ExpectedState:             metal3v1alpha1.StateProvisioning,
+		},
+		{
 			Scenario:                  "PreparingHost",
 			Host:                      host(metal3v1alpha1.StatePreparing).build(),
 			HasDetachedAnnotation:     true,
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
-			ExpectedState:             metal3v1alpha1.StateReady,
+			ExpectedState:             metal3v1alpha1.StateAvailable,
 		},
 		{
-			Scenario:                  "DetachReadyHost",
-			Host:                      host(metal3v1alpha1.StateReady).SetImageURL("").SetStatusPoweredOn(false).build(),
+			Scenario:                  "DetachAvailableHost",
+			Host:                      host(metal3v1alpha1.StateAvailable).SetImageURL("").SetStatusPoweredOn(false).build(),
 			HasDetachedAnnotation:     true,
 			ExpectedDetach:            true,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
-			ExpectedState:             metal3v1alpha1.StateReady,
+			ExpectedState:             metal3v1alpha1.StateAvailable,
 		},
 		{
-			Scenario:                  "AttachReadyHost",
-			Host:                      host(metal3v1alpha1.StateReady).SetImageURL("").SetStatusPoweredOn(false).build(),
+			Scenario:                  "AttachAvailableHost",
+			Host:                      host(metal3v1alpha1.StateAvailable).SetImageURL("").SetStatusPoweredOn(false).build(),
 			HasDetachedAnnotation:     false,
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
-			ExpectedState:             metal3v1alpha1.StateReady,
+			ExpectedState:             metal3v1alpha1.StateAvailable,
 		},
 		{
-			Scenario:                  "ReadyHost",
-			Host:                      host(metal3v1alpha1.StateReady).build(),
+			Scenario:                  "AvailableHost",
+			Host:                      host(metal3v1alpha1.StateAvailable).build(),
 			HasDetachedAnnotation:     false,
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
@@ -396,7 +413,7 @@ func TestDetach(t *testing.T) {
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
-			ExpectedState:             metal3v1alpha1.StateReady,
+			ExpectedState:             metal3v1alpha1.StateAvailable,
 		},
 		{
 			Scenario:                  "DeletingHost",
@@ -885,12 +902,22 @@ func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
 			ProvisionerErrorOn: "Deprovision",
 		},
 		{
-			Scenario:           "ready-power-on",
+			Scenario:           "available-power-on",
+			Host:               host(metal3v1alpha1.StateAvailable).SetImageURL("").SetStatusPoweredOn(false).build(),
+			ProvisionerErrorOn: "PowerOn",
+		},
+		{
+			Scenario:           "available-power-off",
+			Host:               host(metal3v1alpha1.StateAvailable).SetImageURL("").SetOnline(false).build(),
+			ProvisionerErrorOn: "PowerOff",
+		},
+		{
+			Scenario:           "deprecated-ready-power-on",
 			Host:               host(metal3v1alpha1.StateReady).SetImageURL("").SetStatusPoweredOn(false).build(),
 			ProvisionerErrorOn: "PowerOn",
 		},
 		{
-			Scenario:           "ready-power-off",
+			Scenario:           "deprecated-ready-power-off",
 			Host:               host(metal3v1alpha1.StateReady).SetImageURL("").SetOnline(false).build(),
 			ProvisionerErrorOn: "PowerOff",
 		},
@@ -948,7 +975,7 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 		{
 			Scenario:    "preparing-to-ready",
 			Host:        host(metal3v1alpha1.StatePreparing).build(),
-			TargetState: metal3v1alpha1.StateReady,
+			TargetState: metal3v1alpha1.StateAvailable,
 		},
 		{
 			Scenario:    "provisioning-to-provisioned",
@@ -958,7 +985,7 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 		{
 			Scenario:    "deprovisioning-to-ready",
 			Host:        host(metal3v1alpha1.StateDeprovisioning).build(),
-			TargetState: metal3v1alpha1.StateReady,
+			TargetState: metal3v1alpha1.StateAvailable,
 		},
 		{
 			Scenario:    "deprovisioning-to-deleting",
@@ -998,7 +1025,7 @@ func TestErrorClean(t *testing.T) {
 		},
 		{
 			Scenario: "clean-after-creds-change",
-			Host: host(metal3v1alpha1.StateReady).
+			Host: host(metal3v1alpha1.StateAvailable).
 				SetStatusError(metal3v1alpha1.OperationalStatusError, metal3v1alpha1.InspectionError, "some error", 1).
 				build(),
 			SecretName: "NewCreds",

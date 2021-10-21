@@ -1244,11 +1244,11 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 	return r.manageHostPower(prov, info)
 }
 
-// A host reaching this action handler should be ready -- a state that
+// A host reaching this action handler should be available -- a state that
 // it will stay in until the user takes further action. We don't
 // use Adopt() because we don't want Ironic to treat the host as
 // having been provisioned. Then we monitor its power status.
-func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionManageAvailable(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.NeedsProvisioning() {
 		clearError(info.host)
 		return actionComplete{}

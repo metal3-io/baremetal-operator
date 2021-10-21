@@ -182,7 +182,7 @@ const (
 	// StatePreparing means we are removing existing configuration and set new configuration to the host
 	StatePreparing ProvisioningState = "preparing"
 
-	// StateReady means the host can be consumed
+	// StateReady is a deprecated name for StateAvailable
 	StateReady ProvisioningState = "ready"
 
 	// StateAvailable means the host can be consumed

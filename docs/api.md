@@ -72,6 +72,15 @@ A boolean indicating whether the host should be powered on (true) or
 off (false). Changing this value will trigger a change in power state
 on the physical host.
 
+#### bootMACAddress
+
+The MAC address of the NIC used for provisioning the host.
+
+#### bootMode
+
+The boot mode of the host, defaults to `UEFI`, can also be set
+to `legacy` for BIOS boot, or `UEFISecureBoot`.
+
 #### consumerRef
 
 A reference to another resource that is using the host, it could be

@@ -23,7 +23,7 @@ if [ "${IS_CONTAINER}" != "false" ]; then
     { set +x; } 2>/dev/null
     echo "<-------------------------STARTING MANIFESTS VALIDATION CHECKS------------------------->"
     kubeval --strict --ignore-missing-schemas \
-    -d config,examples -i kustom,patch -o tap
+    -d config,examples -i kustom,patch,controller_manager_config -o tap
     echo "<-------------------------COMPLETED MANIFESTS VALIDATION CHECKS------------------------>"
 else
   "${CONTAINER_RUNTIME}" run --rm \

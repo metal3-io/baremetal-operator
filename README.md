@@ -35,5 +35,5 @@ following command:
 
 `make manifests`
 
-This will render the `config/render/capm3.yaml`. Please do not change the
+This will render the, `config/render/capm3.yaml`. Please do not change the,
 content of `config/render/capm3.yaml` manually.

@@ -12,6 +12,7 @@ import (
 func TestBuildTargetRAIDCfg(t *testing.T) {
 	var TRUE bool = true
 	var FALSE bool = false
+	phyDisks := make([]interface{}, 0)
 	cases := []struct {
 		name          string
 		raid          *metal3v1alpha1.RAIDConfig
@@ -44,14 +45,16 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 			},
 			expected: []nodes.LogicalDisk{
 				{
-					RAIDLevel:  "1",
-					VolumeName: "root",
-					DiskType:   nodes.SSD,
+					RAIDLevel:     "1",
+					VolumeName:    "root",
+					DiskType:      nodes.SSD,
+					PhysicalDisks: phyDisks,
 				},
 				{
-					RAIDLevel:  "1",
-					DiskType:   nodes.HDD,
-					VolumeName: "v1",
+					RAIDLevel:     "1",
+					DiskType:      nodes.HDD,
+					VolumeName:    "v1",
+					PhysicalDisks: phyDisks,
 				},
 			},
 		},
@@ -87,12 +90,14 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 			},
 			expected: []nodes.LogicalDisk{
 				{
-					RAIDLevel:  "1",
-					VolumeName: "",
+					RAIDLevel:     "1",
+					VolumeName:    "",
+					PhysicalDisks: phyDisks,
 				},
 				{
-					RAIDLevel:  "1",
-					VolumeName: "",
+					RAIDLevel:     "1",
+					VolumeName:    "",
+					PhysicalDisks: phyDisks,
 				},
 			},
 		},

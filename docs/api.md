@@ -167,6 +167,10 @@ The sub-fields are:
   * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in GiB.
     If unspecified or set to 0, the maximum capacity of disk will be used for
     logical disk.
+  * *physicalDisks* -- List of names of physical disks (Strings). This is an
+    optional field. If specified, the `controller` field must be specified too.
+  * *controller* -- String, Name of the RAID controller to be used in the
+     hardware RAID volume. Optional field.
 * *softwareRAIDVolumes* -- It contains the list of logical disks for software
   RAID. If rootDeviceHints isn't used, the first volume is the root volume. If
   HardwareRAIDVolumes is set this item will be invalid. The number of created

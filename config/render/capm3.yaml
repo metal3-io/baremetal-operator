@@ -288,6 +288,9 @@ spec:
                       description: HardwareRAIDVolume defines the desired configuration
                         of volume in hardware RAID
                       properties:
+                        controller:
+                          description: The name of the RAID controller to use
+                          type: string
                         level:
                           description: 'RAID level for the logical disk. The following
                             levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
@@ -312,6 +315,14 @@ spec:
                             required for the particular RAID level.
                           minimum: 1
                           type: integer
+                        physicalDisks:
+                          description: Optional list of physcial disk names to be
+                            used for the hardware RAID volume. The disk names are
+                            interpreted by the hardware RAID controller, and the format
+                            is hardware-specific.
+                          items:
+                            type: string
+                          type: array
                         rotational:
                           description: Select disks with only rotational or solid-state
                             storage
@@ -877,6 +888,9 @@ spec:
                           description: HardwareRAIDVolume defines the desired configuration
                             of volume in hardware RAID
                           properties:
+                            controller:
+                              description: The name of the RAID controller to use
+                              type: string
                             level:
                               description: 'RAID level for the logical disk. The following
                                 levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
@@ -901,6 +915,14 @@ spec:
                                 disks required for the particular RAID level.
                               minimum: 1
                               type: integer
+                            physicalDisks:
+                              description: Optional list of physcial disk names to
+                                be used for the hardware RAID volume. The disk names
+                                are interpreted by the hardware RAID controller, and
+                                the format is hardware-specific.
+                              items:
+                                type: string
+                              type: array
                             rotational:
                               description: Select disks with only rotational or solid-state
                                 storage

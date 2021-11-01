@@ -12,6 +12,24 @@
     kubectl create namespace baremetal-operator-system
     ```
 
+1. Install cert-manager
+
+    ```bash
+    kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml
+    ```
+
+1. Verify that it is deployed correctly. Note: don't move to the
+    next step before you see all three pods in Running state.
+
+    ```
+    kubectl get pods --namespace cert-manager
+
+    NAME                                       READY   STATUS    RESTARTS   AGE
+    cert-manager-5c6866597-zw7kh               1/1     Running   0          2m
+    cert-manager-cainjector-577f6d9fd7-tr77l   1/1     Running   0          2m
+    cert-manager-webhook-787858fcdb-nlzsq      1/1     Running   0          2m
+    ```
+
 1. Install operator in the cluster
 
     ```bash

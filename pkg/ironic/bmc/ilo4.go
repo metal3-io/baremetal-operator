@@ -1,3 +1,5 @@
+// Copyright (c) 2016-2018 Hewlett Packard Enterprise Development LP
+
 package bmc
 
 import (
@@ -7,11 +9,11 @@ import (
 )
 
 func init() {
-	RegisterFactory("irmc", newIRMCAccessDetails, []string{})
+	RegisterFactory("ilo4", newILOAccessDetails, []string{"https"})
 }
 
-func newIRMCAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
-	return &iRMCAccessDetails{
+func newILOAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	return &iLOAccessDetails{
 		bmcType:                        parsedURL.Scheme,
 		portNum:                        parsedURL.Port(),
 		hostname:                       parsedURL.Hostname(),
@@ -19,28 +21,30 @@ func newIRMCAccessDetails(parsedURL *url.URL, disableCertificateVerification boo
 	}, nil
 }
 
-type iRMCAccessDetails struct {
+type iLOAccessDetails struct {
 	bmcType                        string
 	portNum                        string
 	hostname                       string
 	disableCertificateVerification bool
 }
 
-func (a *iRMCAccessDetails) Type() string {
+func (a *iLOAccessDetails) Type() string {
 	return a.bmcType
 }
 
 // NeedsMAC returns true when the host is going to need a separate
 // port created rather than having it discovered.
-func (a *iRMCAccessDetails) NeedsMAC() bool {
-	return false
+func (a *iLOAccessDetails) NeedsMAC() bool {
+	// For the inspection to work, we need a MAC address
+	// https://github.com/metal3-io/baremetal-operator/pull/284#discussion_r317579040
+	return true
 }
 
-func (a *iRMCAccessDetails) Driver() string {
-	return "irmc"
+func (a *iLOAccessDetails) Driver() string {
+	return "ilo"
 }
 
-func (a *iRMCAccessDetails) DisableCertificateVerification() bool {
+func (a *iLOAccessDetails) DisableCertificateVerification() bool {
 	return a.disableCertificateVerification
 }
 
@@ -49,56 +53,58 @@ func (a *iRMCAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *iRMCAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+func (a *iLOAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+
 	result := map[string]interface{}{
-		"irmc_username": bmcCreds.Username,
-		"irmc_password": bmcCreds.Password,
-		"irmc_address":  a.hostname,
-		"ipmi_username": bmcCreds.Username,
-		"ipmi_password": bmcCreds.Password,
-		"ipmi_address":  a.hostname,
+		"ilo_username": bmcCreds.Username,
+		"ilo_password": bmcCreds.Password,
+		"ilo_address":  a.hostname,
 	}
 
 	if a.disableCertificateVerification {
-		result["irmc_verify_ca"] = false
+		result["ilo_verify_ca"] = false
 	}
 
 	if a.portNum != "" {
-		result["irmc_port"] = a.portNum
+		result["client_port"] = a.portNum
 	}
 
 	return result
 }
 
-func (a *iRMCAccessDetails) BIOSInterface() string {
+func (a *iLOAccessDetails) BIOSInterface() string {
 	return ""
 }
 
-func (a *iRMCAccessDetails) BootInterface() string {
-	return "pxe"
+func (a *iLOAccessDetails) BootInterface() string {
+	return "ilo-ipxe"
 }
 
-func (a *iRMCAccessDetails) ManagementInterface() string {
+func (a *iLOAccessDetails) ManagementInterface() string {
 	return ""
 }
 
-func (a *iRMCAccessDetails) PowerInterface() string {
-	return "ipmitool"
-}
-
-func (a *iRMCAccessDetails) RAIDInterface() string {
-	return "irmc"
-}
-
-func (a *iRMCAccessDetails) VendorInterface() string {
+func (a *iLOAccessDetails) PowerInterface() string {
 	return ""
 }
 
-func (a *iRMCAccessDetails) SupportsSecureBoot() bool {
+func (a *iLOAccessDetails) RAIDInterface() string {
+	return "no-raid"
+}
+
+func (a *iLOAccessDetails) VendorInterface() string {
+	return ""
+}
+
+func (a *iLOAccessDetails) SupportsSecureBoot() bool {
 	return true
 }
 
-func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+func (a *iLOAccessDetails) SupportsISOPreprovisioningImage() bool {
+	return false
+}
+
+func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil
 	}
@@ -106,39 +112,39 @@ func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.Fir
 	var value string
 
 	if firmwareConfig.VirtualizationEnabled != nil {
-		value = "False"
+		value = "Disabled"
 		if *firmwareConfig.VirtualizationEnabled {
-			value = "True"
+			value = "Enabled"
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "cpu_vt_enabled",
+				"name":  "ProcVirtualization",
 				"value": value,
 			},
 		)
 	}
 
 	if firmwareConfig.SimultaneousMultithreadingEnabled != nil {
-		value = "False"
+		value = "Disabled"
 		if *firmwareConfig.SimultaneousMultithreadingEnabled {
-			value = "True"
+			value = "Enabled"
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "hyper_threading_enabled",
+				"name":  "ProcHyperthreading",
 				"value": value,
 			},
 		)
 	}
 
 	if firmwareConfig.SriovEnabled != nil {
-		value = "False"
+		value = "Disabled"
 		if *firmwareConfig.SriovEnabled {
-			value = "True"
+			value = "Enabled"
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "single_root_io_virtualization_support_enabled",
+				"name":  "Sriov",
 				"value": value,
 			},
 		)

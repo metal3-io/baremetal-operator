@@ -85,6 +85,7 @@ func main() {
 	var watchNamespace string
 	var metricsAddr string
 	var enableLeaderElection bool
+	var preprovImgEnable bool
 	var devLogging bool
 	var runInTestMode bool
 	var runInDemoMode bool
@@ -101,6 +102,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&preprovImgEnable, "build-preprov-image", false, "enable integration with the PreprovisioningImage API")
 	flag.BoolVar(&devLogging, "dev", false, "enable developer logging")
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
@@ -150,7 +152,7 @@ func main() {
 		ctrl.Log.Info("using demo provisioner")
 		provisionerFactory = &demo.Demo{}
 	} else {
-		provisionerFactory = ironic.NewProvisionerFactory()
+		provisionerFactory = ironic.NewProvisionerFactory(preprovImgEnable)
 	}
 
 	if err = (&metal3iocontroller.BareMetalHostReconciler{
@@ -158,10 +160,26 @@ func main() {
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 		ProvisionerFactory: provisionerFactory,
 		APIReader:          mgr.GetAPIReader(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, preprovImgEnable); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)
 	}
+
+	if preprovImgEnable {
+		imgReconciler := metal3iocontroller.PreprovisioningImageReconciler{
+			Client:    mgr.GetClient(),
+			Log:       ctrl.Log.WithName("controllers").WithName("PreprovisioningImage"),
+			APIReader: mgr.GetAPIReader(),
+			Scheme:    mgr.GetScheme(),
+		}
+		if imgReconciler.CanStart() {
+			if err = (&imgReconciler).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "PreprovisioningImage")
+				os.Exit(1)
+			}
+		}
+	}
+	// +kubebuilder:scaffold:builder
 
 	if err = (&metal3iocontroller.HostFirmwareSettingsReconciler{
 		Client:             mgr.GetClient(),
@@ -177,8 +195,6 @@ func main() {
 	if enableWebhook {
 		setupWebhooks(mgr)
 	}
-
-	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

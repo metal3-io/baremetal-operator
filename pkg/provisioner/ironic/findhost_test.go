@@ -3,11 +3,11 @@ package ironic
 import (
 	"testing"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/testserver"
 
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 )
 
 func TestFindExistingHost(t *testing.T) {

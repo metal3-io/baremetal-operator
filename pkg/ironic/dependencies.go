@@ -20,7 +20,7 @@ type ironicDependenciesChecker struct {
 	log       logr.Logger
 }
 
-func newIronicDependenciesChecker(client *gophercloud.ServiceClient, inspector *gophercloud.ServiceClient, log logr.Logger) *ironicDependenciesChecker {
+func NewIronicDependenciesChecker(client *gophercloud.ServiceClient, inspector *gophercloud.ServiceClient, log logr.Logger) *ironicDependenciesChecker {
 	return &ironicDependenciesChecker{
 		client:    client,
 		inspector: inspector,

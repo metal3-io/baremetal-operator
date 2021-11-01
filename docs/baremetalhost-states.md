@@ -47,9 +47,11 @@ When setting up RAID, BIOS and other similar configurations,
 the host will be in Preparing state. For ironic provisioner,
 we build and set up manual clean steps in Preparing state.
 
-## Ready
+## Available
 
-A host in the Ready state is available to be provisioned.
+A host in the Available state is available to be provisioned.
+In older versions of the baremetal-operator, this state was called
+Ready.
 
 ## Provisioning
 

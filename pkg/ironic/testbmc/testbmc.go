@@ -3,8 +3,9 @@ package testbmc
 import (
 	"net/url"
 
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
 func init() {
@@ -88,6 +89,10 @@ func (a *testAccessDetails) VendorInterface() string {
 }
 
 func (a *testAccessDetails) SupportsSecureBoot() bool {
+	return false
+}
+
+func (a *testAccessDetails) SupportsISOPreprovisioningImage() bool {
 	return false
 }
 

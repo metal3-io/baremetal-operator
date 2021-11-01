@@ -61,10 +61,11 @@ func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic, inspector string) {
 
 func TestLoadConfigFromEnv(t *testing.T) {
 	cases := []struct {
-		name            string
-		env             EnvFixture
-		expectedError   string
-		forcePersistent string
+		name                  string
+		env                   EnvFixture
+		expectedError         string
+		expectedImgBuildError string
+		forcePersistent       string
 	}{
 		{
 			name: "kernel and ramdisk",
@@ -104,7 +105,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			env: EnvFixture{
 				ramdiskURL: "http://ramdisk",
 			},
-			expectedError: "Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError:         "Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedImgBuildError: "DEPLOY_RAMDISK_URL requires DEPLOY_KERNEL_URL to be set also",
 		},
 		{
 			name: "ISO and kernel",
@@ -120,7 +122,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 				ramdiskURL: "http://ramdisk",
 				isoURL:     "http://iso",
 			},
-			expectedError: "DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together",
+			expectedError:         "DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together",
+			expectedImgBuildError: "DEPLOY_RAMDISK_URL requires DEPLOY_KERNEL_URL to be set also",
 		},
 		{
 			name: "Force Persistent Default",
@@ -152,22 +155,30 @@ func TestLoadConfigFromEnv(t *testing.T) {
 				isoURL:                           "http://iso",
 				liveISOForcePersistentBootDevice: "NotAValidOption",
 			},
-			expectedError: "Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
+			expectedError:         "Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
+			expectedImgBuildError: "Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			defer tc.env.TearDown()
-			tc.env.SetUp()
-			config, err := loadConfigFromEnv()
-			if tc.expectedError != "" {
-				assert.Regexp(t, tc.expectedError, err, "error message")
-			} else {
-				assert.Nil(t, err)
-				tc.env.VerifyConfig(t, config, tc.forcePersistent)
-			}
-		})
+	for _, tt := range []string{"", " (with img builder)"} {
+		for _, tc := range cases {
+			t.Run(tc.name+tt, func(t *testing.T) {
+				defer tc.env.TearDown()
+				tc.env.SetUp()
+				imgBuild := tt != ""
+				config, err := loadConfigFromEnv(imgBuild)
+				expectedError := tc.expectedError
+				if imgBuild {
+					expectedError = tc.expectedImgBuildError
+				}
+				if expectedError != "" {
+					assert.Regexp(t, expectedError, err)
+				} else {
+					assert.Nil(t, err)
+					tc.env.VerifyConfig(t, config, tc.forcePersistent)
+				}
+			})
+		}
 	}
 }
 

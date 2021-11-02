@@ -1,50 +1,49 @@
-// Copyright (c) 2016-2018 Hewlett Packard Enterprise Development LP
-
 package bmc
 
 import (
 	"net/url"
+	"strings"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
-	RegisterFactory("ilo4", newILOAccessDetails, []string{"https"})
+	RegisterFactory("idrac", newIDRACAccessDetails, []string{"http", "https"})
 }
 
-func newILOAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
-	return &iLOAccessDetails{
+func newIDRACAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	return &iDracAccessDetails{
 		bmcType:                        parsedURL.Scheme,
 		portNum:                        parsedURL.Port(),
 		hostname:                       parsedURL.Hostname(),
+		path:                           parsedURL.Path,
 		disableCertificateVerification: disableCertificateVerification,
 	}, nil
 }
 
-type iLOAccessDetails struct {
+type iDracAccessDetails struct {
 	bmcType                        string
 	portNum                        string
 	hostname                       string
+	path                           string
 	disableCertificateVerification bool
 }
 
-func (a *iLOAccessDetails) Type() string {
+func (a *iDracAccessDetails) Type() string {
 	return a.bmcType
 }
 
 // NeedsMAC returns true when the host is going to need a separate
 // port created rather than having it discovered.
-func (a *iLOAccessDetails) NeedsMAC() bool {
-	// For the inspection to work, we need a MAC address
-	// https://github.com/metal3-io/baremetal-operator/pull/284#discussion_r317579040
-	return true
+func (a *iDracAccessDetails) NeedsMAC() bool {
+	return false
 }
 
-func (a *iLOAccessDetails) Driver() string {
-	return "ilo"
+func (a *iDracAccessDetails) Driver() string {
+	return "idrac"
 }
 
-func (a *iLOAccessDetails) DisableCertificateVerification() bool {
+func (a *iDracAccessDetails) DisableCertificateVerification() bool {
 	return a.disableCertificateVerification
 }
 
@@ -53,54 +52,67 @@ func (a *iLOAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *iLOAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-
+func (a *iDracAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
 	result := map[string]interface{}{
-		"ilo_username": bmcCreds.Username,
-		"ilo_password": bmcCreds.Password,
-		"ilo_address":  a.hostname,
+		"drac_username": bmcCreds.Username,
+		"drac_password": bmcCreds.Password,
+		"drac_address":  a.hostname,
 	}
-
 	if a.disableCertificateVerification {
-		result["ilo_verify_ca"] = false
+		result["drac_verify_ca"] = false
 	}
 
+	schemes := strings.Split(a.bmcType, "+")
+	if len(schemes) > 1 {
+		result["drac_protocol"] = schemes[1]
+	}
 	if a.portNum != "" {
-		result["client_port"] = a.portNum
+		result["drac_port"] = a.portNum
+	}
+	if a.path != "" {
+		result["drac_path"] = a.path
 	}
 
 	return result
 }
 
-func (a *iLOAccessDetails) BIOSInterface() string {
+func (a *iDracAccessDetails) BIOSInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) BootInterface() string {
-	return "ilo-ipxe"
+func (a *iDracAccessDetails) BootInterface() string {
+	return "ipxe"
 }
 
-func (a *iLOAccessDetails) ManagementInterface() string {
+func (a *iDracAccessDetails) ManagementInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) PowerInterface() string {
+func (a *iDracAccessDetails) PowerInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) RAIDInterface() string {
+func (a *iDracAccessDetails) RAIDInterface() string {
+	// Disabled RAID in OpenShift because we are not ready to support it
+	//return "idrac-wsman"
 	return "no-raid"
 }
 
-func (a *iLOAccessDetails) VendorInterface() string {
+func (a *iDracAccessDetails) VendorInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) SupportsSecureBoot() bool {
-	return true
+// NOTE(dtantsur): change to true if we switch to redfish-based implementations
+// by default.
+func (a *iDracAccessDetails) SupportsSecureBoot() bool {
+	return false
 }
 
-func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+func (a *iDracAccessDetails) SupportsISOPreprovisioningImage() bool {
+	return false
+}
+
+func (a *iDracAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil
 	}
@@ -127,7 +139,7 @@ func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.Firm
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "ProcHyperthreading",
+				"name":  "LogicalProc",
 				"value": value,
 			},
 		)
@@ -140,7 +152,7 @@ func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.Firm
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "Sriov",
+				"name":  "SriovGlobalEnable",
 				"value": value,
 			},
 		)

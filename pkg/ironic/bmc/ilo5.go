@@ -1,46 +1,50 @@
-package testbmc
+// Copyright (c) 2016-2018 Hewlett Packard Enterprise Development LP
+
+package bmc
 
 import (
 	"net/url"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 )
 
 func init() {
-	bmc.RegisterFactory("test", NewTestBMCAccessDetails, []string{})
-	bmc.RegisterFactory("test-needs-mac", NewTestBMCAccessDetails, []string{})
+	RegisterFactory("ilo5", newILO5AccessDetails, []string{"https"})
 }
 
-func NewTestBMCAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (bmc.AccessDetails, error) {
-	return &testAccessDetails{
+func newILO5AccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	return &iLO5AccessDetails{
 		bmcType:                        parsedURL.Scheme,
+		portNum:                        parsedURL.Port(),
 		hostname:                       parsedURL.Hostname(),
 		disableCertificateVerification: disableCertificateVerification,
 	}, nil
 }
 
-type testAccessDetails struct {
+type iLO5AccessDetails struct {
 	bmcType                        string
+	portNum                        string
 	hostname                       string
 	disableCertificateVerification bool
 }
 
-func (a *testAccessDetails) Type() string {
+func (a *iLO5AccessDetails) Type() string {
 	return a.bmcType
 }
 
 // NeedsMAC returns true when the host is going to need a separate
 // port created rather than having it discovered.
-func (a *testAccessDetails) NeedsMAC() bool {
-	return a.bmcType == "test-needs-mac"
+func (a *iLO5AccessDetails) NeedsMAC() bool {
+	// For the inspection to work, we need a MAC address
+	// https://github.com/metal3-io/baremetal-operator/pull/284#discussion_r317579040
+	return true
 }
 
-func (a *testAccessDetails) Driver() string {
-	return "test"
+func (a *iLO5AccessDetails) Driver() string {
+	return "ilo5"
 }
 
-func (a *testAccessDetails) DisableCertificateVerification() bool {
+func (a *iLO5AccessDetails) DisableCertificateVerification() bool {
 	return a.disableCertificateVerification
 }
 
@@ -49,51 +53,60 @@ func (a *testAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials) map[string]interface{} {
+func (a *iLO5AccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+
 	result := map[string]interface{}{
-		"test_port":     "42",
-		"test_username": bmcCreds.Username,
-		"test_password": bmcCreds.Password,
-		"test_address":  a.hostname,
+		"ilo_username": bmcCreds.Username,
+		"ilo_password": bmcCreds.Password,
+		"ilo_address":  a.hostname,
 	}
 
 	if a.disableCertificateVerification {
-		result["test_verify_ca"] = false
+		result["ilo_verify_ca"] = false
 	}
+
+	if a.portNum != "" {
+		result["client_port"] = a.portNum
+	}
+
 	return result
 }
 
-func (a *testAccessDetails) BIOSInterface() string {
+func (a *iLO5AccessDetails) BIOSInterface() string {
 	return ""
 }
 
-func (a *testAccessDetails) BootInterface() string {
-	return "ipxe"
+func (a *iLO5AccessDetails) BootInterface() string {
+	return "ilo-ipxe"
 }
 
-func (a *testAccessDetails) ManagementInterface() string {
+func (a *iLO5AccessDetails) ManagementInterface() string {
 	return ""
 }
 
-func (a *testAccessDetails) PowerInterface() string {
+func (a *iLO5AccessDetails) PowerInterface() string {
 	return ""
 }
 
-func (a *testAccessDetails) RAIDInterface() string {
+func (a *iLO5AccessDetails) RAIDInterface() string {
+	// Disabled RAID in OpenShift because we are not ready to support it
+	//return "ilo5"
 	return "no-raid"
 }
 
-func (a *testAccessDetails) VendorInterface() string {
+func (a *iLO5AccessDetails) VendorInterface() string {
 	return ""
 }
 
-func (a *testAccessDetails) SupportsSecureBoot() bool {
+func (a *iLO5AccessDetails) SupportsSecureBoot() bool {
+	return true
+}
+
+func (a *iLO5AccessDetails) SupportsISOPreprovisioningImage() bool {
 	return false
 }
 
-func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
-
-	// Return sample BMC data for test purposes
+func (a *iLO5AccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil
 	}

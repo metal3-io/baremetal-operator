@@ -64,6 +64,7 @@ test: generate lint manifests unit ## Run common developer tests
 unit: ## Run unit tests
 	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd apis/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
+	cd pkg/ironic && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
@@ -71,6 +72,8 @@ unit-cover: ## Run unit tests with code coverage
 	go tool cover -func=$(COVER_PROFILE)
 	cd apis/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
 	cd apis/ && go tool cover -func=$(COVER_PROFILE)
+	cd pkg/ironic/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
+	cd pkg/ironic/ && go tool cover -func=$(COVER_PROFILE)
 
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output

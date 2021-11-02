@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/clients"
+
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -12,10 +15,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
 func TestOptionValueEqual(t *testing.T) {

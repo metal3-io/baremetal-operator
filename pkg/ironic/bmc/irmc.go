@@ -1,5 +1,3 @@
-// Copyright (c) 2016-2018 Hewlett Packard Enterprise Development LP
-
 package bmc
 
 import (
@@ -9,11 +7,11 @@ import (
 )
 
 func init() {
-	RegisterFactory("ilo5", newILO5AccessDetails, []string{"https"})
+	RegisterFactory("irmc", newIRMCAccessDetails, []string{})
 }
 
-func newILO5AccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
-	return &iLO5AccessDetails{
+func newIRMCAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	return &iRMCAccessDetails{
 		bmcType:                        parsedURL.Scheme,
 		portNum:                        parsedURL.Port(),
 		hostname:                       parsedURL.Hostname(),
@@ -21,30 +19,28 @@ func newILO5AccessDetails(parsedURL *url.URL, disableCertificateVerification boo
 	}, nil
 }
 
-type iLO5AccessDetails struct {
+type iRMCAccessDetails struct {
 	bmcType                        string
 	portNum                        string
 	hostname                       string
 	disableCertificateVerification bool
 }
 
-func (a *iLO5AccessDetails) Type() string {
+func (a *iRMCAccessDetails) Type() string {
 	return a.bmcType
 }
 
 // NeedsMAC returns true when the host is going to need a separate
 // port created rather than having it discovered.
-func (a *iLO5AccessDetails) NeedsMAC() bool {
-	// For the inspection to work, we need a MAC address
-	// https://github.com/metal3-io/baremetal-operator/pull/284#discussion_r317579040
-	return true
+func (a *iRMCAccessDetails) NeedsMAC() bool {
+	return false
 }
 
-func (a *iLO5AccessDetails) Driver() string {
-	return "ilo5"
+func (a *iRMCAccessDetails) Driver() string {
+	return "irmc"
 }
 
-func (a *iLO5AccessDetails) DisableCertificateVerification() bool {
+func (a *iRMCAccessDetails) DisableCertificateVerification() bool {
 	return a.disableCertificateVerification
 }
 
@@ -53,56 +49,60 @@ func (a *iLO5AccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *iLO5AccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-
+func (a *iRMCAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
 	result := map[string]interface{}{
-		"ilo_username": bmcCreds.Username,
-		"ilo_password": bmcCreds.Password,
-		"ilo_address":  a.hostname,
+		"irmc_username": bmcCreds.Username,
+		"irmc_password": bmcCreds.Password,
+		"irmc_address":  a.hostname,
+		"ipmi_username": bmcCreds.Username,
+		"ipmi_password": bmcCreds.Password,
+		"ipmi_address":  a.hostname,
 	}
 
 	if a.disableCertificateVerification {
-		result["ilo_verify_ca"] = false
+		result["irmc_verify_ca"] = false
 	}
 
 	if a.portNum != "" {
-		result["client_port"] = a.portNum
+		result["irmc_port"] = a.portNum
 	}
 
 	return result
 }
 
-func (a *iLO5AccessDetails) BIOSInterface() string {
+func (a *iRMCAccessDetails) BIOSInterface() string {
 	return ""
 }
 
-func (a *iLO5AccessDetails) BootInterface() string {
-	return "ilo-ipxe"
+func (a *iRMCAccessDetails) BootInterface() string {
+	return "pxe"
 }
 
-func (a *iLO5AccessDetails) ManagementInterface() string {
+func (a *iRMCAccessDetails) ManagementInterface() string {
 	return ""
 }
 
-func (a *iLO5AccessDetails) PowerInterface() string {
+func (a *iRMCAccessDetails) PowerInterface() string {
+	return "ipmitool"
+}
+
+func (a *iRMCAccessDetails) RAIDInterface() string {
+	return "irmc"
+}
+
+func (a *iRMCAccessDetails) VendorInterface() string {
 	return ""
 }
 
-func (a *iLO5AccessDetails) RAIDInterface() string {
-	// Disabled RAID in OpenShift because we are not ready to support it
-	//return "ilo5"
-	return "no-raid"
-}
-
-func (a *iLO5AccessDetails) VendorInterface() string {
-	return ""
-}
-
-func (a *iLO5AccessDetails) SupportsSecureBoot() bool {
+func (a *iRMCAccessDetails) SupportsSecureBoot() bool {
 	return true
 }
 
-func (a *iLO5AccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+func (a *iRMCAccessDetails) SupportsISOPreprovisioningImage() bool {
+	return false
+}
+
+func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 	if firmwareConfig == nil {
 		return nil, nil
 	}
@@ -110,39 +110,39 @@ func (a *iLO5AccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.Fir
 	var value string
 
 	if firmwareConfig.VirtualizationEnabled != nil {
-		value = "Disabled"
+		value = "False"
 		if *firmwareConfig.VirtualizationEnabled {
-			value = "Enabled"
+			value = "True"
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "ProcVirtualization",
+				"name":  "cpu_vt_enabled",
 				"value": value,
 			},
 		)
 	}
 
 	if firmwareConfig.SimultaneousMultithreadingEnabled != nil {
-		value = "Disabled"
+		value = "False"
 		if *firmwareConfig.SimultaneousMultithreadingEnabled {
-			value = "Enabled"
+			value = "True"
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "ProcHyperthreading",
+				"name":  "hyper_threading_enabled",
 				"value": value,
 			},
 		)
 	}
 
 	if firmwareConfig.SriovEnabled != nil {
-		value = "Disabled"
+		value = "False"
 		if *firmwareConfig.SriovEnabled {
-			value = "Enabled"
+			value = "True"
 		}
 		settings = append(settings,
 			map[string]string{
-				"name":  "Sriov",
+				"name":  "single_root_io_virtualization_support_enabled",
 				"value": value,
 			},
 		)

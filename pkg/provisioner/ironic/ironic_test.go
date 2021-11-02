@@ -3,20 +3,21 @@ package ironic
 import (
 	"testing"
 
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/clients"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 
 	// We don't use this package directly here, but need it imported
 	// so it registers its test fixture with the other BMC access
 	// types.
-	_ "github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testbmc"
+	_ "github.com/metal3-io/baremetal-operator/pkg/ironic/testbmc"
 )
 
 func init() {

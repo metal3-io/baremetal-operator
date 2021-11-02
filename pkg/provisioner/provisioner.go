@@ -4,10 +4,11 @@ import (
 	"errors"
 	"time"
 
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 )
 
@@ -67,11 +68,17 @@ type HostConfigData interface {
 	MetaData() (string, error)
 }
 
+type PreprovisioningImage struct {
+	ImageURL string
+	Format   metal3v1alpha1.ImageFormat
+}
+
 type ManagementAccessData struct {
 	BootMode              metal3v1alpha1.BootMode
 	AutomatedCleaningMode metal3v1alpha1.AutomatedCleaningMode
 	State                 metal3v1alpha1.ProvisioningState
 	CurrentImage          *metal3v1alpha1.Image
+	PreprovisioningImage  *PreprovisioningImage
 	HasCustomDeploy       bool
 }
 
@@ -117,6 +124,11 @@ type Provisioner interface {
 	// previously been using, without implying that either set of
 	// credentials is correct.
 	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, force bool) (result Result, provID string, err error)
+
+	// PreprovisioningImageFormats returns a list of acceptable formats for a
+	// pre-provisioning image to be built by a PreprovisioningImage object. The
+	// list should be nil if no image build is requested.
+	PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called
@@ -198,5 +210,9 @@ type HardwareState struct {
 	PoweredOn *bool
 }
 
-// ErrNeedsRegistration raised if the host is not registered
+// ErrNeedsRegistration is returned if the host is not registered
 var ErrNeedsRegistration = errors.New("Host not registered")
+
+// ErrNeedsPreprovisioningImage is returned if a preprovisioning image is
+// required
+var ErrNeedsPreprovisioningImage = errors.New("No suitable Preprovisioning image available")

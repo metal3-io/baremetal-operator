@@ -3,13 +3,14 @@ package demo
 import (
 	"time"
 
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
@@ -26,8 +27,8 @@ const (
 	// registered.
 	RegisteringHost string = "demo-registering"
 
-	// ReadyHost is a host that is ready to be used.
-	ReadyHost string = "demo-ready"
+	// AvailableHost is a host that is available to be used.
+	AvailableHost string = "demo-available"
 
 	// InspectingHost is a host that is having its hardware scanned.
 	InspectingHost string = "demo-inspecting"
@@ -112,6 +113,10 @@ func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 	}
 
 	return
+}
+
+func (p *demoProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+	return nil, nil
 }
 
 // InspectHardware updates the HardwareDetails field of the host with

@@ -26,22 +26,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -51,6 +54,7 @@ import (
 const (
 	hostErrorRetryDelay           = time.Second * 10
 	unmanagedRetryDelay           = time.Minute * 10
+	preprovImageRetryDelay        = time.Minute * 5
 	provisionerNotReadyRetryDelay = time.Second * 30
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
@@ -84,6 +88,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=metal3.io,resources=preprovisioningimages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 
@@ -597,6 +602,128 @@ func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info 
 	return slowPoll
 }
 
+type imageBuildError struct {
+	Message string
+}
+
+func (ibe imageBuildError) Error() string {
+	return ibe.Message
+}
+
+func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, image *metal3v1alpha1.PreprovisioningImage) (bool, error) {
+	if image.Status.Architecture != image.Spec.Architecture {
+		info.log.Info("pre-provisioning image architecture mismatch",
+			"wanted", image.Spec.Architecture,
+			"current", image.Status.Architecture)
+		return false, nil
+	}
+
+	if image.Spec.NetworkDataName != "" {
+		secretKey := client.ObjectKey{
+			Name:      image.Spec.NetworkDataName,
+			Namespace: image.ObjectMeta.Namespace,
+		}
+		secretManager := r.secretManager(info.log)
+		networkData, err := secretManager.AcquireSecret(secretKey, info.host, false)
+		if err != nil {
+			return false, err
+		}
+		if image.Status.NetworkData.Version != networkData.GetResourceVersion() {
+			info.log.Info("network data in pre-provisioning image is out of date",
+				"latestVersion", networkData.GetResourceVersion(),
+				"currentVersion", image.Status.NetworkData.Version)
+			return false, nil
+		}
+	}
+	if image.Status.NetworkData.Name != image.Spec.NetworkDataName {
+		info.log.Info("network data location in pre-provisioning image is out of date")
+		return false, nil
+	}
+
+	for _, cond := range image.Status.Conditions {
+		if cond.Status == metav1.ConditionTrue {
+			switch metal3v1alpha1.ImageStatusConditionType(cond.Type) {
+			case metal3v1alpha1.ConditionImageReady:
+				return true, nil
+			case metal3v1alpha1.ConditionImageError:
+				info.log.Info("error building PreprovisioningImage",
+					"message", cond.Message)
+				return false, imageBuildError{cond.Message}
+			}
+		}
+	}
+
+	info.log.Info("pending PreprovisioningImage not ready")
+	return false, nil
+}
+
+func getHostArchitecture(host *metal3v1alpha1.BareMetalHost) string {
+	if host.Status.HardwareDetails != nil &&
+		host.Status.HardwareDetails.CPU.Arch != "" {
+		return host.Status.HardwareDetails.CPU.Arch
+	}
+	if hwprof, err := hardware.GetProfile(getHardwareProfileName(host)); err == nil {
+		return hwprof.CPUArch
+	}
+	return ""
+}
+
+func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats []metal3v1alpha1.ImageFormat) (*provisioner.PreprovisioningImage, error) {
+	if formats == nil {
+		// No image build requested
+		return nil, nil
+	}
+
+	if len(formats) == 0 {
+		return nil, imageBuildError{"no acceptable formats for preprovisioning image"}
+	}
+
+	expectedSpec := metal3v1alpha1.PreprovisioningImageSpec{
+		NetworkDataName: info.host.Spec.PreprovisioningNetworkDataName,
+		Architecture:    getHostArchitecture(info.host),
+	}
+
+	preprovImage := metal3v1alpha1.PreprovisioningImage{}
+	key := client.ObjectKey{
+		Name:      info.host.Name,
+		Namespace: info.host.Namespace,
+	}
+	err := r.Get(context.TODO(), key, &preprovImage)
+	if k8serrors.IsNotFound(err) {
+		info.log.Info("creating new PreprovisioningImage")
+		preprovImage = metal3v1alpha1.PreprovisioningImage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      key.Name,
+				Namespace: key.Namespace,
+			},
+			Spec: expectedSpec,
+		}
+		controllerutil.SetControllerReference(info.host, &preprovImage, r.Scheme())
+		err = r.Create(context.TODO(), &preprovImage)
+		return nil, err
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to retrieve pre-provisioning image data")
+	}
+
+	if !apiequality.Semantic.DeepEqual(preprovImage.Spec, expectedSpec) {
+		info.log.Info("updating PreprovisioningImage spec")
+		preprovImage.Spec = expectedSpec
+		err = r.Update(context.TODO(), &preprovImage)
+		return nil, err
+	}
+	if available, err := r.preprovImageAvailable(info, &preprovImage); err != nil || !available {
+		return nil, err
+	}
+
+	image := provisioner.PreprovisioningImage{
+		ImageURL: preprovImage.Status.ImageUrl,
+		Format:   preprovImage.Status.Format,
+	}
+	info.log.Info("using PreprovisioningImage")
+	return &image, nil
+}
+
 // Test the credentials by connecting to the management controller.
 func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("registering and validating access to management controller",
@@ -611,16 +738,46 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		dirty = true
 	}
 
+	preprovImgFormats, err := prov.PreprovisioningImageFormats()
+	if err != nil {
+		return actionError{err}
+	}
+	switch info.host.Status.Provisioning.State {
+	case metal3v1alpha1.StateRegistering, metal3v1alpha1.StateExternallyProvisioned:
+		// No need to create PreprovisioningImage if host is not yet registered
+		// or is externally provisioned
+		preprovImgFormats = nil
+	}
+
+	preprovImg, err := r.getPreprovImage(info, preprovImgFormats)
+	if err != nil {
+		if errors.As(err, &imageBuildError{}) {
+			return recordActionFailure(info, metal3v1alpha1.RegistrationError, err.Error())
+		}
+		return actionError{err}
+	}
+
 	provResult, provID, err := prov.ValidateManagementAccess(
 		provisioner.ManagementAccessData{
 			BootMode:              info.host.Status.Provisioning.BootMode,
 			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
 			State:                 info.host.Status.Provisioning.State,
 			CurrentImage:          getCurrentImage(info.host),
+			PreprovisioningImage:  preprovImg,
 			HasCustomDeploy:       hasCustomDeploy(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
+
+	if errors.Is(err, provisioner.ErrNeedsPreprovisioningImage) &&
+		preprovImgFormats != nil {
+		if preprovImg == nil {
+			waitingForPreprovImage.Inc()
+			return actionContinue{preprovImageRetryDelay}
+		}
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError,
+			"Preprovisioning Image is not acceptable to provisioner")
+	}
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
@@ -724,39 +881,35 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	return actionComplete{}
 }
 
-func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-
-	var hardwareProfile string
-
-	info.log.Info("determining hardware profile")
-
-	// Start by looking for an override value from the user
-	if info.host.Spec.HardwareProfile != "" {
-		info.log.Info("using spec value for profile name",
-			"name", info.host.Spec.HardwareProfile)
-		hardwareProfile = info.host.Spec.HardwareProfile
-		_, err := hardware.GetProfile(hardwareProfile)
-		if err != nil {
-			info.log.Info("invalid hardware profile", "profile", hardwareProfile)
-			return actionError{err}
-		}
+func getHardwareProfileName(host *metal3v1alpha1.BareMetalHost) string {
+	if host.Status.HardwareProfile != "" {
+		// Profile name already set
+		return host.Status.HardwareProfile
+	}
+	if host.Spec.HardwareProfile != "" {
+		// Profile name supplied by user
+		return host.Spec.HardwareProfile
 	}
 
-	// Now do a bit of matching.
-	//
 	// FIXME(dhellmann): Insert more robust logic to match
 	// hardware profiles here.
-	if hardwareProfile == "" {
-		if strings.HasPrefix(info.host.Spec.BMC.Address, "libvirt") {
-			hardwareProfile = "libvirt"
-			info.log.Info("determining from BMC address", "name", hardwareProfile)
-		}
+	if strings.HasPrefix(host.Spec.BMC.Address, "libvirt") {
+		return "libvirt"
 	}
+	return hardware.DefaultProfileName
+}
 
-	// Now default to a value just in case there is no match
-	if hardwareProfile == "" {
-		hardwareProfile = hardware.DefaultProfileName
-		info.log.Info("using the default", "name", hardwareProfile)
+func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+
+	hardwareProfile := getHardwareProfileName(info.host)
+	info.log.Info("using hardware profile", "profile", hardwareProfile)
+
+	_, err := hardware.GetProfile(hardwareProfile)
+	if err != nil {
+		info.log.Info("invalid hardware profile", "profile", hardwareProfile)
+		// FIXME(zaneb): This error requires a Spec change to fix, so we
+		// shouldn't treat it as transient
+		return actionError{err}
 	}
 
 	if info.host.SetHardwareProfile(hardwareProfile) {
@@ -764,7 +917,6 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 	}
 
-	clearError(info.host)
 	return actionComplete{}
 }
 
@@ -1092,11 +1244,11 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 	return r.manageHostPower(prov, info)
 }
 
-// A host reaching this action handler should be ready -- a state that
+// A host reaching this action handler should be available -- a state that
 // it will stay in until the user takes further action. We don't
 // use Adopt() because we don't want Ironic to treat the host as
 // having been provisioned. Then we monitor its power status.
-func (r *BareMetalHostReconciler) actionManageReady(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionManageAvailable(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.NeedsProvisioning() {
 		clearError(info.host)
 		return actionComplete{}
@@ -1369,7 +1521,7 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 }
 
 // SetupWithManager registers the reconciler to be run by the manager
-func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgEnable bool) error {
 
 	maxConcurrentReconciles := runtime.NumCPU()
 	if maxConcurrentReconciles > 8 {
@@ -1397,13 +1549,18 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		MaxConcurrentReconciles: maxConcurrentReconciles,
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&metal3v1alpha1.BareMetalHost{}).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: r.updateEventHandler,
 			}).
 		WithOptions(opts).
-		Owns(&corev1.Secret{}).
-		Complete(r)
+		Owns(&corev1.Secret{})
+
+	if preprovImgEnable {
+		controller.Owns(&metal3v1alpha1.PreprovisioningImage{})
+	}
+
+	return controller.Complete(r)
 }

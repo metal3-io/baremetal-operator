@@ -45,9 +45,9 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 		metal3v1alpha1.StateInspecting:            hsm.handleInspecting,
 		metal3v1alpha1.StateExternallyProvisioned: hsm.handleExternallyProvisioned,
 		metal3v1alpha1.StateMatchProfile:          hsm.handleMatchProfile,
-		metal3v1alpha1.StateAvailable:             hsm.handleReady,
 		metal3v1alpha1.StatePreparing:             hsm.handlePreparing,
-		metal3v1alpha1.StateReady:                 hsm.handleReady,
+		metal3v1alpha1.StateAvailable:             hsm.handleAvailable,
+		metal3v1alpha1.StateReady:                 hsm.handleAvailable,
 		metal3v1alpha1.StateProvisioning:          hsm.handleProvisioning,
 		metal3v1alpha1.StateProvisioned:           hsm.handleProvisioned,
 		metal3v1alpha1.StateDeprovisioning:        hsm.handleDeprovisioning,
@@ -395,12 +395,12 @@ func (hsm *hostStateMachine) handlePreparing(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionPreparing(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.Host.Status.ErrorCount = 0
-		hsm.NextState = metal3v1alpha1.StateReady
+		hsm.NextState = metal3v1alpha1.StateAvailable
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
 		clearHostProvisioningSettings(info.host)
@@ -419,8 +419,8 @@ func (hsm *hostStateMachine) handleReady(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
-	// ErrorCount is cleared when appropriate inside actionManageReady
-	actResult := hsm.Reconciler.actionManageReady(hsm.Provisioner, info)
+	// ErrorCount is cleared when appropriate inside actionManageAvailable
+	actResult := hsm.Reconciler.actionManageAvailable(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3v1alpha1.StateProvisioning
 	}
@@ -494,7 +494,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 
 	if hsm.Host.DeletionTimestamp.IsZero() {
 		if _, complete := actResult.(actionComplete); complete {
-			hsm.NextState = metal3v1alpha1.StateReady
+			hsm.NextState = metal3v1alpha1.StateAvailable
 			hsm.Host.Status.ErrorCount = 0
 		}
 	} else {

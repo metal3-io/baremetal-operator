@@ -96,6 +96,10 @@ func (a *testAccessDetails) SupportsISOPreprovisioningImage() bool {
 	return false
 }
 
+func (a *testAccessDetails) RequiresProvisioningNetwork() bool {
+	return true
+}
+
 func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
 
 	// Return sample BMC data for test purposes

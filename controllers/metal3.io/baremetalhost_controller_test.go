@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 
 	"github.com/stretchr/testify/assert"
 
@@ -442,11 +443,15 @@ func TestAddFinalizers(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			t.Logf("finalizers: %v", host.ObjectMeta.Finalizers)
-			if utils.StringInList(host.ObjectMeta.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
-				return true
+			t.Logf("host finalizers: %v", host.ObjectMeta.Finalizers)
+			if !utils.StringInList(host.ObjectMeta.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
+				return false
 			}
-			return false
+
+			hostSecret := getHostSecret(t, r, host)
+			t.Logf("BMC secret finalizers: %v", hostSecret.ObjectMeta.Finalizers)
+
+			return utils.StringInList(hostSecret.ObjectMeta.Finalizers, secretutils.SecretsFinalizer)
 		},
 	)
 }
@@ -1376,7 +1381,7 @@ func TestDeleteHost(t *testing.T) {
 
 			tryReconcile(t, r, host,
 				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-					return fix.Deleted && host == nil
+					return fix.Deleted && host == nil && !utils.StringInList(badSecret.Finalizers, secretutils.SecretsFinalizer)
 				},
 			)
 		})

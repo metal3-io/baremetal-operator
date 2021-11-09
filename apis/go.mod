@@ -7,4 +7,7 @@ require (
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
 	sigs.k8s.io/controller-runtime v0.9.7
+	github.com/metal3-io/baremetal-operator/pkg/bmc v0.0.0
 )
+
+replace github.com/metal3-io/baremetal-operator/pkg/bmc => ./../pkg/bmc

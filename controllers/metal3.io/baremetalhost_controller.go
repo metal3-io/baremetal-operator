@@ -139,7 +139,8 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		reqLogger.Info("Fetching Status from Annotation")
 		objStatus, err := r.getHostStatusFromAnnotation(host)
 		if err == nil && objStatus != nil {
-			host.Status = *objStatus
+			host.Status.HardwareDetails = objStatus.HardwareDetails
+			host.Status.Provisioning = objStatus.Provisioning
 			if host.Status.LastUpdated.IsZero() {
 				// Ensure the LastUpdated timestamp in set to avoid
 				// infinite loops if the annotation only contained

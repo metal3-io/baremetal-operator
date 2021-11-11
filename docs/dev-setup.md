@@ -87,6 +87,8 @@ The following environment variables can be passed to configure the ironic:
 - HTTP_PORT - port used by httpd server (default 6180)
 - PROVISIONING_IP - provisioning interface IP address to use for ironic,
   dnsmasq(dhcpd) and httpd (default 172.22.0.1)
+- CONTAINER_PULL_IMAGES - If set to false, images wont be pulled from internet.
+  This can be useful if images are built locally.
 - CLUSTER_PROVISIONING_IP - cluster provisioning interface IP address (default 172.22.0.2)
 - PROVISIONING_INTERFACE - interface to use for ironic, dnsmasq(dhcpd) and
   httpd (default ironicendpoint)
@@ -94,6 +96,9 @@ The following environment variables can be passed to configure the ironic:
 - DEPLOY_KERNEL_URL - the URL of the kernel to deploy ironic-python-agent
 - DEPLOY_RAMDISK_URL - the URL of the ramdisk to deploy ironic-python-agent
 - IRONIC_ENDPOINT - the endpoint of the ironic
+- IRONIC_EXTRA_VARS - Path of a file containing vars which will be passed
+  as environment variables to the ironic containers.
+  Ex: `OS_DEFAULT__AUTH_STRATEGY="noauth"`
 - IRONIC_INSPECTOR_ENDPOINT - the endpoint of the ironic inspector
 - CACHEURL - the URL of the cached images
 - IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not

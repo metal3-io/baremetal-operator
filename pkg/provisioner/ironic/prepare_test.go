@@ -32,7 +32,8 @@ func (r *RAIDTestBMC) PowerInterface() string                                { r
 func (r *RAIDTestBMC) RAIDInterface() string                                 { return "" }
 func (r *RAIDTestBMC) VendorInterface() string                               { return "" }
 func (r *RAIDTestBMC) SupportsSecureBoot() bool                              { return false }
-func (r *RAIDTestBMC) BuildBIOSSettings(fwConf *metal3v1alpha1.FirmwareConfig) ([]map[string]string, error) {
+func (r *RAIDTestBMC) RequiresProvisioningNetwork() bool                     { return true }
+func (r *RAIDTestBMC) BuildBIOSSettings(fwConf *bmc.FirmwareConfig) ([]map[string]string, error) {
 	return nil, nil
 }
 

@@ -172,8 +172,8 @@ and clean it with
 
 It is also possible to develop Baremetal Operator using Tilt with CAPM3. Please
 refer to
-[the development setup guide of CAPM3](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#tilt-for-dev-in-capm3)
-and specially the [Baremetal Operator Integration](https://github.com/metal3-io/cluster-api-provider-metal3/blob/master/docs/dev-setup.md#including-baremetal-operator-and-ip-address-manager)
+[the development setup guide of CAPM3](https://github.com/metal3-io/cluster-api-provider-metal3/blob/main/docs/dev-setup.md#tilt-for-dev-in-capm3)
+and specially the [Baremetal Operator Integration](https://github.com/metal3-io/cluster-api-provider-metal3/blob/main/docs/dev-setup.md#including-baremetal-operator-and-ip-address-manager)
 
 ## Using libvirt VMs with Ironic
 

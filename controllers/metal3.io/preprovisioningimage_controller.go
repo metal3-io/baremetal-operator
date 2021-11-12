@@ -151,7 +151,7 @@ func getNetworkDataStatus(secretManager secretutils.SecretManager, img *metal3.P
 		Name:      networkDataSecret,
 		Namespace: img.ObjectMeta.Namespace,
 	}
-	secret, err := secretManager.AcquireSecret(secretKey, img, false)
+	secret, err := secretManager.AcquireSecret(secretKey, img, false, false)
 	if err != nil {
 		return metal3.SecretStatus{}, err
 	}

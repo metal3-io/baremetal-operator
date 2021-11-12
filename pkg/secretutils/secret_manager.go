@@ -12,6 +12,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
+)
+
+const (
+	SecretsFinalizer = metal3v1alpha1.BareMetalHostFinalizer + "/secret"
 )
 
 // SecretManager is a type for fetching Secrets whether or not they are in the
@@ -58,7 +65,7 @@ func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Se
 // claimSecret ensures that the Secret has a label that will ensure it is
 // present in the cache (and that we can watch for changes), and optionally
 // that it has a particular owner reference.
-func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object, ownerIsController bool) error {
+func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object, ownerIsController, addFinalizer bool) error {
 	log := sm.log.WithValues("secret", secret.Name, "secretNamespace", secret.Namespace)
 	needsUpdate := false
 	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
@@ -98,6 +105,12 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 		}
 	}
 
+	if addFinalizer && !utils.StringInList(secret.Finalizers, SecretsFinalizer) {
+		log.Info("setting secret finalizer")
+		secret.Finalizers = append(secret.Finalizers, SecretsFinalizer)
+		needsUpdate = true
+	}
+
 	if needsUpdate {
 		if err := sm.client.Update(context.TODO(), secret); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update secret %s in namespace %s", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
@@ -111,12 +124,12 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 // will ensure it is present in the cache (and that we can watch for changes),
 // and optionally that it has a particular owner reference. The owner reference
 // may optionally be a controller reference.
-func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner client.Object, ownerIsController bool) (*corev1.Secret, error) {
+func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner client.Object, ownerIsController, addFinalizer bool) (*corev1.Secret, error) {
 	secret, err := sm.findSecret(key)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to fetch secret %s in namespace %s", key.Name, key.Namespace))
 	}
-	err = sm.claimSecret(secret, owner, ownerIsController)
+	err = sm.claimSecret(secret, owner, ownerIsController, addFinalizer)
 
 	return secret, err
 }
@@ -125,16 +138,37 @@ func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner cl
 // ensure it is present in the cache (and that we can watch for changes), and
 // that it has a particular owner reference. The owner reference may optionally
 // be a controller reference.
-func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, ownerIsController bool) (*corev1.Secret, error) {
+func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, ownerIsController, addFinalizer bool) (*corev1.Secret, error) {
 	if owner == nil {
 		panic("AcquireSecret called with no owner")
 	}
 
-	return sm.obtainSecretForOwner(key, owner, ownerIsController)
+	return sm.obtainSecretForOwner(key, owner, ownerIsController, addFinalizer)
 }
 
 // ObtainSecret retrieves a Secret and ensures that it has a label that will
 // ensure it is present in the cache (and that we can watch for changes).
 func (sm *SecretManager) ObtainSecret(key types.NamespacedName) (*corev1.Secret, error) {
-	return sm.obtainSecretForOwner(key, nil, false)
+	return sm.obtainSecretForOwner(key, nil, false, false)
+}
+
+// ReleaseSecret removes secrets manager finalizer from specified secret when needed.
+func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
+	if !utils.StringInList(secret.Finalizers, SecretsFinalizer) {
+		return nil
+	}
+
+	// Remove finalizer from secret to allow deletion
+	secret.Finalizers = utils.FilterStringFromList(
+		secret.Finalizers, SecretsFinalizer)
+
+	if err := sm.client.Update(context.Background(), secret); err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to remove finalizer from secret %s in namespace %s",
+			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
+	}
+
+	sm.log.Info("removed secret finalizer",
+		"remaining", secret.Finalizers)
+
+	return nil
 }

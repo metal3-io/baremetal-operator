@@ -526,6 +526,13 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	}
 
 	// Remove finalizer to allow deletion
+	secretManager := secretutils.NewSecretManager(info.log, r.Client, r.APIReader)
+
+	err = secretManager.ReleaseSecret(info.bmcCredsSecret)
+	if err != nil {
+		return actionError{err}
+	}
+
 	info.host.Finalizers = utils.FilterStringFromList(
 		info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 	info.log.Info("cleanup is complete, removed finalizer",
@@ -624,7 +631,7 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 			Namespace: image.ObjectMeta.Namespace,
 		}
 		secretManager := r.secretManager(info.log)
-		networkData, err := secretManager.AcquireSecret(secretKey, info.host, false)
+		networkData, err := secretManager.AcquireSecret(secretKey, info.host, false, false)
 		if err != nil {
 			return false, err
 		}
@@ -1424,7 +1431,7 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 	secretManager := r.secretManager(reqLogger)
 
-	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, true)
+	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, true, true)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", host.CredentialsKey())}

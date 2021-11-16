@@ -235,5 +235,7 @@ mod: ## Clean up go module settings
 	go mod verify
 	cd apis; go mod tidy
 	cd apis; go mod verify
+	cd pkg/ironic; go mod tidy
+	cd pkg/ironic; go mod verify
 	cd hack/tools; go mod tidy
 	cd hack/tools; go mod verify

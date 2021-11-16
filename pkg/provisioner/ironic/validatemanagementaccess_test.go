@@ -827,7 +827,7 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 			Name:              "enabled ipmi",
 			Address:           "ipmi://example.test",
 			PreprovImgEnabled: true,
-			Expected:          nil,
+			Expected:          []metal3v1alpha1.ImageFormat{"initrd"},
 		},
 		{
 			Name:              "enabled virtualmedia",
@@ -978,7 +978,7 @@ func TestSetDeployImage(t *testing.T) {
 			},
 			ExpectBuild: false,
 			ExpectISO:   false,
-			ExpectPXE:   true,
+			ExpectPXE:   false,
 		},
 		{
 			Scenario: "pxe build no kernel",

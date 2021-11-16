@@ -4,8 +4,6 @@ import (
 	"net/url"
 
 	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
-
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func init() {
@@ -96,7 +94,11 @@ func (a *testAccessDetails) SupportsISOPreprovisioningImage() bool {
 	return false
 }
 
-func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *metal3v1alpha1.FirmwareConfig) (settings []map[string]string, err error) {
+func (a *testAccessDetails) RequiresProvisioningNetwork() bool {
+	return true
+}
+
+func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *bmc.FirmwareConfig) (settings []map[string]string, err error) {
 
 	// Return sample BMC data for test purposes
 	if firmwareConfig == nil {

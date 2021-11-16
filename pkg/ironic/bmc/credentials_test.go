@@ -2,14 +2,7 @@ package bmc
 
 import (
 	"testing"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
-
-func init() {
-	logf.SetLogger(logz.New(logz.UseDevMode(true)))
-}
 
 func TestValidCredentials(t *testing.T) {
 	creds := Credentials{

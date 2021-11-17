@@ -93,7 +93,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
-	url, format, errorMessage := getImageURL(img.Spec.AcceptFormats)
+	url, format, errorMessage := getImageURL()
 	if errorMessage != "" {
 		log.Info("no suitable image URL available", "preferredFormat", format)
 		return setError(generation, &img.Status, reasonImageConfigurationError, errorMessage), nil
@@ -116,26 +116,12 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 	return false, err
 }
 
-func getImageURL(acceptFormats []metal3.ImageFormat) (url string, format metal3.ImageFormat, errorMessage string) {
-	for _, fmt := range acceptFormats {
-		switch fmt {
-		case metal3.ImageFormatISO:
-			if iso := os.Getenv("DEPLOY_ISO_URL"); iso != "" {
-				return iso, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_ISO_URL specified"
-			}
-		case metal3.ImageFormatInitRD:
-			if initrd := os.Getenv("DEPLOY_RAMDISK_URL"); initrd != "" {
-				return initrd, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_RAMDISK_URL specified"
-			}
-		}
+func getImageURL() (url string, format metal3.ImageFormat, errorMessage string) {
+	format = metal3.ImageFormatISO
+	if iso := os.Getenv("DEPLOY_ISO_URL"); iso != "" {
+		url = iso
+	} else {
+		errorMessage = "No DEPLOY_ISO_URL specified"
 	}
 	return
 }
@@ -232,16 +218,11 @@ func setError(generation int64, status *metal3.PreprovisioningImageStatus, reaso
 }
 
 func (r *PreprovisioningImageReconciler) CanStart() bool {
-	deployKernelURL := os.Getenv("DEPLOY_KERNEL_URL")
-	deployRamdiskURL := os.Getenv("DEPLOY_RAMDISK_URL")
 	deployISOURL := os.Getenv("DEPLOY_ISO_URL")
-	hasCfg := (deployISOURL != "" ||
-		(deployKernelURL != "" && deployRamdiskURL != ""))
+	hasCfg := deployISOURL != ""
 	if hasCfg {
 		r.Log.Info("have deploy image data",
-			"iso_url", deployISOURL,
-			"ramdisk_url", deployRamdiskURL,
-			"kernel_url", deployKernelURL)
+			"iso_url", deployISOURL)
 	} else {
 		r.Log.Info("not starting preprovisioning image controller; no image data available")
 	}

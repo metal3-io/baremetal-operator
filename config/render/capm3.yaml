@@ -1413,15 +1413,6 @@ spec:
           spec:
             description: PreprovisioningImageSpec defines the desired state of PreprovisioningImage
             properties:
-              acceptFormats:
-                description: acceptFormats is a list of acceptable image formats.
-                items:
-                  description: ImageFormat enumerates the allowed image formats
-                  enum:
-                  - iso
-                  - initrd
-                  type: string
-                type: array
               architecture:
                 description: architecture is the processor architecture for which
                   to build the image.

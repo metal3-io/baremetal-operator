@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 )
 
@@ -43,9 +43,10 @@ const (
 // PreprovisioningImageReconciler reconciles a PreprovisioningImage object
 type PreprovisioningImageReconciler struct {
 	client.Client
-	Log       logr.Logger
-	Scheme    *runtime.Scheme
-	APIReader client.Reader
+	Log           logr.Logger
+	Scheme        *runtime.Scheme
+	APIReader     client.Reader
+	ImageProvider imageprovider.ImageProvider
 }
 
 type imageConditionReason string
@@ -93,7 +94,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
-	url, format, errorMessage := getImageURL(img.Spec.AcceptFormats)
+	url, format, errorMessage := r.ImageProvider.BuildImage(img.Spec.AcceptFormats)
 	if errorMessage != "" {
 		log.Info("no suitable image URL available", "preferredFormat", format)
 		return setError(generation, &img.Status, reasonImageConfigurationError, errorMessage), nil
@@ -105,7 +106,7 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 	if err == nil {
 		return setImage(generation, &img.Status, url, format,
 			secretStatus, img.Spec.Architecture,
-			"Set default image"), nil
+			"Generated image"), nil
 	}
 
 	if k8serrors.IsNotFound(err) {
@@ -114,30 +115,6 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 	}
 
 	return false, err
-}
-
-func getImageURL(acceptFormats []metal3.ImageFormat) (url string, format metal3.ImageFormat, errorMessage string) {
-	for _, fmt := range acceptFormats {
-		switch fmt {
-		case metal3.ImageFormatISO:
-			if iso := os.Getenv("DEPLOY_ISO_URL"); iso != "" {
-				return iso, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_ISO_URL specified"
-			}
-		case metal3.ImageFormatInitRD:
-			if initrd := os.Getenv("DEPLOY_RAMDISK_URL"); initrd != "" {
-				return initrd, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_RAMDISK_URL specified"
-			}
-		}
-	}
-	return
 }
 
 func getErrorRetryDelay(status metal3.PreprovisioningImageStatus) time.Duration {
@@ -232,20 +209,13 @@ func setError(generation int64, status *metal3.PreprovisioningImageStatus, reaso
 }
 
 func (r *PreprovisioningImageReconciler) CanStart() bool {
-	deployKernelURL := os.Getenv("DEPLOY_KERNEL_URL")
-	deployRamdiskURL := os.Getenv("DEPLOY_RAMDISK_URL")
-	deployISOURL := os.Getenv("DEPLOY_ISO_URL")
-	hasCfg := (deployISOURL != "" ||
-		(deployKernelURL != "" && deployRamdiskURL != ""))
-	if hasCfg {
-		r.Log.Info("have deploy image data",
-			"iso_url", deployISOURL,
-			"ramdisk_url", deployRamdiskURL,
-			"kernel_url", deployKernelURL)
-	} else {
-		r.Log.Info("not starting preprovisioning image controller; no image data available")
+	for _, fmt := range []metal3.ImageFormat{metal3.ImageFormatISO, metal3.ImageFormatInitRD} {
+		if r.ImageProvider.SupportsFormat(fmt) {
+			return true
+		}
 	}
-	return hasCfg
+	r.Log.Info("not starting preprovisioning image controller; no image data available")
+	return false
 }
 
 func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager) error {

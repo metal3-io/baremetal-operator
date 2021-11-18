@@ -3,7 +3,7 @@ package testbmc
 import (
 	"net/url"
 
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 
 func init() {

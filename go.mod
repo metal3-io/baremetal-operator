@@ -6,7 +6,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/gophercloud/gophercloud v0.18.0
 	github.com/metal3-io/baremetal-operator/apis v0.0.0
-	github.com/metal3-io/baremetal-operator/pkg/bmc v0.0.0
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/stretchr/testify v1.7.0
@@ -21,4 +21,4 @@ require (
 
 replace github.com/metal3-io/baremetal-operator/apis => ./apis
 
-replace github.com/metal3-io/baremetal-operator/pkg/bmc => ./pkg/bmc
+replace github.com/metal3-io/baremetal-operator/pkg/hardwareutils => ./pkg/hardwareutils

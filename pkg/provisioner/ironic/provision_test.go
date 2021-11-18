@@ -11,14 +11,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testbmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 
-	_ "github.com/metal3-io/baremetal-operator/pkg/bmc"
+	_ "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 
 func TestProvision(t *testing.T) {

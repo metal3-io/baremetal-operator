@@ -5,7 +5,7 @@ import (
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	_ "github.com/metal3-io/baremetal-operator/pkg/bmc"
+	_ "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 
 // log is for logging in this package.

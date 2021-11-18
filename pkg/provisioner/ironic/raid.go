@@ -19,7 +19,7 @@ const (
 
 // setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps
 func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (provisioner.Result, error) {
-	err := CheckRAIDConfigure(raidInterface, data.TargetRAIDConfig)
+	err := checkRAIDConfigure(raidInterface, data.TargetRAIDConfig)
 	if err != nil {
 		return operationFailed(err.Error())
 	}
@@ -55,9 +55,108 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 	return provisioner.Result{}, nil
 }
 
+// BuildTargetRAIDCfg build RAID logical disks, this method doesn't set the root volume
+func BuildTargetRAIDCfg(raid *metal3v1alpha1.RAIDConfig) (logicalDisks []nodes.LogicalDisk, err error) {
+	// Deal possible panic
+	defer func() {
+		r := recover()
+		if r != nil {
+			err = fmt.Errorf("panic in build RAID settings: %v", r)
+		}
+	}()
+
+	if raid == nil {
+		return
+	}
+
+	// build logicalDisks
+	if len(raid.HardwareRAIDVolumes) != 0 {
+		logicalDisks, err = buildTargetHardwareRAIDCfg(raid.HardwareRAIDVolumes)
+	} else if len(raid.SoftwareRAIDVolumes) != 0 {
+		logicalDisks, err = buildTargetSoftwareRAIDCfg(raid.SoftwareRAIDVolumes)
+	}
+
+	return
+}
+
+// A private method to build hardware RAID disks
+func buildTargetHardwareRAIDCfg(volumes []metal3v1alpha1.HardwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
+	var (
+		logicalDisk    nodes.LogicalDisk
+		nameCheckFlags = make(map[string]int)
+	)
+
+	if len(volumes) == 0 {
+		return
+	}
+
+	for index, volume := range volumes {
+		// Check volume's name
+		if volume.Name != "" {
+			i, exist := nameCheckFlags[volume.Name]
+			if exist {
+				return nil, errors.Errorf("the names(%s) of volume[%d] and volume[%d] are repeated", volume.Name, index, i)
+			}
+			nameCheckFlags[volume.Name] = index
+		}
+		// Build logicalDisk
+		logicalDisk = nodes.LogicalDisk{
+			SizeGB:     volume.SizeGibibytes,
+			RAIDLevel:  nodes.RAIDLevel(volume.Level),
+			VolumeName: volume.Name,
+		}
+		if volume.Rotational != nil {
+			if *volume.Rotational {
+				logicalDisk.DiskType = nodes.HDD
+			} else {
+				logicalDisk.DiskType = nodes.SSD
+			}
+		}
+		if volume.NumberOfPhysicalDisks != nil {
+			logicalDisk.NumberOfPhysicalDisks = *volume.NumberOfPhysicalDisks
+		}
+		// Add to logicalDisks
+		logicalDisks = append(logicalDisks, logicalDisk)
+	}
+
+	return
+}
+
+// A private method to build software RAID disks
+func buildTargetSoftwareRAIDCfg(volumes []metal3v1alpha1.SoftwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
+	var (
+		logicalDisk nodes.LogicalDisk
+	)
+
+	if len(volumes) == 0 {
+		return
+	}
+
+	if nodes.RAIDLevel(volumes[0].Level) != nodes.RAID1 {
+		return nil, errors.Errorf("the level in first volume of software raid must be RAID1")
+	}
+
+	for _, volume := range volumes {
+		// Build logicalDisk
+		logicalDisk = nodes.LogicalDisk{
+			SizeGB:     volume.SizeGibibytes,
+			RAIDLevel:  nodes.RAIDLevel(volume.Level),
+			Controller: "software",
+		}
+		// Build physical disks hint
+		for i := range volume.PhysicalDisks {
+			logicalDisk.PhysicalDisks = append(logicalDisk.PhysicalDisks, devicehints.MakeHintMap(&volume.PhysicalDisks[i]))
+		}
+		// Add to logicalDisks
+		logicalDisks = append(logicalDisks, logicalDisk)
+	}
+
+	return
+}
+
 // BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec
 func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig, actual *metal3v1alpha1.RAIDConfig) (cleanSteps []nodes.CleanStep, err error) {
-	err = CheckRAIDConfigure(raidInterface, target)
+	err = checkRAIDConfigure(raidInterface, target)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +251,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 	return
 }
 
-func CheckRAIDConfigure(raidInterface string, raid *metal3v1alpha1.RAIDConfig) error {
+func checkRAIDConfigure(raidInterface string, raid *metal3v1alpha1.RAIDConfig) error {
 	switch raidInterface {
 	case noRAIDInterface:
 		if raid != nil && (len(raid.HardwareRAIDVolumes) != 0 || len(raid.SoftwareRAIDVolumes) != 0) {
@@ -168,103 +267,4 @@ func CheckRAIDConfigure(raidInterface string, raid *metal3v1alpha1.RAIDConfig) e
 		}
 	}
 	return nil
-}
-
-// BuildTargetRAIDCfg build RAID logical disks, this method doesn't set the root volume
-func BuildTargetRAIDCfg(raid *metal3v1alpha1.RAIDConfig) (logicalDisks []nodes.LogicalDisk, err error) {
-	// Deal possible panic
-	defer func() {
-		r := recover()
-		if r != nil {
-			err = fmt.Errorf("panic in build RAID settings: %v", r)
-		}
-	}()
-
-	if raid == nil {
-		return
-	}
-
-	// build logicalDisks
-	if len(raid.HardwareRAIDVolumes) != 0 {
-		logicalDisks, err = buildTargetHardwareRAIDCfg(raid.HardwareRAIDVolumes)
-	} else if len(raid.SoftwareRAIDVolumes) != 0 {
-		logicalDisks, err = buildTargetSoftwareRAIDCfg(raid.SoftwareRAIDVolumes)
-	}
-
-	return
-}
-
-// A private method to build hardware RAID disks
-func buildTargetHardwareRAIDCfg(volumes []metal3v1alpha1.HardwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
-	var (
-		logicalDisk    nodes.LogicalDisk
-		nameCheckFlags map[string]int = make(map[string]int)
-	)
-
-	if len(volumes) == 0 {
-		return
-	}
-
-	for index, volume := range volumes {
-		// Check volume's name
-		if volume.Name != "" {
-			i, exist := nameCheckFlags[volume.Name]
-			if exist {
-				return nil, errors.Errorf("the names(%s) of volume[%d] and volume[%d] are repeated", volume.Name, index, i)
-			}
-			nameCheckFlags[volume.Name] = index
-		}
-		// Build logicalDisk
-		logicalDisk = nodes.LogicalDisk{
-			SizeGB:     volume.SizeGibibytes,
-			RAIDLevel:  nodes.RAIDLevel(volume.Level),
-			VolumeName: volume.Name,
-		}
-		if volume.Rotational != nil {
-			if *volume.Rotational {
-				logicalDisk.DiskType = nodes.HDD
-			} else {
-				logicalDisk.DiskType = nodes.SSD
-			}
-		}
-		if volume.NumberOfPhysicalDisks != nil {
-			logicalDisk.NumberOfPhysicalDisks = *volume.NumberOfPhysicalDisks
-		}
-		// Add to logicalDisks
-		logicalDisks = append(logicalDisks, logicalDisk)
-	}
-
-	return
-}
-
-// A private method to build software RAID disks
-func buildTargetSoftwareRAIDCfg(volumes []metal3v1alpha1.SoftwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
-	var (
-		logicalDisk nodes.LogicalDisk
-	)
-
-	if len(volumes) == 0 {
-		return
-	}
-
-	if nodes.RAIDLevel(volumes[0].Level) != nodes.RAID1 {
-		return nil, errors.Errorf("the level in first volume of software raid must be RAID1")
-	}
-
-	for _, volume := range volumes {
-		// Build logicalDisk
-		logicalDisk = nodes.LogicalDisk{
-			SizeGB:     volume.SizeGibibytes,
-			RAIDLevel:  nodes.RAIDLevel(volume.Level),
-			Controller: "software",
-		}
-		// Build physical disks hint
-		for i := range volume.PhysicalDisks {
-			logicalDisk.PhysicalDisks = append(logicalDisk.PhysicalDisks, devicehints.MakeHintMap(&volume.PhysicalDisks[i]))
-		}
-		// Add to logicalDisks
-		logicalDisks = append(logicalDisks, logicalDisk)
-	}
-
-	return
 }

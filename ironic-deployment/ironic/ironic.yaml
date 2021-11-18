@@ -28,7 +28,7 @@ spec:
             - /bin/rundnsmasq
           livenessProbe:
            exec:
-             command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep $PROVISIONING_IP:69"]
+             command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
            initialDelaySeconds: 120
            periodSeconds: 10
            timeoutSeconds: 1
@@ -36,7 +36,7 @@ spec:
            failureThreshold: 3
           readinessProbe:
            exec:
-             command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep $PROVISIONING_IP:69"]
+             command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
            initialDelaySeconds: 30
            periodSeconds: 10
            timeoutSeconds: 1

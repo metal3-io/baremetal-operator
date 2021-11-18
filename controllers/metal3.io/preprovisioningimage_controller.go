@@ -94,10 +94,14 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
-	url, format, errorMessage := r.ImageProvider.BuildImage(img.Spec.AcceptFormats)
-	if errorMessage != "" {
-		log.Info("no suitable image URL available", "preferredFormat", format)
-		return setError(generation, &img.Status, reasonImageConfigurationError, errorMessage), nil
+	format := r.getImageFormat(img.Spec, log)
+	if format == "" {
+		return setError(generation, &img.Status, reasonImageConfigurationError, "No acceptable image format supported"), nil
+	}
+
+	url, err := r.ImageProvider.BuildImage(format)
+	if err != nil {
+		return false, err
 	}
 
 	log.Info("image URL available", "url", url, "format", format)
@@ -115,6 +119,20 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 	}
 
 	return false, err
+}
+
+func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3.PreprovisioningImageSpec, log logr.Logger) (format metal3.ImageFormat) {
+	for _, acceptableFormat := range spec.AcceptFormats {
+		if r.ImageProvider.SupportsFormat(acceptableFormat) {
+			return acceptableFormat
+		}
+	}
+
+	if len(spec.AcceptFormats) > 0 {
+		log = log.WithValues("preferredFormat", spec.AcceptFormats[0])
+	}
+	log.Info("no acceptable image format supported")
+	return
 }
 
 func getErrorRetryDelay(status metal3.PreprovisioningImageStatus) time.Duration {

@@ -9,5 +9,5 @@ type ImageProvider interface {
 
 	// BuildImage requests the ImageProvider to build an image in the given
 	// format.
-	BuildImage([]metal3.ImageFormat) (string, metal3.ImageFormat, string)
+	BuildImage(metal3.ImageFormat) (string, error)
 }

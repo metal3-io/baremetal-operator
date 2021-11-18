@@ -1,6 +1,7 @@
 package imageprovider
 
 import (
+	"fmt"
 	"os"
 
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -34,26 +35,15 @@ func (eip envImageProvider) SupportsFormat(format metal3.ImageFormat) bool {
 	}
 }
 
-func (eip envImageProvider) BuildImage(acceptFormats []metal3.ImageFormat) (url string, format metal3.ImageFormat, errorMessage string) {
-	for _, fmt := range acceptFormats {
-		switch fmt {
-		case metal3.ImageFormatISO:
-			if iso := eip.isoURL; iso != "" {
-				return iso, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_ISO_URL specified"
-			}
-		case metal3.ImageFormatInitRD:
-			if initrd := eip.initrdURL; initrd != "" {
-				return initrd, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_RAMDISK_URL specified"
-			}
-		}
+func (eip envImageProvider) BuildImage(format metal3.ImageFormat) (url string, err error) {
+	switch format {
+	case metal3.ImageFormatISO:
+		url = eip.isoURL
+	case metal3.ImageFormatInitRD:
+		url = eip.initrdURL
+	}
+	if url == "" {
+		err = fmt.Errorf("Unsupported image format \"%s\"", format)
 	}
 	return
 }

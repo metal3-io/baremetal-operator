@@ -26,22 +26,6 @@ spec:
                add: ["NET_ADMIN"]
           command:
             - /bin/rundnsmasq
-          livenessProbe:
-           exec:
-             command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
-           initialDelaySeconds: 120
-           periodSeconds: 10
-           timeoutSeconds: 1
-           successThreshold: 1
-           failureThreshold: 3
-          readinessProbe:
-           exec:
-             command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
-           initialDelaySeconds: 30
-           periodSeconds: 10
-           timeoutSeconds: 1
-           successThreshold: 1
-           failureThreshold: 3
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -53,22 +37,6 @@ spec:
           imagePullPolicy: Always
           command:
             - /bin/runmariadb
-          livenessProbe:
-           exec:
-             command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
-           initialDelaySeconds: 120
-           periodSeconds: 10
-           timeoutSeconds: 1
-           successThreshold: 1
-           failureThreshold: 3
-          readinessProbe:
-           exec:
-             command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
-           initialDelaySeconds: 30
-           periodSeconds: 10
-           timeoutSeconds: 1
-           successThreshold: 1
-           failureThreshold: 3
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -88,22 +56,6 @@ spec:
           imagePullPolicy: Always
           command:
             - /bin/runironic-api
-          livenessProbe:
-           exec:
-             command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
-           initialDelaySeconds: 120
-           periodSeconds: 10
-           timeoutSeconds: 1
-           successThreshold: 1
-           failureThreshold: 3
-          readinessProbe:
-           exec:
-             command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
-           initialDelaySeconds: 30
-           periodSeconds: 10
-           timeoutSeconds: 1
-           successThreshold: 1
-           failureThreshold: 3
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -121,21 +73,6 @@ spec:
           imagePullPolicy: Always
           command:
             - /bin/runironic-conductor
-          readinessProbe:
-            exec:
-              command: ["sh", "-c", "curl -sd '{}' -o – -k https://127.0.0.1:8089 || curl -sd '{}' -o – http://127.0.0.1:8089"]
-            failureThreshold: 3
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
-          livenessProbe:
-            failureThreshold: 3
-            exec:
-              command: ["sh", "-c", "curl -sd '{}' -o – -k https://127.0.0.1:8089 || curl -sd '{}' -o – http://127.0.0.1:8089"]
-            failureThreshold: 3
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -159,20 +96,6 @@ spec:
         - name: ironic-inspector
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
-          readinessProbe:
-            exec:
-              command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
-            failureThreshold: 3
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
-          livenessProbe:
-            failureThreshold: 3
-            exec:
-              command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
           command:
             - /bin/runironic-inspector
           envFrom:

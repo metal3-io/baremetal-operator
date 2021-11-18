@@ -1883,23 +1883,11 @@ spec:
             name: baremetal-operator-ironic
         image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 9440
-          initialDelaySeconds: 15
-          periodSeconds: 20
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 9440
-          initialDelaySeconds: 5
-          periodSeconds: 10
         securityContext:
           allowPrivilegeEscalation: false
         volumeMounts:

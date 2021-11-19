@@ -76,7 +76,7 @@ type Fixture struct {
 	customDeploy *metal3v1alpha1.CustomDeploy
 }
 
-// New returns a new Fixture Provisioner
+// NewProvisioner returns a new Fixture Provisioner
 func (f *Fixture) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		provID:    hostData.ProvisionerID,

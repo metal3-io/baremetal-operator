@@ -31,7 +31,9 @@ func (a *iRMCAccessDetails) Type() string {
 // NeedsMAC returns true when the host is going to need a separate
 // port created rather than having it discovered.
 func (a *iRMCAccessDetails) NeedsMAC() bool {
-	return false
+	// For the inspection to work, we need a MAC address
+	// https://github.com/metal3-io/baremetal-operator/pull/284#discussion_r317579040
+	return true
 }
 
 func (a *iRMCAccessDetails) Driver() string {

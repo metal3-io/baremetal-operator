@@ -391,11 +391,15 @@ Settings related to deploying an image to the host.
 * *state* -- The current state of any ongoing provisioning operation.
   The following are the currently supported ones:
   * *\<empty string\>* -- There is no provisioning happening, at the moment.
+  * *unmanaged* -- There is an insufficient information available to register
+    the host.
   * *registering* -- The host's BMC details are being checked.
   * *match profile* -- The discovered hardware details on the host
     are being compared against known profiles.
   * *available* -- The host is available to be consumed. (This state was
     previously known as *ready*.)
+  * *preparing* -- The existing configuration will be removed, and the new
+    configuration will be set on the host.
   * *provisioning* -- An image is being written to the host's disk(s).
   * *provisioned* -- An image has been completely written to the host's
     disk(s).
@@ -403,6 +407,7 @@ Settings related to deploying an image to the host.
   * *deprovisioning* -- The image is being wiped from the host's disk(s).
   * *inspecting* -- The hardware details for the host are being collected
     by an agent.
+  * *deleting* -- The host is being deleted from the cluster.
 * *id* -- The unique identifier for the service in the underlying
   provisioning tool.
 * *image* -- The image most recently provisioned to the host.

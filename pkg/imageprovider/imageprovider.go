@@ -29,4 +29,8 @@ type ImageProvider interface {
 	// BuildImage requests the ImageProvider to build an image with the
 	// supplied network data and return a URL where it can be accessed.
 	BuildImage(ImageData, NetworkData) (string, error)
+
+	// DiscardImage notifies the ImageProvider that a previously built image
+	// is no longer required.
+	DiscardImage(ImageData) error
 }

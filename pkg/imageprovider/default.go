@@ -51,3 +51,7 @@ func (eip envImageProvider) BuildImage(data ImageData, networkData NetworkData) 
 	}
 	return
 }
+
+func (eip envImageProvider) DiscardImage(data ImageData) error {
+	return nil
+}

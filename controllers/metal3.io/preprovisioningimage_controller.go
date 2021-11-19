@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,7 @@ import (
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
 const (
@@ -74,6 +76,30 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 			err = nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	if !img.DeletionTimestamp.IsZero() {
+		log.Info("cleaning up deleted resource")
+		if err := r.discardExistingImage(&img, log); err != nil {
+			return ctrl.Result{}, err
+		}
+		img.Finalizers = utils.FilterStringFromList(
+			img.Finalizers, metal3.PreprovisioningImageFinalizer)
+		err := r.Update(ctx, &img)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if !utils.StringInList(img.Finalizers, metal3.PreprovisioningImageFinalizer) {
+		log.Info("adding finalizer")
+		img.Finalizers = append(img.Finalizers, metal3.PreprovisioningImageFinalizer)
+		err := r.Update(ctx, &img)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+		}
+		return ctrl.Result{}, nil
 	}
 
 	changed, err := r.update(&img, log)
@@ -146,6 +172,19 @@ func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3.Preprovision
 	}
 	log.Info("no acceptable image format supported")
 	return
+}
+
+func (r *PreprovisioningImageReconciler) discardExistingImage(img *metal3.PreprovisioningImage, log logr.Logger) error {
+	if img.Status.Format == "" {
+		return nil
+	}
+	log.Info("discarding existing image", "image_url", img.Status.ImageUrl)
+	return r.ImageProvider.DiscardImage(imageprovider.ImageData{
+		ImageMetadata:     img.ObjectMeta.DeepCopy(),
+		Format:            img.Status.Format,
+		Architecture:      img.Status.Architecture,
+		NetworkDataStatus: img.Status.NetworkData,
+	})
 }
 
 func getErrorRetryDelay(status metal3.PreprovisioningImageStatus) time.Duration {

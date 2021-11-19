@@ -39,15 +39,15 @@ func (eip envImageProvider) SupportsFormat(format metal3.ImageFormat) bool {
 	}
 }
 
-func (eip envImageProvider) BuildImage(format metal3.ImageFormat) (url string, err error) {
-	switch format {
+func (eip envImageProvider) BuildImage(data ImageData, networkData NetworkData) (url string, err error) {
+	switch data.Format {
 	case metal3.ImageFormatISO:
 		url = eip.isoURL
 	case metal3.ImageFormatInitRD:
 		url = eip.initrdURL
 	}
 	if url == "" {
-		err = fmt.Errorf("Unsupported image format \"%s\"", format)
+		err = fmt.Errorf("Unsupported image format \"%s\"", data.Format)
 	}
 	return
 }

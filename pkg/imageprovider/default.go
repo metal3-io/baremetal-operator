@@ -19,6 +19,10 @@ func NewDefaultImageProvider() ImageProvider {
 	}
 }
 
+func (eip envImageProvider) SupportsArchitecture(arch string) bool {
+	return true
+}
+
 func (eip envImageProvider) SupportsFormat(format metal3.ImageFormat) bool {
 	switch format {
 	case metal3.ImageFormatISO:

@@ -94,6 +94,11 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
+	if !r.ImageProvider.SupportsArchitecture(img.Spec.Architecture) {
+		log.Info("image architecture not supported", "architecture", img.Spec.Architecture)
+		return setError(generation, &img.Status, reasonImageConfigurationError, "Architecture not supported"), nil
+	}
+
 	format := r.getImageFormat(img.Spec, log)
 	if format == "" {
 		return setError(generation, &img.Status, reasonImageConfigurationError, "No acceptable image format supported"), nil

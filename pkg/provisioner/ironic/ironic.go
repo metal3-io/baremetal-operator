@@ -507,7 +507,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		return
 
 	case nodes.Active:
-		// The host is already running, maybe it's a master?
+		// The host is already running, maybe it's a controlplane host?
 		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
 		fallthrough
 

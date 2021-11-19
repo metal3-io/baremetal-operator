@@ -1,7 +1,7 @@
 Publishing Images
 =================
 
-Images for changes merged into master are automatically built through
+Images for changes merged into main are automatically built through
 the [metal3-io org on
 quay.io](https://quay.io/repository/metal3-io/baremetal-operator). It
 is also easy to set up your own builds to test images from branches in
@@ -43,7 +43,7 @@ your development fork.
 
    1. Click "Start New Build"
    2. Click "Run Trigger Now" in the modal popup
-   3. Select "master" from the list of branches.
+   3. Select "main" from the list of branches.
    4. Click "Start Build"
    5. At this point you may have to refresh your browser to see the
       build because the UI seems to cache pretty aggressively.
@@ -53,7 +53,7 @@ your development fork.
 
    1. Copy `deploy/operator.yaml` to `deploy/dev-operator.yaml`.
    2. Edit `deploy/dev-operator.yaml` and change the `image` setting
-      so it points to your account on quay.io. Builds from master will
+      so it points to your account on quay.io. Builds from main will
       have the default "latest" tag, but in order to test from a
       branch you will need to modify the image name to include the
       branch at the end, like this:

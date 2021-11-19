@@ -67,7 +67,7 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 	{
 		"drivers": [{
 			"hosts": [
-			  "master-2.ostest.test.metalkube.org"
+			  "controlplane-2.ostest.test.metalkube.org"
 			],
 			"links": [
 			  {

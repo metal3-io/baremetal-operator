@@ -9,7 +9,6 @@ approvers:
   - mhrivnak
   - russellb
   - sadasu
-  - stbenjam
   - zaneb
 # review == this code is good /lgtm
 reviewers:
@@ -23,7 +22,6 @@ reviewers:
   - mhrivnak
   - russellb
   - sadasu
-  - stbenjam
   - zaneb
 
 # Bugzilla Information

@@ -43,13 +43,7 @@ spec:
           httpGet:
             path: /healthz
             port: 9440
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 9440
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          initialDelaySeconds: 3
+          periodSeconds: 3
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

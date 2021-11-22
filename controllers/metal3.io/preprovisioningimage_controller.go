@@ -117,6 +117,12 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	return result, err
 }
 
+func configChanged(img *metal3.PreprovisioningImage, format metal3.ImageFormat, networkDataStatus metal3.SecretStatus) bool {
+	return !(img.Status.Format == format &&
+		img.Status.Architecture == img.Spec.Architecture &&
+		img.Status.NetworkData == networkDataStatus)
+}
+
 func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
@@ -138,6 +144,26 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 			return setError(generation, &img.Status, reasonImageMissingNetworkData, "NetworkData secret not found"), err
 		}
 		return false, err
+	}
+
+	if configChanged(img, format, secretStatus) {
+		reason := "Config changed"
+		if meta.IsStatusConditionTrue(img.Status.Conditions, string(metal3.ConditionImageReady)) {
+			// Ensure we mark the status as not ready before we remove the build
+			// from the image cache.
+			setUnready(generation, &img.Status, reason)
+		} else {
+			if err := r.discardExistingImage(img, log); err != nil {
+				return false, err
+			}
+			// Set up all the data before building the image and adding the URL,
+			// so that even if we fail to write the built image status and the
+			// config subsequently changes, the image cache cannot leak.
+			setImage(generation, &img.Status, "", format,
+				secretStatus, img.Spec.Architecture,
+				reason)
+		}
+		return true, nil
 	}
 
 	var networkDataContent imageprovider.NetworkData
@@ -249,12 +275,30 @@ func setImage(generation int64, status *metal3.PreprovisioningImageStatus, url s
 
 	time := metav1.Now()
 	reason := reasonImageSuccess
+	ready := metav1.ConditionFalse
+	if url != "" {
+		ready = metav1.ConditionTrue
+	}
 	setImageCondition(generation, newStatus,
-		metal3.ConditionImageReady, metav1.ConditionTrue,
+		metal3.ConditionImageReady, ready,
 		time, reason, message)
 	setImageCondition(generation, newStatus,
 		metal3.ConditionImageError, metav1.ConditionFalse,
 		time, reason, "")
+
+	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
+	*status = *newStatus
+	return changed
+}
+
+func setUnready(generation int64, status *metal3.PreprovisioningImageStatus, message string) bool {
+	newStatus := status.DeepCopy()
+
+	time := metav1.Now()
+	reason := reasonImageSuccess
+	setImageCondition(generation, newStatus,
+		metal3.ConditionImageReady, metav1.ConditionFalse,
+		time, reason, message)
 
 	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
 	*status = *newStatus

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-logr/logr"
+
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
@@ -39,7 +41,7 @@ func (eip envImageProvider) SupportsFormat(format metal3.ImageFormat) bool {
 	}
 }
 
-func (eip envImageProvider) BuildImage(data ImageData, networkData NetworkData) (url string, err error) {
+func (eip envImageProvider) BuildImage(data ImageData, networkData NetworkData, log logr.Logger) (url string, err error) {
 	switch data.Format {
 	case metal3.ImageFormatISO:
 		url = eip.isoURL

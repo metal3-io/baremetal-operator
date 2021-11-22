@@ -175,7 +175,7 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 		Format:            format,
 		Architecture:      img.Spec.Architecture,
 		NetworkDataStatus: secretStatus,
-	}, networkDataContent)
+	}, networkDataContent, log)
 	if err != nil {
 		return false, err
 	}

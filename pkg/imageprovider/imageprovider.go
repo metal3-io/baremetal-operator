@@ -1,9 +1,11 @@
 package imageprovider
 
 import (
-	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/go-logr/logr"
+
+	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 // ImageData contains information about the image type being requested, and
@@ -28,7 +30,7 @@ type ImageProvider interface {
 
 	// BuildImage requests the ImageProvider to build an image with the
 	// supplied network data and return a URL where it can be accessed.
-	BuildImage(ImageData, NetworkData) (string, error)
+	BuildImage(ImageData, NetworkData, logr.Logger) (string, error)
 
 	// DiscardImage notifies the ImageProvider that a previously built image
 	// is no longer required.

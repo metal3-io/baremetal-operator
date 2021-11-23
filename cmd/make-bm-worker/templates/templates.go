@@ -35,14 +35,14 @@ spec:
   bmc:
     address: {{ .BMCAddress }}
     credentialsName: {{ .Name }}-bmc-secret
+{{- if .DisableCertificateVerification }}
+    disableCertificateVerification: true
+{{- end}}
 {{- if .Consumer }}
   consumerRef:
     name: {{ .Consumer }}
     namespace: {{ .ConsumerNamespace }}
 {{- end }}
-{{- if .DisableCertificateVerification }}
-  disableCertificateVerification: true
-{{- end}}
 `
 
 // Template holds the arguments to pass to the template.

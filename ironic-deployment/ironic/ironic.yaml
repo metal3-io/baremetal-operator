@@ -29,19 +29,19 @@ spec:
           livenessProbe:
            exec:
              command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
-           initialDelaySeconds: 120
-           periodSeconds: 10
-           timeoutSeconds: 1
+           initialDelaySeconds: 30
+           periodSeconds: 30
+           timeoutSeconds: 10
            successThreshold: 1
-           failureThreshold: 3
+           failureThreshold: 10
           readinessProbe:
            exec:
              command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
            initialDelaySeconds: 30
-           periodSeconds: 10
-           timeoutSeconds: 1
+           periodSeconds: 30
+           timeoutSeconds: 10
            successThreshold: 1
-           failureThreshold: 3
+           failureThreshold: 10
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -56,19 +56,19 @@ spec:
           livenessProbe:
            exec:
              command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
-           initialDelaySeconds: 120
-           periodSeconds: 10
-           timeoutSeconds: 1
+           initialDelaySeconds: 30
+           periodSeconds: 30
+           timeoutSeconds: 10
            successThreshold: 1
-           failureThreshold: 3
+           failureThreshold: 10
           readinessProbe:
            exec:
              command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
            initialDelaySeconds: 30
-           periodSeconds: 10
-           timeoutSeconds: 1
+           periodSeconds: 30
+           timeoutSeconds: 10
            successThreshold: 1
-           failureThreshold: 3
+           failureThreshold: 10
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -91,19 +91,19 @@ spec:
           livenessProbe:
            exec:
              command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
-           initialDelaySeconds: 120
-           periodSeconds: 10
-           timeoutSeconds: 1
+           initialDelaySeconds: 30
+           periodSeconds: 30
+           timeoutSeconds: 10
            successThreshold: 1
-           failureThreshold: 3
+           failureThreshold: 10
           readinessProbe:
            exec:
              command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
            initialDelaySeconds: 30
-           periodSeconds: 10
-           timeoutSeconds: 1
+           periodSeconds: 30
+           timeoutSeconds: 10
            successThreshold: 1
-           failureThreshold: 3
+           failureThreshold: 10
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -124,18 +124,19 @@ spec:
           readinessProbe:
             exec:
               command: ["sh", "-c", "curl -sd '{}' -o – -k https://127.0.0.1:8089 || curl -sd '{}' -o – http://127.0.0.1:8089"]
-            failureThreshold: 3
-            periodSeconds: 10
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
             successThreshold: 1
-            timeoutSeconds: 1
+            failureThreshold: 10
           livenessProbe:
-            failureThreshold: 3
             exec:
               command: ["sh", "-c", "curl -sd '{}' -o – -k https://127.0.0.1:8089 || curl -sd '{}' -o – http://127.0.0.1:8089"]
-            failureThreshold: 3
-            periodSeconds: 10
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
             successThreshold: 1
-            timeoutSeconds: 1
+            failureThreshold: 10
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -162,17 +163,19 @@ spec:
           readinessProbe:
             exec:
               command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
-            failureThreshold: 3
-            periodSeconds: 10
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
             successThreshold: 1
-            timeoutSeconds: 1
+            failureThreshold: 10
           livenessProbe:
-            failureThreshold: 3
             exec:
               command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
-            periodSeconds: 10
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
             successThreshold: 1
-            timeoutSeconds: 1
+            failureThreshold: 10
           command:
             - /bin/runironic-inspector
           envFrom:

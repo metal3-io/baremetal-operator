@@ -206,3 +206,39 @@ spec:
 		t.Fail()
 	}
 }
+
+func TestWithBootMode(t *testing.T) {
+	template := Template{
+		Name:       "hostname",
+		BMCAddress: "bmcAddress",
+		Username:   "username",
+		Password:   "password",
+		BootMode:   "UEFI",
+	}
+	actual, _ := template.Render()
+	expected := `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hostname-bmc-secret
+type: Opaque
+data:
+  username: dXNlcm5hbWU=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: hostname
+spec:
+  online: true
+  bootMode: UEFI
+  bmc:
+    address: bmcAddress
+    credentialsName: hostname-bmc-secret
+`
+	if !compareStrings(t, expected, actual) {
+		t.Fail()
+	}
+}

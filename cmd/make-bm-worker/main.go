@@ -22,6 +22,14 @@ func main() {
 		"consumer", "", "specify name of a related, existing, consumer to link")
 	var consumerNamespace = flag.String(
 		"consumer-namespace", "", "specify namespace of a related, existing, consumer to link")
+	var automatedCleaningMode = flag.String(
+		"automatedCleaningMode", "", "automatic cleaning mode for host (metadata or disabled)")
+	var imageURL = flag.String("image-url", "", "url for the image")
+	var imageChecksum = flag.String("image-checksum", "", "checksum for the image")
+	var imageChecksumType = flag.String(
+		"image-checksum-type", "", "checksum algorithm for the image (md5, sha256 or sha512)")
+	var imageFormat = flag.String(
+		"image-format", "", "format of the image (raw, qcow2, vdi, vmdk, or live-iso)")
 
 	flag.Parse()
 
@@ -48,6 +56,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *automatedCleaningMode != "" && *automatedCleaningMode != "metadata" && *automatedCleaningMode != "disabled" {
+		fmt.Fprintf(os.Stderr, "Invalid automatic cleaning mode %q, use \"metadata\" or \"disabled\"\n", *automatedCleaningMode)
+		os.Exit(1)
+	}
+
+	switch *imageChecksumType {
+	case "", "md5", "sha256", "sha512":
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid image checksum type %q, use \"md5\", \"sha256\" or \"sha512\"\n", *imageChecksumType)
+		os.Exit(1)
+	}
+
+	switch *imageFormat {
+	case "", "raw", "qcow2", "vdi", "vmdk", "live-iso":
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid image format %q, use \"raw\", \"qcow2\", \"vdi\", \"vmdk\" or \"live-iso\"\n", *imageFormat)
+		os.Exit(1)
+	}
+
 	template := templates.Template{
 		Name:                           strings.Replace(hostName, "_", "-", -1),
 		BMCAddress:                     *bmcAddress,
@@ -58,6 +85,11 @@ func main() {
 		BootMacAddress:                 *macAddress,
 		Consumer:                       strings.TrimSpace(*consumer),
 		ConsumerNamespace:              strings.TrimSpace(*consumerNamespace),
+		AutomatedCleaningMode:          *automatedCleaningMode,
+		ImageURL:                       *imageURL,
+		ImageChecksum:                  *imageChecksum,
+		ImageChecksumType:              *imageChecksumType,
+		ImageFormat:                    *imageFormat,
 	}
 	if bootMode != nil {
 		template.BootMode = *bootMode

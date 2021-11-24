@@ -41,7 +41,9 @@ spec:
 {{- if .Consumer }}
   consumerRef:
     name: {{ .Consumer }}
+{{- if .ConsumerNamespace }}
     namespace: {{ .ConsumerNamespace }}
+{{- end }}
 {{- end }}
 `
 

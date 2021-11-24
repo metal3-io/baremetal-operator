@@ -16,7 +16,7 @@ func main() {
 	var disableCertificateVerification = flag.Bool("disableCertificateVerification", false, "will skip certificate validation when true")
 	var hardwareProfile = flag.String("hardwareprofile", "", "hardwareProfile to be used")
 	var macAddress = flag.String("boot-mac", "", "boot-mac for bootMACAddress")
-	var bootMode = flag.String("boot-mode", "", "boot-mode for host (UEFI or legacy)")
+	var bootMode = flag.String("boot-mode", "", "boot-mode for host (UEFI, UEFISecureBoot or legacy)")
 	var verbose = flag.Bool("v", false, "turn on verbose output")
 	var consumer = flag.String(
 		"consumer", "", "specify name of a related, existing, consumer to link")
@@ -43,8 +43,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *bootMode != "" && *bootMode != "UEFI" && *bootMode != "legacy" {
-		fmt.Fprintf(os.Stderr, "Invalid boot mode %q, use \"UEFI\" or \"legacy\"\n", *bootMode)
+	if *bootMode != "" && *bootMode != "UEFI" && *bootMode != "UEFISecureBoot" && *bootMode != "legacy" {
+		fmt.Fprintf(os.Stderr, "Invalid boot mode %q, use \"UEFI\", \"UEFISecureBoot\" or \"legacy\"\n", *bootMode)
 		os.Exit(1)
 	}
 

@@ -8,6 +8,7 @@ import (
 
 func init() {
 	RegisterFactory("ilo4", newILOAccessDetails, []string{"https"})
+	RegisterFactory("ilo4-virtualmedia", newILOVirtualMediaAccessDetails, []string{"https"})
 }
 
 func newILOAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
@@ -19,11 +20,22 @@ func newILOAccessDetails(parsedURL *url.URL, disableCertificateVerification bool
 	}, nil
 }
 
+func newILOVirtualMediaAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	return &iLOAccessDetails{
+		bmcType:                        parsedURL.Scheme,
+		portNum:                        parsedURL.Port(),
+		hostname:                       parsedURL.Hostname(),
+		disableCertificateVerification: disableCertificateVerification,
+		useVirtualMedia:                true,
+	}, nil
+}
+
 type iLOAccessDetails struct {
 	bmcType                        string
 	portNum                        string
 	hostname                       string
 	disableCertificateVerification bool
+	useVirtualMedia                bool
 }
 
 func (a *iLOAccessDetails) Type() string {
@@ -75,7 +87,11 @@ func (a *iLOAccessDetails) BIOSInterface() string {
 }
 
 func (a *iLOAccessDetails) BootInterface() string {
-	return "ilo-ipxe"
+	if a.useVirtualMedia {
+		return "ilo-virtual-media"
+	} else {
+		return "ilo-ipxe"
+	}
 }
 
 func (a *iLOAccessDetails) ManagementInterface() string {
@@ -99,11 +115,11 @@ func (a *iLOAccessDetails) SupportsSecureBoot() bool {
 }
 
 func (a *iLOAccessDetails) SupportsISOPreprovisioningImage() bool {
-	return false
+	return a.useVirtualMedia
 }
 
 func (a *iLOAccessDetails) RequiresProvisioningNetwork() bool {
-	return true
+	return !a.useVirtualMedia
 }
 
 func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {

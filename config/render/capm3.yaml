@@ -1884,22 +1884,28 @@ spec:
         image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
         livenessProbe:
+          failureThreshold: 10
           httpGet:
             path: /healthz
             port: 9440
-          initialDelaySeconds: 15
-          periodSeconds: 20
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
         readinessProbe:
+          failureThreshold: 10
           httpGet:
             path: /readyz
             port: 9440
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
         securityContext:
           allowPrivilegeEscalation: false
         volumeMounts:

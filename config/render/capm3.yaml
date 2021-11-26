@@ -1413,6 +1413,15 @@ spec:
           spec:
             description: PreprovisioningImageSpec defines the desired state of PreprovisioningImage
             properties:
+              acceptFormats:
+                description: acceptFormats is a list of acceptable image formats.
+                items:
+                  description: ImageFormat enumerates the allowed image formats
+                  enum:
+                  - iso
+                  - initrd
+                  type: string
+                type: array
               architecture:
                 description: architecture is the processor architecture for which
                   to build the image.
@@ -1535,6 +1544,12 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: baremetal-operator-controller-manager
+  namespace: baremetal-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -1727,7 +1742,7 @@ roleRef:
   name: baremetal-operator-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: baremetal-operator-controller-manager
   namespace: baremetal-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1740,7 +1755,7 @@ roleRef:
   name: baremetal-operator-manager-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: baremetal-operator-controller-manager
   namespace: baremetal-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1753,7 +1768,7 @@ roleRef:
   name: baremetal-operator-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: baremetal-operator-controller-manager
   namespace: baremetal-operator-system
 ---
 apiVersion: v1
@@ -1770,6 +1785,25 @@ data:
 kind: ConfigMap
 metadata:
   name: baremetal-operator-ironic
+  namespace: baremetal-operator-system
+---
+apiVersion: v1
+data:
+  controller_manager_config.yaml: |
+    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
+    kind: ControllerManagerConfig
+    health:
+      healthProbeBindAddress: :9440
+    metrics:
+      bindAddress: 127.0.0.1:8085
+    webhook:
+      port: 9443
+    leaderElection:
+      leaderElect: true
+      resourceName: a9498140.metal3.io
+kind: ConfigMap
+metadata:
+  name: baremetal-operator-manager-config
   namespace: baremetal-operator-system
 ---
 apiVersion: v1
@@ -1850,20 +1884,35 @@ spec:
         image: quay.io/metal3-io/baremetal-operator
         imagePullPolicy: Always
         livenessProbe:
+          failureThreshold: 10
           httpGet:
             path: /healthz
             port: 9440
-          initialDelaySeconds: 3
-          periodSeconds: 3
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /readyz
+            port: 9440
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        securityContext:
+          allowPrivilegeEscalation: false
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+      serviceAccountName: baremetal-operator-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert

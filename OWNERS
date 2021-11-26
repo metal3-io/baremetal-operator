@@ -13,7 +13,9 @@ approvers:
 # review == this code is good /lgtm
 reviewers:
   - andfasano
+  - ardaguclu
   - asalkeld
+  - bfournie
   - dhellmann
   - dtantsur
   - hardys

@@ -37,6 +37,10 @@ type PreprovisioningImageSpec struct {
 	// architecture is the processor architecture for which to build the image.
 	// +optional
 	Architecture string `json:"architecture,omitempty"`
+
+	// acceptFormats is a list of acceptable image formats.
+	// +optional
+	AcceptFormats []ImageFormat `json:"acceptFormats,omitempty"`
 }
 
 type SecretStatus struct {

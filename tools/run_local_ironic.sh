@@ -203,13 +203,13 @@ fi
 # Start dnsmasq, http, mariadb, and ironic containers using same image
 
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
-# https://github.com/metal3-io/ironic/blob/master/rundnsmasq.sh
+# https://github.com/metal3-io/ironic-image/blob/master/scripts/rundnsmasq
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
      ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
-# https://github.com/metal3-io/ironic/blob/master/runmariadb.sh
+# https://github.com/metal3-io/ironic-image/blob/master/scripts/runmariadb
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
      ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
@@ -217,7 +217,7 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
      --env "MARIADB_PASSWORD=$mariadb_password" "${IRONIC_IMAGE}"
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
-# https://github.com/metal3-io/ironic/blob/master/runironic-api.sh
+# https://github.com/metal3-io/ironic-image/blob/master/scripts/runironic-api
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-api \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD} \
@@ -227,7 +227,7 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-api \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
-# https://github.com/metal3-io/ironic/blob/master/runironic-conductor.sh
+# https://github.com/metal3-io/ironic-image/blob/master/scripts/runironic-conductor
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-conductor \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD} \

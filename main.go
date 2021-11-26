@@ -1,6 +1,5 @@
 /*
 
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -83,7 +82,7 @@ func setupWebhooks(mgr ctrl.Manager) {
 
 func main() {
 	var watchNamespace string
-	var metricsAddr string
+	var metricsBindAddr string
 	var enableLeaderElection bool
 	var preprovImgEnable bool
 	var devLogging bool
@@ -97,7 +96,7 @@ func main() {
 	// namespace.
 	flag.StringVar(&watchNamespace, "namespace", os.Getenv("WATCH_NAMESPACE"),
 		"Namespace that the controller watches to reconcile host resources.")
-	flag.StringVar(&metricsAddr, "metrics-addr", "127.0.0.1:8085",
+	flag.StringVar(&metricsBindAddr, "metrics-addr", "127.0.0.1:8085",
 		"The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
@@ -127,7 +126,7 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                  scheme,
-		MetricsBindAddress:      metricsAddr,
+		MetricsBindAddress:      metricsBindAddr,
 		Port:                    webhookPort,
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "baremetal-operator",

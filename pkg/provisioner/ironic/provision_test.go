@@ -402,8 +402,8 @@ func TestIronicHasSameImage(t *testing.T) {
 
 func TestBuildCleanSteps(t *testing.T) {
 
-	var True bool = true
-	var False bool = false
+	var True = true
+	var False = false
 
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {

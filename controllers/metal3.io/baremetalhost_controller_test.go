@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 
 	"github.com/stretchr/testify/assert"
 
@@ -442,11 +443,15 @@ func TestAddFinalizers(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			t.Logf("finalizers: %v", host.ObjectMeta.Finalizers)
-			if utils.StringInList(host.ObjectMeta.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
-				return true
+			t.Logf("host finalizers: %v", host.ObjectMeta.Finalizers)
+			if !utils.StringInList(host.ObjectMeta.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
+				return false
 			}
-			return false
+
+			hostSecret := getHostSecret(t, r, host)
+			t.Logf("BMC secret finalizers: %v", hostSecret.ObjectMeta.Finalizers)
+
+			return utils.StringInList(hostSecret.ObjectMeta.Finalizers, secretutils.SecretsFinalizer)
 		},
 	)
 }
@@ -1376,7 +1381,7 @@ func TestDeleteHost(t *testing.T) {
 
 			tryReconcile(t, r, host,
 				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-					return fix.Deleted && host == nil
+					return fix.Deleted && host == nil && !utils.StringInList(badSecret.Finalizers, secretutils.SecretsFinalizer)
 				},
 			)
 		})
@@ -2121,13 +2126,15 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 func TestGetPreprovImage(t *testing.T) {
 	host := newDefaultHost(t)
 	imageURL := "http://example.test/image.iso"
+	acceptFormats := []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatISO, metal3v1alpha1.ImageFormatInitRD}
 	image := &metal3v1alpha1.PreprovisioningImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: namespace,
 		},
 		Spec: metal3v1alpha1.PreprovisioningImageSpec{
-			Architecture: "x86_64",
+			Architecture:  "x86_64",
+			AcceptFormats: acceptFormats,
 		},
 		Status: metal3v1alpha1.PreprovisioningImageStatus{
 			Architecture: "x86_64",
@@ -2148,7 +2155,7 @@ func TestGetPreprovImage(t *testing.T) {
 	r := newTestReconciler(host, image)
 	i := makeReconcileInfo(host)
 
-	imgData, err := r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatISO})
+	imgData, err := r.getPreprovImage(i, acceptFormats)
 	assert.NoError(t, err)
 	assert.NotNil(t, imgData)
 	assert.Equal(t, imageURL, imgData.ImageURL)
@@ -2204,7 +2211,8 @@ func TestPreprovImageAvailable(t *testing.T) {
 		{
 			Scenario: "ready no netdata",
 			Spec: metal3v1alpha1.PreprovisioningImageSpec{
-				Architecture: "x86_64",
+				Architecture:  "x86_64",
+				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
 			},
 			Status: metal3v1alpha1.PreprovisioningImageStatus{
 				Architecture: "x86_64",
@@ -2226,6 +2234,7 @@ func TestPreprovImageAvailable(t *testing.T) {
 			Scenario: "ready",
 			Spec: metal3v1alpha1.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
+				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
 				NetworkDataName: "network_secret_1",
 			},
 			Status: metal3v1alpha1.PreprovisioningImageStatus{
@@ -2249,9 +2258,64 @@ func TestPreprovImageAvailable(t *testing.T) {
 			Available: true,
 		},
 		{
+			Scenario: "ready initrd",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture:    "x86_64",
+				AcceptFormats:   []metal3v1alpha1.ImageFormat{"initrd"},
+				NetworkDataName: "network_secret_1",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "initrd",
+				NetworkData: metal3v1alpha1.SecretStatus{
+					Name:    "network_secret_1",
+					Version: "1000",
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: true,
+		},
+		{
+			Scenario: "ready initrd fallback",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture:    "x86_64",
+				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				NetworkDataName: "network_secret_1",
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "initrd",
+				NetworkData: metal3v1alpha1.SecretStatus{
+					Name:    "network_secret_1",
+					Version: "1000",
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: true,
+		},
+		{
 			Scenario: "ready secret outdated",
 			Spec: metal3v1alpha1.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
+				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
 				NetworkDataName: "network_secret_1",
 			},
 			Status: metal3v1alpha1.PreprovisioningImageStatus{
@@ -2278,6 +2342,7 @@ func TestPreprovImageAvailable(t *testing.T) {
 			Scenario: "ready secret mismatch",
 			Spec: metal3v1alpha1.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
+				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
 				NetworkDataName: "network_secret_1",
 			},
 			Status: metal3v1alpha1.PreprovisioningImageStatus{
@@ -2303,7 +2368,30 @@ func TestPreprovImageAvailable(t *testing.T) {
 		{
 			Scenario: "ready arch mismatch",
 			Spec: metal3v1alpha1.PreprovisioningImageSpec{
-				Architecture: "aarch64",
+				Architecture:  "aarch64",
+				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+			},
+			Status: metal3v1alpha1.PreprovisioningImageStatus{
+				Architecture: "x86_64",
+				Format:       "iso",
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   string(metal3v1alpha1.ConditionImageError),
+						Status: metav1.ConditionFalse,
+					},
+				},
+			},
+			Available: false,
+		},
+		{
+			Scenario: "ready format mismatch",
+			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+				Architecture:  "x86_64",
+				AcceptFormats: []metal3v1alpha1.ImageFormat{"initrd"},
 			},
 			Status: metal3v1alpha1.PreprovisioningImageStatus{
 				Architecture: "x86_64",
@@ -2324,7 +2412,8 @@ func TestPreprovImageAvailable(t *testing.T) {
 		{
 			Scenario: "not ready",
 			Spec: metal3v1alpha1.PreprovisioningImageSpec{
-				Architecture: "x86_64",
+				Architecture:  "x86_64",
+				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
 			},
 			Status: metal3v1alpha1.PreprovisioningImageStatus{
 				Architecture: "x86_64",
@@ -2345,7 +2434,8 @@ func TestPreprovImageAvailable(t *testing.T) {
 		{
 			Scenario: "failed",
 			Spec: metal3v1alpha1.PreprovisioningImageSpec{
-				Architecture: "x86_64",
+				Architecture:  "x86_64",
+				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
 			},
 			Status: metal3v1alpha1.PreprovisioningImageStatus{
 				Architecture: "x86_64",

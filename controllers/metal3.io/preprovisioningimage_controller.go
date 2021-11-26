@@ -93,7 +93,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
-	url, format, errorMessage := getImageURL()
+	url, format, errorMessage := getImageURL(img.Spec.AcceptFormats)
 	if errorMessage != "" {
 		log.Info("no suitable image URL available", "preferredFormat", format)
 		return setError(generation, &img.Status, reasonImageConfigurationError, errorMessage), nil
@@ -116,12 +116,26 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 	return false, err
 }
 
-func getImageURL() (url string, format metal3.ImageFormat, errorMessage string) {
-	format = metal3.ImageFormatISO
-	if iso := os.Getenv("DEPLOY_ISO_URL"); iso != "" {
-		url = iso
-	} else {
-		errorMessage = "No DEPLOY_ISO_URL specified"
+func getImageURL(acceptFormats []metal3.ImageFormat) (url string, format metal3.ImageFormat, errorMessage string) {
+	for _, fmt := range acceptFormats {
+		switch fmt {
+		case metal3.ImageFormatISO:
+			if iso := os.Getenv("DEPLOY_ISO_URL"); iso != "" {
+				return iso, fmt, ""
+			}
+			if errorMessage == "" {
+				format = fmt
+				errorMessage = "No DEPLOY_ISO_URL specified"
+			}
+		case metal3.ImageFormatInitRD:
+			if initrd := os.Getenv("DEPLOY_RAMDISK_URL"); initrd != "" {
+				return initrd, fmt, ""
+			}
+			if errorMessage == "" {
+				format = fmt
+				errorMessage = "No DEPLOY_RAMDISK_URL specified"
+			}
+		}
 	}
 	return
 }
@@ -151,7 +165,7 @@ func getNetworkDataStatus(secretManager secretutils.SecretManager, img *metal3.P
 		Name:      networkDataSecret,
 		Namespace: img.ObjectMeta.Namespace,
 	}
-	secret, err := secretManager.AcquireSecret(secretKey, img, false)
+	secret, err := secretManager.AcquireSecret(secretKey, img, false, false)
 	if err != nil {
 		return metal3.SecretStatus{}, err
 	}
@@ -218,11 +232,16 @@ func setError(generation int64, status *metal3.PreprovisioningImageStatus, reaso
 }
 
 func (r *PreprovisioningImageReconciler) CanStart() bool {
+	deployKernelURL := os.Getenv("DEPLOY_KERNEL_URL")
+	deployRamdiskURL := os.Getenv("DEPLOY_RAMDISK_URL")
 	deployISOURL := os.Getenv("DEPLOY_ISO_URL")
-	hasCfg := deployISOURL != ""
+	hasCfg := (deployISOURL != "" ||
+		(deployKernelURL != "" && deployRamdiskURL != ""))
 	if hasCfg {
 		r.Log.Info("have deploy image data",
-			"iso_url", deployISOURL)
+			"iso_url", deployISOURL,
+			"ramdisk_url", deployRamdiskURL,
+			"kernel_url", deployKernelURL)
 	} else {
 		r.Log.Info("not starting preprovisioning image controller; no image data available")
 	}

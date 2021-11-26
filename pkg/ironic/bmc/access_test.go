@@ -1147,8 +1147,8 @@ func TestUnknownType(t *testing.T) {
 }
 
 func TestBuildBIOSCleanSteps(t *testing.T) {
-	var True bool = true
-	var False bool = false
+	var True = true
+	var False = false
 
 	cases := []struct {
 		name          string

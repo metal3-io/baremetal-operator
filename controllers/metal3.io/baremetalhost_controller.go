@@ -483,7 +483,7 @@ func hasInspectAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
 // clearError removes any existing error message.
 func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	dirty = host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
-	var emptyErrType metal3v1alpha1.ErrorType = ""
+	var emptyErrType metal3v1alpha1.ErrorType
 	if host.Status.ErrorType != emptyErrType {
 		host.Status.ErrorType = emptyErrType
 		dirty = true

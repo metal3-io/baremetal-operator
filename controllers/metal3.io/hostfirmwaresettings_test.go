@@ -25,12 +25,12 @@ const (
 )
 
 var (
-	iTrue      bool = true
-	iFalse     bool = false
-	minLength  int  = 0
-	maxLength  int  = 20
-	lowerBound int  = 0
-	upperBound int  = 20
+	iTrue      = true
+	iFalse     = false
+	minLength  = 0
+	maxLength  = 20
+	lowerBound = 0
+	upperBound = 20
 )
 
 // Test support for HostFirmwareSettings in the HostFirmwareSettingsReconciler

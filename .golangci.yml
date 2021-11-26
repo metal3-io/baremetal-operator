@@ -4,7 +4,7 @@ run:
 linters:
   disable-all: true
   enable: [
-    "golint",
+    "revive",
     "govet",
     "goimports",
     "gofmt",

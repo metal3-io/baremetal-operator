@@ -37,10 +37,25 @@ spec:
           - configMapRef:
               name: ironic
         name: manager
+        securityContext:
+          allowPrivilegeEscalation: false
         livenessProbe:
           httpGet:
             path: /healthz
             port: 9440
-          initialDelaySeconds: 3
-          periodSeconds: 3
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 9440
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 10
+      serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

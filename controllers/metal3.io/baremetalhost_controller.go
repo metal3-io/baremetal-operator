@@ -483,7 +483,7 @@ func hasInspectAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
 // clearError removes any existing error message.
 func clearError(host *metal3v1alpha1.BareMetalHost) (dirty bool) {
 	dirty = host.SetOperationalStatus(metal3v1alpha1.OperationalStatusOK)
-	var emptyErrType metal3v1alpha1.ErrorType = ""
+	var emptyErrType metal3v1alpha1.ErrorType
 	if host.Status.ErrorType != emptyErrType {
 		host.Status.ErrorType = emptyErrType
 		dirty = true
@@ -526,6 +526,13 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	}
 
 	// Remove finalizer to allow deletion
+	secretManager := secretutils.NewSecretManager(info.log, r.Client, r.APIReader)
+
+	err = secretManager.ReleaseSecret(info.bmcCredsSecret)
+	if err != nil {
+		return actionError{err}
+	}
+
 	info.host.Finalizers = utils.FilterStringFromList(
 		info.host.Finalizers, metal3v1alpha1.BareMetalHostFinalizer)
 	info.log.Info("cleanup is complete, removed finalizer",
@@ -618,13 +625,26 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 		return false, nil
 	}
 
+	validFormat := false
+	for _, f := range image.Spec.AcceptFormats {
+		if image.Status.Format == f {
+			validFormat = true
+			break
+		}
+	}
+	if !validFormat {
+		info.log.Info("pre-provisioning image format not accepted",
+			"format", image.Status.Format)
+		return false, nil
+	}
+
 	if image.Spec.NetworkDataName != "" {
 		secretKey := client.ObjectKey{
 			Name:      image.Spec.NetworkDataName,
 			Namespace: image.ObjectMeta.Namespace,
 		}
 		secretManager := r.secretManager(info.log)
-		networkData, err := secretManager.AcquireSecret(secretKey, info.host, false)
+		networkData, err := secretManager.AcquireSecret(secretKey, info.host, false, false)
 		if err != nil {
 			return false, err
 		}
@@ -681,6 +701,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 	expectedSpec := metal3v1alpha1.PreprovisioningImageSpec{
 		NetworkDataName: info.host.Spec.PreprovisioningNetworkDataName,
 		Architecture:    getHostArchitecture(info.host),
+		AcceptFormats:   formats,
 	}
 
 	preprovImage := metal3v1alpha1.PreprovisioningImage{}
@@ -1424,7 +1445,7 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 	secretManager := r.secretManager(reqLogger)
 
-	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, true)
+	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, true, true)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", host.CredentialsKey())}

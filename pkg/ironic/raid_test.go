@@ -10,8 +10,8 @@ import (
 )
 
 func TestBuildTargetRAIDCfg(t *testing.T) {
-	var TRUE bool = true
-	var FALSE bool = false
+	var TRUE = true
+	var FALSE = false
 	cases := []struct {
 		name          string
 		raid          *metal3v1alpha1.RAIDConfig

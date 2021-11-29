@@ -22,6 +22,8 @@ import (
 // +kubebuilder:validation:Enum=iso;initrd
 type ImageFormat string
 
+const PreprovisioningImageFinalizer = "preprovisioningimage.metal3.io"
+
 const (
 	ImageFormatISO    ImageFormat = "iso"
 	ImageFormatInitRD ImageFormat = "initrd"

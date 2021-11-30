@@ -31,6 +31,7 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
@@ -166,10 +167,11 @@ func main() {
 
 	if preprovImgEnable {
 		imgReconciler := metal3iocontroller.PreprovisioningImageReconciler{
-			Client:    mgr.GetClient(),
-			Log:       ctrl.Log.WithName("controllers").WithName("PreprovisioningImage"),
-			APIReader: mgr.GetAPIReader(),
-			Scheme:    mgr.GetScheme(),
+			Client:        mgr.GetClient(),
+			Log:           ctrl.Log.WithName("controllers").WithName("PreprovisioningImage"),
+			APIReader:     mgr.GetAPIReader(),
+			Scheme:        mgr.GetScheme(),
+			ImageProvider: imageprovider.NewDefaultImageProvider(),
 		}
 		if imgReconciler.CanStart() {
 			if err = (&imgReconciler).SetupWithManager(mgr); err != nil {

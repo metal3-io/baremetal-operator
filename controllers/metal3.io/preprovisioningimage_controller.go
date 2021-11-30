@@ -18,10 +18,10 @@ package controllers
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,7 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
 const (
@@ -43,9 +45,10 @@ const (
 // PreprovisioningImageReconciler reconciles a PreprovisioningImage object
 type PreprovisioningImageReconciler struct {
 	client.Client
-	Log       logr.Logger
-	Scheme    *runtime.Scheme
-	APIReader client.Reader
+	Log           logr.Logger
+	Scheme        *runtime.Scheme
+	APIReader     client.Reader
+	ImageProvider imageprovider.ImageProvider
 }
 
 type imageConditionReason string
@@ -75,6 +78,30 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, err
 	}
 
+	if !img.DeletionTimestamp.IsZero() {
+		log.Info("cleaning up deleted resource")
+		if err := r.discardExistingImage(&img, log); err != nil {
+			return ctrl.Result{}, err
+		}
+		img.Finalizers = utils.FilterStringFromList(
+			img.Finalizers, metal3.PreprovisioningImageFinalizer)
+		err := r.Update(ctx, &img)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if !utils.StringInList(img.Finalizers, metal3.PreprovisioningImageFinalizer) {
+		log.Info("adding finalizer")
+		img.Finalizers = append(img.Finalizers, metal3.PreprovisioningImageFinalizer)
+		err := r.Update(ctx, &img)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+		}
+		return ctrl.Result{}, nil
+	}
+
 	changed, err := r.update(&img, log)
 
 	if k8serrors.IsNotFound(err) {
@@ -90,54 +117,100 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	return result, err
 }
 
+func configChanged(img *metal3.PreprovisioningImage, format metal3.ImageFormat, networkDataStatus metal3.SecretStatus) bool {
+	return !(img.Status.Format == format &&
+		img.Status.Architecture == img.Spec.Architecture &&
+		img.Status.NetworkData == networkDataStatus)
+}
+
 func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
-	url, format, errorMessage := getImageURL(img.Spec.AcceptFormats)
-	if errorMessage != "" {
-		log.Info("no suitable image URL available", "preferredFormat", format)
-		return setError(generation, &img.Status, reasonImageConfigurationError, errorMessage), nil
+	if !r.ImageProvider.SupportsArchitecture(img.Spec.Architecture) {
+		log.Info("image architecture not supported", "architecture", img.Spec.Architecture)
+		return setError(generation, &img.Status, reasonImageConfigurationError, "Architecture not supported"), nil
 	}
 
-	log.Info("image URL available", "url", url, "format", format)
+	format := r.getImageFormat(img.Spec, log)
+	if format == "" {
+		return setError(generation, &img.Status, reasonImageConfigurationError, "No acceptable image format supported"), nil
+	}
+
 	secretManager := secretutils.NewSecretManager(log, r.Client, r.APIReader)
-	secretStatus, err := getNetworkDataStatus(secretManager, img)
-	if err == nil {
-		return setImage(generation, &img.Status, url, format,
-			secretStatus, img.Spec.Architecture,
-			"Set default image"), nil
+	networkData, secretStatus, err := getNetworkData(secretManager, img)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			log.Info("network data Secret does not exist")
+			return setError(generation, &img.Status, reasonImageMissingNetworkData, "NetworkData secret not found"), err
+		}
+		return false, err
 	}
 
-	if k8serrors.IsNotFound(err) {
-		log.Info("network data Secret does not exist")
-		return setError(generation, &img.Status, reasonImageMissingNetworkData, "NetworkData secret not found"), err
+	if configChanged(img, format, secretStatus) {
+		reason := "Config changed"
+		if meta.IsStatusConditionTrue(img.Status.Conditions, string(metal3.ConditionImageReady)) {
+			// Ensure we mark the status as not ready before we remove the build
+			// from the image cache.
+			setUnready(generation, &img.Status, reason)
+		} else {
+			if err := r.discardExistingImage(img, log); err != nil {
+				return false, err
+			}
+			// Set up all the data before building the image and adding the URL,
+			// so that even if we fail to write the built image status and the
+			// config subsequently changes, the image cache cannot leak.
+			setImage(generation, &img.Status, "", format,
+				secretStatus, img.Spec.Architecture,
+				reason)
+		}
+		return true, nil
 	}
 
-	return false, err
+	var networkDataContent imageprovider.NetworkData
+	if networkData != nil {
+		networkDataContent = networkData.Data
+	}
+	url, err := r.ImageProvider.BuildImage(imageprovider.ImageData{
+		ImageMetadata:     img.ObjectMeta.DeepCopy(),
+		Format:            format,
+		Architecture:      img.Spec.Architecture,
+		NetworkDataStatus: secretStatus,
+	}, networkDataContent, log)
+	if err != nil {
+		return false, err
+	}
+	log.Info("image URL available", "url", url, "format", format)
+
+	return setImage(generation, &img.Status, url, format,
+		secretStatus, img.Spec.Architecture,
+		"Generated image"), nil
 }
 
-func getImageURL(acceptFormats []metal3.ImageFormat) (url string, format metal3.ImageFormat, errorMessage string) {
-	for _, fmt := range acceptFormats {
-		switch fmt {
-		case metal3.ImageFormatISO:
-			if iso := os.Getenv("DEPLOY_ISO_URL"); iso != "" {
-				return iso, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_ISO_URL specified"
-			}
-		case metal3.ImageFormatInitRD:
-			if initrd := os.Getenv("DEPLOY_RAMDISK_URL"); initrd != "" {
-				return initrd, fmt, ""
-			}
-			if errorMessage == "" {
-				format = fmt
-				errorMessage = "No DEPLOY_RAMDISK_URL specified"
-			}
+func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3.PreprovisioningImageSpec, log logr.Logger) (format metal3.ImageFormat) {
+	for _, acceptableFormat := range spec.AcceptFormats {
+		if r.ImageProvider.SupportsFormat(acceptableFormat) {
+			return acceptableFormat
 		}
 	}
+
+	if len(spec.AcceptFormats) > 0 {
+		log = log.WithValues("preferredFormat", spec.AcceptFormats[0])
+	}
+	log.Info("no acceptable image format supported")
 	return
+}
+
+func (r *PreprovisioningImageReconciler) discardExistingImage(img *metal3.PreprovisioningImage, log logr.Logger) error {
+	if img.Status.Format == "" {
+		return nil
+	}
+	log.Info("discarding existing image", "image_url", img.Status.ImageUrl)
+	return r.ImageProvider.DiscardImage(imageprovider.ImageData{
+		ImageMetadata:     img.ObjectMeta.DeepCopy(),
+		Format:            img.Status.Format,
+		Architecture:      img.Status.Architecture,
+		NetworkDataStatus: img.Status.NetworkData,
+	})
 }
 
 func getErrorRetryDelay(status metal3.PreprovisioningImageStatus) time.Duration {
@@ -155,10 +228,10 @@ func getErrorRetryDelay(status metal3.PreprovisioningImageStatus) time.Duration 
 	return delay
 }
 
-func getNetworkDataStatus(secretManager secretutils.SecretManager, img *metal3.PreprovisioningImage) (metal3.SecretStatus, error) {
+func getNetworkData(secretManager secretutils.SecretManager, img *metal3.PreprovisioningImage) (*corev1.Secret, metal3.SecretStatus, error) {
 	networkDataSecret := img.Spec.NetworkDataName
 	if networkDataSecret == "" {
-		return metal3.SecretStatus{}, nil
+		return nil, metal3.SecretStatus{}, nil
 	}
 
 	secretKey := client.ObjectKey{
@@ -167,10 +240,10 @@ func getNetworkDataStatus(secretManager secretutils.SecretManager, img *metal3.P
 	}
 	secret, err := secretManager.AcquireSecret(secretKey, img, false, false)
 	if err != nil {
-		return metal3.SecretStatus{}, err
+		return nil, metal3.SecretStatus{}, err
 	}
 
-	return metal3.SecretStatus{
+	return secret, metal3.SecretStatus{
 		Name:    networkDataSecret,
 		Version: secret.GetResourceVersion(),
 	}, nil
@@ -202,12 +275,30 @@ func setImage(generation int64, status *metal3.PreprovisioningImageStatus, url s
 
 	time := metav1.Now()
 	reason := reasonImageSuccess
+	ready := metav1.ConditionFalse
+	if url != "" {
+		ready = metav1.ConditionTrue
+	}
 	setImageCondition(generation, newStatus,
-		metal3.ConditionImageReady, metav1.ConditionTrue,
+		metal3.ConditionImageReady, ready,
 		time, reason, message)
 	setImageCondition(generation, newStatus,
 		metal3.ConditionImageError, metav1.ConditionFalse,
 		time, reason, "")
+
+	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
+	*status = *newStatus
+	return changed
+}
+
+func setUnready(generation int64, status *metal3.PreprovisioningImageStatus, message string) bool {
+	newStatus := status.DeepCopy()
+
+	time := metav1.Now()
+	reason := reasonImageSuccess
+	setImageCondition(generation, newStatus,
+		metal3.ConditionImageReady, metav1.ConditionFalse,
+		time, reason, message)
 
 	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
 	*status = *newStatus
@@ -232,20 +323,13 @@ func setError(generation int64, status *metal3.PreprovisioningImageStatus, reaso
 }
 
 func (r *PreprovisioningImageReconciler) CanStart() bool {
-	deployKernelURL := os.Getenv("DEPLOY_KERNEL_URL")
-	deployRamdiskURL := os.Getenv("DEPLOY_RAMDISK_URL")
-	deployISOURL := os.Getenv("DEPLOY_ISO_URL")
-	hasCfg := (deployISOURL != "" ||
-		(deployKernelURL != "" && deployRamdiskURL != ""))
-	if hasCfg {
-		r.Log.Info("have deploy image data",
-			"iso_url", deployISOURL,
-			"ramdisk_url", deployRamdiskURL,
-			"kernel_url", deployKernelURL)
-	} else {
-		r.Log.Info("not starting preprovisioning image controller; no image data available")
+	for _, fmt := range []metal3.ImageFormat{metal3.ImageFormatISO, metal3.ImageFormatInitRD} {
+		if r.ImageProvider.SupportsFormat(fmt) {
+			return true
+		}
 	}
-	return hasCfg
+	r.Log.Info("not starting preprovisioning image controller; no image data available")
+	return false
 }
 
 func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -68,7 +68,7 @@ type demoProvisioner struct {
 
 type Demo struct{}
 
-// New returns a new demo Provisioner
+// NewProvisioner returns a new demo Provisioner
 func (d Demo) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
 		objectMeta: hostData.ObjectMeta,

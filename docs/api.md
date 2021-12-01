@@ -50,6 +50,8 @@ communicate with them.
 * HPE iLO 4
   * `ilo4://<host>:<port>` for iLO 4 based systems and the port is optional,
     if using the default one (443).
+  * `ilo4-virtualmedia://<host>:<port>` to use virtual media instead of PXE
+    for iLO 4 based systems.
 * HPE iLO 5
   * `ilo5://<host>:<port>` for iLO 5 based systems and the port is optional,
     if using the default one (443).

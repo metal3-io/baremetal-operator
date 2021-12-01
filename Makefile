@@ -64,7 +64,7 @@ test: generate lint manifests unit ## Run common developer tests
 unit: ## Run unit tests
 	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd apis/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
-	cd pkg/ironic && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
+	cd pkg/hardwareutils && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
@@ -72,8 +72,8 @@ unit-cover: ## Run unit tests with code coverage
 	go tool cover -func=$(COVER_PROFILE)
 	cd apis/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
 	cd apis/ && go tool cover -func=$(COVER_PROFILE)
-	cd pkg/ironic/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
-	cd pkg/ironic/ && go tool cover -func=$(COVER_PROFILE)
+	cd pkg/hardwareutils/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
+	cd pkg/hardwareutils/ && go tool cover -func=$(COVER_PROFILE)
 
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
@@ -235,7 +235,7 @@ mod: ## Clean up go module settings
 	go mod verify
 	cd apis; go mod tidy
 	cd apis; go mod verify
-	cd pkg/ironic; go mod tidy
-	cd pkg/ironic; go mod verify
+	cd pkg/hardwareutils; go mod tidy
+	cd pkg/hardwareutils; go mod verify
 	cd hack/tools; go mod tidy
 	cd hack/tools; go mod verify

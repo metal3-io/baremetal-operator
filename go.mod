@@ -6,10 +6,11 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/gophercloud/gophercloud v0.18.0
 	github.com/metal3-io/baremetal-operator/apis v0.0.0
-	github.com/metal3-io/baremetal-operator/pkg/ironic v0.0.0
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/stretchr/testify v1.7.0
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
 	k8s.io/client-go v0.21.4
@@ -20,4 +21,4 @@ require (
 
 replace github.com/metal3-io/baremetal-operator/apis => ./apis
 
-replace github.com/metal3-io/baremetal-operator/pkg/ironic => ./pkg/ironic
+replace github.com/metal3-io/baremetal-operator/pkg/hardwareutils => ./pkg/hardwareutils

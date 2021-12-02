@@ -637,6 +637,18 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
+			Scenario:   "ilo4 virtual media",
+			input:      "ilo4-virtualmedia://192.168.122.1",
+			needsMac:   true,
+			driver:     "ilo",
+			bios:       "",
+			boot:       "ilo-virtual-media",
+			management: "",
+			power:      "",
+			raid:       "no-raid",
+		},
+
+		{
 			Scenario:   "ilo5",
 			input:      "ilo5://192.168.122.1",
 			needsMac:   true,
@@ -1065,6 +1077,17 @@ func TestDriverInfo(t *testing.T) {
 			expects: map[string]interface{}{
 				"ilo_address":   "fe80::fc33:62ff:fe83:8a76",
 				"client_port":   "8080",
+				"ilo_password":  "",
+				"ilo_username":  "",
+				"ilo_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "ilo4 virtual media",
+			input:    "ilo4-virtualmedia://192.168.122.1",
+			expects: map[string]interface{}{
+				"ilo_address":   "192.168.122.1",
 				"ilo_password":  "",
 				"ilo_username":  "",
 				"ilo_verify_ca": false,

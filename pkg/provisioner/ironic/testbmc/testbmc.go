@@ -1,48 +1,45 @@
-// Copyright (c) 2016-2018 Hewlett Packard Enterprise Development LP
-
-package bmc
+package testbmc
 
 import (
 	"net/url"
+
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 
 func init() {
-	RegisterFactory("ilo4", newILOAccessDetails, []string{"https"})
+	bmc.RegisterFactory("test", NewTestBMCAccessDetails, []string{})
+	bmc.RegisterFactory("test-needs-mac", NewTestBMCAccessDetails, []string{})
 }
 
-func newILOAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
-	return &iLOAccessDetails{
+func NewTestBMCAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (bmc.AccessDetails, error) {
+	return &testAccessDetails{
 		bmcType:                        parsedURL.Scheme,
-		portNum:                        parsedURL.Port(),
 		hostname:                       parsedURL.Hostname(),
 		disableCertificateVerification: disableCertificateVerification,
 	}, nil
 }
 
-type iLOAccessDetails struct {
+type testAccessDetails struct {
 	bmcType                        string
-	portNum                        string
 	hostname                       string
 	disableCertificateVerification bool
 }
 
-func (a *iLOAccessDetails) Type() string {
+func (a *testAccessDetails) Type() string {
 	return a.bmcType
 }
 
 // NeedsMAC returns true when the host is going to need a separate
 // port created rather than having it discovered.
-func (a *iLOAccessDetails) NeedsMAC() bool {
-	// For the inspection to work, we need a MAC address
-	// https://github.com/metal3-io/baremetal-operator/pull/284#discussion_r317579040
-	return true
+func (a *testAccessDetails) NeedsMAC() bool {
+	return a.bmcType == "test-needs-mac"
 }
 
-func (a *iLOAccessDetails) Driver() string {
-	return "ilo"
+func (a *testAccessDetails) Driver() string {
+	return "test"
 }
 
-func (a *iLOAccessDetails) DisableCertificateVerification() bool {
+func (a *testAccessDetails) DisableCertificateVerification() bool {
 	return a.disableCertificateVerification
 }
 
@@ -51,62 +48,59 @@ func (a *iLOAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *iLOAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-
+func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials) map[string]interface{} {
 	result := map[string]interface{}{
-		"ilo_username": bmcCreds.Username,
-		"ilo_password": bmcCreds.Password,
-		"ilo_address":  a.hostname,
+		"test_port":     "42",
+		"test_username": bmcCreds.Username,
+		"test_password": bmcCreds.Password,
+		"test_address":  a.hostname,
 	}
 
 	if a.disableCertificateVerification {
-		result["ilo_verify_ca"] = false
+		result["test_verify_ca"] = false
 	}
-
-	if a.portNum != "" {
-		result["client_port"] = a.portNum
-	}
-
 	return result
 }
 
-func (a *iLOAccessDetails) BIOSInterface() string {
+func (a *testAccessDetails) BIOSInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) BootInterface() string {
-	return "ilo-ipxe"
+func (a *testAccessDetails) BootInterface() string {
+	return "ipxe"
 }
 
-func (a *iLOAccessDetails) ManagementInterface() string {
+func (a *testAccessDetails) ManagementInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) PowerInterface() string {
+func (a *testAccessDetails) PowerInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) RAIDInterface() string {
+func (a *testAccessDetails) RAIDInterface() string {
 	return "no-raid"
 }
 
-func (a *iLOAccessDetails) VendorInterface() string {
+func (a *testAccessDetails) VendorInterface() string {
 	return ""
 }
 
-func (a *iLOAccessDetails) SupportsSecureBoot() bool {
-	return true
-}
-
-func (a *iLOAccessDetails) SupportsISOPreprovisioningImage() bool {
+func (a *testAccessDetails) SupportsSecureBoot() bool {
 	return false
 }
 
-func (a *iLOAccessDetails) RequiresProvisioningNetwork() bool {
+func (a *testAccessDetails) SupportsISOPreprovisioningImage() bool {
+	return false
+}
+
+func (a *testAccessDetails) RequiresProvisioningNetwork() bool {
 	return true
 }
 
-func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
+func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *bmc.FirmwareConfig) (settings []map[string]string, err error) {
+
+	// Return sample BMC data for test purposes
 	if firmwareConfig == nil {
 		return nil, nil
 	}

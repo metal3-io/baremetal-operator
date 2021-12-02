@@ -5,24 +5,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metal3-io/baremetal-operator/pkg/ironic"
-	"github.com/metal3-io/baremetal-operator/pkg/ironic/devicehints"
-	"github.com/metal3-io/baremetal-operator/pkg/ironic/hardwaredetails"
-
-	"github.com/metal3-io/baremetal-operator/pkg/ironic/bmc"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
-	"github.com/pkg/errors"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
 var (
@@ -1139,7 +1137,7 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
-	raidCleanSteps, err := ironic.BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
+	raidCleanSteps, err := BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1817,7 +1815,7 @@ func ironicNodeName(objMeta metav1.ObjectMeta) string {
 func (p *ironicProvisioner) IsReady() (result bool, err error) {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
 
-	checker := ironic.NewIronicDependenciesChecker(p.client, p.inspector, p.log)
+	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
 	return checker.IsReady()
 }
 

@@ -69,15 +69,9 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/metal3-io/baremetal-operator/apis v0.0.0 => ./apis
 ## explicit
 github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
-# github.com/metal3-io/baremetal-operator/pkg/ironic v0.0.0 => ./pkg/ironic
+# github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.0.0 => ./pkg/hardwareutils
 ## explicit
-github.com/metal3-io/baremetal-operator/pkg/ironic
-github.com/metal3-io/baremetal-operator/pkg/ironic/bmc
-github.com/metal3-io/baremetal-operator/pkg/ironic/clients
-github.com/metal3-io/baremetal-operator/pkg/ironic/devicehints
-github.com/metal3-io/baremetal-operator/pkg/ironic/hardwaredetails
-github.com/metal3-io/baremetal-operator/pkg/ironic/testbmc
-github.com/metal3-io/baremetal-operator/pkg/ironic/testserver
+github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
@@ -111,6 +105,7 @@ github.com/spf13/pflag
 ## explicit
 github.com/stretchr/testify/assert
 # go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
+## explicit
 go.etcd.io/etcd/pkg/fileutil
 go.etcd.io/etcd/pkg/tlsutil
 go.etcd.io/etcd/pkg/transport
@@ -489,4 +484,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit
 sigs.k8s.io/yaml
 # github.com/metal3-io/baremetal-operator/apis => ./apis
-# github.com/metal3-io/baremetal-operator/pkg/ironic => ./pkg/ironic
+# github.com/metal3-io/baremetal-operator/pkg/hardwareutils => ./pkg/hardwareutils

@@ -107,6 +107,31 @@ func TestValidateCreate(t *testing.T) {
 			oldBMH:    nil,
 			wantedErr: "Unknown BMC type 'test' for address test:127.0.1.1",
 		},
+		{
+			name: "RAIDWithUnsupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes:         nil,
+								Level:                 "",
+								Name:                  "",
+								Rotational:            nil,
+								NumberOfPhysicalDisks: nil,
+							},
+						},
+					},
+					BMC: BMCDetails{
+						Address:         "ipmi://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "BMC driver ipmi does not support configuring RAID",
+		},
 	}
 
 	for _, tt := range tests {

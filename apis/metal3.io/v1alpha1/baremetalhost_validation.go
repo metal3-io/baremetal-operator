@@ -17,10 +17,11 @@ var log = logf.Log.WithName("baremetalhost-validation")
 func (host *BareMetalHost) validateHost() []error {
 	log.Info("validate create", "name", host.Name)
 	var errs []error
+	var bmcAccess bmc.AccessDetails
 
 	if host.Spec.BMC.Address != "" {
 		var err error
-		_, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
+		bmcAccess, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -29,6 +30,8 @@ func (host *BareMetalHost) validateHost() []error {
 	if err := validateRAID(host.Spec.RAID); err != nil {
 		errs = append(errs, err)
 	}
+
+	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
 
 	if err := validateBMHName(host.Name); err != nil {
 		errs = append(errs, err)
@@ -53,6 +56,22 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 
 	if old.Spec.BootMACAddress != "" && host.Spec.BootMACAddress != old.Spec.BootMACAddress {
 		errs = append(errs, fmt.Errorf("bootMACAddress can not be changed once it is set"))
+	}
+
+	return errs
+}
+
+func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
+	var errs []error
+
+	if bmcAccess == nil {
+		return errs
+	}
+
+	if s.RAID != nil && len(s.RAID.HardwareRAIDVolumes) > 0 {
+		if bmcAccess.RAIDInterface() == "no-raid" {
+			errs = append(errs, fmt.Errorf("BMC driver %s does not support configuring RAID", bmcAccess.Type()))
+		}
 	}
 
 	return errs

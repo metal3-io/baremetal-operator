@@ -93,6 +93,20 @@ func TestValidateCreate(t *testing.T) {
 			oldBMH:    nil,
 			wantedErr: "hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time",
 		},
+		{
+			name: "unsupportBMCType",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "test:127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "Unknown BMC type 'test' for address test:127.0.1.1",
+		},
 	}
 
 	for _, tt := range tests {

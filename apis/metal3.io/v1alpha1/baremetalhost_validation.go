@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	_ "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 
 // log is for logging in this package.
@@ -17,6 +17,14 @@ var log = logf.Log.WithName("baremetalhost-validation")
 func (host *BareMetalHost) validateHost() []error {
 	log.Info("validate create", "name", host.Name)
 	var errs []error
+
+	if host.Spec.BMC.Address != "" {
+		var err error
+		_, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
 
 	if err := validateRAID(host.Spec.RAID); err != nil {
 		errs = append(errs, err)

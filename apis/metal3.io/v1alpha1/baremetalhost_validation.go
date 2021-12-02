@@ -74,6 +74,12 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 		}
 	}
 
+	if s.Firmware != nil {
+		if _, err := bmcAccess.BuildBIOSSettings((*bmc.FirmwareConfig)(s.Firmware)); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	return errs
 }
 

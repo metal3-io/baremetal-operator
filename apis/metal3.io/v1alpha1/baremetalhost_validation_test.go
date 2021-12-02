@@ -41,6 +41,7 @@ func TestValidateCreate(t *testing.T) {
 		Name:      "07564256-96ae-4315-ab03-8d34ece60fbb",
 		Namespace: "test-namespace",
 	}
+	enable := true
 
 	tests := []struct {
 		name      string
@@ -131,6 +132,23 @@ func TestValidateCreate(t *testing.T) {
 				}},
 			oldBMH:    nil,
 			wantedErr: "BMC driver ipmi does not support configuring RAID",
+		},
+		{
+			name: "FirmwareWithUnsupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					Firmware: &FirmwareConfig{
+						VirtualizationEnabled: &enable,
+					},
+					BMC: BMCDetails{
+						Address:         "ipmi://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "firmware settings for ipmi are not supported",
 		},
 	}
 

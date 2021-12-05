@@ -1,10 +1,18 @@
 {
     "name": "metal3-bmo",
     "config": {
-        "kustomize_config": false,
         "image": "quay.io/metal3-io/baremetal-operator",
         "live_reload_deps": [
-            "apis", "cmd", "pkg", "config", "controllers", "go.mod", "go.sum", "main.go"
-        ]
+            "apis",
+            "cmd",
+            "pkg",
+            "config",
+            "controllers",
+            "go.mod",
+            "go.sum",
+            "main.go"
+        ],
+        "label": "BMO",
+        "manager_name": "baremetal-operator-controller-manager"
     }
 }

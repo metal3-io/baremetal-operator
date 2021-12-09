@@ -57,6 +57,7 @@ const (
 	reasonImageSuccess            imageConditionReason = "ImageSuccess"
 	reasonImageConfigurationError imageConditionReason = "ConfigurationError"
 	reasonImageMissingNetworkData imageConditionReason = "MissingNetworkData"
+	reasonImageBuildInvalid       imageConditionReason = "ImageBuildInvalid"
 )
 
 // +kubebuilder:rbac:groups=metal3.io,resources=preprovisioningimages,verbs=get;list;watch;update;patch
@@ -177,6 +178,11 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 		NetworkDataStatus: secretStatus,
 	}, networkDataContent, log)
 	if err != nil {
+		failure := imageprovider.ImageBuildInvalid{}
+		if errors.As(err, &failure) {
+			log.Info("image build failed", "error", "err")
+			return setError(generation, &img.Status, reasonImageBuildInvalid, failure.Error()), nil
+		}
 		return false, err
 	}
 	log.Info("image URL available", "url", url, "format", format)

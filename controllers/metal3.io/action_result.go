@@ -141,8 +141,7 @@ func calculateBackoff(errorCount int) time.Duration {
 	}
 
 	base := math.Exp2(float64(errorCount))
-	/* #nosec */
-	backOff := base - (rand.Float64() * base * 0.5)
+	backOff := base - (rand.Float64() * base * 0.5) // #nosec
 	backOffDuration := time.Duration(float64(time.Minute) * backOff)
 	return backOffDuration
 }

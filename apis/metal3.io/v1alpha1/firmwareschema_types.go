@@ -49,9 +49,6 @@ type SettingSchema struct {
 	// Whether or not this setting is read only.
 	ReadOnly *bool `json:"read_only,omitempty"`
 
-	// Whether or not a reset is required after changing this setting.
-	ResetRequired *bool `json:"reset_required,omitempty"`
-
 	// Whether or not this setting's value is unique to this node, e.g.
 	// a serial number.
 	Unique *bool `json:"unique,omitempty"`

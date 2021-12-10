@@ -22,6 +22,6 @@ else
     --volume "${PWD}:/workdir:rw,z" \
     --entrypoint sh \
     --workdir /workdir \
-    registry.hub.docker.com/library/golang:1.16 \
+    registry.hub.docker.com/library/golang:1.17 \
     /workdir/hack/gofmt.sh "${@}"
 fi;

@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -69,6 +70,10 @@ func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) err
 
 	if schema.ReadOnly != nil && *schema.ReadOnly == true {
 		return SchemaSettingError{name: name, message: "it is ReadOnly"}
+	}
+
+	if strings.Contains(name, "Password") {
+		return SchemaSettingError{name: name, message: "Password fields can't be set"}
 	}
 
 	// Check if valid based on type

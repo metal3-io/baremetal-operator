@@ -146,8 +146,7 @@ func main() {
 	}
 
 	// Figure out the MAC for the VM
-	// #nosec
-	virshOut, err := exec.Command("sudo", "virsh", "dumpxml", virshDomain).Output()
+	virshOut, err := exec.Command("sudo", "virsh", "dumpxml", virshDomain).Output() // #nosec
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"ERROR: Could not get details of domain %s: %s\n",

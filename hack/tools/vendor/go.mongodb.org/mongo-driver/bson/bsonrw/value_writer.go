@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -53,6 +54,13 @@ func (bvwp *BSONValueWriterPool) Get(w io.Writer) ValueWriter {
 	}
 	vw.buf = vw.buf[:0]
 	vw.w = w
+	return vw
+}
+
+// GetAtModeElement retrieves a ValueWriterFlusher from the pool and resets it to use w as the destination.
+func (bvwp *BSONValueWriterPool) GetAtModeElement(w io.Writer) ValueWriterFlusher {
+	vw := bvwp.Get(w).(*valueWriter)
+	vw.push(mElement)
 	return vw
 }
 
@@ -240,7 +248,12 @@ func (vw *valueWriter) invalidTransitionError(destination mode, name string, mod
 func (vw *valueWriter) writeElementHeader(t bsontype.Type, destination mode, callerName string, addmodes ...mode) error {
 	switch vw.stack[vw.frame].mode {
 	case mElement:
-		vw.buf = bsoncore.AppendHeader(vw.buf, t, vw.stack[vw.frame].key)
+		key := vw.stack[vw.frame].key
+		if !isValidCString(key) {
+			return errors.New("BSON element key cannot contain null bytes")
+		}
+
+		vw.buf = bsoncore.AppendHeader(vw.buf, t, key)
 	case mValue:
 		// TODO: Do this with a cache of the first 1000 or so array keys.
 		vw.buf = bsoncore.AppendHeader(vw.buf, t, strconv.Itoa(vw.stack[vw.frame].arrkey))
@@ -423,6 +436,9 @@ func (vw *valueWriter) WriteObjectID(oid primitive.ObjectID) error {
 }
 
 func (vw *valueWriter) WriteRegex(pattern string, options string) error {
+	if !isValidCString(pattern) || !isValidCString(options) {
+		return errors.New("BSON regex values cannot contain null bytes")
+	}
 	if err := vw.writeElementHeader(bsontype.Regex, mode(0), "WriteRegex"); err != nil {
 		return err
 	}
@@ -512,17 +528,8 @@ func (vw *valueWriter) WriteDocumentEnd() error {
 	}
 
 	if vw.stack[vw.frame].mode == mTopLevel {
-		if vw.w != nil {
-			if sw, ok := vw.w.(*SliceWriter); ok {
-				*sw = vw.buf
-			} else {
-				_, err = vw.w.Write(vw.buf)
-				if err != nil {
-					return err
-				}
-				// reset buffer
-				vw.buf = vw.buf[:0]
-			}
+		if err = vw.Flush(); err != nil {
+			return err
 		}
 	}
 
@@ -534,6 +541,23 @@ func (vw *valueWriter) WriteDocumentEnd() error {
 		_ = vw.writeLength()
 		vw.pop()
 	}
+	return nil
+}
+
+func (vw *valueWriter) Flush() error {
+	if vw.w == nil {
+		return nil
+	}
+
+	if sw, ok := vw.w.(*SliceWriter); ok {
+		*sw = vw.buf
+		return nil
+	}
+	if _, err := vw.w.Write(vw.buf); err != nil {
+		return err
+	}
+	// reset buffer
+	vw.buf = vw.buf[:0]
 	return nil
 }
 
@@ -586,4 +610,8 @@ func (vw *valueWriter) writeLength() error {
 	vw.buf[start+2] = byte(length >> 16)
 	vw.buf[start+3] = byte(length >> 24)
 	return nil
+}
+
+func isValidCString(cs string) bool {
+	return !strings.ContainsRune(cs, '\x00')
 }

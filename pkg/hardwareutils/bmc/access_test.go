@@ -476,7 +476,7 @@ func TestStaticDriverInfo(t *testing.T) {
 		{
 			Scenario:   "irmc",
 			input:      "irmc://192.168.122.1",
-			needsMac:   false,
+			needsMac:   true,
 			driver:     "irmc",
 			bios:       "",
 			boot:       "pxe",

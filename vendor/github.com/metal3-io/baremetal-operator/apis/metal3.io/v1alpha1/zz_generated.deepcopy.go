@@ -585,6 +585,10 @@ func (in *HostFirmwareSettingsStatus) DeepCopyInto(out *HostFirmwareSettingsStat
 			(*out)[key] = val
 		}
 	}
+	if in.LastUpdated != nil {
+		in, out := &in.LastUpdated, &out.LastUpdated
+		*out = (*in).DeepCopy()
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]metav1.Condition, len(*in))

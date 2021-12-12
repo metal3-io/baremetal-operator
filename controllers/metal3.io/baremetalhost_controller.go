@@ -55,6 +55,7 @@ const (
 	unmanagedRetryDelay           = time.Minute * 10
 	preprovImageRetryDelay        = time.Minute * 5
 	provisionerNotReadyRetryDelay = time.Second * 30
+	subResourceNotReadyRetryDelay = time.Second * 60
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
 	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
@@ -824,6 +825,14 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return result
 	}
 
+	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
+	if info.host.Name != "" {
+		if err = r.createHostFirmwareSettings(info); err != nil {
+			info.log.Info("failed creating hostfirmwaresettings")
+			return actionError{errors.Wrap(err, "failed creating hostFirmwareSettings")}
+		}
+	}
+
 	// Reaching this point means the credentials are valid and worked,
 	// so clear any previous error and record the success in the
 	// status block.
@@ -960,7 +969,8 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	// Use settings in hostFirmwareSettings if available
 	hfs, err := r.getHostFirmwareSettings(info)
 	if err != nil {
-		info.log.Info("hostFirmwareSettings not available for cleaning")
+		// wait until hostFirmwareSettings are ready
+		return actionContinue{subResourceNotReadyRetryDelay}
 	}
 	if hfs != nil {
 		prepareData.ActualFirmwareSettings = hfs.Status.Settings.DeepCopy()
@@ -1334,6 +1344,38 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	return
 }
 
+func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo) error {
+
+	// Check if HostFirmwareSettings already exists
+	hfs := &metal3v1alpha1.HostFirmwareSettings{}
+	if err := r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
+		if k8serrors.IsNotFound(err) {
+			// A resource doesn't exist, create one
+			hfs.ObjectMeta = metav1.ObjectMeta{
+				Name:      info.host.Name,
+				Namespace: info.host.Namespace}
+			hfs.Status.Settings = make(metal3v1alpha1.SettingsMap)
+			hfs.Spec.Settings = make(metal3v1alpha1.DesiredSettingsMap)
+
+			// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
+			if err = controllerutil.SetControllerReference(info.host, hfs, r.Scheme()); err != nil {
+				return errors.Wrap(err, "could not set bmh as controller")
+			}
+			if err = r.Create(context.TODO(), hfs); err != nil {
+				return errors.Wrap(err, "failure creating hostFirmwareSettings resource")
+			}
+
+			info.log.Info("created new hostFirmwareSettings resource")
+
+		} else {
+			// Error reading the object
+			return errors.Wrap(err, "could not load hostFirmwareSettings resource")
+		}
+	}
+
+	return nil
+}
+
 // Get the stored firmware settings if there are valid changes
 func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (hfs *metal3v1alpha1.HostFirmwareSettings, err error) {
 
@@ -1351,9 +1393,9 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 	}
 
 	// Check if there are settings in the Spec that are different than the Status
-	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.UpdateRequested)) {
+	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsChangeDetected)) {
 
-		if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.SettingsValid)) {
+		if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsValid)) {
 			return hfs, nil
 		}
 

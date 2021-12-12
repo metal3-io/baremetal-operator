@@ -21,7 +21,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -30,19 +32,19 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+)
+
+const (
+	provisionerRetryDelay          = time.Second * 30
+	resourceNotAvailableRetryDelay = time.Second * 30
+	reconcilerRequeueDelay         = time.Minute * 5
 )
 
 // HostFirmwareSettingsReconciler reconciles a HostFirmwareSettings object
@@ -115,24 +117,20 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	bmh := &metal3v1alpha1.BareMetalHost{}
 	if err = r.Get(context.TODO(), req.NamespacedName, bmh); err != nil {
 		reqLogger.Info("could not get baremetalhost, not running reconciler")
-		// only run again if created
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 	}
 
 	// Fetch the HostFirmwareSettings
 	hfs := &metal3v1alpha1.HostFirmwareSettings{}
 	info := &rInfo{log: reqLogger, hfs: hfs, bmh: bmh}
 	if err = r.Get(ctx, req.NamespacedName, hfs); err != nil {
+		// The HFS resource may have been deleted
 		if k8serrors.IsNotFound(err) {
-			// A resource doesn't exist, create one
-			if err = r.newHostFirmwareSettings(info, req.NamespacedName); err != nil {
-
-				return ctrl.Result{}, errors.Wrap(err, "could not create firmware settings")
-			}
-		} else {
-			// Error reading the object - requeue the request.
-			return ctrl.Result{}, errors.Wrap(err, "could not load host firmware settings")
+			reqLogger.Info("hostFirmwareSettings not found")
+			return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 		}
+		// Error reading the object - requeue the request.
+		return ctrl.Result{}, errors.Wrap(err, "could not load hostFirmwareSettings")
 	}
 
 	// Create a provisioner that can access Ironic API
@@ -143,13 +141,20 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 
 	ready, err := prov.IsReady()
 	if err != nil || !ready {
-		reqLogger.Info("provisioner is not ready", "RequeueAfter:", provisionerNotReadyRetryDelay)
-		return ctrl.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
+		reqLogger.Info("provisioner is not ready", "RequeueAfter:", provisionerRetryDelay)
+		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
-	// Get the data from Ironic and update HFS, the call to provisioner may fail if settings can't
-	// be retrieved for the bios_interface.
-	if err = r.updateHostFirmwareSettings(prov, info); err != nil {
+	info.log.Info("retrieving firmware settings and saving to resource", "node", bmh.Status.Provisioning.ID)
+
+	// Get the current settings and schema, retry if provisioner returns error
+	currentSettings, schema, err := prov.GetFirmwareSettings(true)
+	if err != nil {
+		reqLogger.Info("provisioner returns error", "RequeueAfter:", provisionerRetryDelay)
+		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
+	}
+
+	if err = r.updateHostFirmwareSettings(currentSettings, schema, info); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "Could not update hostFirmwareSettings")
 	}
 
@@ -157,20 +162,12 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		r.publishEvent(req, e)
 	}
 
-	// only run again on changes
-	return ctrl.Result{}, nil
+	// requeue to run again after delay
+	return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelay}, nil
 }
 
 // Get the firmware settings from the provisioner and update hostFirmwareSettings
-func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(prov provisioner.Provisioner, info *rInfo) (err error) {
-
-	info.log.Info("retrieving firmware settings and saving to resource", "node", info.bmh.Status.Provisioning.ID)
-
-	// Get the current settings and schema
-	currentSettings, schema, err := prov.GetFirmwareSettings(true)
-	if err != nil {
-		return errors.Wrap(err, "could not get firmware settings from provisioner")
-	}
+func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSettings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, info *rInfo) (err error) {
 
 	// get or create a firmwareSchema to hold schema
 	firmwareSchema, err := r.getOrCreateFirmwareSchema(info, schema)
@@ -197,12 +194,13 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 		info.hfs.Status.Settings = make(metal3v1alpha1.SettingsMap)
 	}
 
-	// Update Status
+	// Update Status on changes
 	for k, v := range settings {
 		// Some vendors include encrypted password fields, don't add these
 		if strings.Contains(k, "Password") {
 			continue
 		}
+
 		info.hfs.Status.Settings[k] = v
 	}
 
@@ -214,6 +212,10 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 				specMismatch = true
 				break
 			}
+		} else {
+			// Spec setting is not in Status, this will be handled by validateHostFirmwareSettings
+			specMismatch = true
+			break
 		}
 	}
 
@@ -222,26 +224,33 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 	generation := info.hfs.GetGeneration()
 
 	if specMismatch {
-		setCondition(generation, &info.hfs.Status, metal3v1alpha1.UpdateRequested, metav1.ConditionTrue, reason, "")
+		setCondition(generation, &info.hfs.Status, metal3v1alpha1.FirmwareSettingsChangeDetected, metav1.ConditionTrue, reason, "")
 
-	} else {
-		setCondition(generation, &info.hfs.Status, metal3v1alpha1.UpdateRequested, metav1.ConditionFalse, reason, "")
-	}
+		// Run validation on the Spec to detect invalid values entered by user, including Spec settings not in Status
+		// Eventually this will be handled by a webhook
+		errors := r.validateHostFirmwareSettings(info, schema)
+		if len(errors) == 0 {
+			setCondition(generation, &info.hfs.Status, metal3v1alpha1.FirmwareSettingsValid, metav1.ConditionTrue, reason, "")
+		} else {
+			for _, error := range errors {
+				info.publishEvent("ValidationFailed", fmt.Sprintf("Invalid BIOS setting: %v", error))
+			}
 
-	// Run validation on the Spec to detect invalid values entered by user, including Spec settings not in Status
-	// Eventually this will be handled by a webhook
-	errors := r.validateHostFirmwareSettings(info, schema)
-	if len(errors) == 0 {
-		setCondition(generation, &info.hfs.Status, metal3v1alpha1.SettingsValid, metav1.ConditionTrue, reason, "")
-	} else {
-		for _, error := range errors {
-			info.publishEvent("ValidationFailed", fmt.Sprintf("Invalid BIOS setting: %v", error))
+			reason = reasonConfigurationError
+			setCondition(generation, &info.hfs.Status, metal3v1alpha1.FirmwareSettingsValid, metav1.ConditionFalse, reason, "Invalid BIOS setting")
 		}
-
-		reason = reasonConfigurationError
-		setCondition(generation, &info.hfs.Status, metal3v1alpha1.SettingsValid, metav1.ConditionFalse, reason, "Invalid BIOS setting")
+	} else {
+		// Reset conditions
+		if meta.IsStatusConditionTrue(info.hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsChangeDetected)) {
+			setCondition(generation, &info.hfs.Status, metal3v1alpha1.FirmwareSettingsChangeDetected, metav1.ConditionFalse, reason, "")
+		}
+		if !meta.IsStatusConditionTrue(info.hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsValid)) {
+			setCondition(generation, &info.hfs.Status, metal3v1alpha1.FirmwareSettingsValid, metav1.ConditionTrue, reason, "")
+		}
 	}
 
+	t := metav1.Now()
+	info.hfs.Status.LastUpdated = &t
 	return r.Status().Update(context.TODO(), info.hfs)
 }
 
@@ -259,12 +268,19 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 
 		info.log.Info("found existing firmwareSchema resource")
 
+		// Add hfs as owner so can be garbage collected on delete, if already an owner it will just be overwritten
+		if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
+			return nil, errors.Wrap(err, "could not set owner of existing firmwareSchema")
+		}
+		if err = r.Update(context.TODO(), firmwareSchema); err != nil {
+			return nil, err
+		}
+
 		return firmwareSchema, nil
 	}
 	if !k8serrors.IsNotFound(err) {
 		// Error reading the object
 		return nil, err
-
 	}
 
 	firmwareSchema = &metal3v1alpha1.FirmwareSchema{
@@ -285,15 +301,12 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	for k, v := range schema {
 		firmwareSchema.Spec.Schema[k] = v
 	}
-
-	if err = r.Create(context.TODO(), firmwareSchema); err != nil {
-		return nil, err
-	}
-	// Set hfs as owner after the create
-	if controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
+	// Set hfs as owner
+	if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
 		return nil, errors.Wrap(err, "could not set owner of firmwareSchema")
 	}
-	if err = r.Update(context.TODO(), firmwareSchema); err != nil {
+
+	if err = r.Create(context.TODO(), firmwareSchema); err != nil {
 		return nil, err
 	}
 
@@ -302,91 +315,11 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	return firmwareSchema, nil
 }
 
-// Create a hostFirmwareSettings
-func (r *HostFirmwareSettingsReconciler) newHostFirmwareSettings(info *rInfo, namespacedName types.NamespacedName) (err error) {
-
-	info.hfs.ObjectMeta = metav1.ObjectMeta{
-		Name: namespacedName.Name, Namespace: namespacedName.Namespace}
-	info.hfs.Status.Settings = make(metal3v1alpha1.SettingsMap)
-	info.hfs.Spec.Settings = make(metal3v1alpha1.DesiredSettingsMap)
-
-	if err = r.Create(context.TODO(), info.hfs); err != nil {
-		return errors.Wrap(err, "failure creating hostFirmwareSettings resource")
-	}
-
-	// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
-	if controllerutil.SetControllerReference(info.bmh, info.hfs, r.Scheme()); err != nil {
-		return errors.Wrap(err, "could not set bmh as controller")
-	}
-	if err = r.Update(context.TODO(), info.hfs); err != nil {
-		return errors.Wrap(err, "could not update hostfirmwaresettings")
-	}
-
-	info.log.Info("created new hostFirmwareSettings resource")
-
-	return nil
-}
-
-// EventHandler for updates to both the baremetalhost and hostfirmwarettings
-func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent) bool {
-
-	r.Log.Info("hostfirmwaresettings in event handler")
-
-	// If this is a baremetalhost, only return true on certain state transitions
-	var oldState metal3v1alpha1.ProvisioningState = metal3v1alpha1.StateNone
-	newState := oldState
-
-	oldHost, oldHostExists := e.ObjectOld.(*metal3v1alpha1.BareMetalHost)
-	if oldHostExists {
-		oldState = oldHost.Status.Provisioning.State
-	}
-	newHost, newHostExists := e.ObjectNew.(*metal3v1alpha1.BareMetalHost)
-	if newHostExists {
-		newState = newHost.Status.Provisioning.State
-	}
-
-	if newHostExists && !oldHostExists {
-		// The baremetalhost has been created
-		return true
-	}
-	if oldHostExists || newHostExists {
-		// Data needs to be retrieved from Ironic when node is moved to Ready  e.g. after cleaning and when
-		// provisioned, its not necessary on every state change as data from Ironic will be the same.
-		if (newState == metal3v1alpha1.StateReady || newState == metal3v1alpha1.StateProvisioned) && oldState != newState {
-			r.Log.Info("baremetalhost event state update", "oldstate", oldState, "newstate", newState)
-			return true
-		}
-
-		return false
-	}
-
-	_, oldHFS := e.ObjectOld.(*metal3v1alpha1.HostFirmwareSettings)
-	_, newHFS := e.ObjectNew.(*metal3v1alpha1.HostFirmwareSettings)
-	if !(oldHFS || newHFS) {
-		// Don't process if not a hostFirmwareSetting
-		return false
-	}
-
-	// This is a hostfirmwaresettings resource, if the update increased the resource generation then process it
-	// changes to LastUpdated will not increase the resource generation
-	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
-		r.Log.Info("hostfirmwaresettings resource generation changed, updating")
-		return true
-	}
-
-	return false
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3v1alpha1.HostFirmwareSettings{}).
-		WithEventFilter(
-			predicate.Funcs{
-				UpdateFunc: r.updateEventHandler,
-			}).
-		Watches(&source.Kind{Type: &metal3v1alpha1.BareMetalHost{}}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
 		Complete(r)
 }
 
@@ -447,19 +380,37 @@ func setCondition(generation int64, status *metal3v1alpha1.HostFirmwareSettingsS
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
-// Generate a name based on the schema keys which should be the same for similar hardware
+// Generate a name based on the schema key and values which should be the same for similar hardware
 func GetSchemaName(schema map[string]metal3v1alpha1.SettingSchema) string {
 
 	// Schemas from the same vendor and model should be identical for both keys and values.
-	// Hash the keys of the map to get a identifier unique to this schema.
-	keys := make([]string, 0, len(schema))
-	for k := range schema {
-		keys = append(keys, k)
+	hashkeys := make([]string, 0, len(schema))
+	for k, v := range schema {
+		hashkeys = append(hashkeys, k)
+		hashkeys = append(hashkeys, v.AttributeType)
+		for _, av := range v.AllowableValues {
+			hashkeys = append(hashkeys, av)
+		}
+		if v.LowerBound != nil {
+			hashkeys = append(hashkeys, strconv.Itoa(*v.LowerBound))
+		}
+		if v.UpperBound != nil {
+			hashkeys = append(hashkeys, strconv.Itoa(*v.UpperBound))
+		}
+		if v.MinLength != nil {
+			hashkeys = append(hashkeys, strconv.Itoa(*v.MinLength))
+		}
+		if v.MaxLength != nil {
+			hashkeys = append(hashkeys, strconv.Itoa(*v.MaxLength))
+		}
+		if v.ReadOnly != nil {
+			hashkeys = append(hashkeys, strconv.FormatBool(*v.ReadOnly))
+		}
 	}
-	sort.Strings(keys)
+	sort.Strings(hashkeys)
 
 	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%v", keys)))
+	h.Write([]byte(fmt.Sprintf("%v", hashkeys)))
 	hash := fmt.Sprintf("%x", h.Sum(nil))[:8]
 
 	return "schema-" + hash

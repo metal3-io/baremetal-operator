@@ -49,7 +49,7 @@ func (eip envImageProvider) BuildImage(data ImageData, networkData NetworkData, 
 		url = eip.initrdURL
 	}
 	if url == "" {
-		err = fmt.Errorf("Unsupported image format \"%s\"", data.Format)
+		err = BuildInvalidError(fmt.Errorf("Unsupported image format \"%s\"", data.Format))
 	}
 	return
 }

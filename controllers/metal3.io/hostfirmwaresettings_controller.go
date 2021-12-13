@@ -299,6 +299,14 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	// Copy in the schema from provisioner
 	firmwareSchema.Spec.Schema = make(map[string]metal3v1alpha1.SettingSchema)
 	for k, v := range schema {
+		// Don't store Password settings in Schema as these aren't stored in HostFirmwareSettings
+		if strings.Contains(k, "Password") {
+			continue
+		}
+		if v.AttributeType == "Password" {
+			continue
+		}
+
 		firmwareSchema.Spec.Schema[k] = v
 	}
 	// Set hfs as owner

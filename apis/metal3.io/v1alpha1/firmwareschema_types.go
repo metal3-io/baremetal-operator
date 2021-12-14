@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,11 +88,16 @@ func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) err
 		return SchemaSettingError{name: name, message: fmt.Sprintf("unknown enumeration value - %s", value.String())}
 
 	case "Integer":
+		if value.Type == intstr.String {
+			if _, err := strconv.Atoi(value.String()); err != nil {
+				return SchemaSettingError{name: name, message: fmt.Sprintf("String %s entered while integer expected", value.String())}
+			}
+		}
 		if schema.LowerBound != nil && value.IntValue() < *schema.LowerBound {
-			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is below minimum value %d", value.String(), *schema.LowerBound)}
+			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %d is below minimum value %d", value.IntValue(), *schema.LowerBound)}
 		}
 		if schema.UpperBound != nil && value.IntValue() > *schema.UpperBound {
-			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %s is above maximum value %d", value.String(), *schema.UpperBound)}
+			return SchemaSettingError{name: name, message: fmt.Sprintf("integer %d is above maximum value %d", value.IntValue(), *schema.UpperBound)}
 		}
 		return nil
 

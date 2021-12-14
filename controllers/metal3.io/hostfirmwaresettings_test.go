@@ -435,7 +435,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 					ResourceVersion: "1"},
 				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
 					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"NetworkBootRetryCount": intstr.FromString("1000"),
+						"NetworkBootRetryCount": intstr.FromInt(1000),
 						"ProcVirtualization":    intstr.FromString("Enabled"),
 					},
 				},
@@ -455,7 +455,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 			ExpectedSettings: &metal3v1alpha1.HostFirmwareSettings{
 				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
 					Settings: metal3v1alpha1.DesiredSettingsMap{
-						"NetworkBootRetryCount": intstr.FromString("1000"),
+						"NetworkBootRetryCount": intstr.FromInt(1000),
 						"ProcVirtualization":    intstr.FromString("Enabled"),
 					},
 				},
@@ -567,7 +567,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 				Settings: metal3v1alpha1.DesiredSettingsMap{
 					"CustomPostMessage":     intstr.FromString("All tests passed"),
 					"ProcVirtualization":    intstr.FromString("Disabled"),
-					"NetworkBootRetryCount": intstr.FromString("20"),
+					"NetworkBootRetryCount": intstr.FromInt(20),
 				},
 			},
 			ExpectedError: "",
@@ -578,7 +578,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 				Settings: metal3v1alpha1.DesiredSettingsMap{
 					"CustomPostMessage":     intstr.FromString("A really long POST message"),
 					"ProcVirtualization":    intstr.FromString("Disabled"),
-					"NetworkBootRetryCount": intstr.FromString("20"),
+					"NetworkBootRetryCount": intstr.FromInt(20),
 				},
 			},
 			ExpectedError: "Setting CustomPostMessage is invalid, string A really long POST message length is above maximum length 20",
@@ -625,6 +625,17 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 				},
 			},
 			ExpectedError: "Cannot set Password field",
+		},
+		{
+			Scenario: "string instead of int",
+			SpecSettings: metal3v1alpha1.HostFirmwareSettingsSpec{
+				Settings: metal3v1alpha1.DesiredSettingsMap{
+					"CustomPostMessage":     intstr.FromString("All tests passed"),
+					"ProcVirtualization":    intstr.FromString("Disabled"),
+					"NetworkBootRetryCount": intstr.FromString("foo"),
+				},
+			},
+			ExpectedError: "Setting NetworkBootRetryCount is invalid, String foo entered while integer expected",
 		},
 	}
 

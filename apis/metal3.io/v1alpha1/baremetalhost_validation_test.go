@@ -32,6 +32,16 @@ func TestValidateCreate(t *testing.T) {
 		Namespace: "test-namespace",
 	}
 
+	inom := metav1.ObjectMeta{
+		Name:      "test~",
+		Namespace: "test-namespace",
+	}
+
+	inom2 := metav1.ObjectMeta{
+		Name:      "07564256-96ae-4315-ab03-8d34ece60fbb",
+		Namespace: "test-namespace",
+	}
+
 	tests := []struct {
 		name      string
 		newBMH    *BareMetalHost
@@ -43,6 +53,18 @@ func TestValidateCreate(t *testing.T) {
 			newBMH:    &BareMetalHost{TypeMeta: tm, ObjectMeta: om, Spec: BareMetalHostSpec{}},
 			oldBMH:    nil,
 			wantedErr: "",
+		},
+		{
+			name:      "invalidName",
+			newBMH:    &BareMetalHost{TypeMeta: tm, ObjectMeta: inom, Spec: BareMetalHostSpec{}},
+			oldBMH:    nil,
+			wantedErr: "BareMetalHost resource name cannot contain characters other than [A-Za-z0-9._-]",
+		},
+		{
+			name:      "invalidName2",
+			newBMH:    &BareMetalHost{TypeMeta: tm, ObjectMeta: inom2, Spec: BareMetalHostSpec{}},
+			oldBMH:    nil,
+			wantedErr: "BareMetalHost resource name cannot be a UUID",
 		},
 		{
 			name: "invalidRAID",

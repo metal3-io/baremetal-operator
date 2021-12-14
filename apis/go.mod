@@ -3,8 +3,8 @@ module github.com/metal3-io/baremetal-operator/apis
 go 1.17
 
 require (
-	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.0.0
 	github.com/google/uuid v1.1.2
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.0.0
 	github.com/stretchr/testify v1.7.0
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
@@ -23,7 +23,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/google/uuid v1.1.2 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect

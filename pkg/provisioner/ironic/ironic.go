@@ -971,7 +971,6 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 				MinLength:       v.MinLength,
 				MaxLength:       v.MaxLength,
 				ReadOnly:        v.ReadOnly,
-				ResetRequired:   v.ResetRequired,
 				Unique:          v.Unique,
 			}
 		}

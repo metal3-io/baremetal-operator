@@ -72,10 +72,6 @@ spec:
                     read_only:
                       description: Whether or not this setting is read only.
                       type: boolean
-                    reset_required:
-                      description: Whether or not a reset is required after changing
-                        this setting.
-                      type: boolean
                     unique:
                       description: Whether or not this setting's value is unique to
                         this node, e.g. a serial number.

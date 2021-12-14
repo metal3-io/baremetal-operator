@@ -964,11 +964,6 @@ func (in *SettingSchema) DeepCopyInto(out *SettingSchema) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.ResetRequired != nil {
-		in, out := &in.ResetRequired, &out.ResetRequired
-		*out = new(bool)
-		**out = **in
-	}
 	if in.Unique != nil {
 		in, out := &in.Unique, &out.Unique
 		*out = new(bool)

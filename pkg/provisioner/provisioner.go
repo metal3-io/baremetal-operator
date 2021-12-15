@@ -113,6 +113,8 @@ type ProvisionData struct {
 	CustomDeploy    *metal3v1alpha1.CustomDeploy
 }
 
+type HTTPHeaders []map[string]string
+
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
@@ -188,6 +190,12 @@ type Provisioner interface {
 
 	// GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
 	GetFirmwareSettings(includeSchema bool) (settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, err error)
+
+	// AddBMCEventSubscriptionForNode creates the subscription, and updates Status.SubscriptionID
+	AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders HTTPHeaders) (result Result, err error)
+
+	// RemoveBMCEventSubscriptionForNode delete the subscription
+	RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result Result, err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

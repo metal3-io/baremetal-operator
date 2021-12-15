@@ -49,6 +49,26 @@ rules:
 - apiGroups:
   - metal3.io
   resources:
+  - bmceventsubscriptions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - bmceventsubscriptions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
   - firmwareschemas
   verbs:
   - create

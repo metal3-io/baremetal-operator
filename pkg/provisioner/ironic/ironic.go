@@ -27,6 +27,7 @@ var (
 	deprovisionRequeueDelay   = time.Second * 10
 	provisionRequeueDelay     = time.Second * 10
 	powerRequeueDelay         = time.Second * 10
+	subscriptionRequeueDelay  = time.Second * 10
 	introspectionRequeueDelay = time.Second * 15
 	softPowerOffTimeout       = time.Second * 180
 )
@@ -971,7 +972,6 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 				MinLength:       v.MinLength,
 				MaxLength:       v.MaxLength,
 				ReadOnly:        v.ReadOnly,
-				ResetRequired:   v.ResetRequired,
 				Unique:          v.Unique,
 			}
 		}
@@ -1870,4 +1870,39 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 	}
 
 	return hosts, nil
+}
+
+func (p *ironicProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+	newSubscription, err := nodes.CreateSubscription(
+		p.client,
+		p.nodeID,
+		nodes.CallVendorPassthruOpts{
+			Method: "create_subscription",
+		},
+		nodes.CreateSubscriptionOpts{
+			Destination: subscription.Spec.Destination,
+			Context:     subscription.Spec.Context,
+			HttpHeaders: httpHeaders,
+		}).Extract()
+	if err != nil {
+		return provisioner.Result{}, err
+	}
+
+	subscription.Status.SubscriptionID = newSubscription.Id
+	return operationComplete()
+}
+
+func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+	method := nodes.CallVendorPassthruOpts{
+		Method: "delete_subscription",
+	}
+	opts := nodes.DeleteSubscriptionOpts{
+		Id: subscription.Status.SubscriptionID,
+	}
+	err = nodes.DeleteSubscription(p.client, p.nodeID, method, opts).ExtractErr()
+
+	if err != nil {
+		return provisioner.Result{RequeueAfter: subscriptionRequeueDelay}, err
+	}
+	return operationComplete()
 }

@@ -51,7 +51,6 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = metal3iov1alpha1.AddToScheme(scheme)
-	// +kubebuilder:scaffold:scheme
 }
 
 func printVersion() {
@@ -77,6 +76,11 @@ func setupChecks(mgr ctrl.Manager) {
 func setupWebhooks(mgr ctrl.Manager) {
 	if err := (&metal3iov1alpha1.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
+		os.Exit(1)
+	}
+
+	if err := (&metal3iov1alpha1.BMCEventSubscription{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "BMCEventSubscription")
 		os.Exit(1)
 	}
 }
@@ -188,6 +192,15 @@ func main() {
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HostFirmwareSettings")
+		os.Exit(1)
+	}
+
+	if err = (&metal3iocontroller.BMCEventSubscriptionReconciler{
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("BMCEventSubscription"),
+		ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BMCEventSubscription")
 		os.Exit(1)
 	}
 

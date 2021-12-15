@@ -57,7 +57,6 @@ func TestGetFirmwareSettings(t *testing.T) {
 					MinLength:       &minLength,
 					MaxLength:       &maxLength,
 					ReadOnly:        &iTrue,
-					ResetRequired:   nil,
 					Unique:          nil,
 				},
 				"NumCores": {
@@ -68,7 +67,6 @@ func TestGetFirmwareSettings(t *testing.T) {
 					MinLength:       nil,
 					MaxLength:       nil,
 					ReadOnly:        &iTrue,
-					ResetRequired:   nil,
 					Unique:          nil,
 				},
 				"ProcVirtualization": {
@@ -79,7 +77,6 @@ func TestGetFirmwareSettings(t *testing.T) {
 					MinLength:       nil,
 					MaxLength:       nil,
 					ReadOnly:        &iFalse,
-					ResetRequired:   nil,
 					Unique:          nil,
 				},
 			},

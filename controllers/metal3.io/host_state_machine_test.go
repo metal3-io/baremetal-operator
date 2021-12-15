@@ -1280,6 +1280,14 @@ func (m *mockProvisioner) GetFirmwareSettings(includeSchema bool) (settings meta
 	return
 }
 
+func (m *mockProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+	return result, nil
+}
+
+func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+	return result, nil
+}
+
 func TestUpdateBootModeStatus(t *testing.T) {
 	testCases := []struct {
 		Scenario       string

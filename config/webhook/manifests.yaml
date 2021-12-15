@@ -27,3 +27,24 @@ webhooks:
     resources:
     - baremetalhosts
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-metal3-io-v1alpha1-bmceventsubscription
+  failurePolicy: Fail
+  name: bmceventsubscription.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - bmceventsubscriptions
+  sideEffects: None

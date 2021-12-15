@@ -8,6 +8,8 @@ IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
 IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic"}
 IRONIC_KEEPALIVED_IMAGE=${IRONIC_KEEPALIVED_IMAGE:-"quay.io/metal3-io/keepalived"}
 IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:master"}
+MARIADB_IMAGE=${MARIADB_IMAGE:-"quay.io/metal3-io/mariadb:main"}
+
 IPA_BASEURI=${IPA_BASEURI:-}
 IRONIC_DATA_DIR=${IRONIC_DATA_DIR:-"/opt/metal3-dev-env/ironic"}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
@@ -209,12 +211,12 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
      ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
-# https://github.com/metal3-io/ironic-image/blob/master/scripts/runmariadb
+# https://github.com/metal3-io/mariadb-image/blob/main/runmariadb
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
      ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runmariadb \
-     --env "MARIADB_PASSWORD=$mariadb_password" "${IRONIC_IMAGE}"
+     -v "$IRONIC_DATA_DIR:/shared" \
+     --env "MARIADB_PASSWORD=$mariadb_password" "${MARIADB_IMAGE}"
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
 # https://github.com/metal3-io/ironic-image/blob/master/scripts/runironic-api

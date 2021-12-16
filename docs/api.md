@@ -591,3 +591,252 @@ state.
 
 Please note only the existence of the annotation is important to treat the BMH
 as detached and the value of the annotation is always ignored.
+
+## HostFirmwareSettings
+
+A **HostFirmwareSettings** resource is used to manage BIOS settings for a host,
+there is a one-to-one mapping with **BareMetalHosts**.  A
+**HostFirmwareSettings** resource is created when BIOS settings are read from
+Ironic as the host moves to the Ready state.  These settings are the complete
+actual BIOS configuration names returned from the BMC, typically 100-200
+settings per host, as compared to the three vendor-independent fields stored in
+the **BareMetalHosts** `firmware` field.
+
+### HostFirmwareSettings spec
+
+The *HostFirmwareSettings's* *spec* defines the desired BIOS settings. These
+settings will be sent to Ironic as part of clean-steps for update to the BMC
+when the host goes through cleaning, i.e. when the **BareMetalHosts** go
+through the Preparing state.
+
+#### spec settings
+
+The `settings` are an array of name/value pairs for the BIOS settings.
+The names must match the names read from Ironic and stored in the `status`
+field. The values must be within the limits as defined in the *FirmwareSchema*.
+Only settings which are not defined as `ReadOnly` or `Unique` (such as
+SerialNumbers) will be accepted.
+
+### HostFirmwareSettings status
+
+The *HostFirmwareSettings's* *status* defines the actual BIOS settings read
+from Ironic.
+
+#### status schema
+
+`Schema` is a reference to a *FirmwareSchema* resource that describes each
+BIOS setting by type and configurable limits for the type.
+
+#### status settings
+
+The `settings` are an array of name/value pairs listing the complete set
+of BIOS settings retrieved from Ironic.
+
+#### status conditions
+
+`conditions` reflects the status of the fields in the *spec*. Possible
+conditions are:
+
+* *Valid* -- When set to *True* indicates that all *settings* in the *spec* are
+  correct for names and values. This is also set to *True* when nothing is set
+  in the *spec*. When set to *False* indicates that one or more names or values
+  in the *spec* are incorrect, the actual error will be shown in the *Events*
+  field.
+* *UpdateRequested* -- Indicates whether or not settings in the *spec* are
+  different than settings in the *status*. When set to *True* the settings that
+  are different will be included in the clean-steps that are written to Ironic
+  as part of cleaning.
+
+### HostFirmwareSettings Example
+
+The following is a complete example from a running cluster of a
+*HostFirmwareSettings* resource (in YAML), it includes its spec and status
+sections:
+
+```yaml
+apiVersion: metal3.io/v1alpha1
+kind: HostFirmwareSettings
+metadata:
+  creationTimestamp: "2021-11-03T21:21:02Z"
+  generation: 1
+  name: ostest-worker-0
+  namespace: openshift-machine-api
+  ownerReferences:
+  - apiVersion: metal3.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: BareMetalHost
+    name: ostest-worker-0
+    uid: 87b08d19-b94c-4a29-901a-67890d9eb843
+  resourceVersion: "24688"
+  uid: 293a351b-1743-437d-abed-da53d41d8804
+spec:
+  settings: {}
+status:
+  conditions:
+  - lastTransitionTime: "2021-11-03T21:21:54Z"
+    message: ""
+    observedGeneration: 1
+    reason: Success
+    status: "False"
+    type: UpdateRequested
+  - lastTransitionTime: "2021-11-03T21:21:54Z"
+    message: ""
+    observedGeneration: 1
+    reason: Success
+    status: "True"
+    type: Valid
+  schema:
+    name: schema-dc98d7c8
+    namespace: openshift-machine-api
+  settings:
+    BootMode: Uefi
+    EmbeddedSata: Raid
+    L2Cache: 10x256 KB
+    NicBoot1: NetworkBoot
+    NumCores: "10"
+    ProcTurboMode: Enabled
+    QuietBoot: "true"
+    SecureBootStatus: Enabled
+    SerialNumber: QPX12345
+```
+
+## FirmwareSchema
+
+A **FirmwareSchema** resource contains the limits each setting, specific to
+each host.  This data comes directly from the BMC via Ironic. It can be used
+to prevent misconfiguration of the **HostFirmwareSettings** *spec* field so
+that invalid values are not sent to the host. The **FirmwareSchema** has a
+unique identifier derived from its settings and limits. Multiple hosts may therefore
+have the same **FirmwareSchema** identifier so its likely that more than one
+**HostFirmwareSettings** reference the same **FirmwareSchema** when
+hardware of the same vendor and model are used.
+
+### FirmwareSchema spec
+
+#### spec schema
+
+A map of settings names and limits. The values returned in the limits depend
+on the type of the setting. The following fields are included:
+
+* *attribute_type* -- The type of setting - `Enumeration`, `Integer`, `String`,
+  `Boolean`, or `Password`
+* *allowable_values* -- A list of allowable values when the `attribute_type` is `Enumeration`
+* *lower_bound* -- The lowest allowed value when attribute_type is `Integer`
+* *upper_bound* -- The highest allowed value when attribute_type is `Integer`
+* *min_length* -- The shortest string length that the value can have when
+  attribute_type is `String`
+* *max_length* -- The longest string length that the value can have when
+  attribute_type is `String`
+* *read_only* -- The setting is ready only and cannot be modified
+* *unique* -- The setting is specific to this host
+* *reset_required* -- After changing this setting a node reboot is required
+
+#### hardwareVendor
+
+The name of the vendor that this schema corresponds to.
+
+#### hardwareModel
+
+The hardware model that this schema corresponds to.
+
+### FirmwareSchema Example
+
+```yaml
+apiVersion: v1
+items:
+- apiVersion: metal3.io/v1alpha1
+  kind: FirmwareSchema
+  metadata:
+    creationTimestamp: "2021-11-03T21:21:54Z"
+    generation: 1
+    name: schema-4f53cda1
+    namespace: openshift-machine-api
+    ownerReferences:
+    - apiVersion: metal3.io/v1alpha1
+      kind: HostFirmwareSettings
+      name: ostest-master-0
+      uid: 8c315c33-29b0-4863-a61d-ce5ddde58498
+    resourceVersion: "19133"
+    uid: d169cd94-4d6e-4567-a1b9-d5f4962a8dee
+  spec:
+    hardwareModel: KVM (8.2.0)
+    hardwareVendor: Red Hat
+    schema: {}
+- apiVersion: metal3.io/v1alpha1
+  kind: FirmwareSchema
+  metadata:
+    creationTimestamp: "2021-11-03T21:21:54Z"
+    generation: 1
+    name: schema-dc98d7c8
+    namespace: openshift-machine-api
+    ownerReferences:
+    - apiVersion: metal3.io/v1alpha1
+      kind: HostFirmwareSettings
+      name: ostest-master-1
+      uid: a991875d-9897-49f1-9d86-16ea9ed6c84f
+    resourceVersion: "19141"
+    uid: b442e01f-3724-4f14-a578-f0b99d296c95
+  spec:
+    hardwareModel: KVM (8.2.0)
+    hardwareVendor: Red Hat
+    schema:
+      BootMode:
+        allowable_values:
+        - Bios
+        - Uefi
+        attribute_type: Enumeration
+        read_only: false
+      EmbeddedSata:
+        allowable_values:
+        - Ata
+        - Ahci
+        - Raid
+        - "Off"
+        attribute_type: Enumeration
+        read_only: false
+     L2Cache:
+        attribute_type: String
+        max_length: 16
+        min_length: 0
+        read_only: false
+        unique: false
+      NicBoot1:
+        allowable_values:
+        - NetworkBoot
+        - Disabled
+        attribute_type: Enumeration
+        read_only: false
+      NumCores:
+        attribute_type: Integer
+        lower_bound: 10
+        read_only: true
+        unique: false
+        upper_bound: 20
+      ProcTurboMode:
+        allowable_values:
+        - Enabled
+        - Disabled
+        attribute_type: Enumeration
+        read_only: false
+      QuietBoot:
+        attribute_type: Boolean
+        read_only: false
+        unique: false
+      SecureBootStatus:
+        allowable_values:
+        - Enabled
+        - Disabled
+        attribute_type: Enumeration
+        read_only: true
+      SerialNumber:
+        attribute_type: String
+        max_length: 16
+        min_length: 0
+        read_only: false
+        unique: true
+      SysPassword:
+        attribute_type: Password
+        read_only: false
+        unique: false
+```

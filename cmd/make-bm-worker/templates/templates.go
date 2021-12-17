@@ -22,6 +22,9 @@ kind: BareMetalHost
 metadata:
   name: {{ .Name }}
 spec:
+{{- if .AutomatedCleaningMode }}
+  automatedCleaningMode: {{ .AutomatedCleaningMode }}
+{{- end }}
   online: true
 {{- if .HardwareProfile }}
   hardwareProfile: {{ .HardwareProfile }}
@@ -35,13 +38,28 @@ spec:
   bmc:
     address: {{ .BMCAddress }}
     credentialsName: {{ .Name }}-bmc-secret
+{{- if .DisableCertificateVerification }}
+    disableCertificateVerification: true
+{{- end}}
 {{- if .Consumer }}
   consumerRef:
     name: {{ .Consumer }}
+{{- if .ConsumerNamespace }}
     namespace: {{ .ConsumerNamespace }}
 {{- end }}
-{{- if .DisableCertificateVerification }}
-  disableCertificateVerification: true
+{{- end }}
+{{- if .ImageURL }}
+  image:
+{{- if .ImageChecksum }}
+    checksum: {{ .ImageChecksum}}
+{{- end}}
+{{- if .ImageChecksumType }}
+    checksumType: {{ .ImageChecksumType}}
+{{- end}}
+{{- if .ImageFormat }}
+    format: {{ .ImageFormat}}
+{{- end}}
+    url: {{ .ImageURL}}
 {{- end}}
 `
 
@@ -57,6 +75,11 @@ type Template struct {
 	BootMode                       string
 	Consumer                       string
 	ConsumerNamespace              string
+	AutomatedCleaningMode          string
+	ImageURL                       string
+	ImageChecksum                  string
+	ImageChecksumType              string
+	ImageFormat                    string
 }
 
 // EncodedUsername returns the username in the format needed to store

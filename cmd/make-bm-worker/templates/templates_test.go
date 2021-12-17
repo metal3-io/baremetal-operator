@@ -134,3 +134,190 @@ spec:
 		t.Fail()
 	}
 }
+
+func TestWithAutomatedCleaningMode(t *testing.T) {
+	template := Template{
+		Name:                  "hostname",
+		BMCAddress:            "bmcAddress",
+		Username:              "username",
+		Password:              "password",
+		AutomatedCleaningMode: "metadata",
+	}
+	actual, _ := template.Render()
+	expected := `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hostname-bmc-secret
+type: Opaque
+data:
+  username: dXNlcm5hbWU=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: hostname
+spec:
+  automatedCleaningMode: metadata
+  online: true
+  bmc:
+    address: bmcAddress
+    credentialsName: hostname-bmc-secret
+`
+	if !compareStrings(t, expected, actual) {
+		t.Fail()
+	}
+}
+
+func TestWithImage(t *testing.T) {
+	template := Template{
+		Name:              "hostname",
+		BMCAddress:        "bmcAddress",
+		Username:          "username",
+		Password:          "password",
+		ImageURL:          "imageURL",
+		ImageChecksum:     "imageChecksum",
+		ImageChecksumType: "md5",
+		ImageFormat:       "raw",
+	}
+	actual, _ := template.Render()
+	expected := `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hostname-bmc-secret
+type: Opaque
+data:
+  username: dXNlcm5hbWU=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: hostname
+spec:
+  online: true
+  bmc:
+    address: bmcAddress
+    credentialsName: hostname-bmc-secret
+  image:
+    checksum: imageChecksum
+    checksumType: md5
+    format: raw
+    url: imageURL
+`
+	if !compareStrings(t, expected, actual) {
+		t.Fail()
+	}
+}
+
+func TestWithDisableCertificateVerification(t *testing.T) {
+	template := Template{
+		Name:                           "hostname",
+		BMCAddress:                     "bmcAddress",
+		Username:                       "username",
+		Password:                       "password",
+		DisableCertificateVerification: true,
+	}
+	actual, _ := template.Render()
+	expected := `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hostname-bmc-secret
+type: Opaque
+data:
+  username: dXNlcm5hbWU=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: hostname
+spec:
+  online: true
+  bmc:
+    address: bmcAddress
+    credentialsName: hostname-bmc-secret
+    disableCertificateVerification: true
+`
+	if !compareStrings(t, expected, actual) {
+		t.Fail()
+	}
+}
+
+func TestWithBootMacAddress(t *testing.T) {
+	template := Template{
+		Name:           "hostname",
+		BMCAddress:     "bmcAddress",
+		Username:       "username",
+		Password:       "password",
+		BootMacAddress: "boot-mac",
+	}
+	actual, _ := template.Render()
+	expected := `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hostname-bmc-secret
+type: Opaque
+data:
+  username: dXNlcm5hbWU=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: hostname
+spec:
+  online: true
+  bootMACAddress: boot-mac
+  bmc:
+    address: bmcAddress
+    credentialsName: hostname-bmc-secret
+`
+	if !compareStrings(t, expected, actual) {
+		t.Fail()
+	}
+}
+
+func TestWithBootMode(t *testing.T) {
+	template := Template{
+		Name:       "hostname",
+		BMCAddress: "bmcAddress",
+		Username:   "username",
+		Password:   "password",
+		BootMode:   "UEFI",
+	}
+	actual, _ := template.Render()
+	expected := `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hostname-bmc-secret
+type: Opaque
+data:
+  username: dXNlcm5hbWU=
+  password: cGFzc3dvcmQ=
+
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: hostname
+spec:
+  online: true
+  bootMode: UEFI
+  bmc:
+    address: bmcAddress
+    credentialsName: hostname-bmc-secret
+`
+	if !compareStrings(t, expected, actual) {
+		t.Fail()
+	}
+}

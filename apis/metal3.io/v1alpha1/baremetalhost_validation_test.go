@@ -150,6 +150,20 @@ func TestValidateCreate(t *testing.T) {
 			oldBMH:    nil,
 			wantedErr: "firmware settings for ipmi are not supported",
 		},
+		{
+			name: "BootMACAddressRequired",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "libvirt://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "BMC driver libvirt requires a BootMACAddress value",
+		},
 	}
 
 	for _, tt := range tests {

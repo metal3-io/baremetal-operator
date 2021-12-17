@@ -80,6 +80,10 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 		}
 	}
 
+	if bmcAccess.NeedsMAC() && s.BootMACAddress == "" {
+		errs = append(errs, fmt.Errorf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type()))
+	}
+
 	return errs
 }
 

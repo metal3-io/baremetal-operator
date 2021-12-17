@@ -455,6 +455,48 @@ func TestAddFinalizers(t *testing.T) {
 	)
 }
 
+// TestDoNotAddSecretFinalizersDuringDelete verifies that during a host deletion,
+// in case the removal of a secret finalizer triggers an immediate reconcile loop,
+// then the secret finalizer is not added again
+func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
+	host := newDefaultHost(t)
+	r := newTestReconciler(host)
+
+	// Let the host reach the available state before deleting it
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateAvailable)
+	doDeleteHost(host, r)
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateDeleting)
+
+	// The next reconcile loop will start the delete process,
+	// and as a first step the Ironic node will be removed
+	request := newRequest(host)
+	_, err := r.Reconcile(context.Background(), request)
+	assert.NoError(t, err)
+
+	// The next reconcile loop remove the finalizers from
+	// both the host and the secret.
+	// The fake client will immediately remove the host
+	// from its cache, so let's keep the latest updated
+	// host
+	r.Get(goctx.TODO(), request.NamespacedName, host)
+	_, err = r.Reconcile(context.Background(), request)
+	assert.NoError(t, err)
+
+	// To simulate an immediate reconciliation loop due the
+	// secret update (and a slow host deletion), let's push
+	// back the host in the client cache.
+	host.ResourceVersion = ""
+	r.Client.Create(context.TODO(), host)
+	previousSecret := getHostSecret(t, r, host)
+	_, err = r.Reconcile(context.Background(), request)
+	assert.NoError(t, err)
+
+	// Secret must remain unchanged
+	actualSecret := getHostSecret(t, r, host)
+	assert.Empty(t, actualSecret.Finalizers)
+	assert.Equal(t, previousSecret.ResourceVersion, actualSecret.ResourceVersion)
+}
+
 // TestSetLastUpdated ensures that the lastUpdated timestamp in the
 // status is set to a non-zero value during reconciliation.
 func TestSetLastUpdated(t *testing.T) {

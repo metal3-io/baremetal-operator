@@ -73,6 +73,11 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta:   tm,
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc:127.0.1.1",
+						CredentialsName: "test1",
+					},
 					RAID: &RAIDConfig{
 						HardwareRAIDVolumes: []HardwareRAIDVolume{
 							{
@@ -95,6 +100,21 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time",
 		},
 		{
+			name: "supportBMCType",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc:127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
 			name: "unsupportBMCType",
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
@@ -107,6 +127,32 @@ func TestValidateCreate(t *testing.T) {
 				}},
 			oldBMH:    nil,
 			wantedErr: "Unknown BMC type 'test' for address test:127.0.1.1",
+		},
+		{
+			name: "RAIDWithSupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes:         nil,
+								Level:                 "",
+								Name:                  "",
+								Rotational:            nil,
+								NumberOfPhysicalDisks: nil,
+							},
+						},
+					},
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
 		},
 		{
 			name: "RAIDWithUnsupportBMC",
@@ -134,6 +180,24 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "BMC driver ipmi does not support configuring RAID",
 		},
 		{
+			name: "FirmwareWithSupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					Firmware: &FirmwareConfig{
+						VirtualizationEnabled: &enable,
+					},
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
 			name: "FirmwareWithUnsupportBMC",
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
@@ -151,7 +215,7 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "firmware settings for ipmi are not supported",
 		},
 		{
-			name: "BootMACAddressRequired",
+			name: "BootMACAddressRequiredWithoutBootMACAddress",
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
 				ObjectMeta: om,
@@ -163,6 +227,21 @@ func TestValidateCreate(t *testing.T) {
 				}},
 			oldBMH:    nil,
 			wantedErr: "BMC driver libvirt requires a BootMACAddress value",
+		},
+		{
+			name: "BootMACAddressRequiredWithBootMACAddress",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "libvirt://127.0.1.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "00:00:00:00:00:00",
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
 		},
 		{
 			name: "BootMACAddressRequired",
@@ -179,6 +258,22 @@ func TestValidateCreate(t *testing.T) {
 				}},
 			oldBMH:    nil,
 			wantedErr: "BMC driver libvirt does not support secure boot",
+		},
+		{
+			name: "UEFISecureBootWithSupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "irmc://127.0.1.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "00:00:00:00:00:00",
+					BootMode:       UEFISecureBoot,
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
 		},
 	}
 

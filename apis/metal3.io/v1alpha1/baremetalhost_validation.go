@@ -84,6 +84,10 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 		errs = append(errs, fmt.Errorf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type()))
 	}
 
+	if s.BootMode == UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+		errs = append(errs, fmt.Errorf("BMC driver %s does not support secure boot", bmcAccess.Type()))
+	}
+
 	return errs
 }
 

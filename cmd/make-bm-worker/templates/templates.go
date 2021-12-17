@@ -38,14 +38,16 @@ spec:
   bmc:
     address: {{ .BMCAddress }}
     credentialsName: {{ .Name }}-bmc-secret
+{{- if .DisableCertificateVerification }}
+    disableCertificateVerification: true
+{{- end}}
 {{- if .Consumer }}
   consumerRef:
     name: {{ .Consumer }}
+{{- if .ConsumerNamespace }}
     namespace: {{ .ConsumerNamespace }}
 {{- end }}
-{{- if .DisableCertificateVerification }}
-  disableCertificateVerification: true
-{{- end}}
+{{- end }}
 {{- if .ImageURL }}
   image:
 {{- if .ImageChecksum }}

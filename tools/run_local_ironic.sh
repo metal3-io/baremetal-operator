@@ -45,7 +45,29 @@ then
   chmod 604 "${MARIADB_KEY_FILE}"
 fi
 
-if [ -n "$IRONIC_CERT_FILE" ]; then
+sudo mkdir -p "${IRONIC_DATA_DIR}/auth"
+
+if [ "$IRONIC_TLS_SETUP" = "true" ]; then
+    sudo mkdir -p "${IRONIC_DATA_DIR}/tls"
+
+    if [ -z "$IRONIC_CERT_FILE" ]; then
+        IRONIC_CERT_FILE="${IRONIC_DATA_DIR}/tls/ironic.crt"
+        IRONIC_KEY_FILE="${IRONIC_DATA_DIR}/tls/ironic.key"
+        IRONIC_CACERT_FILE="${IRONIC_CERT_FILE}"
+        sudo openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=ironic" \
+            -addext "subjectAltName = IP:${CLUSTER_PROVISIONING_IP}" \
+            -out "${IRONIC_CERT_FILE}" -keyout "${IRONIC_KEY_FILE}"
+    fi
+
+    if [ -z "$IRONIC_INSPECTOR_CERT_FILE" ]; then
+        IRONIC_INSPECTOR_CERT_FILE="${IRONIC_DATA_DIR}/tls/inspector.crt"
+        IRONIC_INSPECTOR_KEY_FILE="${IRONIC_DATA_DIR}/tls/inspector.key"
+        IRONIC_INSPECTOR_CACERT_FILE="${IRONIC_CERT_FILE}"
+        sudo openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=ironic" \
+            -addext "subjectAltName = IP:${CLUSTER_PROVISIONING_IP}" \
+            -out "${IRONIC_INSPECTOR_CERT_FILE}" -keyout "${IRONIC_INSPECTOR_KEY_FILE}"
+    fi
+
     export IRONIC_BASE_URL="https://${CLUSTER_PROVISIONING_IP}"
     if [ -z "$IRONIC_CACERT_FILE" ]; then
         export IRONIC_CACERT_FILE=$IRONIC_CERT_FILE
@@ -72,9 +94,6 @@ then
 fi
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES:-"all"}
 
-sudo mkdir -p "${IRONIC_DATA_DIR}"
-sudo mkdir -p "${IRONIC_DATA_DIR}/auth"
-
 cat << EOF | sudo tee "${IRONIC_DATA_DIR}/ironic-vars.env"
 HTTP_PORT=${HTTP_PORT}
 PROVISIONING_IP=${CLUSTER_PROVISIONING_IP}
@@ -89,6 +108,8 @@ CACHEURL=${CACHEURL}
 IRONIC_FAST_TRACK=${IRONIC_FAST_TRACK}
 IRONIC_KERNEL_PARAMS=${IRONIC_KERNEL_PARAMS}
 IRONIC_BOOT_ISO_SOURCE=${IRONIC_BOOT_ISO_SOURCE}
+IRONIC_TLS_SETUP=${IRONIC_TLS_SETUP}
+IRONIC_INSPECTOR_TLS_SETUP=${IRONIC_TLS_SETUP}
 IRONIC_REVERSE_PROXY_SETUP=${IRONIC_REVERSE_PROXY_SETUP}
 INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP}
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES}

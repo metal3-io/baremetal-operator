@@ -61,10 +61,14 @@ IRONIC_ENDPOINT="${IRONIC_ENDPOINT:-"${IRONIC_BASE_URL}:6385/v1/"}"
 IRONIC_INSPECTOR_ENDPOINT="${IRONIC_INSPECTOR_ENDPOINT:-"${IRONIC_BASE_URL}:5050/v1/"}"
 CACHEURL="${CACHEURL:-"http://${PROVISIONING_IP}/images"}"
 IRONIC_FAST_TRACK="${IRONIC_FAST_TRACK:-"true"}"
+IRONIC_REVERSE_PROXY_SETUP=${IRONIC_REVERSE_PROXY_SETUP:-"true"}
 INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP:-"true"}
+IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB:-"false"}
 if [[ $IRONIC_TLS_SETUP == *false* ]]
 then
-  INSPECTOR_REVERSE_PROXY_SETUP="false" # No Revese proxy for Ironic inspector if TLS is not used
+     # No reverse proxy for Ironic if TLS is not used
+     IRONIC_REVERSE_PROXY_SETUP="false"
+     INSPECTOR_REVERSE_PROXY_SETUP="false"
 fi
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES:-"all"}
 
@@ -85,9 +89,11 @@ CACHEURL=${CACHEURL}
 IRONIC_FAST_TRACK=${IRONIC_FAST_TRACK}
 IRONIC_KERNEL_PARAMS=${IRONIC_KERNEL_PARAMS}
 IRONIC_BOOT_ISO_SOURCE=${IRONIC_BOOT_ISO_SOURCE}
+IRONIC_REVERSE_PROXY_SETUP=${IRONIC_REVERSE_PROXY_SETUP}
 INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP}
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES}
 IPA_BASEURI=${IPA_BASEURI}
+IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB}
 EOF
 
 if [ "$IRONIC_TLS_SETUP" == "true" ]; then
@@ -106,6 +112,9 @@ fi
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_KEEPALIVED_IMAGE"
+if [ "$IRONIC_USE_MARIADB" = "true" ]; then
+    sudo "${CONTAINER_RUNTIME}" pull "$MARIADB_IMAGE"
+fi
 
 CERTS_MOUNTS=""
 
@@ -175,8 +184,13 @@ fi
 
 "$SCRIPTDIR/tools/remove_local_ironic.sh"
 
-# set password for mariadb
-mariadb_password=$(echo "$(date;hostname)"|sha256sum |cut -c-20)
+if [ "$IRONIC_USE_MARIADB" = "true" ]; then
+    # set password for mariadb
+    mariadb_password=$(echo "$(date;hostname)"|sha256sum |cut -c-20)
+    IRONIC_MARIADB_PASSWORD="--env MARIADB_PASSWORD=$mariadb_password"
+else
+    IRONIC_MARIADB_PASSWORD=
+fi
 
 POD=""
 
@@ -209,31 +223,29 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
      ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
-# https://github.com/metal3-io/mariadb-image/blob/main/runmariadb
+# See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
+# https://github.com/metal3-io/ironic-image/blob/main/scripts/runhttpd
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
-     ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     -v "$IRONIC_DATA_DIR:/shared" \
-     --env "MARIADB_PASSWORD=$mariadb_password" "${MARIADB_IMAGE}"
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
+     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
+
+if [ "$IRONIC_USE_MARIADB" = "true" ]; then
+    # https://github.com/metal3-io/mariadb-image/blob/main/runmariadb
+    # shellcheck disable=SC2086
+    sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
+         ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+         -v "$IRONIC_DATA_DIR:/shared" \
+         --env "MARIADB_PASSWORD=$mariadb_password" "${MARIADB_IMAGE}"
+fi
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
-# https://github.com/metal3-io/ironic-image/blob/main/scripts/runironic-api
+# https://github.com/metal3-io/ironic-image/blob/main/scripts/runironic
 # shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-api \
+sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     --env "MARIADB_PASSWORD=$mariadb_password" \
-     --entrypoint /bin/runironic-api \
-     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
-
-# See this file for additional env vars you may want to pass, like IP and INTERFACE
-# https://github.com/metal3-io/ironic-image/blob/main/scripts/runironic-conductor
-# shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-conductor \
-     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD} \
-     --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     --env "MARIADB_PASSWORD=$mariadb_password" \
-     --entrypoint /bin/runironic-conductor \
+     ${IRONIC_MARIADB_PASSWORD} --entrypoint /bin/runironic \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start ironic-endpoint-keepalived

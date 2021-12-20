@@ -248,7 +248,8 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/runhttpd
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
-     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD} \
+     --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
 if [ "$IRONIC_USE_MARIADB" = "true" ]; then

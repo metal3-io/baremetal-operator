@@ -6,12 +6,6 @@
 
    <https://kubernetes.io/docs/setup/minikube/>
 
-1. Create a namespace to host the operator
-
-    ```bash
-    kubectl create namespace baremetal-operator-system
-    ```
-
 1. Install cert-manager
 
     ```bash

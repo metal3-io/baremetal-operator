@@ -173,6 +173,10 @@ The sub-fields are:
   * *numberOfPhysicalDisks* -- Integer, number of physical disks to use for the
     logical disk. Defaults to minimum number of disks required for the
     particular RAID level.
+  * *physicalDisks* -- List of names of physical disks (Strings). This is an
+    optional field. If specified, the `controller` field must be specified too.
+  * *controller* -- String, Name of the RAID controller to be used in the
+     hardware RAID volume. Optional field.
   * *rotational* -- If true, select only rotational disks, if false - only
     solid-state and NVMe. Any disk types are used by default.
   * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in GiB.

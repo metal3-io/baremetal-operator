@@ -99,11 +99,33 @@ func buildTargetHardwareRAIDCfg(volumes []metal3v1alpha1.HardwareRAIDVolume) (lo
 			}
 			nameCheckFlags[volume.Name] = index
 		}
+
+		// Check that controller field is specified if PhysicalDisks are used
+		if len(volume.PhysicalDisks) != 0 {
+			if volume.Controller == "" {
+				return nil, errors.Errorf("'controller' must be specified if 'physicalDisks' are used!")
+			}
+		}
+
+		// Check numberOfPhysicalDisks is same as len(physicalDisks)
+		if volume.NumberOfPhysicalDisks != nil && len(volume.PhysicalDisks) != 0 {
+			if *volume.NumberOfPhysicalDisks != len(volume.PhysicalDisks) {
+				return nil, errors.Errorf("the numberOfPhysicalDisks[%d] is not same as number of items in physicalDisks[%d]", *volume.NumberOfPhysicalDisks, len(volume.PhysicalDisks))
+			}
+		}
+		// Create the physicalDisks slice for logicalDisk struct
+		physicalDisks := make([]interface{}, len(volume.PhysicalDisks))
+		for i, physicalDisk := range volume.PhysicalDisks {
+			physicalDisks[i] = physicalDisk
+		}
+
 		// Build logicalDisk
 		logicalDisk = nodes.LogicalDisk{
-			SizeGB:     volume.SizeGibibytes,
-			RAIDLevel:  nodes.RAIDLevel(volume.Level),
-			VolumeName: volume.Name,
+			SizeGB:        volume.SizeGibibytes,
+			RAIDLevel:     nodes.RAIDLevel(volume.Level),
+			VolumeName:    volume.Name,
+			Controller:    volume.Controller,
+			PhysicalDisks: physicalDisks,
 		}
 		if volume.Rotational != nil {
 			if *volume.Rotational {

@@ -431,20 +431,20 @@ metadata:
   finalizers:
   - baremetalhost.metal3.io
   generation: 2
-  name: bmo-master-0
+  name: bmo-controlplane-0
   namespace: bmo-project
   resourceVersion: "22642"
-  selfLink: /apis/metal3.io/v1alpha1/namespaces/bmo-project/baremetalhosts/bmo-master-0
+  selfLink: /apis/metal3.io/v1alpha1/namespaces/bmo-project/baremetalhosts/bmo-controlplane-0
   uid: 92b2f77a-db70-11e9-9db1-525400764849
 spec:
   bmc:
     address: ipmi://10.10.57.19
-    credentialsName: bmo-master-0-bmc-secret
+    credentialsName: bmo-controlplane-0-bmc-secret
   bootMACAddress: 98:03:9b:61:80:48
   consumerRef:
     apiVersion: machine.openshift.io/v1beta1
     kind: Machine
-    name: bmo-master-0
+    name: bmo-controlplane-0
     namespace: bmo-project
   externallyProvisioned: true
   hardwareProfile: default
@@ -460,19 +460,19 @@ spec:
   firmware:
     virtualizationEnabled: true
   userData:
-    name: bmo-master-user-data
+    name: bmo-controlplane-user-data
     namespace: bmo-project
   networkData:
-    name: bmo-master-network-data
+    name: bmo-controlplane-network-data
     namespace: bmo-project
   metaData:
-    name: bmo-master-meta-data
+    name: bmo-controlplane-meta-data
     namespace: bmo-project
 status:
   errorMessage: ""
   goodCredentials:
     credentials:
-      name: bmo-master-0-bmc-secret
+      name: bmo-controlplane-0-bmc-secret
       namespace: bmo-project
     credentialsVersion: "5562"
   hardware:
@@ -487,7 +487,7 @@ status:
         date: 12/17/2018
         vendor: Dell Inc.
         version: 1.6.13
-    hostname: bmo-master-0.localdomain
+    hostname: bmo-controlplane-0.localdomain
     nics:
     - ip: 172.22.135.105
       mac: "00:00:00:00:00:00"
@@ -514,12 +514,12 @@ status:
     state: externally provisioned
   triedCredentials:
     credentials:
-      name: bmo-master-0-bmc-secret
+      name: bmo-controlplane-0-bmc-secret
       namespace: bmo-project
     credentialsVersion: "5562"
 ```
 
-And here is the secret `bmo-master-0-bmc-secret` holding the host's
+And here is the secret `bmo-controlplane-0-bmc-secret` holding the host's
 BMC credentials, base64 encoded:
 
 ```console
@@ -540,7 +540,7 @@ paste it into the yaml as mentioned below.
 apiVersion: v1
 kind: Secret
 metadata:
-  name: bmo-master-0-bmc-secret
+  name: bmo-controlplane-0-bmc-secret
 type: Opaque
 data:
   username: YWRtaW4=
@@ -760,7 +760,7 @@ items:
     ownerReferences:
     - apiVersion: metal3.io/v1alpha1
       kind: HostFirmwareSettings
-      name: ostest-master-0
+      name: ostest-controlplane-0
       uid: 8c315c33-29b0-4863-a61d-ce5ddde58498
     resourceVersion: "19133"
     uid: d169cd94-4d6e-4567-a1b9-d5f4962a8dee
@@ -778,7 +778,7 @@ items:
     ownerReferences:
     - apiVersion: metal3.io/v1alpha1
       kind: HostFirmwareSettings
-      name: ostest-master-1
+      name: ostest-controlplane-1
       uid: a991875d-9897-49f1-9d86-16ea9ed6c84f
     resourceVersion: "19141"
     uid: b442e01f-3724-4f14-a578-f0b99d296c95

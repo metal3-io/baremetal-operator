@@ -14,6 +14,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -1154,14 +1155,14 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		return nil, err
 	}
 
-	var newSettings []map[string]string
+	var newSettings []map[string]interface{}
 	if data.ActualFirmwareSettings != nil {
 		// If we have the current settings from Ironic, update the settings to contain:
 		// 1. settings converted by BMC drivers that are different than current settings
 		for _, fwConfigSetting := range fwConfigSettings {
 			if val, exists := data.ActualFirmwareSettings[fwConfigSetting["name"]]; exists {
 				if fwConfigSetting["value"] != val {
-					newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], fwConfigSetting["value"])
+					newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], intstr.FromString(fwConfigSetting["value"]))
 				}
 			} else {
 				p.log.Info("name converted from bmc driver not found in firmware settings", "name", fwConfigSetting["name"], "node", p.nodeID)
@@ -1178,14 +1179,14 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 							continue
 						}
 					}
-					newSettings = buildFirmwareSettings(newSettings, k, v.String())
+					newSettings = buildFirmwareSettings(newSettings, k, v)
 				}
 			}
 		}
 	} else {
-		// use only the settings converted by bmc driver
+		// use only the settings converted by bmc driver. Note that these settings are all strings
 		for _, fwConfigSetting := range fwConfigSettings {
-			newSettings = append(newSettings, fwConfigSetting)
+			newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], intstr.FromString(fwConfigSetting["value"]))
 		}
 	}
 
@@ -1208,7 +1209,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	return
 }
 
-func buildFirmwareSettings(settings []map[string]string, name string, value string) []map[string]string {
+func buildFirmwareSettings(settings []map[string]interface{}, name string, value intstr.IntOrString) []map[string]interface{} {
 	// if name already exists, don't add it
 	for _, setting := range settings {
 		if setting["name"] == name {
@@ -1216,11 +1217,13 @@ func buildFirmwareSettings(settings []map[string]string, name string, value stri
 		}
 	}
 
-	return append(settings,
-		map[string]string{
-			"name":  name,
-			"value": value},
-	)
+	if value.Type == intstr.Int {
+		settings = append(settings, map[string]interface{}{"name": name, "value": value.IntValue()})
+	} else {
+		settings = append(settings, map[string]interface{}{"name": name, "value": value.String()})
+	}
+
+	return settings
 }
 
 func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.PrepareData) (success bool, result provisioner.Result, err error) {

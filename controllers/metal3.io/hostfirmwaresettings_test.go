@@ -487,6 +487,61 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 			},
 			SpecIsValid: false,
 		},
+		{
+			Scenario: "spec has same settings as current",
+			CurrentHFSResource: &metal3v1alpha1.HostFirmwareSettings{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "HostFirmwareSettings",
+					APIVersion: "metal3.io/v1alpha1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            hostName,
+					Namespace:       hostNamespace,
+					ResourceVersion: "1"},
+				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
+					Settings: metal3v1alpha1.DesiredSettingsMap{
+						"NetworkBootRetryCount": intstr.FromInt(20),
+						"ProcVirtualization":    intstr.FromString("Disabled"),
+					},
+				},
+				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
+					FirmwareSchema: &metal3v1alpha1.SchemaReference{
+						Name:      schemaName,
+						Namespace: hostNamespace,
+					},
+					Settings: metal3v1alpha1.SettingsMap{
+						"L2Cache":               "10x256 KB",
+						"NetworkBootRetryCount": "10",
+						"ProcVirtualization":    "Enabled",
+					},
+				},
+			},
+			CreateSchemaResource: true,
+			ExpectedSettings: &metal3v1alpha1.HostFirmwareSettings{
+				Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
+					Settings: metal3v1alpha1.DesiredSettingsMap{
+						"NetworkBootRetryCount": intstr.FromInt(20),
+						"ProcVirtualization":    intstr.FromString("Disabled"),
+					},
+				},
+				Status: metal3v1alpha1.HostFirmwareSettingsStatus{
+					FirmwareSchema: &metal3v1alpha1.SchemaReference{
+						Name:      schemaName,
+						Namespace: hostNamespace,
+					},
+					Settings: metal3v1alpha1.SettingsMap{
+						"AssetTag":              "X45672917",
+						"L2Cache":               "10x512 KB",
+						"NetworkBootRetryCount": "20",
+						"ProcVirtualization":    "Disabled",
+						"SecureBoot":            "Enabled",
+					},
+					Conditions: []metav1.Condition{
+						{Type: "Valid", Status: "True", Reason: "Success"},
+					},
+				},
+			},
+			SpecIsValid: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -597,7 +652,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 				Settings: metal3v1alpha1.DesiredSettingsMap{
 					"CustomPostMessage":     intstr.FromString("All tests passed"),
 					"ProcVirtualization":    intstr.FromString("Disabled"),
-					"NetworkBootRetryCount": intstr.FromString("2000"),
+					"NetworkBootRetryCount": intstr.FromInt(2000),
 				},
 			},
 			ExpectedError: "Setting NetworkBootRetryCount is invalid, integer 2000 is above maximum value 20",

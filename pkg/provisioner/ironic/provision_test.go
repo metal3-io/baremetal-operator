@@ -410,7 +410,7 @@ func TestBuildCleanSteps(t *testing.T) {
 		currentSettings  v1alpha1.SettingsMap
 		desiredSettings  v1alpha1.DesiredSettingsMap
 		firmwareConfig   *v1alpha1.FirmwareConfig
-		expectedSettings []map[string]string
+		expectedSettings []map[string]interface{}
 	}{
 		{
 			name: "no current settings",
@@ -424,7 +424,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expectedSettings: []map[string]string{
+			expectedSettings: []map[string]interface{}{
 				{
 					"name":  "ProcVirtualization",
 					"value": "Enabled",
@@ -471,7 +471,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expectedSettings: []map[string]string{
+			expectedSettings: []map[string]interface{}{
 				{
 					"name":  "ProcVirtualization",
 					"value": "Enabled",
@@ -496,7 +496,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				"ProcHyperthreading":    "Disabled",
 			},
 			desiredSettings: v1alpha1.DesiredSettingsMap{
-				"NetworkBootRetryCount": intstr.FromString("10"),
+				"NetworkBootRetryCount": intstr.FromInt(10),
 				"ProcVirtualization":    intstr.FromString("Disabled"),
 				"ProcHyperthreading":    intstr.FromString("Enabled"),
 			},
@@ -504,10 +504,10 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expectedSettings: []map[string]string{
+			expectedSettings: []map[string]interface{}{
 				{
 					"name":  "NetworkBootRetryCount",
-					"value": "10",
+					"value": 10,
 				},
 				{
 					"name":  "ProcVirtualization",
@@ -541,7 +541,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &False,
 				SimultaneousMultithreadingEnabled: &True,
 			},
-			expectedSettings: []map[string]string{
+			expectedSettings: []map[string]interface{}{
 				{
 					"name":  "ProcVirtualization",
 					"value": "Disabled",
@@ -576,7 +576,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &False,
 				SimultaneousMultithreadingEnabled: &True,
 			},
-			expectedSettings: []map[string]string{
+			expectedSettings: []map[string]interface{}{
 				{
 					"name":  "ProcHyperthreading",
 					"value": "Enabled",
@@ -624,7 +624,7 @@ func TestBuildCleanSteps(t *testing.T) {
 
 			assert.Equal(t, nil, err)
 			if cleanSteps == nil {
-				assert.Equal(t, tc.expectedSettings, []map[string]string(nil))
+				assert.Equal(t, tc.expectedSettings, []map[string]interface{}(nil))
 			} else {
 				settings := cleanSteps[0].Args["settings"]
 				assert.ElementsMatch(t, tc.expectedSettings, settings)

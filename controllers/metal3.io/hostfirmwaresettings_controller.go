@@ -32,7 +32,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -208,7 +207,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 	specMismatch := false
 	for k, v := range info.hfs.Spec.Settings {
 		if statusVal, ok := info.hfs.Status.Settings[k]; ok {
-			if v != intstr.FromString(statusVal) {
+			if v.String() != statusVal {
 				specMismatch = true
 				break
 			}

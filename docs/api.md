@@ -647,7 +647,7 @@ conditions are:
   in the *spec*. When set to *False* indicates that one or more names or values
   in the *spec* are incorrect, the actual error will be shown in the *Events*
   field.
-* *UpdateRequested* -- Indicates whether or not settings in the *spec* are
+* *ChangeDetected* -- Indicates whether or not settings in the *spec* are
   different than settings in the *status*. When set to *True* the settings that
   are different will be included in the clean-steps that are written to Ironic
   as part of cleaning.
@@ -684,7 +684,7 @@ status:
     observedGeneration: 1
     reason: Success
     status: "False"
-    type: UpdateRequested
+    type: ChangeDetected
   - lastTransitionTime: "2021-11-03T21:21:54Z"
     message: ""
     observedGeneration: 1
@@ -735,7 +735,6 @@ on the type of the setting. The following fields are included:
   attribute_type is `String`
 * *read_only* -- The setting is ready only and cannot be modified
 * *unique* -- The setting is specific to this host
-* *reset_required* -- After changing this setting a node reboot is required
 
 #### hardwareVendor
 
@@ -748,40 +747,36 @@ The hardware model that this schema corresponds to.
 ### FirmwareSchema Example
 
 ```yaml
-apiVersion: v1
-items:
-- apiVersion: metal3.io/v1alpha1
-  kind: FirmwareSchema
-  metadata:
-    creationTimestamp: "2021-11-03T21:21:54Z"
-    generation: 1
-    name: schema-4f53cda1
-    namespace: openshift-machine-api
-    ownerReferences:
-    - apiVersion: metal3.io/v1alpha1
-      kind: HostFirmwareSettings
-      name: ostest-controlplane-0
-      uid: 8c315c33-29b0-4863-a61d-ce5ddde58498
-    resourceVersion: "19133"
-    uid: d169cd94-4d6e-4567-a1b9-d5f4962a8dee
-  spec:
-    hardwareModel: KVM (8.2.0)
-    hardwareVendor: Red Hat
-    schema: {}
-- apiVersion: metal3.io/v1alpha1
-  kind: FirmwareSchema
-  metadata:
-    creationTimestamp: "2021-11-03T21:21:54Z"
-    generation: 1
-    name: schema-dc98d7c8
-    namespace: openshift-machine-api
-    ownerReferences:
-    - apiVersion: metal3.io/v1alpha1
-      kind: HostFirmwareSettings
-      name: ostest-controlplane-1
-      uid: a991875d-9897-49f1-9d86-16ea9ed6c84f
-    resourceVersion: "19141"
-    uid: b442e01f-3724-4f14-a578-f0b99d296c95
+apiVersion: metal3.io/v1alpha1
+kind: FirmwareSchema
+metadata:
+  creationTimestamp: "2021-11-03T21:21:54Z"
+  generation: 1
+  name: schema-dc98d7c8
+  namespace: openshift-machine-api
+  ownerReferences:
+  - apiVersion: metal3.io/v1alpha1
+    kind: HostFirmwareSettings
+    name: ostest-controlplane-1
+    uid: a991875d-9897-49f1-9d86-16ea9ed6c84f
+  - apiVersion: metal3.io/v1alpha1
+    kind: HostFirmwareSettings
+    name: ostest-worker-0
+    uid: 650c291c-3da7-4902-be6e-61979daea254
+  - apiVersion: metal3.io/v1alpha1
+    kind: HostFirmwareSettings
+    name: ostest-controlplane-0
+    uid: afc8f76c-0200-431c-ace0-9a6195d16fcd
+  - apiVersion: metal3.io/v1alpha1
+    kind: HostFirmwareSettings
+    name: ostest-controlplane-2
+    uid: f0c49fec-d493-40ac-9a86-56504cd47a74
+  - apiVersion: metal3.io/v1alpha1
+    kind: HostFirmwareSettings
+    name: ostest-worker-1
+    uid: 5fe2c773-5499-4a37-a26d-6f17dc02382f
+  resourceVersion: "19141"
+  uid: b442e01f-3724-4f14-a578-f0b99d296c95
   spec:
     hardwareModel: KVM (8.2.0)
     hardwareVendor: Red Hat
@@ -840,8 +835,4 @@ items:
         min_length: 0
         read_only: false
         unique: true
-      SysPassword:
-        attribute_type: Password
-        read_only: false
-        unique: false
 ```

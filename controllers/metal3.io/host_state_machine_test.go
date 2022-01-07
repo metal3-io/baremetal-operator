@@ -874,61 +874,84 @@ func TestProvisioningCancelled(t *testing.T) {
 }
 
 func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
-
+	defaultError := "some error"
+	poweroffError := "some details"
 	tests := []struct {
 		Scenario           string
 		Host               *metal3v1alpha1.BareMetalHost
 		ProvisionerErrorOn string
+		originalError      string
+		ExpectedError      string
 	}{
 		{
 			Scenario:           "registration",
 			Host:               host(metal3v1alpha1.StateRegistering).build(),
 			ProvisionerErrorOn: "ValidateManagementAccess",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 		{
 			Scenario:           "inspecting",
 			Host:               host(metal3v1alpha1.StateInspecting).build(),
 			ProvisionerErrorOn: "InspectHardware",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 		{
 			Scenario:           "provisioning",
 			Host:               host(metal3v1alpha1.StateProvisioning).SetImageURL("imageSpecUrl").build(),
 			ProvisionerErrorOn: "Provision",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 		{
 			Scenario:           "deprovisioning",
 			Host:               host(metal3v1alpha1.StateDeprovisioning).build(),
 			ProvisionerErrorOn: "Deprovision",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 		{
 			Scenario:           "available-power-on",
 			Host:               host(metal3v1alpha1.StateAvailable).SetImageURL("").SetStatusPoweredOn(false).build(),
 			ProvisionerErrorOn: "PowerOn",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 		{
 			Scenario:           "available-power-off",
 			Host:               host(metal3v1alpha1.StateAvailable).SetImageURL("").SetOnline(false).build(),
 			ProvisionerErrorOn: "PowerOff",
+			originalError:      poweroffError,
+			ExpectedError:      clarifySoftPoweroffFailure + poweroffError,
 		},
 		{
 			Scenario:           "deprecated-ready-power-on",
 			Host:               host(metal3v1alpha1.StateReady).SetImageURL("").SetStatusPoweredOn(false).build(),
 			ProvisionerErrorOn: "PowerOn",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 		{
 			Scenario:           "deprecated-ready-power-off",
 			Host:               host(metal3v1alpha1.StateReady).SetImageURL("").SetOnline(false).build(),
 			ProvisionerErrorOn: "PowerOff",
+			originalError:      poweroffError,
+			ExpectedError:      clarifySoftPoweroffFailure + poweroffError,
 		},
 		{
 			Scenario:           "externally-provisioned-adopt-failed",
 			Host:               host(metal3v1alpha1.StateExternallyProvisioned).SetExternallyProvisioned().build(),
 			ProvisionerErrorOn: "Adopt",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 		{
 			Scenario:           "provisioned-adopt-failed",
 			Host:               host(metal3v1alpha1.StateProvisioned).build(),
 			ProvisionerErrorOn: "Adopt",
+			originalError:      defaultError,
+			ExpectedError:      defaultError,
 		},
 	}
 	for _, tt := range tests {
@@ -938,11 +961,11 @@ func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
 			hsm := newHostStateMachine(tt.Host, reconciler, prov, true)
 			info := makeDefaultReconcileInfo(tt.Host)
 
-			prov.setNextError(tt.ProvisionerErrorOn, "some error")
+			prov.setNextError(tt.ProvisionerErrorOn, tt.originalError)
 			result := hsm.ReconcileState(info)
 
 			assert.Equal(t, 1, tt.Host.Status.ErrorCount)
-			assert.Equal(t, "some error", tt.Host.Status.ErrorMessage)
+			assert.Equal(t, tt.ExpectedError, tt.Host.Status.ErrorMessage)
 			assert.True(t, result.Dirty())
 		})
 	}

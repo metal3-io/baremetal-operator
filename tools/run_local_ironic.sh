@@ -5,7 +5,6 @@ set -ex
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:master"}
-IRONIC_INSPECTOR_IMAGE=${IRONIC_INSPECTOR_IMAGE:-"quay.io/metal3-io/ironic"}
 IRONIC_KEEPALIVED_IMAGE=${IRONIC_KEEPALIVED_IMAGE:-"quay.io/metal3-io/keepalived"}
 IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:master"}
 MARIADB_IMAGE=${MARIADB_IMAGE:-"quay.io/metal3-io/mariadb:main"}
@@ -106,7 +105,6 @@ EOF
 fi
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
-sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_INSPECTOR_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_KEEPALIVED_IMAGE"
 
 CERTS_MOUNTS=""
@@ -256,4 +254,4 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspect
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      --entrypoint /bin/runironic-inspector \
-     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_INSPECTOR_IMAGE}"
+     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"

@@ -340,13 +340,13 @@ func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInf
 		// Prohibit any Spec settings with "Password"
 		if strings.Contains(name, "Password") {
 			errors = append(errors, fmt.Errorf("Cannot set Password field"))
-			break
+			continue
 		}
 
 		// The setting must be in the Status
 		if _, ok := info.hfs.Status.Settings[name]; !ok {
 			errors = append(errors, fmt.Errorf("Setting %s is not in the Status field", name))
-			break
+			continue
 		}
 
 		// check validity of updated value

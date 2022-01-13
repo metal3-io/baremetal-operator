@@ -368,7 +368,7 @@ func TestParse(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			url, err := getParsedURL(tc.Address)
+			url, err := GetParsedURL(tc.Address)
 
 			if tc.ExpectError {
 				if err == nil {

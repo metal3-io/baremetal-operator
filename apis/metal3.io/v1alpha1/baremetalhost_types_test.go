@@ -468,7 +468,7 @@ func TestBootMode(t *testing.T) {
 			Expected:  UEFI,
 		},
 		{
-			Scenario:  "legcy",
+			Scenario:  "legacy",
 			HostValue: Legacy,
 			Expected:  Legacy,
 		},

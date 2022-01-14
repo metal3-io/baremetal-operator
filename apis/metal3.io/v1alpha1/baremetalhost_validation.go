@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	_ "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 
 // log is for logging in this package.
@@ -17,10 +17,21 @@ var log = logf.Log.WithName("baremetalhost-validation")
 func (host *BareMetalHost) validateHost() []error {
 	log.Info("validate create", "name", host.Name)
 	var errs []error
+	var bmcAccess bmc.AccessDetails
+
+	if host.Spec.BMC.Address != "" {
+		var err error
+		bmcAccess, err = bmc.NewAccessDetails(host.Spec.BMC.Address, host.Spec.BMC.DisableCertificateVerification)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
 
 	if err := validateRAID(host.Spec.RAID); err != nil {
 		errs = append(errs, err)
 	}
+
+	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
 
 	if err := validateBMHName(host.Name); err != nil {
 		errs = append(errs, err)
@@ -45,6 +56,36 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 
 	if old.Spec.BootMACAddress != "" && host.Spec.BootMACAddress != old.Spec.BootMACAddress {
 		errs = append(errs, fmt.Errorf("bootMACAddress can not be changed once it is set"))
+	}
+
+	return errs
+}
+
+func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
+	var errs []error
+
+	if bmcAccess == nil {
+		return errs
+	}
+
+	if s.RAID != nil && len(s.RAID.HardwareRAIDVolumes) > 0 {
+		if bmcAccess.RAIDInterface() == "no-raid" {
+			errs = append(errs, fmt.Errorf("BMC driver %s does not support configuring RAID", bmcAccess.Type()))
+		}
+	}
+
+	if s.Firmware != nil {
+		if _, err := bmcAccess.BuildBIOSSettings((*bmc.FirmwareConfig)(s.Firmware)); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if bmcAccess.NeedsMAC() && s.BootMACAddress == "" {
+		errs = append(errs, fmt.Errorf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type()))
+	}
+
+	if s.BootMode == UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+		errs = append(errs, fmt.Errorf("BMC driver %s does not support secure boot", bmcAccess.Type()))
 	}
 
 	return errs

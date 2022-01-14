@@ -15,7 +15,12 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 HTTP_PORT="6180"
 PROVISIONING_IP="${PROVISIONING_IP:-"172.22.0.1"}"
 CLUSTER_PROVISIONING_IP="${CLUSTER_PROVISIONING_IP:-"172.22.0.2"}"
-PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-"ironicendpoint"}"
+# ironicendpoint is used in the CI setup
+if ip link show ironicendpoint > /dev/null; then
+    PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-ironicendpoint}"
+else
+    PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-}"
+fi
 CLUSTER_DHCP_RANGE="${CLUSTER_DHCP_RANGE:-"172.22.0.10,172.22.0.100"}"
 IRONIC_KERNEL_PARAMS="${IRONIC_KERNEL_PARAMS:-"console=ttyS0"}"
 IRONIC_BOOT_ISO_SOURCE="${IRONIC_BOOT_ISO_SOURCE:-"local"}"
@@ -55,7 +60,7 @@ if [ "$IRONIC_TLS_SETUP" = "true" ]; then
         IRONIC_KEY_FILE="${IRONIC_DATA_DIR}/tls/ironic.key"
         IRONIC_CACERT_FILE="${IRONIC_CERT_FILE}"
         sudo openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=ironic" \
-            -addext "subjectAltName = IP:${CLUSTER_PROVISIONING_IP}" \
+            -addext "subjectAltName = IP:${CLUSTER_PROVISIONING_IP},IP:${PROVISIONING_IP}" \
             -out "${IRONIC_CERT_FILE}" -keyout "${IRONIC_KEY_FILE}"
     fi
 
@@ -64,7 +69,7 @@ if [ "$IRONIC_TLS_SETUP" = "true" ]; then
         IRONIC_INSPECTOR_KEY_FILE="${IRONIC_DATA_DIR}/tls/inspector.key"
         IRONIC_INSPECTOR_CACERT_FILE="${IRONIC_CERT_FILE}"
         sudo openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=ironic" \
-            -addext "subjectAltName = IP:${CLUSTER_PROVISIONING_IP}" \
+            -addext "subjectAltName = IP:${CLUSTER_PROVISIONING_IP},IP:${PROVISIONING_IP}" \
             -out "${IRONIC_INSPECTOR_CERT_FILE}" -keyout "${IRONIC_INSPECTOR_KEY_FILE}"
     fi
 

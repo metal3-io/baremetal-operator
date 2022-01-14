@@ -117,7 +117,7 @@ IPA_BASEURI=${IPA_BASEURI}
 IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB}
 EOF
 
-if [ "$IRONIC_TLS_SETUP" == "true" ]; then
+if [ "$IRONIC_TLS_SETUP" == "true" ] && [ -n "$IRONIC_CA_CERT_B64" ]; then
 # shellcheck disable=SC2086
 cat << EOF | kubectl apply -f -
 apiVersion: v1

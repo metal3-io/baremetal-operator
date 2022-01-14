@@ -27,8 +27,8 @@ func (host *BareMetalHost) validateHost() []error {
 		}
 	}
 
-	if err := validateRAID(host.Spec.RAID); err != nil {
-		errs = append(errs, err)
+	if raid_errors := validateRAID(host.Spec.RAID); raid_errors != nil {
+		errs = append(errs, raid_errors...)
 	}
 
 	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
@@ -91,16 +91,34 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 	return errs
 }
 
-func validateRAID(r *RAIDConfig) error {
+func validateRAID(r *RAIDConfig) []error {
+	var errors []error
+
 	if r == nil {
 		return nil
 	}
 
+	// check if both hardware and software RAID are specified
 	if len(r.HardwareRAIDVolumes) > 0 && len(r.SoftwareRAIDVolumes) > 0 {
-		return fmt.Errorf("hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time")
+		errors = append(errors, fmt.Errorf("hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time"))
 	}
 
-	return nil
+	for index, volume := range r.HardwareRAIDVolumes {
+		// check if physicalDisks are specified without a controller
+		if len(volume.PhysicalDisks) != 0 {
+			if volume.Controller == "" {
+				errors = append(errors, fmt.Errorf("'physicalDisks' specified without 'controller' in hardware RAID volume %d", index))
+			}
+		}
+		// check if numberOfPhysicalDisks is not same as len(physicalDisks)
+		if volume.NumberOfPhysicalDisks != nil && len(volume.PhysicalDisks) != 0 {
+			if *volume.NumberOfPhysicalDisks != len(volume.PhysicalDisks) {
+				errors = append(errors, fmt.Errorf("the 'numberOfPhysicalDisks'[%d] and number of 'physicalDisks'[%d] is not same for volume %d", *volume.NumberOfPhysicalDisks, len(volume.PhysicalDisks), index))
+			}
+		}
+	}
+
+	return errors
 }
 
 func validateBMHName(bmhname string) error {

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,9 @@ func TestValidateCreate(t *testing.T) {
 		Namespace: "test-namespace",
 	}
 	enable := true
+
+	// for RAID validation test cases
+	numberOfPhysicalDisks := 3
 
 	tests := []struct {
 		name      string
@@ -274,6 +278,60 @@ func TestValidateCreate(t *testing.T) {
 				}},
 			oldBMH:    nil,
 			wantedErr: "",
+		},
+		{
+			name: "'physicalDisks' in HardwareRAID without 'controller'.",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "idrac://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes: nil,
+								Level:         "",
+								Name:          "",
+								Rotational:    nil,
+								PhysicalDisks: []string{"Disk-1", "Disk-2"},
+							}, // end of RAID volume
+						}, // end of RAID volume slice
+					}, // end of RAID config
+				}, // end of BMH spec
+			},
+			oldBMH:    nil,
+			wantedErr: "'physicalDisks' specified without 'controller' in hardware RAID volume 0",
+		},
+		{
+			name: "'numberOfPhysicalDisks' not same as length of 'physicalDisks'",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "idrac://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes:         nil,
+								Level:                 "",
+								Name:                  "",
+								Rotational:            nil,
+								Controller:            "Controller-1",
+								PhysicalDisks:         []string{"Disk-1", "Disk-2"},
+								NumberOfPhysicalDisks: &numberOfPhysicalDisks, // defined as 3 above
+							}, // end of RAID volume
+						}, // end of RAID volume slice
+					}, // end of RAID config
+				}, // end of BMH spec
+			},
+			oldBMH:    nil,
+			wantedErr: fmt.Sprintf("the 'numberOfPhysicalDisks'[%d] and number of 'physicalDisks'[2] is not same for volume 0", numberOfPhysicalDisks),
 		},
 	}
 

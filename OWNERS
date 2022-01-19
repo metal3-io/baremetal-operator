@@ -5,7 +5,6 @@ approvers:
  - dtantsur
  - fmuyassarov
  - hardys
- - maelk
  - zaneb
 
 reviewers:
@@ -16,3 +15,6 @@ reviewers:
  - furkatgofurov7
  - kashifest
  - s3rj1k
+
+emeritus_approvers:
+ - maelk

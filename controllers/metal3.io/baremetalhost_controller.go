@@ -1489,7 +1489,7 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, 
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 	secretManager := r.secretManager(reqLogger)
 
-	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, true, host.Status.Provisioning.State != metal3v1alpha1.StateDeleting)
+	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, false, host.Status.Provisioning.State != metal3v1alpha1.StateDeleting)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, &ResolveBMCSecretRefError{message: fmt.Sprintf("The BMC secret %s does not exist", host.CredentialsKey())}

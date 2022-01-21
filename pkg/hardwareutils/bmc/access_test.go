@@ -479,7 +479,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			needsMac:   true,
 			driver:     "irmc",
 			bios:       "",
-			boot:       "pxe",
+			boot:       "ipxe",
 			management: "",
 			power:      "",
 			raid:       "irmc",

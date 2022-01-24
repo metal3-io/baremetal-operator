@@ -43,9 +43,22 @@ func (s *BMCEventSubscription) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+//
+// We prevent updates to the spec.  All other updates (e.g. status, finalizers) are allowed.
 func (s *BMCEventSubscription) ValidateUpdate(old runtime.Object) error {
 	bmcsubscriptionlog.Info("validate update", "name", s.Name)
-	return fmt.Errorf("subscriptions cannot be updated, please recreate it")
+
+	bes, casted := old.(*BMCEventSubscription)
+	if !casted {
+		bmcsubscriptionlog.Error(fmt.Errorf("old object conversion error"), "validate update error")
+		return nil
+	}
+
+	if s.Spec != bes.Spec {
+		return fmt.Errorf("subscriptions cannot be updated, please recreate it")
+	}
+
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type

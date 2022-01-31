@@ -88,10 +88,6 @@ type AccessDetails interface {
 }
 
 func GetParsedURL(address string) (parsedURL *url.URL, err error) {
-	// Check for expected format
-	if err := checkDNSValid(address); err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
-	}
 
 	parsedURL, err = url.Parse(address)
 	if err != nil {
@@ -132,6 +128,12 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 			}
 		}
 	}
+
+	// Check for expected hostname format
+	if err := checkDNSValid(parsedURL.Hostname()); err != nil {
+		return nil, errors.Wrap(err, "failed to parse BMC address information")
+	}
+
 	return parsedURL, nil
 }
 
@@ -163,12 +165,15 @@ func checkDNSValid(address string) error {
 		return nil
 	}
 
-	// Check if BMC address follows the format: Type://DNS_Standard_Hostname:Port
-	// Type and Port are optional
-	valid, _ := regexp.MatchString(`^([a-zA-Z]+\:\/\/)?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]{0,61}[A-Za-z0-9])(\:[0-9]+)?$`, address)
-	if !valid {
-		return fmt.Errorf("BMC address invalid, expected format : Type://DNS_Standard_Hostname:Port")
+	// Check if its a IPv6/IPv4 address
+	if net.ParseIP(address) != nil {
+		return nil
 	}
 
+	// Check if BMC address hostname follows DNS Standard
+	valid, _ := regexp.MatchString(`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]{0,61}[A-Za-z0-9])$`, address)
+	if !valid {
+		return fmt.Errorf("BMC address hostname [%s] invalid, expected format : Type://DNS_Standard_Hostname:Port", address)
+	}
 	return nil
 }

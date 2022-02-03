@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/kustomize/api/ifc"
 	"sigs.k8s.io/kustomize/api/internal/kusterr"
+	"sigs.k8s.io/kustomize/api/resid"
 	"sigs.k8s.io/kustomize/api/types"
 )
 
@@ -35,17 +36,12 @@ func (rf *Factory) FromMap(m map[string]interface{}) *Resource {
 
 // FromMapWithName returns a new instance with the given "original" name.
 func (rf *Factory) FromMapWithName(n string, m map[string]interface{}) *Resource {
-	return rf.makeOne(rf.kf.FromMap(m), nil).setOriginalName(n)
-}
-
-// FromMapWithNamespace returns a new instance with the given "original" namespace.
-func (rf *Factory) FromMapWithNamespace(n string, m map[string]interface{}) *Resource {
-	return rf.makeOne(rf.kf.FromMap(m), nil).setOriginalNs(n)
+	return rf.FromMapWithNamespaceAndName(resid.DefaultNamespace, n, m)
 }
 
 // FromMapWithNamespaceAndName returns a new instance with the given "original" namespace.
 func (rf *Factory) FromMapWithNamespaceAndName(ns string, n string, m map[string]interface{}) *Resource {
-	return rf.makeOne(rf.kf.FromMap(m), nil).setOriginalNs(ns).setOriginalName(n)
+	return rf.makeOne(rf.kf.FromMap(m), nil).setPreviousNamespaceAndName(ns, n)
 }
 
 // FromMapAndOption returns a new instance of Resource with given options.
@@ -72,7 +68,7 @@ func (rf *Factory) makeOne(
 		kunStr:  u,
 		options: o,
 	}
-	return r.setOriginalName(r.kunStr.GetName()).setOriginalNs(r.GetNamespace())
+	return r
 }
 
 // SliceFromPatches returns a slice of resources given a patch path
@@ -94,7 +90,7 @@ func (rf *Factory) SliceFromPatches(
 	return result, nil
 }
 
-// FromBytes unmarshals bytes into one Resource.
+// FromBytes unmarshalls bytes into one Resource.
 func (rf *Factory) FromBytes(in []byte) (*Resource, error) {
 	result, err := rf.SliceFromBytes(in)
 	if err != nil {
@@ -157,7 +153,7 @@ func (rf *Factory) SliceFromBytesWithNames(names []string, in []byte) ([]*Resour
 		return nil, fmt.Errorf("number of names doesn't match number of resources")
 	}
 	for i, res := range result {
-		res.originalName = names[i]
+		res.setPreviousNamespaceAndName(resid.DefaultNamespace, names[i])
 	}
 	return result, nil
 }

@@ -254,6 +254,13 @@ type HardwareRAIDVolume struct {
 	// for the particular RAID level.
 	// +kubebuilder:validation:Minimum=1
 	NumberOfPhysicalDisks *int `json:"numberOfPhysicalDisks,omitempty"`
+
+	// The name of the RAID controller to use
+	Controller string `json:"controller,omitempty"`
+
+	// Optional list of physical disk names to be used for the Hardware RAID volumes. The disk names are interpreted
+	// by the Hardware RAID controller, and the format is hardware specific.
+	PhysicalDisks []string `json:"physicalDisks,omitempty"`
 }
 
 // SoftwareRAIDVolume defines the desired configuration of volume in software RAID

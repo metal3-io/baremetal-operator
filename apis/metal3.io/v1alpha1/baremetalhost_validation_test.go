@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +42,10 @@ func TestValidateCreate(t *testing.T) {
 		Name:      "07564256-96ae-4315-ab03-8d34ece60fbb",
 		Namespace: "test-namespace",
 	}
+	enable := true
+
+	// for RAID validation test cases
+	numberOfPhysicalDisks := 3
 
 	tests := []struct {
 		name      string
@@ -72,6 +77,11 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta:   tm,
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc:127.0.1.1",
+						CredentialsName: "test1",
+					},
 					RAID: &RAIDConfig{
 						HardwareRAIDVolumes: []HardwareRAIDVolume{
 							{
@@ -92,6 +102,236 @@ func TestValidateCreate(t *testing.T) {
 					}}},
 			oldBMH:    nil,
 			wantedErr: "hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time",
+		},
+		{
+			name: "supportBMCType",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc:127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "unsupportBMCType",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "test:127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "Unknown BMC type 'test' for address test:127.0.1.1",
+		},
+		{
+			name: "RAIDWithSupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes:         nil,
+								Level:                 "",
+								Name:                  "",
+								Rotational:            nil,
+								NumberOfPhysicalDisks: nil,
+							},
+						},
+					},
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "RAIDWithUnsupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes:         nil,
+								Level:                 "",
+								Name:                  "",
+								Rotational:            nil,
+								NumberOfPhysicalDisks: nil,
+							},
+						},
+					},
+					BMC: BMCDetails{
+						Address:         "ipmi://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "BMC driver ipmi does not support configuring RAID",
+		},
+		{
+			name: "FirmwareWithSupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					Firmware: &FirmwareConfig{
+						VirtualizationEnabled: &enable,
+					},
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: BMCDetails{
+						Address:         "irmc://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "FirmwareWithUnsupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					Firmware: &FirmwareConfig{
+						VirtualizationEnabled: &enable,
+					},
+					BMC: BMCDetails{
+						Address:         "ipmi://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "firmware settings for ipmi are not supported",
+		},
+		{
+			name: "BootMACAddressRequiredWithoutBootMACAddress",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "libvirt://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "BMC driver libvirt requires a BootMACAddress value",
+		},
+		{
+			name: "BootMACAddressRequiredWithBootMACAddress",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "libvirt://127.0.1.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "00:00:00:00:00:00",
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "BootMACAddressRequired",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "libvirt://127.0.1.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "00:00:00:00:00:00",
+					BootMode:       UEFISecureBoot,
+				}},
+			oldBMH:    nil,
+			wantedErr: "BMC driver libvirt does not support secure boot",
+		},
+		{
+			name: "UEFISecureBootWithSupportBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "irmc://127.0.1.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "00:00:00:00:00:00",
+					BootMode:       UEFISecureBoot,
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "'physicalDisks' in HardwareRAID without 'controller'.",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "idrac://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes: nil,
+								Level:         "",
+								Name:          "",
+								Rotational:    nil,
+								PhysicalDisks: []string{"Disk-1", "Disk-2"},
+							}, // end of RAID volume
+						}, // end of RAID volume slice
+					}, // end of RAID config
+				}, // end of BMH spec
+			},
+			oldBMH:    nil,
+			wantedErr: "'physicalDisks' specified without 'controller' in hardware RAID volume 0",
+		},
+		{
+			name: "'numberOfPhysicalDisks' not same as length of 'physicalDisks'",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "idrac://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					RAID: &RAIDConfig{
+						HardwareRAIDVolumes: []HardwareRAIDVolume{
+							{
+								SizeGibibytes:         nil,
+								Level:                 "",
+								Name:                  "",
+								Rotational:            nil,
+								Controller:            "Controller-1",
+								PhysicalDisks:         []string{"Disk-1", "Disk-2"},
+								NumberOfPhysicalDisks: &numberOfPhysicalDisks, // defined as 3 above
+							}, // end of RAID volume
+						}, // end of RAID volume slice
+					}, // end of RAID config
+				}, // end of BMH spec
+			},
+			oldBMH:    nil,
+			wantedErr: fmt.Sprintf("the 'numberOfPhysicalDisks'[%d] and number of 'physicalDisks'[2] is not same for volume 0", numberOfPhysicalDisks),
 		},
 	}
 

@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -12,12 +13,49 @@ import (
 func TestBuildTargetRAIDCfg(t *testing.T) {
 	var TRUE = true
 	var FALSE = false
+	physicalDisks := make([]interface{}, 0)
+	physicalDisks2 := []string{
+		"Disk-1",
+		"Disk-2",
+	}
+	numberOfPhysicalDisks := 3
+
 	cases := []struct {
 		name          string
 		raid          *metal3v1alpha1.RAIDConfig
 		expected      []nodes.LogicalDisk
 		expectedError string
 	}{
+		{
+			name: "hardware raid, physicalDisks without controller",
+			raid: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Name:          "volume1",
+						Level:         "1",
+						Rotational:    &FALSE,
+						PhysicalDisks: physicalDisks2,
+					}, // end of RAID volume
+				}, // end of RAID volumes slice
+			}, // end of RAID config
+			expectedError: "'controller' must be specified if 'physicalDisks' are used!",
+		}, // end of test case
+		{
+			name: "hardware raid, len(physicalDisks) != numberOfPhysicalDisks",
+			raid: &metal3v1alpha1.RAIDConfig{
+				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+					{
+						Name:                  "volume1",
+						Level:                 "1",
+						Rotational:            &TRUE,
+						PhysicalDisks:         physicalDisks2,         // slice of 2 disks
+						NumberOfPhysicalDisks: &numberOfPhysicalDisks, // defined as 3 above
+						Controller:            "Controller-1",
+					}, // end of RAID volume
+				}, // end of RAID volumes slice
+			}, // end of RAID config
+			expectedError: fmt.Sprintf("the numberOfPhysicalDisks[%d] is not same as number of items in physicalDisks[%d]", numberOfPhysicalDisks, len(physicalDisks2)),
+		},
 		{
 			name: "hardware raid",
 			raid: &metal3v1alpha1.RAIDConfig{
@@ -44,14 +82,16 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 			},
 			expected: []nodes.LogicalDisk{
 				{
-					RAIDLevel:  "1",
-					VolumeName: "root",
-					DiskType:   nodes.SSD,
+					RAIDLevel:     "1",
+					VolumeName:    "root",
+					DiskType:      nodes.SSD,
+					PhysicalDisks: physicalDisks,
 				},
 				{
-					RAIDLevel:  "1",
-					DiskType:   nodes.HDD,
-					VolumeName: "v1",
+					RAIDLevel:     "1",
+					DiskType:      nodes.HDD,
+					VolumeName:    "v1",
+					PhysicalDisks: physicalDisks,
 				},
 			},
 		},
@@ -87,12 +127,14 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 			},
 			expected: []nodes.LogicalDisk{
 				{
-					RAIDLevel:  "1",
-					VolumeName: "",
+					RAIDLevel:     "1",
+					VolumeName:    "",
+					PhysicalDisks: physicalDisks,
 				},
 				{
-					RAIDLevel:  "1",
-					VolumeName: "",
+					RAIDLevel:     "1",
+					VolumeName:    "",
+					PhysicalDisks: physicalDisks,
 				},
 			},
 		},

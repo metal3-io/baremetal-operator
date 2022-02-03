@@ -3,7 +3,8 @@
 set -xe
 
 # This script removes local ironic containers. 
-# It requires ${CONTAINER_RUNTIME} variable to be defined first
+
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 for name in ironic ironic-api ironic-conductor ironic-inspector dnsmasq httpd mariadb ipa-downloader \
     ironic-endpoint-keepalived ironic-log-watch httpd-reverse-proxy ; do

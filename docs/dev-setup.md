@@ -233,18 +233,18 @@ The output can be passed directly to `kubectl apply` like this:
 go run cmd/make-virt-host/main.go openshift_worker_1 | kubectl apply -f -
 ```
 
-When the host is a *master*, include the `-consumer` and
+When the host is a *controlplane host*, include the `-consumer` and
 `-consumer-namespace` options to associate the host with the existing
 `Machine` object.
 
 ```bash
-$ go run cmd/make-virt-host/main.go -consumer ostest-master-1 \
-  -consumer-namespace openshift-machine-api  openshift_master_1
+$ go run cmd/make-virt-host/main.go -consumer ostest-controlplane-1 \
+  -consumer-namespace openshift-machine-api  openshift_controlplane_1
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: openshift-master-1-bmc-secret
+  name: openshift-controlplane-1-bmc-secret
 type: Opaque
 data:
   username: YWRtaW4=
@@ -254,15 +254,15 @@ data:
 apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
 metadata:
-  name: openshift-master-1
+  name: openshift-controlplane-1
 spec:
   online: true
   bmc:
     address: libvirt://192.168.122.1:6231/
-    credentialsName: openshift-master-1-bmc-secret
+    credentialsName: openshift-controlplane-1-bmc-secret
   bootMACAddress: 00:c9:a0:f2:e0:59
   consumerRef:
-    name: ostest-master-1
+    name: ostest-controlplane-1
     namespace: openshift-machine-api
 ```
 

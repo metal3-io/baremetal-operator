@@ -118,6 +118,11 @@ var deleteWithoutDeprov = prometheus.NewCounter(prometheus.CounterOpts{
 	Help: "Number of times a host is deleted despite deprovisioning failing",
 })
 
+var provisionerNotReady = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_provisioner_not_ready_total",
+	Help: "Number of times a host is not provision ready",
+})
+
 func init() {
 	metrics.Registry.MustRegister(
 		reconcileCounters,
@@ -143,7 +148,8 @@ func init() {
 		stateChanges,
 		hostRegistrationRequired,
 		hostUnmanaged,
-		deleteWithoutDeprov)
+		deleteWithoutDeprov,
+		provisionerNotReady)
 }
 
 func hostMetricLabels(request ctrl.Request) prometheus.Labels {

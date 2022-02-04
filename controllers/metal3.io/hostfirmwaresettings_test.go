@@ -75,7 +75,7 @@ func (m *hsfMockProvisioner) UpdateHardwareState() (hwState provisioner.Hardware
 	return
 }
 
-func (m *hsfMockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
+func (m *hsfMockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
 	return
 }
 

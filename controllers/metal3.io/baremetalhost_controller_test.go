@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -76,6 +77,31 @@ func newHost(name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha
 		},
 		Spec: *spec,
 	}
+}
+
+func newHostFirmwareSettings(host *metal3v1alpha1.BareMetalHost, conditions []metav1.Condition) *metal3v1alpha1.HostFirmwareSettings {
+	hfs := &metal3v1alpha1.HostFirmwareSettings{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
+			Settings: metal3v1alpha1.DesiredSettingsMap{
+				"ProcVirtualization": intstr.FromString("Disabled"),
+				"SecureBoot":         intstr.FromString("Enabled"),
+			},
+		},
+		Status: metal3v1alpha1.HostFirmwareSettingsStatus{
+			Settings: metal3v1alpha1.SettingsMap{
+				"ProcVirtualization": "Disabled",
+				"SecureBoot":         "Enabled",
+			},
+		},
+	}
+
+	hfs.Status.Conditions = conditions
+
+	return hfs
 }
 
 func newDefaultNamedHost(name string, t *testing.T) *metal3v1alpha1.BareMetalHost {
@@ -2521,4 +2547,116 @@ func TestPreprovImageAvailable(t *testing.T) {
 			assert.Equal(t, tc.Available, available)
 		})
 	}
+}
+
+// TestHostFirwmareSettings verifies that a change to the HFS
+// can be detected as it will be used to set state to Preparing
+func TestHostFirmwareSettings(t *testing.T) {
+
+	testCases := []struct {
+		Scenario   string
+		Conditions []metav1.Condition
+		Dirty      bool
+	}{
+		{
+			Scenario: "spec and status the same",
+			Conditions: []metav1.Condition{
+				{Type: "Valid", Status: "True", Reason: "Success"},
+			},
+			Dirty: false,
+		},
+		{
+			Scenario: "spec changed",
+			Conditions: []metav1.Condition{
+				{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+				{Type: "Valid", Status: "True", Reason: "Success"},
+			},
+			Dirty: true,
+		},
+		{
+			Scenario: "spec invalid",
+			Conditions: []metav1.Condition{
+				{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+				{Type: "Valid", Status: "False", Reason: "Success"},
+			},
+			Dirty: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := newDefaultHost(t)
+			r := newTestReconciler(host)
+			i := makeReconcileInfo(host)
+			i.request = newRequest(host)
+
+			hfs := newHostFirmwareSettings(host, tc.Conditions)
+			r.Create(goctx.TODO(), hfs)
+
+			dirty, _, err := r.getHostFirmwareSettings(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
+		})
+	}
+
+}
+
+func TestBMHTransitionToPreparing(t *testing.T) {
+	var True = true
+	var False = false
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.ExternallyProvisioned = false
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	r := newTestReconciler(host)
+
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateAvailable)
+
+	// use different values between spec and status to force cleaning
+	host.Status.Provisioning.Firmware = &metal3v1alpha1.FirmwareConfig{
+		VirtualizationEnabled:             &True,
+		SimultaneousMultithreadingEnabled: &False,
+	}
+	host.Spec.Firmware = &metal3v1alpha1.FirmwareConfig{
+		VirtualizationEnabled:             &False,
+		SimultaneousMultithreadingEnabled: &True,
+	}
+
+	err := r.Update(goctx.TODO(), host)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+}
+
+func TestHFSTransitionToPreparing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	host.Spec.ExternallyProvisioned = false
+	r := newTestReconciler(host)
+
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StateAvailable)
+
+	// Update HFS so host will go through cleaning
+	hfs := &metal3v1alpha1.HostFirmwareSettings{}
+	key := client.ObjectKey{
+		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
+	if err := r.Get(goctx.TODO(), key, hfs); err != nil {
+		t.Fatal(err)
+	}
+
+	hfs.Status = metal3v1alpha1.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	}
+
+	r.Update(goctx.TODO(), hfs)
+
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
 }

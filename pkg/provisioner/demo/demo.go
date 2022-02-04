@@ -193,7 +193,7 @@ func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 }
 
 // Prepare remove existing configuration and set new configuration
-func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
+func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
 	hostName := p.objectMeta.Name
 
 	switch hostName {

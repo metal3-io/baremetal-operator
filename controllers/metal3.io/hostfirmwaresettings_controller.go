@@ -41,9 +41,10 @@ import (
 )
 
 const (
-	provisionerRetryDelay          = time.Second * 30
-	resourceNotAvailableRetryDelay = time.Second * 30
-	reconcilerRequeueDelay         = time.Minute * 5
+	provisionerRetryDelay                = time.Second * 30
+	resourceNotAvailableRetryDelay       = time.Second * 30
+	reconcilerRequeueDelay               = time.Minute * 5
+	reconcilerRequeueDelayChangeDetected = time.Minute * 1
 )
 
 // HostFirmwareSettingsReconciler reconciles a HostFirmwareSettings object
@@ -162,6 +163,10 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// requeue to run again after delay
+	if meta.IsStatusConditionTrue(info.hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsChangeDetected)) {
+		// If there is a difference between Spec and Status shorten the query from Ironic so that the Status is updated when cleaning completes
+		return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected}, nil
+	}
 	return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelay}, nil
 }
 

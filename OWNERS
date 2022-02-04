@@ -1,7 +1,7 @@
 # approval == this is a good idea /approve
 approvers:
   - andfasano
-  - asalkeld
+  - bfournie
   - dtantsur
   - hardys
   - honza
@@ -14,7 +14,6 @@ approvers:
 reviewers:
   - andfasano
   - ardaguclu
-  - asalkeld
   - bfournie
   - dhellmann
   - dtantsur

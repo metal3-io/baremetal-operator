@@ -43,6 +43,7 @@ type ByteReadWriter struct {
 
 	Results *yaml.RNode
 
+	NoWrap             bool
 	WrappingAPIVersion string
 	WrappingKind       string
 }
@@ -53,10 +54,15 @@ func (rw *ByteReadWriter) Read() ([]*yaml.RNode, error) {
 		OmitReaderAnnotations: rw.OmitReaderAnnotations,
 	}
 	val, err := b.Read()
-	rw.FunctionConfig = b.FunctionConfig
+	if rw.FunctionConfig == nil {
+		rw.FunctionConfig = b.FunctionConfig
+	}
 	rw.Results = b.Results
-	rw.WrappingAPIVersion = b.WrappingAPIVersion
-	rw.WrappingKind = b.WrappingKind
+
+	if !rw.NoWrap {
+		rw.WrappingAPIVersion = b.WrappingAPIVersion
+		rw.WrappingKind = b.WrappingKind
+	}
 	return val, errors.Wrap(err)
 }
 
@@ -70,6 +76,28 @@ func (rw *ByteReadWriter) Write(nodes []*yaml.RNode) error {
 		WrappingAPIVersion:    rw.WrappingAPIVersion,
 		WrappingKind:          rw.WrappingKind,
 	}.Write(nodes)
+}
+
+// ParseAll reads all of the inputs into resources
+func ParseAll(inputs ...string) ([]*yaml.RNode, error) {
+	return (&ByteReader{
+		Reader: bytes.NewBufferString(strings.Join(inputs, "\n---\n")),
+	}).Read()
+}
+
+// FromBytes reads from a byte slice.
+func FromBytes(bs []byte) ([]*yaml.RNode, error) {
+	return (&ByteReader{
+		OmitReaderAnnotations: true,
+		Reader:                bytes.NewBuffer(bs),
+	}).Read()
+}
+
+// StringAll writes all of the resources to a string
+func StringAll(resources []*yaml.RNode) (string, error) {
+	var b bytes.Buffer
+	err := (&ByteWriter{Writer: &b}).Write(resources)
+	return b.String(), err
 }
 
 // ByteReader decodes ResourceNodes from bytes.
@@ -117,10 +145,15 @@ func (r *ByteReader) Read() ([]*yaml.RNode, error) {
 	}
 
 	// replace the ending \r\n (line ending used in windows) with \n and then separate by \n---\n
-	values := strings.Split(strings.Replace(input.String(), "\r\n", "\n", -1), "\n---\n")
+	values := strings.Split(strings.ReplaceAll(input.String(), "\r\n", "\n"), "\n---\n")
 
 	index := 0
 	for i := range values {
+		// the Split used above will eat the tail '\n' from each resource. This may affect the
+		// literal string value since '\n' is meaningful in it.
+		if i != len(values)-1 {
+			values[i] += "\n"
+		}
 		decoder := yaml.NewDecoder(bytes.NewBufferString(values[i]))
 		node, err := r.decode(index, decoder)
 		if err == io.EOF {
@@ -145,7 +178,7 @@ func (r *ByteReader) Read() ([]*yaml.RNode, error) {
 		if !r.DisableUnwrapping &&
 			len(values) == 1 && // Only unwrap if there is only 1 value
 			(meta.Kind == ResourceListKind || meta.Kind == "List") &&
-			node.Field("items") != nil {
+			(node.Field("items") != nil || node.Field("functionConfig") != nil) {
 			r.WrappingKind = meta.Kind
 			r.WrappingAPIVersion = meta.APIVersion
 

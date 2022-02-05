@@ -6,6 +6,7 @@ package resid
 import (
 	"strings"
 
+	"sigs.k8s.io/kustomize/kyaml/openapi"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -77,6 +78,14 @@ func (x Gvk) String() string {
 		k = noKind
 	}
 	return strings.Join([]string{g, v, k}, fieldSep)
+}
+
+// ApiVersion returns the combination of Group and Version
+func (x Gvk) ApiVersion() string {
+	if x.Group == "" {
+		return x.Version
+	}
+	return x.Group + "/" + x.Version
 }
 
 // StringWoEmptyField returns a string representation of the GVK. Non-exist
@@ -207,5 +216,6 @@ func (x Gvk) toKyamlTypeMeta() yaml.TypeMeta {
 // IsNamespaceableKind returns true if x is a namespaceable Gvk
 // Implements https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#not-all-objects-are-in-a-namespace
 func (x Gvk) IsNamespaceableKind() bool {
-	return x.toKyamlTypeMeta().IsNamespaceable()
+	isNamespaceScoped, found := openapi.IsNamespaceScoped(x.toKyamlTypeMeta())
+	return !found || isNamespaceScoped
 }

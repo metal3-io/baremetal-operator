@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 
 	"github.com/go-openapi/spec"
 	"sigs.k8s.io/kustomize/kyaml/errors"
@@ -21,14 +21,30 @@ import (
 // globalSchema contains global state information about the openapi
 var globalSchema openapiData
 
+// kubernetesOpenAPIVersion specifies which builtin kubernetes schema to use
+var kubernetesOpenAPIVersion string
+
 // openapiData contains the parsed openapi state.  this is in a struct rather than
 // a list of vars so that it can be reset from tests.
 type openapiData struct {
-	setup                          sync.Once
-	schema                         spec.Schema
-	schemaByResourceType           map[yaml.TypeMeta]*spec.Schema
+	// schema holds the OpenAPI schema data
+	schema spec.Schema
+
+	// schemaForResourceType is a map of Resource types to their schemas
+	schemaByResourceType map[yaml.TypeMeta]*spec.Schema
+
+	// namespaceabilityByResourceType stores whether a given Resource type
+	// is namespaceable or not
 	namespaceabilityByResourceType map[yaml.TypeMeta]bool
-	noUseBuiltInSchema             bool
+
+	// noUseBuiltInSchema stores whether we want to prevent using the built-n
+	// Kubernetes schema as part of the global schema
+	noUseBuiltInSchema bool
+
+	// currentOpenAPIVersion stores the version if the kubernetes openapi data
+	// that is currently stored as the schema, so that we only reparse the
+	// schema when necessary (to speed up performance)
+	currentOpenAPIVersion string
 }
 
 // ResourceSchema wraps the OpenAPI Schema.
@@ -65,38 +81,32 @@ const SupplementaryOpenAPIFieldName = "openAPI"
 const Definitions = "definitions"
 
 // AddSchemaFromFile reads the file at path and parses the OpenAPI definitions
-// from the field "openAPI"
-func AddSchemaFromFile(path string) error {
-	return AddSchemaFromFileUsingField(path, SupplementaryOpenAPIFieldName)
-}
-
-// DeleteSchemaInFile reads the file at path and removes all the openAPI definitions
-// present in file from global schema
-func DeleteSchemaInFile(openAPIPath string) error {
-	fields, err := DefinitionRefs(openAPIPath)
+// from the field "openAPI", also returns a function to clean the added definitions
+// The returned clean function is a no-op on error, or else it's a function
+// that the caller should use to remove the added openAPI definitions from
+// global schema
+func SchemaFromFile(path string) (*spec.Schema, error) {
+	object, err := parseOpenAPI(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, field := range fields {
-		delete(globalSchema.schema.Definitions, field)
-	}
-	return nil
+	return schemaUsingField(object, SupplementaryOpenAPIFieldName)
 }
 
 // DefinitionRefs returns the list of openAPI definition references present in the
 // input openAPIPath
 func DefinitionRefs(openAPIPath string) ([]string, error) {
-	b, err := ioutil.ReadFile(openAPIPath)
+	object, err := parseOpenAPI(openAPIPath)
 	if err != nil {
 		return nil, err
 	}
+	return definitionRefsFromRNode(object)
+}
 
-	object, err := yaml.Parse(string(b))
-	if err != nil {
-		return nil, err
-	}
-
+// definitionRefsFromRNode returns the list of openAPI definitions keys from input
+// yaml RNode
+func definitionRefsFromRNode(object *yaml.RNode) ([]string, error) {
 	definitions, err := object.Pipe(yaml.Lookup(SupplementaryOpenAPIFieldName, Definitions))
 	if definitions == nil {
 		return nil, err
@@ -104,38 +114,39 @@ func DefinitionRefs(openAPIPath string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return definitions.Fields()
 }
 
-// AddSchemaFromFileUsingField reads the file at path and parses the OpenAPI definitions
-// from the specified field.  If field is the empty string, use the whole document as
-// OpenAPI.
-func AddSchemaFromFileUsingField(path, field string) error {
-	b, err := ioutil.ReadFile(path)
+// parseOpenAPI reads openAPIPath yaml and converts it to RNode
+func parseOpenAPI(openAPIPath string) (*yaml.RNode, error) {
+	b, err := ioutil.ReadFile(openAPIPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// parse the yaml file (json is a subset of yaml, so will also parse)
-	y, err := yaml.Parse(string(b))
+	object, err := yaml.Parse(string(b))
 	if err != nil {
-		return err
+		return nil, errors.Errorf("invalid file %q: %v", openAPIPath, err)
 	}
+	return object, nil
+}
 
+// addSchemaUsingField parses the OpenAPI definitions from the specified field.
+// If field is the empty string, use the whole document as OpenAPI.
+func schemaUsingField(object *yaml.RNode, field string) (*spec.Schema, error) {
 	if field != "" {
 		// get the field containing the openAPI
-		m := y.Field(field)
+		m := object.Field(field)
 		if m.IsNilOrEmpty() {
 			// doesn't contain openAPI definitions
-			return nil
+			return nil, nil
 		}
-		y = m.Value
+		object = m.Value
 	}
 
-	oAPI, err := y.String()
+	oAPI, err := object.String()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// convert the yaml openAPI to a JSON string by unmarshalling it to an
@@ -143,19 +154,20 @@ func AddSchemaFromFileUsingField(path, field string) error {
 	var o interface{}
 	err = yaml.Unmarshal([]byte(oAPI), &o)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	j, err := json.Marshal(o)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// add the json schema to the global schema
-	err = AddSchema(j)
+	var sc spec.Schema
+	err = sc.UnmarshalJSON(j)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+
+	return &sc, nil
 }
 
 // AddSchema parses s, and adds definitions from s to the global schema.
@@ -219,8 +231,8 @@ func toTypeMeta(ext interface{}) (yaml.TypeMeta, bool) {
 }
 
 // Resolve resolves the reference against the global schema
-func Resolve(ref *spec.Ref) (*spec.Schema, error) {
-	return resolve(Schema(), ref)
+func Resolve(ref *spec.Ref, schema *spec.Schema) (*spec.Schema, error) {
+	return resolve(schema, ref)
 }
 
 // Schema returns the global schema
@@ -230,13 +242,13 @@ func Schema() *spec.Schema {
 
 // GetSchema parses s into a ResourceSchema, resolving References within the
 // global schema.
-func GetSchema(s string) (*ResourceSchema, error) {
+func GetSchema(s string, schema *spec.Schema) (*ResourceSchema, error) {
 	var sc spec.Schema
 	if err := sc.UnmarshalJSON([]byte(s)); err != nil {
 		return nil, errors.Wrap(err)
 	}
 	if sc.Ref.String() != "" {
-		r, err := Resolve(&sc.Ref)
+		r, err := Resolve(&sc.Ref, schema)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
@@ -281,7 +293,7 @@ func (rs *ResourceSchema) Elements() *ResourceSchema {
 	}
 	s := *rs.Schema.Items.Schema
 	for s.Ref.String() != "" {
-		sc, e := Resolve(&s.Ref)
+		sc, e := Resolve(&s.Ref, Schema())
 		if e != nil {
 			return nil
 		}
@@ -333,7 +345,7 @@ func (rs *ResourceSchema) Field(field string) *ResourceSchema {
 
 	// resolve the reference to the Schema if the Schema has one
 	for s.Ref.String() != "" {
-		sc, e := Resolve(&s.Ref)
+		sc, e := Resolve(&s.Ref, Schema())
 		if e != nil {
 			return nil
 		}
@@ -342,6 +354,35 @@ func (rs *ResourceSchema) Field(field string) *ResourceSchema {
 
 	// return the merged Schema
 	return &ResourceSchema{Schema: &s}
+}
+
+// PatchStrategyAndKeyList returns the patch strategy and complete merge key list
+func (rs *ResourceSchema) PatchStrategyAndKeyList() (string, []string) {
+	ps, found := rs.Schema.Extensions[kubernetesPatchStrategyExtensionKey]
+	if !found {
+		// empty patch strategy
+		return "", []string{}
+	}
+
+	mkList, found := rs.Schema.Extensions[kubernetesMergeKeyMapList]
+	if found {
+		// mkList is []interface, convert to []string
+		mkListStr := make([]string, len(mkList.([]interface{})))
+
+		for i, v := range mkList.([]interface{}) {
+			mkListStr[i] = v.(string)
+		}
+
+		return ps.(string), mkListStr
+	}
+
+	mk, found := rs.Schema.Extensions[kubernetesMergeKeyExtensionKey]
+	if !found {
+		// no mergeKey -- may be a primitive associative list (e.g. finalizers)
+		return ps.(string), []string{}
+	}
+
+	return ps.(string), []string{mk.(string)}
 }
 
 // PatchStrategyAndKey returns the patch strategy and merge key extensions
@@ -361,23 +402,29 @@ func (rs *ResourceSchema) PatchStrategyAndKey() (string, string) {
 }
 
 const (
-	// kubernetesAPIAssetName is the name of the asset containing the statically compiled in
-	// OpenAPI definitions for Kubernetes built-in types
-	kubernetesAPIAssetName = "openapi/kubernetesapi/swagger.json"
+	// kubernetesOpenAPIDefaultVersion is the latest version number of the statically compiled in
+	// OpenAPI schema for kubernetes built-in types
+	kubernetesOpenAPIDefaultVersion = kubernetesapi.DefaultOpenAPI
 
 	// kustomizationAPIAssetName is the name of the asset containing the statically compiled in
 	// OpenAPI definitions for Kustomization built-in types
-	kustomizationAPIAssetName = "openapi/kustomizationapi/swagger.json"
+	kustomizationAPIAssetName = "kustomizationapi/swagger.json"
 
 	// kubernetesGVKExtensionKey is the key to lookup the kubernetes group version kind extension
 	// -- the extension is an array of objects containing a gvk
 	kubernetesGVKExtensionKey = "x-kubernetes-group-version-kind"
+
 	// kubernetesMergeKeyExtensionKey is the key to lookup the kubernetes merge key extension
 	// -- the extension is a string
 	kubernetesMergeKeyExtensionKey = "x-kubernetes-patch-merge-key"
+
 	// kubernetesPatchStrategyExtensionKey is the key to lookup the kubernetes patch strategy
 	// extension -- the extension is a string
 	kubernetesPatchStrategyExtensionKey = "x-kubernetes-patch-strategy"
+
+	// kubernetesMergeKeyMapList is the list of merge keys when there needs to be multiple
+	// -- the extension is an array of strings
+	kubernetesMergeKeyMapList = "x-kubernetes-list-map-keys"
 
 	// groupKey is the key to lookup the group from the GVK extension
 	groupKey = "group"
@@ -387,25 +434,65 @@ const (
 	kindKey = "kind"
 )
 
+// SetSchemaVersion sets the kubernetes OpenAPI schema version to use
+func SetSchemaVersion(openAPIField map[string]string, reset bool) error {
+	// this should only be set once
+	if kubernetesOpenAPIVersion != "" && !reset {
+		return nil
+	}
+
+	kubernetesOpenAPIVersion = strings.ReplaceAll(openAPIField["version"], ".", "")
+	if kubernetesOpenAPIVersion == "" {
+		return nil
+	}
+	if _, ok := kubernetesapi.OpenAPIMustAsset[kubernetesOpenAPIVersion]; !ok {
+		return fmt.Errorf("the specified OpenAPI version is not built in")
+	}
+	return nil
+}
+
+// GetSchemaVersion returns what kubernetes OpenAPI version is being used
+func GetSchemaVersion() string {
+	if kubernetesOpenAPIVersion == "" {
+		return kubernetesOpenAPIDefaultVersion
+	}
+	return kubernetesOpenAPIVersion
+}
+
 // initSchema parses the json schema
 func initSchema() {
-	globalSchema.setup.Do(func() {
-		if globalSchema.noUseBuiltInSchema {
-			// don't parse the built in schema
-			return
-		}
+	currentVersion := kubernetesOpenAPIVersion
+	if currentVersion == "" {
+		currentVersion = kubernetesOpenAPIDefaultVersion
+	}
+	if globalSchema.currentOpenAPIVersion != currentVersion {
+		parseSchema(currentVersion)
+	}
+	globalSchema.currentOpenAPIVersion = currentVersion
+}
 
-		// parse the swagger, this should never fail
-		if err := parse(kubernetesapi.MustAsset(kubernetesAPIAssetName)); err != nil {
-			// this should never happen
-			panic(err)
-		}
+// parseSchema calls parse to parse the json schemas
+func parseSchema(version string) {
+	if globalSchema.noUseBuiltInSchema {
+		// don't parse the built in schema
+		return
+	}
 
-		if err := parse(kustomizationapi.MustAsset(kustomizationAPIAssetName)); err != nil {
-			// this should never happen
-			panic(err)
-		}
-	})
+	// parse the swagger, this should never fail
+	assetName := filepath.Join(
+		"kubernetesapi",
+		version,
+		"swagger.json")
+
+	if err := parse(kubernetesapi.OpenAPIMustAsset[version](assetName)); err != nil {
+		// this should never happen
+		panic(err)
+	}
+
+	if err := parse(kustomizationapi.MustAsset(kustomizationAPIAssetName)); err != nil {
+		// this should never happen
+		panic(err)
+	}
 }
 
 // parse parses and indexes a single json schema

@@ -288,6 +288,9 @@ spec:
                       description: HardwareRAIDVolume defines the desired configuration
                         of volume in hardware RAID
                       properties:
+                        controller:
+                          description: The name of the RAID controller to use
+                          type: string
                         level:
                           description: 'RAID level for the logical disk. The following
                             levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
@@ -312,6 +315,14 @@ spec:
                             required for the particular RAID level.
                           minimum: 1
                           type: integer
+                        physicalDisks:
+                          description: Optional list of physical disk names to be
+                            used for the Hardware RAID volumes. The disk names are
+                            interpreted by the Hardware RAID controller, and the format
+                            is hardware specific.
+                          items:
+                            type: string
+                          type: array
                         rotational:
                           description: Select disks with only rotational or solid-state
                             storage
@@ -877,6 +888,9 @@ spec:
                           description: HardwareRAIDVolume defines the desired configuration
                             of volume in hardware RAID
                           properties:
+                            controller:
+                              description: The name of the RAID controller to use
+                              type: string
                             level:
                               description: 'RAID level for the logical disk. The following
                                 levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
@@ -901,6 +915,14 @@ spec:
                                 disks required for the particular RAID level.
                               minimum: 1
                               type: integer
+                            physicalDisks:
+                              description: Optional list of physical disk names to
+                                be used for the Hardware RAID volumes. The disk names
+                                are interpreted by the Hardware RAID controller, and
+                                the format is hardware specific.
+                              items:
+                                type: string
+                              type: array
                             rotational:
                               description: Select disks with only rotational or solid-state
                                 storage
@@ -1962,16 +1984,6 @@ spec:
     spec:
       containers:
       - args:
-        - --secure-listen-address=0.0.0.0:8443
-        - --upstream=http://127.0.0.1:8085/
-        - --logtostderr=true
-        - --v=10
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
-        name: kube-rbac-proxy
-        ports:
-        - containerPort: 8443
-          name: https
-      - args:
         - --metrics-addr=127.0.0.1:8085
         - --enable-leader-election
         command:
@@ -2019,6 +2031,16 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8085/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
       serviceAccountName: baremetal-operator-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

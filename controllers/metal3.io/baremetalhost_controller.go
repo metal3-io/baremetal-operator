@@ -59,6 +59,7 @@ const (
 	rebootAnnotationPrefix        = "reboot.metal3.io"
 	inspectAnnotationPrefix       = "inspect.metal3.io"
 	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
+	clarifySoftPoweroffFailure    = "Continuing with hard poweroff after soft poweroff fails. More details: "
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object
@@ -239,6 +240,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		return ctrl.Result{}, errors.Wrap(err, "failed to check services availability")
 	}
 	if !ready {
+		provisionerNotReady.Inc()
 		reqLogger.Info("provisioner is not ready", "RequeueAfter:", provisionerNotReadyRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
 	}
@@ -1218,6 +1220,10 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	}
 
 	if provResult.ErrorMessage != "" {
+		if !desiredPowerOnState && desiredRebootMode == metal3v1alpha1.RebootModeSoft &&
+			info.host.Status.ErrorType != metal3v1alpha1.PowerManagementError {
+			provResult.ErrorMessage = clarifySoftPoweroffFailure + provResult.ErrorMessage
+		}
 		return recordActionFailure(info, metal3v1alpha1.PowerManagementError, provResult.ErrorMessage)
 	}
 

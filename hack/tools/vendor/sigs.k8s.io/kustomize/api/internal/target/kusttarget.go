@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/kustomize/api/builtins"
 	"sigs.k8s.io/kustomize/api/ifc"
@@ -18,6 +19,7 @@ import (
 	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/resmap"
 	"sigs.k8s.io/kustomize/api/types"
+	"sigs.k8s.io/kustomize/kyaml/openapi"
 	"sigs.k8s.io/yaml"
 )
 
@@ -234,7 +236,18 @@ func (kt *KustTarget) runGenerators(
 
 func (kt *KustTarget) configureExternalGenerators() ([]resmap.Generator, error) {
 	ra := accumulator.MakeEmptyAccumulator()
-	ra, err := kt.accumulateResources(ra, kt.kustomization.Generators)
+	var generatorPaths []string
+	for _, p := range kt.kustomization.Generators {
+		// handle inline generators
+		rm, err := kt.rFactory.NewResMapFromBytes([]byte(p))
+		if err != nil {
+			// not an inline config
+			generatorPaths = append(generatorPaths, p)
+			continue
+		}
+		ra.AppendAll(rm)
+	}
+	ra, err := kt.accumulateResources(ra, generatorPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +272,18 @@ func (kt *KustTarget) runTransformers(ra *accumulator.ResAccumulator) error {
 
 func (kt *KustTarget) configureExternalTransformers(transformers []string) ([]resmap.Transformer, error) {
 	ra := accumulator.MakeEmptyAccumulator()
-	ra, err := kt.accumulateResources(ra, transformers)
+	var transformerPaths []string
+	for _, p := range transformers {
+		// handle inline transformers
+		rm, err := kt.rFactory.NewResMapFromBytes([]byte(p))
+		if err != nil {
+			// not an inline config
+			transformerPaths = append(transformerPaths, p)
+			continue
+		}
+		ra.AppendAll(rm)
+	}
+	ra, err := kt.accumulateResources(ra, transformerPaths)
 
 	if err != nil {
 		return nil, err
@@ -313,12 +337,18 @@ func (kt *KustTarget) accumulateResources(
 		if errF := kt.accumulateFile(ra, path); errF != nil {
 			ldr, errL := kt.ldr.New(path)
 			if errL != nil {
-				return nil, fmt.Errorf("accumulateFile %q, loader.New %q", errF, errL)
+				return nil, multierror.Append(
+					fmt.Errorf("accumulateFile error: %q", errF),
+					fmt.Errorf("loader.New error: %q", errL),
+				)
 			}
 			var errD error
 			ra, errD = kt.accumulateDirectory(ra, ldr, false)
 			if errD != nil {
-				return nil, fmt.Errorf("accumulateFile %q, accumulateDirector: %q", errF, errD)
+				return nil, multierror.Append(
+					fmt.Errorf("accumulateFile error: %q", errF),
+					fmt.Errorf("accumulateDirector error: %q", errD),
+				)
 			}
 		}
 	}
@@ -352,6 +382,11 @@ func (kt *KustTarget) accumulateDirectory(
 	if err != nil {
 		return nil, errors.Wrapf(
 			err, "couldn't make target for path '%s'", ldr.Root())
+	}
+	err = openapi.SetSchemaVersion(subKt.Kustomization().OpenAPI, false)
+	if err != nil {
+		return nil, errors.Wrapf(
+			err, "couldn't set openapi version for path '%s'", ldr.Root())
 	}
 	if isComponent && subKt.kustomization.Kind != types.ComponentKind {
 		return nil, fmt.Errorf(

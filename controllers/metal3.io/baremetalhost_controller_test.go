@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1550,11 +1551,13 @@ func TestProvisionerIsReady(t *testing.T) {
 	fix := fixture.Fixture{BecomeReadyCounter: 5}
 	r := newTestReconcilerWithFixture(&fix, host)
 
+	assert.Equal(t, 0.0, promutil.ToFloat64(provisionerNotReady))
 	tryReconcile(t, r, host,
 		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
 			return host.Status.Provisioning.State != metal3v1alpha1.StateNone
 		},
 	)
+	assert.Equal(t, 4.0, promutil.ToFloat64(provisionerNotReady))
 }
 
 func TestUpdateEventHandler(t *testing.T) {

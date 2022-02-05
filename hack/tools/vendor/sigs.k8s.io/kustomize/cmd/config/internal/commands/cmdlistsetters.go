@@ -14,8 +14,9 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/kustomize/cmd/config/ext"
 	"sigs.k8s.io/kustomize/cmd/config/internal/generateddocs/commands"
+	"sigs.k8s.io/kustomize/cmd/config/runner"
 	"sigs.k8s.io/kustomize/kyaml/fieldmeta"
-	"sigs.k8s.io/kustomize/kyaml/setters"
+	"sigs.k8s.io/kustomize/kyaml/openapi"
 	"sigs.k8s.io/kustomize/kyaml/setters2"
 )
 
@@ -37,7 +38,7 @@ func NewListSettersRunner(parent string) *ListSettersRunner {
 		"include substitutions in the output")
 	c.Flags().BoolVarP(&r.RecurseSubPackages, "recurse-subpackages", "R", true,
 		"list setters recursively in all the nested subpackages")
-	fixDocs(parent, c)
+	runner.FixDocs(parent, c)
 	r.Command = c
 	return r
 }
@@ -48,46 +49,46 @@ func ListSettersCommand(parent string) *cobra.Command {
 
 type ListSettersRunner struct {
 	Command            *cobra.Command
-	Lookup             setters.LookupSetters
 	List               setters2.List
 	Markdown           bool
 	IncludeSubst       bool
 	RecurseSubPackages bool
+	Name               string
 }
 
 func (r *ListSettersRunner) preRunE(c *cobra.Command, args []string) error {
 	if len(args) > 1 {
-		r.Lookup.Name = args[1]
-		r.List.Name = args[1]
+		r.Name = args[1]
 	}
 
-	initSetterVersion(c, args)
 	return nil
 }
 
 func (r *ListSettersRunner) runE(c *cobra.Command, args []string) error {
-	if setterVersion == "v2" {
-		e := executeCmdOnPkgs{
-			needOpenAPI:        true,
-			writer:             c.OutOrStdout(),
-			rootPkgPath:        args[0],
-			recurseSubPackages: r.RecurseSubPackages,
-			cmdRunner:          r,
-		}
-
-		err := e.execute()
-		if err != nil {
-			return handleError(c, err)
-		}
-		return nil
+	e := runner.ExecuteCmdOnPkgs{
+		NeedOpenAPI:        true,
+		Writer:             c.OutOrStdout(),
+		RootPkgPath:        args[0],
+		RecurseSubPackages: r.RecurseSubPackages,
+		CmdRunner:          r,
 	}
-	return handleError(c, lookup(r.Lookup, c, args))
+
+	err := e.Execute()
+	if err != nil {
+		return runner.HandleError(c, err)
+	}
+	return nil
 }
 
-func (r *ListSettersRunner) executeCmd(w io.Writer, pkgPath string) error {
+func (r *ListSettersRunner) ExecuteCmd(w io.Writer, pkgPath string) error {
+	sc, err := openapi.SchemaFromFile(filepath.Join(pkgPath, ext.KRMFileName()))
+	if err != nil {
+		return err
+	}
 	r.List = setters2.List{
-		Name:            r.List.Name,
+		Name:            r.Name,
 		OpenAPIFileName: ext.KRMFileName(),
+		SettersSchema:   sc,
 	}
 	openAPIPath := filepath.Join(pkgPath, ext.KRMFileName())
 	if err := r.ListSetters(w, openAPIPath, pkgPath); err != nil {
@@ -107,7 +108,7 @@ func (r *ListSettersRunner) ListSetters(w io.Writer, openAPIPath, resourcePath s
 		return err
 	}
 	table := newTable(w, r.Markdown)
-	table.SetHeader([]string{"NAME", "VALUE", "SET BY", "DESCRIPTION", "COUNT", "REQUIRED"})
+	table.SetHeader([]string{"NAME", "VALUE", "SET BY", "DESCRIPTION", "COUNT", "REQUIRED", "IS SET"})
 	for i := range r.List.Setters {
 		s := r.List.Setters[i]
 		v := s.Value
@@ -117,20 +118,23 @@ func (r *ListSettersRunner) ListSetters(w io.Writer, openAPIPath, resourcePath s
 			v = strings.Join(s.ListValues, ",")
 			v = fmt.Sprintf("[%s]", v)
 		}
-		var required string
+		required := "No"
 		if s.Required {
 			required = "Yes"
-		} else {
-			required = "No"
 		}
+		isSet := "No"
+		if s.IsSet {
+			isSet = "Yes"
+		}
+
 		table.Append([]string{
-			s.Name, v, s.SetBy, s.Description, fmt.Sprintf("%d", s.Count), required})
+			s.Name, v, s.SetBy, s.Description, fmt.Sprintf("%d", s.Count), required, isSet})
 	}
 	table.Render()
 
 	if len(r.List.Setters) == 0 {
 		// exit non-0 if no matching setters are found
-		if ExitOnError {
+		if runner.ExitOnError {
 			os.Exit(1)
 		}
 	}

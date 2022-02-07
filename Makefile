@@ -239,3 +239,10 @@ mod: ## Clean up go module settings
 	cd pkg/hardwareutils; go mod verify
 	cd hack/tools; go mod tidy
 	cd hack/tools; go mod verify
+
+.PHONY: vendor
+vendor:
+	cd apis; go mod vendor
+	cd pkg/hardwareutils; go mod vendor
+	cd hack/tools; go mod vendor
+	go mod vendor

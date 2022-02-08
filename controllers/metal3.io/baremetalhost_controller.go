@@ -951,7 +951,7 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
-	dirty, newStatus, err := getHostProvisioningSettings(info.host)
+	bmhDirty, newStatus, err := getHostProvisioningSettings(info.host)
 	if err != nil {
 		return actionError{err}
 	}
@@ -962,49 +962,56 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		RootDeviceHints:  newStatus.Provisioning.RootDeviceHints.DeepCopy(),
 		FirmwareConfig:   newStatus.Provisioning.Firmware.DeepCopy(),
 	}
-	// When manual cleaning fails, we think that the existed RAID configuration
+	// When manual cleaning fails, we think that the existing RAID configuration
 	// is invalid and needs to be reconfigured.
 	if info.host.Status.ErrorType == metal3v1alpha1.PreparationError {
 		prepareData.ActualRAIDConfig = nil
-		dirty = true
+		bmhDirty = true
 	}
 
-	// Use settings in hostFirmwareSettings if available
-	hfs, err := r.getHostFirmwareSettings(info)
+	// The hfsDirty flag is used to push the new settings to Ironic as part of the clean steps.
+	// The HFS Status field will be updated in the HostFirmwareSettingsReconciler when it reads the settings from Ironic.
+	// After manual cleaning is complete the HFS Spec should match the Status.
+	hfsDirty, hfs, err := r.getHostFirmwareSettings(info)
+
 	if err != nil {
 		// wait until hostFirmwareSettings are ready
 		return actionContinue{subResourceNotReadyRetryDelay}
 	}
-	if hfs != nil {
+	if hfsDirty {
 		prepareData.ActualFirmwareSettings = hfs.Status.Settings.DeepCopy()
 		prepareData.TargetFirmwareSettings = hfs.Spec.Settings.DeepCopy()
 	}
 
-	provResult, started, err := prov.Prepare(prepareData, dirty)
+	provResult, started, err := prov.Prepare(prepareData, bmhDirty || hfsDirty,
+		info.host.Status.ErrorType == metal3v1alpha1.PreparationError)
 
 	if err != nil {
 		return actionError{errors.Wrap(err, "error preparing host")}
 	}
 
 	if provResult.ErrorMessage != "" {
-		info.log.Info("handling cleaning error in controller")
-		clearHostProvisioningSettings(info.host)
+		if bmhDirty {
+			info.log.Info("handling cleaning error in controller")
+			clearHostProvisioningSettings(info.host)
+		}
 		return recordActionFailure(info, metal3v1alpha1.PreparationError, provResult.ErrorMessage)
 	}
 
-	if dirty && started {
+	if bmhDirty && started {
 		info.log.Info("saving host provisioning settings")
 		_, err := saveHostProvisioningSettings(info.host)
 		if err != nil {
 			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
 		}
 	}
+
 	if started && clearError(info.host) {
-		dirty = true
+		bmhDirty = true
 	}
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if dirty {
+		if bmhDirty {
 			return actionUpdate{result}
 		}
 		return result
@@ -1384,34 +1391,35 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 }
 
 // Get the stored firmware settings if there are valid changes
-func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (hfs *metal3v1alpha1.HostFirmwareSettings, err error) {
+func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (dirty bool, hfs *metal3v1alpha1.HostFirmwareSettings, err error) {
 
 	hfs = &metal3v1alpha1.HostFirmwareSettings{}
 	if err = r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
 
 		if !k8serrors.IsNotFound(err) {
 			// Error reading the object
-			return nil, errors.Wrap(err, "could not load host firmware settings")
+			return false, nil, errors.Wrap(err, "could not load host firmware settings")
 		}
 
 		// Could not get settings, log it but don't return error as settings may not have been available at provisioner
 		info.log.Info("could not get hostFirmwareSettings", "namespacename", info.request.NamespacedName)
-		return nil, nil
+		return false, nil, nil
 	}
 
 	// Check if there are settings in the Spec that are different than the Status
 	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsChangeDetected)) {
 
 		if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsValid)) {
-			return hfs, nil
+			info.log.Info("hostFirmwareSettings indicating ChangeDetected", "namespacename", info.request.NamespacedName)
+			return true, hfs, nil
 		}
 
 		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
-		return nil, nil
+		return false, nil, nil
 	}
 
 	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)
-	return nil, nil
+	return false, nil, nil
 }
 
 func (r *BareMetalHostReconciler) saveHostStatus(host *metal3v1alpha1.BareMetalHost) error {

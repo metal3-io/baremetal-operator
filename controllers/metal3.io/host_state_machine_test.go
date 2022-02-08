@@ -1262,7 +1262,7 @@ func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 	return
 }
 
-func (m *mockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool) (result provisioner.Result, started bool, err error) {
+func (m *mockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
 	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 

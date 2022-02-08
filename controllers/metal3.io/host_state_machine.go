@@ -419,6 +419,14 @@ func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
+	// Check if hostFirmwareSettings have changed
+	if dirty, _, err := hsm.Reconciler.getHostFirmwareSettings(info); err != nil {
+		return actionError{err}
+	} else if dirty {
+		hsm.NextState = metal3v1alpha1.StatePreparing
+		return actionComplete{}
+	}
+
 	// ErrorCount is cleared when appropriate inside actionManageAvailable
 	actResult := hsm.Reconciler.actionManageAvailable(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {

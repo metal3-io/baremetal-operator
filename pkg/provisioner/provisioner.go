@@ -148,7 +148,7 @@ type Provisioner interface {
 	Adopt(data AdoptData, force bool) (result Result, err error)
 
 	// Prepare remove existing configuration and set new configuration
-	Prepare(data PrepareData, unprepared bool) (result Result, started bool, err error)
+	Prepare(data PrepareData, unprepared bool, force bool) (result Result, started bool, err error)
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its

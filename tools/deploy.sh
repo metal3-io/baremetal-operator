@@ -2,22 +2,88 @@
 
 set -eu
 
-if [ -z "${1:-}" ] || [ -z "${2:-}" ] || [ -z "${3:-}" ] || [ -z "${4:-}" ] || [ -z "${5:-}" ]; then
-    echo "Usage : deploy.sh <deploy-BMO> <deploy-Ironic> <deploy-TLS> <deploy-Basic-Auth> <deploy-Keepalived>"
+function usage {
+    echo "Usage : deploy.sh [-b -i -t -n -k]"
     echo ""
-    echo "       deploy-BMO: deploy BareMetal Operator : \"true\" or \"false\""
-    echo "       deploy-Ironic: deploy Ironic : \"true\" or \"false\""
-    echo "       deploy-TLS: deploy with TLS enabled : \"true\" or \"false\""
-    echo "       deploy-Basic-Auth: deploy with Basic Auth enabled : \"true\" or \"false\""
-    echo "       deploy-Keepalived: deploy with Keepalived for ironic : \"true\" or \"false\""
+    echo "       -b: deploy BMO"
+    echo "       -i: deploy Ironic"
+    echo "       -t: deploy with TLS enabled"
+    echo "       -n: deploy without authentication"
+    echo "       -k: deploy with keepalived"
+}
+
+DEPLOY_BMO=false
+DEPLOY_IRONIC=false
+DEPLOY_TLS=false
+DEPLOY_BASIC_AUTH=true
+DEPLOY_KEEPALIVED=false
+
+while getopts ":hbitnk" options; do
+    case "${options}" in
+        h)
+            usage
+            exit 0
+            ;;
+        b)
+            DEPLOY_BMO=true
+            ;;
+        i)
+            DEPLOY_IRONIC=true
+            ;;
+        t)
+            DEPLOY_TLS=true
+            ;;
+        n)
+            echo "WARNING: Deploying without authentication is not recommended"
+            DEPLOY_BASIC_AUTH=false
+            ;;
+        k)
+            DEPLOY_KEEPALIVED=true
+            ;;
+        :)
+            echo "ERROR: -${OPTARG} requires an argument"
+            usage
+            exit 1
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# Backward compatibility
+shift $(( OPTIND - 1 ))
+if [ $# -gt 0 ]; then
+    echo "WARNING: positional arguments are deprecated, run deploy.sh -h for information"
+fi
+
+if [ -n "${1:-}" ]; then
+    DEPLOY_BMO=$1
+fi
+
+if [ -n "${2:-}" ]; then
+    DEPLOY_IRONIC=$2
+fi
+
+if [ -n "${3:-}" ]; then
+    DEPLOY_TLS=$3
+fi
+
+if [ -n "${4:-}" ]; then
+    DEPLOY_BASIC_AUTH=$4
+fi
+
+if [ -n "${5:-}" ]; then
+    DEPLOY_KEEPALIVED=$5
+fi
+
+if [ "$DEPLOY_BMO" == "false" ] && [ "$DEPLOY_IRONIC" == "false" ]; then
+    echo "ERROR: nothing to deploy"
+    usage
     exit 1
 fi
 
-DEPLOY_BMO="${1,,}"
-DEPLOY_IRONIC="${2,,}"
-DEPLOY_TLS="${3,,}"
-DEPLOY_BASIC_AUTH="${4,,}"
-DEPLOY_KEEPALIVED="${5,,}"
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}

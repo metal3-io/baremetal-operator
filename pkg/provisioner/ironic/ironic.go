@@ -884,8 +884,15 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 }
 
 func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode, hasCustomDeploy bool, updater *nodeUpdater) {
-	// instance_uuid
-	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
+	// Instance UUID marks a node as belonging to this Host.
+	instanceUUID := string(p.objectMeta.UID)
+	// Instance UUID cannot be changed (it serves as a voluntary lock), only deleted and set.
+	if ironicNode.InstanceUUID == "" {
+		updater.SetTopLevelOpt("instance_uuid", instanceUUID, ironicNode.InstanceUUID)
+	} else if ironicNode.InstanceUUID != instanceUUID {
+		// TODO(dtantsur): make this an error? having a correct instance UUID may be important for shared Ironic deployments
+		p.log.Info("unexpected value of instance UUID, not updating", "node", ironicNode.UUID, "expectedUUID", instanceUUID, "actualUUID", ironicNode.InstanceUUID)
+	}
 
 	// Secure boot is a normal capability that goes into instance_info (we
 	// also put it to properties for consistency, although it's not

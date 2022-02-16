@@ -50,7 +50,9 @@ help:  ## Display this help
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 # Image URL to use all building/pushing image targets
-IMG ?= baremetal-operator:latest
+IMG_NAME ?= baremetal-operator
+IMG_TAG ?= latest
+IMG ?= $(IMG_NAME):$(IMG_TAG)
 
 ## --------------------------------------
 ## Test Targets
@@ -129,8 +131,8 @@ uninstall: $(KUSTOMIZE) manifests ## Uninstall CRDs from a cluster
 	$< build config/crd | kubectl delete -f -
 
 .PHONY: deploy
-deploy: $(KUSTOMIZE) manifests ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-	cd config/manager && kustomize edit set image controller=${IMG}
+deploy: $(KUSTOMIZE) manifests  ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+	make set-manifest-image-bmo MANIFEST_IMG=$(IMG_NAME) MANIFEST_TAG=$(IMG_TAG)
 	$< build config/default | kubectl apply -f -
 
 $(CONTROLLER_GEN): hack/tools/go.mod
@@ -150,6 +152,31 @@ manifests-generate: $(CONTROLLER_GEN)
 .PHONY: manifests-kustomize
 manifests-kustomize: $(KUSTOMIZE)
 	$< build config/default > config/render/capm3.yaml
+
+.PHONY: set-manifest-image-bmo
+set-manifest-image-bmo: $(KUSTOMIZE) manifests
+	$(info Updating container image for BMO to use ${MANIFEST_IMG}:${MANIFEST_TAG})
+	cd config/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/baremetal-operator=${MANIFEST_IMG}:${MANIFEST_TAG}
+
+.PHONY: set-manifest-image-ironic
+set-manifest-image-ironic: $(KUSTOMIZE) manifests
+	$(info Updating container image for Ironic to use ${MANIFEST_IMG}:${MANIFEST_TAG})
+	cd ironic-deployment/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic=${MANIFEST_IMG}:${MANIFEST_TAG}
+
+.PHONY: set-manifest-image-mariadb
+set-manifest-image-mariadb: $(KUSTOMIZE) manifests
+	$(info Updating container image for Mariadb to use ${MANIFEST_IMG}:${MANIFEST_TAG})
+	cd ironic-deployment/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/mariadb=${MANIFEST_IMG}:${MANIFEST_TAG}
+
+.PHONY: set-manifest-image-keepalived
+set-manifest-image-keepalived: $(KUSTOMIZE) manifests
+	$(info Updating container image for keepalived to use ${MANIFEST_IMG}:${MANIFEST_TAG})
+	cd ironic-deployment/keepalived && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/keepalived=${MANIFEST_IMG}:${MANIFEST_TAG}
+
+.PHONY: set-manifest-image-ipa-downloader
+set-manifest-image-ipa-downloader: $(KUSTOMIZE) manifests
+	$(info Updating container image for IPA downloader to use ${MANIFEST_IMG}:${MANIFEST_TAG})
+	cd ironic-deployment/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic-ipa-downloader=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) ## Generate code

@@ -1,6 +1,8 @@
 package imageprovider
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type ImageBuildInvalid struct {
 	err error
@@ -16,4 +18,10 @@ func (ibf ImageBuildInvalid) Unwrap() error {
 
 func BuildInvalidError(err error) ImageBuildInvalid {
 	return ImageBuildInvalid{err: err}
+}
+
+type ImageNotReady struct{}
+
+func (inr ImageNotReady) Error() string {
+	return "Image is not ready yet"
 }

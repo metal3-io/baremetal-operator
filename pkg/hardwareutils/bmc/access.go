@@ -173,7 +173,7 @@ func checkDNSValid(address string) error {
 	// Check if BMC address hostname follows DNS Standard
 	valid, _ := regexp.MatchString(`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]{0,61}[A-Za-z0-9])$`, address)
 	if !valid {
-		return fmt.Errorf("BMC address hostname [%s] invalid, expected format : Type://DNS_Standard_Hostname:Port", address)
+		return fmt.Errorf("BMC address hostname/IP : [%s] is invalid", address)
 	}
 	return nil
 }

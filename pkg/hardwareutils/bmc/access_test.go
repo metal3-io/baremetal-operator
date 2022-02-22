@@ -51,6 +51,38 @@ func TestParse(t *testing.T) {
 		},
 
 		{
+			Scenario: "valid dns hostname",
+			Address:  "my.examplehost.com",
+			Type:     "ipmi",
+			Port:     "",
+			Host:     "my.examplehost.com",
+			Hostname: "my.examplehost.com",
+			Path:     "",
+		},
+
+		{
+			Scenario:    "invalid dns hostname",
+			Address:     "my-.examplehost.com",
+			Type:        "ipmi",
+			Port:        "",
+			Host:        "my-.examplehost.com",
+			Hostname:    "my-.examplehost.com",
+			Path:        "",
+			ExpectError: true,
+		},
+
+		{
+			Scenario:    "invalid ipv6 host address",
+			Address:     "[fe80::fc33:62ff:fe33:8xff]:6223",
+			Type:        "ipmi",
+			Port:        "6223",
+			Host:        "fe80::fc33:62ff:fe33.8xff",
+			Hostname:    "[fe80::fc33:62ff:fe33:8xff]:6223",
+			Path:        "",
+			ExpectError: true,
+		},
+
+		{
 			Scenario: "host and port",
 			Address:  "192.168.122.1:6233",
 			Type:     "ipmi",

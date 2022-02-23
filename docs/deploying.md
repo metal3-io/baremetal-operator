@@ -16,13 +16,6 @@ Operator(BMO) with or without Ironic as well as deploying only Ironic scenario.
 ```diff
 tree config/
 config/
-├── basic-auth
-│   ├── default
-│   │   ├── credentials_patch.yaml
-│   │   └── kustomization.yaml
-│   └── tls
-│       ├── credentials_patch.yaml
-│       └── kustomization.yaml
 ├── certmanager
 │   ├── certificate.yaml
 │   ├── kustomization.yaml
@@ -42,6 +35,7 @@ config/
 │       ├── webhook_in_firmwareschemas.yaml
 │       └── webhook_in_hostfirmwaresettings.yaml
 ├── default
+│   ├── credentials_patch.yaml
 │   ├── ironic.env
 │   ├── kustomization.yaml
 │   ├── manager_auth_proxy_patch.yaml
@@ -81,6 +75,7 @@ config/
 │   ├── metal3.io_v1alpha1_firmwareschema.yaml
 │   └── metal3.io_v1alpha1_hostfirmwaresettings.yaml
 ├── tls
+│   ├── credentials_patch.yaml
 │   ├── kustomization.yaml
 │   └── tls_ca_patch.yaml
 └── webhook
@@ -92,8 +87,8 @@ config/
 
 The `config` directory has one top level folder for deployment, namely `default`
 and it deploys only baremetal-operator through kustomization file calling
-`manager` folder. In addition, `basic-auth`, `certmanager`, `crd`, `namespace`,
-`prometheus`, `rbac`, `tls` and `webhook`folders have their own kustomization
+`manager` folder. In addition, `certmanager`, `crd`, `namespace`, `prometheus`,
+`rbac`, `tls` and `webhook`folders have their own kustomization
 and yaml files. `samples` folder includes yaml representation of sample CRDs.
 
 ## Current structure of ironic-deployment directory
@@ -101,42 +96,32 @@ and yaml files. `samples` folder includes yaml representation of sample CRDs.
 ```diff
 tree ironic-deployment/
 ironic-deployment/
-├── basic-auth
-│   ├── default
-│   │   ├── auth.yaml
-│   │   └── kustomization.yaml
-│   ├── ironic-auth-config-tpl
-│   ├── ironic-inspector-auth-config-tpl
-│   ├── ironic-rpc-auth-config-tpl
-│   ├── keepalived
-│   │   ├── auth.yaml
-│   │   └── kustomization.yaml
-│   └── tls
-│       ├── default
-│       │   ├── auth.yaml
-│       │   └── kustomization.yaml
-│       └── keepalived
-│           ├── auth.yaml
-│           └── kustomization.yaml
 ├── certmanager
 │   ├── certificate.yaml
 │   └── kustomization.yaml
 ├── default
+│   ├── auth.yaml
 │   ├── ironic_bmo_configmap.env
+│   ├── ironic-auth-config-tpl
+│   ├── ironic-inspector-auth-config-tpl
+│   ├── ironic-rpc-auth-config-tpl
 │   └── kustomization.yaml
 ├── ironic
 │   ├── ironic.yaml
 │   └── kustomization.yaml
 ├── keepalived
+│   ├── auth.yaml
 │   ├── ironic_bmo_configmap.env
 │   ├── keepalived_patch.yaml
 │   └── kustomization.yaml
 ├── OWNERS
 └── tls
     ├── default
+    │   ├── auth.yaml
     │   ├── kustomization.yaml
     │   └── tls.yaml
     └── keepalived
+        ├── auth.yaml
         ├── kustomization.yaml
         └── tls.yaml
 ```
@@ -145,10 +130,9 @@ Ironic-deployment folder has few folders for different deployments, `default`
 and `ironic` folders contain kustomization and deployment files for ironic, while
 `keepalived` folder keeps deploy files for the ironic with keepalived. As the name
 implies, `keepalived/keepalived_patch.yaml` patches the default image URL through
-kustomization. `tls` and `basic-auth` folders contain deployment files to add TLS
-and Basic Auth support between baremetal-operator and ironic. Similarly,
-`basic-auth` folder holds a manifest to add a cert-manager setup for Ironic TLS
-deployment.
+kustomization. The `tls` folder contain deployment files to add TLS support
+between baremetal-operator and ironic. Similarly, the `certmanager` folder
+holds a manifest to add a cert-manager setup for Ironic TLS deployment.
 
 ## Deployment commands
 
@@ -186,14 +170,13 @@ for you.
 Then run :
 
 ```sh
-./tools/deploy.sh <deploy-BMO> <deploy-Ironic> <deploy-TLS> <deploy-Basic-Auth> <deploy-Keepalived>
+./tools/deploy.sh [-b] [-i] [-t] [-k]
 ```
 
-- `deploy-BMO` : deploy BareMetal Operator : "true" or "false"
-- `deploy-Ironic` : deploy Ironic : "true" or "false"
-- `deploy-TLS` : deploy with TLS enabled : "true" or "false"
-- `deploy-Basic-Auth` : deploy with Basic Auth enabled : "true" or "false"
-- `deploy-Keepalived` : deploy with Keepalived for ironic : "true" or "false"
+- `-b` : deploy BareMetal Operator
+- `-i` : deploy Ironic
+- `-t` : deploy with TLS enabled
+- `-k` : deploy with Keepalived for ironic
 
 This will deploy BMO and / or Ironic with the proper configuration.
 

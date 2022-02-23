@@ -5,5 +5,16 @@ resources:
 - ../default
 - ../namespace
 
+secretGenerator:
+  - name: ironic-credentials
+    files:
+    - username=ironic-username
+    - password=ironic-password
+  - name: ironic-inspector-credentials
+    files:
+    - username=ironic-inspector-username
+    - password=ironic-inspector-password
+
 patchesStrategicMerge:
 - tls_ca_patch.yaml
+- credentials_patch.yaml

@@ -177,9 +177,9 @@ fi
 BASIC_AUTH_MOUNTS=""
 IRONIC_HTPASSWD=""
 if [ -n "$IRONIC_USERNAME" ]; then
-     envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-auth-config-tpl" > \
+     envsubst < "${SCRIPTDIR}/ironic-deployment/default/ironic-auth-config-tpl" > \
         "${IRONIC_DATA_DIR}/auth/ironic-auth-config"
-     envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-rpc-auth-config-tpl" > \
+     envsubst < "${SCRIPTDIR}/ironic-deployment/default/ironic-rpc-auth-config-tpl" > \
         "${IRONIC_DATA_DIR}/auth/ironic-rpc-auth-config"
      BASIC_AUTH_MOUNTS="-v ${IRONIC_DATA_DIR}/auth/ironic-auth-config:/auth/ironic/auth-config"
      BASIC_AUTH_MOUNTS="${BASIC_AUTH_MOUNTS} -v ${IRONIC_DATA_DIR}/auth/ironic-rpc-auth-config:/auth/ironic-rpc/auth-config"
@@ -188,7 +188,7 @@ if [ -n "$IRONIC_USERNAME" ]; then
 fi
 IRONIC_INSPECTOR_HTPASSWD=""
 if [ -n "$IRONIC_INSPECTOR_USERNAME" ]; then
-     envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-inspector-auth-config-tpl" > \
+     envsubst < "${SCRIPTDIR}/ironic-deployment/default/ironic-inspector-auth-config-tpl" > \
         "${IRONIC_DATA_DIR}/auth/ironic-inspector-auth-config"
      BASIC_AUTH_MOUNTS="${BASIC_AUTH_MOUNTS} -v ${IRONIC_DATA_DIR}/auth/ironic-inspector-auth-config:/auth/ironic-inspector/auth-config"
      IRONIC_INSPECTOR_HTPASSWD="$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" "${IRONIC_INSPECTOR_PASSWORD}")"

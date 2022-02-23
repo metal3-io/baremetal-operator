@@ -43,6 +43,9 @@ patchesStrategicMerge:
 # 'CERTMANAGER' needs to be enabled to use ca injection
 - webhookcainjection_patch.yaml
 
+# Authentication
+- credentials_patch.yaml
+
 # the following config is for teaching kustomize how to do var substitution
 vars:
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
@@ -82,3 +85,13 @@ configMapGenerator:
   envs:
   - ironic.env
   name: ironic
+
+secretGenerator:
+  - name: ironic-credentials
+    files:
+    - username=ironic-username
+    - password=ironic-password
+  - name: ironic-inspector-credentials
+    files:
+    - username=ironic-inspector-username
+    - password=ironic-inspector-password

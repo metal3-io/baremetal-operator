@@ -34,7 +34,6 @@ while getopts ":hbitnk" options; do
             DEPLOY_TLS=true
             ;;
         n)
-            echo "WARNING: Deploying without authentication is not recommended"
             DEPLOY_BASIC_AUTH=false
             ;;
         k)
@@ -84,6 +83,11 @@ if [ "$DEPLOY_BMO" == "false" ] && [ "$DEPLOY_IRONIC" == "false" ]; then
     exit 1
 fi
 
+if [ "$DEPLOY_BASIC_AUTH" == "false" ]; then
+    echo "ERROR: running without authentication is not supported"
+    exit 1
+fi
+
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
@@ -91,21 +95,17 @@ export NAMEPREFIX=${NAMEPREFIX:-"capm3"}
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
-IRONIC_DEPLOY_FILES="${SCRIPTDIR}/ironic-deployment/basic-auth/default/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/default/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/keepalived/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/keepalived/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/default/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/default/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/keepalived/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/keepalived/kustomization.yaml \
+IRONIC_DEPLOY_FILES="${SCRIPTDIR}/ironic-deployment/default/auth.yaml \
 	${SCRIPTDIR}/ironic-deployment/certmanager/certificate.yaml \
 	${SCRIPTDIR}/ironic-deployment/default/kustomization.yaml \
 	${SCRIPTDIR}/ironic-deployment/ironic/ironic.yaml \
+	${SCRIPTDIR}/ironic-deployment/keepalived/auth.yaml \
 	${SCRIPTDIR}/ironic-deployment/keepalived/keepalived_patch.yaml \
 	${SCRIPTDIR}/ironic-deployment/keepalived/kustomization.yaml \
+	${SCRIPTDIR}/ironic-deployment/tls/default/auth.yaml \
 	${SCRIPTDIR}/ironic-deployment/tls/default/kustomization.yaml \
 	${SCRIPTDIR}/ironic-deployment/tls/default/tls.yaml \
+	${SCRIPTDIR}/ironic-deployment/tls/keepalived/auth.yaml \
 	${SCRIPTDIR}/ironic-deployment/tls/keepalived/kustomization.yaml \
 	${SCRIPTDIR}/ironic-deployment/tls/keepalived/tls.yaml"
 
@@ -118,18 +118,13 @@ for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
   envsubst <"$DEPLOY_FILE".bak> "$DEPLOY_FILE"
 done
 
-if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-    BMO_SCENARIO="${SCRIPTDIR}/config/basic-auth"
-    IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment/basic-auth"
-else
-    BMO_SCENARIO="${SCRIPTDIR}/config"
-    IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment"
-fi
+BMO_SCENARIO="${SCRIPTDIR}/config"
+IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment"
 
 if [ "${DEPLOY_TLS}" == "true" ]; then
     BMO_SCENARIO="${BMO_SCENARIO}/tls"
     IRONIC_SCENARIO="${IRONIC_SCENARIO}/tls"
-elif [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
+else
     BMO_SCENARIO="${BMO_SCENARIO}/default"
 fi
 
@@ -147,61 +142,59 @@ sudo chown -R "${USER}:$(id -gn)" "${IRONIC_DATA_DIR}"
 mkdir -p "${IRONIC_AUTH_DIR}"
 
 #If usernames and passwords are unset, read them from file or generate them
-if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-    if [ -z "${IRONIC_USERNAME:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-username" ]; then
-            IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-            echo "$IRONIC_USERNAME" > "${IRONIC_AUTH_DIR}ironic-username"
-        else
-            IRONIC_USERNAME="$(cat "${IRONIC_AUTH_DIR}ironic-username")"
-        fi
+if [ -z "${IRONIC_USERNAME:-}" ]; then
+    if [ ! -f "${IRONIC_AUTH_DIR}ironic-username" ]; then
+        IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+        echo "$IRONIC_USERNAME" > "${IRONIC_AUTH_DIR}ironic-username"
+    else
+        IRONIC_USERNAME="$(cat "${IRONIC_AUTH_DIR}ironic-username")"
     fi
-    if [ -z "${IRONIC_PASSWORD:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-password" ]; then
-            IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-            echo "$IRONIC_PASSWORD" > "${IRONIC_AUTH_DIR}ironic-password"
-        else
-            IRONIC_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-password")"
-        fi
+fi
+if [ -z "${IRONIC_PASSWORD:-}" ]; then
+    if [ ! -f "${IRONIC_AUTH_DIR}ironic-password" ]; then
+        IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+        echo "$IRONIC_PASSWORD" > "${IRONIC_AUTH_DIR}ironic-password"
+    else
+        IRONIC_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-password")"
     fi
-    if [ -z "${IRONIC_INSPECTOR_USERNAME:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-inspector-username" ]; then
-            IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-            echo "$IRONIC_INSPECTOR_USERNAME" > "${IRONIC_AUTH_DIR}ironic-inspector-username"
-        else
-            IRONIC_INSPECTOR_USERNAME="$(cat "${IRONIC_AUTH_DIR}ironic-inspector-username")"
-        fi
+fi
+if [ -z "${IRONIC_INSPECTOR_USERNAME:-}" ]; then
+    if [ ! -f "${IRONIC_AUTH_DIR}ironic-inspector-username" ]; then
+        IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+        echo "$IRONIC_INSPECTOR_USERNAME" > "${IRONIC_AUTH_DIR}ironic-inspector-username"
+    else
+        IRONIC_INSPECTOR_USERNAME="$(cat "${IRONIC_AUTH_DIR}ironic-inspector-username")"
     fi
-    if [ -z "${IRONIC_INSPECTOR_PASSWORD:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-inspector-password" ]; then
-            IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-            echo "$IRONIC_INSPECTOR_PASSWORD" > "${IRONIC_AUTH_DIR}ironic-inspector-password"
-        else
-            IRONIC_INSPECTOR_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-inspector-password")"
-        fi
+fi
+if [ -z "${IRONIC_INSPECTOR_PASSWORD:-}" ]; then
+    if [ ! -f "${IRONIC_AUTH_DIR}ironic-inspector-password" ]; then
+        IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+        echo "$IRONIC_INSPECTOR_PASSWORD" > "${IRONIC_AUTH_DIR}ironic-inspector-password"
+    else
+        IRONIC_INSPECTOR_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-inspector-password")"
     fi
+fi
 
-    if [ "${DEPLOY_BMO}" == "true" ]; then
-        echo "${IRONIC_USERNAME}" > "${BMO_SCENARIO}/ironic-username"
-        echo "${IRONIC_PASSWORD}" > "${BMO_SCENARIO}/ironic-password"
+if [ "${DEPLOY_BMO}" == "true" ]; then
+    echo "${IRONIC_USERNAME}" > "${BMO_SCENARIO}/ironic-username"
+    echo "${IRONIC_PASSWORD}" > "${BMO_SCENARIO}/ironic-password"
 
-        echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_SCENARIO}/ironic-inspector-username"
-        echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_SCENARIO}/ironic-inspector-password"
-    fi
+    echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_SCENARIO}/ironic-inspector-username"
+    echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_SCENARIO}/ironic-inspector-password"
+fi
 
-    if [ "${DEPLOY_IRONIC}" == "true" ]; then
-        envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-auth-config-tpl" > \
-        "${IRONIC_SCENARIO}/ironic-auth-config"
-        envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-inspector-auth-config-tpl" > \
-        "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
-        envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-rpc-auth-config-tpl" > \
-        "${IRONIC_SCENARIO}/ironic-rpc-auth-config"
+if [ "${DEPLOY_IRONIC}" == "true" ]; then
+    envsubst < "${SCRIPTDIR}/ironic-deployment/default/ironic-auth-config-tpl" > \
+    "${IRONIC_SCENARIO}/ironic-auth-config"
+    envsubst < "${SCRIPTDIR}/ironic-deployment/default/ironic-inspector-auth-config-tpl" > \
+    "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
+    envsubst < "${SCRIPTDIR}/ironic-deployment/default/ironic-rpc-auth-config-tpl" > \
+    "${IRONIC_SCENARIO}/ironic-rpc-auth-config"
 
-        echo "HTTP_BASIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
-        "${IRONIC_SCENARIO}/ironic-htpasswd"
-        echo "HTTP_BASIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-        "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
-    fi
+    echo "HTTP_BASIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+    "${IRONIC_SCENARIO}/ironic-htpasswd"
+    echo "HTTP_BASIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
+    "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
 fi
 
 if [ "${DEPLOY_BMO}" == "true" ]; then
@@ -243,20 +236,18 @@ fi
     mv "$DEPLOY_FILE".bak "$DEPLOY_FILE"
  done
 
-if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-    if [ "${DEPLOY_BMO}" == "true" ]; then
-        rm "${BMO_SCENARIO}/ironic-username"
-        rm "${BMO_SCENARIO}/ironic-password"
-        rm "${BMO_SCENARIO}/ironic-inspector-username"
-        rm "${BMO_SCENARIO}/ironic-inspector-password"
-    fi
+if [ "${DEPLOY_BMO}" == "true" ]; then
+    rm "${BMO_SCENARIO}/ironic-username"
+    rm "${BMO_SCENARIO}/ironic-password"
+    rm "${BMO_SCENARIO}/ironic-inspector-username"
+    rm "${BMO_SCENARIO}/ironic-inspector-password"
+fi
 
-    if [ "${DEPLOY_IRONIC}" == "true" ]; then
-        rm "${IRONIC_SCENARIO}/ironic-auth-config"
-        rm "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
-        rm "${IRONIC_SCENARIO}/ironic-rpc-auth-config"
+if [ "${DEPLOY_IRONIC}" == "true" ]; then
+    rm "${IRONIC_SCENARIO}/ironic-auth-config"
+    rm "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
+    rm "${IRONIC_SCENARIO}/ironic-rpc-auth-config"
 
-        rm "${IRONIC_SCENARIO}/ironic-htpasswd"
-        rm "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
-    fi
+    rm "${IRONIC_SCENARIO}/ironic-htpasswd"
+    rm "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
 fi

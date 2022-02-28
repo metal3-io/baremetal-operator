@@ -264,6 +264,22 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "BMC driver libvirt does not support secure boot",
 		},
 		{
+			name: "InvalidBootMACAddress",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "irmc://127.0.1.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "00:00:00:00:00",
+					BootMode:       UEFISecureBoot,
+				}},
+			oldBMH:    nil,
+			wantedErr: "address 00:00:00:00:00: invalid MAC address",
+		},
+		{
 			name: "UEFISecureBootWithSupportBMC",
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,

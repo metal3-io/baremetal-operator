@@ -668,7 +668,7 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 			"message", errCond.Message)
 		return false, imageBuildError{errCond.Message}
 	}
-	if meta.IsStatusConditionTrue(image.Status.Conditions, string(metal3v1alpha1.ConditionImageReady)) {
+	if readyCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageReady)); readyCond != nil && readyCond.Status == metav1.ConditionTrue && readyCond.ObservedGeneration == image.Generation {
 		return true, nil
 	}
 

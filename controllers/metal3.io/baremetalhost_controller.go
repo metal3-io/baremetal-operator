@@ -663,7 +663,7 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 		return false, nil
 	}
 
-	if errCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageError)); errCond.Status == metav1.ConditionTrue {
+	if errCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageError)); errCond != nil && errCond.Status == metav1.ConditionTrue {
 		info.log.Info("error building PreprovisioningImage",
 			"message", errCond.Message)
 		return false, imageBuildError{errCond.Message}

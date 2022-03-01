@@ -715,6 +715,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
+				Labels:    info.host.Labels,
 			},
 			Spec: expectedSpec,
 		}
@@ -726,12 +727,24 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		return nil, errors.Wrap(err, "failed to retrieve pre-provisioning image data")
 	}
 
+	needsUpdate := false
+	for k, v := range info.host.Labels {
+		if cur, ok := preprovImage.Labels[k]; !ok || cur != v {
+			preprovImage.Labels[k] = v
+			needsUpdate = true
+		}
+	}
 	if !apiequality.Semantic.DeepEqual(preprovImage.Spec, expectedSpec) {
 		info.log.Info("updating PreprovisioningImage spec")
 		preprovImage.Spec = expectedSpec
+		needsUpdate = true
+	}
+	if needsUpdate {
+		info.log.Info("updating PreprovisioningImage")
 		err = r.Update(context.TODO(), &preprovImage)
 		return nil, err
 	}
+
 	if available, err := r.preprovImageAvailable(info, &preprovImage); err != nil || !available {
 		return nil, err
 	}

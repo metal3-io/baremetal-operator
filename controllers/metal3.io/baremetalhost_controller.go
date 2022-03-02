@@ -951,7 +951,7 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
-	bmhDirty, newStatus, err := getHostProvisioningSettings(info.host)
+	bmhDirty, newStatus, err := getHostProvisioningSettings(info.host, info)
 	if err != nil {
 		return actionError{err}
 	}
@@ -1000,7 +1000,7 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 
 	if bmhDirty && started {
 		info.log.Info("saving host provisioning settings")
-		_, err := saveHostProvisioningSettings(info.host)
+		_, err := saveHostProvisioningSettings(info.host, info)
 		if err != nil {
 			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
 		}
@@ -1296,9 +1296,9 @@ func (r *BareMetalHostReconciler) actionManageAvailable(prov provisioner.Provisi
 	return r.manageHostPower(prov, info)
 }
 
-func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
+func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost, info *reconcileInfo) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
 	hostCopy := host.DeepCopy()
-	dirty, err = saveHostProvisioningSettings(hostCopy)
+	dirty, err = saveHostProvisioningSettings(hostCopy, info)
 	if err != nil {
 		err = errors.Wrap(err, "could not determine the host provisioning settings")
 	}
@@ -1309,22 +1309,23 @@ func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool
 // saveHostProvisioningSettings copies the values related to
 // provisioning that do not trigger re-provisioning into the status
 // fields of the host.
-func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
+func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost, info *reconcileInfo) (dirty bool, err error) {
 
 	// Ensure the root device hints we're going to use are stored.
 	//
 	// If the user has provided explicit root device hints, they take
 	// precedence. Otherwise use the values from the hardware profile.
-	hintSource := host.Spec.RootDeviceHints
+	hintSource := host.Spec.RootDeviceHints.DeepCopy()
 	if hintSource == nil {
 		hwProf, err := hardware.GetProfile(host.HardwareProfile())
 		if err != nil {
 			return false, errors.Wrap(err, "Could not update root device hints")
 		}
-		hintSource = &hwProf.RootDeviceHints
+		hintSource = hwProf.RootDeviceHints.DeepCopy()
 	}
-	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
-		host.Status.Provisioning.RootDeviceHints = hintSource
+	if !reflect.DeepEqual(hintSource, host.Status.Provisioning.RootDeviceHints) {
+		host.Status.Provisioning.RootDeviceHints = hintSource.DeepCopy()
+		info.log.Info("RootDeviceHints have changed")
 		dirty = true
 	}
 
@@ -1346,12 +1347,14 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 	if !reflect.DeepEqual(host.Status.Provisioning.RAID, specRAID) {
 		host.Status.Provisioning.RAID = specRAID
+		info.log.Info("RAID settings have changed")
 		dirty = true
 	}
 
 	// Copy BIOS settings
 	if !reflect.DeepEqual(host.Status.Provisioning.Firmware, host.Spec.Firmware) {
 		host.Status.Provisioning.Firmware = host.Spec.Firmware
+		info.log.Info("Firmware settings have changed")
 		dirty = true
 	}
 

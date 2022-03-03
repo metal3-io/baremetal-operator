@@ -728,6 +728,9 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 	}
 
 	needsUpdate := false
+	if preprovImage.Labels == nil && len(info.host.Labels) > 0 {
+		preprovImage.Labels = make(map[string]string, len(info.host.Labels))
+	}
 	for k, v := range info.host.Labels {
 		if cur, ok := preprovImage.Labels[k]; !ok || cur != v {
 			preprovImage.Labels[k] = v

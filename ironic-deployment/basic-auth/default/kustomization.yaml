@@ -21,9 +21,6 @@ secretGenerator:
 - name: ironic-inspector-auth-config
   files:
   - auth-config=ironic-inspector-auth-config
-- name: ironic-rpc-auth-config
-  files:
-  - auth-config=ironic-rpc-auth-config
 
 patchesStrategicMerge:
 - auth.yaml

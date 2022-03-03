@@ -194,12 +194,10 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         "${IRONIC_SCENARIO}/ironic-auth-config"
         envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-inspector-auth-config-tpl" > \
         "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
-        envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-rpc-auth-config-tpl" > \
-        "${IRONIC_SCENARIO}/ironic-rpc-auth-config"
 
-        echo "HTTP_BASIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+        echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
         "${IRONIC_SCENARIO}/ironic-htpasswd"
-        echo "HTTP_BASIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
+        echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
         "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
     fi
 fi
@@ -254,7 +252,6 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     if [ "${DEPLOY_IRONIC}" == "true" ]; then
         rm "${IRONIC_SCENARIO}/ironic-auth-config"
         rm "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
-        rm "${IRONIC_SCENARIO}/ironic-rpc-auth-config"
 
         rm "${IRONIC_SCENARIO}/ironic-htpasswd"
         rm "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"

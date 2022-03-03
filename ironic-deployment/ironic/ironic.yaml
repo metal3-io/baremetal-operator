@@ -81,11 +81,11 @@ spec:
                  configMapKeyRef:
                   name: ironic-bmo-configmap
                   key: RESTART_CONTAINER_CERTIFICATE_UPDATED
-        - name: ironic-api
+        - name: ironic
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
           command:
-            - /bin/runironic-api
+            - /bin/runironic
           livenessProbe:
            exec:
              command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
@@ -102,39 +102,6 @@ spec:
            timeoutSeconds: 10
            successThreshold: 1
            failureThreshold: 10
-          volumeMounts:
-            - mountPath: /shared
-              name: ironic-data-volume
-          envFrom:
-            - configMapRef:
-                name: ironic-bmo-configmap
-          env:
-            - name: MARIADB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mariadb-password
-                  key: password
-        - name: ironic-conductor
-          image: quay.io/metal3-io/ironic
-          imagePullPolicy: Always
-          command:
-            - /bin/runironic-conductor
-          readinessProbe:
-            exec:
-              command: ["sh", "-c", "curl -sd '{}' -o – -k https://127.0.0.1:8089 || curl -sd '{}' -o – http://127.0.0.1:8089"]
-            initialDelaySeconds: 30
-            periodSeconds: 30
-            timeoutSeconds: 10
-            successThreshold: 1
-            failureThreshold: 10
-          livenessProbe:
-            exec:
-              command: ["sh", "-c", "curl -sd '{}' -o – -k https://127.0.0.1:8089 || curl -sd '{}' -o – http://127.0.0.1:8089"]
-            initialDelaySeconds: 30
-            periodSeconds: 30
-            timeoutSeconds: 10
-            successThreshold: 1
-            failureThreshold: 10
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume
@@ -176,6 +143,33 @@ spec:
             failureThreshold: 10
           command:
             - /bin/runironic-inspector
+          envFrom:
+            - configMapRef:
+                name: ironic-bmo-configmap
+        - name: ironic-httpd
+          image: quay.io/metal3-io/ironic
+          imagePullPolicy: Always
+          command:
+            - /bin/runhttpd
+          livenessProbe:
+           exec:
+             command: ["sh", "-c", "curl -sSfk https://127.0.0.1:6180"]
+           initialDelaySeconds: 30
+           periodSeconds: 30
+           timeoutSeconds: 10
+           successThreshold: 1
+           failureThreshold: 10
+          readinessProbe:
+           exec:
+             command: ["sh", "-c", "curl -sSfk https://127.0.0.1:6180"]
+           initialDelaySeconds: 30
+           periodSeconds: 30
+           timeoutSeconds: 10
+           successThreshold: 1
+           failureThreshold: 10
+          volumeMounts:
+            - mountPath: /shared
+              name: ironic-data-volume
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap

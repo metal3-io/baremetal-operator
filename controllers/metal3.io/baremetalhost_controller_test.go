@@ -2237,6 +2237,9 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	secretName := "net_secret"
 	host := newDefaultHost(t)
 	host.Spec.PreprovisioningNetworkDataName = secretName
+	host.Labels = map[string]string{
+		"answer.metal3.io": "42",
+	}
 	r := newTestReconciler(host, newSecret(secretName, nil))
 	i := makeReconcileInfo(host)
 
@@ -2252,9 +2255,11 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 		&img))
 	assert.Equal(t, "x86_64", img.Spec.Architecture)
 	assert.Equal(t, secretName, img.Spec.NetworkDataName)
+	assert.Equal(t, "42", img.Labels["answer.metal3.io"])
 
 	newSecretName := "new_net_secret"
 	host.Spec.PreprovisioningNetworkDataName = newSecretName
+	host.Labels["cat.metal3.io"] = "meow"
 
 	imgData, err = r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{"iso"})
 	assert.NoError(t, err)
@@ -2266,6 +2271,8 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	},
 		&img))
 	assert.Equal(t, newSecretName, img.Spec.NetworkDataName)
+	assert.Equal(t, "42", img.Labels["answer.metal3.io"])
+	assert.Equal(t, "meow", img.Labels["cat.metal3.io"])
 }
 
 func TestGetPreprovImage(t *testing.T) {

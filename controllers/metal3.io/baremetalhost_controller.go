@@ -663,12 +663,12 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 		return false, nil
 	}
 
-	if errCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageError)); errCond.Status == metav1.ConditionTrue {
+	if errCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageError)); errCond != nil && errCond.Status == metav1.ConditionTrue {
 		info.log.Info("error building PreprovisioningImage",
 			"message", errCond.Message)
 		return false, imageBuildError{errCond.Message}
 	}
-	if meta.IsStatusConditionTrue(image.Status.Conditions, string(metal3v1alpha1.ConditionImageReady)) {
+	if readyCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageReady)); readyCond != nil && readyCond.Status == metav1.ConditionTrue && readyCond.ObservedGeneration == image.Generation {
 		return true, nil
 	}
 
@@ -715,6 +715,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
+				Labels:    info.host.Labels,
 			},
 			Spec: expectedSpec,
 		}
@@ -726,12 +727,27 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		return nil, errors.Wrap(err, "failed to retrieve pre-provisioning image data")
 	}
 
+	needsUpdate := false
+	if preprovImage.Labels == nil && len(info.host.Labels) > 0 {
+		preprovImage.Labels = make(map[string]string, len(info.host.Labels))
+	}
+	for k, v := range info.host.Labels {
+		if cur, ok := preprovImage.Labels[k]; !ok || cur != v {
+			preprovImage.Labels[k] = v
+			needsUpdate = true
+		}
+	}
 	if !apiequality.Semantic.DeepEqual(preprovImage.Spec, expectedSpec) {
 		info.log.Info("updating PreprovisioningImage spec")
 		preprovImage.Spec = expectedSpec
+		needsUpdate = true
+	}
+	if needsUpdate {
+		info.log.Info("updating PreprovisioningImage")
 		err = r.Update(context.TODO(), &preprovImage)
 		return nil, err
 	}
+
 	if available, err := r.preprovImageAvailable(info, &preprovImage); err != nil || !available {
 		return nil, err
 	}

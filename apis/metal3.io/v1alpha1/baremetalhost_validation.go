@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -82,6 +83,13 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 
 	if bmcAccess.NeedsMAC() && s.BootMACAddress == "" {
 		errs = append(errs, fmt.Errorf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type()))
+	}
+
+	if s.BootMACAddress != "" {
+		_, err := net.ParseMAC(s.BootMACAddress)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if s.BootMode == UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {

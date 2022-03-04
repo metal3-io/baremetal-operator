@@ -663,12 +663,12 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 		return false, nil
 	}
 
-	if errCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageError)); errCond.Status == metav1.ConditionTrue {
+	if errCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageError)); errCond != nil && errCond.Status == metav1.ConditionTrue {
 		info.log.Info("error building PreprovisioningImage",
 			"message", errCond.Message)
 		return false, imageBuildError{errCond.Message}
 	}
-	if meta.IsStatusConditionTrue(image.Status.Conditions, string(metal3v1alpha1.ConditionImageReady)) {
+	if readyCond := meta.FindStatusCondition(image.Status.Conditions, string(metal3v1alpha1.ConditionImageReady)); readyCond != nil && readyCond.Status == metav1.ConditionTrue && readyCond.ObservedGeneration == image.Generation {
 		return true, nil
 	}
 
@@ -715,6 +715,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
+				Labels:    info.host.Labels,
 			},
 			Spec: expectedSpec,
 		}
@@ -726,12 +727,27 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		return nil, errors.Wrap(err, "failed to retrieve pre-provisioning image data")
 	}
 
+	needsUpdate := false
+	if preprovImage.Labels == nil && len(info.host.Labels) > 0 {
+		preprovImage.Labels = make(map[string]string, len(info.host.Labels))
+	}
+	for k, v := range info.host.Labels {
+		if cur, ok := preprovImage.Labels[k]; !ok || cur != v {
+			preprovImage.Labels[k] = v
+			needsUpdate = true
+		}
+	}
 	if !apiequality.Semantic.DeepEqual(preprovImage.Spec, expectedSpec) {
 		info.log.Info("updating PreprovisioningImage spec")
 		preprovImage.Spec = expectedSpec
+		needsUpdate = true
+	}
+	if needsUpdate {
+		info.log.Info("updating PreprovisioningImage")
 		err = r.Update(context.TODO(), &preprovImage)
 		return nil, err
 	}
+
 	if available, err := r.preprovImageAvailable(info, &preprovImage); err != nil || !available {
 		return nil, err
 	}
@@ -951,7 +967,7 @@ func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisione
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
-	bmhDirty, newStatus, err := getHostProvisioningSettings(info.host)
+	bmhDirty, newStatus, err := getHostProvisioningSettings(info.host, info)
 	if err != nil {
 		return actionError{err}
 	}
@@ -1000,7 +1016,7 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 
 	if bmhDirty && started {
 		info.log.Info("saving host provisioning settings")
-		_, err := saveHostProvisioningSettings(info.host)
+		_, err := saveHostProvisioningSettings(info.host, info)
 		if err != nil {
 			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
 		}
@@ -1296,9 +1312,9 @@ func (r *BareMetalHostReconciler) actionManageAvailable(prov provisioner.Provisi
 	return r.manageHostPower(prov, info)
 }
 
-func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
+func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost, info *reconcileInfo) (dirty bool, status *metal3v1alpha1.BareMetalHostStatus, err error) {
 	hostCopy := host.DeepCopy()
-	dirty, err = saveHostProvisioningSettings(hostCopy)
+	dirty, err = saveHostProvisioningSettings(hostCopy, info)
 	if err != nil {
 		err = errors.Wrap(err, "could not determine the host provisioning settings")
 	}
@@ -1309,22 +1325,23 @@ func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool
 // saveHostProvisioningSettings copies the values related to
 // provisioning that do not trigger re-provisioning into the status
 // fields of the host.
-func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty bool, err error) {
+func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost, info *reconcileInfo) (dirty bool, err error) {
 
 	// Ensure the root device hints we're going to use are stored.
 	//
 	// If the user has provided explicit root device hints, they take
 	// precedence. Otherwise use the values from the hardware profile.
-	hintSource := host.Spec.RootDeviceHints
+	hintSource := host.Spec.RootDeviceHints.DeepCopy()
 	if hintSource == nil {
 		hwProf, err := hardware.GetProfile(host.HardwareProfile())
 		if err != nil {
 			return false, errors.Wrap(err, "Could not update root device hints")
 		}
-		hintSource = &hwProf.RootDeviceHints
+		hintSource = hwProf.RootDeviceHints.DeepCopy()
 	}
-	if (hintSource != nil && host.Status.Provisioning.RootDeviceHints == nil) || *hintSource != *(host.Status.Provisioning.RootDeviceHints) {
-		host.Status.Provisioning.RootDeviceHints = hintSource
+	if !reflect.DeepEqual(hintSource, host.Status.Provisioning.RootDeviceHints) {
+		host.Status.Provisioning.RootDeviceHints = hintSource.DeepCopy()
+		info.log.Info("RootDeviceHints have changed")
 		dirty = true
 	}
 
@@ -1346,12 +1363,14 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost) (dirty boo
 	}
 	if !reflect.DeepEqual(host.Status.Provisioning.RAID, specRAID) {
 		host.Status.Provisioning.RAID = specRAID
+		info.log.Info("RAID settings have changed")
 		dirty = true
 	}
 
 	// Copy BIOS settings
 	if !reflect.DeepEqual(host.Status.Provisioning.Firmware, host.Spec.Firmware) {
 		host.Status.Provisioning.Firmware = host.Spec.Firmware
+		info.log.Info("Firmware settings have changed")
 		dirty = true
 	}
 

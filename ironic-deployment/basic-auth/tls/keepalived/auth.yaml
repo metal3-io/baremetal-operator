@@ -6,27 +6,29 @@ spec:
   template:
     spec:
       containers:
-      - name: ironic-api
+      - name: ironic
         volumeMounts:
-        - name: ironic-rpc-auth-config
-          mountPath: "/auth/ironic-rpc"
+        - name: ironic-inspector-auth-config
+          mountPath: "/auth/ironic-inspector"
           readOnly: true
         envFrom:
         - configMapRef:
             name: ironic-htpasswd
         - configMapRef:
             name: ironic-bmo-configmap
-      - name: ironic-conductor
+      - name: ironic-httpd
         volumeMounts:
+        - name: ironic-auth-config
+          mountPath: "/auth/ironic"
+          readOnly: true
         - name: ironic-inspector-auth-config
           mountPath: "/auth/ironic-inspector"
-          readOnly: true
-        - name: ironic-rpc-auth-config
-          mountPath: "/auth/ironic-rpc"
           readOnly: true
         envFrom:
         - configMapRef:
             name: ironic-htpasswd
+        - configMapRef:
+            name: ironic-inspector-htpasswd
         - configMapRef:
             name: ironic-bmo-configmap
       - name: ironic-inspector
@@ -46,6 +48,3 @@ spec:
       - name: ironic-inspector-auth-config
         secret:
           secretName: ironic-inspector-auth-config
-      - name: ironic-rpc-auth-config
-        secret:
-          secretName: ironic-rpc-auth-config

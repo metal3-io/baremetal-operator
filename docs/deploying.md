@@ -107,7 +107,6 @@ ironic-deployment/
 │   │   └── kustomization.yaml
 │   ├── ironic-auth-config-tpl
 │   ├── ironic-inspector-auth-config-tpl
-│   ├── ironic-rpc-auth-config-tpl
 │   ├── keepalived
 │   │   ├── auth.yaml
 │   │   └── kustomization.yaml

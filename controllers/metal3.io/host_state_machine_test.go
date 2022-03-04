@@ -1129,7 +1129,8 @@ func (hb *hostBuilder) build() *metal3v1alpha1.BareMetalHost {
 }
 
 func (hb *hostBuilder) SaveHostProvisioningSettings() *hostBuilder {
-	saveHostProvisioningSettings(&hb.BareMetalHost)
+	info := makeDefaultReconcileInfo(&hb.BareMetalHost)
+	saveHostProvisioningSettings(&hb.BareMetalHost, info)
 	return hb
 }
 

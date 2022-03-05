@@ -1460,6 +1460,8 @@ func TestDeleteHost(t *testing.T) {
 // precedence rules to the root device hints settings for a host.
 func TestUpdateRootDeviceHints(t *testing.T) {
 	rotational := true
+	rotationalTwo := true
+	rotationalFalse := false
 
 	testCases := []struct {
 		Scenario string
@@ -1488,6 +1490,9 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 						WWNWithExtension:   "userd_with_extension",
 						WWNVendorExtension: "userd_vendor_extension",
 						Rotational:         &rotational,
+					},
+					RAID: &metal3v1alpha1.RAIDConfig{
+						SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
 					},
 				},
 				Status: metal3v1alpha1.BareMetalHostStatus{
@@ -1550,18 +1555,87 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 				DeviceName: "/dev/sda",
 			},
 		},
+
+		{
+			Scenario: "rotational values same",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					HardwareProfile: "libvirt",
+					RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+						MinSizeGigabytes: 40,
+						Rotational:       &rotational,
+					},
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+							MinSizeGigabytes: 40,
+							Rotational:       &rotationalTwo,
+						},
+						RAID: &metal3v1alpha1.RAIDConfig{
+							SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+						}},
+				},
+			},
+			Dirty: false,
+			Expected: &metal3v1alpha1.RootDeviceHints{
+				MinSizeGigabytes: 40,
+				Rotational:       &rotational,
+			},
+		},
+
+		{
+			Scenario: "rotational values different",
+			Host: metal3v1alpha1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
+				},
+				Spec: metal3v1alpha1.BareMetalHostSpec{
+					HardwareProfile: "libvirt",
+					RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+						MinSizeGigabytes: 40,
+						Rotational:       &rotational,
+					},
+				},
+				Status: metal3v1alpha1.BareMetalHostStatus{
+					HardwareProfile: "libvirt",
+					Provisioning: metal3v1alpha1.ProvisionStatus{
+						RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+							MinSizeGigabytes: 40,
+							Rotational:       &rotationalFalse,
+						},
+						RAID: &metal3v1alpha1.RAIDConfig{
+							SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+						}},
+				},
+			},
+			Dirty: true,
+			Expected: &metal3v1alpha1.RootDeviceHints{
+				MinSizeGigabytes: 40,
+				Rotational:       &rotational,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			dirty, newStatus, err := getHostProvisioningSettings(&tc.Host)
+			info := makeReconcileInfo(&tc.Host)
+			dirty, newStatus, err := getHostProvisioningSettings(&tc.Host, info)
 			if err != nil {
 				t.Fatal(err)
 			}
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
 			assert.Equal(t, tc.Expected, newStatus.Provisioning.RootDeviceHints)
 
-			dirty, err = saveHostProvisioningSettings(&tc.Host)
+			dirty, err = saveHostProvisioningSettings(&tc.Host, info)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1977,10 +2051,11 @@ func TestUpdateRAID(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			host.Spec.RAID = c.raid
-			dirty, _ := saveHostProvisioningSettings(&host)
+			info := makeReconcileInfo(&host)
+			dirty, _ := saveHostProvisioningSettings(&host, info)
 			assert.Equal(t, c.dirty, dirty)
 			assert.Equal(t, c.expected, host.Status.Provisioning.RAID)
-			dirty, _, _ = getHostProvisioningSettings(&host)
+			dirty, _, _ = getHostProvisioningSettings(&host, info)
 			assert.Equal(t, false, dirty)
 		})
 	}
@@ -2162,6 +2237,9 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	secretName := "net_secret"
 	host := newDefaultHost(t)
 	host.Spec.PreprovisioningNetworkDataName = secretName
+	host.Labels = map[string]string{
+		"answer.metal3.io": "42",
+	}
 	r := newTestReconciler(host, newSecret(secretName, nil))
 	i := makeReconcileInfo(host)
 
@@ -2177,9 +2255,11 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 		&img))
 	assert.Equal(t, "x86_64", img.Spec.Architecture)
 	assert.Equal(t, secretName, img.Spec.NetworkDataName)
+	assert.Equal(t, "42", img.Labels["answer.metal3.io"])
 
 	newSecretName := "new_net_secret"
 	host.Spec.PreprovisioningNetworkDataName = newSecretName
+	host.Labels["cat.metal3.io"] = "meow"
 
 	imgData, err = r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{"iso"})
 	assert.NoError(t, err)
@@ -2191,6 +2271,8 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	},
 		&img))
 	assert.Equal(t, newSecretName, img.Spec.NetworkDataName)
+	assert.Equal(t, "42", img.Labels["answer.metal3.io"])
+	assert.Equal(t, "meow", img.Labels["cat.metal3.io"])
 }
 
 func TestGetPreprovImage(t *testing.T) {

@@ -29,44 +29,26 @@ The sub-fields are
 BMC URLs vary based on the type of BMC and the protocol used to
 communicate with them.
 
-* IPMI
-  * `ipmi://<host>:<port>`, an unadorned `<host>:<port>` is also accepted
-    and the port is optional, if using the default one (623).
-  * The ipmi privilege level can be set from the default(`ADMINISTRATOR`)
-    to `OPERATOR` with an option URL parameter `privilegelevel`.
-    `ipmi://<host>:<port>?privilegelevel=OPERATOR`
-* Dell iDRAC
-  * `idrac://` (or `idrac+http://` to disable TLS).
-  * `idrac-virtualmedia://` to use virtual media instead of PXE
-    for attaching the provisioning image to the host.
-  * `idrac-redfish://` may be used to manage iDRAC controller with the
-    Redfish protocol over HTTPS. The URL must also contain a path to
-    the Redfish API system endpoint.
-    `idrac-redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
-* Fujitsu iRMC
-  * `irmc://<host>:<port>`, where `<port>` is optional if using the default.
-* HUAWEI ibmc
-  * `ibmc://<host>:<port>` (or `ibmc+http://<host>:<port>` to disable TLS)
-* HPE iLO 4
-  * `ilo4://<host>:<port>` for iLO 4 based systems and the port is optional,
-    if using the default one (443).
-  * `ilo4-virtualmedia://<host>:<port>` to use virtual media instead of PXE
-    for iLO 4 based systems.
-* HPE iLO 5
-  * `ilo5://<host>:<port>` for iLO 5 based systems and the port is optional,
-    if using the default one (443).
-* iLO 5 Redfish
-  * `ilo5-redfish://` (or `ilo5-redfish+http://` to disable TLS), the hostname
-    or IP address, and the path to the system ID are required,
-    for example `ilo5-redfish://myhost.example/redfish/v1/Systems/MySystemExample`
-* Redfish
-  * `redfish://` (or `redfish+http://` to disable TLS)
-  * `redfish-virtualmedia://` to use virtual media instead of PXE
-    for attaching the provisioning image to the host.
-  * The hostname or IP address, and the path to the system ID are
-    required for all variants.  For example
-    `redfish://myhost.example/redfish/v1/Systems/System.Embedded.1`
-    or `redfish://myhost.example/redfish/v1/Systems/1`
+| Technology      | Protocol | Boot method   | Format                                            | Notes                                                                   |
+|-----------------|----------|---------------|---------------------------------------------------|-------------------------------------------------------------------------|
+| Generic IPMI    | IPMI     | iPXE          | `ipmi://<host>:<port>` or just `<host>:<port>`    | Port is optional, defaults to 623                                       |
+| Generic Redfish | Redfish  | iPXE          | `redfish://<host>:<port>/<systemID>`              | System ID is a path like `/redfish/v1/Systems/System.Embedded.1`        |
+|                 |          | Virtual media | `redfish-virtualmedia://<host>:<port>/<systemID>` | Virtual media support is vendor-dependent. Should not be used for Dell. |
+| Dell iDRAC      | WSMAN    | iPXE          | `idrac://<host>:<port>`                           |                                                                         |
+|                 | Redfish  | iPXE          | `idrac-redfish://<host>:<port>/<systemID>`        | See above about system ID.                                              |
+|                 | Redfish  | Virtual media | `idrac-virtualmedia://<host>:<port>/<systemID>`   | See above about system ID.                                              |
+| Fujitsu iRMC    | iRMC     | iPXE          | `irmc://<host>:<port>`                            | Port is optional.                                                       |
+| HUAWEI ibmc     | ibmc     | iPXE          | `ibmc://<host>:<port>`                            |                                                                         |
+| HPE iLO 4       | iLO      | iPXE          | `ilo4://<host>:<port>`                            | Port is optional, the default is 443.                                   |
+|                 | iLO      | Virtual media | `ilo4-virtualmedia://<host>:<port>`               |                                                                         |
+| HPE iLO 5       | iLO      | iPXE          | `ilo5://<host>:<port>`                            |                                                                         |
+|                 | Redfish  | iPXE          | `ilo5-redfish://<host>:<port>/<systemID>`         |                                                                         |
+|                 | Redfish  | Virtual media | `ilo5-virtualmedia://<host>:<port>/<systemID>`    |                                                                         |
+
+All protocols based on HTTPS (i.e. not IPMI) with an exception of iRMC allow
+optionally specifying the carrier protocol in the form of `+http` or `+https`,
+for example: `redfish+http://...` or `idrac-virtualmedia+https`. iLO (both
+versions) only support HTTPS. When not specified, HTTPS is used by default.
 
 #### online
 

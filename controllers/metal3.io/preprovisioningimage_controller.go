@@ -110,6 +110,16 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		log.Info("requeuing to check for secret", "after", delay)
 		result.RequeueAfter = delay
 	}
+
+	notReady := imageprovider.ImageNotReady{}
+	if errors.As(err, &notReady) {
+		log.Info("image is not ready yet, requeuing", "after", minRetryDelay)
+		if setUnready(img.GetGeneration(), &img.Status, err.Error()) {
+			changed = true
+		}
+		result.RequeueAfter = minRetryDelay
+	}
+
 	if changed {
 		log.Info("updating status")
 		err = r.Status().Update(ctx, &img)

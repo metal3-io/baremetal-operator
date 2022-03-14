@@ -328,6 +328,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 					},
 					Conditions: []metav1.Condition{
 						{Type: "Valid", Status: "True", Reason: "Success"},
+						{Type: "ChangeDetected", Status: "False", Reason: "Success"},
 					},
 				},
 			},
@@ -367,6 +368,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 					},
 					Conditions: []metav1.Condition{
 						{Type: "Valid", Status: "True", Reason: "Success"},
+						{Type: "ChangeDetected", Status: "False", Reason: "Success"},
 					},
 				},
 			},
@@ -537,6 +539,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 					},
 					Conditions: []metav1.Condition{
 						{Type: "Valid", Status: "True", Reason: "Success"},
+						{Type: "ChangeDetected", Status: "False", Reason: "Success"},
 					},
 				},
 			},
@@ -712,7 +715,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 				hfs: hfs,
 			}
 
-			errors := r.validateHostFirmwareSettings(info, getExpectedSchema())
+			errors := r.validateHostFirmwareSettings(info, &info.hfs.Status, getExpectedSchema())
 			if len(errors) == 0 {
 				assert.Equal(t, tc.ExpectedError, "")
 			} else {

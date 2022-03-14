@@ -491,7 +491,7 @@ func TestCheckRAIDConfigure(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.raidInterface, func(t *testing.T) {
-			err := checkRAIDConfigure(c.raidInterface, c.RAID)
+			err := CheckRAIDInterface(c.raidInterface, c.RAID)
 			if (err != nil) != c.expectedError {
 				t.Errorf("Got unexpected error: %v", err)
 			}

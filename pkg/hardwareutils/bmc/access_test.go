@@ -434,7 +434,6 @@ func TestStaticDriverInfo(t *testing.T) {
 		boot       string
 		management string
 		power      string
-		raid       string
 		vendor     string
 	}{
 		{
@@ -446,7 +445,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -458,7 +456,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -470,7 +467,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -482,7 +478,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "irmc",
 		},
 
 		{
@@ -494,7 +489,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -506,7 +500,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -518,7 +511,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -530,7 +522,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "redfish-virtual-media",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -542,7 +533,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ipxe",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
-			raid:       "no-raid",
 			vendor:     "idrac-redfish",
 		},
 
@@ -582,7 +572,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
-			raid:       "no-raid",
 			vendor:     "idrac-redfish",
 		},
 
@@ -595,7 +584,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
-			raid:       "no-raid",
 			vendor:     "idrac-redfish",
 		},
 
@@ -608,7 +596,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "idrac-redfish-virtual-media",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
-			raid:       "no-raid",
 			vendor:     "idrac-redfish",
 		},
 
@@ -621,7 +608,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "pxe",
 			management: "ibmc",
 			power:      "ibmc",
-			raid:       "no-raid",
 		},
 
 		{
@@ -633,7 +619,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ilo-ipxe",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -645,7 +630,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ilo-virtual-media",
 			management: "",
 			power:      "",
-			raid:       "no-raid",
 		},
 
 		{
@@ -657,7 +641,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			boot:       "ilo-ipxe",
 			management: "",
 			power:      "",
-			raid:       "ilo5",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {

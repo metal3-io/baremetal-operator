@@ -19,7 +19,7 @@ const (
 
 // setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps
 func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (provisioner.Result, error) {
-	err := checkRAIDConfigure(raidInterface, data.TargetRAIDConfig)
+	err := CheckRAIDInterface(raidInterface, data.TargetRAIDConfig)
 	if err != nil {
 		return operationFailed(err.Error())
 	}
@@ -178,7 +178,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3v1alpha1.SoftwareRAIDVolume) (lo
 
 // BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec
 func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig, actual *metal3v1alpha1.RAIDConfig) (cleanSteps []nodes.CleanStep, err error) {
-	err = checkRAIDConfigure(raidInterface, target)
+	err = CheckRAIDInterface(raidInterface, target)
 	if err != nil {
 		return nil, err
 	}
@@ -273,18 +273,21 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 	return
 }
 
-func checkRAIDConfigure(raidInterface string, raid *metal3v1alpha1.RAIDConfig) error {
+// CheckRAIDInterface checks the current RAID interface against the requested configuration
+func CheckRAIDInterface(raidInterface string, target *metal3v1alpha1.RAIDConfig) error {
+	// FIXME(dtantsur): the software RAID logic is completely broken: no driver sets raidInterface to "agent".
+	// This value must be used when software RAID volumes are requested or deleted.
 	switch raidInterface {
 	case noRAIDInterface:
-		if raid != nil && (len(raid.HardwareRAIDVolumes) != 0 || len(raid.SoftwareRAIDVolumes) != 0) {
-			return fmt.Errorf("raid settings are defined, but the node's driver %s does not support RAID", raidInterface)
+		if target != nil && (len(target.HardwareRAIDVolumes) != 0 || len(target.SoftwareRAIDVolumes) != 0) {
+			return fmt.Errorf("target settings are defined, but the node's driver %s does not support RAID", raidInterface)
 		}
 	case softwareRAIDInterface:
-		if raid != nil && len(raid.HardwareRAIDVolumes) != 0 {
+		if target != nil && len(target.HardwareRAIDVolumes) != 0 {
 			return fmt.Errorf("node's driver %s does not support hardware RAID", raidInterface)
 		}
 	default:
-		if raid != nil && len(raid.HardwareRAIDVolumes) == 0 && len(raid.SoftwareRAIDVolumes) != 0 {
+		if target != nil && len(target.HardwareRAIDVolumes) == 0 && len(target.SoftwareRAIDVolumes) != 0 {
 			return fmt.Errorf("node's driver %s does not support software RAID", raidInterface)
 		}
 	}

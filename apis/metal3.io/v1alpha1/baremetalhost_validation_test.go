@@ -533,6 +533,22 @@ func TestValidateUpdate(t *testing.T) {
 		Namespace: "test-namespace",
 	}
 
+	omann := metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+		Annotations: map[string]string{
+			StatusAnnotation: `{"operationalStatus":"OK"}`,
+		},
+	}
+
+	//	omann := metav1.ObjectMeta{
+	//		Name:      "test",
+	//		Namespace: "test-namespace",
+	//		Annotations: map[string]string{
+	//			StatusAnnotation: `{"operationalStatus":"OK"}`,
+	//		},
+	//	}
+
 	tests := []struct {
 		name      string
 		newBMH    *BareMetalHost
@@ -562,6 +578,32 @@ func TestValidateUpdate(t *testing.T) {
 			oldBMH: &BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: BareMetalHostSpec{BootMACAddress: "test-mac"}},
 			wantedErr: "bootMACAddress can not be changed once it is set",
+		},
+		{
+			name: "invalidAddStatusAnnotation",
+			newBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: omann,
+				Status: BareMetalHostStatus{
+					OperationalStatus: "OK",
+				},
+			},
+			oldBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Status: BareMetalHostStatus{
+					OperationalStatus: "OK",
+				},
+			},
+			wantedErr: "Cannot add statusannotation when status-subresource is already present",
+		},
+		{
+			name: "validAddStatusAnnotation",
+			newBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: omann,
+			},
+			oldBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+			},
+			wantedErr: "",
 		},
 	}
 

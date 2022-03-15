@@ -76,6 +76,11 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 		errs = append(errs, fmt.Errorf("bootMACAddress can not be changed once it is set"))
 	}
 
+	if old.Status != (BareMetalHostStatus{}) && host.Annotations[StatusAnnotation] != "" {
+		//if old.Status.OperationalStatus != "" && host.Annotations.StatusAnnotation != "" {
+		errs = append(errs, fmt.Errorf("Cannot add statusannotation when status-subresource is already present"))
+	}
+
 	return errs
 }
 

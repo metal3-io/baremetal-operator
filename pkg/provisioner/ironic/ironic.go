@@ -1316,7 +1316,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 		}
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			result, err = p.setMaintenanceFlag(ironicNode, false)
+			result, err = p.setMaintenanceFlag(ironicNode, false, "")
 			return
 		}
 		result, err = p.changeNodeProvisionState(
@@ -1462,7 +1462,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 	case nodes.CleanFail:
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			return p.setMaintenanceFlag(ironicNode, false)
+			return p.setMaintenanceFlag(ironicNode, false, "")
 		}
 		return p.changeNodeProvisionState(
 			ironicNode,
@@ -1508,9 +1508,13 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 	}
 }
 
-func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
-	success, result, err := p.tryUpdateNode(ironicNode,
-		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil))
+func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool, reason string) (result provisioner.Result, err error) {
+	opts := updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil)
+	if value {
+		opts.SetTopLevelOpt("maintenance_reason", reason, "")
+	}
+
+	success, result, err := p.tryUpdateNode(ironicNode, opts)
 	if err != nil {
 		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
 	}
@@ -1562,7 +1566,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 		p.log.Info("cleaning failed")
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			return p.setMaintenanceFlag(ironicNode, false)
+			return p.setMaintenanceFlag(ironicNode, false, "")
 		}
 		// This will return us to the manageable state without completing
 		// cleaning. Because cleaning happens in the process of moving from
@@ -1660,7 +1664,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// delete while bypassing Ironic's internal checks related to
 		// Nova.
 		p.log.Info("setting host maintenance flag to force image delete")
-		return p.setMaintenanceFlag(ironicNode, true)
+		return p.setMaintenanceFlag(ironicNode, true, "force deletion via baremetal-operator")
 	}
 
 	p.log.Info("host ready to be removed")

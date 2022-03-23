@@ -1,6 +1,7 @@
 commonAnnotations:
   include.release.openshift.io/self-managed-high-availability: "true"
   include.release.openshift.io/single-node-developer: "true"
+  capability.openshift.io/name: baremetal
 
 # This kustomization.yaml is not intended to be run by itself,
 # since it depends on service name and namespace that are out of this kustomize package.

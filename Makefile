@@ -161,7 +161,7 @@ set-manifest-image-bmo: $(KUSTOMIZE) manifests
 .PHONY: set-manifest-image-ironic
 set-manifest-image-ironic: $(KUSTOMIZE) manifests
 	$(info Updating container image for Ironic to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd ironic-deployment/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic=${MANIFEST_IMG}:${MANIFEST_TAG}
+	cd ironic-deployment/ironic && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: set-manifest-image-mariadb
 set-manifest-image-mariadb: $(KUSTOMIZE) manifests

@@ -366,6 +366,7 @@ func TestStatusAnnotation_StatusPresent(t *testing.T) {
 	host.Annotations = map[string]string{
 		metal3v1alpha1.StatusAnnotation: statusAnnotation,
 	}
+
 	host.Spec.Online = true
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
@@ -416,6 +417,44 @@ func TestStatusAnnotation_Partial(t *testing.T) {
 				return true
 			}
 			return false
+		},
+	)
+}
+
+// TestHardwareDataExist ensures hardwareData takes precedence over
+// statusAnnotation when updating during BareMetalHost status.
+func TestHardwareDataExist(t *testing.T) {
+
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{
+		metal3v1alpha1.StatusAnnotation: statusAnnotation,
+	}
+	host.Spec.Online = true
+
+	hardwareData := &metal3v1alpha1.HardwareData{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		Spec: metal3v1alpha1.HardwareDataSpec{
+			HardwareDetails: &metal3v1alpha1.HardwareDetails{
+				CPU: metal3v1alpha1.CPU{
+					Model: "fake-model",
+				},
+				Hostname: host.Name,
+			},
+		},
+	}
+
+	r := newTestReconciler(host, hardwareData)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[metal3v1alpha1.StatusAnnotation]
+			if found && host.Status.HardwareDetails.CPU.Model != "fake-model" {
+				return false
+			}
+			return true
 		},
 	)
 }

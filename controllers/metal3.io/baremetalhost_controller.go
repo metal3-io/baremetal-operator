@@ -1428,6 +1428,11 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 	// Check if there are settings in the Spec that are different than the Status
 	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsChangeDetected)) {
 
+		// Check if the status settings have been populated
+		if len(hfs.Status.Settings) == 0 {
+			return false, nil, errors.New("host firmware status settings not available")
+		}
+
 		if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsValid)) {
 			info.log.Info("hostFirmwareSettings indicating ChangeDetected", "namespacename", info.request.NamespacedName)
 			return true, hfs, nil

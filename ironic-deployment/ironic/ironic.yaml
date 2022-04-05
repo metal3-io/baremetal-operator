@@ -23,7 +23,7 @@ spec:
           imagePullPolicy: Always
           securityContext:
              capabilities:
-               add: ["NET_ADMIN"]
+               add: ["NET_ADMIN", "NET_RAW"]
           command:
             - /bin/rundnsmasq
           livenessProbe:

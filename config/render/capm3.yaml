@@ -1972,6 +1972,7 @@ metadata:
   name: baremetal-operator-controller-manager
   namespace: baremetal-operator-system
 spec:
+  minReadySeconds: 10
   replicas: 1
   selector:
     matchLabels:

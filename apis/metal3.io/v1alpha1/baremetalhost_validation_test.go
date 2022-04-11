@@ -437,6 +437,24 @@ func TestValidateCreate(t *testing.T) {
 			oldBMH:    nil,
 			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
 		},
+		{
+			name: "invalidImageURL",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "idrac://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					Image: &Image{
+						URL: "test1",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "Image URL test1 is an invalid URL",
+		},
 	}
 
 	for _, tt := range tests {

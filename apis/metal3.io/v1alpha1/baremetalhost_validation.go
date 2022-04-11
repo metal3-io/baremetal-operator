@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -41,6 +42,12 @@ func (host *BareMetalHost) validateHost() []error {
 
 	if err := validateDNSName(host.Spec.BMC.Address); err != nil {
 		errs = append(errs, err)
+	}
+
+	if host.Spec.Image != nil {
+		if err := validateImageURL(host.Spec.Image.URL); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	return errs
@@ -158,6 +165,16 @@ func validateDNSName(hostaddress string) error {
 	_, err := bmc.GetParsedURL(hostaddress)
 	if err != nil {
 		return errors.Wrap(err, "BMO validation")
+	}
+
+	return nil
+}
+
+func validateImageURL(imageURL string) error {
+
+	_, err := url.ParseRequestURI(imageURL)
+	if err != nil {
+		return fmt.Errorf("Image URL %s is an invalid URL", imageURL)
 	}
 
 	return nil

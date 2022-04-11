@@ -37,7 +37,7 @@ communicate with them.
 | Dell iDRAC      | WSMAN    | iPXE          | `idrac://<host>:<port>`                           |                                                                         |
 |                 | Redfish  | iPXE          | `idrac-redfish://<host>:<port>/<systemID>`        | See above about system ID.                                              |
 |                 | Redfish  | Virtual media | `idrac-virtualmedia://<host>:<port>/<systemID>`   | See above about system ID.                                              |
-| Fujitsu iRMC    | iRMC     | iPXE          | `irmc://<host>:<port>`                            | Port is optional.                                                       |
+| Fujitsu iRMC    | iRMC     | iPXE          | `irmc://<host>:<port>`                            | Port is optional, the default is 443.                                   |
 | HUAWEI ibmc     | ibmc     | iPXE          | `ibmc://<host>:<port>`                            |                                                                         |
 | HPE iLO 4       | iLO      | iPXE          | `ilo4://<host>:<port>`                            | Port is optional, the default is 443.                                   |
 |                 | iLO      | Virtual media | `ilo4-virtualmedia://<host>:<port>`               |                                                                         |

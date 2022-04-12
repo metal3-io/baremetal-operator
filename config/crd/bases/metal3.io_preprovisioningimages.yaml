@@ -147,6 +147,11 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              extraKernelParams:
+                description: extraKernelParams is a string with extra parameters to
+                  pass to the kernel when booting the image over network. Only makes
+                  sense for initrd images.
+                type: string
               format:
                 description: 'format is the type of image that is available at the
                   download url: either iso or initrd.'
@@ -157,6 +162,10 @@ spec:
               imageUrl:
                 description: imageUrl is the URL from which the built image can be
                   downloaded.
+                type: string
+              kernelUrl:
+                description: kernelUrl is the URL from which the kernel of the image
+                  can be downloaded. Only makes sense for initrd images.
                 type: string
               networkData:
                 description: networkData is a reference to the version of the Secret

@@ -11,6 +11,7 @@ import (
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -867,19 +868,24 @@ func TestSetDeployImage(t *testing.T) {
 		localRamdisk = "http://local.test/ipa.initrd"
 		localIso     = "http://local.test/ipa.iso"
 
-		buildKernel  = localKernel
+		buildKernel  = "http://build.test/ipa.kernel"
 		buildRamdisk = "http://build.test/ipa.initrd"
 		buildIso     = "http://build.test/ipa.iso"
+		kernelParams = "cat meow"
+
+		expectedKernelParams = "%default% cat meow"
 	)
 
 	testCases := []struct {
-		Scenario    string
-		Config      ironicConfig
-		Driver      bmc.AccessDetails
-		Image       *provisioner.PreprovisioningImage
-		ExpectBuild bool
-		ExpectISO   bool
-		ExpectPXE   bool
+		Scenario           string
+		Config             ironicConfig
+		Driver             bmc.AccessDetails
+		Image              *provisioner.PreprovisioningImage
+		ExpectBuild        bool
+		ExpectISO          bool
+		ExpectPXE          bool
+		ExpectNewKernel    bool
+		ExpectKernelParams bool
 	}{
 		{
 			Scenario: "iso no imgbuilder",
@@ -941,8 +947,10 @@ func TestSetDeployImage(t *testing.T) {
 			},
 			Driver: isoDriver,
 			Image: &provisioner.PreprovisioningImage{
-				ImageURL: buildIso,
-				Format:   metal3v1alpha1.ImageFormatISO,
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL: buildIso,
+				},
+				Format: metal3v1alpha1.ImageFormatISO,
 			},
 			ExpectBuild: true,
 			ExpectISO:   true,
@@ -958,12 +966,37 @@ func TestSetDeployImage(t *testing.T) {
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
-				ImageURL: buildRamdisk,
-				Format:   metal3v1alpha1.ImageFormatInitRD,
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL: buildRamdisk,
+				},
+				Format: metal3v1alpha1.ImageFormatInitRD,
 			},
 			ExpectBuild: true,
 			ExpectISO:   false,
 			ExpectPXE:   true,
+		},
+		{
+			Scenario: "pxe build with new kernel and kernel params",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver: pxeDriver,
+			Image: &provisioner.PreprovisioningImage{
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL:          buildRamdisk,
+					KernelURL:         buildKernel,
+					ExtraKernelParams: kernelParams,
+				},
+				Format: metal3v1alpha1.ImageFormatInitRD,
+			},
+			ExpectBuild:        true,
+			ExpectISO:          false,
+			ExpectPXE:          true,
+			ExpectNewKernel:    true,
+			ExpectKernelParams: true,
 		},
 		{
 			Scenario: "pxe iso build",
@@ -975,8 +1008,10 @@ func TestSetDeployImage(t *testing.T) {
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
-				ImageURL: buildIso,
-				Format:   metal3v1alpha1.ImageFormatISO,
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL: buildIso,
+				},
+				Format: metal3v1alpha1.ImageFormatISO,
 			},
 			ExpectBuild: false,
 			ExpectISO:   false,
@@ -990,8 +1025,10 @@ func TestSetDeployImage(t *testing.T) {
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
-				ImageURL: buildRamdisk,
-				Format:   metal3v1alpha1.ImageFormatInitRD,
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL: buildRamdisk,
+				},
+				Format: metal3v1alpha1.ImageFormatInitRD,
 			},
 			ExpectISO: false,
 			ExpectPXE: false,
@@ -1003,8 +1040,10 @@ func TestSetDeployImage(t *testing.T) {
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
-				ImageURL: buildRamdisk,
-				Format:   metal3v1alpha1.ImageFormatISO,
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL: buildRamdisk,
+				},
+				Format: metal3v1alpha1.ImageFormatISO,
 			},
 			ExpectISO: false,
 			ExpectPXE: false,
@@ -1017,8 +1056,10 @@ func TestSetDeployImage(t *testing.T) {
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
-				ImageURL: buildRamdisk,
-				Format:   metal3v1alpha1.ImageFormatISO,
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL: buildRamdisk,
+				},
+				Format: metal3v1alpha1.ImageFormatISO,
 			},
 			ExpectISO: false,
 			ExpectPXE: false,
@@ -1072,19 +1113,33 @@ func TestSetDeployImage(t *testing.T) {
 				assert.Nil(t, opts["deploy_ramdisk"])
 				assert.Nil(t, driverInfo["deploy_kernel"])
 				assert.Nil(t, driverInfo["deploy_ramdisk"])
+				assert.Nil(t, opts["kernel_append_params"])
+				assert.Nil(t, driverInfo["kernel_append_params"])
 			case tc.ExpectPXE:
 				assert.Nil(t, opts["deploy_iso"])
 				assert.Nil(t, driverInfo["deploy_iso"])
 				if tc.ExpectBuild {
-					assert.Equal(t, buildKernel, opts["deploy_kernel"])
+					if tc.ExpectNewKernel {
+						assert.Equal(t, buildKernel, opts["deploy_kernel"])
+						assert.Equal(t, buildKernel, driverInfo["deploy_kernel"])
+					} else {
+						assert.Equal(t, localKernel, opts["deploy_kernel"])
+						assert.Equal(t, localKernel, driverInfo["deploy_kernel"])
+					}
 					assert.Equal(t, buildRamdisk, opts["deploy_ramdisk"])
-					assert.Equal(t, buildKernel, driverInfo["deploy_kernel"])
 					assert.Equal(t, buildRamdisk, driverInfo["deploy_ramdisk"])
 				} else {
 					assert.Equal(t, localKernel, opts["deploy_kernel"])
 					assert.Equal(t, localRamdisk, opts["deploy_ramdisk"])
 					assert.Equal(t, localKernel, driverInfo["deploy_kernel"])
 					assert.Equal(t, localRamdisk, driverInfo["deploy_ramdisk"])
+				}
+				if tc.ExpectKernelParams {
+					assert.Equal(t, expectedKernelParams, opts["kernel_append_params"])
+					assert.Equal(t, expectedKernelParams, driverInfo["kernel_append_params"])
+				} else {
+					assert.Nil(t, opts["kernel_append_params"])
+					assert.Nil(t, driverInfo["kernel_append_params"])
 				}
 			default:
 				assert.Nil(t, opts)

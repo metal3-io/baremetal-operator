@@ -17,6 +17,14 @@ type ImageData struct {
 	NetworkDataStatus metal3.SecretStatus
 }
 
+// GeneratedImage contains information about the generated image. At least the
+// URL must be populated.
+type GeneratedImage struct {
+	ImageURL          string
+	KernelURL         string
+	ExtraKernelParams string
+}
+
 type NetworkData map[string][]byte
 
 type ImageProvider interface {
@@ -30,7 +38,7 @@ type ImageProvider interface {
 
 	// BuildImage requests the ImageProvider to build an image with the
 	// supplied network data and return a URL where it can be accessed.
-	BuildImage(ImageData, NetworkData, logr.Logger) (string, error)
+	BuildImage(ImageData, NetworkData, logr.Logger) (GeneratedImage, error)
 
 	// DiscardImage notifies the ImageProvider that a previously built image
 	// is no longer required.

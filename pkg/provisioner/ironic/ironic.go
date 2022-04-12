@@ -45,6 +45,7 @@ const (
 	deployKernelKey  = "deploy_kernel"
 	deployRamdiskKey = "deploy_ramdisk"
 	deployISOKey     = "deploy_iso"
+	kernelParamsKey  = "kernel_append_params"
 )
 
 var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
@@ -567,6 +568,7 @@ func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, acce
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
 		deployISOKey:     nil,
+		kernelParamsKey:  nil,
 	}
 
 	defer func() {
@@ -580,7 +582,6 @@ func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, acce
 	}()
 
 	allowISO := accessDetails.SupportsISOPreprovisioningImage()
-	allowInitRD := config.deployKernelURL != ""
 
 	if hostImage != nil {
 		switch hostImage.Format {
@@ -590,11 +591,19 @@ func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, acce
 				return deployImageInfo
 			}
 		case metal3v1alpha1.ImageFormatInitRD:
-			if allowInitRD {
+			if hostImage.KernelURL != "" {
+				deployImageInfo[deployKernelKey] = hostImage.KernelURL
+			} else if config.deployKernelURL == "" {
+				return nil
+			} else {
 				deployImageInfo[deployKernelKey] = config.deployKernelURL
-				deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
-				return deployImageInfo
 			}
+			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
+			if hostImage.ExtraKernelParams != "" {
+				// Using %default% prevents overriding the config in ironic-image
+				deployImageInfo[kernelParamsKey] = fmt.Sprintf("%%default%% %s", hostImage.ExtraKernelParams)
+			}
+			return deployImageInfo
 		}
 	}
 
@@ -603,7 +612,7 @@ func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, acce
 			deployImageInfo[deployISOKey] = config.deployISOURL
 			return deployImageInfo
 		}
-		if allowInitRD && config.deployRamdiskURL != "" {
+		if config.deployKernelURL != "" && config.deployRamdiskURL != "" {
 			deployImageInfo[deployKernelKey] = config.deployKernelURL
 			deployImageInfo[deployRamdiskKey] = config.deployRamdiskURL
 			return deployImageInfo

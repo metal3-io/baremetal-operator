@@ -170,8 +170,8 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 			// Set up all the data before building the image and adding the URL,
 			// so that even if we fail to write the built image status and the
 			// config subsequently changes, the image cache cannot leak.
-			setImage(generation, &img.Status, "", format,
-				secretStatus, img.Spec.Architecture,
+			setImage(generation, &img.Status, imageprovider.GeneratedImage{},
+				format, secretStatus, img.Spec.Architecture,
 				reason)
 		}
 		return true, nil
@@ -181,7 +181,7 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 	if networkData != nil {
 		networkDataContent = networkData.Data
 	}
-	url, err := r.ImageProvider.BuildImage(imageprovider.ImageData{
+	image, err := r.ImageProvider.BuildImage(imageprovider.ImageData{
 		ImageMetadata:     img.ObjectMeta.DeepCopy(),
 		Format:            format,
 		Architecture:      img.Spec.Architecture,
@@ -195,9 +195,9 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 		}
 		return false, err
 	}
-	log.Info("image URL available", "url", url, "format", format)
+	log.Info("image URL available", "url", image, "format", format)
 
-	return setImage(generation, &img.Status, url, format,
+	return setImage(generation, &img.Status, image, format,
 		secretStatus, img.Spec.Architecture,
 		"Generated image"), nil
 }
@@ -279,12 +279,14 @@ func setImageCondition(generation int64, status *metal3.PreprovisioningImageStat
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
-func setImage(generation int64, status *metal3.PreprovisioningImageStatus, url string,
+func setImage(generation int64, status *metal3.PreprovisioningImageStatus, image imageprovider.GeneratedImage,
 	format metal3.ImageFormat, networkData metal3.SecretStatus, arch string,
 	message string) bool {
 
 	newStatus := status.DeepCopy()
-	newStatus.ImageUrl = url
+	newStatus.ImageUrl = image.ImageURL
+	newStatus.KernelUrl = image.KernelURL
+	newStatus.ExtraKernelParams = image.ExtraKernelParams
 	newStatus.Format = format
 	newStatus.Architecture = arch
 	newStatus.NetworkData = networkData
@@ -292,7 +294,7 @@ func setImage(generation int64, status *metal3.PreprovisioningImageStatus, url s
 	time := metav1.Now()
 	reason := reasonImageSuccess
 	ready := metav1.ConditionFalse
-	if url != "" {
+	if newStatus.ImageUrl != "" {
 		ready = metav1.ConditionTrue
 	}
 	setImageCondition(generation, newStatus,

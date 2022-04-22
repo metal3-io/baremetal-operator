@@ -9,6 +9,7 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardware"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 )
 
 /*
@@ -68,8 +69,8 @@ type HostConfigData interface {
 }
 
 type PreprovisioningImage struct {
-	ImageURL string
-	Format   metal3v1alpha1.ImageFormat
+	imageprovider.GeneratedImage
+	Format metal3v1alpha1.ImageFormat
 }
 
 type ManagementAccessData struct {

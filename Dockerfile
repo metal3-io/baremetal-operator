@@ -16,7 +16,7 @@ COPY pkg/hardwareutils/go.sum pkg/hardwareutils/go.sum
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o baremetal-operator main.go
+RUN CGO_ENABLED=0 GO111MODULE=on go build -a -o baremetal-operator main.go
 
 # Copy the controller-manager into a thin image
 # BMO has a dependency preventing us to use the static one,

@@ -98,7 +98,7 @@ def enable_provider(name):
     # manager_build_path or the main.go must be provided via go_main option. The binary is written to .tiltbuild/manager.
     local_resource(
         name + "_manager",
-        cmd = "cd " + context + ';mkdir -p .tiltbuild;CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \'-extldflags "-static"\' -o .tiltbuild/manager ' + go_main,
+        cmd = "cd " + context + ';mkdir -p .tiltbuild;CGO_ENABLED=0 go build -ldflags \'-extldflags "-static"\' -o .tiltbuild/manager ' + go_main,
         deps = live_reload_deps,
     )
 

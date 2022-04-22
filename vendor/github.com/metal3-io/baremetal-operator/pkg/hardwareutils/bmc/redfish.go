@@ -164,7 +164,7 @@ func (a *redfishiDracAccessDetails) PowerInterface() string {
 }
 
 func (a *redfishiDracAccessDetails) RAIDInterface() string {
-	return "no-raid"
+	return "idrac-redfish"
 }
 
 func (a *redfishiDracAccessDetails) VendorInterface() string {

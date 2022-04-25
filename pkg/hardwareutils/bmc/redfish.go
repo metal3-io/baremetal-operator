@@ -164,7 +164,9 @@ func (a *redfishiDracAccessDetails) PowerInterface() string {
 }
 
 func (a *redfishiDracAccessDetails) RAIDInterface() string {
-	return "idrac-redfish"
+	// Disabled RAID in OpenShift because we are not ready to support it
+	// return "idrac-redfish"
+	return "no-raid"
 }
 
 func (a *redfishiDracAccessDetails) VendorInterface() string {

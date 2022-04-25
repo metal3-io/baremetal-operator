@@ -247,8 +247,11 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 				dirty = true
 			}
 		} else {
-			for _, error := range errors {
-				info.publishEvent("ValidationFailed", fmt.Sprintf("Invalid BIOS setting: %v", error))
+			// If the status settings are empty, don't raise events
+			if len(newStatus.Settings) != 0 {
+				for _, error := range errors {
+					info.publishEvent("ValidationFailed", fmt.Sprintf("Invalid BIOS setting: %v", error))
+				}
 			}
 			reason = reasonConfigurationError
 			if setCondition(generation, &newStatus, info, metal3v1alpha1.FirmwareSettingsValid, metav1.ConditionFalse, reason, "Invalid BIOS setting") {

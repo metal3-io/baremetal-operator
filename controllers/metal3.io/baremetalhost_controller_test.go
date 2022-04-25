@@ -2736,9 +2736,64 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
 			{Type: "Valid", Status: "True", Reason: "Success"},
 		},
+		Settings: metal3v1alpha1.SettingsMap{
+			"ProcVirtualization": "Enabled",
+			"SecureBoot":         "Enabled",
+		},
 	}
 
 	r.Update(goctx.TODO(), hfs)
 
 	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+}
+
+// TestHFSEmptyStatusSettings ensures that BMH does not move to the next state
+// when a user provides the BIOS settings on a hardware server that does not
+// have the required license to configure BIOS
+func TestHFSEmptyStatusSettings(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	host.Spec.ExternallyProvisioned = false
+	r := newTestReconciler(host)
+
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+
+	// Update HFS so host will go through cleaning
+	hfs := &metal3v1alpha1.HostFirmwareSettings{}
+	key := client.ObjectKey{
+		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
+	if err := r.Get(goctx.TODO(), key, hfs); err != nil {
+		t.Fatal(err)
+	}
+
+	hfs.Status = metal3v1alpha1.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	}
+
+	r.Update(goctx.TODO(), hfs)
+
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.Provisioning.State == metal3v1alpha1.StatePreparing
+		},
+	)
+
+	// Clear the change, it will no longer be blocked
+	hfs.Status = metal3v1alpha1.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "False", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	}
+
+	r.Update(goctx.TODO(), hfs)
+	tryReconcile(t, r, host,
+		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.Provisioning.State == metal3v1alpha1.StateAvailable
+		},
+	)
 }

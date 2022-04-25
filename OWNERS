@@ -17,6 +17,7 @@ reviewers:
   - bfournie
   - dhellmann
   - dtantsur
+  - elfosardo
   - hardys
   - honza
   - kirankt
@@ -24,6 +25,7 @@ reviewers:
   - russellb
   - sadasu
   - zaneb
+
 
 # Bugzilla Information
 component: "Bare Metal Hardware Provisioning"

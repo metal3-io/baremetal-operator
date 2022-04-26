@@ -4,6 +4,7 @@ metadata:
   name: ${NAMEPREFIX}-ironic
 spec:
   replicas: 1
+  minReadySeconds: 10
   strategy:
     # We cannot run Ironic with more than one replica at a time. The recreate
     # strategy makes sure that the old pod is gone before a new is started.

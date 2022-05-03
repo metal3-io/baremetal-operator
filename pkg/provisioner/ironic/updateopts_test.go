@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
@@ -370,7 +371,7 @@ func TestGetUpdateOperation(t *testing.T) {
 			updateOp := getUpdateOperation(
 				c.Field, existingData,
 				c.NewValue,
-				path, nil)
+				path, logr.Logger{})
 
 			switch c.ExpectedOp {
 			case nodes.AddOp, nodes.ReplaceOp:

@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-openapi/spec"
 	"github.com/spf13/cobra"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 	"sigs.k8s.io/kustomize/cmd/config/ext"
 	"sigs.k8s.io/kustomize/cmd/config/internal/generateddocs/commands"
 	"sigs.k8s.io/kustomize/cmd/config/runner"
@@ -32,6 +32,8 @@ func NewCreateSetterRunner(parent string) *CreateSetterRunner {
 		Example: commands.CreateSetterExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
+		Deprecated: "setter commands will no longer be available in kustomize v5.\n" +
+			"See discussion in https://github.com/kubernetes-sigs/kustomize/issues/3953.",
 	}
 	set.Flags().StringVar(&r.FieldValue, "value", "",
 		"optional flag, alternative to specifying the value as an argument. e.g. used to specify values that start with '-'")
@@ -196,10 +198,9 @@ func (r *CreateSetterRunner) ExecuteCmd(w io.Writer, pkgPath string) error {
 		// return err if RecurseSubPackages is false
 		if !r.CreateSetter.RecurseSubPackages {
 			return err
-		} else {
-			// print error message and continue if RecurseSubPackages is true
-			fmt.Fprintf(w, "%s\n", err.Error())
 		}
+		// print error message and continue if RecurseSubPackages is true
+		fmt.Fprintf(w, "%s\n", err.Error())
 	} else {
 		fmt.Fprintf(w, "created setter %q\n", r.CreateSetter.Name)
 	}

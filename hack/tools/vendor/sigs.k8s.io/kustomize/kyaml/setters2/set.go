@@ -8,12 +8,12 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/go-openapi/spec"
-	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/validate"
-	goyaml "gopkg.in/yaml.v3"
+	"k8s.io/kube-openapi/pkg/validation/spec"
+	"k8s.io/kube-openapi/pkg/validation/strfmt"
+	"k8s.io/kube-openapi/pkg/validation/validate"
 	"sigs.k8s.io/kustomize/kyaml/errors"
 	"sigs.k8s.io/kustomize/kyaml/fieldmeta"
+	goyaml "sigs.k8s.io/kustomize/kyaml/internal/forked/github.com/go-yaml/yaml"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 	"sigs.k8s.io/kustomize/kyaml/openapi"
@@ -479,7 +479,12 @@ func (s SetOpenAPI) Filter(object *yaml.RNode) (*yaml.RNode, error) {
 	}
 
 	if s.IsSet {
-		if err := def.PipeE(&yaml.FieldSetter{Name: "isSet", StringValue: "true"}); err != nil {
+		n := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: "true",
+			Tag:   yaml.NodeTagBool,
+		}
+		if err := def.PipeE(&yaml.FieldSetter{Name: "isSet", Value: yaml.NewRNode(n)}); err != nil {
 			return nil, err
 		}
 	}

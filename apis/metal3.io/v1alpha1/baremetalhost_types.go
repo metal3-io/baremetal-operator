@@ -124,7 +124,7 @@ const (
 
 	// OperationalStatusDelayed is the status value for when the host
 	// deployment needs to be delayed to limit simultaneous hosts provisioning
-	OperationalStatusDelayed = "delayed"
+	OperationalStatusDelayed OperationalStatus = "delayed"
 
 	// OperationalStatusDetached is the status value when the host is
 	// marked unmanaged via the detached annotation

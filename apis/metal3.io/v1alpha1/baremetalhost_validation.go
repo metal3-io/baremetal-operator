@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -55,6 +56,10 @@ func (host *BareMetalHost) validateHost() []error {
 		}
 	}
 
+	if err := validStatusAnnotation(host.Annotations[StatusAnnotation]); err != nil {
+		errs = append(errs, err)
+	}
+
 	return errs
 }
 
@@ -78,7 +83,7 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 
 	if old.Status != (BareMetalHostStatus{}) && host.Annotations[StatusAnnotation] != "" {
 		//if old.Status.OperationalStatus != "" && host.Annotations.StatusAnnotation != "" {
-		errs = append(errs, fmt.Errorf("Cannot add statusannotation when status-subresource is already present"))
+		errs = append(errs, fmt.Errorf("cannot add statusannotation when status-subresource is already present"))
 	}
 
 	return errs
@@ -180,6 +185,29 @@ func validateDNSName(hostaddress string) error {
 	return nil
 }
 
+func validStatusAnnotation(statusannotation string) error {
+	if statusannotation != "" {
+
+		objStatus, err := unmarshalStatusAnnotation([]byte(statusannotation))
+		if err != nil {
+			return fmt.Errorf(statusannotation + " UNMARSHAL error")
+		}
+
+		deco := json.NewDecoder(strings.NewReader(statusannotation))
+		deco.DisallowUnknownFields()
+
+		if err = deco.Decode(&BareMetalHostStatus{}); err != nil {
+			return fmt.Errorf("invalid field in StatusAnnotation")
+		}
+
+		if err = checkStatusAnnotation(objStatus); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func validateImageURL(imageURL string) error {
 
 	_, err := url.ParseRequestURI(imageURL)
@@ -205,4 +233,36 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 		return fmt.Errorf("Device Name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"%s\"", rdh.DeviceName)
 	}
 	return nil
+}
+func unmarshalStatusAnnotation(content []byte) (*BareMetalHostStatus, error) {
+	objStatus := &BareMetalHostStatus{}
+	if err := json.Unmarshal(content, objStatus); err != nil {
+		return nil, errors.Wrap(err, "Failed to fetch Status from annotation")
+	}
+	return objStatus, nil
+}
+
+func checkStatusAnnotation(bmhstatus *BareMetalHostStatus) error {
+
+	operatstatus_allowed := []string{"", "OK", "discovered", "error", "delayed", "detached"}
+	errortype_allowed := []string{"", "provisioned registration error", "registration error", "inspection error", "preparation error", "provisioning error", "power management error"}
+
+	if !stringInSlice(operatstatus_allowed, string(bmhstatus.OperationalStatus)) {
+		return fmt.Errorf("invalid OperationalStatus in StatusAnnotation")
+	}
+
+	if !stringInSlice(errortype_allowed, string(bmhstatus.ErrorType)) {
+		return fmt.Errorf("invalid ErrorType in StatusAnnotation")
+	}
+
+	return nil
+}
+
+func stringInSlice(strlist []string, str string) bool {
+	for _, elem := range strlist {
+		if elem == str {
+			return true
+		}
+	}
+	return false
 }

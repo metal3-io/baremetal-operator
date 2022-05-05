@@ -42,6 +42,31 @@ func TestValidateCreate(t *testing.T) {
 		Name:      "07564256-96ae-4315-ab03-8d34ece60fbb",
 		Namespace: "test-namespace",
 	}
+
+	omsainvalidfield := metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+		Annotations: map[string]string{
+			StatusAnnotation: `{"InvalidField":"NotOK"}`,
+		},
+	}
+
+	omsainvalidopst := metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+		Annotations: map[string]string{
+			StatusAnnotation: `{"operationalStatus":"NotOK"}`,
+		},
+	}
+
+	omsainvaliderrtype := metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+		Annotations: map[string]string{
+			StatusAnnotation: `{"errorType":"No Error"}`,
+		},
+	}
+
 	enable := true
 
 	// for RAID validation test cases
@@ -511,6 +536,30 @@ func TestValidateCreate(t *testing.T) {
 			oldBMH:    nil,
 			wantedErr: "Image URL test1 is an invalid URL",
 		},
+		{
+			name: "invalidFieldStatusAnnotation",
+			newBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: omsainvalidfield,
+			},
+			oldBMH:    nil,
+			wantedErr: "invalid field in StatusAnnotation",
+		},
+		{
+			name: "invalidOpstatusStatusAnnotation",
+			newBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: omsainvalidopst,
+			},
+			oldBMH:    nil,
+			wantedErr: "invalid OperationalStatus in StatusAnnotation",
+		},
+		{
+			name: "invalidErrtypeStatusAnnotation",
+			newBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: omsainvaliderrtype,
+			},
+			oldBMH:    nil,
+			wantedErr: "invalid ErrorType in StatusAnnotation",
+		},
 	}
 
 	for _, tt := range tests {
@@ -537,17 +586,9 @@ func TestValidateUpdate(t *testing.T) {
 		Name:      "test",
 		Namespace: "test-namespace",
 		Annotations: map[string]string{
-			StatusAnnotation: `{"operationalStatus":"OK"}`,
+			StatusAnnotation: `{"operationalStatus":"OK","lastUpdated":"2020-04-15T15:00:50Z","hardwareProfile":"StatusProfile","hardware":{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true},{"name":"eth1","model":"0x1af4  0x0001","mac":"00:b7:8b:bb:3d:f8","ip":"192.168.111.20","speedGbps":0,"vlanId":0,"pxe":false}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["aes","apic","arat","avx","clflush","cmov","constant_tsc","cx16","cx8","de","eagerfpu","ept","erms","f16c","flexpriority","fpu","fsgsbase","fxsr","hypervisor","lahf_lm","lm","mca","mce","mmx","msr","mtrr","nopl","nx","pae","pat","pclmulqdq","pge","pni","popcnt","pse","pse36","rdrand","rdtscp","rep_good","sep","smep","sse","sse2","sse4_1","sse4_2","ssse3","syscall","tpr_shadow","tsc","tsc_adjust","tsc_deadline_timer","vme","vmx","vnmi","vpid","x2apic","xsave","xsaveopt","xtopology"],"count":4},"hostname":"node-0"},"provisioning":{"state":"provisioned","ID":"8a0ede17-7b87-44ac-9293-5b7d50b94b08","image":{"url":"bar","checksum":""}},"goodCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"triedCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"errorMessage":"","poweredOn":true,"operationHistory":{"register":{"start":"2020-04-15T12:06:26Z","end":"2020-04-15T12:07:12Z"},"inspect":{"start":"2020-04-15T12:07:12Z","end":"2020-04-15T12:09:29Z"},"provision":{"start":null,"end":null},"deprovision":{"start":null,"end":null}}}`,
 		},
 	}
-
-	//	omann := metav1.ObjectMeta{
-	//		Name:      "test",
-	//		Namespace: "test-namespace",
-	//		Annotations: map[string]string{
-	//			StatusAnnotation: `{"operationalStatus":"OK"}`,
-	//		},
-	//	}
 
 	tests := []struct {
 		name      string
@@ -593,7 +634,7 @@ func TestValidateUpdate(t *testing.T) {
 					OperationalStatus: "OK",
 				},
 			},
-			wantedErr: "Cannot add statusannotation when status-subresource is already present",
+			wantedErr: "cannot add statusannotation when status-subresource is already present",
 		},
 		{
 			name: "validAddStatusAnnotation",

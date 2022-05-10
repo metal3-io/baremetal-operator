@@ -137,7 +137,7 @@ $(CONTROLLER_GEN): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen
 
 $(KUSTOMIZE): hack/tools/go.mod
-	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v3
+	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v4
 
 .PHONY: manifests
 manifests: manifests-generate manifests-kustomize ## Generate manifests e.g. CRD, RBAC etc.

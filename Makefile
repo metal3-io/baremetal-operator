@@ -5,8 +5,6 @@ COVER_PROFILE = cover.out
 
 # CRD Generation Options
 #
-# trivialVersions=false means generate the CRD with multiple versions,
-#     eventually allowing conversion webhooks
 # allowDangerousTypes=true lets use the float64 field for clock speeds
 # crdVersions=v1 generates the v1 version of the CRD type
 #
@@ -17,7 +15,7 @@ COVER_PROFILE = cover.out
 #
 BIN_DIR := bin
 
-CRD_OPTIONS ?= "crd:trivialVersions=false,allowDangerousTypes=true,crdVersions=v1"
+CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
 

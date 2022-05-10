@@ -21,12 +21,13 @@ import (
 func NewAnnotateRunner(parent string) *AnnotateRunner {
 	r := &AnnotateRunner{}
 	c := &cobra.Command{
-		Use:     "annotate [DIR]",
-		Args:    cobra.MaximumNArgs(1),
-		Short:   commands.AnnotateShort,
-		Long:    commands.AnnotateLong,
-		Example: commands.AnnotateExamples,
-		RunE:    r.runE,
+		Use:        "annotate [DIR]",
+		Args:       cobra.MaximumNArgs(1),
+		Short:      commands.AnnotateShort,
+		Long:       commands.AnnotateLong,
+		Example:    commands.AnnotateExamples,
+		RunE:       r.runE,
+		Deprecated: "use the `commonAnnotations` field in your kustomization file.",
 	}
 	runner.FixDocs(parent, c)
 	r.Command = c
@@ -102,12 +103,11 @@ func (r *AnnotateRunner) ExecuteCmd(w io.Writer, pkgPath string) error {
 		// return err if there is only package
 		if !r.RecurseSubPackages {
 			return err
-		} else {
-			// print error message and continue if there are multiple packages to annotate
-			fmt.Fprintf(w, "%s\n", err.Error())
 		}
+		// print error message and continue if there are multiple packages to annotate
+		_, _ = fmt.Fprintf(w, "%s\n", err.Error())
 	} else {
-		fmt.Fprint(w, "added annotations in the package\n")
+		_, _ = fmt.Fprint(w, "added annotations in the package\n")
 	}
 	return nil
 }

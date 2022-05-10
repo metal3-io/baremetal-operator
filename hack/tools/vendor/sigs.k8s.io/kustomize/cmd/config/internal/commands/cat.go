@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/errors"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/filters"
+	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -138,10 +139,9 @@ func (r *CatRunner) ExecuteCmd(w io.Writer, pkgPath string) error {
 		// return err if there is only package
 		if !r.RecurseSubPackages {
 			return err
-		} else {
-			// print error message and continue if there are multiple packages to annotate
-			fmt.Fprintf(w, "%s in package %q\n", err.Error(), pkgPath)
 		}
+		// print error message and continue if there are multiple packages to annotate
+		fmt.Fprintf(w, "%s in package %q\n", err.Error(), pkgPath)
 	}
 	fmt.Fprint(w, out.String())
 	if out.String() != "" {
@@ -166,6 +166,7 @@ func (r *CatRunner) catFilters() []kio.Filter {
 	return fltrs
 }
 
+// nolint
 func (r *CatRunner) out(w io.Writer) ([]kio.Writer, error) {
 	var outputs []kio.Writer
 	var functionConfig *yaml.RNode
@@ -183,7 +184,7 @@ func (r *CatRunner) out(w io.Writer) ([]kio.Writer, error) {
 
 	// remove this annotation explicitly, the ByteWriter won't clear it by
 	// default because it doesn't set it
-	clear := []string{"config.kubernetes.io/path"}
+	clear := []string{kioutil.LegacyPathAnnotation, kioutil.PathAnnotation}
 	if r.KeepAnnotations {
 		clear = nil
 	}

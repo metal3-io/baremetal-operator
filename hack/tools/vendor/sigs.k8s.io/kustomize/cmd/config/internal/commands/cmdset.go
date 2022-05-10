@@ -27,6 +27,8 @@ func NewSetRunner(parent string) *SetRunner {
 		Example: commands.SetExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
+		Deprecated: "setter commands will no longer be available in kustomize v5.\n" +
+			"See discussion in https://github.com/kubernetes-sigs/kustomize/issues/3953.",
 	}
 	runner.FixDocs(parent, c)
 	r.Command = c
@@ -69,6 +71,11 @@ func (r *SetRunner) preRunE(c *cobra.Command, args []string) error {
 
 	if valueFlagSet && len(args) > 2 {
 		return errors.Errorf("value should set either from flag or arg")
+	}
+
+	// make sure that the value is provided either through values flag or as an arg
+	if !valueFlagSet && len(args) < 3 {
+		return errors.Errorf("value must be provided either from flag or arg")
 	}
 
 	r.Name = args[1]
@@ -123,10 +130,9 @@ func (r *SetRunner) ExecuteCmd(w io.Writer, pkgPath string) error {
 		// return err if RecurseSubPackages is false
 		if !r.Set.RecurseSubPackages {
 			return err
-		} else {
-			// print error message and continue if RecurseSubPackages is true
-			fmt.Fprintf(w, "%s\n", err.Error())
 		}
+		// print error message and continue if RecurseSubPackages is true
+		fmt.Fprintf(w, "%s\n", err.Error())
 	} else {
 		fmt.Fprintf(w, "set %d field(s) of setter %q to value %q\n", count, r.Set.Name, r.Set.Value)
 	}

@@ -23,6 +23,8 @@ func NewCreateSubstitutionRunner(parent string) *CreateSubstitutionRunner {
 		Args:   cobra.ExactArgs(2),
 		PreRun: r.preRun,
 		RunE:   r.runE,
+		Deprecated: "imperative substitutions will no longer be available in kustomize v5.\n" +
+			"See discussion in https://github.com/kubernetes-sigs/kustomize/issues/3953.",
 	}
 	cs.Flags().StringVar(&r.CreateSubstitution.FieldName, "field", "",
 		"name of the field to set -- e.g. --field image")
@@ -88,10 +90,9 @@ func (r *CreateSubstitutionRunner) ExecuteCmd(w io.Writer, pkgPath string) error
 		// return err if RecurseSubPackages is false
 		if !r.CreateSubstitution.RecurseSubPackages {
 			return err
-		} else {
-			// print error message and continue if RecurseSubPackages is true
-			fmt.Fprintf(w, "%s\n", err.Error())
 		}
+		// print error message and continue if RecurseSubPackages is true
+		fmt.Fprintf(w, "%s\n", err.Error())
 	} else {
 		fmt.Fprintf(w, "created substitution %q\n", r.CreateSubstitution.Name)
 	}

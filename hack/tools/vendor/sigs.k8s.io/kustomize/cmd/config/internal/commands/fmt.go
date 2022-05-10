@@ -25,6 +25,8 @@ func GetFmtRunner(name string) *FmtRunner {
 		Example: commands.FmtExamples,
 		RunE:    r.runE,
 		PreRunE: r.preRunE,
+		Deprecated: "imperative formatting will no longer be available in kustomize v5.\n" +
+			"Declare a formatting transformer in your kustomization instead.",
 	}
 	runner.FixDocs(name, c)
 	c.Flags().StringVar(&r.FilenamePattern, "pattern", filters.DefaultFilenamePattern,
@@ -108,10 +110,9 @@ func (r *FmtRunner) ExecuteCmd(w io.Writer, pkgPath string) error {
 		// return err if RecurseSubPackages is false
 		if !r.RecurseSubPackages {
 			return err
-		} else {
-			// print error message and continue if RecurseSubPackages is true
-			fmt.Fprintf(w, "%s\n", err.Error())
 		}
+		// print error message and continue if RecurseSubPackages is true
+		fmt.Fprintf(w, "%s\n", err.Error())
 	} else {
 		fmt.Fprint(w, "formatted resource files in the package\n")
 	}

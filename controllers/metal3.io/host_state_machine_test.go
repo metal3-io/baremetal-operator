@@ -1095,6 +1095,10 @@ func host(state metal3v1alpha1.ProvisioningState) *hostBuilder {
 
 	return &hostBuilder{
 		metal3v1alpha1.BareMetalHost{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
 			Spec: v1alpha1.BareMetalHostSpec{
 				Online: true,
 				Image: &v1alpha1.Image{

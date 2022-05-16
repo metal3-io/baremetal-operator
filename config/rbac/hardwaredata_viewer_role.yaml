@@ -1,0 +1,14 @@
+# permissions for end users to view hardwaredata.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hardwaredata-viewer-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - hardwaredata
+  verbs:
+  - get
+  - list
+  - watch

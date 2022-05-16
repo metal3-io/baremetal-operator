@@ -47,6 +47,19 @@ const (
 	// annotation is present and status is empty, BMO will reconstruct BMH Status
 	// from the status annotation.
 	StatusAnnotation = "baremetalhost.metal3.io/status"
+
+	// RebootAnnotation is the annotation which tells the host which mode to use
+	// when rebooting - hard/soft
+	RebootAnnotationPrefix = "reboot.metal3.io"
+
+	// InspectAnnotation is used to specify if aumatic introspection carried out
+	// during registration of BMH is enabled or disabled
+	InspectAnnotation = "inspect.metal3.io"
+
+	// HardwareDetailsAnnotation provides the hardware details for the host
+	// in case its not already part of the host status and when introspection
+	// is disabed
+	HardwareDetailsAnnotation = "inspect.metal3.io/hardwaredetails"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
@@ -124,7 +137,7 @@ const (
 
 	// OperationalStatusDelayed is the status value for when the host
 	// deployment needs to be delayed to limit simultaneous hosts provisioning
-	OperationalStatusDelayed OperationalStatus = "delayed"
+	OperationalStatusDelayed = "delayed"
 
 	// OperationalStatusDetached is the status value when the host is
 	// marked unmanaged via the detached annotation

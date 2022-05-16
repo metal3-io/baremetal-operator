@@ -56,8 +56,8 @@ func (host *BareMetalHost) validateHost() []error {
 		}
 	}
 
-	if err := validStatusAnnotation(host.Annotations[StatusAnnotation]); err != nil {
-		errs = append(errs, err)
+	if annot_errors := validateAnnotations(host); annot_errors != nil {
+		errs = append(errs, annot_errors...)
 	}
 
 	return errs
@@ -185,17 +185,43 @@ func validateDNSName(hostaddress string) error {
 	return nil
 }
 
+func validateAnnotations(host *BareMetalHost) []error {
+	var errs []error
+	var err error
+
+	for annotation, value := range host.Annotations {
+
+		switch {
+		case annotation == StatusAnnotation:
+			err = validStatusAnnotation(value)
+		case strings.HasPrefix(annotation, RebootAnnotationPrefix+"/") || annotation == RebootAnnotationPrefix:
+			err = validRebootAnnotation(value)
+		case annotation == InspectAnnotation:
+			err = validInspectAnnotation(value)
+		case annotation == HardwareDetailsAnnotation:
+			inspect := host.Annotations[InspectAnnotation]
+			err = validHwdDetailsAnnotation(value, inspect)
+		default:
+			err = nil
+		}
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errs
+}
+
 func validStatusAnnotation(statusannotation string) error {
 	if statusannotation != "" {
 
 		objStatus, err := unmarshalStatusAnnotation([]byte(statusannotation))
 		if err != nil {
-			return fmt.Errorf(statusannotation + " UNMARSHAL error")
+			return fmt.Errorf("invalid status annotation, failed to fetch Status from annotation")
 		}
 
 		deco := json.NewDecoder(strings.NewReader(statusannotation))
 		deco.DisallowUnknownFields()
-
 		if err = deco.Decode(&BareMetalHostStatus{}); err != nil {
 			return fmt.Errorf("invalid field in StatusAnnotation")
 		}
@@ -234,13 +260,6 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 	}
 	return nil
 }
-func unmarshalStatusAnnotation(content []byte) (*BareMetalHostStatus, error) {
-	objStatus := &BareMetalHostStatus{}
-	if err := json.Unmarshal(content, objStatus); err != nil {
-		return nil, errors.Wrap(err, "Failed to fetch Status from annotation")
-	}
-	return objStatus, nil
-}
 
 func checkStatusAnnotation(bmhstatus *BareMetalHostStatus) error {
 
@@ -256,6 +275,65 @@ func checkStatusAnnotation(bmhstatus *BareMetalHostStatus) error {
 	}
 
 	return nil
+}
+
+func validHwdDetailsAnnotation(hwdetannotaiton string, inspect string) error {
+	if hwdetannotaiton == "" {
+		return nil
+	}
+
+	if inspect != "disabled" {
+		return fmt.Errorf("inspection has to be disabled for HardwareDetailsAnnotation, check if {'inspect.metal3.io' : 'disabled'}")
+	}
+
+	objStatus := &HardwareDetails{}
+	err := json.Unmarshal([]byte(hwdetannotaiton), objStatus)
+	if err != nil {
+		return fmt.Errorf("failed to fetch Hardware Details from annotation")
+	}
+
+	deco := json.NewDecoder(strings.NewReader(hwdetannotaiton))
+	deco.DisallowUnknownFields()
+	if err = deco.Decode(objStatus); err != nil {
+		return fmt.Errorf("invalid field in Hardware Details Annotation")
+	}
+
+	return nil
+}
+
+func validInspectAnnotation(inspectannotation string) error {
+
+	if !stringInSlice([]string{"disabled", ""}, inspectannotation) {
+		return fmt.Errorf("invalid value for Inspect Annotation")
+	}
+
+	return nil
+}
+
+func validRebootAnnotation(rebootannotation string) error {
+	if rebootannotation == "" {
+		return nil
+	}
+
+	objStatus := &RebootAnnotationArguments{}
+	err := json.Unmarshal([]byte(rebootannotation), objStatus)
+	if err != nil {
+		return fmt.Errorf("failed to fetch Reboot from annotation")
+	}
+
+	if !stringInSlice([]string{"hard", "soft", ""}, string(objStatus.Mode)) {
+		return fmt.Errorf("invalid RebootMode in RebootAnnotation")
+	}
+
+	return nil
+}
+
+func unmarshalStatusAnnotation(content []byte) (*BareMetalHostStatus, error) {
+	objStatus := &BareMetalHostStatus{}
+	if err := json.Unmarshal(content, objStatus); err != nil {
+		return nil, errors.Wrap(err, "Failed to fetch Status from annotation")
+	}
+	return objStatus, nil
 }
 
 func stringInSlice(strlist []string, str string) bool {

@@ -3,7 +3,9 @@ package v1alpha1
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -35,6 +37,10 @@ func (host *BareMetalHost) validateHost() []error {
 	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
 
 	if err := validateBMHName(host.Name); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := validateDNSName(host.Spec.BMC.Address); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -139,6 +145,38 @@ func validateBMHName(bmhname string) error {
 	_, err := uuid.Parse(bmhname)
 	if err == nil {
 		return fmt.Errorf("BareMetalHost resource name cannot be a UUID")
+	}
+
+	return nil
+}
+
+func validateDNSName(hostaddress string) error {
+
+	if hostaddress == "" {
+		return nil
+	}
+
+	if !strings.Contains(hostaddress, "://") {
+		hostaddress = "ipmi://" + hostaddress
+	}
+
+	hurl, err := url.Parse(hostaddress)
+	if err != nil {
+		return fmt.Errorf("Url parsing error, Host DNS name is invalid")
+	}
+
+	host, port, err := net.SplitHostPort(hurl.Host)
+
+	if port == "" {
+		if !strings.Contains(err.Error(), "missing port in address") {
+			return fmt.Errorf("Error while splitting host and port, Host DNS name is invalid")
+		}
+		host = hurl.Host
+	}
+	valid, _ := regexp.MatchString(`^([a-zA-Z]+\:\/\/)?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])(\:[0-9]+)?$`, hostname)
+
+	if !valid {
+		return fmt.Errorf("Host DNS name is invalid")
 	}
 
 	return nil

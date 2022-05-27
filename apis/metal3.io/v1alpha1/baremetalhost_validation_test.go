@@ -104,27 +104,41 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time",
 		},
 		{
+<<<<<<< HEAD
 			name: "supportBMCType",
+=======
+			name: "validDNSName",
+>>>>>>> 260d5ce5... add more testcases, minor fixes
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
+<<<<<<< HEAD
 					BootMACAddress: "01:02:03:04:05:06",
 					BMC: BMCDetails{
 						Address:         "irmc:127.0.1.1",
 						CredentialsName: "test1",
 					},
 				}},
+=======
+					BMC: BMCDetails{
+						Address: "ipmi://host-0.example.com.org"}}},
+>>>>>>> 260d5ce5... add more testcases, minor fixes
 			oldBMH:    nil,
 			wantedErr: "",
 		},
 		{
+<<<<<<< HEAD
 			name: "unsupportBMCType",
+=======
+			name: "validDNSName2",
+>>>>>>> 260d5ce5... add more testcases, minor fixes
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
 					BMC: BMCDetails{
+<<<<<<< HEAD
 						Address:         "test:127.0.1.1",
 						CredentialsName: "test1",
 					},
@@ -155,11 +169,18 @@ func TestValidateCreate(t *testing.T) {
 						CredentialsName: "test1",
 					},
 				}},
+=======
+						Address: "ipmi://baremetalhost"}}},
+>>>>>>> 260d5ce5... add more testcases, minor fixes
 			oldBMH:    nil,
 			wantedErr: "",
 		},
 		{
+<<<<<<< HEAD
 			name: "RAIDWithUnsupportBMC",
+=======
+			name: "invalidDNSName",
+>>>>>>> 260d5ce5... add more testcases, minor fixes
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
 				ObjectMeta: om,

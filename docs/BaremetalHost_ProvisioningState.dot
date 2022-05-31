@@ -18,19 +18,13 @@ digraph BaremetalHost {
     Deleting2 [shape=point]
 
     ExternallyProvisioned -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
-    ExternallyProvisioned -> MatchProfile [label="!externallyProvisioned && NeedsHardwareProfile()"]
-    ExternallyProvisioned -> Preparing [label="!externallyProvisioned"]
+    ExternallyProvisioned -> Preparing [label="!externallyProvisioned && !NeedsHardwareInspection()"]
     Available -> ExternallyProvisioned [label="externallyProvisioned"]
 
-    Inspecting -> MatchProfile [label="done"]
+    Inspecting -> Preparing [label="done"]
     Inspecting -> Deleting3 [label="!DeletionTimestamp.IsZero()"]
 
     Deleting3 [shape=point]
-
-    MatchProfile -> Preparing [label="done"]
-    MatchProfile -> Deleting4 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting4 [shape=point]
 
     Deleting5 [shape=point]
 

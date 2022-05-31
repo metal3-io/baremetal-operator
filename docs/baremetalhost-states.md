@@ -36,11 +36,6 @@ using a ramdisk. The agent collects information about the available
 hardware components, and this process is called "inspection." The host
 will stay in the Inspecting state until this process is completed.
 
-## Match Profile
-
-A host in the Match Profile state is being matched against a hardware
-profile.
-
 ## Preparing
 
 When setting up RAID, BIOS and other similar configurations,

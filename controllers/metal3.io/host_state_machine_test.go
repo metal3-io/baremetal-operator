@@ -976,6 +976,11 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 			TargetState: metal3v1alpha1.StateInspecting,
 		},
 		{
+			Scenario:    "registering-to-preparing",
+			Host:        host(metal3v1alpha1.StateRegistering).DisableInspection().build(),
+			TargetState: metal3v1alpha1.StatePreparing,
+		},
+		{
 			Scenario:    "inspecting-to-preparing",
 			Host:        host(metal3v1alpha1.StateInspecting).build(),
 			TargetState: metal3v1alpha1.StatePreparing,
@@ -1172,6 +1177,14 @@ func (hb *hostBuilder) SetOnline(status bool) *hostBuilder {
 
 func (hb *hostBuilder) SetOperationalStatus(status metal3v1alpha1.OperationalStatus) *hostBuilder {
 	hb.Status.OperationalStatus = status
+	return hb
+}
+
+func (hb *hostBuilder) DisableInspection() *hostBuilder {
+	if hb.Annotations == nil {
+		hb.Annotations = make(map[string]string, 1)
+	}
+	hb.Annotations[inspectAnnotationPrefix] = "disabled"
 	return hb
 }
 

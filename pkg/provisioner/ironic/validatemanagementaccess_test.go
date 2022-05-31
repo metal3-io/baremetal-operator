@@ -17,7 +17,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 )
 
-func TestValidateManagementAccessNoMAC(t *testing.T) {
+func TestEnsureNodeNoMAC(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// requires one.
 	host := makeHost()
@@ -37,14 +37,14 @@ func TestValidateManagementAccessNoMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Contains(t, result.ErrorMessage, "requires a BootMACAddress")
 }
 
-func TestValidateManagementAccessMACOptional(t *testing.T) {
+func TestEnsureNodeMACOptional(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -69,14 +69,14 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 }
 
-func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
+func TestEnsureNodeCreateNodeNoImage(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -103,9 +103,9 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", createdNode.UUID)
@@ -113,20 +113,19 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 	assert.Equal(t, createdNode.DeployInterface, "")
 }
 
-func TestValidateManagementAccessCreateWithImage(t *testing.T) {
+func TestUpdateNodeForProvisioningWithImage(t *testing.T) {
 	// Create a host with Image specified in the Spec
 	host := makeHost()
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 	host.Spec.Image.URL = "theimagefoo"
 	host.Spec.Image.Checksum = "thechecksumxyz"
 
-	var createdNode *nodes.Node
-
-	createCallback := func(node nodes.Node) {
-		createdNode = &node
+	existingNode := nodes.Node{
+		UUID: "node-0",
+		Name: host.Namespace + nameSeparator + host.Name,
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).Ready().Node(existingNode)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
@@ -139,32 +138,30 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
+	result, err := prov.UpdateNodeForProvisioning(provisioner.PreprovisionData{CurrentImage: host.Spec.Image.DeepCopy()})
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from UpdateNodeForProvisioning: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, createdNode.DeployInterface, "")
 	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
 	assert.Contains(t, updates, "/instance_info/image_source")
 	assert.Contains(t, updates, host.Spec.Image.URL)
 	assert.Contains(t, updates, "/instance_info/image_checksum")
 	assert.Contains(t, updates, host.Spec.Image.Checksum)
+	assert.NotContains(t, updates, "/deploy_interface")
 }
 
-func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
+func TestUpdateNodeForProvisioningCreateWithLiveIso(t *testing.T) {
 	// Create a host with Image specified in the Spec
 	host := makeHostLiveIso()
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
-	var createdNode *nodes.Node
-
-	createCallback := func(node nodes.Node) {
-		createdNode = &node
+	existingNode := nodes.Node{
+		UUID: "node-0",
+		Name: host.Namespace + nameSeparator + host.Name,
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).Ready().Node(existingNode)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
@@ -177,19 +174,19 @@ func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
+	result, err := prov.UpdateNodeForProvisioning(provisioner.PreprovisionData{CurrentImage: host.Spec.Image.DeepCopy()})
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from UpdateNodeForProvisioning: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, createdNode.DeployInterface, "ramdisk")
 	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
 	assert.Contains(t, updates, "/instance_info/boot_iso")
 	assert.Contains(t, updates, host.Spec.Image.URL)
+	assert.Contains(t, updates, "/deploy_interface")
+	assert.Contains(t, updates, "ramdisk")
 }
 
-func TestValidateManagementAccessExistingNode(t *testing.T) {
+func TestEnsureNodeExistingNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -218,15 +215,15 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
 }
 
-func TestValidateManagementAccessExistingNodeNameUpdate(t *testing.T) {
+func TestEnsureNodeExistingNodeNameUpdate(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -255,15 +252,15 @@ func TestValidateManagementAccessExistingNodeNameUpdate(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, false, result.Dirty)
 }
 
-func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
+func TestEnsureNodeExistingNodeContinue(t *testing.T) {
 	statuses := []nodes.ProvisionState{
 		nodes.Manageable,
 		nodes.Available,
@@ -330,9 +327,9 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+			result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 			if err != nil {
-				t.Fatalf("error from ValidateManagementAccess: %s", err)
+				t.Fatalf("error from EnsureNode: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 			assert.Equal(t, false, result.Dirty)
@@ -341,7 +338,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 	}
 }
 
-func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
+func TestEnsureNodeExistingSteadyStateNoUpdate(t *testing.T) {
 	liveFormat := "live-iso"
 	imageTypes := []struct {
 		DeployInterface string
@@ -443,18 +440,26 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{CurrentImage: imageType.Image}, false, false)
+			result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 			if err != nil {
-				t.Fatalf("error from ValidateManagementAccess: %s", err)
+				t.Fatalf("error from EnsureNode: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 			assert.Equal(t, false, result.Dirty)
+
+			result, err = prov.UpdateNodeForProvisioning(provisioner.PreprovisionData{CurrentImage: imageType.Image})
+			if err != nil {
+				t.Fatalf("error from UpdateNodeForProvisioning: %s", err)
+			}
+			assert.Equal(t, "", result.ErrorMessage)
+			assert.Equal(t, false, result.Dirty)
+
 			assert.Len(t, ironic.GetLastNodeUpdateRequestFor("uuid"), 0)
 		})
 	}
 }
 
-func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
+func TestEnsureNodeExistingNodeWaiting(t *testing.T) {
 	statuses := []nodes.ProvisionState{
 		nodes.Enroll,
 		nodes.Verifying,
@@ -499,9 +504,9 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+			result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 			if err != nil {
-				t.Fatalf("error from ValidateManagementAccess: %s", err)
+				t.Fatalf("error from EnsureNode: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 			assert.Equal(t, true, result.Dirty)
@@ -514,7 +519,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 	}
 }
 
-func TestValidateManagementAccessNewCredentials(t *testing.T) {
+func TestEnsureNodeNewCredentials(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -546,9 +551,9 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, true, false)
+	result, provID, err := prov.EnsureNode(provisioner.ManagementAccessData{}, true, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
@@ -559,7 +564,7 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	assert.Equal(t, "test.bmc", newValues["test_address"])
 }
 
-func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
+func TestEnsureNodeLinkExistingIronicNodeByMAC(t *testing.T) {
 	// Create an Ironic node, and then create a host with a matching MAC
 	// Test to see if the node was found, and if the link is made
 
@@ -595,17 +600,17 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", provID)
 }
 
-func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
+func TestEnsureNodeExistingPortWithWrongUUID(t *testing.T) {
 	// Create a node, and a port.  The port has a node uuid that doesn't match the node.
-	// ValidateManagementAccess should return an error.
+	// EnsureNode should return an error.
 
 	existingNode := nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
@@ -639,18 +644,18 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, _, err = prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	_, _, err = prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	endpoint := ironic.MockServer.Endpoint()
 	expected := fmt.Sprintf("failed to find existing host: port 11:11:11:11:11:11 exists but linked node doesn't random-wrong-id: Resource not found: [GET %snodes/random-wrong-id], error message: ", endpoint)
 	assert.EqualError(t, err, expected)
 }
 
-func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
+func TestEnsureNodeExistingPortButHasName(t *testing.T) {
 	// Create a node, and a port.
 	// The port is linked to the node.
 	// The port address matches the BMH BootMACAddress.
 	// The node has a name, and the name doesn't match the BMH.
-	// ValidateManagementAccess should return an error.
+	// EnsureNode should return an error.
 
 	existingNode := nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
@@ -684,12 +689,12 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	res, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	res, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	assert.Nil(t, err)
 	assert.Equal(t, res.ErrorMessage, "MAC address 11:11:11:11:11:11 conflicts with existing node wrong-name")
 }
 
-func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
+func TestEnsureNodeAddTwoHostsWithSameMAC(t *testing.T) {
 
 	existingNode := nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
@@ -725,15 +730,15 @@ func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
 	}
 
 	// MAC address value is different than the port that actually exists
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", provID)
 }
 
-func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
+func TestEnsureNodeUnsupportedSecureBoot(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// requires one.
 	host := makeHost()
@@ -751,14 +756,14 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMode: metal3v1alpha1.UEFISecureBoot}, false, false)
+	result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{BootMode: metal3v1alpha1.UEFISecureBoot}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Contains(t, result.ErrorMessage, "does not support secure boot")
 }
 
-func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
+func TestEnsureNodeNoBMCDetails(t *testing.T) {
 	ironic := testserver.NewIronic(t).Ready()
 	ironic.Start()
 	defer ironic.Stop()
@@ -774,14 +779,14 @@ func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "failed to parse BMC address information: missing BMC address", result.ErrorMessage)
 }
 
-func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
+func TestEnsureNodeMalformedBMCAddress(t *testing.T) {
 	ironic := testserver.NewIronic(t).Ready()
 	ironic.Start()
 	defer ironic.Stop()
@@ -799,9 +804,9 @@ func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.EnsureNode(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from EnsureNode: %s", err)
 	}
 	assert.Equal(t, "failed to parse BMC address information: failed to parse BMC address information: parse \"<ipmi://192.168.122.1:6233>\": first path segment in URL cannot contain colon", result.ErrorMessage)
 }
@@ -1104,46 +1109,32 @@ func TestSetDeployImage(t *testing.T) {
 			case tc.ExpectISO:
 				if tc.ExpectBuild {
 					assert.Equal(t, buildIso, opts["deploy_iso"])
-					assert.Equal(t, buildIso, driverInfo["deploy_iso"])
 				} else {
 					assert.Equal(t, localIso, opts["deploy_iso"])
-					assert.Equal(t, localIso, driverInfo["deploy_iso"])
 				}
 				assert.Nil(t, opts["deploy_kernel"])
 				assert.Nil(t, opts["deploy_ramdisk"])
-				assert.Nil(t, driverInfo["deploy_kernel"])
-				assert.Nil(t, driverInfo["deploy_ramdisk"])
 				assert.Nil(t, opts["kernel_append_params"])
-				assert.Nil(t, driverInfo["kernel_append_params"])
 			case tc.ExpectPXE:
 				assert.Nil(t, opts["deploy_iso"])
-				assert.Nil(t, driverInfo["deploy_iso"])
 				if tc.ExpectBuild {
 					if tc.ExpectNewKernel {
 						assert.Equal(t, buildKernel, opts["deploy_kernel"])
-						assert.Equal(t, buildKernel, driverInfo["deploy_kernel"])
 					} else {
 						assert.Equal(t, localKernel, opts["deploy_kernel"])
-						assert.Equal(t, localKernel, driverInfo["deploy_kernel"])
 					}
 					assert.Equal(t, buildRamdisk, opts["deploy_ramdisk"])
-					assert.Equal(t, buildRamdisk, driverInfo["deploy_ramdisk"])
 				} else {
 					assert.Equal(t, localKernel, opts["deploy_kernel"])
 					assert.Equal(t, localRamdisk, opts["deploy_ramdisk"])
-					assert.Equal(t, localKernel, driverInfo["deploy_kernel"])
-					assert.Equal(t, localRamdisk, driverInfo["deploy_ramdisk"])
 				}
 				if tc.ExpectKernelParams {
 					assert.Equal(t, expectedKernelParams, opts["kernel_append_params"])
-					assert.Equal(t, expectedKernelParams, driverInfo["kernel_append_params"])
 				} else {
 					assert.Nil(t, opts["kernel_append_params"])
-					assert.Nil(t, driverInfo["kernel_append_params"])
 				}
 			default:
 				assert.Nil(t, opts)
-				assert.Empty(t, driverInfo)
 			}
 		})
 	}

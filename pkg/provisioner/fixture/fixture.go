@@ -97,7 +97,7 @@ func (p *fixtureProvisioner) HasCapacity() (result bool, err error) {
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *fixtureProvisioner) EnsureNode(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	if p.state.validateError != "" {
@@ -114,6 +114,10 @@ func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.Managemen
 		return
 	}
 
+	return
+}
+
+func (p *fixtureProvisioner) UpdateNodeForProvisioning(data provisioner.PreprovisionData) (result provisioner.Result, err error) {
 	return
 }
 

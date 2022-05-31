@@ -76,10 +76,14 @@ type PreprovisioningImage struct {
 type ManagementAccessData struct {
 	BootMode              metal3v1alpha1.BootMode
 	AutomatedCleaningMode metal3v1alpha1.AutomatedCleaningMode
-	State                 metal3v1alpha1.ProvisioningState
-	CurrentImage          *metal3v1alpha1.Image
-	PreprovisioningImage  *PreprovisioningImage
-	HasCustomDeploy       bool
+}
+
+type PreprovisionData struct {
+	BootMode             metal3v1alpha1.BootMode
+	State                metal3v1alpha1.ProvisioningState
+	CurrentImage         *metal3v1alpha1.Image
+	PreprovisioningImage *PreprovisioningImage
+	HasCustomDeploy      bool
 }
 
 type AdoptData struct {
@@ -119,13 +123,18 @@ type HTTPHeaders []map[string]string
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
-	// ValidateManagementAccess tests the connection information for
+	// EnsureNode enrolls a node and tests the connection information for
 	// the host to verify that the location and credentials work. The
 	// boolean argument tells the provisioner whether the current set
 	// of credentials it has are different from the credentials it has
 	// previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, force bool) (result Result, provID string, err error)
+	EnsureNode(data ManagementAccessData, credentialsChanged, force bool) (result Result, provID string, err error)
+
+	// UpdateNodeForProvisioning updates the information required to
+	// provision the node. This includes both pre-provisioning image
+	// information and the actual image information.
+	UpdateNodeForProvisioning(data PreprovisionData) (result Result, err error)
 
 	// PreprovisioningImageFormats returns a list of acceptable formats for a
 	// pre-provisioning image to be built by a PreprovisioningImage object. The

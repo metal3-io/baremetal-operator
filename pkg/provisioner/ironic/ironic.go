@@ -313,13 +313,10 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 	return nil
 }
 
-// ValidateManagementAccess registers the host with the provisioning
+// EnsureNode registers the host with the provisioning
 // system and tests the connection information for the host to verify
 // that the location and credentials work.
-//
-// FIXME(dhellmann): We should rename this method to describe what it
-// actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *ironicProvisioner) EnsureNode(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = operationFailed(err.Error())
@@ -342,6 +339,8 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		return
 	}
 
+	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
+
 	// Some BMC types require a MAC address, so ensure we have one
 	// when we need it. If not, place the host in an error state.
 	if bmcAccess.NeedsMAC() && p.bootMACAddress == "" {
@@ -350,9 +349,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		result, err = operationFailed(msg)
 		return
 	}
-
-	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
-	deployImageInfo := setDeployImage(driverInfo, p.config, bmcAccess, data.PreprovisioningImage)
 
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
@@ -373,7 +369,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 				BootInterface:       bmcAccess.BootInterface(),
 				Name:                p.objectMeta.Name,
 				DriverInfo:          driverInfo,
-				DeployInterface:     p.deployInterface(data),
 				InspectInterface:    "inspector",
 				ManagementInterface: bmcAccess.ManagementInterface(),
 				PowerInterface:      bmcAccess.PowerInterface(),
@@ -445,16 +440,10 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// otherwise we will be writing on every call to this function.
 		if credentialsChanged {
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
-		} else {
-			updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 		}
-
 		// We don't return here because we also have to set the
 		// target provision state to manageable, which happens
 		// below.
-	}
-	if data.CurrentImage != nil || data.HasCustomDeploy {
-		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.HasCustomDeploy, updater)
 	}
 	updater.SetTopLevelOpt("automated_clean",
 		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
@@ -513,30 +502,56 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
 		fallthrough
 
-	case nodes.Manageable:
-		fallthrough
-
-	case nodes.Available:
-		// The host is fully registered (and probably wasn't cleanly
-		// deleted previously)
-		fallthrough
-
 	default:
-		switch data.State {
-		case metal3v1alpha1.StateInspecting,
-			metal3v1alpha1.StatePreparing,
-			metal3v1alpha1.StateProvisioning,
-			metal3v1alpha1.StateDeprovisioning:
-			if deployImageInfo == nil {
-				if p.config.havePreprovImgBuilder {
-					result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
-				} else {
-					result, err = operationFailed("no preprovisioning image available")
-				}
-			}
-		}
 		return
 	}
+}
+
+func (p *ironicProvisioner) UpdateNodeForProvisioning(data provisioner.PreprovisionData) (result provisioner.Result, err error) {
+	bmcAccess, err := p.bmcAccess()
+	if err != nil {
+		return operationFailed(err.Error())
+	}
+
+	var ironicNode *nodes.Node
+	updater := updateOptsBuilder(p.debugLog)
+
+	p.debugLog.Info("updating node parameters for provisioning")
+
+	ironicNode, err = p.findExistingHost(p.bootMACAddress)
+	if err != nil {
+		return transientError(errors.Wrap(err, "failed to find existing host"))
+	}
+
+	deployImageInfo := setDeployImage(ironicNode.DriverInfo, p.config, bmcAccess, data.PreprovisioningImage)
+	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
+
+	if data.CurrentImage != nil || data.HasCustomDeploy {
+		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.HasCustomDeploy, updater)
+	}
+
+	var success bool
+	success, result, err = p.tryUpdateNode(ironicNode, updater)
+	if !success {
+		return
+	}
+
+	result, err = operationComplete()
+
+	switch data.State {
+	case metal3v1alpha1.StateInspecting,
+		metal3v1alpha1.StatePreparing,
+		metal3v1alpha1.StateProvisioning,
+		metal3v1alpha1.StateDeprovisioning:
+		if deployImageInfo == nil {
+			if p.config.havePreprovImgBuilder {
+				result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
+			} else {
+				result, err = operationFailed("no preprovisioning image available")
+			}
+		}
+	}
+	return
 }
 
 // PreprovisioningImageFormats returns a list of acceptable formats for a
@@ -570,16 +585,6 @@ func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, acce
 		deployISOKey:     nil,
 		kernelParamsKey:  nil,
 	}
-
-	defer func() {
-		// Copy into driverInfo so that if we end up creating a new Node, the
-		// info will be there from the outset.
-		for k, v := range deployImageInfo {
-			if v != nil {
-				driverInfo[k] = v
-			}
-		}
-	}()
 
 	allowISO := accessDetails.SupportsISOPreprovisioningImage()
 
@@ -1058,16 +1063,6 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 	p.publisher("ProvisioningStarted",
 		fmt.Sprintf("Image provisioning started for %s", data.Image.URL))
 	return
-}
-
-func (p *ironicProvisioner) deployInterface(data provisioner.ManagementAccessData) (result string) {
-	if data.CurrentImage.IsLiveISO() {
-		result = "ramdisk"
-	}
-	if data.HasCustomDeploy {
-		result = "custom-agent"
-	}
-	return result
 }
 
 // Adopt notifies the provisioner that the state machine believes the host

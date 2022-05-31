@@ -83,9 +83,9 @@ func (p *demoProvisioner) HasCapacity() (result bool, err error) {
 	return true, nil
 }
 
-// ValidateManagementAccess tests the connection information for the
+// EnsureNode tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *demoProvisioner) EnsureNode(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.objectMeta.Name
@@ -111,6 +111,10 @@ func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 		}
 	}
 
+	return
+}
+
+func (p *demoProvisioner) UpdateNodeForProvisioning(data provisioner.PreprovisionData) (result provisioner.Result, err error) {
 	return
 }
 

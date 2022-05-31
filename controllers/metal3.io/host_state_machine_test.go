@@ -877,7 +877,7 @@ func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
 		{
 			Scenario:           "registration",
 			Host:               host(metal3v1alpha1.StateRegistering).build(),
-			ProvisionerErrorOn: "ValidateManagementAccess",
+			ProvisionerErrorOn: "EnsureNode",
 			originalError:      defaultError,
 			ExpectedError:      defaultError,
 		},
@@ -1254,8 +1254,12 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 	return m.callsNoError[methodName]
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
-	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
+func (m *mockProvisioner) EnsureNode(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+	return m.getNextResultByMethod("EnsureNode"), "", err
+}
+
+func (m *mockProvisioner) UpdateNodeForProvisioning(data provisioner.PreprovisionData) (result provisioner.Result, err error) {
+	return m.getNextResultByMethod("UpdateNodeForProvisioning"), err
 }
 
 func (m *mockProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {

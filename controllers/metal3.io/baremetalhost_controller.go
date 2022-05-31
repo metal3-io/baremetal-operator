@@ -808,46 +808,14 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		dirty = true
 	}
 
-	preprovImgFormats, err := prov.PreprovisioningImageFormats()
-	if err != nil {
-		return actionError{err}
-	}
-	switch info.host.Status.Provisioning.State {
-	case metal3v1alpha1.StateRegistering, metal3v1alpha1.StateExternallyProvisioned:
-		// No need to create PreprovisioningImage if host is not yet registered
-		// or is externally provisioned
-		preprovImgFormats = nil
-	}
-
-	preprovImg, err := r.getPreprovImage(info, preprovImgFormats)
-	if err != nil {
-		if errors.As(err, &imageBuildError{}) {
-			return recordActionFailure(info, metal3v1alpha1.RegistrationError, err.Error())
-		}
-		return actionError{err}
-	}
-
-	provResult, provID, err := prov.ValidateManagementAccess(
+	provResult, provID, err := prov.EnsureNode(
 		provisioner.ManagementAccessData{
 			BootMode:              info.host.Status.Provisioning.BootMode,
 			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
-			State:                 info.host.Status.Provisioning.State,
-			CurrentImage:          getCurrentImage(info.host),
-			PreprovisioningImage:  preprovImg,
-			HasCustomDeploy:       hasCustomDeploy(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3v1alpha1.RegistrationError)
 
-	if errors.Is(err, provisioner.ErrNeedsPreprovisioningImage) &&
-		preprovImgFormats != nil {
-		if preprovImg == nil {
-			waitingForPreprovImage.Inc()
-			return actionContinue{preprovImageRetryDelay}
-		}
-		return recordActionFailure(info, metal3v1alpha1.RegistrationError,
-			"Preprovisioning Image is not acceptable to provisioner")
-	}
 	if err != nil {
 		noManagementAccess.Inc()
 		return actionError{errors.Wrap(err, "failed to validate BMC access")}
@@ -886,6 +854,11 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return actionUpdate{}
 	}
 
+	updateResult := r.updateHostForProvisioning(prov, info)
+	if updateResult != nil {
+		return updateResult
+	}
+
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	if info.host.Name != "" {
 		if err = r.createHostFirmwareSettings(info); err != nil {
@@ -915,6 +888,59 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	if dirty {
 		return actionComplete{}
 	}
+	return nil
+}
+
+func (r *BareMetalHostReconciler) updateHostForProvisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	preprovImgFormats, err := prov.PreprovisioningImageFormats()
+	if err != nil {
+		return actionError{err}
+	}
+	switch info.host.Status.Provisioning.State {
+	case metal3v1alpha1.StateRegistering, metal3v1alpha1.StateExternallyProvisioned:
+		// No need to create PreprovisioningImage if host is not yet registered
+		// or is externally provisioned
+		preprovImgFormats = nil
+	}
+
+	preprovImg, err := r.getPreprovImage(info, preprovImgFormats)
+	if err != nil {
+		if errors.As(err, &imageBuildError{}) {
+			return recordActionFailure(info, metal3v1alpha1.RegistrationError, err.Error())
+		}
+		return actionError{err}
+	}
+
+	provResult, err := prov.UpdateNodeForProvisioning(provisioner.PreprovisionData{
+		State:                info.host.Status.Provisioning.State,
+		CurrentImage:         getCurrentImage(info.host),
+		PreprovisioningImage: preprovImg,
+		HasCustomDeploy:      hasCustomDeploy(info.host),
+	})
+
+	if errors.Is(err, provisioner.ErrNeedsPreprovisioningImage) &&
+		preprovImgFormats != nil {
+		if preprovImg == nil {
+			waitingForPreprovImage.Inc()
+			return actionContinue{preprovImageRetryDelay}
+		}
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError,
+			"Preprovisioning Image is not acceptable to provisioner")
+	}
+
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to update deployment information")}
+	}
+
+	if provResult.Dirty {
+		info.log.Info("host not ready", "wait", provResult.RequeueAfter)
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
+	}
+
 	return nil
 }
 

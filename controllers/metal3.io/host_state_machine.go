@@ -348,6 +348,8 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 	// if the credentials change and the Host must be re-registered.
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3v1alpha1.StateExternallyProvisioned
+	} else if inspectionDisabled(hsm.Host) {
+		hsm.NextState = metal3v1alpha1.StatePreparing
 	} else {
 		hsm.NextState = metal3v1alpha1.StateInspecting
 	}
@@ -377,10 +379,10 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 		return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
 	}
 
-	switch {
-	case hsm.Host.NeedsHardwareInspection():
+	// TODO(dtantsur): move this logic inside NeedsHardwareInspection?
+	if hsm.Host.NeedsHardwareInspection() && !inspectionDisabled(hsm.Host) {
 		hsm.NextState = metal3v1alpha1.StateInspecting
-	default:
+	} else {
 		hsm.NextState = metal3v1alpha1.StatePreparing
 	}
 	return actionComplete{}

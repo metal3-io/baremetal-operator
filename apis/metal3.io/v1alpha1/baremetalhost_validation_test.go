@@ -383,7 +383,7 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "",
 		},
 		{
-			name: "invalidDNSNameinvalidcharacter",
+			name: "invalidDNSNameinvalidhyphenuse",
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
 				ObjectMeta: om,
@@ -391,18 +391,40 @@ func TestValidateCreate(t *testing.T) {
 					BMC: BMCDetails{
 						Address: "ipmi://-host.example.com.org"}}},
 			oldBMH:    nil,
-			wantedErr: "host DNS name is invalid",
+			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [-host.example.com.org] is invalid",
 		},
 		{
-			name: "invalidDNSNameinvalidcharacter2",
+			name: "invalidDNSNameinvalidcharacter",
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
 					BMC: BMCDetails{
-						Address: "ipmi://host-.example.com.org"}}},
+						Address: "ipmi://host+1.example.com.org"}}},
 			oldBMH:    nil,
-			wantedErr: "host DNS name is invalid",
+			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [host+1.example.com.org] is invalid",
+		},
+		{
+			name: "invalidDNSNameinvalidformat",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "[@]host.example.com"}}},
+			oldBMH:    nil,
+			wantedErr: "BMO validation: failed to parse BMC address information: parse \"ipmi://[@]host.example.com\": net/url: invalid userinfo",
+		},
+		{
+			name: "invalidDNSNameinvalidbmc",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipm:host.example.com:6223"}}},
+			oldBMH:    nil,
+			wantedErr: "Unknown BMC type 'ipm' for address ipm:host.example.com:6223",
 		},
 		{
 			name: "invalidDNSNameinvalidipv6",
@@ -413,7 +435,7 @@ func TestValidateCreate(t *testing.T) {
 					BMC: BMCDetails{
 						Address: "ipmi://[fe80::fc33:62ff:fe33:8xff]:6223"}}},
 			oldBMH:    nil,
-			wantedErr: "host DNS name is invalid",
+			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
 		},
 	}
 

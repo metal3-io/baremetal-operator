@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -156,7 +157,7 @@ func validateDNSName(hostaddress string) error {
 
 	_, err := bmc.GetParsedURL(hostaddress)
 	if err != nil {
-		return fmt.Errorf("host DNS name is invalid")
+		return errors.Wrap(err, "BMO validation")
 	}
 
 	return nil

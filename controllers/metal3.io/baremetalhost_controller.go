@@ -854,11 +854,6 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return actionUpdate{}
 	}
 
-	updateResult := r.updateHostForProvisioning(prov, info)
-	if updateResult != nil {
-		return updateResult
-	}
-
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	if info.host.Name != "" {
 		if err = r.createHostFirmwareSettings(info); err != nil {
@@ -941,7 +936,36 @@ func (r *BareMetalHostReconciler) updateHostForProvisioning(prov provisioner.Pro
 		return result
 	}
 
+	hintsDirty, err := updateRootDeviceHints(info.host, info)
+	if err != nil {
+		return actionError{err}
+	}
+	if hintsDirty {
+		return actionUpdate{}
+	}
+
 	return nil
+}
+
+func updateRootDeviceHints(host *metal3v1alpha1.BareMetalHost, info *reconcileInfo) (dirty bool, err error) {
+	// Ensure the root device hints we're going to use are stored.
+	//
+	// If the user has provided explicit root device hints, they take
+	// precedence. Otherwise use the values from the hardware profile.
+	hintSource := host.Spec.RootDeviceHints
+	if hintSource == nil {
+		hwProf, err := hardware.GetProfile(host.HardwareProfile())
+		if err != nil {
+			return false, errors.Wrap(err, "failed to update root device hints")
+		}
+		hintSource = &hwProf.RootDeviceHints
+	}
+	if !reflect.DeepEqual(hintSource, host.Status.Provisioning.RootDeviceHints) {
+		info.log.Info("RootDeviceHints have changed", "old", host.Status.Provisioning.RootDeviceHints, "new", hintSource)
+		host.Status.Provisioning.RootDeviceHints = hintSource.DeepCopy()
+		dirty = true
+	}
+	return
 }
 
 // Ensure we have the information about the hardware on the host.
@@ -955,6 +979,11 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	}
 
 	info.log.Info("inspecting hardware")
+
+	updateResult := r.updateHostForProvisioning(prov, info)
+	if updateResult != nil {
+		return updateResult
+	}
 
 	refresh := hasInspectAnnotation(info.host)
 	provResult, started, details, err := prov.InspectHardware(
@@ -1113,6 +1142,13 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		prepareData.TargetFirmwareSettings = hfs.Spec.Settings.DeepCopy()
 	}
 
+	if bmhDirty || hfsDirty {
+		updateResult := r.updateHostForProvisioning(prov, info)
+		if updateResult != nil {
+			return updateResult
+		}
+	}
+
 	provResult, started, err := prov.Prepare(prepareData, bmhDirty || hfsDirty,
 		info.host.Status.ErrorType == metal3v1alpha1.PreparationError)
 
@@ -1171,6 +1207,11 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
 		return actionContinue{}
+	}
+
+	updateResult := r.updateHostForProvisioning(prov, info)
+	if updateResult != nil {
+		return updateResult
 	}
 
 	var image metal3v1alpha1.Image
@@ -1257,6 +1298,15 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	}
 
 	info.log.Info("deprovisioning")
+
+	// No point in configuring provisioning if cleaning is not enabled.
+	// FIXME(dtantsur): carries an assumption on how deprovisioning works in Ironic, move it inside provisioner.
+	if info.host.Spec.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled {
+		updateResult := r.updateHostForProvisioning(prov, info)
+		if updateResult != nil {
+			return updateResult
+		}
+	}
 
 	provResult, err := prov.Deprovision(info.host.Status.ErrorType == metal3v1alpha1.ProvisioningError)
 	if err != nil {
@@ -1440,23 +1490,10 @@ func getHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost, info *recon
 // provisioning that do not trigger re-provisioning into the status
 // fields of the host.
 func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost, info *reconcileInfo) (dirty bool, err error) {
-
-	// Ensure the root device hints we're going to use are stored.
-	//
-	// If the user has provided explicit root device hints, they take
-	// precedence. Otherwise use the values from the hardware profile.
-	hintSource := host.Spec.RootDeviceHints.DeepCopy()
-	if hintSource == nil {
-		hwProf, err := hardware.GetProfile(host.HardwareProfile())
-		if err != nil {
-			return false, errors.Wrap(err, "Could not update root device hints")
-		}
-		hintSource = hwProf.RootDeviceHints.DeepCopy()
-	}
-	if !reflect.DeepEqual(hintSource, host.Status.Provisioning.RootDeviceHints) {
-		host.Status.Provisioning.RootDeviceHints = hintSource.DeepCopy()
-		info.log.Info("RootDeviceHints have changed")
-		dirty = true
+	// Root device hints may change as a result of RAID
+	dirty, err = updateRootDeviceHints(host, info)
+	if err != nil {
+		return
 	}
 
 	// Copy RAID settings
@@ -1464,20 +1501,23 @@ func saveHostProvisioningSettings(host *metal3v1alpha1.BareMetalHost, info *reco
 	// If RAID configure is nil or empty, means that we need to keep the current hardware RAID configuration
 	// or clear current software RAID configuration
 	if specRAID == nil || reflect.DeepEqual(specRAID, &metal3v1alpha1.RAIDConfig{}) {
-		// Set the default value of RAID configure:
-		// {
-		//     HardwareRAIDVolumes: nil or Status.Provisioning.RAID.HardwareRAIDVolumes(not empty),
-		//     SoftwareRAIDVolume: [],
-		// }
-		specRAID = &metal3v1alpha1.RAIDConfig{}
-		if host.Status.Provisioning.RAID != nil && len(host.Status.Provisioning.RAID.HardwareRAIDVolumes) != 0 {
-			specRAID.HardwareRAIDVolumes = host.Status.Provisioning.RAID.HardwareRAIDVolumes
+		// Short-circuit logic when no RAID is set and no RAID is requested
+		if host.Status.Provisioning.RAID != nil {
+			// Set the default value of RAID configure:
+			// {
+			//     HardwareRAIDVolumes: nil or Status.Provisioning.RAID.HardwareRAIDVolumes(not empty),
+			//     SoftwareRAIDVolume: [],
+			// }
+			specRAID = &metal3v1alpha1.RAIDConfig{}
+			if len(host.Status.Provisioning.RAID.HardwareRAIDVolumes) != 0 {
+				specRAID.HardwareRAIDVolumes = host.Status.Provisioning.RAID.HardwareRAIDVolumes
+			}
+			specRAID.SoftwareRAIDVolumes = []metal3v1alpha1.SoftwareRAIDVolume{}
 		}
-		specRAID.SoftwareRAIDVolumes = []metal3v1alpha1.SoftwareRAIDVolume{}
 	}
 	if !reflect.DeepEqual(host.Status.Provisioning.RAID, specRAID) {
+		info.log.Info("RAID settings have changed", "old", host.Status.Provisioning.RAID, "new", specRAID)
 		host.Status.Provisioning.RAID = specRAID
-		info.log.Info("RAID settings have changed")
 		dirty = true
 	}
 

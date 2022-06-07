@@ -1167,7 +1167,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	var newSettings []map[string]interface{}
 	if data.ActualFirmwareSettings != nil {
 		// If we have the current settings from Ironic, update the settings to contain:
-		// 1. settings converted by BMC drivers that are different than current settings
+		// 1. settings converted by BMC drivers that are different from current settings
 		for _, fwConfigSetting := range fwConfigSettings {
 			if val, exists := data.ActualFirmwareSettings[fwConfigSetting["name"]]; exists {
 				if fwConfigSetting["value"] != val {
@@ -1178,7 +1178,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 			}
 		}
 
-		// 2. target settings that are different than current settings
+		// 2. target settings that are different from current settings
 		if data.TargetFirmwareSettings != nil {
 			for k, v := range data.TargetFirmwareSettings {
 				if data.ActualFirmwareSettings[k] != v.String() {

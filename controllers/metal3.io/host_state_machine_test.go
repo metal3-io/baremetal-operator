@@ -121,7 +121,7 @@ func TestProvisioningCapacity(t *testing.T) {
 			Host:                    host(metal3v1alpha1.StateInspecting).build(),
 			HasProvisioningCapacity: true,
 
-			ExpectedProvisioningState: metal3v1alpha1.StateMatchProfile,
+			ExpectedProvisioningState: metal3v1alpha1.StatePreparing,
 			ExpectedDelayed:           false,
 		},
 		{
@@ -309,15 +309,6 @@ func TestDetach(t *testing.T) {
 		{
 			Scenario:                  "InspectingHost",
 			Host:                      host(metal3v1alpha1.StateInspecting).build(),
-			HasDetachedAnnotation:     true,
-			ExpectedDetach:            false,
-			ExpectedDirty:             true,
-			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
-			ExpectedState:             metal3v1alpha1.StateMatchProfile,
-		},
-		{
-			Scenario:                  "MatchProfileHost",
-			Host:                      host(metal3v1alpha1.StateMatchProfile).build(),
 			HasDetachedAnnotation:     true,
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
@@ -985,9 +976,9 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 			TargetState: metal3v1alpha1.StateInspecting,
 		},
 		{
-			Scenario:    "inspecting-to-matchprofile",
+			Scenario:    "inspecting-to-preparing",
 			Host:        host(metal3v1alpha1.StateInspecting).build(),
-			TargetState: metal3v1alpha1.StateMatchProfile,
+			TargetState: metal3v1alpha1.StatePreparing,
 		},
 		{
 			Scenario:    "matchprofile-to-preparing",

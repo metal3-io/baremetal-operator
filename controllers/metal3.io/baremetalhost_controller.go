@@ -711,7 +711,7 @@ func getHostArchitecture(host *metal3v1alpha1.BareMetalHost) string {
 		host.Status.HardwareDetails.CPU.Arch != "" {
 		return host.Status.HardwareDetails.CPU.Arch
 	}
-	if hwprof, err := hardware.GetProfile(getHardwareProfileName(host)); err == nil {
+	if hwprof, err := hardware.GetProfile(host.Status.HardwareProfile); err == nil {
 		return hwprof.CPUArch
 	}
 	return ""
@@ -878,6 +878,14 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return result
 	}
 
+	dirty, err = r.matchProfile(info)
+	if err != nil {
+		return recordActionFailure(info, metal3v1alpha1.RegistrationError, err.Error())
+	}
+	if dirty {
+		return actionUpdate{}
+	}
+
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	if info.host.Name != "" {
 		if err = r.createHostFirmwareSettings(info); err != nil {
@@ -1025,25 +1033,23 @@ func getHardwareProfileName(host *metal3v1alpha1.BareMetalHost) string {
 	return hardware.DefaultProfileName
 }
 
-func (r *BareMetalHostReconciler) actionMatchProfile(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-
+func (r *BareMetalHostReconciler) matchProfile(info *reconcileInfo) (dirty bool, err error) {
 	hardwareProfile := getHardwareProfileName(info.host)
 	info.log.Info("using hardware profile", "profile", hardwareProfile)
 
-	_, err := hardware.GetProfile(hardwareProfile)
+	_, err = hardware.GetProfile(hardwareProfile)
 	if err != nil {
 		info.log.Info("invalid hardware profile", "profile", hardwareProfile)
-		// FIXME(zaneb): This error requires a Spec change to fix, so we
-		// shouldn't treat it as transient
-		return actionError{err}
+		return
 	}
 
 	if info.host.SetHardwareProfile(hardwareProfile) {
+		dirty = true
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
 		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
 	}
 
-	return actionComplete{}
+	return
 }
 
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {

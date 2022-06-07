@@ -44,7 +44,7 @@ func (hsm *hostStateMachine) handlers() map[metal3v1alpha1.ProvisioningState]sta
 		metal3v1alpha1.StateRegistering:           hsm.handleRegistering,
 		metal3v1alpha1.StateInspecting:            hsm.handleInspecting,
 		metal3v1alpha1.StateExternallyProvisioned: hsm.handleExternallyProvisioned,
-		metal3v1alpha1.StateMatchProfile:          hsm.handleMatchProfile,
+		metal3v1alpha1.StateMatchProfile:          hsm.handleMatchProfile, // Backward compatibility, remove eventually
 		metal3v1alpha1.StatePreparing:             hsm.handlePreparing,
 		metal3v1alpha1.StateAvailable:             hsm.handleAvailable,
 		metal3v1alpha1.StateReady:                 hsm.handleAvailable,
@@ -292,8 +292,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		// to register the Host.
 		return
 	case metal3v1alpha1.StateMatchProfile:
-		// We don't call the provisioner in this state, so there is no point
-		// in checking the registration.
+		// Backward compatibility, remove eventually
 		return
 	case metal3v1alpha1.StateDeleting:
 		// In the deleting state the whole idea is to de-register the host
@@ -359,19 +358,17 @@ func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult
 func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult {
 	actResult := hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
-		hsm.NextState = metal3v1alpha1.StateMatchProfile
+		hsm.NextState = metal3v1alpha1.StatePreparing
 		hsm.Host.Status.ErrorCount = 0
 	}
 	return actResult
 }
 
 func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResult {
-	actResult := hsm.Reconciler.actionMatchProfile(hsm.Provisioner, info)
-	if _, complete := actResult.(actionComplete); complete {
-		hsm.NextState = metal3v1alpha1.StatePreparing
-		hsm.Host.Status.ErrorCount = 0
-	}
-	return actResult
+	// Backward compatibility, remove eventually
+	hsm.NextState = metal3v1alpha1.StatePreparing
+	hsm.Host.Status.ErrorCount = 0
+	return actionComplete{}
 }
 
 func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) actionResult {
@@ -383,8 +380,6 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 	switch {
 	case hsm.Host.NeedsHardwareInspection():
 		hsm.NextState = metal3v1alpha1.StateInspecting
-	case hsm.Host.NeedsHardwareProfile():
-		hsm.NextState = metal3v1alpha1.StateMatchProfile
 	default:
 		hsm.NextState = metal3v1alpha1.StatePreparing
 	}

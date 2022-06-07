@@ -124,7 +124,9 @@ func newDefaultNamedHost(name string, t *testing.T) *metal3v1alpha1.BareMetalHos
 		},
 	}
 	t.Logf("newNamedHost(%s)", name)
-	return newHost(name, spec)
+	host := newHost(name, spec)
+	host.Status.HardwareProfile = "libvirt"
+	return host
 }
 
 func newDefaultHost(t *testing.T) *metal3v1alpha1.BareMetalHost {
@@ -488,7 +490,7 @@ func TestInspectDisabled(t *testing.T) {
 		inspectAnnotationPrefix: "disabled",
 	}
 	r := newTestReconciler(host)
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StateMatchProfile)
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
 	assert.Nil(t, host.Status.HardwareDetails)
 }
 
@@ -496,7 +498,7 @@ func TestInspectDisabled(t *testing.T) {
 func TestInspectEnabled(t *testing.T) {
 	host := newDefaultHost(t)
 	r := newTestReconciler(host)
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StateMatchProfile)
+	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
 	assert.NotNil(t, host.Status.HardwareDetails)
 }
 

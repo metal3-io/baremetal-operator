@@ -79,11 +79,19 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 	if namespace == "" {
 		namespace = hcd.host.Namespace
 	}
-	return hcd.getSecretData(
+	networkDataRaw, err := hcd.getSecretData(
 		networkData.Name,
 		namespace,
 		"networkData",
 	)
+	if err != nil {
+		_, isNoDataErr := err.(NoDataInSecretError)
+		if isNoDataErr {
+			hcd.log.Info("NetworkData key is not set, returning empty data")
+			return "", nil
+		}
+	}
+	return networkDataRaw, err
 }
 
 // MetaData get host metatdata

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${NAMEPREFIX}-ironic
+  name: ironic
 spec:
   replicas: 1
   minReadySeconds: 10
@@ -11,11 +11,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      name: ${NAMEPREFIX}-ironic
+      name: ironic
   template:
     metadata:
       labels:
-        name: ${NAMEPREFIX}-ironic
+        name: ironic
     spec:
       hostNetwork: true
       containers:

@@ -91,32 +91,8 @@ export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
-IRONIC_DEPLOY_FILES="${SCRIPTDIR}/ironic-deployment/basic-auth/default/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/default/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/keepalived/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/keepalived/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/default/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/default/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/keepalived/auth.yaml \
-	${SCRIPTDIR}/ironic-deployment/basic-auth/tls/keepalived/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/certmanager/certificate.yaml \
-	${SCRIPTDIR}/ironic-deployment/default/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/ironic/ironic.yaml \
-	${SCRIPTDIR}/ironic-deployment/keepalived/keepalived_patch.yaml \
-	${SCRIPTDIR}/ironic-deployment/keepalived/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/tls/default/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/tls/default/tls.yaml \
-	${SCRIPTDIR}/ironic-deployment/tls/keepalived/kustomization.yaml \
-	${SCRIPTDIR}/ironic-deployment/tls/keepalived/tls.yaml"
-
 KUSTOMIZE="tools/bin/kustomize"
 make -C "$(dirname "$0")/.." "${KUSTOMIZE}"
-
-for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
-  cp "$DEPLOY_FILE" "$DEPLOY_FILE".bak
-  # shellcheck disable=SC2094
-  envsubst <"$DEPLOY_FILE".bak> "$DEPLOY_FILE"
-done
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     BMO_SCENARIO="${SCRIPTDIR}/config/basic-auth"
@@ -229,17 +205,11 @@ if [ "${DEPLOY_IRONIC}" == "true" ]; then
     fi
     IRONIC_CERTIFICATE_FILE="${SCRIPTDIR}/ironic-deployment/certmanager/certificate.yaml"
     sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g; s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${IRONIC_CERTIFICATE_FILE}"
-    kubectl create ns "${NAMEPREFIX}-system" || true
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
     mv /tmp/ironic_bmo_configmap.env "${IRONIC_BMO_CONFIGMAP}"
     popd
 fi
-
-# Move back the original IRONIC_DEPLOY_FILES
- for DEPLOY_FILE in ${IRONIC_DEPLOY_FILES}; do
-    mv "$DEPLOY_FILE".bak "$DEPLOY_FILE"
- done
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     if [ "${DEPLOY_BMO}" == "true" ]; then

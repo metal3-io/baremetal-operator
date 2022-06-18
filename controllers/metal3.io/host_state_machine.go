@@ -298,6 +298,12 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		// In the deleting state the whole idea is to de-register the host
 		return
 	case metal3v1alpha1.StateRegistering:
+	case metal3v1alpha1.StateInspecting:
+		if inspectionDisabled(hsm.Host) {
+			// No need to register if we are not actually going to inspect
+			return
+		}
+		fallthrough
 	default:
 		if hsm.Host.Status.ErrorType == metal3v1alpha1.RegistrationError ||
 			!hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {

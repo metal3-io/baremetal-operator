@@ -299,10 +299,19 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		// In the deleting state the whole idea is to de-register the host
 		return
 	case metal3v1alpha1.StateRegistering:
-	case metal3v1alpha1.StateInspecting:
-		if inspectionDisabled(hsm.Host) {
-			// No need to register if we are not actually going to inspect
-			return
+	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StatePreparing:
+		// The Infrastructure operator in RHACM <=2.4 does not supply a
+		// controller for PreprovisioningImages with an InfraEnv label, (which
+		// the default controller ignores) but an image will be required
+		// if we register in the Preparing state. We know that this version
+		// never has work to do in Preparing, so it is safe to disable
+		// registration in that state. In later versions, where the controller
+		// is available and we need images, inspection will not be disabled.
+		if _, hasInfraEnv := hsm.Host.Labels["infraenvs.agent-install.openshift.io"]; hsm.NextState == metal3v1alpha1.StateInspecting || hasInfraEnv {
+			if inspectionDisabled(hsm.Host) {
+				// No need to register if we are not actually going to inspect
+				return
+			}
 		}
 		fallthrough
 	default:

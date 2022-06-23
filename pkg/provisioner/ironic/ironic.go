@@ -523,9 +523,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 	default:
 		switch data.State {
+		case metal3v1alpha1.StateProvisioning:
+			if data.CurrentImage.IsLiveISO() {
+				// Live ISO doesn't need pre-provisioning image
+				return
+			}
+			fallthrough
 		case metal3v1alpha1.StateInspecting,
 			metal3v1alpha1.StatePreparing,
-			metal3v1alpha1.StateProvisioning,
 			metal3v1alpha1.StateDeprovisioning:
 			if deployImageInfo == nil {
 				if p.config.havePreprovImgBuilder {

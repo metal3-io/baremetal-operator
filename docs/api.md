@@ -822,3 +822,23 @@ metadata:
         read_only: false
         unique: true
 ```
+
+## HardwareData
+
+A **HardwareData** resource contains hardware specifications data of a specific host
+and it is tightly coupled to its owner resource BareMetalHost. The data in the HardwareData
+comes from Ironic after a successful inspection phase. As such, operator will create HardwareData
+resource for a specific BareMetalHost during transitioning phase from inspecting into available
+state of the BareMetalHost. HardwareData gets deleted automatically by the operator whenever its
+BareMetalHost is deleted. Deprovisioning of the BareMetalHost should not trigger the deletion of
+HardwareData, but during next provisioning it can be re-created (with the same name and namespace)
+with the latest inspection data retrieved from Ironic. HardwareData holds the same name and namespace
+as its corresponding BareMetalHost resource. Currently, HardwareData doesn't have *Status* subresource
+but only the *Spec*, which we cover next.
+
+### HardwareData spec
+
+As you probably already noticed, the *Spec* of HardwareData is the same as [.Status.hardware](#hardware)
+of the BareMetalHost. However, this behaviour is temporary and eventually we will drop
+[.Status.hardware](#hardware) from BareMetalHost and only rely on HardwareData *Spec*. The reason
+for having duplication of inspection data at the  moment is to avoid breaking the existing deployments.

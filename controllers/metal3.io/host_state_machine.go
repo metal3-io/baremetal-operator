@@ -238,7 +238,7 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	return true
 }
 
-// hasInspectAnnotation checks for existence of baremetalhost.metal3.io/detached
+// hasDetachedAnnotation checks for existence of baremetalhost.metal3.io/detached
 func hasDetachedAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	if annotations != nil {

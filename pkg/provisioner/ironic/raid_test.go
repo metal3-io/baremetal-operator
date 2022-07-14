@@ -267,11 +267,11 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 			},
 			expected: []nodes.CleanStep{
 				{
-					Interface: "raid",
+					Interface: nodes.InterfaceRAID,
 					Step:      "delete_configuration",
 				},
 				{
-					Interface: "raid",
+					Interface: nodes.InterfaceRAID,
 					Step:      "create_configuration",
 				},
 			},
@@ -317,7 +317,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 			},
 			expected: []nodes.CleanStep{
 				{
-					Interface: "raid",
+					Interface: nodes.InterfaceRAID,
 					Step:      "delete_configuration",
 				},
 			},
@@ -334,15 +334,15 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 			},
 			expected: []nodes.CleanStep{
 				{
-					Interface: "raid",
+					Interface: nodes.InterfaceRAID,
 					Step:      "delete_configuration",
 				},
 				{
-					Interface: "deploy",
+					Interface: nodes.InterfaceDeploy,
 					Step:      "erase_devices_metadata",
 				},
 				{
-					Interface: "raid",
+					Interface: nodes.InterfaceRAID,
 					Step:      "create_configuration",
 				},
 			},
@@ -380,11 +380,11 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 			},
 			expected: []nodes.CleanStep{
 				{
-					Interface: "raid",
+					Interface: nodes.InterfaceRAID,
 					Step:      "delete_configuration",
 				},
 				{
-					Interface: "deploy",
+					Interface: nodes.InterfaceDeploy,
 					Step:      "erase_devices_metadata",
 				},
 			},

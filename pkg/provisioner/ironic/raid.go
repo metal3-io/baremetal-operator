@@ -205,11 +205,11 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 			cleanSteps,
 			[]nodes.CleanStep{
 				{
-					Interface: "raid",
+					Interface: nodes.InterfaceRAID,
 					Step:      "delete_configuration",
 				},
 				{
-					Interface: "deploy",
+					Interface: nodes.InterfaceDeploy,
 					Step:      "erase_devices_metadata",
 				},
 			}...,
@@ -223,7 +223,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 		cleanSteps = append(
 			cleanSteps,
 			nodes.CleanStep{
-				Interface: "raid",
+				Interface: nodes.InterfaceRAID,
 				Step:      "create_configuration",
 			},
 		)
@@ -251,7 +251,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 	cleanSteps = append(
 		cleanSteps,
 		nodes.CleanStep{
-			Interface: "raid",
+			Interface: nodes.InterfaceRAID,
 			Step:      "delete_configuration",
 		},
 	)
@@ -266,7 +266,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 	cleanSteps = append(
 		cleanSteps,
 		nodes.CleanStep{
-			Interface: "raid",
+			Interface: nodes.InterfaceRAID,
 			Step:      "create_configuration",
 		},
 	)

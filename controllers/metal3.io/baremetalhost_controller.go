@@ -129,28 +129,6 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, errors.Wrap(err, "could not load host data")
 	}
-	// Fetch the HardwareData
-	hardwareData := &metal3v1alpha1.HardwareData{}
-	hardwareDataKey := client.ObjectKey{
-		Name:      host.Name,
-		Namespace: host.Namespace,
-	}
-	err = r.Get(ctx, hardwareDataKey, hardwareData)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		reqLogger.Error(err, "failed to find hardwareData")
-	}
-
-	// Host is being deleted, so we delete the finalizer from the hardwareData to allow its deletion.
-	if !host.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(hardwareData, hardwareDataFinalizer) {
-			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
-			reqLogger.Info("removing finalizer from hardwareData")
-			if err := r.Update(context.Background(), hardwareData); err != nil {
-				return ctrl.Result{}, errors.Wrap(err, "failed to remove hardwareData finalizer")
-			}
-		}
-		reqLogger.Info("hardwareData is ready to be deleted")
-	}
 
 	// If the reconciliation is paused, requeue
 	annotations := host.GetAnnotations()
@@ -161,44 +139,10 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		}
 	}
 
-	// Check if Status is empty and status annotation is present
-	// Manually restore data.
-	if !r.hostHasStatus(host) {
-		reqLogger.Info("Reconstructing Status from hardwareData and annotation")
-		objStatus, err := r.getHostStatusFromAnnotation(host)
-
-		if err == nil && objStatus != nil {
-			// hardwareData takes predence over statusAnnotation data
-			if hardwareData.Spec.HardwareDetails != nil && objStatus.HardwareDetails != hardwareData.Spec.HardwareDetails {
-				objStatus.HardwareDetails = hardwareData.Spec.HardwareDetails
-			}
-
-			host.Status = *objStatus
-			if host.Status.LastUpdated.IsZero() {
-				// Ensure the LastUpdated timestamp is set to avoid
-				// infinite loops if the annotation only contained
-				// part of the status information.
-				t := metav1.Now()
-				host.Status.LastUpdated = &t
-			}
-			errStatus := r.Status().Update(ctx, host)
-			if errStatus != nil {
-				return ctrl.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
-			}
-			return ctrl.Result{Requeue: true}, nil
-		}
-		reqLogger.Info("No status cache found")
-
-	}
-	// The status annotation is unneeded, as the status subresource is
-	// already present. The annotation data will get outdated, so remove it.
-	if _, present := annotations[metal3v1alpha1.StatusAnnotation]; present {
-		delete(annotations, metal3v1alpha1.StatusAnnotation)
-		errStatus := r.Update(ctx, host)
-		if errStatus != nil {
-			return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
-		}
-		reqLogger.Info("deleted status annotation")
+	hostData, err := r.reconciletHostData(ctx, host, request)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "Could not reconcile host data")
+	} else if hostData.Requeue {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -1748,4 +1692,76 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 	}
 
 	return controller.Complete(r)
+}
+
+func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *metal3v1alpha1.BareMetalHost, request ctrl.Request) (result ctrl.Result, err error) {
+
+	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
+
+	// Fetch the HardwareData
+	hardwareData := &metal3v1alpha1.HardwareData{}
+	hardwareDataKey := client.ObjectKey{
+		Name:      host.Name,
+		Namespace: host.Namespace,
+	}
+	err = r.Get(ctx, hardwareDataKey, hardwareData)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		reqLogger.Error(err, "failed to find hardwareData")
+	}
+
+	// Host is being deleted, so we delete the finalizer from the hardwareData to allow its deletion.
+	if !host.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(hardwareData, hardwareDataFinalizer) {
+			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
+			reqLogger.Info("removing finalizer from hardwareData")
+			if err := r.Update(context.Background(), hardwareData); err != nil {
+				return ctrl.Result{}, errors.Wrap(err, "failed to remove hardwareData finalizer")
+			}
+		}
+		reqLogger.Info("hardwareData is ready to be deleted")
+	}
+
+	// Check if Status is empty and status annotation is present
+	// Manually restore data.
+	if !r.hostHasStatus(host) {
+		reqLogger.Info("Reconstructing Status from hardwareData and annotation")
+		objStatus, err := r.getHostStatusFromAnnotation(host)
+
+		if err == nil && objStatus != nil {
+			// hardwareData takes predence over statusAnnotation data
+			if hardwareData.Spec.HardwareDetails != nil && objStatus.HardwareDetails != hardwareData.Spec.HardwareDetails {
+				objStatus.HardwareDetails = hardwareData.Spec.HardwareDetails
+			}
+
+			host.Status = *objStatus
+			if host.Status.LastUpdated.IsZero() {
+				// Ensure the LastUpdated timestamp is set to avoid
+				// infinite loops if the annotation only contained
+				// part of the status information.
+				t := metav1.Now()
+				host.Status.LastUpdated = &t
+			}
+			errStatus := r.Status().Update(ctx, host)
+			if errStatus != nil {
+				return ctrl.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
+			}
+			return ctrl.Result{Requeue: true}, nil
+		}
+		reqLogger.Info("No status cache found")
+
+	}
+	// The status annotation is unneeded, as the status subresource is
+	// already present. The annotation data will get outdated, so remove it.
+	annotations := host.GetAnnotations()
+	if _, present := annotations[metal3v1alpha1.StatusAnnotation]; present {
+		delete(annotations, metal3v1alpha1.StatusAnnotation)
+		errStatus := r.Update(ctx, host)
+		if errStatus != nil {
+			return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
+		}
+		reqLogger.Info("deleted status annotation")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
+
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/volume"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -634,6 +635,38 @@ func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, acce
 	return nil
 }
 
+// add volume connector create for Boot-From-Volume
+func (p *ironicProvisioner) tryCreateConnector(connectorOpts *bmvolume.CreateConnectorOpts) (success bool, result provisioner.Result, err error) {
+	p.log.Info("begin create node volume connector in ironic")
+	err = bmvolume.CreateConnector(p.client, connectorOpts).Err
+	switch err.(type) {
+	case nil:
+		success = true
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not create volume connector in ironic, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+	default:
+		result, err = transientError(errors.Wrap(err, "failed to create volume connector in ironic"))
+	}
+	return
+}
+
+// add volume target create for Boot-From-Volume
+func (p *ironicProvisioner) tryCreateTarget(targetOpts *bmvolume.CreateTargetOpts) (success bool, result provisioner.Result, err error) {
+	p.log.Info("begin create node volume target in ironic")
+	err = bmvolume.CreateTarget(p.client, targetOpts).Err
+	switch err.(type) {
+	case nil:
+		success = true
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not create volume target in ironic, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+	default:
+		result, err = transientError(errors.Wrap(err, "failed to create volume target in ironic"))
+	}
+	return
+}
+
 func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {
 	if len(updater.Updates) == 0 {
 		success = true
@@ -1034,6 +1067,107 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	return strings.Join(filteredCapabilities, ",")
 }
 
+// haoziwu add Boot-From-Volume(BFV) node settings
+func setNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+	updater := updateOptsBuilder(p.debugLog)
+	// storage_interface: noop, cinder, external
+	updater.SetTopLevelOpt("storage_interface", data.BootVolume.VolumeDriver, "noop")
+	opts := optionsData{
+		"capabilities": "iscsi_boot:True",
+	}
+	updater.SetPropertiesOpts(opts, ironicNode)
+	_, _, err := p.tryUpdateNode(ironicNode, updater)
+	if err != nil {
+		p.log.Error(err, "update node settings for iscsi boot from volume error")
+		return err
+	} else {
+		return nil
+	}
+}
+
+// add Boot-From-Volume(BFV) node unsettings
+// ensure this unset after create connector and target
+func unSetNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+	updater := updateOptsBuilder(p.debugLog)
+	// unset instance_info:  image_source, root_gb, kernel, ramdisk
+	opts := optionsData{
+		"image_source": "",
+		"root_gb":      "",
+		"kernel":       "",
+		"ramdisk":      "",
+	}
+	updater.SetInstanceInfoOpts(opts, ironicNode)
+	_, _, err := p.tryUpdateNode(ironicNode, updater)
+	if err != nil {
+		p.log.Error(err, "update node unsettings for iscsi boot from volume error")
+		return err
+	} else {
+		return nil
+	}
+}
+
+// add iscsi connector target for Boot-From-Volume
+func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+	err := setNodeWhenIscsiBFV(p, ironicNode, data)
+	if err != nil {
+		return err
+	}
+	connectorId := data.BootVolume.IscsiConnector.Iqn + "." + ironicNode.UUID
+	createConnectorOpts := &bmvolume.CreateConnectorOpts{}
+	createConnectorOpts.NodeUUID = ironicNode.UUID
+	createConnectorOpts.ConnectorType = data.BootVolume.IscsiConnector.IType
+	createConnectorOpts.ConnectorId = connectorId
+	_, _, err = p.tryCreateConnector(createConnectorOpts)
+	if err != nil {
+		p.log.Error(err, "create connector error when in createIscsiConnectorTarget")
+		return err
+	} else {
+		createTargetOpts := &bmvolume.CreateTargetOpts{}
+		createTargetOpts.BootIndex = "0"
+		createTargetOpts.NodeUUID = ironicNode.UUID
+		createTargetOpts.VolumeId = data.BootVolume.VolumeId
+		createTargetOpts.VolumeType = "iscsi"
+		if data.BootVolume.VolumeDriver == metal3v1alpha1.External {
+			var properties = map[string]interface{}{}
+			properties["target_iqn"] = data.BootVolume.IscsiConnector.Iqn
+			properties["target_lun"] = data.BootVolume.IscsiConnector.Lun
+			properties["target_portal"] = data.BootVolume.IscsiConnector.Portal
+			properties["auth_method"] = data.BootVolume.IscsiConnector.AuthMethod
+			properties["auth_username"] = data.BootVolume.IscsiConnector.AuthUser
+			properties["auth_password"] = data.BootVolume.IscsiConnector.AuthPasswd
+			createTargetOpts.Properties = properties
+		}
+		_, _, terr := p.tryCreateTarget(createTargetOpts)
+		if terr != nil {
+			p.log.Error(terr, "create target error when in createIscsiConnectorTarget:")
+			return terr
+		}
+	}
+	err = unSetNodeWhenIscsiBFV(p, ironicNode, data)
+	if err != nil {
+		return err
+	} else {
+		p.log.Info("create iscsi connector and target ok")
+		return nil
+	}
+}
+
+// add Volume Connector and Target Create for Boot-From-Volume
+func (p *ironicProvisioner) createConnectorTarget(ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+	switch data.BootVolume.ConnectorType {
+	case metal3v1alpha1.ISCSI:
+		err := p.createIscsiConnectorTarget(ironicNode, data)
+		if err != nil {
+			return err
+		} else {
+			p.log.Info("sucessfully create connector target for boot from volume when setup for provisioning")
+			return nil
+		}
+	default:
+		return fmt.Errorf("no this baremetal volume connectorType")
+	}
+}
+
 func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
@@ -1044,6 +1178,14 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 		return
 	}
 
+	// add boot-from-volume config, if has BootVolume, then call createConnectorTarget function
+	if len(data.BootVolume.VolumeId) > 0 && len(data.BootVolume.VolumeDriver) > 0 {
+		err = p.createConnectorTarget(ironicNode, data)
+		if err != nil {
+			p.log.Error(err, "create connector target error when has BootVolume")
+			return
+		}
+	}
 	p.log.Info("validating host settings")
 
 	errorMessage, err := p.validateNode(ironicNode)

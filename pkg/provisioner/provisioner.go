@@ -105,6 +105,7 @@ type PrepareData struct {
 	ActualFirmwareSettings metal3v1alpha1.SettingsMap
 }
 
+// add boot-from-volume setting
 type ProvisionData struct {
 	Image           metal3v1alpha1.Image
 	HostConfig      HostConfigData
@@ -112,6 +113,7 @@ type ProvisionData struct {
 	HardwareProfile hardware.Profile
 	RootDeviceHints *metal3v1alpha1.RootDeviceHints
 	CustomDeploy    *metal3v1alpha1.CustomDeploy
+	BootVolume      metal3v1alpha1.BootVolume
 }
 
 type HTTPHeaders []map[string]string

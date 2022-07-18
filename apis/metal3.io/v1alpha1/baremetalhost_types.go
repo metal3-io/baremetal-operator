@@ -434,6 +434,43 @@ const (
 	SHA512 ChecksumType = "sha512"
 )
 
+type BootVolume struct {
+	// volume id in your volume driver system
+	VolumeId string `json:"volumeId"`
+	// VolumeDriver: cinder or external
+	VolumeDriver         VolumeDriver   `json:"volumeDriver"`
+	ConnectorType        ConnectorType  `json:"connectorType"` // e.g. iscsi
+	IscsiConnector       IscsiConnector `json:"iscsiConnector"`
+	IscsiCredentialsName string         `json:"iscsiCredentialsName"`
+}
+
+// +kubebuilder:validation:VolumeDriver=cinder;external
+type VolumeDriver string
+
+const (
+	Cinder   VolumeDriver = "cinder"
+	External VolumeDriver = "external"
+	Noop     VolumeDriver = "noop"
+)
+
+// +kubebuilder:validation:ConnectorType=iscsi
+type ConnectorType string
+
+const (
+	ISCSI ConnectorType = "iscsi"
+	// you can add another connector  type below, e.g. http or  Fibre-Channel....
+)
+
+type IscsiConnector struct {
+	AuthUser   string `json:"authUser"`
+	AuthPasswd string `json:"authPasswd"`
+	AuthMethod string `json:"authMethod"` // e.g. CHAP
+	Iqn        string `json:"iqn"`        // e.g. iqn.2020-10.openstack.com:vol1
+	Lun        string `json:"lun"`        // e.g. 1
+	Portal     string `json:"portal"`     // e.g. 127.0.0.1:3260
+	IType      string `json:"type"`       //e.g. iqn , ip, wwnn,wwpn
+}
+
 // Image holds the details of an image either to provisioned or that
 // has been provisioned.
 type Image struct {
@@ -768,6 +805,10 @@ type ProvisionStatus struct {
 
 	// BootMode indicates the boot mode used to provision the node
 	BootMode BootMode `json:"bootMode,omitempty"`
+
+	// +optional
+	// boot from remote volume configuration
+	BootVolume BootVolume `json:"bootVolume,omitempty"`
 
 	// The Raid set by the user
 	RAID *RAIDConfig `json:"raid,omitempty"`

@@ -564,12 +564,9 @@ func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.Imag
 		return nil, err
 	}
 
-	var formats []metal3v1alpha1.ImageFormat
+	formats := []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatInitRD}
 	if accessDetails.SupportsISOPreprovisioningImage() {
 		formats = append(formats, metal3v1alpha1.ImageFormatISO)
-	}
-	if p.config.deployKernelURL != "" {
-		formats = append(formats, metal3v1alpha1.ImageFormatInitRD)
 	}
 
 	return formats, nil

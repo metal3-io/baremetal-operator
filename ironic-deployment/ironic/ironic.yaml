@@ -154,7 +154,7 @@ spec:
             - /bin/runhttpd
           livenessProbe:
            exec:
-             command: ["sh", "-c", "curl -sSfk https://127.0.0.1:6180"]
+             command: ["sh", "-c", "curl -sSfk http://127.0.0.1:6180/images"]
            initialDelaySeconds: 30
            periodSeconds: 30
            timeoutSeconds: 10
@@ -162,7 +162,7 @@ spec:
            failureThreshold: 10
           readinessProbe:
            exec:
-             command: ["sh", "-c", "curl -sSfk https://127.0.0.1:6180"]
+             command: ["sh", "-c", "curl -sSfk http://127.0.0.1:6180/images"]
            initialDelaySeconds: 30
            periodSeconds: 30
            timeoutSeconds: 10

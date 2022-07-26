@@ -836,7 +836,7 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 			Name:              "enabled virtualmedia",
 			Address:           "redfish-virtualmedia://example.test",
 			PreprovImgEnabled: true,
-			Expected:          []metal3v1alpha1.ImageFormat{"initrd", "iso"},
+			Expected:          []metal3v1alpha1.ImageFormat{"iso", "initrd"},
 		},
 	}
 

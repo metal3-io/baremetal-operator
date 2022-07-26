@@ -564,10 +564,11 @@ func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.Imag
 		return nil, err
 	}
 
-	formats := []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatInitRD}
+	var formats []metal3v1alpha1.ImageFormat
 	if accessDetails.SupportsISOPreprovisioningImage() {
 		formats = append(formats, metal3v1alpha1.ImageFormatISO)
 	}
+	formats = append(formats, metal3v1alpha1.ImageFormatInitRD)
 
 	return formats, nil
 }

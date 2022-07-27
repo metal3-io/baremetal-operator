@@ -1216,7 +1216,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		cleanSteps = append(
 			cleanSteps,
 			nodes.CleanStep{
-				Interface: "bios",
+				Interface: nodes.InterfaceBIOS,
 				Step:      "apply_configuration",
 				Args: map[string]interface{}{
 					"settings": newSettings,

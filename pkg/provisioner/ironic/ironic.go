@@ -1682,15 +1682,19 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		"deploy step", ironicNode.DeployStep,
 	)
 
-	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Available {
-		// Move back to manageable so we can delete it cleanly.
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-		)
-	}
-
-	if !ironicNode.Maintenance && nodes.ProvisionState(ironicNode.ProvisionState) != nodes.Manageable {
+	currentProvState := nodes.ProvisionState(ironicNode.ProvisionState)
+	if currentProvState == nodes.Available || currentProvState == nodes.Manageable {
+		// Make sure we don't have a stale instance UUID
+		if ironicNode.InstanceUUID != "" {
+			p.log.Info("removing stale instance UUID before deletion", "instanceUUID", ironicNode.InstanceUUID)
+			updater := updateOptsBuilder(p.debugLog)
+			updater.SetTopLevelOpt("instance_uuid", nil, ironicNode.InstanceUUID)
+			success, result, err := p.tryUpdateNode(ironicNode, updater)
+			if !success {
+				return result, err
+			}
+		}
+	} else if !ironicNode.Maintenance {
 		// If we see an active node and the controller doesn't think
 		// we need to deprovision it, that means the node was
 		// ExternallyProvisioned and we should remove it from Ironic

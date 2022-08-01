@@ -353,6 +353,10 @@ type BareMetalHostSpec struct {
 	// +optional
 	BootMode BootMode `json:"bootMode,omitempty"`
 
+	// +optional
+	// boot from remote volume configuration
+	BootVolume BootVolume `json:"bootVolume,omitempty"`
+
 	// Which MAC address will PXE boot? This is optional for some
 	// types, but required for libvirt VMs driven by vbmc.
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
@@ -805,10 +809,6 @@ type ProvisionStatus struct {
 
 	// BootMode indicates the boot mode used to provision the node
 	BootMode BootMode `json:"bootMode,omitempty"`
-
-	// +optional
-	// boot from remote volume configuration
-	BootVolume BootVolume `json:"bootVolume,omitempty"`
 
 	// The Raid set by the user
 	RAID *RAIDConfig `json:"raid,omitempty"`

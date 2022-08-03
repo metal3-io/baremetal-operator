@@ -174,8 +174,8 @@ const (
 	// StateRegistering means we are telling the backend about the host
 	StateRegistering ProvisioningState = "registering"
 
-	// StateMatchProfile means we are comparing the discovered details
-	// against known hardware profiles
+	// StateMatchProfile used to mean we are assigning a profile.
+	// It no longer does anything, profile matching is done on registration
 	StateMatchProfile ProvisioningState = "match profile"
 
 	// StatePreparing means we are removing existing configuration and set new configuration to the host

@@ -12,25 +12,20 @@ digraph BaremetalHost {
     ExternallyProvisioned [label="Externally\nProvisioned"]
 
     Registering -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
+    Registering -> Preparing [label="!externallyProvisioned && inspectionDisabled()"]
     Registering -> ExternallyProvisioned [label="externallyProvisioned"]
     Registering -> Deleting2 [label="!DeletionTimestamp.IsZero()"]
 
     Deleting2 [shape=point]
 
     ExternallyProvisioned -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
-    ExternallyProvisioned -> MatchProfile [label="!externallyProvisioned && NeedsHardwareProfile()"]
-    ExternallyProvisioned -> Preparing [label="!externallyProvisioned"]
+    ExternallyProvisioned -> Preparing [label="!externallyProvisioned && !NeedsHardwareInspection()"]
     Available -> ExternallyProvisioned [label="externallyProvisioned"]
 
-    Inspecting -> MatchProfile [label="done"]
+    Inspecting -> Preparing [label="done"]
     Inspecting -> Deleting3 [label="!DeletionTimestamp.IsZero()"]
 
     Deleting3 [shape=point]
-
-    MatchProfile -> Preparing [label="done"]
-    MatchProfile -> Deleting4 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting4 [shape=point]
 
     Deleting5 [shape=point]
 
@@ -42,6 +37,7 @@ digraph BaremetalHost {
     Available [shape=doublecircle]
     Available -> Provisioning [label="NeedsProvisioning()"]
     Available -> Preparing [label="saveHostProvisioningSettings()"]
+    Available -> Preparing [label="getHostFirmwareSettings()"]
     Available -> Deleting7 [label="!DeletionTimestamp.IsZero()"]
     Available -> Inspecting [label="hasInspectAnnotation()"]
 
@@ -51,8 +47,9 @@ digraph BaremetalHost {
     Provisioning -> Deprovisioning [label="failed || !DeletionTimestamp.IsZero()"]
 
     Provisioned [shape=doublecircle]
-    Provisioned -> Deprovisioning [label="NeedsDeprovisioning()"]
+    Provisioned -> Deprovisioning [label="provisioningCancelled()"]
     Provisioned -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
+    Provisioned -> Deleting [label="hasDetachedAnnotation()"]
 
     ExternallyProvisioned [shape=doublecircle]
     ExternallyProvisioned -> Deleting [label="!DeletionTimestamp.IsZero()"]

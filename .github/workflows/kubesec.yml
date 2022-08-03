@@ -1,0 +1,58 @@
+name: Kubesec
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '30 7 * * 4'
+
+jobs:
+  setup:
+    runs-on: ubuntu-20.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Collect all yaml
+        id: list_yaml
+        run: |
+          LIST_YAML="$(find * -type f -name '*.yaml')"
+          echo "::set-output name=value::$(IFS=$','; echo $LIST_YAML | jq -cnR '[inputs | select(length>0)]'; IFS=$'\n')"
+    outputs:
+      matrix: ${{ steps.list_yaml.outputs.value }}
+
+  lint:
+    needs: [ setup ]
+    name: Kubesec
+    runs-on: ubuntu-20.04
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      matrix:
+        value: ${{ fromJson(needs.setup.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run kubesec scanner
+        uses: controlplaneio/kubesec-action@43d0ddff5ffee89a6bb9f29b64cd865411137b14
+        with:
+          input: ${{ matrix.value }}
+          format: template
+          template: template/sarif.tpl
+          output: ${{ matrix.value }}.sarif
+          exit-code: "0"
+
+      - name: Save result into a variable
+        id: save_result
+        run: echo "::set-output name=result::$(cat ${{ matrix.value }}.sarif | jq -c '.runs')"
+
+      - name: Upload Kubesec scan results to GitHub Security tab
+        if: ${{ steps.save_result.outputs.result != '[]' }}
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: ${{ matrix.value }}.sarif

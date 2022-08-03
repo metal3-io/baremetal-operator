@@ -1,0 +1,18 @@
+# permissions for end users to edit hardwaredata.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hardwaredata-editor-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - hardwaredata
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

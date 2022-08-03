@@ -12,6 +12,7 @@ resources:
 - bases/metal3.io_firmwareschemas.yaml
 - bases/metal3.io_preprovisioningimages.yaml
 - bases/metal3.io_bmceventsubscriptions.yaml
+- bases/metal3.io_hardwaredata.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

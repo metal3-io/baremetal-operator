@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -35,6 +36,10 @@ func (host *BareMetalHost) validateHost() []error {
 	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
 
 	if err := validateBMHName(host.Name); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := validateDNSName(host.Spec.BMC.Address); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -139,6 +144,20 @@ func validateBMHName(bmhname string) error {
 	_, err := uuid.Parse(bmhname)
 	if err == nil {
 		return fmt.Errorf("BareMetalHost resource name cannot be a UUID")
+	}
+
+	return nil
+}
+
+func validateDNSName(hostaddress string) error {
+
+	if hostaddress == "" {
+		return nil
+	}
+
+	_, err := bmc.GetParsedURL(hostaddress)
+	if err != nil {
+		return errors.Wrap(err, "BMO validation")
 	}
 
 	return nil

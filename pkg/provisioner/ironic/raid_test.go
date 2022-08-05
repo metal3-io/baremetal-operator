@@ -38,7 +38,7 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 					}, // end of RAID volume
 				}, // end of RAID volumes slice
 			}, // end of RAID config
-			expectedError: "'controller' must be specified if 'physicalDisks' are used!",
+			expectedError: "'controller' must be specified if 'physicalDisks' are used",
 		}, // end of test case
 		{
 			name: "hardware raid, len(physicalDisks) != numberOfPhysicalDisks",

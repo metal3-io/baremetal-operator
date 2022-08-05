@@ -103,7 +103,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3v1alpha1.HardwareRAIDVolume) (lo
 		// Check that controller field is specified if PhysicalDisks are used
 		if len(volume.PhysicalDisks) != 0 {
 			if volume.Controller == "" {
-				return nil, errors.Errorf("'controller' must be specified if 'physicalDisks' are used!")
+				return nil, errors.Errorf("'controller' must be specified if 'physicalDisks' are used")
 			}
 		}
 

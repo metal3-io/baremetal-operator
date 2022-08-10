@@ -666,6 +666,18 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 		"new target", opts.Target,
 	)
 
+	// Changing provision state in maintenance mode will not work.
+	if ironicNode.Fault != "" {
+		p.log.Info("node has a fault, will retry", "fault", ironicNode.Fault, "reason", ironicNode.MaintenanceReason)
+		result, err = retryAfterDelay(provisionRequeueDelay)
+		return
+	}
+	if ironicNode.Maintenance {
+		p.log.Info("trying to change a provision state for a node in maintenance, removing maintenance first", "reason", ironicNode.MaintenanceReason)
+		result, err = p.setMaintenanceFlag(ironicNode, false)
+		return
+	}
+
 	changeResult := nodes.ChangeProvisionState(p.client, ironicNode.UUID, opts)
 	switch changeResult.Err.(type) {
 	case nil:
@@ -1133,6 +1145,11 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (resul
 		return operationFailed(fmt.Sprintf("Host adoption failed: %s",
 			ironicNode.LastError))
 	case nodes.Active:
+		// Empty Fault means that maintenance was set manually, not by Ironic
+		if ironicNode.Maintenance && ironicNode.Fault == "" && data.State != metal3v1alpha1.StateDeleting {
+			p.log.Info("active node was found to be in maintenance, updating", "state", data.State)
+			return p.setMaintenanceFlag(ironicNode, false)
+		}
 	default:
 	}
 	return operationComplete()
@@ -1665,15 +1682,19 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		"deploy step", ironicNode.DeployStep,
 	)
 
-	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Available {
-		// Move back to manageable so we can delete it cleanly.
-		return p.changeNodeProvisionState(
-			ironicNode,
-			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-		)
-	}
-
-	if !ironicNode.Maintenance {
+	currentProvState := nodes.ProvisionState(ironicNode.ProvisionState)
+	if currentProvState == nodes.Available || currentProvState == nodes.Manageable {
+		// Make sure we don't have a stale instance UUID
+		if ironicNode.InstanceUUID != "" {
+			p.log.Info("removing stale instance UUID before deletion", "instanceUUID", ironicNode.InstanceUUID)
+			updater := updateOptsBuilder(p.debugLog)
+			updater.SetTopLevelOpt("instance_uuid", nil, ironicNode.InstanceUUID)
+			success, result, err := p.tryUpdateNode(ironicNode, updater)
+			if !success {
+				return result, err
+			}
+		}
+	} else if !ironicNode.Maintenance {
 		// If we see an active node and the controller doesn't think
 		// we need to deprovision it, that means the node was
 		// ExternallyProvisioned and we should remove it from Ironic

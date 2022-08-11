@@ -2,7 +2,6 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: selfsigned-issuer
-  namespace: ${NAMEPREFIX}-system
 spec:
   selfSigned: {}
 ---
@@ -10,7 +9,6 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ironic-cacert
-  namespace: ${NAMEPREFIX}-system
 spec:
   commonName: ironic-ca
   isCA: true
@@ -25,7 +23,6 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: ca-issuer
-  namespace: ${NAMEPREFIX}-system
 spec:
   ca:
     secretName: ironic-cacert
@@ -34,7 +31,6 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ironic-cert
-  namespace: ${NAMEPREFIX}-system
 spec:
   commonName: ironic-cert
   ipAddresses:
@@ -48,7 +44,6 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ironic-inspector-cert
-  namespace: ${NAMEPREFIX}-system
 spec:
   commonName: ironic-inspector-cert
   ipAddresses:
@@ -62,7 +57,6 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: mariadb-cert
-  namespace: ${NAMEPREFIX}-system
 spec:
   commonName: mariadb-cert
   ipAddresses:

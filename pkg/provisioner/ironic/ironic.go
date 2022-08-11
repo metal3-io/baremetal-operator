@@ -383,12 +383,17 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 					"capabilities": bootModeCapabilities[data.BootMode],
 				},
 			}).Extract()
-		// FIXME(dhellmann): Handle 409 and 503? errors here.
-		if err != nil {
+		switch err.(type) {
+		case nil:
+			p.publisher("Registered", "Registered new host")
+		case gophercloud.ErrDefault409:
+			p.log.Info("could not register host in ironic, busy")
+			result, err = retryAfterDelay(provisionRequeueDelay)
+			return
+		default:
 			result, err = transientError(errors.Wrap(err, "failed to register host in ironic"))
 			return
 		}
-		p.publisher("Registered", "Registered new host")
 
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
@@ -1216,7 +1221,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		cleanSteps = append(
 			cleanSteps,
 			nodes.CleanStep{
-				Interface: "bios",
+				Interface: nodes.InterfaceBIOS,
 				Step:      "apply_configuration",
 				Args: map[string]interface{}{
 					"settings": newSettings,

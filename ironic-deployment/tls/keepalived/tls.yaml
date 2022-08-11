@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${NAMEPREFIX}-ironic
+  name: ironic
 spec:
   template:
     spec:

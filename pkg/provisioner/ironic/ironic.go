@@ -1123,7 +1123,7 @@ func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, d
 		return err
 	} else {
 		createTargetOpts := &bmvolume.CreateTargetOpts{}
-		createTargetOpts.BootIndex = "0"
+		createTargetOpts.BootIndex = 0
 		createTargetOpts.NodeUUID = ironicNode.UUID
 		createTargetOpts.VolumeId = data.BootVolume.VolumeId
 		createTargetOpts.VolumeType = "iscsi"

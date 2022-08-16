@@ -73,4 +73,4 @@ replace github.com/metal3-io/baremetal-operator/apis => ./apis
 
 replace github.com/metal3-io/baremetal-operator/pkg/hardwareutils => ./pkg/hardwareutils
 
-replace github.com/gophercloud/gophercloud => ../gophercloud
+replace github.com/gophercloud/gophercloud => ./temp/gophercloud

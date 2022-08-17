@@ -23,7 +23,7 @@ func TestMakeHintMap(t *testing.T) {
 				DeviceName: "userd_devicename",
 			},
 			Expected: map[string]string{
-				"name": "s== userd_devicename",
+				"name": "userd_devicename",
 			},
 		},
 		{
@@ -32,7 +32,7 @@ func TestMakeHintMap(t *testing.T) {
 				HCTL: "1:2:3:4",
 			},
 			Expected: map[string]string{
-				"hctl": "s== 1:2:3:4",
+				"hctl": "1:2:3:4",
 			},
 		},
 		{
@@ -59,7 +59,7 @@ func TestMakeHintMap(t *testing.T) {
 				SerialNumber: "userd_serial",
 			},
 			Expected: map[string]string{
-				"serial": "s== userd_serial",
+				"serial": "userd_serial",
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestMakeHintMap(t *testing.T) {
 				WWN: "userd_wwn",
 			},
 			Expected: map[string]string{
-				"wwn": "s== userd_wwn",
+				"wwn": "userd_wwn",
 			},
 		},
 		{
@@ -86,7 +86,7 @@ func TestMakeHintMap(t *testing.T) {
 				WWNWithExtension: "userd_with_extension",
 			},
 			Expected: map[string]string{
-				"wwn_with_extension": "s== userd_with_extension",
+				"wwn_with_extension": "userd_with_extension",
 			},
 		},
 		{
@@ -95,7 +95,7 @@ func TestMakeHintMap(t *testing.T) {
 				WWNVendorExtension: "userd_vendor_extension",
 			},
 			Expected: map[string]string{
-				"wwn_vendor_extension": "s== userd_vendor_extension",
+				"wwn_vendor_extension": "userd_vendor_extension",
 			},
 		},
 		{
@@ -131,15 +131,15 @@ func TestMakeHintMap(t *testing.T) {
 				Rotational:         &addressableTrue,
 			},
 			Expected: map[string]string{
-				"name":                 "s== userd_devicename",
-				"hctl":                 "s== 1:2:3:4",
+				"name":                 "userd_devicename",
+				"hctl":                 "1:2:3:4",
 				"model":                "<in> userd_model",
 				"vendor":               "<in> userd_vendor",
-				"serial":               "s== userd_serial",
+				"serial":               "userd_serial",
 				"size":                 ">= 40",
-				"wwn":                  "s== userd_wwn",
-				"wwn_with_extension":   "s== userd_with_extension",
-				"wwn_vendor_extension": "s== userd_vendor_extension",
+				"wwn":                  "userd_wwn",
+				"wwn_with_extension":   "userd_with_extension",
+				"wwn_vendor_extension": "userd_vendor_extension",
 				"rotational":           "true",
 			},
 		},

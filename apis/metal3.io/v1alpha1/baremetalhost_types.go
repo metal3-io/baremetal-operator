@@ -442,10 +442,9 @@ type BootVolume struct {
 	// volume id in your volume driver system
 	VolumeId string `json:"volumeId"`
 	// VolumeDriver: cinder or external
-	VolumeDriver         VolumeDriver   `json:"volumeDriver"`
-	ConnectorType        ConnectorType  `json:"connectorType"` // e.g. iscsi
-	IscsiConnector       IscsiConnector `json:"iscsiConnector"`
-	IscsiCredentialsName string         `json:"iscsiCredentialsName"`
+	VolumeDriver   VolumeDriver   `json:"volumeDriver"`
+	ConnectorType  ConnectorType  `json:"connectorType"` // e.g. iscsi
+	IscsiConnector IscsiConnector `json:"iscsiConnector,omitempty"`
 }
 
 // +kubebuilder:validation:VolumeDriver=cinder;external
@@ -466,13 +465,13 @@ const (
 )
 
 type IscsiConnector struct {
-	AuthUser   string `json:"authUser"`
-	AuthPasswd string `json:"authPasswd"`
-	AuthMethod string `json:"authMethod"` // e.g. CHAP
-	Iqn        string `json:"iqn"`        // e.g. iqn.2020-10.openstack.com:vol1
-	Lun        string `json:"lun"`        // e.g. 1
-	Portal     string `json:"portal"`     // e.g. 127.0.0.1:3260
-	IType      string `json:"iType"`      //e.g. iqn , ip, wwnn,wwpn
+	AuthUser   string `json:"authUser,omitempty"`
+	AuthPasswd string `json:"authPasswd,omitempty"`
+	AuthMethod string `json:"authMethod,omitempty"` // e.g. CHAP
+	Iqn        string `json:"iqn"`                  // e.g. iqn.2020-10.openstack.com.{nodeId}
+	Lun        string `json:"lun"`                  // e.g. 1
+	Portal     string `json:"portal"`               // e.g. 127.0.0.1:3260
+	IType      string `json:"iType"`                //e.g. iqn , ip, wwnn,wwpn
 }
 
 // Image holds the details of an image either to provisioned or that

@@ -472,7 +472,7 @@ type IscsiConnector struct {
 	Iqn        string `json:"iqn"`        // e.g. iqn.2020-10.openstack.com:vol1
 	Lun        string `json:"lun"`        // e.g. 1
 	Portal     string `json:"portal"`     // e.g. 127.0.0.1:3260
-	IType      string `json:"type"`       //e.g. iqn , ip, wwnn,wwpn
+	IType      string `json:"iType"`      //e.g. iqn , ip, wwnn,wwpn
 }
 
 // Image holds the details of an image either to provisioned or that

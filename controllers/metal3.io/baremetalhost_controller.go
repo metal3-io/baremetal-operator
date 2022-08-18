@@ -829,6 +829,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 	provResult, provID, err := prov.ValidateManagementAccess(
 		provisioner.ManagementAccessData{
+			BootVolume:            info.host.Spec.BootVolume,
 			BootMode:              info.host.Status.Provisioning.BootMode,
 			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
 			State:                 info.host.Status.Provisioning.State,
@@ -1151,7 +1152,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	if info.host.Spec.Image != nil {
 		image = *info.host.Spec.Image.DeepCopy()
 	}
-	//add  Boot-From-Volume settings
+
 	provResult, err := prov.Provision(provisioner.ProvisionData{
 		Image:           image,
 		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
@@ -1159,7 +1160,6 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
-		BootVolume:      info.host.Spec.BootVolume,
 	})
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}

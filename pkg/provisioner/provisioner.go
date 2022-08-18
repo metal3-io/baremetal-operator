@@ -74,6 +74,8 @@ type PreprovisioningImage struct {
 }
 
 type ManagementAccessData struct {
+	// boot-from-volume setting
+	BootVolume            metal3v1alpha1.BootVolume
 	BootMode              metal3v1alpha1.BootMode
 	AutomatedCleaningMode metal3v1alpha1.AutomatedCleaningMode
 	State                 metal3v1alpha1.ProvisioningState
@@ -105,7 +107,6 @@ type PrepareData struct {
 	ActualFirmwareSettings metal3v1alpha1.SettingsMap
 }
 
-// add boot-from-volume setting
 type ProvisionData struct {
 	Image           metal3v1alpha1.Image
 	HostConfig      HostConfigData
@@ -113,7 +114,6 @@ type ProvisionData struct {
 	HardwareProfile hardware.Profile
 	RootDeviceHints *metal3v1alpha1.RootDeviceHints
 	CustomDeploy    *metal3v1alpha1.CustomDeploy
-	BootVolume      metal3v1alpha1.BootVolume
 }
 
 type HTTPHeaders []map[string]string

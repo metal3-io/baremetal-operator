@@ -466,6 +466,16 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	if !success {
 		return
 	}
+
+	// action related with boot from volume: add boot-from-volume config, if has BootVolume, then call createConnectorTarget function
+	if len(data.BootVolume.VolumeId) > 0 && len(data.BootVolume.VolumeDriver) > 0 {
+		err = p.createConnectorTarget(ironicNode, data)
+		if err != nil {
+			p.log.Error(err, "create connector target error when has BootVolume")
+			return
+		}
+	}
+
 	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
 	// if err != nil {
 	// 	return result, errors.Wrap(err, "failed to get provisioning state in ironic")
@@ -1068,7 +1078,7 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 }
 
 // haoziwu add Boot-From-Volume(BFV) node settings
-func setNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+func setNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.ManagementAccessData) error {
 	updater := updateOptsBuilder(p.debugLog)
 	// storage_interface: noop, cinder, external
 	updater.SetTopLevelOpt("storage_interface", data.BootVolume.VolumeDriver, "noop")
@@ -1087,7 +1097,7 @@ func setNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data prov
 
 // add Boot-From-Volume(BFV) node unsettings
 // ensure this unset after create connector and target
-func unSetNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+func unSetNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.ManagementAccessData) error {
 	updater := updateOptsBuilder(p.debugLog)
 	// unset instance_info:  image_source, root_gb, kernel, ramdisk
 	opts := optionsData{
@@ -1107,7 +1117,7 @@ func unSetNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data pr
 }
 
 // add iscsi connector target for Boot-From-Volume
-func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, data provisioner.ManagementAccessData) error {
 	err := setNodeWhenIscsiBFV(p, ironicNode, data)
 	if err != nil {
 		return err
@@ -1153,7 +1163,7 @@ func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, d
 }
 
 // add Volume Connector and Target Create for Boot-From-Volume
-func (p *ironicProvisioner) createConnectorTarget(ironicNode *nodes.Node, data provisioner.ProvisionData) error {
+func (p *ironicProvisioner) createConnectorTarget(ironicNode *nodes.Node, data provisioner.ManagementAccessData) error {
 	switch data.BootVolume.ConnectorType {
 	case metal3v1alpha1.ISCSI:
 		err := p.createIscsiConnectorTarget(ironicNode, data)
@@ -1176,15 +1186,6 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 		p.getUpdateOptsForNode(ironicNode, data))
 	if !success {
 		return
-	}
-
-	// add boot-from-volume config, if has BootVolume, then call createConnectorTarget function
-	if len(data.BootVolume.VolumeId) > 0 && len(data.BootVolume.VolumeDriver) > 0 {
-		err = p.createConnectorTarget(ironicNode, data)
-		if err != nil {
-			p.log.Error(err, "create connector target error when has BootVolume")
-			return
-		}
 	}
 	p.log.Info("validating host settings")
 

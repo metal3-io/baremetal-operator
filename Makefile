@@ -264,3 +264,17 @@ mod: ## Clean up go module settings
 	cd pkg/hardwareutils; go mod verify
 	cd hack/tools; go mod tidy
 	cd hack/tools; go mod verify
+
+## --------------------------------------
+## Release
+## --------------------------------------
+RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
+PREVIOUS_TAG ?= $(shell git tag -l | grep -B 1 $(RELEASE_TAG) | head -n 1)
+RELEASE_NOTES_DIR := releasenotes
+
+$(RELEASE_NOTES_DIR):
+	mkdir -p $(RELEASE_NOTES_DIR)/
+
+.PHONY: release-notes
+release-notes: $(RELEASE_NOTES_DIR)
+	go run ./hack/tools/release_notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/releasenotes.md

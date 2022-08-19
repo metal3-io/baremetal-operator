@@ -447,7 +447,6 @@ type BootVolume struct {
 	IscsiConnector IscsiConnector `json:"iscsiConnector,omitempty"`
 }
 
-// +kubebuilder:validation:VolumeDriver=cinder;external
 type VolumeDriver string
 
 const (
@@ -456,7 +455,6 @@ const (
 	Noop     VolumeDriver = "noop"
 )
 
-// +kubebuilder:validation:ConnectorType=iscsi
 type ConnectorType string
 
 const (

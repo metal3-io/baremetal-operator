@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -75,6 +76,7 @@ type ironicConfig struct {
 	deployISOURL                     string
 	liveISOForcePersistentBootDevice string
 	maxBusyHosts                     int
+	externalURL                      string
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -352,6 +354,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
+	driverInfo = setExternalURL(p, driverInfo)
 	deployImageInfo := setDeployImage(driverInfo, p.config, bmcAccess, data.PreprovisioningImage)
 
 	// If we have not found a node yet, we need to create one
@@ -578,6 +581,48 @@ func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.Imag
 	}
 
 	return formats, nil
+}
+
+func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map[string]interface{} {
+	if _, ok := driverInfo["external_http_url"]; ok {
+		driverInfo["external_http_url"] = nil
+	}
+
+	if p.config.externalURL == "" {
+		return driverInfo
+	}
+
+	parsedURL, err := bmc.GetParsedURL(p.bmcAddress)
+	if err != nil {
+		p.log.Info("Failed to parse BMC address", "bmcAddress", p.bmcAddress, "err", err)
+		return driverInfo
+	}
+
+	ip := net.ParseIP(parsedURL.Hostname())
+	if ip == nil {
+		// Maybe it's a hostname?
+		ips, err := net.LookupIP(p.bmcAddress)
+		if err != nil {
+			p.log.Info("Failed to look up the IP address for BMC hostname", "hostname", p.bmcAddress)
+			return driverInfo
+		}
+
+		if len(ips) == 0 {
+			p.log.Info("Zero IP addresses for BMC hostname", "hostname", p.bmcAddress)
+			return driverInfo
+		}
+
+		ip = ips[0]
+	}
+
+	// In the case of IPv4, we don't have to do anything.
+	if ip.To4() != nil {
+		return driverInfo
+	}
+
+	driverInfo["external_http_url"] = p.config.externalURL
+
+	return driverInfo
 }
 
 func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) optionsData {

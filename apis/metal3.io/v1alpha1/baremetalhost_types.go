@@ -946,11 +946,11 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		return false
 	}
 
-	return host.hasNewImage() || host.hasNewCustomDeploy() || host.hasBootVolume()
+	return host.hasNewImage() || host.hasNewCustomDeploy() || host.HasBootVolume()
 }
 
-// add if has BootVolume, we should not set image
-func (host *BareMetalHost) hasBootVolume() bool {
+// add if has BootVolume, image setting can be ignored
+func (host *BareMetalHost) HasBootVolume() bool {
 	if host.Spec.BootVolume == nil {
 		return false
 	}

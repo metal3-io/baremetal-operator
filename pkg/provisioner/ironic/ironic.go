@@ -1077,11 +1077,11 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.Boot
 	return strings.Join(filteredCapabilities, ",")
 }
 
-// haoziwu add Boot-From-Volume(BFV) node settings
+// add Boot-From-Volume(BFV) node settings
 func setNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data provisioner.ManagementAccessData) error {
 	updater := updateOptsBuilder(p.debugLog)
 	// storage_interface: noop, cinder, external
-	updater.SetTopLevelOpt("storage_interface", data.BootVolume.VolumeDriver, "noop")
+	updater.SetTopLevelOpt("storage_interface", string(data.BootVolume.VolumeDriver), ironicNode.StorageInterface)
 	opts := optionsData{
 		"capabilities": "iscsi_boot:True",
 	}
@@ -1120,6 +1120,7 @@ func unSetNodeWhenIscsiBFV(p *ironicProvisioner, ironicNode *nodes.Node, data pr
 func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, data provisioner.ManagementAccessData) error {
 	err := setNodeWhenIscsiBFV(p, ironicNode, data)
 	if err != nil {
+		p.log.Error(err, "set node volume properties error when in createIscsiConnectorTarget")
 		return err
 	}
 	connectorId := data.BootVolume.IscsiConnector.Iqn + "." + ironicNode.UUID
@@ -1170,7 +1171,7 @@ func (p *ironicProvisioner) createConnectorTarget(ironicNode *nodes.Node, data p
 		if err != nil {
 			return err
 		} else {
-			p.log.Info("sucessfully create connector target for boot from volume when setup for provisioning")
+			p.log.Info("sucessfully create connector target for boot from volume before provisioning")
 			return nil
 		}
 	default:

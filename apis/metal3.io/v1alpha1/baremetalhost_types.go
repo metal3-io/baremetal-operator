@@ -355,7 +355,7 @@ type BareMetalHostSpec struct {
 
 	// +optional
 	// boot from remote volume configuration
-	BootVolume BootVolume `json:"bootVolume,omitempty"`
+	BootVolume *BootVolume `json:"bootVolume,omitempty"`
 
 	// Which MAC address will PXE boot? This is optional for some
 	// types, but required for libvirt VMs driven by vbmc.
@@ -946,7 +946,20 @@ func (host *BareMetalHost) NeedsProvisioning() bool {
 		return false
 	}
 
-	return host.hasNewImage() || host.hasNewCustomDeploy()
+	return host.hasNewImage() || host.hasNewCustomDeploy() || host.hasBootVolume()
+}
+
+// add if has BootVolume, we should not set image
+func (host *BareMetalHost) hasBootVolume() bool {
+	if host.Spec.BootVolume == nil {
+		return false
+	}
+	volId := host.Spec.BootVolume.VolumeId
+	volDriver := host.Spec.BootVolume.VolumeDriver
+	if len(volId) > 0 && len(volDriver) > 0 {
+		return true
+	}
+	return false
 }
 
 func (host *BareMetalHost) hasNewImage() bool {

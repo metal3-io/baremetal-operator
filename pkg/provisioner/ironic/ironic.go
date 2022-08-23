@@ -1114,10 +1114,10 @@ func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, d
 		p.log.Error(err, "set node volume properties error when in createIscsiConnectorTarget")
 		return err
 	}
-	connectorId := data.BootVolume.IscsiConnector.Iqn + "." + ironicNode.UUID
+	connectorId := data.BootVolume.ConnectorId
 	createConnectorOpts := &bmvolume.CreateConnectorOpts{}
 	createConnectorOpts.NodeUUID = ironicNode.UUID
-	createConnectorOpts.ConnectorType = data.BootVolume.IscsiConnector.IType
+	createConnectorOpts.ConnectorType = data.BootVolume.IscsiTarget.IType
 	createConnectorOpts.ConnectorId = connectorId
 	_, _, err = p.tryCreateConnector(createConnectorOpts)
 	if err != nil {
@@ -1131,12 +1131,12 @@ func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, d
 		createTargetOpts.VolumeType = "iscsi"
 		if data.BootVolume.VolumeDriver == metal3v1alpha1.External {
 			var properties = map[string]interface{}{}
-			properties["target_iqn"] = data.BootVolume.IscsiConnector.Iqn
-			properties["target_lun"] = data.BootVolume.IscsiConnector.Lun
-			properties["target_portal"] = data.BootVolume.IscsiConnector.Portal
-			properties["auth_method"] = data.BootVolume.IscsiConnector.AuthMethod
-			properties["auth_username"] = data.BootVolume.IscsiConnector.AuthUser
-			properties["auth_password"] = data.BootVolume.IscsiConnector.AuthPasswd
+			properties["target_iqn"] = data.BootVolume.IscsiTarget.Iqn
+			properties["target_lun"] = data.BootVolume.IscsiTarget.Lun
+			properties["target_portal"] = data.BootVolume.IscsiTarget.Portal
+			properties["auth_method"] = data.BootVolume.IscsiTarget.AuthMethod
+			properties["auth_username"] = data.BootVolume.IscsiTarget.AuthUser
+			properties["auth_password"] = data.BootVolume.IscsiTarget.AuthPasswd
 			createTargetOpts.Properties = properties
 		}
 		_, _, terr := p.tryCreateTarget(createTargetOpts)
@@ -1156,7 +1156,7 @@ func (p *ironicProvisioner) createIscsiConnectorTarget(ironicNode *nodes.Node, d
 
 // add Volume Connector and Target Create for Boot-From-Volume
 func (p *ironicProvisioner) createConnectorTarget(ironicNode *nodes.Node, data provisioner.ProvisionData) error {
-	switch data.BootVolume.ConnectorType {
+	switch data.BootVolume.TargetType {
 	case metal3v1alpha1.ISCSI:
 		err := p.createIscsiConnectorTarget(ironicNode, data)
 		if err != nil {

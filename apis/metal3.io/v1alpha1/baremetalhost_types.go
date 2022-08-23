@@ -442,9 +442,10 @@ type BootVolume struct {
 	// volume id in your volume driver system
 	VolumeId string `json:"volumeId"`
 	// VolumeDriver: cinder or external
-	VolumeDriver   VolumeDriver   `json:"volumeDriver"`
-	ConnectorType  ConnectorType  `json:"connectorType"` // e.g. iscsi
-	IscsiConnector IscsiConnector `json:"iscsiConnector,omitempty"`
+	VolumeDriver VolumeDriver `json:"volumeDriver"`
+	ConnectorId  string       `json:"connectorId"` // e.g. iqn.2010-10.openstack.org.{nodeId}
+	TargetType   TargetType   `json:"targetType"`  // e.g. iscsi
+	IscsiTarget  IscsiTarget  `json:"iscsiTarget,omitempty"`
 }
 
 type VolumeDriver string
@@ -452,17 +453,16 @@ type VolumeDriver string
 const (
 	Cinder   VolumeDriver = "cinder"
 	External VolumeDriver = "external"
-	Noop     VolumeDriver = "noop"
 )
 
-type ConnectorType string
+type TargetType string
 
 const (
-	ISCSI ConnectorType = "iscsi"
-	// you can add another connector  type below, e.g. http or  Fibre-Channel....
+	ISCSI TargetType = "iscsi"
+	// you can add another target  type below, e.g. http or  Fibre-Channel....
 )
 
-type IscsiConnector struct {
+type IscsiTarget struct {
 	AuthUser   string `json:"authUser,omitempty"`
 	AuthPasswd string `json:"authPasswd,omitempty"`
 	AuthMethod string `json:"authMethod,omitempty"` // e.g. CHAP

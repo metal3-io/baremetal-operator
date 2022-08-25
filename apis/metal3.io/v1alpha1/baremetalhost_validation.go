@@ -3,9 +3,11 @@ package v1alpha1
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"regexp"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -38,6 +40,16 @@ func (host *BareMetalHost) validateHost() []error {
 		errs = append(errs, err)
 	}
 
+	if err := validateDNSName(host.Spec.BMC.Address); err != nil {
+		errs = append(errs, err)
+	}
+
+	if host.Spec.Image != nil {
+		if err := validateImageURL(host.Spec.Image.URL); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	return errs
 }
 
@@ -64,6 +76,7 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 
 func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
 	var errs []error
+	diskFormat := "live-iso"
 
 	if bmcAccess == nil {
 		return errs
@@ -94,6 +107,10 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 
 	if s.BootMode == UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
 		errs = append(errs, fmt.Errorf("BMC driver %s does not support secure boot", bmcAccess.Type()))
+	}
+
+	if s.Image != nil && s.Image.DiskFormat != nil && *s.Image.DiskFormat == diskFormat && !bmcAccess.SupportsISOPreprovisioningImage() {
+		errs = append(errs, fmt.Errorf("BMC driver %s does not support live-iso image", bmcAccess.Type()))
 	}
 
 	return errs
@@ -139,6 +156,30 @@ func validateBMHName(bmhname string) error {
 	_, err := uuid.Parse(bmhname)
 	if err == nil {
 		return fmt.Errorf("BareMetalHost resource name cannot be a UUID")
+	}
+
+	return nil
+}
+
+func validateDNSName(hostaddress string) error {
+
+	if hostaddress == "" {
+		return nil
+	}
+
+	_, err := bmc.GetParsedURL(hostaddress)
+	if err != nil {
+		return errors.Wrap(err, "BMO validation")
+	}
+
+	return nil
+}
+
+func validateImageURL(imageURL string) error {
+
+	_, err := url.ParseRequestURI(imageURL)
+	if err != nil {
+		return fmt.Errorf("Image URL %s is an invalid URL", imageURL)
 	}
 
 	return nil

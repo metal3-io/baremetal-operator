@@ -87,6 +87,38 @@ func TestAdopt(t *testing.T) {
 			expectedRequestAfter: 10,
 			force:                true,
 		},
+		{
+			name: "node-in-Active",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				ProvisionState: string(nodes.Active),
+				UUID:           nodeUUID,
+			}),
+
+			expectedDirty: false,
+		},
+		{
+			name: "node-in-Maintenance",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				ProvisionState: string(nodes.Active),
+				UUID:           nodeUUID,
+				Maintenance:    true,
+			}),
+
+			expectedDirty:        false,
+			expectedRequestAfter: 0,
+			expectedError:        true,
+		},
+		{
+			name: "node-in-Fault",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				ProvisionState: string(nodes.Active),
+				UUID:           nodeUUID,
+				Maintenance:    true,
+				Fault:          "power fault",
+			}),
+
+			expectedDirty: false,
+		},
 	}
 
 	for _, tc := range cases {

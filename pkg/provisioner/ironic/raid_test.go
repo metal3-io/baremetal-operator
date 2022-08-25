@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/stretchr/testify/assert"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
@@ -38,7 +39,7 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 					}, // end of RAID volume
 				}, // end of RAID volumes slice
 			}, // end of RAID config
-			expectedError: "'controller' must be specified if 'physicalDisks' are used!",
+			expectedError: "'controller' must be specified if 'physicalDisks' are used",
 		}, // end of test case
 		{
 			name: "hardware raid, len(physicalDisks) != numberOfPhysicalDisks",
@@ -259,11 +260,6 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 						Level: "1",
 					},
 				},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
-					{
-						Level: "1",
-					},
-				},
 			},
 			expected: []nodes.CleanStep{
 				{
@@ -283,11 +279,6 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
 					{
 						Name:  "root",
-						Level: "1",
-					},
-				},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
-					{
 						Level: "1",
 					},
 				},
@@ -366,6 +357,21 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 			},
 		},
 		{
+			name:          "keep missing software RAID",
+			raidInterface: "agent",
+			target: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			},
+		},
+		{
+			name:          "keep empty software RAID",
+			raidInterface: "agent",
+			target: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			},
+			actual: &metal3v1alpha1.RAIDConfig{},
+		},
+		{
 			name:          "clear software RAID",
 			raidInterface: "agent",
 			target: &metal3v1alpha1.RAIDConfig{
@@ -406,9 +412,11 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 
 func TestCheckRAIDConfigure(t *testing.T) {
 	cases := []struct {
-		raidInterface string
-		RAID          *metal3v1alpha1.RAIDConfig
-		expectedError bool
+		raidInterface        string
+		RAID                 *metal3v1alpha1.RAIDConfig
+		expectedError        bool
+		expectedNewInterface string
+		currentRAID          *metal3v1alpha1.RAIDConfig
 	}{
 		{
 			raidInterface: "no-raid",
@@ -430,6 +438,17 @@ func TestCheckRAIDConfigure(t *testing.T) {
 			expectedError: true,
 		},
 		{
+			raidInterface: "no-raid",
+			RAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			expectedNewInterface: "agent",
+		},
+		{
 			raidInterface: "agent",
 		},
 		{
@@ -485,15 +504,36 @@ func TestCheckRAIDConfigure(t *testing.T) {
 					},
 				},
 			},
-			expectedError: true,
+			expectedNewInterface: "agent",
+		},
+		{
+			raidInterface: "hardware",
+			RAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			},
+			currentRAID: &metal3v1alpha1.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				},
+			},
+			expectedNewInterface: "agent",
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.raidInterface, func(t *testing.T) {
-			err := CheckRAIDInterface(c.raidInterface, c.RAID)
+			newInterface, err := CheckRAIDInterface(c.raidInterface, c.RAID, c.currentRAID)
 			if (err != nil) != c.expectedError {
 				t.Errorf("Got unexpected error: %v", err)
+			}
+			if !c.expectedError {
+				if c.expectedNewInterface != "" {
+					assert.Equal(t, c.expectedNewInterface, newInterface)
+				} else {
+					assert.Equal(t, c.raidInterface, newInterface)
+				}
 			}
 		})
 	}

@@ -101,14 +101,33 @@ func deleteTest(t *testing.T, detach bool) {
 		},
 		{
 			name: "available-node",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(
+			ironic: testserver.NewIronic(t).Node(
 				nodes.Node{
 					UUID:           nodeUUID,
 					ProvisionState: "available",
+					Maintenance:    false,
 				},
-			),
+			).Delete(nodeUUID),
 			expectedDirty:        true,
-			expectedRequestAfter: provisionRequeueDelay,
+			expectedRequestAfter: 0,
+		},
+		{
+			name: "stale-instance-uuid-update",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: "available",
+					InstanceUUID:   nodeUUID,
+				},
+			).NodeUpdate(nodes.Node{
+				UUID: nodeUUID,
+			}).Delete(nodeUUID),
+			expectedDirty:        true,
+			expectedRequestAfter: 0,
+			expectedUpdate: &nodes.UpdateOperation{
+				Op:   nodes.RemoveOp,
+				Path: "/instance_uuid",
+			},
 		},
 		{
 			name: "not-in-maintenance-update-fail",

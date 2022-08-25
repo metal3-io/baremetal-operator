@@ -171,14 +171,13 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 	for i := 0; ; i++ {
 		t.Logf("tryReconcile: top of loop %d", i)
 		if i >= 25 {
-			t.Fatal(fmt.Errorf("Exceeded 25 iterations"))
+			t.Fatal("Exceeded 25 iterations")
 		}
 
 		result, err := r.Reconcile(context.Background(), request)
 
 		if err != nil {
 			t.Fatal(err)
-			break
 		}
 
 		// The FakeClient keeps a copy of the object we update, so we
@@ -198,8 +197,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 
 		t.Logf("tryReconcile: loop bottom %d result=%v", i, result)
 		if !result.Requeue && result.RequeueAfter == 0 {
-			t.Fatal(fmt.Errorf("Ended reconcile at iteration %d without test condition being true", i))
-			break
+			t.Fatalf("Ended reconcile at iteration %d without test condition being true", i)
 		}
 	}
 }

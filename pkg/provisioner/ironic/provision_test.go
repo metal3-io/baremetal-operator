@@ -88,6 +88,27 @@ func TestProvision(t *testing.T) {
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
+		{
+			name: "fault state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+				Fault:          "power fault",
+				Maintenance:    true,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "maintenance mode",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+				Maintenance:    true,
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        true,
+		},
 	}
 
 	for _, tc := range cases {

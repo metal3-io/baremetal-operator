@@ -127,6 +127,10 @@ func printCall(v *CallCommon, prefix string, instr Instruction) string {
 			fmt.Fprintf(&b, "%sInvoke %s.%s", prefix, relName(v.Value, instr), v.Method.Name())
 		}
 	}
+	for _, arg := range v.TypeArgs {
+		b.WriteString(" ")
+		b.WriteString(relType(arg, instr.Parent().pkg()))
+	}
 	for _, arg := range v.Args {
 		b.WriteString(" ")
 		b.WriteString(relName(arg, instr))
@@ -154,6 +158,10 @@ func (v *Load) String() string {
 	return fmt.Sprintf("Load <%s> %s", relType(v.Type(), v.Parent().pkg()), relName(v.X, v))
 }
 
+func (v *Copy) String() string {
+	return fmt.Sprintf("Copy <%s> %s", relType(v.Type(), v.Parent().pkg()), relName(v.X, v))
+}
+
 func printConv(prefix string, v, x Value) string {
 	from := v.Parent().pkg()
 	return fmt.Sprintf("%s <%s> %s",
@@ -162,10 +170,11 @@ func printConv(prefix string, v, x Value) string {
 		relName(x, v.(Instruction)))
 }
 
-func (v *ChangeType) String() string      { return printConv("ChangeType", v, v.X) }
-func (v *Convert) String() string         { return printConv("Convert", v, v.X) }
-func (v *ChangeInterface) String() string { return printConv("ChangeInterface", v, v.X) }
-func (v *MakeInterface) String() string   { return printConv("MakeInterface", v, v.X) }
+func (v *ChangeType) String() string          { return printConv("ChangeType", v, v.X) }
+func (v *Convert) String() string             { return printConv("Convert", v, v.X) }
+func (v *ChangeInterface) String() string     { return printConv("ChangeInterface", v, v.X) }
+func (v *SliceToArrayPointer) String() string { return printConv("SliceToArrayPointer", v, v.X) }
+func (v *MakeInterface) String() string       { return printConv("MakeInterface", v, v.X) }
 
 func (v *MakeClosure) String() string {
 	from := v.Parent().pkg()
@@ -210,7 +219,8 @@ func (v *MakeChan) String() string {
 
 func (v *FieldAddr) String() string {
 	from := v.Parent().pkg()
-	st := deref(v.X.Type()).Underlying().(*types.Struct)
+	// v.X.Type() might be a pointer to a type parameter whose core type is a pointer to a struct
+	st := deref(typeutil.CoreType(deref(v.X.Type()))).Underlying().(*types.Struct)
 	// Be robust against a bad index.
 	name := "?"
 	if 0 <= v.Field && v.Field < st.NumFields() {
@@ -220,7 +230,7 @@ func (v *FieldAddr) String() string {
 }
 
 func (v *Field) String() string {
-	st := v.X.Type().Underlying().(*types.Struct)
+	st := typeutil.CoreType(v.X.Type()).Underlying().(*types.Struct)
 	// Be robust against a bad index.
 	name := "?"
 	if 0 <= v.Field && v.Field < st.NumFields() {

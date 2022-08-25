@@ -3,19 +3,19 @@ package ruleguard
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
 	"go/types"
 	"regexp"
 
-	"github.com/quasilyte/go-ruleguard/internal/gogrep"
-	"github.com/quasilyte/go-ruleguard/nodetag"
 	"github.com/quasilyte/go-ruleguard/ruleguard/quasigo"
+	"github.com/quasilyte/go-ruleguard/ruleguard/typematch"
+	"github.com/quasilyte/gogrep"
+	"github.com/quasilyte/gogrep/nodetag"
 )
 
 type goRuleSet struct {
 	universal *scopedGoRuleSet
 
-	groups map[string]token.Position // To handle redefinitions
+	groups map[string]*GoRuleGroup // To handle redefinitions
 }
 
 type scopedGoRuleSet struct {
@@ -31,8 +31,7 @@ type goCommentRule struct {
 }
 
 type goRule struct {
-	group      string
-	filename   string
+	group      *GoRuleGroup
 	line       int
 	pat        *gogrep.Pattern
 	msg        string
@@ -60,11 +59,18 @@ type filterParams struct {
 	imports  map[string]struct{}
 	env      *quasigo.EvalEnv
 
-	importer *goImporter
+	importer       *goImporter
+	gogrepSubState *gogrep.MatcherState
+	typematchState *typematch.MatcherState
 
-	match matchData
+	match    matchData
+	nodePath *nodePath
 
 	nodeText func(n ast.Node) []byte
+
+	deadcode bool
+
+	currentFunc *ast.FuncDecl
 
 	// varname is set only for custom filters before bytecode function is called.
 	varname string
@@ -88,38 +94,34 @@ func (params *filterParams) subExpr(name string) ast.Expr {
 }
 
 func (params *filterParams) typeofNode(n ast.Node) types.Type {
-	if e, ok := n.(ast.Expr); ok {
-		if typ := params.ctx.Types.TypeOf(e); typ != nil {
-			return typ
-		}
+	var e ast.Expr
+	switch n := n.(type) {
+	case ast.Expr:
+		e = n
+	case *ast.Field:
+		e = n.Type
 	}
-
+	if typ := params.ctx.Types.TypeOf(e); typ != nil {
+		return typ
+	}
 	return types.Typ[types.Invalid]
-}
-
-func cloneRuleSet(rset *goRuleSet) *goRuleSet {
-	out, err := mergeRuleSets([]*goRuleSet{rset})
-	if err != nil {
-		panic(err) // Should never happen
-	}
-	return out
 }
 
 func mergeRuleSets(toMerge []*goRuleSet) (*goRuleSet, error) {
 	out := &goRuleSet{
 		universal: &scopedGoRuleSet{},
-		groups:    make(map[string]token.Position),
+		groups:    make(map[string]*GoRuleGroup),
 	}
 
 	for _, x := range toMerge {
 		out.universal = appendScopedRuleSet(out.universal, x.universal)
-		for group, pos := range x.groups {
-			if prevPos, ok := out.groups[group]; ok {
-				newRef := fmt.Sprintf("%s:%d", pos.Filename, pos.Line)
-				oldRef := fmt.Sprintf("%s:%d", prevPos.Filename, prevPos.Line)
-				return nil, fmt.Errorf("%s: redefinition of %s(), previously defined at %s", newRef, group, oldRef)
+		for groupName, group := range x.groups {
+			if prevGroup, ok := out.groups[groupName]; ok {
+				newRef := fmt.Sprintf("%s:%d", group.Filename, group.Line)
+				oldRef := fmt.Sprintf("%s:%d", prevGroup.Filename, prevGroup.Line)
+				return nil, fmt.Errorf("%s: redefinition of %s(), previously defined at %s", newRef, groupName, oldRef)
 			}
-			out.groups[group] = pos
+			out.groups[groupName] = group
 		}
 	}
 

@@ -1,13 +1,16 @@
 package rule
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/mgechev/revive/lint"
 )
 
 // FileHeaderRule lints given else constructs.
-type FileHeaderRule struct{}
+type FileHeaderRule struct {
+	header string
+}
 
 var (
 	multiRegexp  = regexp.MustCompile("^/\\*")
@@ -16,13 +19,13 @@ var (
 
 // Apply applies the rule to given file.
 func (r *FileHeaderRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
-	if len(arguments) != 1 {
-		panic(`invalid configuration for "file-header" rule`)
-	}
-
-	header, ok := arguments[0].(string)
-	if !ok {
-		panic(`invalid argument for "file-header" rule: first argument should be a string`)
+	if r.header == "" {
+		checkNumberOfArguments(1, arguments, r.Name())
+		var ok bool
+		r.header, ok = arguments[0].(string)
+		if !ok {
+			panic(fmt.Sprintf("invalid argument for \"file-header\" rule: first argument should be a string, got %T", arguments[0]))
+		}
 	}
 
 	failure := []lint.Failure{
@@ -44,20 +47,20 @@ func (r *FileHeaderRule) Apply(file *lint.File, arguments lint.Arguments) []lint
 	comment := ""
 	for _, c := range g.List {
 		text := c.Text
-		if multiRegexp.Match([]byte(text)) {
+		if multiRegexp.MatchString(text) {
 			text = text[2 : len(text)-2]
-		} else if singleRegexp.Match([]byte(text)) {
+		} else if singleRegexp.MatchString(text) {
 			text = text[2:]
 		}
 		comment += text
 	}
 
-	regex, err := regexp.Compile(header)
+	regex, err := regexp.Compile(r.header)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	if !regex.Match([]byte(comment)) {
+	if !regex.MatchString(comment) {
 		return failure
 	}
 	return nil

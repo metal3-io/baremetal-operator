@@ -1,11 +1,14 @@
 package wrapcheck
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
+	"regexp"
 	"strings"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -16,6 +19,8 @@ var DefaultIgnoreSigs = []string{
 	".Wrap(",
 	".Wrapf(",
 	".WithMessage(",
+	".WithMessagef(",
+	".WithStack(",
 }
 
 // WrapcheckConfig is the set of configuration values which configure the
@@ -26,7 +31,7 @@ type WrapcheckConfig struct {
 	// allows you to specify functions that wrapcheck will not report as
 	// unwrapped.
 	//
-	// For example, an ingoredSig of `[]string{"errors.New("}` will ignore errors
+	// For example, an ignoreSig of `[]string{"errors.New("}` will ignore errors
 	// returned from the stdlib package error's function:
 	//
 	//   `func errors.New(message string) error`
@@ -36,12 +41,51 @@ type WrapcheckConfig struct {
 	// Note: Setting this value will intentionally override the default ignored
 	// sigs. To achieve the same behaviour as default, you should add the default
 	// list to your config.
-	IgnoreSigs []string `mapstructure:"ignoreSigs"`
+	IgnoreSigs []string `mapstructure:"ignoreSigs" yaml:"ignoreSigs"`
+
+	// IgnoreSigRegexps defines a list of regular expressions which if matched
+	// to the signature of the function call returning the error, will be ignored. This
+	// allows you to specify functions that wrapcheck will not report as
+	// unwrapped.
+	//
+	// For example, an ignoreSigRegexp of `[]string{"\.New.*Err\("}`` will ignore errors
+	// returned from any signature whose method name starts with "New" and ends with "Err"
+	// due to the signature matching the regular expression `\.New.*Err\(`.
+	//
+	// Note that this is similar to the ignoreSigs configuration, but provides
+	// slightly more flexibility in defining rules by which signatures will be
+	// ignored.
+	IgnoreSigRegexps []string `mapstructure:"ignoreSigRegexps" yaml:"ignoreSigRegexps"`
+
+	// IgnorePackageGlobs defines a list of globs which, if matching the package
+	// of the function returning the error, will ignore the error when doing
+	// wrapcheck analysis.
+	//
+	// This is useful for broadly ignoring packages and subpackages from wrapcheck
+	// analysis. For example, to ignore all errors from all packages and
+	// subpackages of "encoding" you may include the configuration:
+	//
+	// -- .wrapcheck.yaml
+	// ignorePackageGlobs:
+	// - encoding/*
+	IgnorePackageGlobs []string `mapstructure:"ignorePackageGlobs" yaml:"ignorePackageGlobs"`
+
+	// IgnoreInterfaceRegexps defines a list of regular expressions which, if matched
+	// to a underlying interface name, will ignore unwrapped errors returned from a
+	// function whose call is defined on the given interface.
+	//
+	// For example, an ignoreInterfaceRegexps of `[]string{"Transac(tor|tion)"}`` will ignore errors
+	// returned from any function whose call is defined on a interface named 'Transactor'
+	// or 'Transaction' due to the name matching the regular expression `Transac(tor|tion)`.
+	IgnoreInterfaceRegexps []string `mapstructure:"ignoreInterfaceRegexps" yaml:"ignoreInterfaceRegexps"`
 }
 
 func NewDefaultConfig() WrapcheckConfig {
 	return WrapcheckConfig{
-		IgnoreSigs: DefaultIgnoreSigs,
+		IgnoreSigs:             DefaultIgnoreSigs,
+		IgnoreSigRegexps:       []string{},
+		IgnorePackageGlobs:     []string{},
+		IgnoreInterfaceRegexps: []string{},
 	}
 }
 
@@ -54,13 +98,30 @@ func NewAnalyzer(cfg WrapcheckConfig) *analysis.Analyzer {
 }
 
 func run(cfg WrapcheckConfig) func(*analysis.Pass) (interface{}, error) {
+	// Precompile the regexps, report the error
+	var (
+		ignoreSigRegexp        []*regexp.Regexp
+		ignoreInterfaceRegexps []*regexp.Regexp
+		ignorePackageGlobs     []glob.Glob
+		err                    error
+	)
+
+	ignoreSigRegexp, err = compileRegexps(cfg.IgnoreSigRegexps)
+	if err == nil {
+		ignoreInterfaceRegexps, err = compileRegexps(cfg.IgnoreInterfaceRegexps)
+	}
+	if err == nil {
+		ignorePackageGlobs, err = compileGlobs(cfg.IgnorePackageGlobs)
+
+	}
+
 	return func(pass *analysis.Pass) (interface{}, error) {
+		if err != nil {
+			return nil, err
+		}
+
 		for _, file := range pass.Files {
 			ast.Inspect(file, func(n ast.Node) bool {
-				if _, ok := n.(*ast.AssignStmt); ok {
-					return true
-				}
-
 				ret, ok := n.(*ast.ReturnStmt)
 				if !ok {
 					return true
@@ -79,8 +140,9 @@ func run(cfg WrapcheckConfig) func(*analysis.Pass) (interface{}, error) {
 						// If the return type of the function is a single error. This will not
 						// match an error within multiple return values, for that, the below
 						// tuple check is required.
+
 						if isError(pass.TypesInfo.TypeOf(expr)) {
-							reportUnwrapped(pass, retFn, retFn.Pos(), cfg.IgnoreSigs)
+							reportUnwrapped(pass, retFn, retFn.Pos(), cfg, ignoreSigRegexp, ignoreInterfaceRegexps, ignorePackageGlobs)
 							return true
 						}
 
@@ -98,7 +160,7 @@ func run(cfg WrapcheckConfig) func(*analysis.Pass) (interface{}, error) {
 								return true
 							}
 							if isError(v.Type()) {
-								reportUnwrapped(pass, retFn, expr.Pos(), cfg.IgnoreSigs)
+								reportUnwrapped(pass, retFn, expr.Pos(), cfg, ignoreSigRegexp, ignoreInterfaceRegexps, ignorePackageGlobs)
 								return true
 							}
 						}
@@ -113,9 +175,7 @@ func run(cfg WrapcheckConfig) func(*analysis.Pass) (interface{}, error) {
 						return true
 					}
 
-					var (
-						call *ast.CallExpr
-					)
+					var call *ast.CallExpr
 
 					// Attempt to find the most recent short assign
 					if shortAss := prevErrAssign(pass, file, ident); shortAss != nil {
@@ -162,7 +222,7 @@ func run(cfg WrapcheckConfig) func(*analysis.Pass) (interface{}, error) {
 						return true
 					}
 
-					reportUnwrapped(pass, call, ident.NamePos, cfg.IgnoreSigs)
+					reportUnwrapped(pass, call, ident.NamePos, cfg, ignoreSigRegexp, ignoreInterfaceRegexps, ignorePackageGlobs)
 				}
 
 				return true
@@ -175,7 +235,7 @@ func run(cfg WrapcheckConfig) func(*analysis.Pass) (interface{}, error) {
 
 // Report unwrapped takes a call expression and an identifier and reports
 // if the call is unwrapped.
-func reportUnwrapped(pass *analysis.Pass, call *ast.CallExpr, tokenPos token.Pos, ignoreSigs []string) {
+func reportUnwrapped(pass *analysis.Pass, call *ast.CallExpr, tokenPos token.Pos, cfg WrapcheckConfig, regexpsSig []*regexp.Regexp, regexpsInter []*regexp.Regexp, pkgGlobs []glob.Glob) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
 		return
@@ -183,36 +243,50 @@ func reportUnwrapped(pass *analysis.Pass, call *ast.CallExpr, tokenPos token.Pos
 
 	// Check for ignored signatures
 	fnSig := pass.TypesInfo.ObjectOf(sel.Sel).String()
-	if contains(ignoreSigs, fnSig) {
+
+	if contains(cfg.IgnoreSigs, fnSig) {
+		return
+	} else if containsMatch(regexpsSig, fnSig) {
 		return
 	}
 
 	// Check if the underlying type of the "x" in x.y.z is an interface, as
-	// errors returned from interface types should be wrapped.
-	if isInterface(pass, sel, ignoreSigs) {
-		pass.Reportf(tokenPos, "error returned from interface method should be wrapped: sig: %s", fnSig)
-		return
+	// errors returned from interface types should be wrapped, unless ignored
+	// as per `ignoreInterfaceRegexps`
+	if isInterface(pass, sel) {
+		name := types.TypeString(pass.TypesInfo.TypeOf(sel.X), func(p *types.Package) string { return p.Name() })
+		if containsMatch(regexpsInter, name) {
+		} else {
+			pass.Reportf(tokenPos, "error returned from interface method should be wrapped: sig: %s", fnSig)
+			return
+		}
 	}
 
 	// Check whether the function being called comes from another package,
 	// as functions called across package boundaries which returns errors
 	// should be wrapped
-	if isFromOtherPkg(pass, sel, ignoreSigs) {
+	if isFromOtherPkg(pass, sel, pkgGlobs) {
 		pass.Reportf(tokenPos, "error returned from external package is unwrapped: sig: %s", fnSig)
 		return
 	}
 }
 
 // isInterface returns whether the function call is one defined on an interface.
-func isInterface(pass *analysis.Pass, sel *ast.SelectorExpr, ignoreSigs []string) bool {
+func isInterface(pass *analysis.Pass, sel *ast.SelectorExpr) bool {
 	_, ok := pass.TypesInfo.TypeOf(sel.X).Underlying().(*types.Interface)
 
 	return ok
 }
 
-func isFromOtherPkg(pass *analysis.Pass, sel *ast.SelectorExpr, ignoreSigs []string) bool {
+// isFromotherPkg returns whether the function is defined in the package
+// currently under analysis or is considered external. It will ignore packages
+// defined in config.IgnorePackageGlobs.
+func isFromOtherPkg(pass *analysis.Pass, sel *ast.SelectorExpr, pkgGlobs []glob.Glob) bool {
 	// The package of the function that we are calling which returns the error
 	fn := pass.TypesInfo.ObjectOf(sel.Sel)
+	if containsMatchGlob(pkgGlobs, fn.Pkg().Path()) {
+		return false
+	}
 
 	// If it's not a package name, then we should check the selector to make sure
 	// that it's an identifier from the same package
@@ -284,6 +358,25 @@ func contains(slice []string, el string) bool {
 	return false
 }
 
+func containsMatch(regexps []*regexp.Regexp, el string) bool {
+	for _, re := range regexps {
+		if re.MatchString(el) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func containsMatchGlob(globs []glob.Glob, el string) bool {
+	for _, g := range globs {
+		if g.Match(el) {
+			return true
+		}
+	}
+	return false
+}
+
 // isError returns whether or not the provided type interface is an error
 func isError(typ types.Type) bool {
 	if typ == nil {
@@ -301,4 +394,35 @@ func isUnresolved(file *ast.File, ident *ast.Ident) bool {
 	}
 
 	return false
+}
+
+// compileRegexps compiles a set of regular expressions returning them for use,
+// or the first encountered error due to an invalid expression.
+func compileRegexps(regexps []string) ([]*regexp.Regexp, error) {
+	var compiledRegexps []*regexp.Regexp
+	for _, reg := range regexps {
+		re, err := regexp.Compile(reg)
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile regexp %s: %v\n", reg, err)
+		}
+
+		compiledRegexps = append(compiledRegexps, re)
+	}
+
+	return compiledRegexps, nil
+}
+
+// compileGlobs compiles a set of globs, returning them for use,
+// or the first encountered error due to an invalid expression.
+func compileGlobs(globs []string) ([]glob.Glob, error) {
+	var compiledGlobs []glob.Glob
+	for _, globString := range globs {
+		glob, err := glob.Compile(globString)
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile globs %s: %v\n", glob, err)
+		}
+
+		compiledGlobs = append(compiledGlobs, glob)
+	}
+	return compiledGlobs, nil
 }

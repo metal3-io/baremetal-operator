@@ -46,6 +46,7 @@ func TestValidateCreate(t *testing.T) {
 
 	// for RAID validation test cases
 	numberOfPhysicalDisks := 3
+	diskFormat := "live-iso"
 
 	tests := []struct {
 		name      string
@@ -348,6 +349,131 @@ func TestValidateCreate(t *testing.T) {
 			},
 			oldBMH:    nil,
 			wantedErr: fmt.Sprintf("the 'numberOfPhysicalDisks'[%d] and number of 'physicalDisks'[2] is not same for volume 0", numberOfPhysicalDisks),
+		},
+		{
+			name: "validDNSName",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipmi://host-0.example.com.org:6223"}}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "validDNSName2",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipmi://baremetalhost"}}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "validDNSName3",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipmi://[fe80::fc33:62ff:fe83:8a76]:6233"}}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "invalidDNSNameinvalidhyphenuse",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipmi://-host.example.com.org"}}},
+			oldBMH:    nil,
+			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [-host.example.com.org] is invalid",
+		},
+		{
+			name: "invalidDNSNameinvalidcharacter",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipmi://host+1.example.com.org"}}},
+			oldBMH:    nil,
+			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [host+1.example.com.org] is invalid",
+		},
+		{
+			name: "invalidDNSNameinvalidformat",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "[@]host.example.com"}}},
+			oldBMH:    nil,
+			wantedErr: "BMO validation: failed to parse BMC address information: parse \"ipmi://[@]host.example.com\": net/url: invalid userinfo",
+		},
+		{
+			name: "invalidDNSNameinvalidbmc",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipm:host.example.com:6223"}}},
+			oldBMH:    nil,
+			wantedErr: "Unknown BMC type 'ipm' for address ipm:host.example.com:6223",
+		},
+		{
+			name: "invalidDNSNameinvalidipv6",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "ipmi://[fe80::fc33:62ff:fe33:8xff]:6223"}}},
+			oldBMH:    nil,
+			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
+		},
+		{
+			name: "invalidImageURL",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "idrac://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					Image: &Image{
+						URL: "test1",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "Image URL test1 is an invalid URL",
+		},
+		{
+			name: "liveISOImageWithUnsupportedBMC",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address:         "idrac://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					Image: &Image{
+						URL:        "http://127.0.0.1",
+						DiskFormat: &diskFormat,
+					},
+				}, // end of BMH spec
+			},
+			oldBMH:    nil,
+			wantedErr: "BMC driver idrac does not support live-iso image",
 		},
 	}
 

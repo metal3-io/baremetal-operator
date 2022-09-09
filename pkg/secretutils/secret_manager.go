@@ -65,7 +65,7 @@ func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Se
 // claimSecret ensures that the Secret has a label that will ensure it is
 // present in the cache (and that we can watch for changes), and optionally
 // that it has a particular owner reference.
-func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object, ownerIsController, addFinalizer bool) error {
+func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object, addFinalizer bool) error {
 	log := sm.log.WithValues("secret", secret.Name, "secretNamespace", secret.Namespace)
 	needsUpdate := false
 	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
@@ -78,30 +78,24 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 			"ownerKind", owner.GetObjectKind().GroupVersionKind().Kind,
 			"owner", owner.GetNamespace()+"/"+owner.GetName(),
 			"ownerUID", owner.GetUID())
-		if ownerIsController {
-			if !metav1.IsControlledBy(secret, owner) {
-				ownerLog.Info("setting secret controller reference")
-				if err := controllerutil.SetControllerReference(owner, secret, sm.client.Scheme()); err != nil {
-					return errors.Wrap(err, "failed to set secret controller reference")
-				}
-				needsUpdate = true
+		alreadyOwned := false
+		ownerUID := owner.GetUID()
+		for _, ref := range secret.GetOwnerReferences() {
+			// We used to add controller references to BMC
+			// secrets. This was wrong, update.
+			if ref.UID == ownerUID && ref.Controller == nil {
+				alreadyOwned = true
+				break
+			} else if ref.Controller != nil && *ref.Controller {
+				ownerLog.Info("updating secret to no longer have an owner of type controller")
 			}
-		} else {
-			alreadyOwned := false
-			ownerUID := owner.GetUID()
-			for _, ref := range secret.GetOwnerReferences() {
-				if ref.UID == ownerUID {
-					alreadyOwned = true
-					break
-				}
+		}
+		if !alreadyOwned {
+			ownerLog.Info("setting secret owner reference")
+			if err := controllerutil.SetOwnerReference(owner, secret, sm.client.Scheme()); err != nil {
+				return errors.Wrap(err, "failed to set secret owner reference")
 			}
-			if !alreadyOwned {
-				ownerLog.Info("setting secret owner reference")
-				if err := controllerutil.SetOwnerReference(owner, secret, sm.client.Scheme()); err != nil {
-					return errors.Wrap(err, "failed to set secret owner reference")
-				}
-				needsUpdate = true
-			}
+			needsUpdate = true
 		}
 	}
 
@@ -124,12 +118,12 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 // will ensure it is present in the cache (and that we can watch for changes),
 // and optionally that it has a particular owner reference. The owner reference
 // may optionally be a controller reference.
-func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner client.Object, ownerIsController, addFinalizer bool) (*corev1.Secret, error) {
+func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
 	secret, err := sm.findSecret(key)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to fetch secret %s in namespace %s", key.Name, key.Namespace))
 	}
-	err = sm.claimSecret(secret, owner, ownerIsController, addFinalizer)
+	err = sm.claimSecret(secret, owner, addFinalizer)
 
 	return secret, err
 }
@@ -138,18 +132,18 @@ func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner cl
 // ensure it is present in the cache (and that we can watch for changes), and
 // that it has a particular owner reference. The owner reference may optionally
 // be a controller reference.
-func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, ownerIsController, addFinalizer bool) (*corev1.Secret, error) {
+func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
 	if owner == nil {
 		panic("AcquireSecret called with no owner")
 	}
 
-	return sm.obtainSecretForOwner(key, owner, ownerIsController, addFinalizer)
+	return sm.obtainSecretForOwner(key, owner, addFinalizer)
 }
 
 // ObtainSecret retrieves a Secret and ensures that it has a label that will
 // ensure it is present in the cache (and that we can watch for changes).
 func (sm *SecretManager) ObtainSecret(key types.NamespacedName) (*corev1.Secret, error) {
-	return sm.obtainSecretForOwner(key, nil, false, false)
+	return sm.obtainSecretForOwner(key, nil, false)
 }
 
 // ReleaseSecret removes secrets manager finalizer from specified secret when needed.

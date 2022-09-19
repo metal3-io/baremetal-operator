@@ -613,6 +613,81 @@ spec:
                             IPv4 and IPv6 addresses are present in a dual-stack environment,
                             two nics will be output, one with each IP.
                           type: string
+                        lldp:
+                          description: Save ironic inspection data to lldp
+                          properties:
+                            interface:
+                              type: string
+                            mac:
+                              type: string
+                            node_ident:
+                              type: string
+                            switch_capabilities_enabled:
+                              items:
+                                type: string
+                              type: array
+                            switch_capabilities_support:
+                              items:
+                                type: string
+                              type: array
+                            switch_chassis_id:
+                              type: string
+                            switch_mgmt_addresses:
+                              items:
+                                type: string
+                              type: array
+                            switch_port_autonegotiation_enabled:
+                              type: boolean
+                            switch_port_autonegotiation_support:
+                              type: boolean
+                            switch_port_description:
+                              type: string
+                            switch_port_id:
+                              type: string
+                            switch_port_link_aggregation_enabled:
+                              type: boolean
+                            switch_port_link_aggregation_id:
+                              type: integer
+                            switch_port_link_aggregation_support:
+                              type: boolean
+                            switch_port_management_vlan_id:
+                              type: integer
+                            switch_port_mau_type:
+                              type: string
+                            switch_port_mtu:
+                              type: integer
+                            switch_port_physical_capabilities:
+                              type: string
+                            switch_port_protocol_vlan_enabled:
+                              type: string
+                            switch_port_protocol_vlan_ids:
+                              type: integer
+                            switch_port_protocol_vlan_support:
+                              type: string
+                            switch_port_untagged_vlan_id:
+                              type: integer
+                            switch_port_vlans:
+                              items:
+                                description: VLAN represents the name and ID of a
+                                  VLAN
+                                properties:
+                                  id:
+                                    description: VLANID is a 12-bit 802.1Q VLAN identifier
+                                    format: int32
+                                    maximum: 4094
+                                    minimum: 0
+                                    type: integer
+                                  name:
+                                    type: string
+                                type: object
+                              type: array
+                            switch_protocol_identities:
+                              type: string
+                            switch_system_description:
+                              type: string
+                            switch_system_name:
+                              type: string
+                          type: object
                         mac:
                           description: The device MAC address
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
@@ -1386,6 +1461,81 @@ spec:
                             IPv4 and IPv6 addresses are present in a dual-stack environment,
                             two nics will be output, one with each IP.
                           type: string
+                        lldp:
+                          description: Save ironic inspection data to lldp
+                          properties:
+                            interface:
+                              type: string
+                            mac:
+                              type: string
+                            node_ident:
+                              type: string
+                            switch_capabilities_enabled:
+                              items:
+                                type: string
+                              type: array
+                            switch_capabilities_support:
+                              items:
+                                type: string
+                              type: array
+                            switch_chassis_id:
+                              type: string
+                            switch_mgmt_addresses:
+                              items:
+                                type: string
+                              type: array
+                            switch_port_autonegotiation_enabled:
+                              type: boolean
+                            switch_port_autonegotiation_support:
+                              type: boolean
+                            switch_port_description:
+                              type: string
+                            switch_port_id:
+                              type: string
+                            switch_port_link_aggregation_enabled:
+                              type: boolean
+                            switch_port_link_aggregation_id:
+                              type: integer
+                            switch_port_link_aggregation_support:
+                              type: boolean
+                            switch_port_management_vlan_id:
+                              type: integer
+                            switch_port_mau_type:
+                              type: string
+                            switch_port_mtu:
+                              type: integer
+                            switch_port_physical_capabilities:
+                              type: string
+                            switch_port_protocol_vlan_enabled:
+                              type: string
+                            switch_port_protocol_vlan_ids:
+                              type: integer
+                            switch_port_protocol_vlan_support:
+                              type: string
+                            switch_port_untagged_vlan_id:
+                              type: integer
+                            switch_port_vlans:
+                              items:
+                                description: VLAN represents the name and ID of a
+                                  VLAN
+                                properties:
+                                  id:
+                                    description: VLANID is a 12-bit 802.1Q VLAN identifier
+                                    format: int32
+                                    maximum: 4094
+                                    minimum: 0
+                                    type: integer
+                                  name:
+                                    type: string
+                                type: object
+                              type: array
+                            switch_protocol_identities:
+                              type: string
+                            switch_system_description:
+                              type: string
+                            switch_system_name:
+                              type: string
+                          type: object
                         mac:
                           description: The device MAC address
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'

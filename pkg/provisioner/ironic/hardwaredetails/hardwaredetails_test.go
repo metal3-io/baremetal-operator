@@ -174,10 +174,22 @@ func TestGetNICDetails(t *testing.T) {
 				LLDPProcessed: map[string]interface{}{
 					"switch_port_vlans": []map[string]interface{}{
 						{
-							"id": 1,
+							"id":   1,
+							"name": "RHOS13-PXE",
 						},
 					},
-					"switch_port_untagged_vlan_id": 1,
+					"switch_chassis_id":                    "",
+					"switch_mgmt_addresses":                []string{"192.168.100.2"},
+					"switch_capabilities_support":          []string{"Bridge", "Router"},
+					"switch_capabilities_enabled":          []string{"Bridge", "Router"},
+					"switch_port_untagged_vlan_id":         1,
+					"switch_port_id":                       "Ethernet99",
+					"switch_port_link_aggregation_enabled": false,
+					"switch_port_link_aggregation_id":      0,
+					"switch_port_link_aggregation_support": true,
+					"switch_port_mtu":                      10200,
+					"switch_system_description":            "Arista Networks EOS",
+					"switch_system_name":                   "1C-RSW-1",
 				},
 			},
 		},
@@ -196,8 +208,30 @@ func TestGetNICDetails(t *testing.T) {
 		MAC:  "00:11:22:33:44:55",
 		IP:   "192.0.2.1",
 		PXE:  true,
+		LLDP: metal3v1alpha1.LLDP{
+			SwitchPortVlans: []metal3v1alpha1.VLAN{
+				{
+					ID:   1,
+					Name: "RHOS13-PXE",
+				},
+			},
+			SwitchMgmtAddresses:              []string{"192.168.100.2"},
+			SwitchCapabilitiesSupport:        []string{"Bridge", "Router"},
+			SwitchCapabilitiesEnabled:        []string{"Bridge", "Router"},
+			SwitchPortUntaggedVlanId:         1,
+			SwitchPortId:                     "Ethernet99",
+			SwitchPortLinkAggregationEnabled: false,
+			SwitchPortLinkAggregationId:      0,
+			SwitchPortLinkAggregationSupport: true,
+			SwitchPortMTU:                    10200,
+			SwitchSystemDescription:          "Arista Networks EOS",
+			SwitchSystemName:                 "1C-RSW-1",
+		},
 		VLANs: []metal3v1alpha1.VLAN{
-			{ID: 1},
+			{
+				ID:   1,
+				Name: "RHOS13-PXE",
+			},
 		},
 		VLANID: 1,
 	})) {

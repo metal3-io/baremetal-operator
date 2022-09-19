@@ -564,6 +564,35 @@ type Storage struct {
 // +kubebuilder:validation:Maximum=4094
 type VLANID int32
 
+type LLDP struct {
+	Interface                        string   `json:"interface,omitempty"`
+	Mac                              string   `json:"mac,omitempty"`
+	NodeIdent                        string   `json:"node_ident,omitempty"`
+	SwitchCapabilitiesEnabled        []string `json:"switch_capabilities_enabled,omitempty"`
+	SwitchCapabilitiesSupport        []string `json:"switch_capabilities_support,omitempty"`
+	SwitchChassisId                  string   `json:"switch_chassis_id,omitempty"`
+	SwitchMgmtAddresses              []string `json:"switch_mgmt_addresses,omitempty"`
+	SwitchPortAutonegotiationEnabled bool     `json:"switch_port_autonegotiation_enabled,omitempty"`
+	SwitchPortAutonegotiationSupport bool     `json:"switch_port_autonegotiation_support,omitempty"`
+	SwitchPortDescription            string   `json:"switch_port_description,omitempty"`
+	SwitchPortId                     string   `json:"switch_port_id,omitempty"`
+	SwitchPortLinkAggregationEnabled bool     `json:"switch_port_link_aggregation_enabled,omitempty"`
+	SwitchPortLinkAggregationId      int      `json:"switch_port_link_aggregation_id,omitempty"`
+	SwitchPortLinkAggregationSupport bool     `json:"switch_port_link_aggregation_support,omitempty"`
+	SwitchPortManagementVlanId       int      `json:"switch_port_management_vlan_id,omitempty"`
+	SwitchPortMauType                string   `json:"switch_port_mau_type,omitempty"`
+	SwitchPortMTU                    int      `json:"switch_port_mtu,omitempty"`
+	SwitchPortPhysicalCapabilities   string   `json:"switch_port_physical_capabilities,omitempty"`
+	SwitchPortProtocolVlanEnabled    string   `json:"switch_port_protocol_vlan_enabled,omitempty"`
+	SwitchPortProtocolVlanIds        int      `json:"switch_port_protocol_vlan_ids,omitempty"`
+	SwitchPortProtocolVlanSupport    string   `json:"switch_port_protocol_vlan_support,omitempty"`
+	SwitchPortUntaggedVlanId         int      `json:"switch_port_untagged_vlan_id,omitempty"`
+	SwitchPortVlans                  []VLAN   `json:"switch_port_vlans,omitempty"`
+	SwitchProtocolIdentities         string   `json:"switch_protocol_identities,omitempty"`
+	SwitchSystemDescription          string   `json:"switch_system_description,omitempty"`
+	SwitchSystemName                 string   `json:"switch_system_name,omitempty"`
+}
+
 // VLAN represents the name and ID of a VLAN
 type VLAN struct {
 	ID VLANID `json:"id,omitempty"`
@@ -599,6 +628,9 @@ type NIC struct {
 
 	// Whether the NIC is PXE Bootable
 	PXE bool `json:"pxe,omitempty"`
+
+	// Save ironic inspection data to lldp
+	LLDP LLDP `json:"lldp,omitempty"`
 }
 
 // Firmware describes the firmware on the host.

@@ -3,6 +3,7 @@ package ironic
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -151,6 +152,17 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 			return c, fmt.Errorf("Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
 		}
 		c.liveISOForcePersistentBootDevice = forcePersistentBootDevice
+	}
+
+	c.externalURL = os.Getenv("IRONIC_EXTERNAL_URL_V6")
+
+	// Let's see if externalURL looks like a URL
+	if c.externalURL != "" {
+		_, externalURLParseErr := url.Parse(c.externalURL)
+
+		if externalURLParseErr != nil {
+			return c, externalURLParseErr
+		}
 	}
 
 	return c, nil

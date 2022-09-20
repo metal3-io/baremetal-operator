@@ -1148,3 +1148,98 @@ func TestSetDeployImage(t *testing.T) {
 		})
 	}
 }
+
+func TestSetExternalURL(t *testing.T) {
+	host := makeHost()
+	host.Spec.BMC.Address = "redfish-virtualmedia://[fe80::fc33:62ff:fe83:8a76]:6233"
+
+	ironic := testserver.NewIronic(t).Ready().
+		Node(nodes.Node{
+			Name: host.Namespace + nameSeparator + host.Name,
+			UUID: host.Status.Provisioning.ID,
+		}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	prov.config.externalURL = "XXX"
+
+	driverInfo := make(map[string]interface{}, 0)
+	updatedDriverInfo := setExternalURL(prov, driverInfo)
+
+	assert.Equal(t, "XXX", updatedDriverInfo["external_http_url"])
+}
+
+func TestSetExternalURLIPv4(t *testing.T) {
+	host := makeHost()
+	host.Spec.BMC.Address = "redfish-virtualmedia://1.1.1.1:1111"
+
+	ironic := testserver.NewIronic(t).Ready().
+		Node(nodes.Node{
+			Name: host.Namespace + nameSeparator + host.Name,
+			UUID: host.Status.Provisioning.ID,
+		}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	prov.config.externalURL = "XXX"
+
+	driverInfo := make(map[string]interface{}, 0)
+	updatedDriverInfo := setExternalURL(prov, driverInfo)
+
+	assert.Equal(t, nil, updatedDriverInfo["external_http_url"])
+}
+
+func TestSetExternalURLRemoving(t *testing.T) {
+	host := makeHost()
+	host.Spec.BMC.Address = "redfish-virtualmedia://1.1.1.1:1111"
+
+	ironic := testserver.NewIronic(t).Ready().
+		Node(nodes.Node{
+			Name: host.Namespace + nameSeparator + host.Name,
+			UUID: host.Status.Provisioning.ID,
+		}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
+		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
+	)
+
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	driverInfo := make(map[string]interface{}, 0)
+	driverInfo["external_http_url"] = "non-empty"
+	updatedDriverInfo := setExternalURL(prov, driverInfo)
+
+	assert.Equal(t, nil, updatedDriverInfo["external_http_url"])
+}

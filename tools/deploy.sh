@@ -90,30 +90,45 @@ RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"
 export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+IRONIC_BASIC_AUTH_COMPONENT="${SCRIPTDIR}/ironic-deployment/components/basic-auth"
+TEMP_IRONIC_OVERLAY="${SCRIPTDIR}/ironic-deployment/overlays/temp"
+rm -rf "${TEMP_IRONIC_OVERLAY}"
+mkdir -p "${TEMP_IRONIC_OVERLAY}"
 
-KUSTOMIZE="tools/bin/kustomize"
+KUSTOMIZE="${SCRIPTDIR}/tools/bin/kustomize"
 make -C "$(dirname "$0")/.." "${KUSTOMIZE}"
+
+# Create a temporary overlay where we can make changes.
+pushd "${TEMP_IRONIC_OVERLAY}"
+${KUSTOMIZE} create --resources=../../../config/namespace \
+  --namespace=baremetal-operator-system --nameprefix=baremetal-operator-
+${KUSTOMIZE} edit add secret mariadb-password --from-literal=password=changeme
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     BMO_SCENARIO="${SCRIPTDIR}/config/basic-auth"
-    IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment/basic-auth"
+    if [ "${DEPLOY_TLS}" == "true" ]; then
+        BMO_SCENARIO="${BMO_SCENARIO}/tls"
+        # Basic-auth + TLS is special since TLS also means reverse proxy, which affects basic-auth.
+        # Therefore we have an overlay that we use as base for this case.
+        ${KUSTOMIZE} edit add resource ../../overlays/basic-auth_tls
+    else
+        BMO_SCENARIO="${BMO_SCENARIO}/default"
+        ${KUSTOMIZE} edit add resource ../../base
+        ${KUSTOMIZE} edit add component ../../components/basic-auth
+    fi
 else
     BMO_SCENARIO="${SCRIPTDIR}/config"
-    IRONIC_SCENARIO="${SCRIPTDIR}/ironic-deployment"
-fi
-
-if [ "${DEPLOY_TLS}" == "true" ]; then
-    BMO_SCENARIO="${BMO_SCENARIO}/tls"
-    IRONIC_SCENARIO="${IRONIC_SCENARIO}/tls"
-elif [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-    BMO_SCENARIO="${BMO_SCENARIO}/default"
+    if [ "${DEPLOY_TLS}" == "true" ]; then
+        BMO_SCENARIO="${BMO_SCENARIO}/tls"
+        ${KUSTOMIZE} edit add component ../../components/tls
+    fi
 fi
 
 if [ "${DEPLOY_KEEPALIVED}" == "true" ]; then
-    IRONIC_SCENARIO="${IRONIC_SCENARIO}/keepalived"
-else
-    IRONIC_SCENARIO="${IRONIC_SCENARIO}/default"
+    ${KUSTOMIZE} edit add component ../../components/keepalived
 fi
+
+popd
 
 IRONIC_DATA_DIR="${IRONIC_DATA_DIR:-/opt/metal3/ironic/}"
 IRONIC_AUTH_DIR="${IRONIC_AUTH_DIR:-"${IRONIC_DATA_DIR}auth/"}"
@@ -122,7 +137,7 @@ sudo mkdir -p "${IRONIC_DATA_DIR}"
 sudo chown -R "${USER}:$(id -gn)" "${IRONIC_DATA_DIR}"
 mkdir -p "${IRONIC_AUTH_DIR}"
 
-#If usernames and passwords are unset, read them from file or generate them
+# If usernames and passwords are unset, read them from file or generate them
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     if [ -z "${IRONIC_USERNAME:-}" ]; then
         if [ ! -f "${IRONIC_AUTH_DIR}ironic-username" ]; then
@@ -166,15 +181,15 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     fi
 
     if [ "${DEPLOY_IRONIC}" == "true" ]; then
-        envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-auth-config-tpl" > \
-        "${IRONIC_SCENARIO}/ironic-auth-config"
-        envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-inspector-auth-config-tpl" > \
-        "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
+        envsubst < "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config-tpl" > \
+        "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config"
+        envsubst < "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-auth-config-tpl" > \
+        "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-auth-config"
 
         echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
-        "${IRONIC_SCENARIO}/ironic-htpasswd"
+        "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-htpasswd"
         echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-        "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
+        "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-htpasswd"
     fi
 fi
 
@@ -186,28 +201,37 @@ if [ "${DEPLOY_BMO}" == "true" ]; then
 fi
 
 if [ "${DEPLOY_IRONIC}" == "true" ]; then
-    pushd "${SCRIPTDIR}"
+    pushd "${TEMP_IRONIC_OVERLAY}"
+    # Copy the configmap content from either the keepalived or default kustomization
+    # and edit based on environment.
     if [[ "${DEPLOY_KEEPALIVED}" == "true" ]]; then
-      IRONIC_BMO_CONFIGMAP="${SCRIPTDIR}/ironic-deployment/keepalived/ironic_bmo_configmap.env"
+        IRONIC_BMO_CONFIGMAP_SOURCE="${SCRIPTDIR}/ironic-deployment/components/keepalived/ironic_bmo_configmap.env"
     else
-      IRONIC_BMO_CONFIGMAP="${SCRIPTDIR}/ironic-deployment/default/ironic_bmo_configmap.env"
+        IRONIC_BMO_CONFIGMAP_SOURCE="${SCRIPTDIR}/ironic-deployment/default/ironic_bmo_configmap.env"
     fi
-    cp "${IRONIC_BMO_CONFIGMAP}" /tmp/ironic_bmo_configmap.env
+    IRONIC_BMO_CONFIGMAP="${TEMP_IRONIC_OVERLAY}/ironic_bmo_configmap.env"
+    cp "${IRONIC_BMO_CONFIGMAP_SOURCE}" "${IRONIC_BMO_CONFIGMAP}"
     if grep -q "INSPECTOR_REVERSE_PROXY_SETUP" "${IRONIC_BMO_CONFIGMAP}" ; then
-      sed "s/\(INSPECTOR_REVERSE_PROXY_SETUP\).*/\1=${DEPLOY_TLS}/" -i "${IRONIC_BMO_CONFIGMAP}"
+        sed "s/\(INSPECTOR_REVERSE_PROXY_SETUP\).*/\1=${DEPLOY_TLS}/" -i "${IRONIC_BMO_CONFIGMAP}"
     else
-      echo "INSPECTOR_REVERSE_PROXY_SETUP=${DEPLOY_TLS}" >> "${IRONIC_BMO_CONFIGMAP}"
+        echo "INSPECTOR_REVERSE_PROXY_SETUP=${DEPLOY_TLS}" >> "${IRONIC_BMO_CONFIGMAP}"
     fi
     if grep -q "RESTART_CONTAINER_CERTIFICATE_UPDATED" "${IRONIC_BMO_CONFIGMAP}" ; then
-      sed "s/\(RESTART_CONTAINER_CERTIFICATE_UPDATED\).*/\1=${RESTART_CONTAINER_CERTIFICATE_UPDATED}/" -i "${IRONIC_BMO_CONFIGMAP}"
+        sed "s/\(RESTART_CONTAINER_CERTIFICATE_UPDATED\).*/\1=${RESTART_CONTAINER_CERTIFICATE_UPDATED}/" -i "${IRONIC_BMO_CONFIGMAP}"
     else
-      echo "RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED}" >> "${IRONIC_BMO_CONFIGMAP}"
+        echo "RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED}" >> "${IRONIC_BMO_CONFIGMAP}"
     fi
-    IRONIC_CERTIFICATE_FILE="${SCRIPTDIR}/ironic-deployment/certmanager/certificate.yaml"
+    IRONIC_CERTIFICATE_FILE="${SCRIPTDIR}/ironic-deployment/components/tls/certificate.yaml"
     sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g; s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${IRONIC_CERTIFICATE_FILE}"
+    # The keepalived component has its own configmap,
+    # but we are overriding depending on environment here so we must replace it.
+    if [ "${DEPLOY_KEEPALIVED}" == "true" ]; then
+        ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=replace --from-env-file=ironic_bmo_configmap.env
+    else
+        ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=create --from-env-file=ironic_bmo_configmap.env
+    fi
     # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${IRONIC_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
-    mv /tmp/ironic_bmo_configmap.env "${IRONIC_BMO_CONFIGMAP}"
+    ${KUSTOMIZE} build "${TEMP_IRONIC_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
     popd
 fi
 
@@ -220,10 +244,10 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     fi
 
     if [ "${DEPLOY_IRONIC}" == "true" ]; then
-        rm "${IRONIC_SCENARIO}/ironic-auth-config"
-        rm "${IRONIC_SCENARIO}/ironic-inspector-auth-config"
+        rm "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config"
+        rm "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-auth-config"
 
-        rm "${IRONIC_SCENARIO}/ironic-htpasswd"
-        rm "${IRONIC_SCENARIO}/ironic-inspector-htpasswd"
+        rm "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-htpasswd"
+        rm "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-htpasswd"
     fi
 fi

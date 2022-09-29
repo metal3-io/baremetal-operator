@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# namespace: baremetal-operator-system
+# namePrefix: baremetal-operator-
+resources:
+- ../../base
+
+components:
+- ../../components/basic-auth
+- ../../components/tls
+
+# When using TLS, the ironic-httpd container is acting as a reverse-proxy.
+# This means that we need to add the basic-auth related environment
+# variables on ironic-httpd with this patch.
+patchesStrategicMerge:
+- basic-auth_tls.yaml

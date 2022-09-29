@@ -1,4 +1,4 @@
-FROM registry.hub.docker.com/library/golang:1.18
+FROM registry.hub.docker.com/library/golang:1.19
 
 RUN go get -u golang.org/x/lint/golint
 

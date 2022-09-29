@@ -1,6 +1,6 @@
 module github.com/metal3-io/baremetal-operator/tooling
 
-go 1.18
+go 1.19
 
 require (
 	github.com/golangci/golangci-lint v1.47.1

@@ -829,9 +829,8 @@ func TestSecretUpdateOwnerRefAndEnvironmentLabelOnStartup(t *testing.T) {
 	secret = getHostSecret(t, r, host)
 	assert.Equal(t, host.Name, secret.OwnerReferences[0].Name)
 	assert.Equal(t, "BareMetalHost", secret.OwnerReferences[0].Kind)
-	assert.True(t, *secret.OwnerReferences[0].Controller)
-	assert.True(t, *secret.OwnerReferences[0].BlockOwnerDeletion)
-
+	assert.Nil(t, secret.OwnerReferences[0].Controller)
+	assert.Nil(t, secret.OwnerReferences[0].BlockOwnerDeletion)
 	assert.Equal(t, "baremetal", secret.Labels["environment.metal3.io"])
 
 }

@@ -254,7 +254,7 @@ func getNetworkData(secretManager secretutils.SecretManager, img *metal3.Preprov
 		Name:      networkDataSecret,
 		Namespace: img.ObjectMeta.Namespace,
 	}
-	secret, err := secretManager.AcquireSecret(secretKey, img, false, false)
+	secret, err := secretManager.AcquireSecret(secretKey, img, false)
 	if err != nil {
 		return nil, metal3.SecretStatus{}, err
 	}

@@ -24,6 +24,8 @@ func TestHasCapacity(t *testing.T) {
 		provisioningLimit int
 		nodeStates        []nodes.ProvisionState
 		hostName          string
+		bootInterface     string
+		bmcAddress        string
 
 		expectedHasCapacity bool
 		expectedError       string
@@ -57,6 +59,22 @@ func TestHasCapacity(t *testing.T) {
 
 			expectedHasCapacity: true,
 		},
+		{
+			name:              "enough-capacity-due-virtual-media",
+			provisioningLimit: 1,
+			nodeStates:        states,
+			bmcAddress:        "redfish-virtualmedia://example.com/redfish/v1/Systems/1",
+
+			expectedHasCapacity: true,
+		},
+		{
+			name:              "enough-capacity-due-other-virtual-media",
+			provisioningLimit: 1,
+			nodeStates:        states,
+			bootInterface:     "redfish-virtual-media",
+
+			expectedHasCapacity: true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -67,6 +85,7 @@ func TestHasCapacity(t *testing.T) {
 				allNodes = append(allNodes, nodes.Node{
 					Name:           fmt.Sprintf("myns%snode-%d", nameSeparator, n),
 					ProvisionState: string(state),
+					BootInterface:  tc.bootInterface,
 				})
 			}
 
@@ -78,6 +97,9 @@ func TestHasCapacity(t *testing.T) {
 
 			host := makeHost()
 			host.Name = tc.hostName
+			if tc.bmcAddress != "" {
+				host.Spec.BMC.Address = tc.bmcAddress
+			}
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 

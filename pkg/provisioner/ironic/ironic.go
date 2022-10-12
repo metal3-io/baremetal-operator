@@ -1919,6 +1919,16 @@ func (p *ironicProvisioner) IsReady() (result bool, err error) {
 }
 
 func (p *ironicProvisioner) HasCapacity() (result bool, err error) {
+	bmcAccess, err := p.bmcAccess()
+	if err != nil {
+		return false, err // shouldn't actually happen so late in the process
+	}
+
+	// If the current host uses virtual media, do not limit it. Virtual
+	// media deployments may work without DHCP and can share the same image.
+	if bmcAccess.SupportsISOPreprovisioningImage() {
+		return true, nil
+	}
 
 	hosts, err := p.loadBusyHosts()
 	if err != nil {
@@ -1938,7 +1948,7 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 
 	hosts = make(map[string]struct{})
 	pager := nodes.List(p.client, nodes.ListOpts{
-		Fields: []string{"uuid,name,provision_state,driver_internal_info,target_provision_state"},
+		Fields: []string{"uuid,name,provision_state,boot_interface"},
 	})
 
 	page, err := pager.AllPages()
@@ -1958,7 +1968,11 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 			nodes.Inspecting, nodes.InspectWait,
 			nodes.Deploying, nodes.DeployWait,
 			nodes.Deleting:
-			hosts[node.Name] = struct{}{}
+			// FIXME(dtantsur): this is a bit silly, but we don't have an easy way
+			// to reconstruct AccessDetails from a DriverInfo.
+			if !strings.Contains(node.BootInterface, "virtual-media") {
+				hosts[node.Name] = struct{}{}
+			}
 		}
 	}
 

@@ -25,6 +25,6 @@ else
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:rw,z" \
     --entrypoint sh \
     --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    registry.hub.docker.com/library/golang:1.17 \
+    registry.hub.docker.com/library/golang:1.18 \
     /go/src/github.com/metal3-io/baremetal-operator/hack/unit.sh "${@}"
 fi;

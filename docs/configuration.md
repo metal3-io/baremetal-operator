@@ -39,7 +39,8 @@ client certificate SAN validation.
 Operator. Default is the number of CPUs, but no less than 2 and no more than 8.
 
 `PROVISIONING_LIMIT` -- The desired maximum number of hosts that could be (de)provisioned
-simultaneously by the Operator. The Operator will try to enforce this limit,
+simultaneously by the Operator. The limit does not apply to hosts that use
+virtual media for provisioning. The Operator will try to enforce this limit,
 but overflows could happen in case of slow provisioners and / or higher number of
 concurrent reconciles. For such reasons, it is highly recommended to keep
 BMO_CONCURRENCY value lower than the requested PROVISIONING_LIMIT. Default is 20.

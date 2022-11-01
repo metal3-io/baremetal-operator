@@ -4,6 +4,7 @@ approvers:
  - andfasano
  - dtantsur
  - honza
+ - kashifest
  - zaneb
 
 reviewers:
@@ -12,7 +13,6 @@ reviewers:
  - elfosardo
  - dukov
  - furkatgofurov7
- - kashifest
  - s3rj1k
  - zhouhao3
 

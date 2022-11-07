@@ -1,5 +1,9 @@
+# Support FROM override
+ARG BUILD_IMAGE=registry.hub.docker.com/library/golang:1.18
+ARG BASE_IMAGE=gcr.io/distroless/base:latest
+
 # Build the manager binary
-FROM registry.hub.docker.com/library/golang:1.18 AS builder
+FROM $BUILD_IMAGE AS builder
 
 WORKDIR /workspace
 
@@ -21,7 +25,7 @@ RUN CGO_ENABLED=0 GO111MODULE=on go build -a -o baremetal-operator main.go
 # Copy the controller-manager into a thin image
 # BMO has a dependency preventing us to use the static one,
 # using the base one instead
-FROM gcr.io/distroless/base:latest
+FROM $BASE_IMAGE
 WORKDIR /
 COPY --from=builder /workspace/baremetal-operator .
 USER nonroot:nonroot

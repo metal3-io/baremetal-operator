@@ -17,7 +17,6 @@ spec:
       labels:
         name: ironic
     spec:
-      hostNetwork: true
       containers:
         - name: ironic-dnsmasq
           image: quay.io/metal3-io/ironic

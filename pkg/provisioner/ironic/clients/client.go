@@ -11,7 +11,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
 	httpbasicintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/httpbasic"
 	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
-	"go.etcd.io/etcd/pkg/transport"
+	"go.etcd.io/etcd/client/pkg/v3/transport"
 )
 
 var tlsConnectionTimeout = time.Second * 30

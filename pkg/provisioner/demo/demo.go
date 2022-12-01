@@ -142,7 +142,7 @@ func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force, r
 				{
 					Name:      "nic-1",
 					Model:     "virt-io",
-					MAC:       "some:mac:address",
+					MAC:       "ab:cd:12:34:56:78",
 					IP:        "192.168.100.1",
 					SpeedGbps: 1,
 					PXE:       true,
@@ -150,7 +150,7 @@ func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force, r
 				{
 					Name:      "nic-2",
 					Model:     "e1000",
-					MAC:       "some:other:mac:address",
+					MAC:       "12:34:56:78:ab:cd",
 					IP:        "192.168.100.2",
 					SpeedGbps: 1,
 					PXE:       false,

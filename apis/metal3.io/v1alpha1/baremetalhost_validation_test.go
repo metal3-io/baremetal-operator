@@ -116,6 +116,15 @@ func TestValidateCreate(t *testing.T) {
 		},
 	}
 
+	om_ha_invalid_format := metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+		Annotations: map[string]string{
+			InspectAnnotation:         "disabled",
+			HardwareDetailsAnnotation: `{"INVALIDField":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"`,
+		},
+	}
+
 	omiainvalidvalue := metav1.ObjectMeta{
 		Name:      "test",
 		Namespace: "test-namespace",
@@ -594,7 +603,7 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "Image URL test1 is an invalid URL",
 		},
 		{
-			name: "invalidIncompleteStatusAnnotation",
+			name: "validStatusAnnotation",
 			newBMH: &BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om_sa_valid,
 			},
@@ -607,7 +616,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omsainvalidfield,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid field in StatusAnnotation",
+			wantedErr: "invalid field in StatusAnnotation, error=json: unknown field \"InvalidField\"",
 		},
 		{
 			name: "invalidOpstatusStatusAnnotation",
@@ -615,7 +624,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omsainvalidopst,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid OperationalStatus in StatusAnnotation",
+			wantedErr: "invalid OperationalStatus='NotOK' in StatusAnnotation",
 		},
 		{
 			name: "invalidErrtypeStatusAnnotation",
@@ -623,7 +632,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omsainvaliderrtype,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid ErrorType in StatusAnnotation",
+			wantedErr: "invalid ErrorType='No Error' in StatusAnnotation",
 		},
 		{
 			name: "invalidFormatStatusAnnotation",
@@ -631,7 +640,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omsainvalidfmt,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid status annotation, failed to fetch Status from annotation",
+			wantedErr: "invalid status annotation, error=Failed to fetch Status from annotation: unexpected end of JSON input",
 		},
 		{
 			name: "invalidValueRebootAnnotationPrefix",
@@ -663,7 +672,15 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omhainvalid,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid field in Hardware Details Annotation",
+			wantedErr: "invalid field in Hardware Details Annotation, error=json: unknown field \"INVALIDField\"",
+		},
+		{
+			name: "invalidJsonHardwareDetailsAnnotation",
+			newBMH: &BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om_ha_invalid_format,
+			},
+			oldBMH:    nil,
+			wantedErr: "failed to fetch Hardware Details from annotation, error=unexpected end of JSON input",
 		},
 		{
 			name: "invalidValueInspectAnnotation",
@@ -695,14 +712,6 @@ func TestValidateUpdate(t *testing.T) {
 		Namespace: "test-namespace",
 	}
 
-	omann := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			StatusAnnotation: `{"operationalStatus":"OK","lastUpdated":"2020-04-15T15:00:50Z","hardwareProfile":"StatusProfile","hardware":{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true},{"name":"eth1","model":"0x1af4  0x0001","mac":"00:b7:8b:bb:3d:f8","ip":"192.168.111.20","speedGbps":0,"vlanId":0,"pxe":false}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["aes","apic","arat","avx","clflush","cmov","constant_tsc","cx16","cx8","de","eagerfpu","ept","erms","f16c","flexpriority","fpu","fsgsbase","fxsr","hypervisor","lahf_lm","lm","mca","mce","mmx","msr","mtrr","nopl","nx","pae","pat","pclmulqdq","pge","pni","popcnt","pse","pse36","rdrand","rdtscp","rep_good","sep","smep","sse","sse2","sse4_1","sse4_2","ssse3","syscall","tpr_shadow","tsc","tsc_adjust","tsc_deadline_timer","vme","vmx","vnmi","vpid","x2apic","xsave","xsaveopt","xtopology"],"count":4},"hostname":"node-0"},"provisioning":{"state":"provisioned","ID":"8a0ede17-7b87-44ac-9293-5b7d50b94b08","image":{"url":"bar","checksum":""}},"goodCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"triedCredentials":{"credentials":{"name":"node-0-bmc-secret","namespace":"metal3"},"credentialsVersion":"879"},"errorMessage":"","poweredOn":true,"operationHistory":{"register":{"start":"2020-04-15T12:06:26Z","end":"2020-04-15T12:07:12Z"},"inspect":{"start":"2020-04-15T12:07:12Z","end":"2020-04-15T12:09:29Z"},"provision":{"start":null,"end":null},"deprovision":{"start":null,"end":null}}}`,
-		},
-	}
-
 	tests := []struct {
 		name      string
 		newBMH    *BareMetalHost
@@ -732,32 +741,6 @@ func TestValidateUpdate(t *testing.T) {
 			oldBMH: &BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: BareMetalHostSpec{BootMACAddress: "test-mac"}},
 			wantedErr: "bootMACAddress can not be changed once it is set",
-		},
-		{
-			name: "invalidAddStatusAnnotation",
-			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omann,
-				Status: BareMetalHostStatus{
-					OperationalStatus: "OK",
-				},
-			},
-			oldBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om,
-				Status: BareMetalHostStatus{
-					OperationalStatus: "OK",
-				},
-			},
-			wantedErr: "cannot add statusannotation when status-subresource is already present",
-		},
-		{
-			name: "validAddStatusAnnotation",
-			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omann,
-			},
-			oldBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om,
-			},
-			wantedErr: "",
 		},
 	}
 

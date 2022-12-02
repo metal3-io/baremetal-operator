@@ -537,7 +537,8 @@ spec:
                 type: string
               errorType:
                 description: ErrorType indicates the type of failure encountered when
-                  the OperationalStatus is OperationalStatusError
+                  the OperationalStatus is OperationalStatusError and its validated
+                  by the checkStatusAnnotation function in baremetalhost_validation.go
                 enum:
                 - provisioned registration error
                 - registration error
@@ -784,7 +785,8 @@ spec:
                     type: object
                 type: object
               operationalStatus:
-                description: OperationalStatus holds the status of the host
+                description: OperationalStatus holds the status of the host and its
+                  validated by the checkStatusAnnotation function in baremetalhost_validation.go
                 enum:
                 - ""
                 - OK

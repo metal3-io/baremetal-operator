@@ -52,7 +52,7 @@ const (
 	// when rebooting - hard/soft
 	RebootAnnotationPrefix = "reboot.metal3.io"
 
-	// InspectAnnotation is used to specify if aumatic introspection carried out
+	// InspectAnnotation is used to specify if automatic introspection carried out
 	// during registration of BMH is enabled or disabled
 	InspectAnnotation = "inspect.metal3.io"
 
@@ -735,12 +735,16 @@ type BareMetalHostStatus struct {
 	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
 
-	// OperationalStatus holds the status of the host
+	// OperationalStatus holds the status of the host and its
+	// validated by the checkStatusAnnotation function in
+	// baremetalhost_validation.go
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
 	// ErrorType indicates the type of failure encountered when the
-	// OperationalStatus is OperationalStatusError
+	// OperationalStatus is OperationalStatusError and its validated
+	// by the checkStatusAnnotation function in
+	// baremetalhost_validation.go
 	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 

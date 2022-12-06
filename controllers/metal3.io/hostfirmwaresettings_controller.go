@@ -120,6 +120,9 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	bmh := &metal3v1alpha1.BareMetalHost{}
 	if err = r.Get(context.TODO(), req.NamespacedName, bmh); err != nil {
 		reqLogger.Info("could not get baremetalhost, not running reconciler")
+		if k8serrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 	}
 

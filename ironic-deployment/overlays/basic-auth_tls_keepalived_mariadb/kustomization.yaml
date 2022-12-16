@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# namespace: baremetal-operator-system
+# namePrefix: baremetal-operator-
+
+resources:
+- ../basic-auth_tls_keepalived
+
+components:
+- ../../components/mariadb

@@ -49,7 +49,6 @@ digraph BaremetalHost {
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="provisioningCancelled()"]
     Provisioned -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
-    Provisioned -> Deleting [label="hasDetachedAnnotation()"]
 
     ExternallyProvisioned [shape=doublecircle]
     ExternallyProvisioned -> Deleting [label="!DeletionTimestamp.IsZero()"]

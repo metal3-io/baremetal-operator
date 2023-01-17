@@ -2232,6 +2232,12 @@ spec:
           timeoutSeconds: 2
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          runAsGroup: 65532
+          runAsUser: 65532
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
@@ -2246,6 +2252,10 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: baremetal-operator-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

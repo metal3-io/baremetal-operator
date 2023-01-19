@@ -140,11 +140,27 @@ def enable_provider(name):
 
     # Apply the kustomized yaml for this provider
     yaml = str(kustomizesub(context + "/config"))
+    yaml = strip_sec_ctx(yaml)
     k8s_yaml(blob(yaml))
 
 def kustomizesub(folder):
     yaml = local('kustomize build {}'.format(folder), quiet=True)
     return yaml
+
+def strip_sec_ctx(yaml):
+    # strip security contexts so tilt's live update keeps working
+    # even if there is strict securitycontexts in place for controllers
+    output = []
+    yamls = decode_yaml_stream(yaml)
+    for data in yamls:
+        if data.get("kind") == "Deployment":
+            spec = data["spec"]["template"]["spec"]
+            spec["securityContext"] = {}
+            for container in spec.get("containers", []):
+                container["securityContext"] = {}
+        output.append(str(encode_yaml(data)))
+
+    return "---\n".join(output)
 
 # Users may define their own Tilt customizations in tilt.d. This directory is excluded from git and these files will
 # not be checked in to version control.

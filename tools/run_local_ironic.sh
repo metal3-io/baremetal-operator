@@ -44,6 +44,10 @@ IPA_DOWNLOAD_ENABLED="${IPA_DOWNLOAD_ENABLED:-true}"
 USE_LOCAL_IPA="${USE_LOCAL_IPA:-false}"
 LOCAL_IPA_PATH="${LOCAL_IPA_PATH:-/tmp/dib}"
 
+HTTP_PROXY="${HTTP_PROXY:-}"
+HTTPS_PROXY="${HTTPS_PROXY:-}"
+NO_PROXY="${NO_PROXY:-}"
+
 # Ensure that the MariaDB key file allow a non-owned user to read.
 if [ -n "${MARIADB_KEY_FILE}" ]
 then
@@ -120,6 +124,9 @@ INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP}
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES}
 IPA_BASEURI=${IPA_BASEURI}
 IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB}
+HTTP_PROXY=${HTTP_PROXY}
+HTTPS_PROXY=${HTTPS_PROXY}
+NO_PROXY=${NO_PROXY}
 EOF
 
 if [ "$IRONIC_TLS_SETUP" == "true" ] && [ -n "$IRONIC_CA_CERT_B64" ]; then
@@ -177,7 +184,7 @@ fi
 BASIC_AUTH_MOUNTS=""
 IRONIC_HTPASSWD=""
 if [ -n "$IRONIC_USERNAME" ]; then
-     envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-auth-config-tpl" > \
+     envsubst < "${SCRIPTDIR}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
         "${IRONIC_DATA_DIR}/auth/ironic-auth-config"
      BASIC_AUTH_MOUNTS="-v ${IRONIC_DATA_DIR}/auth/ironic-auth-config:/auth/ironic/auth-config"
      IRONIC_HTPASSWD="$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")"
@@ -185,7 +192,7 @@ if [ -n "$IRONIC_USERNAME" ]; then
 fi
 IRONIC_INSPECTOR_HTPASSWD=""
 if [ -n "$IRONIC_INSPECTOR_USERNAME" ]; then
-     envsubst < "${SCRIPTDIR}/ironic-deployment/basic-auth/ironic-inspector-auth-config-tpl" > \
+     envsubst < "${SCRIPTDIR}/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl" > \
         "${IRONIC_DATA_DIR}/auth/ironic-inspector-auth-config"
      BASIC_AUTH_MOUNTS="${BASIC_AUTH_MOUNTS} -v ${IRONIC_DATA_DIR}/auth/ironic-inspector-auth-config:/auth/ironic-inspector/auth-config"
      IRONIC_INSPECTOR_HTPASSWD="$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" "${IRONIC_INSPECTOR_PASSWORD}")"

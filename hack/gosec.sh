@@ -15,6 +15,6 @@ else
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:ro,z" \
     --entrypoint sh \
     --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    registry.hub.docker.com/securego/gosec:latest \
+    docker.io/securego/gosec:2.14.0@sha256:73858f8b1b9b7372917677151ec6deeceeaa40c5b02753080bd647dede14e213 \
     /go/src/github.com/metal3-io/baremetal-operator/hack/gosec.sh "${@}"
 fi;

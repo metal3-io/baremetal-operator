@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
+	"go.uber.org/zap/zapcore"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -30,7 +32,11 @@ type ironicProvisionerFactory struct {
 func NewProvisionerFactory(havePreprovImgBuilder bool) provisioner.Factory {
 	factory := ironicProvisionerFactory{}
 
-	factory.log = logz.New().WithName("provisioner").WithName("ironic")
+	opts := zap.Options{
+		Development: true,
+		TimeEncoder: zapcore.ISO8601TimeEncoder,
+	}
+	factory.log = logz.New(zap.UseFlagOptions(&opts)).WithName("provisioner").WithName("ironic")
 
 	err := factory.init(havePreprovImgBuilder)
 	if err != nil {

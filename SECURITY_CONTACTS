@@ -1,0 +1,15 @@
+# Reporting a security vulnerability
+
+Please do:
+  - not disclose any security issue publicly e.g. Pull Requests, Comments.
+  - not disclose any security issue directly to any owner of the repository or
+    to any other contributor.
+
+In this repository security reports are handled according to the
+Metal3-io project's security policy. For more information about the security
+policy consult the User-Guide [here](https://metal3io.netlify.app/security_policy.html).
+
+As this repository has a rolling release cycle and there are no release
+branches, the security fix will be merged to the main branch. The fix will
+either be released in a patch release or in the next upcoming regular release
+based on the severity of the issue.

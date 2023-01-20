@@ -159,22 +159,22 @@ set-manifest-image-bmo: $(KUSTOMIZE) manifests
 .PHONY: set-manifest-image-ironic
 set-manifest-image-ironic: $(KUSTOMIZE) manifests
 	$(info Updating container image for Ironic to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd ironic-deployment/ironic && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic=${MANIFEST_IMG}:${MANIFEST_TAG}
+	cd ironic-deployment/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: set-manifest-image-mariadb
 set-manifest-image-mariadb: $(KUSTOMIZE) manifests
 	$(info Updating container image for Mariadb to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd ironic-deployment/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/mariadb=${MANIFEST_IMG}:${MANIFEST_TAG}
+	cd ironic-deployment/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/mariadb=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: set-manifest-image-keepalived
 set-manifest-image-keepalived: $(KUSTOMIZE) manifests
 	$(info Updating container image for keepalived to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd ironic-deployment/keepalived && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/keepalived=${MANIFEST_IMG}:${MANIFEST_TAG}
+	cd ironic-deployment/components/keepalived && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/keepalived=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: set-manifest-image-ipa-downloader
 set-manifest-image-ipa-downloader: $(KUSTOMIZE) manifests
 	$(info Updating container image for IPA downloader to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd ironic-deployment/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic-ipa-downloader=${MANIFEST_IMG}:${MANIFEST_TAG}
+	cd ironic-deployment/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic-ipa-downloader=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) ## Generate code
@@ -285,3 +285,11 @@ $(RELEASE_NOTES_DIR):
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR)
 	go run ./hack/tools/release_notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/releasenotes.md
+
+## --------------------------------------
+## Clean
+## --------------------------------------
+
+.PHONY: clean
+clean: ## Remove all temporary files and folders
+	rm -rf ironic-deployment/overlays/temp

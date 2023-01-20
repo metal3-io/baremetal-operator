@@ -271,6 +271,15 @@ An interface to enable/disable automated cleaning during provisioning
 and deprovisioning. When set to `disabled`, automated cleaning will be
 skipped, where `metadata`(default value) enables it.
 
+#### customDeploy
+
+An advanced alternative to using [image](#image). Set the subfield `method`
+to the name of a custom deploy step that is provided by your deployment
+ramdisk. Most users will want to use [image](#image) instead.
+
+NOTE: setting either `customDeploy.method` or `image.url` triggers provisioning
+of the host.
+
 ### BareMetalHost status
 
 Moving onto the next block, the *BareMetalHost's* *status* which represents

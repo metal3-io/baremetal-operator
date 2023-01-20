@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	goFormat "go/format"
 	"os"
-	"sort"
-	"strings"
 	"sync"
 
 	"github.com/hexops/gotextdiff"
@@ -131,7 +130,7 @@ func LoadFormatGoFile(file io.FileObj, cfg config.Config) (src, dist []byte, err
 	}
 
 	// do not do format if only one import
-	if len(imports) == 1 {
+	if len(imports) <= 1 {
 		return src, src, nil
 	}
 
@@ -140,60 +139,42 @@ func LoadFormatGoFile(file io.FileObj, cfg config.Config) (src, dist []byte, err
 		return nil, nil, err
 	}
 
-	head := src[:headEnd]
-	tail := src[tailStart:]
+	var head []byte
+	if src[headEnd-1] == '\t' || src[headEnd-1] == utils.Linebreak {
+		head = src[:headEnd]
+	} else {
+		// handle multiple import blocks
+		// cover `import ` to `import (`
+		head = make([]byte, headEnd)
+		copy(head, src[:headEnd])
+		head = append(head, []byte{40, 10, 9}...)
+	}
 
-	// sort for custom sections
-	allKeys := make([]string, 0, len(result))
-	customKeys := make([]string, 0, len(result))
-	for k := range result {
-		allKeys = append(allKeys, k)
-		if strings.HasPrefix(k, "prefix(") {
-			customKeys = append(customKeys, k)
-		}
+	tail := src[tailStart:]
+	// for test
+	if len(tail) == 0 {
+		tail = []byte(")\n")
 	}
 
 	firstWithIndex := true
 
 	var body []byte
-	// order: standard > default > custom
-	if len(result["standard"]) > 0 {
-		for _, d := range result["standard"] {
-			AddIndent(&body, &firstWithIndex)
-			body = append(body, src[d.Start:d.End]...)
-		}
-		if len(allKeys) > 1 {
-			body = append(body, utils.Linebreak)
-		}
-	}
 
-	if len(result["default"]) > 0 {
-		for _, d := range result["default"] {
-			AddIndent(&body, &firstWithIndex)
-			body = append(body, src[d.Start:d.End]...)
-		}
-
-		if len(customKeys) > 0 {
-			body = append(body, utils.Linebreak)
-		}
-	}
-
-	if len(customKeys) > 0 {
-		sort.Sort(sort.StringSlice(customKeys))
-		for i, k := range customKeys {
-			for _, d := range result[k] {
+	// order by section list
+	for _, s := range cfg.Sections {
+		if len(result[s.String()]) > 0 {
+			if body != nil && len(body) > 0 {
+				body = append(body, utils.Linebreak)
+			}
+			for _, d := range result[s.String()] {
 				AddIndent(&body, &firstWithIndex)
 				body = append(body, src[d.Start:d.End]...)
 			}
-			if i+1 < len(customKeys) {
-				body = append(body, utils.Linebreak)
-			}
 		}
 	}
 
-	// remove breakline in the end
-	if body[len(body)-1] == utils.Linebreak && tail[0] == utils.Linebreak {
-		body = body[:len(body)-1]
+	if tail[0] != utils.Linebreak {
+		body = append(body, utils.Linebreak)
 	}
 
 	var totalLen int
@@ -205,6 +186,11 @@ func LoadFormatGoFile(file io.FileObj, cfg config.Config) (src, dist []byte, err
 	var i int
 	for _, s := range slices {
 		i += copy(dist[i:], s)
+	}
+
+	dist, err = goFormat.Source(dist)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return src, dist, nil

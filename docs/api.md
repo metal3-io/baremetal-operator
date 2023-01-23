@@ -146,41 +146,41 @@ metal servers.
 The sub-fields are:
 
 * *hardwareRAIDVolumes* -- It contains the list of logical disks for hardware
-  RAID. If rootDeviceHints isn't used, the first volume is the root volume.
-  Furthermore, it defines the desired configuration of volume in hardware RAID.
-  * *level* -- RAID level for the logical disk. The following levels are
-    supported: `0`,`1`,`2`,`5`,`6`,`1+0`,`5+0`,`6+0`.
-  * *name* -- Name of the volume. Should be unique within the server. If not
-    specified, volume name will be auto-generated.
-  * *numberOfPhysicalDisks* -- Integer, number of physical disks to use for the
-    logical disk. Defaults to minimum number of disks required for the
-    particular RAID level.
-  * *physicalDisks* -- List of names of physical disks (Strings). This is an
-    optional field. If specified, the `controller` field must be specified too.
-  * *controller* -- String, Name of the RAID controller to be used in the
-     hardware RAID volume. Optional field.
-  * *rotational* -- If true, select only rotational disks, if false - only
-    solid-state and NVMe. Any disk types are used by default.
-  * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in GiB.
-    If unspecified or set to 0, the maximum capacity of disk will be used for
-    logical disk.
+   RAID. If rootDeviceHints isn't used, the first volume is the root volume.
+   Furthermore, it defines the desired configuration of volume in hardware RAID.
+   * *level* -- RAID level for the logical disk. The following levels are
+     supported: `0`,`1`,`2`,`5`,`6`,`1+0`,`5+0`,`6+0`.
+   * *name* -- Name of the volume. Should be unique within the server. If not
+     specified, volume name will be auto-generated.
+   * *numberOfPhysicalDisks* -- Integer, number of physical disks to use for the
+     logical disk. Defaults to minimum number of disks required for the
+     particular RAID level.
+   * *physicalDisks* -- List of names of physical disks (Strings). This is an
+     optional field. If specified, the `controller` field must be specified too.
+   * *controller* -- String, Name of the RAID controller to be used in the
+      hardware RAID volume. Optional field.
+   * *rotational* -- If true, select only rotational disks, if false - only
+     solid-state and NVMe. Any disk types are used by default.
+   * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in GiB.
+     If unspecified or set to 0, the maximum capacity of disk will be used for
+     logical disk.
 * *softwareRAIDVolumes* -- It contains the list of logical disks for software
-  RAID. If rootDeviceHints isn't used, the first volume is the root volume. If
-  HardwareRAIDVolumes is set this item will be invalid. The number of created
-  Software RAID devices must be 1 or 2. If there is only one Software RAID
-  device, it has to be a RAID-1. If there are two, the first one has to be a
-  RAID-1, while the RAID level for the second one can be 0, 1, or 1+0. As the
-  first RAID device will be the deployment device, enforcing a RAID-1 reduces
-  the risk of ending up with a non-booting node in case of a disk failure.
-  Furthermore, SoftwareRAIDVolume defines the desired configuration of volume
-  in software RAID.
-  * *level* -- RAID level for the logical disk. The following levels are
-    supported: `0`,`1`,`1+0`.
-  * *physicalDisks* -- A list of device hints, the number of items should be
-    greater than or equal to 2.
-  * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in
-    GiB. If unspecified or set to 0, the maximum capacity of disk will be
-    used for logical disk.
+   RAID. If rootDeviceHints isn't used, the first volume is the root volume. If
+   HardwareRAIDVolumes is set this item will be invalid. The number of created
+   Software RAID devices must be 1 or 2. If there is only one Software RAID
+   device, it has to be a RAID-1. If there are two, the first one has to be a
+   RAID-1, while the RAID level for the second one can be 0, 1, or 1+0. As the
+   first RAID device will be the deployment device, enforcing a RAID-1 reduces
+   the risk of ending up with a non-booting node in case of a disk failure.
+   Furthermore, SoftwareRAIDVolume defines the desired configuration of volume
+   in software RAID.
+   * *level* -- RAID level for the logical disk. The following levels are
+     supported: `0`,`1`,`1+0`.
+   * *physicalDisks* -- A list of device hints, the number of items should be
+     greater than or equal to 2.
+   * *sizeGibibytes* -- Size (Integer) of the logical disk to be created in
+     GiB. If unspecified or set to 0, the maximum capacity of disk will be
+     used for logical disk.
 
 If you do not set the RAID field, we will keep the current RAID configuration.
 
@@ -316,28 +316,28 @@ are filled in by the provisioning agent when the host is registered.
 The sub-fields are
 
 * *nics* -- List of network interfaces for the host.
-  * *name* -- A string identifying the network device,
-    e.g. *nic-1*.
-  * *mac* -- The MAC address of the NIC.
-  * *ip* -- The IP address of the NIC, if one was assigned
-    when the discovery agent ran.
-  * *speedGbps* -- The speed of the device in Gbps.
-  * *vlans* -- A list holding all the VLANs available for this NIC.
-  * *vlanId* -- The untagged VLAN ID.
-  * *pxe* -- Whether the NIC is able to boot using PXE.
+   * *name* -- A string identifying the network device,
+     e.g. *nic-1*.
+   * *mac* -- The MAC address of the NIC.
+   * *ip* -- The IP address of the NIC, if one was assigned
+     when the discovery agent ran.
+   * *speedGbps* -- The speed of the device in Gbps.
+   * *vlans* -- A list holding all the VLANs available for this NIC.
+   * *vlanId* -- The untagged VLAN ID.
+   * *pxe* -- Whether the NIC is able to boot using PXE.
 * *storage* -- List of storage (disk, SSD, etc.) available to the host.
-  * *name* -- A string identifying the storage device,
-    e.g. *disk 1 (boot)*.
-  * *rotational* -- Either true or false, indicates whether the disk
-    is rotational.
-  * *sizeBytes* -- Size of the storage device.
-  * *serialNumber* -- The device's serial number.
+   * *name* -- A string identifying the storage device,
+     e.g. *disk 1 (boot)*.
+   * *rotational* -- Either true or false, indicates whether the disk
+     is rotational.
+   * *sizeBytes* -- Size of the storage device.
+   * *serialNumber* -- The device's serial number.
 * *cpu* -- Details of the CPU(s) in the system.
-  * *arch* -- The architecture of the CPU.
-  * *model* -- The model string.
-  * *clockMegahertz* -- The speed in MHz of the CPU.
-  * *flags* -- List of CPU flags, e.g. 'mmx','sse','sse2','vmx', ...
-  * *count* -- Amount of these CPUs available in the system.
+   * *arch* -- The architecture of the CPU.
+   * *model* -- The model string.
+   * *clockMegahertz* -- The speed in MHz of the CPU.
+   * *flags* -- List of CPU flags, e.g. 'mmx','sse','sse2','vmx', ...
+   * *count* -- Amount of these CPUs available in the system.
 * *firmware* -- Contains BIOS information like for instance its *vendor*
   and *version*.
 * *systemVendor* -- Contains information about the host's *manufacturer*,
@@ -377,25 +377,25 @@ See *online* on the *BareMetalHost's* *Spec*.
 Settings related to deploying an image to the host.
 
 * *state* -- The current state of any ongoing provisioning operation.
-  The following are the currently supported ones:
-  * *\<empty string\>* -- There is no provisioning happening, at the moment.
-  * *unmanaged* -- There is an insufficient information available to register
-    the host.
-  * *registering* -- The host's BMC details are being checked.
-  * *match profile* -- The discovered hardware details on the host
-    are being compared against known profiles.
-  * *available* -- The host is available to be consumed. (This state was
-    previously known as *ready*.)
-  * *preparing* -- The existing configuration will be removed, and the new
-    configuration will be set on the host.
-  * *provisioning* -- An image is being written to the host's disk(s).
-  * *provisioned* -- An image has been completely written to the host's
-    disk(s).
-  * *externally provisioned* -- Metal³ does not manage the image on the host.
-  * *deprovisioning* -- The image is being wiped from the host's disk(s).
-  * *inspecting* -- The hardware details for the host are being collected
-    by an agent.
-  * *deleting* -- The host is being deleted from the cluster.
+   The following are the currently supported ones:
+   * *\<empty string\>* -- There is no provisioning happening, at the moment.
+   * *unmanaged* -- There is an insufficient information available to register
+     the host.
+   * *registering* -- The host's BMC details are being checked.
+   * *match profile* -- The discovered hardware details on the host
+     are being compared against known profiles.
+   * *available* -- The host is available to be consumed. (This state was
+     previously known as *ready*.)
+   * *preparing* -- The existing configuration will be removed, and the new
+     configuration will be set on the host.
+   * *provisioning* -- An image is being written to the host's disk(s).
+   * *provisioned* -- An image has been completely written to the host's
+     disk(s).
+   * *externally provisioned* -- Metal³ does not manage the image on the host.
+   * *deprovisioning* -- The image is being wiped from the host's disk(s).
+   * *inspecting* -- The hardware details for the host are being collected
+     by an agent.
+   * *deleting* -- The host is being deleted from the cluster.
 * *id* -- The unique identifier for the service in the underlying
   provisioning tool.
 * *image* -- The image most recently provisioned to the host.

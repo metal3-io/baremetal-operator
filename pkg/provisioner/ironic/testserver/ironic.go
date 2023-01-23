@@ -132,7 +132,7 @@ func (m *IronicMock) NodeUpdate(node nodes.Node) *IronicMock {
 	return m
 }
 
-//GetLastNodeUpdateRequestFor returns the content of the last update request for the specified node
+// GetLastNodeUpdateRequestFor returns the content of the last update request for the specified node
 func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.UpdateOperation) {
 
 	if bodyRaw, ok := m.GetLastRequestFor("/v1/nodes/"+id, http.MethodPatch); ok {
@@ -236,10 +236,11 @@ func (m *IronicMock) WithNodeValidate(nodeUUID string) *IronicMock {
 }
 
 // Port configures the server with a valid response for
-//    [GET] /v1/nodes/<node uuid>/ports
-//    [GET] /v1/ports
-//    [GET] /v1/ports?address=<mac>
-//    [GET] /v1/ports?address=<mac>&fields=node_uuid
+//
+//	[GET] /v1/nodes/<node uuid>/ports
+//	[GET] /v1/ports
+//	[GET] /v1/ports?address=<mac>
+//	[GET] /v1/ports?address=<mac>&fields=node_uuid
 func (m *IronicMock) Port(port ports.Port) *IronicMock {
 	if port.NodeUUID == "" {
 		m.MockServer.t.Error("When using withPort(), the port must include a NodeUUID.")

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ironic
+spec:
+  template:
+    spec:
+      containers:
+      - name: ironic
+        volumeMounts:
+        # This is the credentials for authenticating with inspector
+        - name: ironic-inspector-auth-config
+          mountPath: "/auth/ironic-inspector"
+          readOnly: true
+        envFrom:
+        # This is the htpassword matching the ironic-auth-config that inspector has
+        - configMapRef:
+            name: ironic-htpasswd
+        - configMapRef:
+            name: ironic-bmo-configmap
+      - name: ironic-inspector
+        volumeMounts:
+        # This is the credentials for authenticating with ironic
+        - name: ironic-auth-config
+          mountPath: "/auth/ironic"
+          readOnly: true
+        envFrom:
+        # This is the htpassword matching the ironic-inspector-auth-config that ironic has
+        - configMapRef:
+            name: ironic-inspector-htpasswd
+        - configMapRef:
+            name: ironic-bmo-configmap
+      volumes:
+      - name: ironic-auth-config
+        secret:
+          secretName: ironic-auth-config
+      - name: ironic-inspector-auth-config
+        secret:
+          secretName: ironic-inspector-auth-config

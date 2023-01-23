@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: baremetal-operator-system
 namePrefix: baremetal-operator-
 resources:
-- ../ironic
+- ../base
 configMapGenerator:
 - envs:
   - ironic_bmo_configmap.env

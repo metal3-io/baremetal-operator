@@ -45,7 +45,7 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 
 	updater := updateOptsBuilder(p.debugLog)
 	updater.SetTopLevelOpt("raid_interface", targetRaidInterface, ironicNode.RAIDInterface)
-	success, result, err := p.tryUpdateNode(ironicNode, updater)
+	ironicNode, success, result, err := p.tryUpdateNode(ironicNode, updater)
 	if !success {
 		return result, err
 	}

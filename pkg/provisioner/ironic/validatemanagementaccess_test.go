@@ -458,6 +458,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 	statuses := []nodes.ProvisionState{
 		nodes.Enroll,
 		nodes.Verifying,
+		nodes.Inspecting,
 	}
 
 	for _, status := range statuses {
@@ -504,12 +505,16 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 				t.Fatalf("error from ValidateManagementAccess: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
-			assert.Equal(t, true, result.Dirty)
 
-			updates := ironic.GetLastNodeUpdateRequestFor("uuid")
-			assert.Len(t, updates, 1)
-			assert.Equal(t, "/automated_clean", updates[0].Path)
-			assert.Equal(t, true, updates[0].Value)
+			if status == nodes.Inspecting {
+				assert.False(t, result.Dirty)
+				updates := ironic.GetLastNodeUpdateRequestFor("uuid")
+				assert.Len(t, updates, 1)
+				assert.Equal(t, "/automated_clean", updates[0].Path)
+				assert.Equal(t, true, updates[0].Value)
+			} else {
+				assert.True(t, result.Dirty)
+			}
 		})
 	}
 }
@@ -524,13 +529,15 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	ironic := testserver.NewIronic(t).
 		Node(
 			nodes.Node{
-				Name: host.Namespace + nameSeparator + host.Name,
-				UUID: "uuid",
+				Name:           host.Namespace + nameSeparator + host.Name,
+				ProvisionState: string(nodes.Verifying),
+				UUID:           "uuid",
 			}).
 		NodeUpdate(
 			nodes.Node{
-				Name: host.Namespace + nameSeparator + host.Name,
-				UUID: "uuid",
+				Name:           host.Namespace + nameSeparator + host.Name,
+				ProvisionState: string(nodes.Verifying),
+				UUID:           "uuid",
 				DriverInfo: map[string]interface{}{
 					"test_address": "test.bmc",
 				},
@@ -579,7 +586,7 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
 	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
 	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
-	ironic.AddDefaultResponse("/v1/nodes/"+existingNode.UUID, "PATCH", http.StatusOK, "{}")
+	ironic.AddDefaultResponse("/v1/nodes/"+existingNode.UUID, "PATCH", http.StatusOK, "{\"uuid\": \"33ce8659-7400-4c68-9535-d10766f07a58\"}")
 	ironic.Start()
 	defer ironic.Stop()
 
@@ -1097,53 +1104,38 @@ func TestSetDeployImage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			driverInfo := make(map[string]interface{}, 0)
-			opts := setDeployImage(driverInfo, tc.Config, tc.Driver, tc.Image)
+			opts := setDeployImage(tc.Config, tc.Driver, tc.Image)
 
 			switch {
 			case tc.ExpectISO:
 				if tc.ExpectBuild {
 					assert.Equal(t, buildIso, opts["deploy_iso"])
-					assert.Equal(t, buildIso, driverInfo["deploy_iso"])
 				} else {
 					assert.Equal(t, localIso, opts["deploy_iso"])
-					assert.Equal(t, localIso, driverInfo["deploy_iso"])
 				}
 				assert.Nil(t, opts["deploy_kernel"])
 				assert.Nil(t, opts["deploy_ramdisk"])
-				assert.Nil(t, driverInfo["deploy_kernel"])
-				assert.Nil(t, driverInfo["deploy_ramdisk"])
 				assert.Nil(t, opts["kernel_append_params"])
-				assert.Nil(t, driverInfo["kernel_append_params"])
 			case tc.ExpectPXE:
 				assert.Nil(t, opts["deploy_iso"])
-				assert.Nil(t, driverInfo["deploy_iso"])
 				if tc.ExpectBuild {
 					if tc.ExpectNewKernel {
 						assert.Equal(t, buildKernel, opts["deploy_kernel"])
-						assert.Equal(t, buildKernel, driverInfo["deploy_kernel"])
 					} else {
 						assert.Equal(t, localKernel, opts["deploy_kernel"])
-						assert.Equal(t, localKernel, driverInfo["deploy_kernel"])
 					}
 					assert.Equal(t, buildRamdisk, opts["deploy_ramdisk"])
-					assert.Equal(t, buildRamdisk, driverInfo["deploy_ramdisk"])
 				} else {
 					assert.Equal(t, localKernel, opts["deploy_kernel"])
 					assert.Equal(t, localRamdisk, opts["deploy_ramdisk"])
-					assert.Equal(t, localKernel, driverInfo["deploy_kernel"])
-					assert.Equal(t, localRamdisk, driverInfo["deploy_ramdisk"])
 				}
 				if tc.ExpectKernelParams {
 					assert.Equal(t, expectedKernelParams, opts["kernel_append_params"])
-					assert.Equal(t, expectedKernelParams, driverInfo["kernel_append_params"])
 				} else {
 					assert.Nil(t, opts["kernel_append_params"])
-					assert.Nil(t, driverInfo["kernel_append_params"])
 				}
 			default:
 				assert.Nil(t, opts)
-				assert.Empty(t, driverInfo)
 			}
 		})
 	}

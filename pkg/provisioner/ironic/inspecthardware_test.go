@@ -87,7 +87,7 @@ func TestInspectHardware(t *testing.T) {
 			name: "introspection-status-failed-extraction",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
-				ProvisionState: "inspecting",
+				ProvisionState: "manageable",
 			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusBadRequest),
 
@@ -106,15 +106,17 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-aborted",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				UUID: nodeUUID,
 			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
 				Finished: true,
 				Error:    "Canceled by operator",
 			}),
-
-			expectedResultError: "Canceled by operator",
+			expectedStarted:      true,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
 			name: "inspection-in-progress (not yet finished)",

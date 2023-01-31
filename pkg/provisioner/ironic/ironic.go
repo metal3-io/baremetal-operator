@@ -3,6 +3,7 @@ package ironic
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"time"
 
@@ -526,8 +527,22 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
 	updater := updateOptsBuilder(p.debugLog)
 
-	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
-	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
+	deployImageInfo, needsRefresh := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage, ironicNode.DriverInfo)
+	if needsRefresh {
+		// NOTE(dtantsur): it may be dangerous to abort cleaning and impossible to abort some other operations, delay updating the image.
+		switch nodes.ProvisionState(ironicNode.ProvisionState) {
+		case nodes.Cleaning,
+			nodes.CleanWait,
+			nodes.Inspecting,
+			nodes.Deploying,
+			nodes.Deleting:
+			p.log.Info("PreprovisioningImage has changed, but we cannot update the host, delaying the update")
+		default:
+			updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
+		}
+	} else {
+		updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
+	}
 
 	if data.CurrentImage != nil || data.HasCustomDeploy {
 		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.HasCustomDeploy, updater)
@@ -539,6 +554,23 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 	_, success, result, err := p.tryUpdateNode(ironicNode, updater)
 	if !success {
 		return
+	}
+
+	if needsRefresh && ironicNode.PowerState == string(nodes.PowerOn) {
+		// Some DriverInfo fields got changed, check if we need to restart the agent.
+		// FIXME(dtantsur): if this operation fails, it won't be retried on the next iteration because the Node change has already been saved.
+		switch nodes.ProvisionState(ironicNode.ProvisionState) {
+		case nodes.Available, nodes.Manageable:
+			// Reboot is enough to get into the new agent. If anything goes wrong, the next operation will retry.
+			p.log.Info("Rebooting the available host because the PreprovisioningImage has changed")
+			return p.changePower(ironicNode, nodes.Rebooting)
+		case nodes.InspectWait:
+			p.log.Info("Restarting inspection because the PreprovisioningImage has changed")
+			return p.changeNodeProvisionState(ironicNode, nodes.ProvisionStateOpts{Target: nodes.TargetAbort})
+		case nodes.DeployWait:
+			p.log.Info("Restarting deployment because the PreprovisioningImage has changed")
+			return p.changeNodeProvisionState(ironicNode, nodes.ProvisionStateOpts{Target: nodes.TargetDeleted})
+		}
 	}
 
 	result, err = operationComplete()
@@ -637,8 +669,8 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map
 	return driverInfo
 }
 
-func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) optionsData {
-	deployImageInfo := optionsData{
+func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage, currentInfo optionsData) (deployImageInfo optionsData, needsRefresh bool) {
+	deployImageInfo = optionsData{
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
 		deployISOKey:     nil,
@@ -648,42 +680,57 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 	allowISO := accessDetails.SupportsISOPreprovisioningImage()
 
 	if hostImage != nil {
+		infoNeedsRefresh := func() bool {
+			// NOTE(dtantsur): we cannot compare the complete DriverInfo since it has a lot of other fields.
+			return !reflect.DeepEqual(deployImageInfo, optionsData{
+				deployKernelKey:  currentInfo[deployKernelKey],
+				deployRamdiskKey: currentInfo[deployRamdiskKey],
+				deployISOKey:     currentInfo[deployISOKey],
+				kernelParamsKey:  currentInfo[kernelParamsKey],
+			})
+		}
+
 		switch hostImage.Format {
 		case metal3v1alpha1.ImageFormatISO:
 			if allowISO {
 				deployImageInfo[deployISOKey] = hostImage.ImageURL
-				return deployImageInfo
+				needsRefresh = infoNeedsRefresh()
+				return
 			}
 		case metal3v1alpha1.ImageFormatInitRD:
 			if hostImage.KernelURL != "" {
 				deployImageInfo[deployKernelKey] = hostImage.KernelURL
 			} else if config.deployKernelURL == "" {
-				return nil
+				return nil, false
 			} else {
 				deployImageInfo[deployKernelKey] = config.deployKernelURL
 			}
+
 			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
 			if hostImage.ExtraKernelParams != "" {
 				// Using %default% prevents overriding the config in ironic-image
-				deployImageInfo[kernelParamsKey] = fmt.Sprintf("%%default%% %s", hostImage.ExtraKernelParams)
+				newParams := fmt.Sprintf("%%default%% %s", hostImage.ExtraKernelParams)
+				deployImageInfo[kernelParamsKey] = newParams
 			}
-			return deployImageInfo
+
+			needsRefresh = infoNeedsRefresh()
+			return
 		}
 	}
 
 	if !config.havePreprovImgBuilder {
 		if allowISO && config.deployISOURL != "" {
 			deployImageInfo[deployISOKey] = config.deployISOURL
-			return deployImageInfo
+			return
 		}
 		if config.deployKernelURL != "" && config.deployRamdiskURL != "" {
 			deployImageInfo[deployKernelKey] = config.deployKernelURL
 			deployImageInfo[deployRamdiskKey] = config.deployRamdiskURL
-			return deployImageInfo
+			return
 		}
 	}
 
-	return nil
+	return nil, false
 }
 
 func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (updatedNode *nodes.Node, success bool, result provisioner.Result, err error) {
@@ -763,7 +810,15 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 		return
 	}
 
+	// TODO(dtantsur): stop accessing Inspector API directly, it was supposed to be a backend API for Ironic
+	// and will be phased out in the long run.
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
+	if status != nil && strings.Contains(status.Error, "Canceled") {
+		// Inspection gets canceled when we detect a new preprovisioning image, not need to report an error, just restart.
+		refresh = true
+		force = true
+	}
+
 	if err != nil || refresh {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound || refresh {
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {

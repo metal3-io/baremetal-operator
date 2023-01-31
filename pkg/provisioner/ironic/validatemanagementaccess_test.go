@@ -888,11 +888,13 @@ func TestSetDeployImage(t *testing.T) {
 		Config             ironicConfig
 		Driver             bmc.AccessDetails
 		Image              *provisioner.PreprovisioningImage
+		Current            map[string]interface{}
 		ExpectBuild        bool
 		ExpectISO          bool
 		ExpectPXE          bool
 		ExpectNewKernel    bool
 		ExpectKernelParams bool
+		ExpectRefresh      bool
 	}{
 		{
 			Scenario: "iso no imgbuilder",
@@ -959,6 +961,29 @@ func TestSetDeployImage(t *testing.T) {
 				},
 				Format: metal3v1alpha1.ImageFormatISO,
 			},
+			ExpectBuild:   true,
+			ExpectISO:     true,
+			ExpectPXE:     false,
+			ExpectRefresh: true,
+		},
+		{
+			Scenario: "iso build already set",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver: isoDriver,
+			Image: &provisioner.PreprovisioningImage{
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL: buildIso,
+				},
+				Format: metal3v1alpha1.ImageFormatISO,
+			},
+			Current: map[string]interface{}{
+				deployISOKey: buildIso,
+			},
 			ExpectBuild: true,
 			ExpectISO:   true,
 			ExpectPXE:   false,
@@ -978,9 +1003,10 @@ func TestSetDeployImage(t *testing.T) {
 				},
 				Format: metal3v1alpha1.ImageFormatInitRD,
 			},
-			ExpectBuild: true,
-			ExpectISO:   false,
-			ExpectPXE:   true,
+			ExpectBuild:   true,
+			ExpectISO:     false,
+			ExpectPXE:     true,
+			ExpectRefresh: true,
 		},
 		{
 			Scenario: "pxe build with new kernel and kernel params",
@@ -998,6 +1024,35 @@ func TestSetDeployImage(t *testing.T) {
 					ExtraKernelParams: kernelParams,
 				},
 				Format: metal3v1alpha1.ImageFormatInitRD,
+			},
+			ExpectBuild:        true,
+			ExpectISO:          false,
+			ExpectPXE:          true,
+			ExpectNewKernel:    true,
+			ExpectKernelParams: true,
+			ExpectRefresh:      true,
+		},
+		{
+			Scenario: "pxe build with new kernel and kernel params already set",
+			Config: ironicConfig{
+				havePreprovImgBuilder: true,
+				deployKernelURL:       localKernel,
+				deployRamdiskURL:      localRamdisk,
+				deployISOURL:          localIso,
+			},
+			Driver: pxeDriver,
+			Image: &provisioner.PreprovisioningImage{
+				GeneratedImage: imageprovider.GeneratedImage{
+					ImageURL:          buildRamdisk,
+					KernelURL:         buildKernel,
+					ExtraKernelParams: kernelParams,
+				},
+				Format: metal3v1alpha1.ImageFormatInitRD,
+			},
+			Current: map[string]interface{}{
+				deployKernelKey:  buildKernel,
+				deployRamdiskKey: buildRamdisk,
+				kernelParamsKey:  "%default% cat meow",
 			},
 			ExpectBuild:        true,
 			ExpectISO:          false,
@@ -1104,7 +1159,7 @@ func TestSetDeployImage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			opts := setDeployImage(tc.Config, tc.Driver, tc.Image)
+			opts, needsRefresh := setDeployImage(tc.Config, tc.Driver, tc.Image, tc.Current)
 
 			switch {
 			case tc.ExpectISO:
@@ -1137,6 +1192,8 @@ func TestSetDeployImage(t *testing.T) {
 			default:
 				assert.Nil(t, opts)
 			}
+
+			assert.Equal(t, tc.ExpectRefresh, needsRefresh)
 		})
 	}
 }

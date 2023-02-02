@@ -355,7 +355,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
 	driverInfo = setExternalURL(p, driverInfo)
-	deployImageInfo := setDeployImage(driverInfo, p.config, bmcAccess, data.PreprovisioningImage)
 
 	// If we have not found a node yet, we need to create one
 	if ironicNode == nil {
@@ -453,23 +452,14 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// otherwise we will be writing on every call to this function.
 		if credentialsChanged {
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
-		} else {
-			updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 		}
 
 		// We don't return here because we also have to set the
 		// target provision state to manageable, which happens
 		// below.
 	}
-	if data.CurrentImage != nil || data.HasCustomDeploy {
-		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.HasCustomDeploy, updater)
-	}
-	updater.SetTopLevelOpt("automated_clean",
-		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
-		ironicNode.AutomatedClean)
 
-	var success bool
-	success, result, err = p.tryUpdateNode(ironicNode, updater)
+	ironicNode, success, result, err := p.tryUpdateNode(ironicNode, updater)
 	if !success {
 		return
 	}
@@ -482,8 +472,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 	)
-
-	result, err = operationComplete()
 
 	// Ensure the node is marked manageable.
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
@@ -530,33 +518,59 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		fallthrough
 
 	default:
-		switch data.State {
-		case metal3v1alpha1.StateProvisioning,
-			metal3v1alpha1.StateDeprovisioning:
-			if data.State == metal3v1alpha1.StateProvisioning {
-				if data.CurrentImage.IsLiveISO() {
-					// Live ISO doesn't need pre-provisioning image
-					return
-				}
-			} else {
-				if data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled {
-					// No need for pre-provisioning image if cleaning disabled
-					return
-				}
-			}
-			fallthrough
-		case metal3v1alpha1.StateInspecting,
-			metal3v1alpha1.StatePreparing:
-			if deployImageInfo == nil {
-				if p.config.havePreprovImgBuilder {
-					result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
-				} else {
-					result, err = operationFailed("no preprovisioning image available")
-				}
-			}
-		}
+		result, err = p.configureImages(data, ironicNode, bmcAccess)
 		return
 	}
+}
+
+func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
+	updater := updateOptsBuilder(p.debugLog)
+
+	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
+	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
+
+	if data.CurrentImage != nil || data.HasCustomDeploy {
+		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.HasCustomDeploy, updater)
+	}
+	updater.SetTopLevelOpt("automated_clean",
+		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
+		ironicNode.AutomatedClean)
+
+	_, success, result, err := p.tryUpdateNode(ironicNode, updater)
+	if !success {
+		return
+	}
+
+	result, err = operationComplete()
+
+	switch data.State {
+	case metal3v1alpha1.StateProvisioning,
+		metal3v1alpha1.StateDeprovisioning:
+		if data.State == metal3v1alpha1.StateProvisioning {
+			if data.CurrentImage.IsLiveISO() {
+				// Live ISO doesn't need pre-provisioning image
+				return
+			}
+		} else {
+			if data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled {
+				// No need for pre-provisioning image if cleaning disabled
+				return
+			}
+		}
+		fallthrough
+	case metal3v1alpha1.StateInspecting,
+		metal3v1alpha1.StatePreparing:
+		if deployImageInfo == nil {
+			if p.config.havePreprovImgBuilder {
+				result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
+			} else {
+				result, err = operationFailed("no preprovisioning image available")
+			}
+			return
+		}
+	}
+
+	return
 }
 
 // PreprovisioningImageFormats returns a list of acceptable formats for a
@@ -623,23 +637,13 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map
 	return driverInfo
 }
 
-func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) optionsData {
+func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) optionsData {
 	deployImageInfo := optionsData{
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
 		deployISOKey:     nil,
 		kernelParamsKey:  nil,
 	}
-
-	defer func() {
-		// Copy into driverInfo so that if we end up creating a new Node, the
-		// info will be there from the outset.
-		for k, v := range deployImageInfo {
-			if v != nil {
-				driverInfo[k] = v
-			}
-		}
-	}()
 
 	allowISO := accessDetails.SupportsISOPreprovisioningImage()
 
@@ -682,14 +686,15 @@ func setDeployImage(driverInfo map[string]interface{}, config ironicConfig, acce
 	return nil
 }
 
-func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (success bool, result provisioner.Result, err error) {
+func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (updatedNode *nodes.Node, success bool, result provisioner.Result, err error) {
 	if len(updater.Updates) == 0 {
+		updatedNode = ironicNode
 		success = true
 		return
 	}
 
 	p.log.Info("updating node settings in ironic")
-	_, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
+	updatedNode, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
 	switch err.(type) {
 	case nil:
 		success = true
@@ -699,6 +704,7 @@ func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeU
 	default:
 		result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
 	}
+
 	return
 }
 
@@ -783,7 +789,7 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 				}
 				fallthrough
 			default:
-				started, result, err = p.tryUpdateNode(
+				_, started, result, err = p.tryUpdateNode(
 					ironicNode,
 					updateOptsBuilder(p.debugLog).
 						SetPropertiesOpts(optionsData{
@@ -1098,7 +1104,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
-	success, result, err := p.tryUpdateNode(ironicNode,
+	ironicNode, success, result, err := p.tryUpdateNode(ironicNode,
 		p.getUpdateOptsForNode(ironicNode, data))
 	if !success {
 		return
@@ -1595,7 +1601,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 }
 
 func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
-	success, result, err := p.tryUpdateNode(ironicNode,
+	_, success, result, err := p.tryUpdateNode(ironicNode,
 		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil))
 	if err != nil {
 		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
@@ -1732,7 +1738,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 			p.log.Info("removing stale instance UUID before deletion", "instanceUUID", ironicNode.InstanceUUID)
 			updater := updateOptsBuilder(p.debugLog)
 			updater.SetTopLevelOpt("instance_uuid", nil, ironicNode.InstanceUUID)
-			success, result, err := p.tryUpdateNode(ironicNode, updater)
+			_, success, result, err := p.tryUpdateNode(ironicNode, updater)
 			if !success {
 				return result, err
 			}

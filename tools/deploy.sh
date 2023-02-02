@@ -3,13 +3,14 @@
 set -eu
 
 function usage {
-    echo "Usage : deploy.sh [-b -i -t -n -k]"
+    echo "Usage : deploy.sh [-b -i -t -n -k -m]"
     echo ""
     echo "       -b: deploy BMO"
     echo "       -i: deploy Ironic"
     echo "       -t: deploy with TLS enabled"
     echo "       -n: deploy without authentication"
     echo "       -k: deploy with keepalived"
+    echo "       -m: deploy with mariadb (requires TLS enabled)"
 }
 
 DEPLOY_BMO=false
@@ -17,8 +18,9 @@ DEPLOY_IRONIC=false
 DEPLOY_TLS=false
 DEPLOY_BASIC_AUTH=true
 DEPLOY_KEEPALIVED=false
+DEPLOY_MARIADB=false
 
-while getopts ":hbitnk" options; do
+while getopts ":hbitnkm" options; do
     case "${options}" in
         h)
             usage
@@ -39,6 +41,9 @@ while getopts ":hbitnk" options; do
             ;;
         k)
             DEPLOY_KEEPALIVED=true
+            ;;
+        m)
+            DEPLOY_MARIADB=true
             ;;
         :)
             echo "ERROR: -${OPTARG} requires an argument"
@@ -78,8 +83,14 @@ if [ -n "${5:-}" ]; then
     DEPLOY_KEEPALIVED=$5
 fi
 
-if [ "$DEPLOY_BMO" == "false" ] && [ "$DEPLOY_IRONIC" == "false" ]; then
+if [[ "${DEPLOY_BMO}" == "false" ]] && [[ "${DEPLOY_IRONIC}" == "false" ]]; then
     echo "ERROR: nothing to deploy"
+    usage
+    exit 1
+fi
+
+if [[ "${DEPLOY_MARIADB}" == "true" ]] && [[ "${DEPLOY_TLS}" == "false" ]]; then
+    echo "ERROR: Deploying Ironic with MariaDB without TLS is not supported."
     usage
     exit 1
 fi
@@ -102,11 +113,10 @@ make -C "$(dirname "$0")/.." "${KUSTOMIZE}"
 pushd "${TEMP_IRONIC_OVERLAY}"
 ${KUSTOMIZE} create --resources=../../../config/namespace \
   --namespace=baremetal-operator-system --nameprefix=baremetal-operator-
-${KUSTOMIZE} edit add secret mariadb-password --from-literal=password=changeme
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     BMO_SCENARIO="${SCRIPTDIR}/config/basic-auth"
-    if [ "${DEPLOY_TLS}" == "true" ]; then
+    if [[ "${DEPLOY_TLS}" == "true" ]]; then
         BMO_SCENARIO="${BMO_SCENARIO}/tls"
         # Basic-auth + TLS is special since TLS also means reverse proxy, which affects basic-auth.
         # Therefore we have an overlay that we use as base for this case.
@@ -118,14 +128,18 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     fi
 else
     BMO_SCENARIO="${SCRIPTDIR}/config"
-    if [ "${DEPLOY_TLS}" == "true" ]; then
+    if [[ "${DEPLOY_TLS}" == "true" ]]; then
         BMO_SCENARIO="${BMO_SCENARIO}/tls"
         ${KUSTOMIZE} edit add component ../../components/tls
     fi
 fi
 
-if [ "${DEPLOY_KEEPALIVED}" == "true" ]; then
+if [[ "${DEPLOY_KEEPALIVED}" == "true" ]]; then
     ${KUSTOMIZE} edit add component ../../components/keepalived
+fi
+
+if [[ "${DEPLOY_MARIADB}" == "true" ]]; then
+    ${KUSTOMIZE} edit add component ../../components/mariadb
 fi
 
 popd
@@ -138,7 +152,7 @@ sudo chown -R "${USER}:$(id -gn)" "${IRONIC_DATA_DIR}"
 mkdir -p "${IRONIC_AUTH_DIR}"
 
 # If usernames and passwords are unset, read them from file or generate them
-if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
+if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     if [ -z "${IRONIC_USERNAME:-}" ]; then
         if [ ! -f "${IRONIC_AUTH_DIR}ironic-username" ]; then
             IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
@@ -172,7 +186,7 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         fi
     fi
 
-    if [ "${DEPLOY_BMO}" == "true" ]; then
+    if [[ "${DEPLOY_BMO}" == "true" ]]; then
         echo "${IRONIC_USERNAME}" > "${BMO_SCENARIO}/ironic-username"
         echo "${IRONIC_PASSWORD}" > "${BMO_SCENARIO}/ironic-password"
 
@@ -180,7 +194,7 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_SCENARIO}/ironic-inspector-password"
     fi
 
-    if [ "${DEPLOY_IRONIC}" == "true" ]; then
+    if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
         envsubst < "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config-tpl" > \
         "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config"
         envsubst < "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-auth-config-tpl" > \
@@ -193,14 +207,14 @@ if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
     fi
 fi
 
-if [ "${DEPLOY_BMO}" == "true" ]; then
+if [[ "${DEPLOY_BMO}" == "true" ]]; then
     pushd "${SCRIPTDIR}"
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${BMO_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
     popd
 fi
 
-if [ "${DEPLOY_IRONIC}" == "true" ]; then
+if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     pushd "${TEMP_IRONIC_OVERLAY}"
     # Copy the configmap content from either the keepalived or default kustomization
     # and edit based on environment.
@@ -221,11 +235,11 @@ if [ "${DEPLOY_IRONIC}" == "true" ]; then
     else
         echo "RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED}" >> "${IRONIC_BMO_CONFIGMAP}"
     fi
-    IRONIC_CERTIFICATE_FILE="${SCRIPTDIR}/ironic-deployment/components/tls/certificate.yaml"
-    sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g; s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${IRONIC_CERTIFICATE_FILE}"
+    sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/tls/certificate.yaml"
+    sed -i "s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/mariadb/certificate.yaml"
     # The keepalived component has its own configmap,
     # but we are overriding depending on environment here so we must replace it.
-    if [ "${DEPLOY_KEEPALIVED}" == "true" ]; then
+    if [[ "${DEPLOY_KEEPALIVED}" == "true" ]]; then
         ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=replace --from-env-file=ironic_bmo_configmap.env
     else
         ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=create --from-env-file=ironic_bmo_configmap.env
@@ -235,15 +249,15 @@ if [ "${DEPLOY_IRONIC}" == "true" ]; then
     popd
 fi
 
-if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-    if [ "${DEPLOY_BMO}" == "true" ]; then
+if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
+    if [[ "${DEPLOY_BMO}" == "true" ]]; then
         rm "${BMO_SCENARIO}/ironic-username"
         rm "${BMO_SCENARIO}/ironic-password"
         rm "${BMO_SCENARIO}/ironic-inspector-username"
         rm "${BMO_SCENARIO}/ironic-inspector-password"
     fi
 
-    if [ "${DEPLOY_IRONIC}" == "true" ]; then
+    if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
         rm "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config"
         rm "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-auth-config"
 

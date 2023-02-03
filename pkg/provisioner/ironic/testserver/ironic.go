@@ -142,6 +142,33 @@ func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.Upd
 	return
 }
 
+// NodeMaintenanceError configures configures the server with an error response for [PUT] /v1/nodes/{id}/maintenance
+func (m *IronicMock) NodeMaintenanceError(id string, errorCode int) *IronicMock {
+	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id+"/maintenance", http.MethodPut), "", errorCode)
+	return m
+}
+
+// NodeUpdate configures the server with a valid response for PATCH
+// for /v1/nodes/{name,uuid}
+func (m *IronicMock) NodeMaintenance(node nodes.Node, expected bool) *IronicMock {
+	var url, method string
+
+	if expected {
+		method = http.MethodPut
+	} else {
+		method = http.MethodDelete
+	}
+
+	if node.Name != "" {
+		url = m.buildURL("/v1/nodes/"+node.Name+"/maintenance", method)
+	} else {
+		url = m.buildURL("/v1/nodes/"+node.UUID+"/maintenance", method)
+	}
+
+	m.ResponseWithCode(url, "{}", http.StatusAccepted)
+	return m
+}
+
 func (m *IronicMock) withNodeStatesProvision(nodeUUID string, method string) *IronicMock {
 	m.ResponseWithCode(m.buildURL("/v1/nodes/"+nodeUUID+"/states/provision", method), "{}", http.StatusAccepted)
 	return m

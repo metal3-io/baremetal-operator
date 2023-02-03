@@ -137,7 +137,7 @@ func deleteTest(t *testing.T, detach bool) {
 					ProvisionState: "active",
 					Maintenance:    false,
 				},
-			).NodeUpdateError(nodeUUID, http.StatusInternalServerError),
+			).NodeMaintenanceError(nodeUUID, http.StatusInternalServerError),
 
 			expectedError: "failed to set host maintenance flag",
 		},
@@ -149,7 +149,7 @@ func deleteTest(t *testing.T, detach bool) {
 					ProvisionState: "active",
 					Maintenance:    false,
 				},
-			).NodeUpdateError(nodeUUID, http.StatusConflict),
+			).NodeMaintenanceError(nodeUUID, http.StatusConflict),
 
 			expectedDirty:        true,
 			expectedRequestAfter: provisionRequeueDelay,
@@ -162,16 +162,11 @@ func deleteTest(t *testing.T, detach bool) {
 					ProvisionState: "active",
 					Maintenance:    false,
 				},
-			).NodeUpdate(nodes.Node{
+			).NodeMaintenance(nodes.Node{
 				UUID: nodeUUID,
-			}),
+			}, true),
 			expectedDirty:        true,
 			expectedRequestAfter: 0,
-			expectedUpdate: &nodes.UpdateOperation{
-				Op:    nodes.AddOp,
-				Path:  "/maintenance",
-				Value: true,
-			},
 		},
 	}
 

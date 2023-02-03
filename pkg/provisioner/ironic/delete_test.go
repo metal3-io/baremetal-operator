@@ -93,7 +93,7 @@ func deleteTest(t *testing.T, detach bool) {
 			hostName: "worker-0",
 			ironic:   testserver.NewIronic(t).Ready().NodeError(nodeUUID, http.StatusGatewayTimeout),
 
-			expectedError: "failed to find node by ID 33ce8659-7400-4c68-9535-d10766f07a58: Expected HTTP response code \\[200\\].*",
+			expectedError: "failed to find node by ID 33ce8659-7400-4c68-9535-d10766f07a58: Gateway Timeout.*",
 		},
 		{
 			name:   "not-ironic-node",

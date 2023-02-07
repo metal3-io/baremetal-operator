@@ -1420,20 +1420,30 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 			// nothing to do
 			started = true
 		}
-		// Manual clean finished
-		result, err = operationComplete()
+		// Manual clean finished, start auto clean
+		result, err = p.changeNodeProvisionState(ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetProvide})
 
 	case nodes.CleanFail:
+		if ironicNode.Maintenance {
+			p.log.Info("clearing maintenance flag")
+			result, err = p.setMaintenanceFlag(ironicNode, false, "")
+			return
+		}
 		// When clean failed, we need to clean host provisioning settings.
 		// If restartOnFailure is false, it means the settings aren't cleared.
 		// So we can't set the node's state to manageable, until the settings are cleared.
 		if !restartOnFailure {
+			// But if the failure is auto clean, there is no need to clean host provisioning settings.
+			if ironicNode.TargetProvisionState == string(nodes.Available) {
+				p.log.Error(fmt.Errorf(ironicNode.LastError), "auto clean failed")
+				result, err = p.changeNodeProvisionState(
+					ironicNode,
+					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+				)
+				return
+			}
 			result, err = operationFailed(ironicNode.LastError)
-			return
-		}
-		if ironicNode.Maintenance {
-			p.log.Info("clearing maintenance flag")
-			result, err = p.setMaintenanceFlag(ironicNode, false, "")
 			return
 		}
 		result, err = p.changeNodeProvisionState(

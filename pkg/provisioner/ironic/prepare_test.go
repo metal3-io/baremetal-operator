@@ -53,24 +53,12 @@ func TestPrepare(t *testing.T) {
 		expectedRequestAfter int
 	}{
 		{
-			name: "manageable state(haven't clean steps)",
+			name: "manageable state(haven't clean steps, start auto clean)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
 			}),
 			unprepared:           true,
-			expectedStarted:      true,
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
-		},
-		{
-			name: "manageable state(have clean steps)",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-				ProvisionState: string(nodes.Manageable),
-				UUID:           nodeUUID,
-			}),
-			unprepared:           true,
-			existRaidConfig:      true,
 			expectedStarted:      true,
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
@@ -98,8 +86,21 @@ func TestPrepare(t *testing.T) {
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
 		},
+		// Manual clean
 		{
-			name: "cleanFail state(cleaned provision settings)",
+			name: "Manual clean: manageable state(start manual clean)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			existRaidConfig:      true,
+			expectedStarted:      true,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "Manual clean: cleanFail state(cleaned provision settings)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanFail),
 				UUID:           nodeUUID,
@@ -109,7 +110,7 @@ func TestPrepare(t *testing.T) {
 			expectedDirty:        false,
 		},
 		{
-			name: "cleanFail state(set ironic host to manageable)",
+			name: "Manual clean: cleanFail state(set ironic host to manageable)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanFail),
 				UUID:           nodeUUID,
@@ -121,7 +122,7 @@ func TestPrepare(t *testing.T) {
 			expectedDirty:        true,
 		},
 		{
-			name: "cleaning state",
+			name: "Manual clean: cleaning state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Cleaning),
 				UUID:           nodeUUID,
@@ -132,7 +133,64 @@ func TestPrepare(t *testing.T) {
 			expectedDirty:        true,
 		},
 		{
-			name: "cleanWait state",
+			name: "Manual clean: cleanWait state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.CleanWait),
+				UUID:           nodeUUID,
+			}),
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		// Auto clean
+		{
+			name: "Auto clean: manageable state(manual clean finished, start auto clean)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "Auto clean: cleanFail state(auto clean failed, set ironic host to manageable)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState:       string(nodes.CleanFail),
+				TargetProvisionState: string(nodes.Available),
+				UUID:                 nodeUUID,
+			}),
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "Auto clean: manageable state(restart auto clean)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Manageable),
+				UUID:           nodeUUID,
+			}),
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "Auto clean: cleaning state",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Cleaning),
+				UUID:           nodeUUID,
+			}),
+			existRaidConfig:      true,
+			expectedStarted:      false,
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "Auto clean: cleanWait state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanWait),
 				UUID:           nodeUUID,
@@ -143,18 +201,7 @@ func TestPrepare(t *testing.T) {
 			expectedDirty:        true,
 		},
 		{
-			name: "manageable state(manual clean finished)",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-				ProvisionState: string(nodes.Manageable),
-				UUID:           nodeUUID,
-			}),
-			existRaidConfig:      true,
-			expectedStarted:      false,
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
-		},
-		{
-			name: "available state(automated clean finished)",
+			name: "Auto clean: available state(automated clean finished)",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
@@ -209,9 +256,9 @@ func TestPrepare(t *testing.T) {
 
 			result, started, err := prov.Prepare(prepData, tc.unprepared, tc.unprepared)
 
-			assert.Equal(t, tc.expectedStarted, started)
-			assert.Equal(t, tc.expectedDirty, result.Dirty)
-			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
+			assert.Equal(t, tc.expectedStarted, started, "Started")
+			assert.Equal(t, tc.expectedDirty, result.Dirty, "Dirty")
+			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter, "RequeueAfter")
 			if !tc.expectedError {
 				assert.NoError(t, err)
 			} else {

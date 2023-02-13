@@ -3,7 +3,8 @@ package templates
 import (
 	"bytes"
 	"encoding/base64"
-	"text/template"
+
+	"github.com/google/safetext/yamltemplate"
 )
 
 var templateBody = `---
@@ -102,7 +103,7 @@ func encodeToSecret(input string) string {
 // was a problem rendering it.
 func (t Template) Render() (string, error) {
 	buf := new(bytes.Buffer)
-	tmpl := template.Must(template.New("yaml_out").Parse(templateBody))
+	tmpl := yamltemplate.Must(yamltemplate.New("yaml_out").Parse(templateBody))
 	err := tmpl.Execute(buf, t)
 	return buf.String(), err
 }

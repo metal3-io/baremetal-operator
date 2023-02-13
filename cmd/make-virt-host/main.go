@@ -9,7 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"text/template"
+
+	"github.com/google/safetext/yamltemplate"
 )
 
 const (
@@ -212,7 +213,7 @@ func main() {
 		Consumer:          strings.TrimSpace(*consumer),
 		ConsumerNamespace: strings.TrimSpace(*consumerNamespace),
 	}
-	t := template.Must(template.New("yaml_out").Parse(templateBody))
+	t := yamltemplate.Must(yamltemplate.New("yaml_out").Parse(templateBody))
 	err = t.Execute(os.Stdout, args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)

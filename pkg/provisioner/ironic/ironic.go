@@ -723,7 +723,7 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 	}
 	if ironicNode.Maintenance {
 		p.log.Info("trying to change a provision state for a node in maintenance, removing maintenance first", "reason", ironicNode.MaintenanceReason)
-		result, err = p.setMaintenanceFlag(ironicNode, false)
+		result, err = p.setMaintenanceFlag(ironicNode, false, "")
 		return
 	}
 
@@ -1197,7 +1197,7 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (resul
 		// Empty Fault means that maintenance was set manually, not by Ironic
 		if ironicNode.Maintenance && ironicNode.Fault == "" && data.State != metal3v1alpha1.StateDeleting {
 			p.log.Info("active node was found to be in maintenance, updating", "state", data.State)
-			return p.setMaintenanceFlag(ironicNode, false)
+			return p.setMaintenanceFlag(ironicNode, false, "")
 		}
 	default:
 	}
@@ -1408,7 +1408,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 		}
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			result, err = p.setMaintenanceFlag(ironicNode, false)
+			result, err = p.setMaintenanceFlag(ironicNode, false, "")
 			return
 		}
 		result, err = p.changeNodeProvisionState(
@@ -1554,7 +1554,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 	case nodes.CleanFail:
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			return p.setMaintenanceFlag(ironicNode, false)
+			return p.setMaintenanceFlag(ironicNode, false, "")
 		}
 		return p.changeNodeProvisionState(
 			ironicNode,
@@ -1600,16 +1600,25 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 	}
 }
 
-func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool) (result provisioner.Result, err error) {
-	_, success, result, err := p.tryUpdateNode(ironicNode,
-		updateOptsBuilder(p.log).SetTopLevelOpt("maintenance", value, nil))
-	if err != nil {
+func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool, reason string) (result provisioner.Result, err error) {
+	p.log.Info("updating maintenance in ironic", "newValue", value, "reason", reason)
+	if value {
+		err = nodes.SetMaintenance(p.client, ironicNode.UUID, nodes.MaintenanceOpts{Reason: reason}).ExtractErr()
+	} else {
+		err = nodes.UnsetMaintenance(p.client, ironicNode.UUID).ExtractErr()
+	}
+
+	switch err.(type) {
+	case nil:
+		result, err = operationContinuing(0)
+	case gophercloud.ErrDefault409:
+		p.log.Info("could not update maintenance in ironic, busy")
+		result, err = retryAfterDelay(provisionRequeueDelay)
+	default:
 		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
+		result, err = transientError(err)
 	}
-	if !success {
-		return
-	}
-	return operationContinuing(0)
+	return
 }
 
 // Deprovision removes the host from the image. It may be called
@@ -1654,7 +1663,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 		p.log.Info("cleaning failed")
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag")
-			return p.setMaintenanceFlag(ironicNode, false)
+			return p.setMaintenanceFlag(ironicNode, false, "")
 		}
 		// This will return us to the manageable state without completing
 		// cleaning. Because cleaning happens in the process of moving from
@@ -1756,7 +1765,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// delete while bypassing Ironic's internal checks related to
 		// Nova.
 		p.log.Info("setting host maintenance flag to force image delete")
-		return p.setMaintenanceFlag(ironicNode, true)
+		return p.setMaintenanceFlag(ironicNode, true, "forcing deletion in baremetal-operator")
 	}
 
 	p.log.Info("host ready to be removed")

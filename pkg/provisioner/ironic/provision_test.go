@@ -105,7 +105,9 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
 				Maintenance:    true,
-			}),
+			}).NodeMaintenance(nodes.Node{
+				UUID: nodeUUID,
+			}, false),
 			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},

@@ -5,44 +5,40 @@
 #
 # NOTE: This won't work unless the build environment has internet access
 
-set -ux
+set -eux
 
 IS_CONTAINER=${IS_CONTAINER:-false}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
-  export XDG_CACHE_HOME="/tmp/.cache"
+    export XDG_CACHE_HOME=/tmp/.cache
 
-  STATUS=$(git status --porcelain)
-  if [ -n "$STATUS" ]; then
-      echo "Dirty tree: refusing to continue out of caution"
-      exit 1
-  fi
+    mkdir /tmp/gomod
+    cp -r . /tmp/gomod
+    cd /tmp/gomod
 
-  go mod tidy
-  rc=$?
+    STATUS="$(git status --porcelain)"
+    if [ -n "${STATUS}" ]; then
+        echo "Dirty tree: refusing to continue out of caution"
+        exit 1
+    fi
 
-  if [ $rc -ne 0 ]; then
-      echo "'go mod tidy' failed"
-      exit 1;
-  fi
+    make mod
 
-  STATUS=$(git status --porcelain go.mod go.sum)
-  if [ -n "$STATUS" ]; then
-      echo "go.mod and go.sum changed"
-      echo "Please run 'go mod tidy' and commit the changes to go.mod & go.sum."
-      echo "Abort"
-      exit 1
-  fi
-
-  exit 0;
+    STATUS="$(git status --porcelain)"
+    if [ -n "${STATUS}" ]; then
+        echo "one of the go.mod and/or go.sum files changed"
+        echo "${STATUS}"
+        echo "Please run 'go mod tidy' and commit the changes"
+        exit 1
+    fi
 
 else
-  "${CONTAINER_RUNTIME}" run --rm \
-    --env IS_CONTAINER=TRUE \
-    --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:rw,z" \
-    --entrypoint sh \
-    --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    docker.io/golang:1.19 \
-    /go/src/github.com/metal3-io/baremetal-operator/hack/gomod.sh "${@}"
-fi;
+    "${CONTAINER_RUNTIME}" run --rm \
+        --env IS_CONTAINER=TRUE \
+        --volume "${PWD}:/workdir:ro,z" \
+        --entrypoint sh \
+        --workdir /workdir \
+        docker.io/golang:1.19 \
+        /workdir/hack/gomod.sh "$@"
+fi

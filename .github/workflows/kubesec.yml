@@ -56,6 +56,6 @@ jobs:
 
       - name: Upload Kubesec scan results to GitHub Security tab
         if: ${{ steps.save_result.outputs.result != '[]' }}
-        uses: github/codeql-action/upload-sarif@4b3fd9198891cf782111537728021ffc6ae722ba # v1.1.37
+        uses: github/codeql-action/upload-sarif@a34ca99b4610d924e04c68db79e503e1f79f9f02 # v2.1.39
         with:
           sarif_file: ${{ matrix.value }}.sarif

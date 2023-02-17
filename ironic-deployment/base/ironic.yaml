@@ -49,39 +49,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap
-        - name: mariadb
-          image: quay.io/metal3-io/mariadb
-          imagePullPolicy: Always
-          livenessProbe:
-           exec:
-             command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
-           initialDelaySeconds: 30
-           periodSeconds: 30
-           timeoutSeconds: 10
-           successThreshold: 1
-           failureThreshold: 10
-          readinessProbe:
-           exec:
-             command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
-           initialDelaySeconds: 30
-           periodSeconds: 30
-           timeoutSeconds: 10
-           successThreshold: 1
-           failureThreshold: 10
-          volumeMounts:
-            - mountPath: /shared
-              name: ironic-data-volume
-          env:
-            - name: MARIADB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mariadb-password
-                  key: password
-            - name: RESTART_CONTAINER_CERTIFICATE_UPDATED
-              valueFrom:
-                 configMapKeyRef:
-                  name: ironic-bmo-configmap
-                  key: RESTART_CONTAINER_CERTIFICATE_UPDATED
         - name: ironic
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always
@@ -109,12 +76,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: ironic-bmo-configmap
-          env:
-            - name: MARIADB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mariadb-password
-                  key: password
         - name: ironic-log-watch
           image: quay.io/metal3-io/ironic
           imagePullPolicy: Always

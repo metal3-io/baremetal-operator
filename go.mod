@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/go-logr/logr v1.2.3
-	github.com/gophercloud/gophercloud v0.22.0
+	github.com/gophercloud/gophercloud v1.2.0
 	github.com/metal3-io/baremetal-operator/apis v0.1.2
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.1.2
 	github.com/pkg/errors v0.9.1

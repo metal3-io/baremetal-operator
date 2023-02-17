@@ -26,7 +26,6 @@ reviewers:
   - sadasu
   - zaneb
 
-
 # Bugzilla Information
 component: "Bare Metal Hardware Provisioning"
 subcomponent: "baremetal-operator"

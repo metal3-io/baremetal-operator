@@ -1952,6 +1952,10 @@ func TestUpdateRAID(t *testing.T) {
 		},
 		Status: metal3v1alpha1.BareMetalHostStatus{
 			Provisioning: metal3v1alpha1.ProvisionStatus{
+				RAID: &metal3v1alpha1.RAIDConfig{
+					HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
+					SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+				},
 				RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
 					DeviceName:         "userd_devicename",
 					HCTL:               "1:2:3:4",

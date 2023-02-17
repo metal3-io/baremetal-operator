@@ -1,4 +1,133 @@
-## 0.23.0 (Unreleased)
+## v1.2.0 (2023-01-27)
+
+Starting with this version, Gophercloud sends its actual version in the
+user-agent string in the format `gophercloud/v1.2.0`. It no longer sends the
+hardcoded string `gophercloud/2.0.0`.
+
+* [GH-2542](https://github.com/gophercloud/gophercloud/pull/2542) Add field hidden in containerinfra/v1/clustertemplates
+* [GH-2537](https://github.com/gophercloud/gophercloud/pull/2537) Support value_specs for Ports
+* [GH-2530](https://github.com/gophercloud/gophercloud/pull/2530) keystone: add v3 OS-FEDERATION mappings create operation
+* [GH-2519](https://github.com/gophercloud/gophercloud/pull/2519) Modify user-agent header to ensure current gophercloud version is provided
+
+## v1.1.1 (2022-12-07)
+
+The GOPROXY cache for v1.1.0 was corrupted with a tag pointing to the wrong commit. This release fixes the problem by exposing a new release with the same content.
+
+Please use `v1.1.1` instead of `v1.1.0` to avoid cache issues.
+
+## v1.1.0 (2022-11-24)
+
+* [GH-2513](https://github.com/gophercloud/gophercloud/pull/2513) objectstorage: Do not parse NoContent responses
+* [GH-2503](https://github.com/gophercloud/gophercloud/pull/2503) Bump golang.org/x/crypto
+* [GH-2501](https://github.com/gophercloud/gophercloud/pull/2501) Staskraev/l3 agent scheduler
+* [GH-2496](https://github.com/gophercloud/gophercloud/pull/2496) Manila: add Get for share-access-rules API
+* [GH-2491](https://github.com/gophercloud/gophercloud/pull/2491) Add VipQosPolicyID to loadbalancer Create and Update
+* [GH-2488](https://github.com/gophercloud/gophercloud/pull/2488) Add Persistance for octavia pools.UpdateOpts
+* [GH-2487](https://github.com/gophercloud/gophercloud/pull/2487) Add Prometheus protocol for octavia listeners
+* [GH-2482](https://github.com/gophercloud/gophercloud/pull/2482) Add createdAt, updatedAt and provisionUpdatedAt fields in Baremetal V1 nodes
+* [GH-2479](https://github.com/gophercloud/gophercloud/pull/2479) Add service_types support for neutron subnet
+* [GH-2477](https://github.com/gophercloud/gophercloud/pull/2477) Port CreatedAt and UpdatedAt: add back JSON tags
+* [GH-2475](https://github.com/gophercloud/gophercloud/pull/2475) Support old time format for port CreatedAt and UpdatedAt
+* [GH-2474](https://github.com/gophercloud/gophercloud/pull/2474) Implementing re-image volumeaction
+* [GH-2470](https://github.com/gophercloud/gophercloud/pull/2470) keystone: add v3 limits GetEnforcementModel operation
+* [GH-2468](https://github.com/gophercloud/gophercloud/pull/2468) keystone: add v3 OS-FEDERATION extension List Mappings
+* [GH-2458](https://github.com/gophercloud/gophercloud/pull/2458) Fix typo in blockstorage/v3/attachments docs
+* [GH-2456](https://github.com/gophercloud/gophercloud/pull/2456) Add support for Update for flavors
+* [GH-2453](https://github.com/gophercloud/gophercloud/pull/2453) Add description to flavor
+* [GH-2417](https://github.com/gophercloud/gophercloud/pull/2417) Neutron v2: ScheduleBGPSpeakerOpts, RemoveBGPSpeaker, Lis…
+
+## 1.0.0 (2022-08-29)
+
+UPGRADE NOTES + PROMISE OF COMPATIBILITY
+
+* Introducing Gophercloud v1! Like for every other release so far, all clients will upgrade automatically with `go get -d github.com/gophercloud/gophercloud` unless the dependency is pinned in `go.mod`.
+* Gophercloud v1 comes with a promise of compatibility: no breaking changes are expected to merge before v2.0.0.
+
+IMPROVEMENTS
+
+* Added `compute.v2/extensions/services.Delete` [GH-2427](https://github.com/gophercloud/gophercloud/pull/2427)
+* Added support for `standard-attr-revisions` to `networking/v2/networks`, `networking/v2/ports`, and `networking/v2/subnets` [GH-2437](https://github.com/gophercloud/gophercloud/pull/2437)
+* Added `updated_at` and `created_at` fields to `networking/v2/ports.Port` [GH-2445](https://github.com/gophercloud/gophercloud/pull/2445)
+
+## 0.25.0 (May 30, 2022)
+
+BREAKING CHANGES
+
+* Replaced `blockstorage/noauth.NewBlockStorageNoAuth` with `NewBlockStorageNoAuthV2` and `NewBlockStorageNoAuthV3` [GH-2343](https://github.com/gophercloud/gophercloud/pull/2343)
+* Renamed `blockstorage/extensions/schedulerstats.Capabilities`'s `GoodnessFuction` field to `GoodnessFunction` [GH-2346](https://github.com/gophercloud/gophercloud/pull/2346)
+
+IMPROVEMENTS
+
+* Added `RequestOpts.OmitHeaders` to provider client [GH-2315](https://github.com/gophercloud/gophercloud/pull/2315)
+* Added `identity/v3/extensions/projectendpoints.List` [GH-2304](https://github.com/gophercloud/gophercloud/pull/2304)
+* Added `identity/v3/extensions/projectendpoints.Create` [GH-2304](https://github.com/gophercloud/gophercloud/pull/2304)
+* Added `identity/v3/extensions/projectendpoints.Delete` [GH-2304](https://github.com/gophercloud/gophercloud/pull/2304)
+* Added protocol `any` to `networking/v2/extensions/security/rules.Create` [GH-2310](https://github.com/gophercloud/gophercloud/pull/2310)
+* Added `REDIRECT_PREFIX` and `REDIRECT_HTTP_CODE` to `loadbalancer/v2/l7policies.Create` [GH-2324](https://github.com/gophercloud/gophercloud/pull/2324)
+* Added `SOURCE_IP_PORT` LB method to `loadbalancer/v2/pools.Create` [GH-2300](https://github.com/gophercloud/gophercloud/pull/2300)
+* Added `AllocatedCapacityGB` capability to `blockstorage/extensions/schedulerstats.Capabilities` [GH-2348](https://github.com/gophercloud/gophercloud/pull/2348)
+* Added `Metadata` to `dns/v2/recordset.RecordSet` [GH-2353](https://github.com/gophercloud/gophercloud/pull/2353)
+* Added missing fields to `compute/v2/extensions/servergroups.List` [GH-2355](https://github.com/gophercloud/gophercloud/pull/2355)
+* Added missing labels fields to `containerinfra/v1/nodegroups` [GH-2377](https://github.com/gophercloud/gophercloud/pull/2377)
+* Added missing fields to `loadbalancer/v2/listeners.Listener` [GH-2407](https://github.com/gophercloud/gophercloud/pull/2407)
+* Added `identity/v3/limits.List` [GH-2360](https://github.com/gophercloud/gophercloud/pull/2360)
+* Added `ParentProviderUUID` to `placement/v1/resourceproviders.Create` [GH-2356](https://github.com/gophercloud/gophercloud/pull/2356)
+* Added `placement/v1/resourceproviders.Delete` [GH-2357](https://github.com/gophercloud/gophercloud/pull/2357)
+* Added `placement/v1/resourceproviders.Get` [GH-2358](https://github.com/gophercloud/gophercloud/pull/2358)
+* Added `placement/v1/resourceproviders.Update` [GH-2359](https://github.com/gophercloud/gophercloud/pull/2359)
+* Added `networking/v2/extensions/bgp/peers.List` [GH-2241](https://github.com/gophercloud/gophercloud/pull/2241)
+* Added `networking/v2/extensions/bgp/peers.Get` [GH-2241](https://github.com/gophercloud/gophercloud/pull/2241)
+* Added `networking/v2/extensions/bgp/peers.Create` [GH-2388](https://github.com/gophercloud/gophercloud/pull/2388)
+* Added `networking/v2/extensions/bgp/peers.Delete` [GH-2388](https://github.com/gophercloud/gophercloud/pull/2388)
+* Added `networking/v2/extensions/bgp/peers.Update` [GH-2396](https://github.com/gophercloud/gophercloud/pull/2396)
+* Added `networking/v2/extensions/bgp/speakers.Create` [GH-2395](https://github.com/gophercloud/gophercloud/pull/2395)
+* Added `networking/v2/extensions/bgp/speakers.Delete` [GH-2395](https://github.com/gophercloud/gophercloud/pull/2395)
+* Added `networking/v2/extensions/bgp/speakers.Update` [GH-2400](https://github.com/gophercloud/gophercloud/pull/2400)
+* Added `networking/v2/extensions/bgp/speakers.AddBGPPeer` [GH-2400](https://github.com/gophercloud/gophercloud/pull/2400)
+* Added `networking/v2/extensions/bgp/speakers.RemoveBGPPeer` [GH-2400](https://github.com/gophercloud/gophercloud/pull/2400)
+* Added `networking/v2/extensions/bgp/speakers.GetAdvertisedRoutes` [GH-2406](https://github.com/gophercloud/gophercloud/pull/2406)
+* Added `networking/v2/extensions/bgp/speakers.AddGatewayNetwork` [GH-2406](https://github.com/gophercloud/gophercloud/pull/2406)
+* Added `networking/v2/extensions/bgp/speakers.RemoveGatewayNetwork` [GH-2406](https://github.com/gophercloud/gophercloud/pull/2406)
+* Added `baremetal/v1/nodes.SetMaintenance` and `baremetal/v1/nodes.UnsetMaintenance` [GH-2384](https://github.com/gophercloud/gophercloud/pull/2384)
+* Added `sharedfilesystems/v2/services.List` [GH-2350](https://github.com/gophercloud/gophercloud/pull/2350)
+* Added `sharedfilesystems/v2/schedulerstats.List` [GH-2350](https://github.com/gophercloud/gophercloud/pull/2350)
+* Added `sharedfilesystems/v2/schedulerstats.ListDetail` [GH-2350](https://github.com/gophercloud/gophercloud/pull/2350)
+* Added ability to handle 502 and 504 errors [GH-2245](https://github.com/gophercloud/gophercloud/pull/2245)
+* Added `IncludeSubtree` to `identity/v3/roles.ListAssignments` [GH-2411](https://github.com/gophercloud/gophercloud/pull/2411)
+
+## 0.24.0 (December 13, 2021)
+
+UPGRADE NOTES
+
+* Set Go minimum version to 1.14 [GH-2294](https://github.com/gophercloud/gophercloud/pull/2294)
+
+IMPROVEMENTS
+
+* Added `blockstorage/v3/qos.Get` [GH-2283](https://github.com/gophercloud/gophercloud/pull/2283)
+* Added `blockstorage/v3/qos.Update` [GH-2283](https://github.com/gophercloud/gophercloud/pull/2283)
+* Added `blockstorage/v3/qos.DeleteKeys` [GH-2283](https://github.com/gophercloud/gophercloud/pull/2283)
+* Added `blockstorage/v3/qos.Associate` [GH-2284](https://github.com/gophercloud/gophercloud/pull/2284)
+* Added `blockstorage/v3/qos.Disassociate` [GH-2284](https://github.com/gophercloud/gophercloud/pull/2284)
+* Added `blockstorage/v3/qos.DisassociateAll` [GH-2284](https://github.com/gophercloud/gophercloud/pull/2284)
+* Added `blockstorage/v3/qos.ListAssociations` [GH-2284](https://github.com/gophercloud/gophercloud/pull/2284)
+
+## 0.23.0 (November 12, 2021)
+
+IMPROVEMENTS
+
+* Added `networking/v2/extensions/agents.ListBGPSpeakers` [GH-2229](https://github.com/gophercloud/gophercloud/pull/2229)
+* Added `networking/v2/extensions/bgp/speakers.BGPSpeaker` [GH-2229](https://github.com/gophercloud/gophercloud/pull/2229)
+* Added `identity/v3/roles.Project.Domain` [GH-2235](https://github.com/gophercloud/gophercloud/pull/2235)
+* Added `identity/v3/roles.User.Domain` [GH-2235](https://github.com/gophercloud/gophercloud/pull/2235)
+* Added `identity/v3/roles.Group.Domain` [GH-2235](https://github.com/gophercloud/gophercloud/pull/2235)
+* Added `loadbalancer/v2/pools.CreateOpts.Tags` [GH-2237](https://github.com/gophercloud/gophercloud/pull/2237)
+* Added `loadbalancer/v2/pools.UpdateOpts.Tags` [GH-2237](https://github.com/gophercloud/gophercloud/pull/2237)
+* Added `loadbalancer/v2/pools.Pool.Tags` [GH-2237](https://github.com/gophercloud/gophercloud/pull/2237)
+* Added `networking/v2/extensions/bgp/speakers.List` [GH-2238](https://github.com/gophercloud/gophercloud/pull/2238)
+* Added `networking/v2/extensions/bgp/speakers.Get` [GH-2238](https://github.com/gophercloud/gophercloud/pull/2238)
+* Added `compute/v2/extensions/keypairs.CreateOpts.Type` [GH-2231](https://github.com/gophercloud/gophercloud/pull/2231)
+* When doing Keystone re-authentification, keep the error if it failed [GH-2259](https://github.com/gophercloud/gophercloud/pull/2259)
+* Added new loadbalancer pool monitor types (TLS-HELLO, UDP-CONNECT and SCTP) [GH-2237](https://github.com/gophercloud/gophercloud/pull/2261)
 
 ## 0.22.0 (October 7, 2021)
 
@@ -56,7 +185,7 @@ IMPROVEMENTS
 NOTES / BREAKING CHANGES
 
 * `compute/v2/extensions/keypairs.List` now takes a `ListOptsBuilder` argument [GH-2186](https://github.com/gophercloud/gophercloud/pull/2186)
-* `compute/v2/extensions/keypairs.Get` now takes a `GetOptsBuilder` argument [GH-2186](https://github.com/gophercloud/gophercloud/pull/2186) 
+* `compute/v2/extensions/keypairs.Get` now takes a `GetOptsBuilder` argument [GH-2186](https://github.com/gophercloud/gophercloud/pull/2186)
 * `compute/v2/extensions/keypairs.Delete` now takes a `DeleteOptsBuilder` argument [GH-2186](https://github.com/gophercloud/gophercloud/pull/2186)
 * `compute/v2/extensions/hypervisors.List` now takes a `ListOptsBuilder` argument [GH-2187](https://github.com/gophercloud/gophercloud/pull/2187)
 
@@ -351,7 +480,7 @@ UPGRADE NOTES
 * The various `IDFromName` convenience functions have been moved to https://github.com/gophercloud/utils [GH-1897](https://github.com/gophercloud/gophercloud/pull/1897)
 * `sharedfilesystems/v2/shares.GetExportLocations` was renamed to `sharedfilesystems/v2/shares.ListExportLocations` [GH-1932](https://github.com/gophercloud/gophercloud/pull/1932)
 
-IMPROVEMENTS 
+IMPROVEMENTS
 
 * Added `blockstorage/extensions/volumeactions.SetBootable` [GH-1891](https://github.com/gophercloud/gophercloud/pull/1891)
 * Added `blockstorage/extensions/backups.Export` [GH-1894](https://github.com/gophercloud/gophercloud/pull/1894)
@@ -647,4 +776,4 @@ BUG FIXES
 
 ## 0.1.0 (May 27, 2019)
 
-Initial tagged release. 
+Initial tagged release.

@@ -78,8 +78,8 @@ github.com/google/gofuzz
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
-# github.com/gophercloud/gophercloud v0.22.0
-## explicit; go 1.13
+# github.com/gophercloud/gophercloud v1.2.0
+## explicit; go 1.14
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic
 github.com/gophercloud/gophercloud/openstack/baremetal/noauth

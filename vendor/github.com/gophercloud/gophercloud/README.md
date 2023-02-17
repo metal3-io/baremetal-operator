@@ -11,29 +11,17 @@ Gophercloud is an OpenStack Go SDK.
 
 ## How to install
 
-Before installing, you need to ensure that your [GOPATH environment variable](https://golang.org/doc/code.html#GOPATH)
-is pointing to an appropriate directory where you want to install Gophercloud:
+Reference a Gophercloud package in your code:
 
-```bash
-mkdir $HOME/go
-export GOPATH=$HOME/go
+```Go
+import "github.com/gophercloud/gophercloud"
 ```
 
-To protect yourself against changes in your dependencies, we highly recommend choosing a
-[dependency management solution](https://github.com/golang/go/wiki/PackageManagementTools) for
-your projects, such as [godep](https://github.com/tools/godep). Once this is set up, you can install
-Gophercloud as a dependency like so:
+Then update your `go.mod`:
 
-```bash
-go get github.com/gophercloud/gophercloud
-
-# Edit your code to import relevant packages from "github.com/gophercloud/gophercloud"
-
-godep save ./...
+```shell
+go mod tidy
 ```
-
-This will install all the source files you need into a `Godeps/_workspace` directory, which is
-referenceable from your own source files when you use the `godep go` command.
 
 ## Getting started
 
@@ -138,7 +126,9 @@ Have a look at the [FAQ](./docs/FAQ.md) for some tips on customizing the way Gop
 
 ## Backwards-Compatibility Guarantees
 
-None. Vendor it and write tests covering the parts you use.
+Gophercloud versioning follows [semver](https://semver.org/spec/v2.0.0.html).
+
+Before `v1.0.0`, there were no guarantees. Starting with v1, there will be no breaking changes within a major release.
 
 ## Contributing
 
@@ -148,19 +138,3 @@ See the [contributing guide](./.github/CONTRIBUTING.md).
 
 If you're struggling with something or have spotted a potential bug, feel free
 to submit an issue to our [bug tracker](https://github.com/gophercloud/gophercloud/issues).
-
-## Thank You
-
-We'd like to extend special thanks and appreciation to the following:
-
-### OpenLab
-
-<a href="http://openlabtesting.org/"><img src="./docs/assets/openlab.png" width="600px"></a>
-
-OpenLab is providing a full CI environment to test each PR and merge for a variety of OpenStack releases.
-
-### VEXXHOST
-
-<a href="https://vexxhost.com/"><img src="./docs/assets/vexxhost.png" width="600px"></a>
-
-VEXXHOST is providing their services to assist with the development and testing of Gophercloud.

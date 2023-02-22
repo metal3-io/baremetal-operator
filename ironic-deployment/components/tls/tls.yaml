@@ -25,9 +25,6 @@ spec:
         - name: cert-ironic-inspector-ca
           mountPath: "/certs/ca/ironic-inspector"
           readOnly: true
-        - name: cert-mariadb-ca
-          mountPath: "/certs/ca/mariadb"
-          readOnly: true
       - name: ironic-httpd
         livenessProbe:
          exec:
@@ -72,14 +69,6 @@ spec:
         - name: cert-ironic-inspector-ca
           mountPath: "/certs/ca/ironic-inspector"
           readOnly: true
-      - name: mariadb
-        volumeMounts:
-        - name: cert-mariadb
-          mountPath: "/certs/mariadb"
-          readOnly: true
-        - name: cert-mariadb-ca
-          mountPath: "/certs/ca/mariadb"
-          readOnly: true
       volumes:
       - name: cert-ironic-ca
         secret:
@@ -93,9 +82,3 @@ spec:
       - name: cert-ironic-inspector
         secret:
           secretName: ironic-inspector-cert
-      - name: cert-mariadb
-        secret:
-          secretName: mariadb-cert
-      - name: cert-mariadb-ca
-        secret:
-          secretName: ironic-cacert

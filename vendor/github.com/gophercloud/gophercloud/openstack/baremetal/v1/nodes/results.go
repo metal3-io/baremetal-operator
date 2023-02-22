@@ -1,6 +1,8 @@
 package nodes
 
 import (
+	"time"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/pagination"
 )
@@ -234,6 +236,15 @@ type Node struct {
 
 	// Static network configuration to use during deployment and cleaning.
 	NetworkData map[string]interface{} `json:"network_data"`
+
+	// The UTC date and time when the resource was created, ISO 8601 format.
+	CreatedAt time.Time `json:"created_at"`
+
+	// The UTC date and time when the resource was updated, ISO 8601 format. May be “null”.
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// The UTC date and time when the provision state was updated, ISO 8601 format. May be “null”.
+	ProvisionUpdatedAt time.Time `json:"provision_updated_at"`
 }
 
 // NodePage abstracts the raw results of making a List() request against
@@ -373,8 +384,8 @@ type DriverValidation struct {
 	Reason string `json:"reason"`
 }
 
-//  Ironic validates whether the Node’s driver has enough information to manage the Node. This polls each interface on
-//  the driver, and returns the status of that interface as an DriverValidation struct.
+// Ironic validates whether the Node’s driver has enough information to manage the Node. This polls each interface on
+// the driver, and returns the status of that interface as an DriverValidation struct.
 type NodeValidation struct {
 	BIOS       DriverValidation `json:"bios"`
 	Boot       DriverValidation `json:"boot"`
@@ -500,4 +511,10 @@ type SubscriptionVendorPassthru struct {
 	Destination string   `json:"Destination"`
 	EventTypes  []string `json:"EventTypes"`
 	Protocol    string   `json:"Protocol"`
+}
+
+// SetMaintenanceResult is the response from a SetMaintenance operation. Call its ExtractErr
+// method to determine if the call succeeded or failed.
+type SetMaintenanceResult struct {
+	gophercloud.ErrResult
 }

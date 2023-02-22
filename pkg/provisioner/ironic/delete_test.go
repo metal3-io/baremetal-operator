@@ -93,7 +93,7 @@ func deleteTest(t *testing.T, detach bool) {
 			hostName: "worker-0",
 			ironic:   testserver.NewIronic(t).Ready().NodeError(nodeUUID, http.StatusGatewayTimeout),
 
-			expectedError: "failed to find node by ID 33ce8659-7400-4c68-9535-d10766f07a58: Expected HTTP response code \\[200\\].*",
+			expectedError: "failed to find node by ID 33ce8659-7400-4c68-9535-d10766f07a58: Gateway Timeout.*",
 		},
 		{
 			name:   "not-ironic-node",
@@ -137,7 +137,7 @@ func deleteTest(t *testing.T, detach bool) {
 					ProvisionState: "active",
 					Maintenance:    false,
 				},
-			).NodeUpdateError(nodeUUID, http.StatusInternalServerError),
+			).NodeMaintenanceError(nodeUUID, http.StatusInternalServerError),
 
 			expectedError: "failed to set host maintenance flag",
 		},
@@ -149,7 +149,7 @@ func deleteTest(t *testing.T, detach bool) {
 					ProvisionState: "active",
 					Maintenance:    false,
 				},
-			).NodeUpdateError(nodeUUID, http.StatusConflict),
+			).NodeMaintenanceError(nodeUUID, http.StatusConflict),
 
 			expectedDirty:        true,
 			expectedRequestAfter: provisionRequeueDelay,
@@ -162,16 +162,11 @@ func deleteTest(t *testing.T, detach bool) {
 					ProvisionState: "active",
 					Maintenance:    false,
 				},
-			).NodeUpdate(nodes.Node{
+			).NodeMaintenance(nodes.Node{
 				UUID: nodeUUID,
-			}),
+			}, true),
 			expectedDirty:        true,
 			expectedRequestAfter: 0,
-			expectedUpdate: &nodes.UpdateOperation{
-				Op:    nodes.AddOp,
-				Path:  "/maintenance",
-				Value: true,
-			},
 		},
 	}
 

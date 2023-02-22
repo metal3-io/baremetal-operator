@@ -574,7 +574,7 @@ It is possible to prevent management of a BareMetalHost object by adding
 an annotation `baremetalhost.metal3.io/detached`. This removes the host from
 the provisioner, which prevents any management of the physical host (e.g
 changing power state, or deprovisioning), but still allows the BMH status
-to be updated unlike the `paused` anotation. While in this state the
+to be updated unlike the `paused` annotation. While in this state the
 OperationalStatus field will be `detached` but the provisioning state will
 be unmodified.  This API only has any effect for BareMetalHost resources
 that are in either `Provisioned`, `ExternallyProvisioned` or `Ready`/`Available`

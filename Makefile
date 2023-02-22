@@ -164,7 +164,7 @@ set-manifest-image-ironic: $(KUSTOMIZE) manifests
 .PHONY: set-manifest-image-mariadb
 set-manifest-image-mariadb: $(KUSTOMIZE) manifests
 	$(info Updating container image for Mariadb to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd ironic-deployment/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/mariadb=${MANIFEST_IMG}:${MANIFEST_TAG}
+	cd ironic-deployment/components/mariadb && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/mariadb=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: set-manifest-image-keepalived
 set-manifest-image-keepalived: $(KUSTOMIZE) manifests

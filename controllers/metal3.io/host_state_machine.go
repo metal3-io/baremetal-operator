@@ -517,6 +517,8 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
 			if hsm.Host.Status.ErrorCount > 3 {
+				info.log.Info("Giving up on host clean up after 3 attempts. The host may still be operational " +
+					"and cause issues in your clusters. You should clean it up manually now.")
 				return skipToDelete()
 			}
 		case actionError:

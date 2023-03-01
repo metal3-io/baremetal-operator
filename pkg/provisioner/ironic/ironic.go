@@ -1660,27 +1660,30 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 		)
 
 	case nodes.CleanFail:
-		p.log.Info("cleaning failed")
+		if !force {
+			p.log.Info("cleaning failed", "lastError", ironicNode.LastError)
+			return operationFailed(fmt.Sprintf("Cleaning failed: %s", ironicNode.LastError))
+		}
+		p.log.Info("retrying cleaning")
 		if ironicNode.Maintenance {
-			p.log.Info("clearing maintenance flag")
+			p.log.Info("clearing maintenance flag", "maintenanceReason", ironicNode.MaintenanceReason)
 			return p.setMaintenanceFlag(ironicNode, false, "")
 		}
-		// This will return us to the manageable state without completing
-		// cleaning. Because cleaning happens in the process of moving from
-		// manageable to available, the node will still get cleaned before
-		// we provision it again.
+		// Move to manageable for retrying.
 		return p.changeNodeProvisionState(
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 
 	case nodes.Manageable:
-		// We end up here after CleanFail. Because cleaning happens in the
-		// process of moving from manageable to available, the node will still
-		// get cleaned before we provision it again. Therefore, just declare
-		// deprovisioning complete.
-		p.log.Info("deprovisioning node is in manageable state")
-		return operationComplete()
+		// We end up here after CleanFail, retry cleaning. If a user
+		// wants to delete a host without cleaning, they can always set
+		// automatedCleaningMode: disabled.
+		p.log.Info("deprovisioning node is in manageable state", "automatedClean", ironicNode.AutomatedClean)
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetProvide},
+		)
 
 	case nodes.Available:
 		p.publisher("DeprovisioningComplete", "Image deprovisioning completed")
@@ -1706,7 +1709,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 		return operationContinuing(deprovisionRequeueDelay)
 
 	case nodes.Active, nodes.DeployFail, nodes.DeployWait:
-		p.log.Info("starting deprovisioning")
+		p.log.Info("starting deprovisioning", "automatedClean", ironicNode.AutomatedClean)
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(
 			ironicNode,

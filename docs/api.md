@@ -271,6 +271,15 @@ An interface to enable/disable automated cleaning during provisioning
 and deprovisioning. When set to `disabled`, automated cleaning will be
 skipped, where `metadata`(default value) enables it.
 
+#### customDeploy
+
+An advanced alternative to using [image](#image). Set the subfield `method`
+to the name of a custom deploy step that is provided by your deployment
+ramdisk. Most users will want to use [image](#image) instead.
+
+NOTE: setting either `customDeploy.method` or `image.url` triggers provisioning
+of the host.
+
 ### BareMetalHost status
 
 Moving onto the next block, the *BareMetalHost's* *status* which represents
@@ -842,3 +851,47 @@ As you probably already noticed, the *Spec* of HardwareData is the same as [.Sta
 of the BareMetalHost. However, this behaviour is temporary and eventually we will drop
 [.Status.hardware](#hardware) from BareMetalHost and only rely on HardwareData *Spec*. The reason
 for having duplication of inspection data at the  moment is to avoid breaking the existing deployments.
+
+## PreprovisioningImage
+
+A **PreprovisioningImage** resource is automatically created by baremetal-operator for each BareMetalHost
+to ensure creation of a *preprovisioning image* for it. In this context, a preprovisioning image
+is an ISO or initramfs file that contains the [Ironic agent](https://docs.openstack.org/ironic-python-agent/).
+The relevant parts of BareMetalHost are copied to the PreprovisioningImage *Spec*,
+the resulting image is expected to appear in the *Status*.
+
+The baremetal-operator project contains a simple controller for PreprovisioningImages
+that uses images provided in the environment variables `DEPLOY_ISO_URL` and `DEPLOY_RAMDISK_URL`.
+More sophisticated controllers may be written downstream (for example, the OpenShift
+[image-customization-controller](https://github.com/openshift/image-customization-controller)).
+
+### PreprovisioningImage spec
+
+The PreprovisioningImage's spec provides input for the image building process.
+
+* `acceptFormats`: a list of accepted image formats: `iso` or `initrd`.
+
+* `architecture`: the CPU architecture to build the image for, e.g. `x86_64`.
+  The default PreprovisioningImage controller does not use this field.
+
+* `networkData`: the name of a *Secret* with the network configuration for the image.
+  The default PreprovisioningImage controller does not use this field.
+
+### PreprovisioningImage status
+
+The PreprovisioningImage's status provides information about the resulting image.
+
+* `architecture`: the CPU architecture of the image, e.g. `x86_64`.
+
+* `extraKernelParams`: additional kernel parameters that baremetal-operator will add to the node
+  when PXE booting the initramfs image. Has no meaning for ISO images.
+
+* `format`: format of the image: `iso` or `initrd`. Must be one of the formats provided in `acceptFormats`.
+
+* `imageUrl`: the URL of the resulting image.
+
+* `kernelUrl`: the URL of the kernel to use together with the initramfs image. If not provided,
+  baremetal-operator uses the default kernel image from the environment variables.
+  Has no meaning for ISO images.
+
+* `networkData`: the name of a *Secret* with the network configuration of the image.

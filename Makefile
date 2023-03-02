@@ -187,7 +187,7 @@ generate: $(CONTROLLER_GEN) ## Generate code
 
 .PHONY: docker
 docker: generate manifests ## Build the docker image
-	docker build . -t ${IMG}
+	docker build . -t ${IMG} --build-arg http_proxy=$(http_proxy) --build-arg https_proxy=$(https_proxy)
 
 # Push the docker image
 .PHONY: docker-push

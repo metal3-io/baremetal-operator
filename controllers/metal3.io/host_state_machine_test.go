@@ -1075,6 +1075,60 @@ func TestErrorClean(t *testing.T) {
 	}
 }
 
+func TestDeleteWaitsForFinalizers(t *testing.T) {
+	tests := []struct {
+		Scenario      string
+		Host          *metal3v1alpha1.BareMetalHost
+		ExpectedState metal3v1alpha1.ProvisioningState
+	}{
+		{
+			Scenario: "provisioning-2-finalizers",
+			Host: host(metal3v1alpha1.StateProvisioning).
+				setDeletion().
+				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer, "other-finalizer"}).
+				build(),
+			ExpectedState: metal3v1alpha1.StateProvisioned,
+		},
+		{
+			Scenario: "provisioned-2-finalizers",
+			Host: host(metal3v1alpha1.StateProvisioned).
+				setDeletion().
+				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer, "other-finalizer"}).
+				build(),
+			ExpectedState: metal3v1alpha1.StateProvisioned,
+		},
+		{
+			Scenario: "provisioning-1-finalizer",
+			Host: host(metal3v1alpha1.StateProvisioning).
+				setDeletion().
+				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer}).
+				build(),
+			ExpectedState: metal3v1alpha1.StateDeprovisioning,
+		},
+		{
+			Scenario: "provisioned-1-finalizer",
+			Host: host(metal3v1alpha1.StateProvisioned).
+				setDeletion().
+				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer}).
+				build(),
+			ExpectedState: metal3v1alpha1.StateDeprovisioning,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.Scenario, func(t *testing.T) {
+			prov := newMockProvisioner()
+			hsm := newHostStateMachine(tt.Host, &BareMetalHostReconciler{
+				Client: fakeclient.NewFakeClient(),
+			}, prov, true)
+
+			info := makeDefaultReconcileInfo(tt.Host)
+			hsm.ReconcileState(info)
+
+			assert.Equal(t, tt.ExpectedState, tt.Host.Status.Provisioning.State)
+		})
+	}
+}
+
 type hostBuilder struct {
 	metal3v1alpha1.BareMetalHost
 }
@@ -1191,6 +1245,11 @@ func (hb *hostBuilder) DisableInspection() *hostBuilder {
 func (hb *hostBuilder) setDeletion() *hostBuilder {
 	date := metav1.Date(2021, time.January, 18, 10, 18, 0, 0, time.UTC)
 	hb.DeletionTimestamp = &date
+	return hb
+}
+
+func (hb *hostBuilder) setFinalizers(finalizers []string) *hostBuilder {
+	hb.Finalizers = finalizers
 	return hb
 }
 

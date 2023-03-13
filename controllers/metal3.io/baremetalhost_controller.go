@@ -1715,6 +1715,37 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 		MaxConcurrentReconciles: maxConcurrentReconciles,
 	}
 
+	maxConcurrentReconciles := 0
+	if options.MaxConcurrentReconciles > 0 {
+		maxConcurrentReconciles = options.MaxConcurrentReconciles
+	} else {
+		maxConcurrentReconciles = runtime.NumCPU()
+
+		if maxConcurrentReconciles > 8 {
+			maxConcurrentReconciles = 8
+		}
+		if maxConcurrentReconciles < 2 {
+			maxConcurrentReconciles = 2
+		}
+		if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
+			mcr, err := strconv.Atoi(mcrEnv)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
+			}
+			if mcr > 0 {
+				ctrl.Log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
+				maxConcurrentReconciles = mcr
+			} else {
+				ctrl.Log.Info(fmt.Sprintf("Invalid BMO_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+			}
+		} else {
+			ctrl.Log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+		}
+	}
+	opts := controller.Options{
+		MaxConcurrentReconciles: maxConcurrentReconciles,
+	}
+
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&metal3v1alpha1.BareMetalHost{}).
 		WithEventFilter(

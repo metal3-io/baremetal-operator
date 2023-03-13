@@ -35,15 +35,12 @@ client certificate authentication (mTLS) to be enabled.
 `IRONIC_SKIP_CLIENT_SAN_VERIFY` -- ("True", "False") Whether to skip the ironic
 client certificate SAN validation.
 
-`BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
-Operator. Default is the number of CPUs, but no less than 2 and no more than 8.
-
 `PROVISIONING_LIMIT` -- The desired maximum number of hosts that could be (de)provisioned
 simultaneously by the Operator. The limit does not apply to hosts that use
 virtual media for provisioning. The Operator will try to enforce this limit,
 but overflows could happen in case of slow provisioners and / or higher number of
 concurrent reconciles. For such reasons, it is highly recommended to keep
-BMO_CONCURRENCY value lower than the requested PROVISIONING_LIMIT. Default is 20.
+the controller concurrency value lower than the requested PROVISIONING_LIMIT. Default is 20.
 
 `IRONIC_EXTERNAL_URL_V6` -- This is the URL where Ironic will find the image for
 nodes that use IPv6. In dual stack environments, this can be used to tell Ironic which IP

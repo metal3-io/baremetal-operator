@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -95,6 +96,10 @@ func main() {
 	var runInTestMode bool
 	var runInDemoMode bool
 	var webhookPort int
+	var baremetalhostConcurrency int
+	var preprovisioningimageConcurrency int
+	var hostfirmwaresettingsConcurrency int
+	var bmceventsubscriptionConcurrency int
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -116,6 +121,15 @@ func main() {
 		"The address the health endpoint binds to.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443,
 		"Webhook Server port (set to 0 to disable)")
+	flag.IntVar(&baremetalhostConcurrency, "baremetalhost-concurrency", 10,
+		"Number of baremetalhosts to process simultaneously")
+	flag.IntVar(&preprovisioningimageConcurrency, "preprovisioningimage-concurrency", 10,
+		"Number of preprovisioningimages to process simultaneously")
+	flag.IntVar(&hostfirmwaresettingsConcurrency, "hostfirmwaresettings-concurrency", 10,
+		"Number of hostfirmwaresettings to process simultaneously")
+	flag.IntVar(&bmceventsubscriptionConcurrency, "bmceventsubscription-concurrency", 10,
+		"Number of bmceventsubscriptions to process simultaneously")
+
 	opts := zap.Options{
 		Development: devLogging,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -170,7 +184,7 @@ func main() {
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 		ProvisionerFactory: provisionerFactory,
 		APIReader:          mgr.GetAPIReader(),
-	}).SetupWithManager(mgr, preprovImgEnable); err != nil {
+	}).SetupWithManager(mgr, preprovImgEnable, concurrency(baremetalhostConcurrency)); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)
 	}
@@ -184,7 +198,7 @@ func main() {
 			ImageProvider: imageprovider.NewDefaultImageProvider(),
 		}
 		if imgReconciler.CanStart() {
-			if err = (&imgReconciler).SetupWithManager(mgr); err != nil {
+			if err = (&imgReconciler).SetupWithManager(mgr, concurrency(preprovisioningimageConcurrency)); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "PreprovisioningImage")
 				os.Exit(1)
 			}
@@ -196,7 +210,7 @@ func main() {
 		Client:             mgr.GetClient(),
 		Log:                ctrl.Log.WithName("controllers").WithName("HostFirmwareSettings"),
 		ProvisionerFactory: provisionerFactory,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, concurrency(hostfirmwaresettingsConcurrency)); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HostFirmwareSettings")
 		os.Exit(1)
 	}
@@ -205,7 +219,7 @@ func main() {
 		Client:             mgr.GetClient(),
 		Log:                ctrl.Log.WithName("controllers").WithName("BMCEventSubscription"),
 		ProvisionerFactory: provisionerFactory,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, concurrency(bmceventsubscriptionConcurrency)); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BMCEventSubscription")
 		os.Exit(1)
 	}
@@ -221,4 +235,8 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func concurrency(c int) controller.Options {
+	return controller.Options{MaxConcurrentReconciles: c}
 }

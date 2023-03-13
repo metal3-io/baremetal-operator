@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
@@ -350,9 +351,10 @@ func (r *PreprovisioningImageReconciler) CanStart() bool {
 	return false
 }
 
-func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3.PreprovisioningImage{}).
+		WithOptions(options).
 		Owns(&corev1.Secret{}).
 		Complete(r)
 }

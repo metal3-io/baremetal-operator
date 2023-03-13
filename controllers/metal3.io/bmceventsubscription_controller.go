@@ -30,6 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -290,9 +291,10 @@ func (r *BMCEventSubscriptionReconciler) updateEventHandler(e event.UpdateEvent)
 }
 
 // SetupWithManager registers the reconciler to be run by the manager
-func (r *BMCEventSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BMCEventSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3v1alpha1.BMCEventSubscription{}).
+		WithOptions(options).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: r.updateEventHandler,
 		}).

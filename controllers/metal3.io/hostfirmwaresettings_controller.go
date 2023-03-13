@@ -126,6 +126,11 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 	}
 
+	if hasDetachedAnnotation(bmh) {
+		reqLogger.Info("the host is detached, not running reconciler")
+		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
+	}
+
 	// Fetch the HostFirmwareSettings
 	hfs := &metal3v1alpha1.HostFirmwareSettings{}
 	info := &rInfo{log: reqLogger, hfs: hfs, bmh: bmh}

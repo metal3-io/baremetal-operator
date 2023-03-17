@@ -750,11 +750,21 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 	return
 }
 
+func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+	// Set started to let the controller know about the change
+	p.log.Info("aborting inspection to force reboot of preprovisioning image")
+	started, result, err = p.tryChangeNodeProvisionState(
+		ironicNode,
+		nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+	)
+	return
+}
+
 // InspectHardware updates the HardwareDetails field of the host with
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware")
 
 	ironicNode, err := p.getNode()
@@ -764,6 +774,12 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 	}
 
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
+	if status != nil && strings.Contains(status.Error, "Canceled") {
+		// Inspection gets canceled when we detect a new preprovisioning image, not need to report an error, just restart.
+		refresh = true
+		restartOnFailure = true
+	}
+
 	if err != nil || refresh {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound || refresh {
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {
@@ -773,12 +789,18 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 				)
 				return
-			case nodes.Inspecting, nodes.InspectWait:
+			case nodes.InspectWait:
+				if forceReboot {
+					return p.abortInspection(ironicNode)
+				}
+
+				fallthrough
+			case nodes.Inspecting:
 				p.log.Info("inspection already started")
 				result, err = operationContinuing(introspectionRequeueDelay)
 				return
 			case nodes.InspectFail:
-				if !force {
+				if !restartOnFailure {
 					p.log.Info("starting inspection failed", "error", status.Error)
 					failure := ironicNode.LastError
 					if failure == "" {
@@ -818,6 +840,9 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 		p.log.Info("inspection failed", "error", status.Error)
 		result, err = operationFailed(status.Error)
 		return
+	}
+	if !status.Finished && forceReboot && nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait {
+		return p.abortInspection(ironicNode)
 	}
 	if !status.Finished || (nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Inspecting || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait) {
 		p.log.Info("inspection in progress", "started_at", status.StartedAt)

@@ -1321,7 +1321,7 @@ func (m *mockProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageF
 	return nil, nil
 }
 
-func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	details = &metal3v1alpha1.HardwareDetails{}
 	return m.getNextResultByMethod("InspectHardware"), true, details, err
 }

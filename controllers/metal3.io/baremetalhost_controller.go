@@ -909,12 +909,15 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	info.log.Info("inspecting hardware")
 
 	refresh := hasInspectAnnotation(info.host)
+	_, _, forceReboot := hasRebootAnnotation(info)
+
 	provResult, started, details, err := prov.InspectHardware(
 		provisioner.InspectData{
 			BootMode: info.host.Status.Provisioning.BootMode,
 		},
 		info.host.Status.ErrorType == metal3v1alpha1.InspectionError,
-		refresh)
+		refresh,
+		forceReboot)
 	if err != nil {
 		return actionError{errors.Wrap(err, "hardware inspection failed")}
 	}
@@ -923,13 +926,26 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		return recordActionFailure(info, metal3v1alpha1.InspectionError, provResult.ErrorMessage)
 	}
 
-	// Delete inspect annotation if exists
-	if started && hasInspectAnnotation(info.host) {
-		delete(info.host.Annotations, inspectAnnotationPrefix)
-		if err := r.Update(context.TODO(), info.host); err != nil {
-			return actionError{errors.Wrap(err, "failed to remove inspect annotation from host")}
+	if started {
+		dirty := false
+
+		// Delete inspect annotation if exists
+		if hasInspectAnnotation(info.host) {
+			delete(info.host.Annotations, inspectAnnotationPrefix)
+			dirty = true
 		}
-		return actionContinue{}
+
+		// Inspection is either freshly started or was aborted. Either way, remove the reboot annotation.
+		if clearRebootAnnotations(info.host) {
+			dirty = true
+		}
+
+		if dirty {
+			if err := r.Update(context.TODO(), info.host); err != nil {
+				return actionError{errors.Wrap(err, "failed to update the host after inspection start")}
+			}
+			return actionContinue{}
+		}
 	}
 
 	if provResult.Dirty || details == nil {

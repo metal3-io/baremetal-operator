@@ -126,6 +126,11 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 	}
 
+	if hasDetachedAnnotation(bmh) {
+		reqLogger.Info("the host is detached, not running reconciler")
+		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
+	}
+
 	// Fetch the HostFirmwareSettings
 	hfs := &metal3v1alpha1.HostFirmwareSettings{}
 	info := &rInfo{log: reqLogger, hfs: hfs, bmh: bmh}
@@ -147,7 +152,13 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 
 	ready, err := prov.IsReady()
 	if err != nil || !ready {
-		reqLogger.Info("provisioner is not ready", "RequeueAfter:", provisionerRetryDelay)
+		var msg string
+		if err == nil {
+			msg = "not ready"
+		} else {
+			msg = err.Error()
+		}
+		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
@@ -156,7 +167,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	// Get the current settings and schema, retry if provisioner returns error
 	currentSettings, schema, err := prov.GetFirmwareSettings(true)
 	if err != nil {
-		reqLogger.Info("provisioner returns error", "RequeueAfter:", provisionerRetryDelay)
+		reqLogger.Info("provisioner returns error", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 

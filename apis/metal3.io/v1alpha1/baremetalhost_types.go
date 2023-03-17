@@ -660,6 +660,18 @@ type RebootAnnotationArguments struct {
 	Mode RebootMode `json:"mode"`
 }
 
+type DetachedDeleteAction string
+
+const (
+	DetachedDeleteActionDelay  = "delay"
+	DetachedDeleteActionDelete = "delete"
+)
+
+type DetachedAnnotationArguments struct {
+	// DeleteAction indicates the desired delete logic when the detached annotation is present
+	DeleteAction DetachedDeleteAction `json:"deleteAction,omitempty"`
+}
+
 // Match compares the saved status information with the name and
 // content of a secret object.
 func (cs CredentialsStatus) Match(secret corev1.Secret) bool {

@@ -257,16 +257,22 @@ func hasDetachedAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
 
 func delayDeleteForDetachedHost(host *metal3v1alpha1.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
 	args := metal3v1alpha1.DetachedAnnotationArguments{}
-	if val, ok := annotations[metal3v1alpha1.DetachedAnnotation]; ok {
+	val, present := annotations[metal3v1alpha1.DetachedAnnotation]
+
+	// if the host is detached, but missing the annotation, also delay delete
+	// to allow for the host to be re-attached
+	if !present && host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
+		return true
+	}
+
+	if present {
 		if err := json.Unmarshal([]byte(val), &args); err != nil {
 			// default behavior if these are missing or not json is to not delay
 			return false
 		}
 	}
+
 	return args.DeleteAction == metal3v1alpha1.DetachedDeleteActionDelay
 }
 

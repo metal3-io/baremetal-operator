@@ -223,6 +223,10 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeleting
 	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateProvisioned:
+		if len(hsm.Host.Finalizers) > 1 {
+			// Allow other finalizers to run before changing state
+			return false
+		}
 		if hsm.Host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
 			hsm.NextState = metal3v1alpha1.StateDeleting
 		} else {

@@ -228,6 +228,7 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		if hsm.Host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
 			if delayDeleteForDetachedHost(hsm.Host) {
 				log.Info("Delaying detached host deletion")
+				deleteDelayedForDetached.Inc()
 				return false
 			}
 			hsm.NextState = metal3v1alpha1.StateDeleting

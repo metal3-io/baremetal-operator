@@ -123,6 +123,11 @@ var provisionerNotReady = prometheus.NewCounter(prometheus.CounterOpts{
 	Help: "Number of times a host is not provision ready",
 })
 
+var deleteDelayedForDetached = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_delete_delayed_for_detached_total",
+	Help: "Number of times a host delete action was delayed due to the detached annotation",
+})
+
 func init() {
 	metrics.Registry.MustRegister(
 		reconcileCounters,
@@ -149,7 +154,8 @@ func init() {
 		hostRegistrationRequired,
 		hostUnmanaged,
 		deleteWithoutDeprov,
-		provisionerNotReady)
+		provisionerNotReady,
+		deleteDelayedForDetached)
 }
 
 func hostMetricLabels(request ctrl.Request) prometheus.Labels {

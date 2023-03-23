@@ -1338,7 +1338,7 @@ func (m *mockProvisioner) Adopt(data provisioner.AdoptData, force bool) (result 
 	return m.getNextResultByMethod("Adopt"), err
 }
 
-func (m *mockProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Provision"), err
 }
 

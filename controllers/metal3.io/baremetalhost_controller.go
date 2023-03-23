@@ -1146,12 +1146,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 				info.host.HardwareProfile()))}
 	}
 
-	if clearRebootAnnotations(info.host) {
-		if err := r.Update(context.TODO(), info.host); err != nil {
-			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
-		}
-		return actionContinue{}
-	}
+	_, _, forceReboot := hasRebootAnnotation(info)
 
 	var image metal3v1alpha1.Image
 	if info.host.Spec.Image != nil {
@@ -1165,7 +1160,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
-	})
+	}, forceReboot)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
 	}
@@ -1173,6 +1168,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	if provResult.ErrorMessage != "" {
 		info.log.Info("handling provisioning error in controller")
 		return recordActionFailure(info, metal3v1alpha1.ProvisioningError, provResult.ErrorMessage)
+	}
+
+	if clearRebootAnnotations(info.host) {
+		if err := r.Update(context.TODO(), info.host); err != nil {
+			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
+		}
+		return actionContinue{}
 	}
 
 	if provResult.Dirty {

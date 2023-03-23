@@ -83,7 +83,7 @@ func (m *hsfMockProvisioner) Adopt(data provisioner.AdoptData, force bool) (resu
 	return
 }
 
-func (m *hsfMockProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
 	return
 }
 

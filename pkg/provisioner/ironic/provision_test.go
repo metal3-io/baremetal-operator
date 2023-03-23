@@ -124,6 +124,17 @@ func TestProvision(t *testing.T) {
 			expectedDirty:        true,
 		},
 		{
+			name: "forceReboot: Deploy Wait",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployWait),
+				UUID:           nodeUUID,
+			}),
+			forceReboot:            true,
+			expectedRequestAfter:   10,
+			expectedDirty:          true,
+			expectedProvisionState: nodes.TargetDeleted,
+		},
+		{
 			name: "fault state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Manageable),
@@ -176,7 +187,7 @@ func TestProvision(t *testing.T) {
 				Image:      testImage,
 				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
 				BootMode:   v1alpha1.DefaultBootMode,
-			})
+			}, tc.forceReboot)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

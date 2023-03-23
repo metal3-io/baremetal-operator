@@ -1523,7 +1523,7 @@ func (p *ironicProvisioner) getCustomDeploySteps(customDeploy *metal3v1alpha1.Cu
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
-func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
@@ -1615,6 +1615,18 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 			fmt.Sprintf("Image provisioning completed for %s", data.Image.URL))
 		p.log.Info("finished provisioning")
 		return operationComplete()
+
+	case nodes.DeployWait:
+		if forceReboot {
+			p.log.Info("aborting provisioning to force reboot of preprovisioning image")
+			_, result, err = p.tryChangeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
+			)
+			return
+		}
+
+		fallthrough
 
 	default:
 		// wait states like cleaning and clean wait

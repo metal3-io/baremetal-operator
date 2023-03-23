@@ -227,7 +227,7 @@ func (p *demoProvisioner) Adopt(data provisioner.AdoptData, force bool) (result 
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
-func (p *demoProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
 	p.log.Info("provisioning image to host")

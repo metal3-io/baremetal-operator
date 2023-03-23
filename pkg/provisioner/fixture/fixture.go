@@ -212,7 +212,7 @@ func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, force bool) (resu
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
-func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
 	p.log.Info("provisioning image to host")
 
 	if data.CustomDeploy != nil && p.state.customDeploy == nil {

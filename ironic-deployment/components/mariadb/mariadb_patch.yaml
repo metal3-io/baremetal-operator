@@ -25,6 +25,9 @@ spec:
            timeoutSeconds: 10
            successThreshold: 1
            failureThreshold: 10
+          securityContext:
+            runAsGroup: 27
+            runAsUser: 27
           volumeMounts:
             - mountPath: /shared
               name: ironic-data-volume

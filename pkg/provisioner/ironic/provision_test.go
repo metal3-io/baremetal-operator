@@ -24,13 +24,21 @@ import (
 func TestProvision(t *testing.T) {
 
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+	testImage := v1alpha1.Image{
+		URL:          "http://test-image",
+		Checksum:     "abcd",
+		ChecksumType: v1alpha1.SHA256,
+	}
+
 	cases := []struct {
-		name                 string
-		ironic               *testserver.IronicMock
-		expectedDirty        bool
-		expectedError        bool
-		expectedErrorMessage bool
-		expectedRequestAfter int
+		name                   string
+		ironic                 *testserver.IronicMock
+		forceReboot            bool
+		expectedDirty          bool
+		expectedError          bool
+		expectedErrorMessage   string
+		expectedRequestAfter   int
+		expectedProvisionState nodes.TargetProvisionState
 	}{
 		{
 			name: "deployFail state",
@@ -38,9 +46,25 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
 			}),
+			expectedRequestAfter:   10,
+			expectedDirty:          true,
+			expectedProvisionState: nodes.TargetActive,
+		},
+		{
+			name: "deployFail state - same image",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+				InstanceInfo: map[string]interface{}{
+					"image_source":        testImage.URL,
+					"image_os_hash_algo":  string(testImage.ChecksumType),
+					"image_os_hash_value": testImage.Checksum,
+				},
+				LastError: "no work today",
+			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
-			expectedErrorMessage: true,
+			expectedErrorMessage: "Image provisioning failed: no work today",
 		},
 		{
 			name: "cleanFail state",
@@ -48,8 +72,9 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.CleanFail),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter:   10,
+			expectedDirty:          true,
+			expectedProvisionState: nodes.TargetManage,
 		},
 		{
 			name: "manageable state",
@@ -57,8 +82,9 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.Manageable),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedRequestAfter:   10,
+			expectedDirty:          true,
+			expectedProvisionState: nodes.TargetProvide,
 		},
 		{
 			name: "available state",
@@ -66,9 +92,9 @@ func TestProvision(t *testing.T) {
 				ProvisionState: string(nodes.Available),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 0,
-			expectedDirty:        false,
-			expectedErrorMessage: true,
+			expectedRequestAfter:   10,
+			expectedDirty:          true,
+			expectedProvisionState: nodes.TargetActive,
 		},
 		{
 			name: "active state",
@@ -83,6 +109,15 @@ func TestProvision(t *testing.T) {
 			name: "other state: Cleaning",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				ProvisionState: string(nodes.Cleaning),
+				UUID:           nodeUUID,
+			}),
+			expectedRequestAfter: 10,
+			expectedDirty:        true,
+		},
+		{
+			name: "other state: Deploy Wait",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployWait),
 				UUID:           nodeUUID,
 			}),
 			expectedRequestAfter: 10,
@@ -138,22 +173,22 @@ func TestProvision(t *testing.T) {
 			}
 
 			result, err := prov.Provision(provisioner.ProvisionData{
+				Image:      testImage,
 				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
 				BootMode:   v1alpha1.DefaultBootMode,
 			})
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
-			if !tc.expectedErrorMessage {
-				assert.Equal(t, "", result.ErrorMessage)
-			} else {
-				assert.NotEqual(t, "", result.ErrorMessage)
-			}
+			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage)
 			if !tc.expectedError {
 				assert.NoError(t, err)
 			} else {
 				assert.Error(t, err)
 			}
+
+			lastProvOp := tc.ironic.GetLastNodeStatesProvisionUpdateRequestFor(nodeUUID)
+			assert.Equal(t, tc.expectedProvisionState, lastProvOp.Target)
 		})
 	}
 }

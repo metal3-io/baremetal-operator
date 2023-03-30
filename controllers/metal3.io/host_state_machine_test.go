@@ -1075,43 +1075,59 @@ func TestErrorClean(t *testing.T) {
 	}
 }
 
-func TestDeleteWaitsForFinalizers(t *testing.T) {
+func TestDeleteWaitsForDetach(t *testing.T) {
 	tests := []struct {
-		Scenario      string
-		Host          *metal3v1alpha1.BareMetalHost
-		ExpectedState metal3v1alpha1.ProvisioningState
+		Scenario                  string
+		Host                      *metal3v1alpha1.BareMetalHost
+		ExpectedState             metal3v1alpha1.ProvisioningState
+		ExpectedOperationalStatus metal3v1alpha1.OperationalStatus
 	}{
 		{
-			Scenario: "provisioning-2-finalizers",
-			Host: host(metal3v1alpha1.StateProvisioning).
+			Scenario: "detached-delay",
+			Host: host(metal3v1alpha1.StateProvisioned).
+				SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached).
 				setDeletion().
-				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer, "other-finalizer"}).
+				setDetached("{\"deleteAction\": \"delay\"}").
 				build(),
-			ExpectedState: metal3v1alpha1.StateProvisioned,
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
 		},
 		{
-			Scenario: "provisioned-2-finalizers",
+			Scenario: "detached-delete",
+			Host: host(metal3v1alpha1.StateProvisioned).
+				SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached).
+				setDeletion().
+				setDetached("{\"deleteAction\": \"delete\"}").
+				build(),
+			ExpectedState:             metal3v1alpha1.StateDeleting,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
+		},
+		{
+			Scenario: "detached-not-json",
+			Host: host(metal3v1alpha1.StateProvisioned).
+				SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached).
+				setDeletion().
+				setDetached("true").
+				build(),
+			ExpectedState:             metal3v1alpha1.StateDeleting,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusDetached,
+		},
+		{
+			Scenario: "detached-no-annotation",
+			Host: host(metal3v1alpha1.StateProvisioned).
+				SetOperationalStatus(metal3v1alpha1.OperationalStatusDetached).
+				setDeletion().
+				build(),
+			ExpectedState:             metal3v1alpha1.StateProvisioned,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
+		},
+		{
+			Scenario: "attached",
 			Host: host(metal3v1alpha1.StateProvisioned).
 				setDeletion().
-				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer, "other-finalizer"}).
 				build(),
-			ExpectedState: metal3v1alpha1.StateProvisioned,
-		},
-		{
-			Scenario: "provisioning-1-finalizer",
-			Host: host(metal3v1alpha1.StateProvisioning).
-				setDeletion().
-				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer}).
-				build(),
-			ExpectedState: metal3v1alpha1.StateDeprovisioning,
-		},
-		{
-			Scenario: "provisioned-1-finalizer",
-			Host: host(metal3v1alpha1.StateProvisioned).
-				setDeletion().
-				setFinalizers([]string{metal3v1alpha1.BareMetalHostFinalizer}).
-				build(),
-			ExpectedState: metal3v1alpha1.StateDeprovisioning,
+			ExpectedState:             metal3v1alpha1.StateDeprovisioning,
+			ExpectedOperationalStatus: metal3v1alpha1.OperationalStatusOK,
 		},
 	}
 	for _, tt := range tests {
@@ -1125,6 +1141,7 @@ func TestDeleteWaitsForFinalizers(t *testing.T) {
 			hsm.ReconcileState(info)
 
 			assert.Equal(t, tt.ExpectedState, tt.Host.Status.Provisioning.State)
+			assert.Equal(t, tt.ExpectedOperationalStatus, tt.Host.Status.OperationalStatus)
 		})
 	}
 }
@@ -1248,8 +1265,11 @@ func (hb *hostBuilder) setDeletion() *hostBuilder {
 	return hb
 }
 
-func (hb *hostBuilder) setFinalizers(finalizers []string) *hostBuilder {
-	hb.Finalizers = finalizers
+func (hb *hostBuilder) setDetached(val string) *hostBuilder {
+	if hb.Annotations == nil {
+		hb.Annotations = make(map[string]string, 1)
+	}
+	hb.Annotations[metal3v1alpha1.DetachedAnnotation] = val
 	return hb
 }
 

@@ -373,7 +373,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 				Driver:              bmcAccess.Driver(),
 				BIOSInterface:       bmcAccess.BIOSInterface(),
 				BootInterface:       bmcAccess.BootInterface(),
-				Name:                p.objectMeta.Name,
+				Name:                ironicNodeName(p.objectMeta),
 				DriverInfo:          driverInfo,
 				DeployInterface:     p.deployInterface(data),
 				InspectInterface:    "inspector",

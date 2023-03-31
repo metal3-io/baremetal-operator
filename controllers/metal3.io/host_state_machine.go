@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -181,7 +183,7 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 		return delayedResult
 	}
 
-	if hsm.checkInitiateDelete() {
+	if hsm.checkInitiateDelete(info.log) {
 		info.log.Info("Initiating host deletion")
 		return actionComplete{}
 	}
@@ -213,7 +215,7 @@ func updateBootModeStatus(host *metal3v1alpha1.BareMetalHost) bool {
 	return true
 }
 
-func (hsm *hostStateMachine) checkInitiateDelete() bool {
+func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 	if hsm.Host.DeletionTimestamp.IsZero() {
 		// Delete not requested
 		return false
@@ -223,11 +225,12 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	default:
 		hsm.NextState = metal3v1alpha1.StateDeleting
 	case metal3v1alpha1.StateProvisioning, metal3v1alpha1.StateProvisioned:
-		if len(hsm.Host.Finalizers) > 1 {
-			// Allow other finalizers to run before changing state
-			return false
-		}
 		if hsm.Host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
+			if delayDeleteForDetachedHost(hsm.Host) {
+				log.Info("Delaying detached host deletion")
+				deleteDelayedForDetached.Inc()
+				return false
+			}
 			hsm.NextState = metal3v1alpha1.StateDeleting
 		} else {
 			hsm.NextState = metal3v1alpha1.StateDeprovisioning
@@ -251,6 +254,27 @@ func hasDetachedAnnotation(host *metal3v1alpha1.BareMetalHost) bool {
 		}
 	}
 	return false
+}
+
+func delayDeleteForDetachedHost(host *metal3v1alpha1.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	args := metal3v1alpha1.DetachedAnnotationArguments{}
+	val, present := annotations[metal3v1alpha1.DetachedAnnotation]
+
+	// if the host is detached, but missing the annotation, also delay delete
+	// to allow for the host to be re-attached
+	if !present && host.OperationalStatus() == metal3v1alpha1.OperationalStatusDetached {
+		return true
+	}
+
+	if present {
+		if err := json.Unmarshal([]byte(val), &args); err != nil {
+			// default behavior if these are missing or not json is to not delay
+			return false
+		}
+	}
+
+	return args.DeleteAction == metal3v1alpha1.DetachedDeleteActionDelay
 }
 
 func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result actionResult) {

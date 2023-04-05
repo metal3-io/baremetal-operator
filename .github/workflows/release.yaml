@@ -13,6 +13,9 @@ jobs:
   build:
     permissions:
       contents: write
+    # This workflow is only of value to the metal3-io/baremetal-operator repository and
+    # would always fail in forks
+    if: github.repository == 'metal3-io/baremetal-operator'
     runs-on: ubuntu-latest
     steps:
       - name: Export RELEASE_TAG var

@@ -3,6 +3,8 @@ package ironic
 import (
 	"fmt"
 	"net"
+	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -686,6 +688,14 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 	return nil
 }
 
+func redactedProbableURL(probableURL string) string {
+	u, err := url.ParseRequestURI(probableURL)
+	if err != nil {
+		return probableURL
+	}
+	return u.Redacted()
+}
+
 func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (updatedNode *nodes.Node, success bool, result provisioner.Result, err error) {
 	if len(updater.Updates) == 0 {
 		updatedNode = ironicNode
@@ -1134,7 +1144,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 		"deploy step", ironicNode.DeployStep,
 	)
 	p.publisher("ProvisioningStarted",
-		fmt.Sprintf("Image provisioning started for %s", data.Image.URL))
+		fmt.Sprintf("Image provisioning started for %s", redactedProbableURL(data.Image.URL)))
 	return
 }
 
@@ -1209,8 +1219,12 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 	// the same image we are trying to provision to the host.
 	if image.IsLiveISO() {
 		sameImage = (ironicNode.InstanceInfo["boot_iso"] == image.URL)
+		redactedBootIso := ironicNode.InstanceInfo["boot_iso"]
+		if redactedBootIso != nil && reflect.TypeOf(redactedBootIso).Kind() == reflect.String {
+			redactedBootIso = redactedProbableURL(reflect.ValueOf(redactedBootIso).String())
+		}
 		p.log.Info("checking image settings",
-			"boot_iso", ironicNode.InstanceInfo["boot_iso"],
+			"boot_iso", redactedBootIso,
 			"same", sameImage,
 			"provisionState", ironicNode.ProvisionState)
 	} else {
@@ -1218,10 +1232,18 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 		sameImage = (ironicNode.InstanceInfo["image_source"] == image.URL &&
 			ironicNode.InstanceInfo["image_os_hash_algo"] == checksumType &&
 			ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
+		redactedImageSource := ironicNode.InstanceInfo["image_source"]
+		if redactedImageSource != nil && reflect.TypeOf(redactedImageSource).Kind() == reflect.String {
+			redactedImageSource = redactedProbableURL(reflect.ValueOf(redactedImageSource).String())
+		}
+		redactedChecksum := ironicNode.InstanceInfo["image_os_hash_value"]
+		if redactedChecksum != nil && reflect.TypeOf(redactedChecksum).Kind() == reflect.String {
+			redactedChecksum = redactedProbableURL(reflect.ValueOf(redactedChecksum).String())
+		}
 		p.log.Info("checking image settings",
-			"source", ironicNode.InstanceInfo["image_source"],
+			"source", redactedImageSource,
 			"image_os_hash_algo", checksumType,
-			"image_os_has_value", checksum,
+			"image_os_has_value", redactedChecksum,
 			"same", sameImage,
 			"provisionState", ironicNode.ProvisionState)
 	}
@@ -1587,7 +1609,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 	case nodes.Active:
 		// provisioning is done
 		p.publisher("ProvisioningComplete",
-			fmt.Sprintf("Image provisioning completed for %s", data.Image.URL))
+			fmt.Sprintf("Image provisioning completed for %s", redactedProbableURL(data.Image.URL)))
 		p.log.Info("finished provisioning")
 		return operationComplete()
 

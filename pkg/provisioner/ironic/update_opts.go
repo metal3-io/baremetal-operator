@@ -88,6 +88,9 @@ func sanitisedValue(data interface{}) interface{} {
 		if strings.Contains(k.String(), "password") {
 			safeDatumValue = reflect.ValueOf("<redacted>")
 		}
+		if safeDatumValue.Interface() != nil && reflect.TypeOf(safeDatumValue.Interface()).Kind() == reflect.String {
+			safeDatumValue = reflect.ValueOf(redactedProbableURL(reflect.ValueOf(safeDatumValue.Interface()).String()))
+		}
 		safeValue.SetMapIndex(k, safeDatumValue)
 	}
 

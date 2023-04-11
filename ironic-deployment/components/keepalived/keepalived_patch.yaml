@@ -10,8 +10,19 @@ spec:
       - image: quay.io/metal3-io/keepalived
         name: ironic-endpoint-keepalived
         securityContext:
-              capabilities:
-                add: ["NET_ADMIN", "NET_RAW"]
+          # Must be true so dnsmasq may get the capabilities via file caps
+          # KEP: https://github.com/kubernetes/enhancements/blob/master/keps/sig-security/2763-ambient-capabilities/README.md
+          allowPrivilegeEscalation: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_ADMIN
+            - NET_BROADCAST
+            - NET_RAW
+          privileged: false
+          runAsUser: 65532
+          runAsGroup: 65532
         envFrom:
-          - configMapRef:
-              name: ironic-bmo-configmap
+        - configMapRef:
+            name: ironic-bmo-configmap

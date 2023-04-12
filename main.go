@@ -161,7 +161,8 @@ func main() {
 		ctrl.Log.Info("using demo provisioner")
 		provisionerFactory = &demo.Demo{}
 	} else {
-		provisionerFactory = ironic.NewProvisionerFactory(preprovImgEnable)
+		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
+		provisionerFactory = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
 	}
 
 	if err = (&metal3iocontroller.BareMetalHostReconciler{

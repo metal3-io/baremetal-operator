@@ -116,15 +116,14 @@ func main() {
 		"The address the health endpoint binds to.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443,
 		"Webhook Server port (set to 0 to disable)")
-	opts := zap.Options{
-		Development: devLogging,
-		TimeEncoder: zapcore.ISO8601TimeEncoder,
-	}
-	opts.BindFlags(flag.CommandLine)
-
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	logOpts := zap.Options{}
+	if devLogging {
+		logOpts.Development = true
+		logOpts.TimeEncoder = zapcore.ISO8601TimeEncoder
+	}
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 
 	printVersion()
 

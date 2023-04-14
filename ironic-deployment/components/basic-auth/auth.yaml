@@ -14,7 +14,7 @@ spec:
           readOnly: true
         envFrom:
         # This is the htpassword matching the ironic-auth-config that inspector has
-        - configMapRef:
+        - secretRef:
             name: ironic-htpasswd
         - configMapRef:
             name: ironic-bmo-configmap
@@ -26,7 +26,7 @@ spec:
           readOnly: true
         envFrom:
         # This is the htpassword matching the ironic-inspector-auth-config that ironic has
-        - configMapRef:
+        - secretRef:
             name: ironic-inspector-htpasswd
         - configMapRef:
             name: ironic-bmo-configmap

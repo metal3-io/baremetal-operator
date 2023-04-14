@@ -76,7 +76,6 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 
 func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
 	var errs []error
-	diskFormat := "live-iso"
 
 	if bmcAccess == nil {
 		return errs
@@ -107,10 +106,6 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 
 	if s.BootMode == UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
 		errs = append(errs, fmt.Errorf("BMC driver %s does not support secure boot", bmcAccess.Type()))
-	}
-
-	if s.Image != nil && s.Image.DiskFormat != nil && *s.Image.DiskFormat == diskFormat && !bmcAccess.SupportsISOPreprovisioningImage() {
-		errs = append(errs, fmt.Errorf("BMC driver %s does not support live-iso image", bmcAccess.Type()))
 	}
 
 	return errs

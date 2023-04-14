@@ -46,7 +46,6 @@ func TestValidateCreate(t *testing.T) {
 
 	// for RAID validation test cases
 	numberOfPhysicalDisks := 3
-	diskFormat := "live-iso"
 
 	tests := []struct {
 		name      string
@@ -455,25 +454,6 @@ func TestValidateCreate(t *testing.T) {
 			},
 			oldBMH:    nil,
 			wantedErr: "Image URL test1 is an invalid URL",
-		},
-		{
-			name: "liveISOImageWithUnsupportedBMC",
-			newBMH: &BareMetalHost{
-				TypeMeta:   tm,
-				ObjectMeta: om,
-				Spec: BareMetalHostSpec{
-					BMC: BMCDetails{
-						Address:         "idrac://127.0.0.1",
-						CredentialsName: "test1",
-					},
-					Image: &Image{
-						URL:        "http://127.0.0.1",
-						DiskFormat: &diskFormat,
-					},
-				}, // end of BMH spec
-			},
-			oldBMH:    nil,
-			wantedErr: "BMC driver idrac does not support live-iso image",
 		},
 	}
 

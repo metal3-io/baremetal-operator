@@ -6,58 +6,66 @@ spec:
   template:
     spec:
       containers:
-        - name: mariadb
-          image: quay.io/metal3-io/mariadb
-          imagePullPolicy: Always
-          livenessProbe:
-           exec:
-             command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
-           initialDelaySeconds: 30
-           periodSeconds: 30
-           timeoutSeconds: 10
-           successThreshold: 1
-           failureThreshold: 10
-          readinessProbe:
-           exec:
-             command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
-           initialDelaySeconds: 30
-           periodSeconds: 30
-           timeoutSeconds: 10
-           successThreshold: 1
-           failureThreshold: 10
-          volumeMounts:
-            - mountPath: /shared
-              name: ironic-data-volume
-            - name: cert-mariadb
-              mountPath: "/certs/mariadb"
-              readOnly: true
-            - name: cert-mariadb-ca
-              mountPath: "/certs/ca/mariadb"
-              readOnly: true
-          env:
-            - name: MARIADB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mariadb-password
-                  key: password
-            - name: RESTART_CONTAINER_CERTIFICATE_UPDATED
-              valueFrom:
-                 configMapKeyRef:
-                  name: ironic-bmo-configmap
-                  key: RESTART_CONTAINER_CERTIFICATE_UPDATED
-        - name: ironic
-          env:
-            - name: MARIADB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mariadb-password
-                  key: password
-            - name: IRONIC_USE_MARIADB
-              value: "true"
-          volumeMounts:
-            - name: cert-mariadb-ca
-              mountPath: "/certs/ca/mariadb"
-              readOnly: true
+      - name: mariadb
+        image: quay.io/metal3-io/mariadb
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          runAsUser: 27
+          runAsGroup: 27
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 10
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "mysqladmin status -uironic -p$(printenv MARIADB_PASSWORD)"]
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 10
+        volumeMounts:
+        - mountPath: /shared
+          name: ironic-data-volume
+        - name: cert-mariadb
+          mountPath: "/certs/mariadb"
+          readOnly: true
+        - name: cert-mariadb-ca
+          mountPath: "/certs/ca/mariadb"
+          readOnly: true
+        env:
+        - name: MARIADB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-password
+              key: password
+        - name: RESTART_CONTAINER_CERTIFICATE_UPDATED
+          valueFrom:
+            configMapKeyRef:
+              name: ironic-bmo-configmap
+              key: RESTART_CONTAINER_CERTIFICATE_UPDATED
+      - name: ironic
+        env:
+        - name: MARIADB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-password
+              key: password
+        - name: IRONIC_USE_MARIADB
+          value: "true"
+        volumeMounts:
+        - name: cert-mariadb-ca
+          mountPath: "/certs/ca/mariadb"
+          readOnly: true
       volumes:
       - name: cert-mariadb
         secret:

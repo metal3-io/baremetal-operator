@@ -602,9 +602,9 @@ func TestHasRebootAnnotation(t *testing.T) {
 	testCases := []struct {
 		Scenario       string
 		Annotations    map[string]string
+		expectForce    bool
 		expectedReboot bool
 		expectedMode   metal3v1alpha1.RebootMode
-		expectedForce  bool
 	}{
 		{
 			Scenario: "No annotations",
@@ -668,8 +668,16 @@ func TestHasRebootAnnotation(t *testing.T) {
 			Annotations: map[string]string{
 				rebootAnnotationPrefix + "/foo": "{\"force\": true}",
 			},
+			expectForce:    true,
 			expectedReboot: true,
-			expectedForce:  true,
+		},
+		{
+			Scenario: "Expect force",
+			Annotations: map[string]string{
+				rebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
+			},
+			expectForce:    true,
+			expectedReboot: false,
 		},
 	}
 
@@ -683,10 +691,9 @@ func TestHasRebootAnnotation(t *testing.T) {
 				tc.expectedMode = metal3v1alpha1.RebootModeSoft
 			}
 
-			hasReboot, rebootMode, force := hasRebootAnnotation(info)
+			hasReboot, rebootMode := hasRebootAnnotation(info, tc.expectForce)
 			assert.Equal(t, tc.expectedReboot, hasReboot)
 			assert.Equal(t, tc.expectedMode, rebootMode)
-			assert.Equal(t, tc.expectedForce, force)
 		})
 	}
 }

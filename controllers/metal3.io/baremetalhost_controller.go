@@ -385,21 +385,21 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl
 }
 
 // hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist
-func hasRebootAnnotation(info *reconcileInfo) (hasReboot bool, rebootMode metal3v1alpha1.RebootMode, force bool) {
+func hasRebootAnnotation(info *reconcileInfo, expectForce bool) (hasReboot bool, rebootMode metal3v1alpha1.RebootMode) {
 	rebootMode = metal3v1alpha1.RebootModeSoft
 
 	for annotation, value := range info.host.GetAnnotations() {
 		if isRebootAnnotation(annotation) {
-			hasReboot = true
 			newReboot := getRebootAnnotationArguments(value, info)
+			if expectForce && !newReboot.Force {
+				continue
+			}
+
+			hasReboot = true
 			// If any annotation has asked for a hard reboot, that
 			// mode takes precedence.
 			if newReboot.Mode == metal3v1alpha1.RebootModeHard {
 				rebootMode = newReboot.Mode
-			}
-			// Same for preprovisioning image reboot
-			if newReboot.Force {
-				force = true
 			}
 
 			// Don't use a break here as we may have multiple clients setting
@@ -909,7 +909,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	info.log.Info("inspecting hardware")
 
 	refresh := hasInspectAnnotation(info.host)
-	_, _, forceReboot := hasRebootAnnotation(info)
+	forceReboot, _ := hasRebootAnnotation(info, true)
 
 	provResult, started, details, err := prov.InspectHardware(
 		provisioner.InspectData{
@@ -1146,7 +1146,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 				info.host.HardwareProfile()))}
 	}
 
-	_, _, forceReboot := hasRebootAnnotation(info)
+	forceReboot, _ := hasRebootAnnotation(info, true)
 
 	var image metal3v1alpha1.Image
 	if info.host.Spec.Image != nil {
@@ -1308,9 +1308,9 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// Normal reboots only work in provisioned states, changing online is also possible for available hosts.
 	isProvisioned := provState == metal3v1alpha1.StateProvisioned || provState == metal3v1alpha1.StateExternallyProvisioned
 
-	desiredReboot, desiredRebootMode, force := hasRebootAnnotation(info)
+	desiredReboot, desiredRebootMode := hasRebootAnnotation(info, !isProvisioned)
 
-	if desiredReboot && (isProvisioned || force) {
+	if desiredReboot {
 		desiredPowerOnState = false
 	}
 

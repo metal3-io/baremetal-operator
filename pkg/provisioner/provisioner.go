@@ -125,7 +125,7 @@ type Provisioner interface {
 	// of credentials it has are different from the credentials it has
 	// previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, force bool) (result Result, provID string, err error)
+	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, restartOnFailure bool) (result Result, provID string, err error)
 
 	// PreprovisioningImageFormats returns a list of acceptable formats for a
 	// pre-provisioning image to be built by a PreprovisioningImage object. The
@@ -146,10 +146,10 @@ type Provisioner interface {
 
 	// Adopt brings an externally-provisioned host under management by
 	// the provisioner.
-	Adopt(data AdoptData, force bool) (result Result, err error)
+	Adopt(data AdoptData, restartOnFailure bool) (result Result, err error)
 
 	// Prepare remove existing configuration and set new configuration
-	Prepare(data PrepareData, unprepared bool, force bool) (result Result, started bool, err error)
+	Prepare(data PrepareData, unprepared bool, restartOnFailure bool) (result Result, started bool, err error)
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
@@ -159,7 +159,7 @@ type Provisioner interface {
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
 	// the deprovisioning operation is completed.
-	Deprovision(force bool) (result Result, err error)
+	Deprovision(restartOnFailure bool) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty

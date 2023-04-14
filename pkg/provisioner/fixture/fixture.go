@@ -97,7 +97,7 @@ func (p *fixtureProvisioner) HasCapacity() (result bool, err error) {
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, restartOnFailure bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	if p.state.validateError != "" {
@@ -191,7 +191,7 @@ func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.Hardware
 }
 
 // Prepare remove existing configuration and set new configuration
-func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
+func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
 	p.log.Info("preparing host")
 	started = unprepared
 	return
@@ -199,7 +199,7 @@ func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bo
 
 // Adopt notifies the provisioner that the state machine believes the host
 // to be currently provisioned, and that it should be managed as such.
-func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	if !p.state.adopted {
 		p.state.adopted = true
@@ -238,7 +238,7 @@ func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData, forceRebo
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *fixtureProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Deprovision(restartOnFailure bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is deprovisioned")
 
 	result.RequeueAfter = deprovisionRequeueDelay

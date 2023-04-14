@@ -8,9 +8,9 @@ spec:
       containers:
       - name: ironic-httpd
         envFrom:
-        - configMapRef:
+        - secretRef:
             name: ironic-htpasswd
-        - configMapRef:
+        - secretRef:
             name: ironic-inspector-htpasswd
         - configMapRef:
             name: ironic-bmo-configmap

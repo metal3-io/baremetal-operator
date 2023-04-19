@@ -21,7 +21,7 @@
 1. Verify that it is deployed correctly. Note: don't move to the
     next step before you see all three pods in Running state.
 
-    ```
+    ```bash
     kubectl get pods --namespace cert-manager
 
     NAME                                       READY   STATUS    RESTARTS   AGE
@@ -178,7 +178,7 @@ and specially the [Baremetal Operator Integration](https://github.com/metal3-io/
 ## Using libvirt VMs with Ironic
 
 In order to use VMs as hosts, they need to be connected to
-[vbmc](https://docs.openstack.org/project-deploy-guide/tripleo-docs/latest/environments/virtualbmc.html)
+[vbmc](https://docs.openstack.org/virtualbmc/latest/index.html)
 and the `bootMACAddress` field needs to be set to the MAC address of the
 network interface that will PXE boot.
 

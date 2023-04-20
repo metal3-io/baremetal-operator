@@ -25,7 +25,8 @@ func TestInspectHardware(t *testing.T) {
 		ironic    *testserver.IronicMock
 		inspector *testserver.InspectorMock
 
-		force bool
+		restartOnFailure bool
+		forceReboot      bool
 
 		expectedStarted      bool
 		expectedDirty        bool
@@ -105,16 +106,34 @@ func TestInspectHardware(t *testing.T) {
 			expectedRequestAfter: 15,
 		},
 		{
-			name: "introspection-aborted",
+			name: "introspection-failed",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID: nodeUUID,
 			}),
 			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
 				Finished: true,
+				Error:    "Timeout",
+			}),
+
+			expectedResultError: "Timeout",
+		},
+		{
+			name: "introspection-aborted",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID: nodeUUID,
+			}).NodeUpdate(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectFail),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
+				Finished: true,
 				Error:    "Canceled by operator",
 			}),
 
-			expectedResultError: "Canceled by operator",
+			expectedStarted:      true,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
 			name: "inspection-in-progress (not yet finished)",
@@ -127,6 +146,21 @@ func TestInspectHardware(t *testing.T) {
 			}),
 			expectedDirty:        true,
 			expectedRequestAfter: 15,
+		},
+		{
+			name: "inspection-in-progress - forceReboot",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectWait),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
+				Finished: false,
+			}),
+			forceReboot: true,
+
+			expectedStarted:      true,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
 		},
 		{
 			name: "inspection-in-progress (but node still in InspectWait)",
@@ -166,13 +200,26 @@ func TestInspectHardware(t *testing.T) {
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectFail),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
-			force:     true,
+			inspector:        testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+			restartOnFailure: true,
 
 			expectedStarted:      true,
 			expectedDirty:        true,
 			expectedRequestAfter: 10,
 			expectedPublish:      "InspectionStarted Hardware inspection started",
+		},
+		{
+			name: "inspection-forceReboot",
+			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectWait),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			inspector:   testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+			forceReboot: true,
+
+			expectedStarted:      true,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
 		},
 		{
 			name: "inspection-complete",
@@ -224,7 +271,7 @@ func TestInspectHardware(t *testing.T) {
 
 			result, started, details, err := prov.InspectHardware(
 				provisioner.InspectData{BootMode: metal3v1alpha1.DefaultBootMode},
-				tc.force, false)
+				tc.restartOnFailure, false, tc.forceReboot)
 
 			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

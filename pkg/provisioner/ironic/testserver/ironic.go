@@ -27,6 +27,8 @@ func NewIronic(t *testing.T) *IronicMock {
 	}
 }
 
+const validateResult = `{"boot": {"result": true}, "deploy": {"result": true}, "power": {"result": true}}`
+
 // WithDefaultResponses sets a valid answer for all the API calls
 func (m *IronicMock) WithDefaultResponses() *IronicMock {
 	m.AddDefaultResponseJSON("/v1/nodes/{id}", "", http.StatusOK, nodes.Node{
@@ -35,7 +37,7 @@ func (m *IronicMock) WithDefaultResponses() *IronicMock {
 	m.AddDefaultResponse("/v1/nodes/{id}/states/provision", "", http.StatusAccepted, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/states/power", "", http.StatusAccepted, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/states/raid", "", http.StatusNoContent, "{}")
-	m.AddDefaultResponse("/v1/nodes/{id}/validate", "", http.StatusOK, "{}")
+	m.AddDefaultResponse("/v1/nodes/{id}/validate", "", http.StatusOK, validateResult)
 	m.Ready()
 
 	return m
@@ -137,6 +139,16 @@ func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.Upd
 
 	if bodyRaw, ok := m.GetLastRequestFor("/v1/nodes/"+id, http.MethodPatch); ok {
 		json.Unmarshal([]byte(bodyRaw), &updates)
+	}
+
+	return
+}
+
+// GetLastNodeStatesProvisionUpdateRequestFor returns the content of the last provisioning request for the specified node
+func (m *IronicMock) GetLastNodeStatesProvisionUpdateRequestFor(id string) (update nodes.ProvisionStateOpts) {
+
+	if bodyRaw, ok := m.GetLastRequestFor("/v1/nodes/"+id+"/states/provision", http.MethodPut); ok {
+		json.Unmarshal([]byte(bodyRaw), &update)
 	}
 
 	return
@@ -258,7 +270,7 @@ func (m *IronicMock) WithNodeStatesPowerUpdate(nodeUUID string, code int) *Ironi
 
 // WithNodeValidate configures the server with a valid response for /v1/nodes/<node>/validate
 func (m *IronicMock) WithNodeValidate(nodeUUID string) *IronicMock {
-	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/validate", "{}", http.StatusOK)
+	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/validate", validateResult, http.StatusOK)
 	return m
 }
 

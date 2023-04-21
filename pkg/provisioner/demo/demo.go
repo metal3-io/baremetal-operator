@@ -85,7 +85,7 @@ func (p *demoProvisioner) HasCapacity() (result bool, err error) {
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, restartOnFailure bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.objectMeta.Name
@@ -122,7 +122,7 @@ func (p *demoProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageF
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	started = true
 	hostName := p.objectMeta.Name
 
@@ -193,7 +193,7 @@ func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 }
 
 // Prepare remove existing configuration and set new configuration
-func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
+func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
 	hostName := p.objectMeta.Name
 
 	switch hostName {
@@ -218,7 +218,7 @@ func (p *demoProvisioner) Prepare(data provisioner.PrepareData, unprepared bool,
 
 // Adopt notifies the provisioner that the state machine believes the host
 // to be currently provisioned, and that it should be managed as such.
-func (p *demoProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	result.Dirty = false
 	return
@@ -227,7 +227,7 @@ func (p *demoProvisioner) Adopt(data provisioner.AdoptData, force bool) (result 
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
-func (p *demoProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
 	p.log.Info("provisioning image to host")
@@ -253,7 +253,7 @@ func (p *demoProvisioner) Provision(data provisioner.ProvisionData) (result prov
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *demoProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Deprovision(restartOnFailure bool) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
 	switch hostName {

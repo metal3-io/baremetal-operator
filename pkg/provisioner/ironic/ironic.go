@@ -321,7 +321,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 //
 // FIXME(dhellmann): We should rename this method to describe what it
 // actually does.
-func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, restartOnFailure bool) (result provisioner.Result, provID string, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = operationFailed(err.Error())
@@ -479,7 +479,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	case nodes.Enroll:
 
 		// If ironic is reporting an error, stop working on the node.
-		if ironicNode.LastError != "" && !(credentialsChanged || force) {
+		if ironicNode.LastError != "" && !(credentialsChanged || restartOnFailure) {
 			result, err = operationFailed(ironicNode.LastError)
 			return
 		}
@@ -750,11 +750,21 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 	return
 }
 
+func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+	// Set started to let the controller know about the change
+	p.log.Info("aborting inspection to force reboot of preprovisioning image")
+	started, result, err = p.tryChangeNodeProvisionState(
+		ironicNode,
+		nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+	)
+	return
+}
+
 // InspectHardware updates the HardwareDetails field of the host with
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware")
 
 	ironicNode, err := p.getNode()
@@ -764,6 +774,12 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 	}
 
 	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
+	if status != nil && strings.Contains(status.Error, "Canceled") {
+		// Inspection gets canceled when we detect a new preprovisioning image, not need to report an error, just restart.
+		refresh = true
+		restartOnFailure = true
+	}
+
 	if err != nil || refresh {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound || refresh {
 			switch nodes.ProvisionState(ironicNode.ProvisionState) {
@@ -773,12 +789,18 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 				)
 				return
-			case nodes.Inspecting, nodes.InspectWait:
+			case nodes.InspectWait:
+				if forceReboot {
+					return p.abortInspection(ironicNode)
+				}
+
+				fallthrough
+			case nodes.Inspecting:
 				p.log.Info("inspection already started")
 				result, err = operationContinuing(introspectionRequeueDelay)
 				return
 			case nodes.InspectFail:
-				if !force {
+				if !restartOnFailure {
 					p.log.Info("starting inspection failed", "error", status.Error)
 					failure := ironicNode.LastError
 					if failure == "" {
@@ -818,6 +840,9 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, force,
 		p.log.Info("inspection failed", "error", status.Error)
 		result, err = operationFailed(status.Error)
 		return
+	}
+	if !status.Finished && forceReboot && nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait {
+		return p.abortInspection(ironicNode)
 	}
 	if !status.Finished || (nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Inspecting || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait) {
 		p.log.Info("inspection in progress", "started_at", status.StartedAt)
@@ -1150,7 +1175,7 @@ func (p *ironicProvisioner) deployInterface(data provisioner.ManagementAccessDat
 
 // Adopt notifies the provisioner that the state machine believes the host
 // to be currently provisioned, and that it should be managed as such.
-func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure bool) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
@@ -1183,7 +1208,7 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, force bool) (resul
 	case nodes.Adopting:
 		return operationContinuing(provisionRequeueDelay)
 	case nodes.AdoptFail:
-		if force {
+		if restartOnFailure {
 			return p.changeNodeProvisionState(
 				ironicNode,
 				nodes.ProvisionStateOpts{
@@ -1349,7 +1374,7 @@ func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, iro
 
 // Prepare remove existing configuration and set new configuration.
 // If `started` is true,  it means that we successfully executed `tryChangeNodeProvisionState`.
-func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
+func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = transientError(err)
@@ -1400,9 +1425,9 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 
 	case nodes.CleanFail:
 		// When clean failed, we need to clean host provisioning settings.
-		// If force is false, it means the settings aren't cleared.
+		// If restartOnFailure is false, it means the settings aren't cleared.
 		// So we can't set the node's state to manageable, until the settings are cleared.
-		if !force {
+		if !restartOnFailure {
 			result, err = operationFailed(ironicNode.LastError)
 			return
 		}
@@ -1498,7 +1523,7 @@ func (p *ironicProvisioner) getCustomDeploySteps(customDeploy *metal3v1alpha1.Cu
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
-func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
@@ -1591,6 +1616,18 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData) (result pr
 		p.log.Info("finished provisioning")
 		return operationComplete()
 
+	case nodes.DeployWait:
+		if forceReboot {
+			p.log.Info("aborting provisioning to force reboot of preprovisioning image")
+			_, result, err = p.tryChangeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
+			)
+			return
+		}
+
+		fallthrough
+
 	default:
 		// wait states like cleaning and clean wait
 		p.log.Info("waiting for host to become available",
@@ -1624,7 +1661,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(restartOnFailure bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.getNode()
@@ -1643,7 +1680,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Error:
-		if !force {
+		if !restartOnFailure {
 			p.log.Info("deprovisioning failed")
 			if ironicNode.LastError == "" {
 				result.ErrorMessage = "Deprovisioning failed"
@@ -1660,7 +1697,7 @@ func (p *ironicProvisioner) Deprovision(force bool) (result provisioner.Result, 
 		)
 
 	case nodes.CleanFail:
-		if !force {
+		if !restartOnFailure {
 			p.log.Info("cleaning failed", "lastError", ironicNode.LastError)
 			return operationFailed(fmt.Sprintf("Cleaning failed: %s", ironicNode.LastError))
 		}

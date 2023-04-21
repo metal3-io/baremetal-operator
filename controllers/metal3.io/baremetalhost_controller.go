@@ -529,6 +529,17 @@ func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, 
 	if info.host.HasBMCDetails() {
 		return actionComplete{}
 	}
+
+	if !info.host.DeletionTimestamp.IsZero() {
+		provResult, err := prov.Delete()
+		if err != nil {
+			return actionError{errors.Wrap(err, "failed to delete")}
+		}
+		if provResult.Dirty {
+			return actionContinue{provResult.RequeueAfter}
+		}
+	}
+
 	return actionContinue{unmanagedRetryDelay}
 }
 

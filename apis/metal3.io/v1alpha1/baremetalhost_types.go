@@ -657,7 +657,8 @@ const (
 
 // RebootAnnotationArguments defines the arguments of the RebootAnnotation type
 type RebootAnnotationArguments struct {
-	Mode RebootMode `json:"mode"`
+	Mode  RebootMode `json:"mode"`
+	Force bool       `json:"force"`
 }
 
 type DetachedDeleteAction string

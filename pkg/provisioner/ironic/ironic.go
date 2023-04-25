@@ -761,6 +761,29 @@ func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result prov
 	return
 }
 
+func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
+	_, started, result, err = p.tryUpdateNode(
+		ironicNode,
+		updateOptsBuilder(p.debugLog).
+			SetPropertiesOpts(optionsData{
+				"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+			}, ironicNode),
+	)
+	if !started {
+		return
+	}
+
+	p.log.Info("starting new hardware inspection")
+	started, result, err = p.tryChangeNodeProvisionState(
+		ironicNode,
+		nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
+	)
+	if started {
+		p.publisher("InspectionStarted", "Hardware inspection started")
+	}
+	return
+}
+
 // InspectHardware updates the HardwareDetails field of the host with
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
@@ -774,92 +797,68 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 		return
 	}
 
-	status, err := introspection.GetIntrospectionStatus(p.inspector, ironicNode.UUID).Extract()
-	if status != nil && strings.Contains(status.Error, "Canceled") {
+	if ironicNode.ProvisionState == string(nodes.InspectFail) && strings.Contains(ironicNode.LastError, "aborted") {
 		// Inspection gets canceled when we detect a new preprovisioning image, not need to report an error, just restart.
 		refresh = true
 		restartOnFailure = true
 	}
 
-	if err != nil || refresh {
-		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound || refresh {
-			switch nodes.ProvisionState(ironicNode.ProvisionState) {
-			case nodes.Available:
-				result, err = p.changeNodeProvisionState(
-					ironicNode,
-					nodes.ProvisionStateOpts{Target: nodes.TargetManage},
-				)
-				return
-			case nodes.InspectWait:
-				if forceReboot {
-					return p.abortInspection(ironicNode)
-				}
-
-				fallthrough
-			case nodes.Inspecting:
-				p.log.Info("inspection already started")
-				result, err = operationContinuing(introspectionRequeueDelay)
-				return
-			case nodes.InspectFail:
-				if !restartOnFailure {
-					p.log.Info("starting inspection failed", "error", status.Error)
-					failure := ironicNode.LastError
-					if failure == "" {
-						failure = "Inspection failed"
-					}
-					result, err = operationFailed(failure)
-					return
-				}
-				fallthrough
-			default:
-				_, started, result, err = p.tryUpdateNode(
-					ironicNode,
-					updateOptsBuilder(p.debugLog).
-						SetPropertiesOpts(optionsData{
-							"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
-						}, ironicNode),
-				)
-				if !started {
-					return
-				}
-
-				p.log.Info("starting new hardware inspection")
-				started, result, err = p.tryChangeNodeProvisionState(
-					ironicNode,
-					nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
-				)
-				if started {
-					p.publisher("InspectionStarted", "Hardware inspection started")
-				}
-				return
-			}
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.Available:
+		result, err = p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+		)
+		return
+	case nodes.InspectWait:
+		if forceReboot {
+			return p.abortInspection(ironicNode)
 		}
-		result, err = transientError(errors.Wrap(err, "failed to extract hardware inspection status"))
-		return
-	}
-	if status.Error != "" {
-		p.log.Info("inspection failed", "error", status.Error)
-		result, err = operationFailed(status.Error)
-		return
-	}
-	if !status.Finished && forceReboot && nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait {
-		return p.abortInspection(ironicNode)
-	}
-	if !status.Finished || (nodes.ProvisionState(ironicNode.ProvisionState) == nodes.Inspecting || nodes.ProvisionState(ironicNode.ProvisionState) == nodes.InspectWait) {
-		p.log.Info("inspection in progress", "started_at", status.StartedAt)
+
+		fallthrough
+	case nodes.Inspecting:
+		p.log.Info("inspection in progress")
 		result, err = operationContinuing(introspectionRequeueDelay)
+		return
+	case nodes.InspectFail:
+		if !restartOnFailure {
+			failure := ironicNode.LastError
+			if failure == "" {
+				failure = "Inspection failed"
+			}
+			p.log.Info("inspection failed", "error", failure)
+			result, err = operationFailed(failure)
+			return
+		}
+		refresh = true
+		fallthrough
+	case nodes.Manageable:
+		if refresh {
+			result, started, err = p.startInspection(data, ironicNode)
+			return
+		}
+	default:
+		p.log.Info("unexpected provisioning state for inspection",
+			"provisionState", ironicNode.ProvisionState, "targetProvisionState", ironicNode.TargetProvisionState, "lastError", ironicNode.LastError)
+		result, err = transientError(errors.Errorf("unexpected provision state %s", ironicNode.ProvisionState))
+		return
+	}
+
+	// TODO(dtantsur): change this to use Ironic native inspection data API.
+	response := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
+	introData, err := response.Extract()
+	if err != nil {
+		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
+			// The node has just been enrolled, inspection hasn't been started yet.
+			result, started, err = p.startInspection(data, ironicNode)
+			return
+		}
+		result, err = transientError(errors.Wrap(err, "failed to retrieve hardware introspection data"))
 		return
 	}
 
 	// Introspection is done
-	p.log.Info("getting hardware details from inspection")
-	response := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
-	introData, err := response.Extract()
-	if err != nil {
-		result, err = transientError(errors.Wrap(err, "failed to retrieve hardware introspection data"))
-		return
-	}
-	p.log.Info("received introspection data", "data", response.Body)
+	p.log.Info("inspection finished successfully", "data", response.Body)
 
 	details = hardwaredetails.GetHardwareDetails(introData)
 	p.publisher("InspectionComplete", "Hardware inspection completed")

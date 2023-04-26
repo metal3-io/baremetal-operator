@@ -1913,6 +1913,7 @@ rules:
   resources:
   - secrets
   verbs:
+  - delete
   - get
   - list
   - update
@@ -1929,6 +1930,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts/finalizers
+  verbs:
+  - update
 - apiGroups:
   - metal3.io
   resources:

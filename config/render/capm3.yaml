@@ -373,7 +373,8 @@ spec:
                               image.
                             properties:
                               deviceName:
-                                description: A Linux device name like "/dev/vda".
+                                description: A Linux device name like "/dev/vda",
+                                  or a by-path link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
                                   The hint must match the actual value exactly.
                                 type: string
                               hctl:
@@ -435,8 +436,9 @@ spec:
                   image being provisioned.
                 properties:
                   deviceName:
-                    description: A Linux device name like "/dev/vda". The hint must
-                      match the actual value exactly.
+                    description: A Linux device name like "/dev/vda", or a by-path
+                      link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
+                      The hint must match the actual value exactly.
                     type: string
                   hctl:
                     description: A SCSI bus address like 0:0:0:0. The hint must match
@@ -976,7 +978,8 @@ spec:
                                   the image.
                                 properties:
                                   deviceName:
-                                    description: A Linux device name like "/dev/vda".
+                                    description: A Linux device name like "/dev/vda",
+                                      or a by-path link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
                                       The hint must match the actual value exactly.
                                     type: string
                                   hctl:
@@ -1038,8 +1041,9 @@ spec:
                     description: The RootDevicehints set by the user
                     properties:
                       deviceName:
-                        description: A Linux device name like "/dev/vda". The hint
-                          must match the actual value exactly.
+                        description: A Linux device name like "/dev/vda", or a by-path
+                          link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
+                          The hint must match the actual value exactly.
                         type: string
                       hctl:
                         description: A SCSI bus address like 0:0:0:0. The hint must

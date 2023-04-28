@@ -117,15 +117,14 @@ func main() {
 	// NOTE (honza): Downstream only: disabling webhooks until CBO supports them
 	flag.IntVar(&webhookPort, "webhook-port", 0,
 		"Webhook Server port (set to 0 to disable)")
-	opts := zap.Options{
-		Development: devLogging,
-		TimeEncoder: zapcore.ISO8601TimeEncoder,
-	}
-	opts.BindFlags(flag.CommandLine)
-
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	logOpts := zap.Options{}
+	if devLogging {
+		logOpts.Development = true
+		logOpts.TimeEncoder = zapcore.ISO8601TimeEncoder
+	}
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 
 	printVersion()
 
@@ -163,7 +162,8 @@ func main() {
 		ctrl.Log.Info("using demo provisioner")
 		provisionerFactory = &demo.Demo{}
 	} else {
-		provisionerFactory = ironic.NewProvisionerFactory(preprovImgEnable)
+		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
+		provisionerFactory = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
 	}
 
 	if err = (&metal3iocontroller.BareMetalHostReconciler{

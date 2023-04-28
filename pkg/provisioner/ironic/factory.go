@@ -10,9 +10,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud"
-	"go.uber.org/zap/zapcore"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
@@ -29,14 +26,10 @@ type ironicProvisionerFactory struct {
 	clientInspector *gophercloud.ServiceClient
 }
 
-func NewProvisionerFactory(havePreprovImgBuilder bool) provisioner.Factory {
-	factory := ironicProvisionerFactory{}
-
-	opts := zap.Options{
-		Development: true,
-		TimeEncoder: zapcore.ISO8601TimeEncoder,
+func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder bool) provisioner.Factory {
+	factory := ironicProvisionerFactory{
+		log: logger.WithName("ironic"),
 	}
-	factory.log = logz.New(zap.UseFlagOptions(&opts)).WithName("provisioner").WithName("ironic")
 
 	err := factory.init(havePreprovImgBuilder)
 	if err != nil {

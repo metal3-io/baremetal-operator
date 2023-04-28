@@ -158,6 +158,11 @@ def strip_sec_ctx(yaml):
             spec["securityContext"] = {}
             for container in spec.get("containers", []):
                 container["securityContext"] = {}
+        if data.get("kind") == "Namespace":
+            spec = data["metadata"]["labels"]
+            pod_security_standard_label = "pod-security.kubernetes.io/enforce" 
+            spec.pop(pod_security_standard_label, None)
+
         output.append(str(encode_yaml(data)))
 
     return "---\n".join(output)

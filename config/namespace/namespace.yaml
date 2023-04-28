@@ -3,4 +3,5 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
+    pod-security.kubernetes.io/enforce: baseline
   name: baremetal-operator-system

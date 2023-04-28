@@ -25,6 +25,7 @@ const (
 	SQLIsolationLevelFlag  = "sql-isolation-level"
 	TLSSignatureSchemeFlag = "tls-signature-scheme"
 	ConstantKindFlag       = "constant-kind"
+	SyslogPriorityFlag     = "syslog-priority"
 )
 
 // New returns new usestdlibvars analyzer.
@@ -51,6 +52,7 @@ func flags() flag.FlagSet {
 	flags.Bool(SQLIsolationLevelFlag, false, "suggest the use of sql.LevelXX.String()")
 	flags.Bool(TLSSignatureSchemeFlag, false, "suggest the use of tls.SignatureScheme.String()")
 	flags.Bool(ConstantKindFlag, false, "suggest the use of constant.Kind.String()")
+	flags.Bool(SyslogPriorityFlag, false, "suggest the use of syslog.Priority")
 	return *flags
 }
 
@@ -236,6 +238,27 @@ func funArgs(pass *analysis.Pass, x *ast.Ident, fun *ast.SelectorExpr, args []as
 
 			if basicLit := getBasicLitFromArgs(args, 3, 0, token.STRING); basicLit != nil {
 				checkHTTPMethod(pass, basicLit)
+			}
+		}
+	case "syslog":
+		if !lookupFlag(pass, SyslogPriorityFlag) {
+			return
+		}
+
+		switch fun.Sel.Name {
+		case "New":
+			if basicLit := getBasicLitFromArgs(args, 2, 0, token.INT); basicLit != nil {
+				checkSyslogPriority(pass, basicLit)
+			}
+
+		case "Dial":
+			if basicLit := getBasicLitFromArgs(args, 4, 2, token.INT); basicLit != nil {
+				checkSyslogPriority(pass, basicLit)
+			}
+
+		case "NewLogger":
+			if basicLit := getBasicLitFromArgs(args, 2, 0, token.INT); basicLit != nil {
+				checkSyslogPriority(pass, basicLit)
 			}
 		}
 	default:
@@ -466,6 +489,14 @@ func checkConstantKind(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.ConstantKind[currentVal]; ok {
+		report(pass, basicLit.Pos(), currentVal, newVal)
+	}
+}
+
+func checkSyslogPriority(pass *analysis.Pass, basicLit *ast.BasicLit) {
+	currentVal := getBasicLitValue(basicLit)
+
+	if newVal, ok := mapping.SyslogPriority[currentVal]; ok {
 		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }

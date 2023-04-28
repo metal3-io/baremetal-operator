@@ -289,6 +289,9 @@ func (a *analyzer) Check(raw string) (update string, keyword string, find bool) 
 //	e.g. %s, </div> should not be reported.
 func ExcludeWords(word string) (exclude bool) {
 	firstRune, _ := utf8.DecodeRuneInString(word)
+	if unicode.IsDigit(firstRune) {
+		return true
+	}
 	if unicode.IsPunct(firstRune) {
 		return true
 	}

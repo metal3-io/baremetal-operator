@@ -150,6 +150,7 @@ type LintersSettings struct {
 	Forbidigo        ForbidigoSettings
 	Funlen           FunlenSettings
 	Gci              GciSettings
+	GinkgoLinter     GinkgoLinterSettings
 	Gocognit         GocognitSettings
 	Goconst          GoConstSettings
 	Gocritic         GoCriticSettings
@@ -178,6 +179,7 @@ type LintersSettings struct {
 	Makezero         MakezeroSettings
 	Maligned         MalignedSettings
 	Misspell         MisspellSettings
+	MustTag          MustTagSettings
 	Nakedret         NakedretSettings
 	Nestif           NestifSettings
 	NilNil           NilNilSettings
@@ -289,6 +291,7 @@ type ExhaustiveSettings struct {
 	CheckGenerated             bool     `mapstructure:"check-generated"`
 	DefaultSignifiesExhaustive bool     `mapstructure:"default-signifies-exhaustive"`
 	IgnoreEnumMembers          string   `mapstructure:"ignore-enum-members"`
+	IgnoreEnumTypes            string   `mapstructure:"ignore-enum-types"`
 	PackageScopeOnly           bool     `mapstructure:"package-scope-only"`
 	ExplicitExhaustiveMap      bool     `mapstructure:"explicit-exhaustive-map"`
 	ExplicitExhaustiveSwitch   bool     `mapstructure:"explicit-exhaustive-switch"`
@@ -318,6 +321,12 @@ type GciSettings struct {
 	Sections      []string `mapstructure:"sections"`
 	SkipGenerated bool     `mapstructure:"skip-generated"`
 	CustomOrder   bool     `mapstructure:"custom-order"`
+}
+
+type GinkgoLinterSettings struct {
+	SuppressLenAssertion bool `mapstructure:"suppress-len-assertion"`
+	SuppressNilAssertion bool `mapstructure:"suppress-nil-assertion"`
+	SuppressErrAssertion bool `mapstructure:"suppress-err-assertion"`
 }
 
 type GocognitSettings struct {
@@ -530,6 +539,14 @@ type MisspellSettings struct {
 	IgnoreWords []string `mapstructure:"ignore-words"`
 }
 
+type MustTagSettings struct {
+	Functions []struct {
+		Name   string `mapstructure:"name"`
+		Tag    string `mapstructure:"tag"`
+		ArgPos int    `mapstructure:"arg-pos"`
+	} `mapstructure:"functions"`
+}
+
 type NakedretSettings struct {
 	MaxFuncLines int `mapstructure:"max-func-lines"`
 }
@@ -652,17 +669,18 @@ type TenvSettings struct {
 }
 
 type UseStdlibVarsSettings struct {
-	HTTPMethod             bool `mapstructure:"http-method"`
-	HTTPStatusCode         bool `mapstructure:"http-status-code"`
-	TimeWeekday            bool `mapstructure:"time-weekday"`
-	TimeMonth              bool `mapstructure:"time-month"`
-	TimeLayout             bool `mapstructure:"time-layout"`
-	CryptoHash             bool `mapstructure:"crypto-hash"`
-	DefaultRPCPathFlag     bool `mapstructure:"default-rpc-path"`
-	OSDevNullFlag          bool `mapstructure:"os-dev-null-flag"`
-	SQLIsolationLevelFlag  bool `mapstructure:"sql-isolation-level-flag"`
-	TLSSignatureSchemeFlag bool `mapstructure:"tls-signature-scheme-flag"`
-	ConstantKind           bool `mapstructure:"constant-kind"`
+	HTTPMethod         bool `mapstructure:"http-method"`
+	HTTPStatusCode     bool `mapstructure:"http-status-code"`
+	TimeWeekday        bool `mapstructure:"time-weekday"`
+	TimeMonth          bool `mapstructure:"time-month"`
+	TimeLayout         bool `mapstructure:"time-layout"`
+	CryptoHash         bool `mapstructure:"crypto-hash"`
+	DefaultRPCPath     bool `mapstructure:"default-rpc-path"`
+	OSDevNull          bool `mapstructure:"os-dev-null"`
+	SQLIsolationLevel  bool `mapstructure:"sql-isolation-level"`
+	TLSSignatureScheme bool `mapstructure:"tls-signature-scheme"`
+	ConstantKind       bool `mapstructure:"constant-kind"`
+	SyslogPriority     bool `mapstructure:"syslog-priority"`
 }
 
 type UnparamSettings struct {
@@ -711,7 +729,7 @@ type WSLSettings struct {
 	AllowCuddleDeclaration           bool     `mapstructure:"allow-cuddle-declarations"`
 	AllowCuddleWithCalls             []string `mapstructure:"allow-cuddle-with-calls"`
 	AllowCuddleWithRHS               []string `mapstructure:"allow-cuddle-with-rhs"`
-	ForceCuddleErrCheckAndAssign     bool     `mapstructure:"enforce-err-cuddling"`
+	ForceCuddleErrCheckAndAssign     bool     `mapstructure:"force-err-cuddling"`
 	ErrorVariableNames               []string `mapstructure:"error-variable-names"`
 	ForceExclusiveShortDeclarations  bool     `mapstructure:"force-short-decl-cuddling"`
 }

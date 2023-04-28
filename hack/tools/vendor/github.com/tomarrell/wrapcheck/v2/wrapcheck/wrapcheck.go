@@ -16,6 +16,7 @@ var DefaultIgnoreSigs = []string{
 	".Errorf(",
 	"errors.New(",
 	"errors.Unwrap(",
+	"errors.Join(",
 	".Wrap(",
 	".Wrapf(",
 	".WithMessage(",

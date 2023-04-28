@@ -118,6 +118,7 @@ func (m Manager) GetAllSupportedLinterConfigs() []*linter.Config {
 		forbidigoCfg        *config.ForbidigoSettings
 		funlenCfg           *config.FunlenSettings
 		gciCfg              *config.GciSettings
+		ginkgolinterCfg     *config.GinkgoLinterSettings
 		gocognitCfg         *config.GocognitSettings
 		goconstCfg          *config.GoConstSettings
 		gocriticCfg         *config.GoCriticSettings
@@ -146,6 +147,7 @@ func (m Manager) GetAllSupportedLinterConfigs() []*linter.Config {
 		makezeroCfg         *config.MakezeroSettings
 		malignedCfg         *config.MalignedSettings
 		misspellCfg         *config.MisspellSettings
+		musttagCfg          *config.MustTagSettings
 		nakedretCfg         *config.NakedretSettings
 		nestifCfg           *config.NestifSettings
 		nilNilCfg           *config.NilNilSettings
@@ -194,6 +196,7 @@ func (m Manager) GetAllSupportedLinterConfigs() []*linter.Config {
 		forbidigoCfg = &m.cfg.LintersSettings.Forbidigo
 		funlenCfg = &m.cfg.LintersSettings.Funlen
 		gciCfg = &m.cfg.LintersSettings.Gci
+		ginkgolinterCfg = &m.cfg.LintersSettings.GinkgoLinter
 		gocognitCfg = &m.cfg.LintersSettings.Gocognit
 		goconstCfg = &m.cfg.LintersSettings.Goconst
 		gocriticCfg = &m.cfg.LintersSettings.Gocritic
@@ -222,6 +225,7 @@ func (m Manager) GetAllSupportedLinterConfigs() []*linter.Config {
 		makezeroCfg = &m.cfg.LintersSettings.Makezero
 		malignedCfg = &m.cfg.LintersSettings.Maligned
 		misspellCfg = &m.cfg.LintersSettings.Misspell
+		musttagCfg = &m.cfg.LintersSettings.MustTag
 		nakedretCfg = &m.cfg.LintersSettings.Nakedret
 		nestifCfg = &m.cfg.LintersSettings.Nestif
 		nilNilCfg = &m.cfg.LintersSettings.NilNil
@@ -430,15 +434,26 @@ func (m Manager) GetAllSupportedLinterConfigs() []*linter.Config {
 			WithPresets(linter.PresetFormatting, linter.PresetImport).
 			WithURL("https://github.com/daixiang0/gci"),
 
+		linter.NewConfig(golinters.NewGinkgoLinter(ginkgolinterCfg)).
+			WithSince("v1.51.0").
+			WithLoadForGoAnalysis().
+			WithPresets(linter.PresetStyle).
+			WithURL("https://github.com/nunnatsa/ginkgolinter"),
+
+		linter.NewConfig(golinters.NewGoCheckCompilerDirectives()).
+			WithSince("v1.51.0").
+			WithPresets(linter.PresetBugs).
+			WithURL("https://github.com/leighmcculloch/gocheckcompilerdirectives"),
+
 		linter.NewConfig(golinters.NewGochecknoglobals()).
 			WithSince("v1.12.0").
 			WithPresets(linter.PresetStyle).
+			WithLoadForGoAnalysis().
 			WithURL("https://github.com/leighmcculloch/gochecknoglobals"),
 
 		linter.NewConfig(golinters.NewGochecknoinits()).
 			WithSince("v1.12.0").
-			WithPresets(linter.PresetStyle).
-			WithURL("https://github.com/leighmcculloch/gochecknoinits"),
+			WithPresets(linter.PresetStyle),
 
 		linter.NewConfig(golinters.NewGocognit(gocognitCfg)).
 			WithSince("v1.20.0").
@@ -624,6 +639,12 @@ func (m Manager) GetAllSupportedLinterConfigs() []*linter.Config {
 			WithAutoFix().
 			WithURL("https://github.com/client9/misspell"),
 
+		linter.NewConfig(golinters.NewMustTag(musttagCfg)).
+			WithSince("v1.51.0").
+			WithLoadForGoAnalysis().
+			WithPresets(linter.PresetStyle, linter.PresetBugs).
+			WithURL("https://github.com/junk1tm/musttag"),
+
 		linter.NewConfig(golinters.NewNakedret(nakedretCfg)).
 			WithSince("v1.19.0").
 			WithPresets(linter.PresetStyle).
@@ -724,8 +745,7 @@ func (m Manager) GetAllSupportedLinterConfigs() []*linter.Config {
 			WithSince("v1.28.0").
 			WithPresets(linter.PresetBugs, linter.PresetSQL).
 			WithLoadForGoAnalysis().
-			WithURL("https://github.com/ryanrolds/sqlclosecheck").
-			WithNoopFallback(m.cfg),
+			WithURL("https://github.com/ryanrolds/sqlclosecheck"),
 
 		linter.NewConfig(golinters.NewStaticcheck(staticcheckCfg)).
 			WithSince("v1.0.0").
@@ -895,6 +915,10 @@ func linterConfigsToMap(lcs []*linter.Config) map[string]*linter.Config {
 func (m Manager) GetAllLinterConfigsForPreset(p string) []*linter.Config {
 	var ret []*linter.Config
 	for _, lc := range m.GetAllSupportedLinterConfigs() {
+		if lc.IsDeprecated() {
+			continue
+		}
+
 		for _, ip := range lc.InPresets {
 			if p == ip {
 				ret = append(ret, lc)

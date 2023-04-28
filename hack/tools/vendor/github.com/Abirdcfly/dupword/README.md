@@ -138,7 +138,7 @@ $ dupword --keyword=the,and,a -fix ./...
 
 ## TODO
 
-- [ ] add this linter to golangci-lint
+- [x] add this linter to golangci-lint
 - [ ] rewrite the detection logic to make it more efficient
 
 ## Limitation

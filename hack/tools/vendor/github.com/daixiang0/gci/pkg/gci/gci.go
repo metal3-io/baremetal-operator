@@ -121,7 +121,7 @@ func LoadFormatGoFile(file io.FileObj, cfg config.Config) (src, dist []byte, err
 		return src, src, nil
 	}
 
-	imports, headEnd, tailStart, err := parse.ParseFile(src, file.Path())
+	imports, headEnd, tailStart, cStart, cEnd, err := parse.ParseFile(src, file.Path())
 	if err != nil {
 		if errors.Is(err, parse.NoImportError{}) {
 			return src, src, nil
@@ -137,23 +137,6 @@ func LoadFormatGoFile(file io.FileObj, cfg config.Config) (src, dist []byte, err
 	result, err := format.Format(imports, &cfg)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	var head []byte
-	if src[headEnd-1] == '\t' || src[headEnd-1] == utils.Linebreak {
-		head = src[:headEnd]
-	} else {
-		// handle multiple import blocks
-		// cover `import ` to `import (`
-		head = make([]byte, headEnd)
-		copy(head, src[:headEnd])
-		head = append(head, []byte{40, 10, 9}...)
-	}
-
-	tail := src[tailStart:]
-	// for test
-	if len(tail) == 0 {
-		tail = []byte(")\n")
 	}
 
 	firstWithIndex := true
@@ -173,8 +156,29 @@ func LoadFormatGoFile(file io.FileObj, cfg config.Config) (src, dist []byte, err
 		}
 	}
 
-	if tail[0] != utils.Linebreak {
-		body = append(body, utils.Linebreak)
+	head := make([]byte, headEnd)
+	copy(head, src[:headEnd])
+	tail := make([]byte, len(src)-tailStart)
+	copy(tail, src[tailStart:])
+
+	head = append(head, utils.Linebreak)
+	// ensure C
+	if cStart != 0 {
+		head = append(head, src[cStart:cEnd]...)
+		head = append(head, utils.Linebreak)
+	}
+
+	// add beginning of import block
+	head = append(head, `import (`...)
+	// add end of import block
+	body = append(body, []byte{utils.RightParenthesis, utils.Linebreak}...)
+
+	log.L().Debug(fmt.Sprintf("head:\n%s", head))
+	log.L().Debug(fmt.Sprintf("body:\n%s", body))
+	if len(tail) > 20 {
+		log.L().Debug(fmt.Sprintf("tail:\n%s", tail[:20]))
+	} else {
+		log.L().Debug(fmt.Sprintf("tail:\n%s", tail))
 	}
 
 	var totalLen int
@@ -187,7 +191,7 @@ func LoadFormatGoFile(file io.FileObj, cfg config.Config) (src, dist []byte, err
 	for _, s := range slices {
 		i += copy(dist[i:], s)
 	}
-
+	log.L().Debug(fmt.Sprintf("raw:\n%s", dist))
 	dist, err = goFormat.Source(dist)
 	if err != nil {
 		return nil, nil, err

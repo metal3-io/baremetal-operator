@@ -95,6 +95,8 @@ func main() {
 	var runInTestMode bool
 	var runInDemoMode bool
 	var webhookPort int
+	var restConfigQPS float64
+	var restConfigBurst int
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -116,6 +118,10 @@ func main() {
 		"The address the health endpoint binds to.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443,
 		"Webhook Server port (set to 0 to disable)")
+	flag.Float64Var(&restConfigQPS, "kube-api-qps", 20,
+		"Maximum queries per second from the controller client to the Kubernetes API server. Default 20")
+	flag.IntVar(&restConfigBurst, "kube-api-burst", 30,
+		"Maximum number of queries that should be allowed in one burst from the controller client to the Kubernetes API server. Default 30")
 	flag.Parse()
 
 	logOpts := zap.Options{}
@@ -134,7 +140,10 @@ func main() {
 		leaderElectionNamespace = watchNamespace
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	restConfig := ctrl.GetConfigOrDie()
+	restConfig.QPS = float32(restConfigQPS)
+	restConfig.Burst = restConfigBurst
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                  scheme,
 		MetricsBindAddress:      metricsBindAddr,
 		Port:                    webhookPort,

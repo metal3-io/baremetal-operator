@@ -663,6 +663,13 @@ spec:
                       description: Storage describes one storage device (disk, SSD,
                         etc.) on the host.
                       properties:
+                        alternateNames:
+                          description: A list of alternate Linux device names of the
+                            disk, e.g. "/dev/sda". Note that this list is not exhaustive,
+                            and names may not be stable across reboots.
+                          items:
+                            type: string
+                          type: array
                         hctl:
                           description: The SCSI location of the device
                           type: string

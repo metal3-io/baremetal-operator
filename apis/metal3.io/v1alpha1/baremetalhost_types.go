@@ -524,6 +524,11 @@ type Storage struct {
 	// that is stable across reboots if one is available.
 	Name string `json:"name,omitempty"`
 
+	// A list of alternate Linux device names of the disk, e.g. "/dev/sda".
+	// Note that this list is not exhaustive, and names may not be stable
+	// across reboots.
+	AlternateNames []string `json:"alternateNames,omitempty"`
+
 	// Whether this disk represents rotational storage.
 	// This field is not recommended for usage, please
 	// prefer using 'Type' field instead, this field

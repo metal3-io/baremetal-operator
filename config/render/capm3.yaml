@@ -73,6 +73,10 @@ spec:
           spec:
             description: BareMetalHostSpec defines the desired state of BareMetalHost
             properties:
+              architecture:
+                description: Architecture means CPU architecture. Allowed values are
+                  x86_64, aarch64, ppc64le, &c. It's passed to the preprovisioningimage.
+                type: string
               automatedCleaningMode:
                 default: metadata
                 description: When set to disabled, automated cleaning will be avoided

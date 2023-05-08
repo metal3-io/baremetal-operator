@@ -7,6 +7,9 @@ This document details the steps to create a release for
 
 Things you should do before making a release:
 
+- Check the
+  [Metal3 release process](https://github.com/metal3-io/metal3-docs/blob/main/processes/releasing.md)
+  for high-level process and possible follow-up actions
 - Uplift controller Go modules to use latest corresponding CAPI modules
 - Uplift any other direct/indirect dependency to close any public
   vulnerabilities
@@ -57,8 +60,9 @@ We also need to create one or more tags for the Go modules ecosystem:
 
 - For any subdirectory with `go.mod` in it (excluding `hack/tools`), create
   another Git tag with directory prefix, ie.
-  `git tag -s -a api/v1.x.y -m api/v1.x.y`.
+  `git tag -s api/v0.x.y -m api/v0.x.y`.
   For BMO, these directories are `api` and `pkg/hardwareutils`.
+  **NOTE**: Do not create annotated tags for go modules.
 
 ### Release artifacts
 
@@ -98,9 +102,4 @@ Next step is to clean up the release note manually.
 Release process is complete, but further additional actions are required
 in the Metal3 project to take in the new major/minor release. These steps are
 documented in
-[CAPM3 release process](https://github.com/metal3-io/cluster-api-provider-metal3/blob/main/docs/releasing.md)
-
-## Announcements
-
-We announce the release in Kubernetes slack on `#cluster-api-baremetal` channel
-and through the `metal3-dev` group mailing list.
+[Metal3 release process](https://github.com/metal3-io/metal3-docs/blob/main/processes/releasing.md)

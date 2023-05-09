@@ -519,8 +519,9 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	// The Linux device name of the disk, e.g. "/dev/sda". Note that this
-	// may not be stable across reboots.
+	// A Linux device name of the disk, e.g.
+	// "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
+	// that is stable across reboots if one is available.
 	Name string `json:"name,omitempty"`
 
 	// Whether this disk represents rotational storage.

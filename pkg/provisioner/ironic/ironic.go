@@ -504,17 +504,18 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		result, err = operationContinuing(provisionRequeueDelay)
 		return
 
+	case nodes.CleanWait,
+		nodes.Cleaning,
+		nodes.DeployWait,
+		nodes.Deploying,
+		nodes.Inspecting:
+		// Do not try to update the node if it's in a transient state other than InspectWait - will fail anyway.
+		result, err = operationComplete()
+		return
+
 	case nodes.Active:
 		// The host is already running, maybe it's a controlplane host?
 		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
-		fallthrough
-
-	case nodes.Manageable:
-		fallthrough
-
-	case nodes.Available:
-		// The host is fully registered (and probably wasn't cleanly
-		// deleted previously)
 		fallthrough
 
 	default:

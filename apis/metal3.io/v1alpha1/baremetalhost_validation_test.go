@@ -438,6 +438,62 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
 		},
 		{
+			name: "validRootDeviceHint",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RootDeviceHints: &RootDeviceHints{
+						DeviceName: "/dev/sda",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "validRootDeviceHintByPath",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RootDeviceHints: &RootDeviceHints{
+						DeviceName: "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "invalidRootDeviceHintByUUID",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RootDeviceHints: &RootDeviceHints{
+						DeviceName: "/dev/disk/by-uuid/cdaacd50-3a4c-421c-91c0-fe9ba7b8b2f1",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "Device Name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"/dev/disk/by-uuid/cdaacd50-3a4c-421c-91c0-fe9ba7b8b2f1\"",
+		},
+		{
+			name: "invalidRootDeviceHintNoPath",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					RootDeviceHints: &RootDeviceHints{
+						DeviceName: "sda",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "Device Name of root device hint must be a /dev/ path, not \"sda\"",
+		},
+		{
 			name: "invalidImageURL",
 			newBMH: &BareMetalHost{
 				TypeMeta:   tm,

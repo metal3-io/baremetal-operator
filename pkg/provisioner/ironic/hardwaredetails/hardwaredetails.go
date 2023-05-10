@@ -110,8 +110,12 @@ func getDiskType(diskdata introspection.RootDiskType) metal3v1alpha1.DiskType {
 func getStorageDetails(diskdata []introspection.RootDiskType) []metal3v1alpha1.Storage {
 	storage := make([]metal3v1alpha1.Storage, len(diskdata))
 	for i, disk := range diskdata {
+		device := disk.Name
+		if disk.ByPath != "" {
+			device = disk.ByPath
+		}
 		storage[i] = metal3v1alpha1.Storage{
-			Name:               disk.Name,
+			Name:               device,
 			Rotational:         disk.Rotational,
 			Type:               getDiskType(disk),
 			SizeBytes:          metal3v1alpha1.Capacity(disk.Size),

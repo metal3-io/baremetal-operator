@@ -458,6 +458,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 	statuses := []nodes.ProvisionState{
 		nodes.Enroll,
 		nodes.Verifying,
+		nodes.Manageable,
 		nodes.Inspecting,
 	}
 
@@ -506,13 +507,18 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 
-			if status == nodes.Inspecting {
+			switch status {
+			case nodes.Manageable:
 				assert.False(t, result.Dirty)
 				updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 				assert.Len(t, updates, 1)
 				assert.Equal(t, "/automated_clean", updates[0].Path)
 				assert.Equal(t, true, updates[0].Value)
-			} else {
+
+			case nodes.Inspecting:
+				assert.False(t, result.Dirty)
+
+			default:
 				assert.True(t, result.Dirty)
 			}
 		})

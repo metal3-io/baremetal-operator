@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -41,6 +42,10 @@ func (host *BareMetalHost) validateHost() []error {
 	}
 
 	if err := validateDNSName(host.Spec.BMC.Address); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := validateRootDeviceHints(host.Spec.RootDeviceHints); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -177,5 +182,22 @@ func validateImageURL(imageURL string) error {
 		return fmt.Errorf("Image URL %s is an invalid URL", imageURL)
 	}
 
+	return nil
+}
+
+func validateRootDeviceHints(rdh *RootDeviceHints) error {
+	if rdh == nil || rdh.DeviceName == "" {
+		return nil
+	}
+
+	subpath := strings.TrimPrefix(rdh.DeviceName, "/dev/")
+	if rdh.DeviceName == subpath {
+		return fmt.Errorf("Device Name of root device hint must be a /dev/ path, not \"%s\"", rdh.DeviceName)
+	}
+
+	subpath = strings.TrimPrefix(subpath, "disk/by-path/")
+	if strings.Contains(subpath, "/") {
+		return fmt.Errorf("Device Name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"%s\"", rdh.DeviceName)
+	}
 	return nil
 }

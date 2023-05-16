@@ -54,7 +54,7 @@ import (
 const (
 	hostErrorRetryDelay           = time.Second * 10
 	unmanagedRetryDelay           = time.Minute * 10
-	preprovImageRetryDelay        = time.Minute * 5
+	preprovImageRetryDelay        = time.Second * 30
 	provisionerNotReadyRetryDelay = time.Second * 30
 	subResourceNotReadyRetryDelay = time.Second * 60
 	rebootAnnotationPrefix        = "reboot.metal3.io"

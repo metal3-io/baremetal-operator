@@ -187,14 +187,6 @@ func TestDeprovisioningCapacity(t *testing.T) {
 			ExpectedDeprovisioningState: metal3v1alpha1.StateAvailable,
 			ExpectedDelayed:             false,
 		},
-		{
-			Scenario:                  "transition-to-deleting",
-			Host:                      host(metal3v1alpha1.StateDeprovisioning).setDeletion().build(),
-			HasDeprovisioningCapacity: true,
-
-			ExpectedDeprovisioningState: metal3v1alpha1.StateDeleting,
-			ExpectedDelayed:             false,
-		},
 	}
 
 	for _, tc := range testCases {

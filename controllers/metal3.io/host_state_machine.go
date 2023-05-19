@@ -104,7 +104,7 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3v1alpha1.Pro
 		// avoid putting an excessive pressure on the provisioner
 		switch hsm.NextState {
 		case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning,
-			metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+			metal3v1alpha1.StateDeprovisioning:
 			if actionRes := hsm.ensureCapacity(info, hsm.NextState); actionRes != nil {
 				return actionRes
 			}
@@ -161,7 +161,7 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 	// host not yet tracked by the provisioner
 	switch info.host.Status.Provisioning.State {
 	case metal3v1alpha1.StateInspecting, metal3v1alpha1.StateProvisioning,
-		metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+		metal3v1alpha1.StateDeprovisioning:
 		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}

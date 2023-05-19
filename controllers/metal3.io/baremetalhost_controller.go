@@ -335,10 +335,9 @@ func recordActionFailure(info *reconcileInfo, errorType metal3v1alpha1.ErrorType
 func recordActionDelayed(info *reconcileInfo, state metal3v1alpha1.ProvisioningState) actionResult {
 	var counter prometheus.Counter
 
-	switch state {
-	case metal3v1alpha1.StateDeprovisioning, metal3v1alpha1.StateDeleting:
+	if state == metal3v1alpha1.StateDeprovisioning {
 		counter = delayedDeprovisioningHostCounters.With(hostMetricLabels(info.request))
-	default:
+	} else {
 		counter = delayedProvisioningHostCounters.With(hostMetricLabels(info.request))
 	}
 

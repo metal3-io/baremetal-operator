@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -296,7 +295,7 @@ func (r *BMCEventSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: r.updateEventHandler,
 		}).
-		Watches(&source.Kind{Type: &metal3api.BareMetalHost{}}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
+		Watches(&metal3v1alpha1.BareMetalHost{}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
 		Complete(r)
 }
 

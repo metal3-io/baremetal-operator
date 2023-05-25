@@ -295,7 +295,7 @@ func (r *BMCEventSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: r.updateEventHandler,
 		}).
-		Watches(&metal3v1alpha1.BareMetalHost{}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
+		Watches(&metal3api.BareMetalHost{}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
 		Complete(r)
 }
 

@@ -1937,8 +1937,9 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 
 	if ironicNode.PowerState != powerOff {
 		targetState := ironicNode.TargetPowerState
+		useSoftReboot := rebootMode == metal3api.RebootModeSoft
 		// If the target state is either powerOff or softPowerOff, then we should wait
-		if targetState == powerOff || targetState == softPowerOff {
+		if targetState == powerOff || (useSoftReboot && targetState == softPowerOff) {
 			p.log.Info("waiting for power status to change")
 			return operationContinuing(powerRequeueDelay)
 		}
@@ -1949,7 +1950,7 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 			return operationFailed(ironicNode.LastError)
 		}
 
-		if rebootMode == metal3api.RebootModeSoft && !force {
+		if useSoftReboot && !force {
 			result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
 			if !errors.As(err, &softPowerOffUnsupportedError{}) {
 				return result, err

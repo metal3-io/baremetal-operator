@@ -19,15 +19,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // bmcsubscriptionlog is for logging in this package.
 var bmcsubscriptionlog = logf.Log.WithName("bmceventsubscription-resource")
 
 //+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-bmceventsubscription,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=bmceventsubscriptions,versions=v1alpha1,name=bmceventsubscription.metal3.io
-
-var _ webhook.Validator = &BMCEventSubscription{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (s *BMCEventSubscription) ValidateCreate() error {

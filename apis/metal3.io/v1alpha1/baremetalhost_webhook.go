@@ -19,15 +19,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
 var baremetalhostlog = logf.Log.WithName("baremetalhost-resource")
 
 //+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-baremetalhost,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=baremetalhosts,versions=v1alpha1,name=baremetalhost.metal3.io
-
-var _ webhook.Validator = &BareMetalHost{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *BareMetalHost) ValidateCreate() error {

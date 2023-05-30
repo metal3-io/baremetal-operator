@@ -75,12 +75,16 @@ func setupChecks(mgr ctrl.Manager) {
 }
 
 func setupWebhooks(mgr ctrl.Manager) {
-	if err := (&metal3iov1alpha1.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(&metal3iov1alpha1.BareMetalHost{}).
+		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
 		os.Exit(1)
 	}
 
-	if err := (&metal3iov1alpha1.BMCEventSubscription{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(&metal3iov1alpha1.BMCEventSubscription{}).
+		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BMCEventSubscription")
 		os.Exit(1)
 	}

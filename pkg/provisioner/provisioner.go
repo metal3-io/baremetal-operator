@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/hardware"
+	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 )
@@ -109,7 +109,7 @@ type ProvisionData struct {
 	Image           metal3v1alpha1.Image
 	HostConfig      HostConfigData
 	BootMode        metal3v1alpha1.BootMode
-	HardwareProfile hardware.Profile
+	HardwareProfile profile.Profile
 	RootDeviceHints *metal3v1alpha1.RootDeviceHints
 	CustomDeploy    *metal3v1alpha1.CustomDeploy
 }

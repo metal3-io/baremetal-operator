@@ -14,7 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/hardware"
+	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
@@ -560,7 +560,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	hwProf, _ := hardware.GetProfile("libvirt")
+	hwProf, _ := profile.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
 		Image:           *host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
@@ -667,7 +667,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	hwProf, _ := hardware.GetProfile("dell")
+	hwProf, _ := profile.GetProfile("dell")
 	provData := provisioner.ProvisionData{
 		Image:           *host.Spec.Image,
 		BootMode:        metal3v1alpha1.DefaultBootMode,
@@ -1185,7 +1185,7 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	}
 	ironicNode := &nodes.Node{}
 
-	hwProf, _ := hardware.GetProfile("libvirt")
+	hwProf, _ := profile.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
 		Image:           *host.Spec.Image,
 		BootMode:        metal3v1alpha1.UEFISecureBoot,

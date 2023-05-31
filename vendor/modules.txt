@@ -106,6 +106,7 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/metal3-io/baremetal-operator/apis v0.2.0 => ./apis
 ## explicit; go 1.19
 github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
+github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile
 # github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.2.0 => ./pkg/hardwareutils
 ## explicit; go 1.19
 github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc

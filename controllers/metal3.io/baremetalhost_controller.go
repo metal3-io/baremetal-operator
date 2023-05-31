@@ -43,7 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/hardware"
+	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -659,7 +659,7 @@ func getHostArchitecture(host *metal3v1alpha1.BareMetalHost) string {
 		host.Status.HardwareDetails.CPU.Arch != "" {
 		return host.Status.HardwareDetails.CPU.Arch
 	}
-	if hwprof, err := hardware.GetProfile(host.Status.HardwareProfile); err == nil {
+	if hwprof, err := profile.GetProfile(host.Status.HardwareProfile); err == nil {
 		return hwprof.CPUArch
 	}
 	return ""
@@ -882,7 +882,7 @@ func updateRootDeviceHints(host *metal3v1alpha1.BareMetalHost, info *reconcileIn
 	// precedence. Otherwise use the values from the hardware profile.
 	hintSource := host.Spec.RootDeviceHints
 	if hintSource == nil {
-		hwProf, err := hardware.GetProfile(host.HardwareProfile())
+		hwProf, err := profile.GetProfile(host.HardwareProfile())
 		if err != nil {
 			return false, errors.Wrap(err, "failed to update root device hints")
 		}
@@ -1030,14 +1030,14 @@ func getHardwareProfileName(host *metal3v1alpha1.BareMetalHost) string {
 	if strings.HasPrefix(host.Spec.BMC.Address, "libvirt") {
 		return "libvirt"
 	}
-	return hardware.DefaultProfileName
+	return profile.DefaultProfileName
 }
 
 func (r *BareMetalHostReconciler) matchProfile(info *reconcileInfo) (dirty bool, err error) {
 	hardwareProfile := getHardwareProfileName(info.host)
 	info.log.Info("using hardware profile", "profile", hardwareProfile)
 
-	_, err = hardware.GetProfile(hardwareProfile)
+	_, err = profile.GetProfile(hardwareProfile)
 	if err != nil {
 		info.log.Info("invalid hardware profile", "profile", hardwareProfile)
 		return
@@ -1139,7 +1139,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 	info.log.Info("provisioning")
 
-	hwProf, err := hardware.GetProfile(info.host.HardwareProfile())
+	hwProf, err := profile.GetProfile(info.host.HardwareProfile())
 	if err != nil {
 		return actionError{errors.Wrap(err,
 			fmt.Sprintf("could not start provisioning with bad hardware profile %s",

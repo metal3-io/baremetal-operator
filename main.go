@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
@@ -75,12 +76,18 @@ func setupChecks(mgr ctrl.Manager) {
 }
 
 func setupWebhooks(mgr ctrl.Manager) {
-	if err := (&metal3iov1alpha1.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+	var bmh webhook.Validator = &metal3iov1alpha1.BareMetalHost{}
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(bmh).
+		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
 		os.Exit(1)
 	}
 
-	if err := (&metal3iov1alpha1.BMCEventSubscription{}).SetupWebhookWithManager(mgr); err != nil {
+	var bmces webhook.Validator = &metal3iov1alpha1.BMCEventSubscription{}
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(bmces).
+		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BMCEventSubscription")
 		os.Exit(1)
 	}

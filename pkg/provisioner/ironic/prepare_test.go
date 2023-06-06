@@ -9,7 +9,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
@@ -184,8 +184,8 @@ func TestPrepare(t *testing.T) {
 			prepData := provisioner.PrepareData{}
 			if tc.existRaidConfig {
 				host.Spec.BMC.Address = "raid-test://test.bmc/"
-				prepData.TargetRAIDConfig = &metal3v1alpha1.RAIDConfig{
-					HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+				prepData.TargetRAIDConfig = &metal3api.RAIDConfig{
+					HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 						{
 							Name:  "root",
 							Level: "1",

@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
@@ -49,10 +49,10 @@ const (
 	kernelParamsKey  = "kernel_append_params"
 )
 
-var bootModeCapabilities = map[metal3v1alpha1.BootMode]string{
-	metal3v1alpha1.UEFI:           "boot_mode:uefi",
-	metal3v1alpha1.UEFISecureBoot: "boot_mode:uefi,secure_boot:true",
-	metal3v1alpha1.Legacy:         "boot_mode:bios",
+var bootModeCapabilities = map[metal3api.BootMode]string{
+	metal3api.UEFI:           "boot_mode:uefi",
+	metal3api.UEFISecureBoot: "boot_mode:uefi,secure_boot:true",
+	metal3api.Legacy:         "boot_mode:bios",
 }
 
 type macAddressConflictError struct {
@@ -360,7 +360,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 
-		if data.BootMode == metal3v1alpha1.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+		if data.BootMode == metal3api.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
 			msg := fmt.Sprintf("BMC driver %s does not support secure boot", bmcAccess.Type())
 			p.log.Info(msg)
 			result, err = operationFailed(msg)
@@ -534,7 +534,7 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.HasCustomDeploy, updater)
 	}
 	updater.SetTopLevelOpt("automated_clean",
-		data.AutomatedCleaningMode != metal3v1alpha1.CleaningModeDisabled,
+		data.AutomatedCleaningMode != metal3api.CleaningModeDisabled,
 		ironicNode.AutomatedClean)
 
 	_, success, result, err := p.tryUpdateNode(ironicNode, updater)
@@ -545,22 +545,22 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 	result, err = operationComplete()
 
 	switch data.State {
-	case metal3v1alpha1.StateProvisioning,
-		metal3v1alpha1.StateDeprovisioning:
-		if data.State == metal3v1alpha1.StateProvisioning {
+	case metal3api.StateProvisioning,
+		metal3api.StateDeprovisioning:
+		if data.State == metal3api.StateProvisioning {
 			if data.CurrentImage.IsLiveISO() {
 				// Live ISO doesn't need pre-provisioning image
 				return
 			}
 		} else {
-			if data.AutomatedCleaningMode == metal3v1alpha1.CleaningModeDisabled {
+			if data.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
 				// No need for pre-provisioning image if cleaning disabled
 				return
 			}
 		}
 		fallthrough
-	case metal3v1alpha1.StateInspecting,
-		metal3v1alpha1.StatePreparing:
+	case metal3api.StateInspecting,
+		metal3api.StatePreparing:
 		if deployImageInfo == nil {
 			if p.config.havePreprovImgBuilder {
 				result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
@@ -577,7 +577,7 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 // PreprovisioningImageFormats returns a list of acceptable formats for a
 // pre-provisioning image to be built by a PreprovisioningImage object. The
 // list should be nil if no image build is requested.
-func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat, error) {
 	if !p.config.havePreprovImgBuilder {
 		return nil, nil
 	}
@@ -587,11 +587,11 @@ func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.Imag
 		return nil, err
 	}
 
-	var formats []metal3v1alpha1.ImageFormat
+	var formats []metal3api.ImageFormat
 	if accessDetails.SupportsISOPreprovisioningImage() {
-		formats = append(formats, metal3v1alpha1.ImageFormatISO)
+		formats = append(formats, metal3api.ImageFormatISO)
 	}
-	formats = append(formats, metal3v1alpha1.ImageFormatInitRD)
+	formats = append(formats, metal3api.ImageFormatInitRD)
 
 	return formats, nil
 }
@@ -650,12 +650,12 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 
 	if hostImage != nil {
 		switch hostImage.Format {
-		case metal3v1alpha1.ImageFormatISO:
+		case metal3api.ImageFormatISO:
 			if allowISO {
 				deployImageInfo[deployISOKey] = hostImage.ImageURL
 				return deployImageInfo
 			}
-		case metal3v1alpha1.ImageFormatInitRD:
+		case metal3api.ImageFormatInitRD:
 			if hostImage.KernelURL != "" {
 				deployImageInfo[deployKernelKey] = hostImage.KernelURL
 			} else if config.deployKernelURL == "" {
@@ -751,7 +751,7 @@ func (p *ironicProvisioner) changeNodeProvisionState(ironicNode *nodes.Node, opt
 	return
 }
 
-func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	// Set started to let the controller know about the change
 	p.log.Info("aborting inspection to force reboot of preprovisioning image")
 	started, result, err = p.tryChangeNodeProvisionState(
@@ -765,7 +765,7 @@ func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result prov
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware")
 
 	ironicNode, err := p.getNode()
@@ -891,7 +891,7 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
+func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *nodeUpdater) {
 	optValues := optionsData{
 		"boot_iso": imageData.URL,
 
@@ -914,7 +914,7 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
-func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *nodeUpdater) {
 	checksum, checksumType, ok := imageData.GetChecksum()
 	if !ok {
 		p.log.Info("image/checksum not found for host")
@@ -928,7 +928,7 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	// only want to do that for MD5, however, because those versions
 	// of ironic only support MD5 checksums.
 	var legacyChecksum *string
-	if checksumType == string(metal3v1alpha1.MD5) {
+	if checksumType == string(metal3api.MD5) {
 		legacyChecksum = &checksum
 	}
 
@@ -955,7 +955,7 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
-func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, updater *nodeUpdater) {
+func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *nodeUpdater) {
 	var optValues optionsData
 	if imageData != nil && imageData.URL != "" {
 		checksum, checksumType, ok := imageData.GetChecksum()
@@ -996,7 +996,7 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 		SetTopLevelOpt("deploy_interface", "custom-agent", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3v1alpha1.Image, bootMode metal3v1alpha1.BootMode, hasCustomDeploy bool, updater *nodeUpdater) {
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, bootMode metal3api.BootMode, hasCustomDeploy bool, updater *nodeUpdater) {
 	// instance_uuid
 	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
@@ -1008,7 +1008,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	// use a normal JSON mapping instead of a custom
 	// string value.
 	capabilitiesII := map[string]string{}
-	if bootMode == metal3v1alpha1.UEFISecureBoot {
+	if bootMode == metal3api.UEFISecureBoot {
 		capabilitiesII["secure_boot"] = "true"
 	}
 
@@ -1048,7 +1048,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 }
 
 // GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
-func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, err error) {
+func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 
 	ironicNode, err := p.getNode()
 	if err != nil {
@@ -1071,14 +1071,14 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 	p.log.Info("retrieved BIOS settings for node", "node", ironicNode.UUID, "size", len(settingsList))
 
 	settings = make(map[string]string)
-	schema = make(map[string]metal3v1alpha1.SettingSchema)
+	schema = make(map[string]metal3api.SettingSchema)
 
 	for _, v := range settingsList {
 		settings[v.Name] = v.Value
 
 		if includeSchema {
 			// add to schema
-			schema[v.Name] = metal3v1alpha1.SettingSchema{
+			schema[v.Name] = metal3api.SettingSchema{
 				AttributeType:   v.AttributeType,
 				AllowableValues: v.AllowableValues,
 				LowerBound:      v.LowerBound,
@@ -1100,7 +1100,7 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 // look at the existing value and modify it. This function
 // encapsulates the logic for building the value and knowing which
 // update operation to use with the results.
-func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3v1alpha1.BootMode) string {
+func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3api.BootMode) string {
 
 	capabilities, ok := ironicNode.Properties["capabilities"]
 	if !ok {
@@ -1189,7 +1189,7 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure b
 	case nodes.Manageable:
 		_, hasImageSource := ironicNode.InstanceInfo["image_source"]
 		_, hasBootISO := ironicNode.InstanceInfo["boot_iso"]
-		if data.State == metal3v1alpha1.StateDeprovisioning &&
+		if data.State == metal3api.StateDeprovisioning &&
 			!(hasImageSource || hasBootISO) {
 			// If we got here after a fresh registration and image data is
 			// available, it should have been added to the node during
@@ -1221,7 +1221,7 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure b
 			ironicNode.LastError))
 	case nodes.Active:
 		// Empty Fault means that maintenance was set manually, not by Ironic
-		if ironicNode.Maintenance && ironicNode.Fault == "" && data.State != metal3v1alpha1.StateDeleting {
+		if ironicNode.Maintenance && ironicNode.Fault == "" && data.State != metal3api.StateDeleting {
 			p.log.Info("active node was found to be in maintenance, updating", "state", data.State)
 			return p.setMaintenanceFlag(ironicNode, false, "")
 		}
@@ -1230,7 +1230,7 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure b
 	return operationComplete()
 }
 
-func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image metal3v1alpha1.Image) (sameImage bool) {
+func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image metal3api.Image) (sameImage bool) {
 	// To make it easier to test if ironic is configured with
 	// the same image we are trying to provision to the host.
 	if image.IsLiveISO() {
@@ -1508,7 +1508,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	return
 }
 
-func (p *ironicProvisioner) getCustomDeploySteps(customDeploy *metal3v1alpha1.CustomDeploy) (deploySteps []nodes.DeployStep) {
+func (p *ironicProvisioner) getCustomDeploySteps(customDeploy *metal3api.CustomDeploy) (deploySteps []nodes.DeployStep) {
 	if customDeploy != nil && customDeploy.Method != "" {
 		deploySteps = append(deploySteps, nodes.DeployStep{
 			Interface: nodes.InterfaceDeploy,
@@ -1927,7 +1927,7 @@ func (p *ironicProvisioner) PowerOn(force bool) (result provisioner.Result, err 
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
 	p.log.Info(fmt.Sprintf("ensuring host is powered off (mode: %s)", rebootMode))
 
 	ironicNode, err := p.getNode()
@@ -1949,7 +1949,7 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force
 			return operationFailed(ironicNode.LastError)
 		}
 
-		if rebootMode == metal3v1alpha1.RebootModeSoft && !force {
+		if rebootMode == metal3api.RebootModeSoft && !force {
 			result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
 			if !errors.As(err, &softPowerOffUnsupportedError{}) {
 				return result, err
@@ -2035,7 +2035,7 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 	return hosts, nil
 }
 
-func (p *ironicProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	newSubscription, err := nodes.CreateSubscription(
 		p.client,
 		p.nodeID,
@@ -2055,7 +2055,7 @@ func (p *ironicProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v
 	return operationComplete()
 }
 
-func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	method := nodes.CallVendorPassthruOpts{
 		Method: "delete_subscription",
 	}

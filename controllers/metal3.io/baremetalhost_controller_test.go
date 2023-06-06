@@ -27,7 +27,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -66,8 +66,8 @@ func newBMCCredsSecret(name, username, password string) *corev1.Secret {
 	return newSecret(name, map[string]string{"username": username, "password": password})
 }
 
-func newHost(name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha1.BareMetalHost {
-	return &metal3v1alpha1.BareMetalHost{
+func newHost(name string, spec *metal3api.BareMetalHostSpec) *metal3api.BareMetalHost {
+	return &metal3api.BareMetalHost{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "BareMetalHost",
 			APIVersion: "metal3.io/v1alpha1",
@@ -79,20 +79,20 @@ func newHost(name string, spec *metal3v1alpha1.BareMetalHostSpec) *metal3v1alpha
 	}
 }
 
-func newHostFirmwareSettings(host *metal3v1alpha1.BareMetalHost, conditions []metav1.Condition) *metal3v1alpha1.HostFirmwareSettings {
-	hfs := &metal3v1alpha1.HostFirmwareSettings{
+func newHostFirmwareSettings(host *metal3api.BareMetalHost, conditions []metav1.Condition) *metal3api.HostFirmwareSettings {
+	hfs := &metal3api.HostFirmwareSettings{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: host.Namespace,
 		},
-		Spec: metal3v1alpha1.HostFirmwareSettingsSpec{
-			Settings: metal3v1alpha1.DesiredSettingsMap{
+		Spec: metal3api.HostFirmwareSettingsSpec{
+			Settings: metal3api.DesiredSettingsMap{
 				"ProcVirtualization": intstr.FromString("Disabled"),
 				"SecureBoot":         intstr.FromString("Enabled"),
 			},
 		},
-		Status: metal3v1alpha1.HostFirmwareSettingsStatus{
-			Settings: metal3v1alpha1.SettingsMap{
+		Status: metal3api.HostFirmwareSettingsStatus{
+			Settings: metal3api.SettingsMap{
 				"ProcVirtualization": "Disabled",
 				"SecureBoot":         "Enabled",
 			},
@@ -104,14 +104,14 @@ func newHostFirmwareSettings(host *metal3v1alpha1.BareMetalHost, conditions []me
 	return hfs
 }
 
-func newDefaultNamedHost(name string, t *testing.T) *metal3v1alpha1.BareMetalHost {
-	spec := &metal3v1alpha1.BareMetalHostSpec{
-		BMC: metal3v1alpha1.BMCDetails{
+func newDefaultNamedHost(name string, t *testing.T) *metal3api.BareMetalHost {
+	spec := &metal3api.BareMetalHostSpec{
+		BMC: metal3api.BMCDetails{
 			Address:         "ipmi://192.168.122.1:6233",
 			CredentialsName: defaultSecretName,
 		},
 		HardwareProfile: "libvirt",
-		RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+		RootDeviceHints: &metal3api.RootDeviceHints{
 			DeviceName:         "userd_devicename",
 			HCTL:               "1:2:3:4",
 			Model:              "userd_model",
@@ -129,7 +129,7 @@ func newDefaultNamedHost(name string, t *testing.T) *metal3v1alpha1.BareMetalHos
 	return host
 }
 
-func newDefaultHost(t *testing.T) *metal3v1alpha1.BareMetalHost {
+func newDefaultHost(t *testing.T) *metal3api.BareMetalHost {
 	return newDefaultNamedHost(t.Name(), t)
 }
 
@@ -154,9 +154,9 @@ func newTestReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 	return newTestReconcilerWithFixture(&fix, initObjs...)
 }
 
-type DoneFunc func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool
+type DoneFunc func(host *metal3api.BareMetalHost, result reconcile.Result) bool
 
-func newRequest(host *metal3v1alpha1.BareMetalHost) ctrl.Request {
+func newRequest(host *metal3api.BareMetalHost) ctrl.Request {
 	namespacedName := types.NamespacedName{
 		Namespace: host.ObjectMeta.Namespace,
 		Name:      host.ObjectMeta.Name,
@@ -164,7 +164,7 @@ func newRequest(host *metal3v1alpha1.BareMetalHost) ctrl.Request {
 	return ctrl.Request{NamespacedName: namespacedName}
 }
 
-func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost, isDone DoneFunc) {
+func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost, isDone DoneFunc) {
 
 	request := newRequest(host)
 
@@ -183,7 +183,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 		// The FakeClient keeps a copy of the object we update, so we
 		// need to replace the one we have with the updated data in
 		// order to test it. In case it was not found, let's set it to nil
-		updatedHost := &metal3v1alpha1.BareMetalHost{}
+		updatedHost := &metal3api.BareMetalHost{}
 		if err = r.Get(goctx.TODO(), request.NamespacedName, updatedHost); k8serrors.IsNotFound(err) {
 			host = nil
 		} else {
@@ -202,9 +202,9 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1
 	}
 }
 
-func waitForStatus(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost, desiredStatus metal3v1alpha1.OperationalStatus) {
+func waitForStatus(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost, desiredStatus metal3api.OperationalStatus) {
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			state := host.OperationalStatus()
 			t.Logf("Waiting for status %s: %s", desiredStatus, state)
 			return state == desiredStatus
@@ -212,27 +212,27 @@ func waitForStatus(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha
 	)
 }
 
-func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) {
+func waitForError(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost) {
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for error: %q", host.Status.ErrorMessage)
 			return host.Status.ErrorMessage != ""
 		},
 	)
 }
 
-func waitForNoError(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) {
+func waitForNoError(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost) {
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for no error message: %q", host.Status.ErrorMessage)
 			return host.Status.ErrorMessage == ""
 		},
 	)
 }
 
-func waitForProvisioningState(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost, desiredState metal3v1alpha1.ProvisioningState) {
+func waitForProvisioningState(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost, desiredState metal3api.ProvisioningState) {
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Waiting for state %q have state %q", desiredState, host.Status.Provisioning.State)
 			return host.Status.Provisioning.State == desiredState
 		},
@@ -251,7 +251,7 @@ func TestHardwareDetails_EmptyStatus(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			_, found := host.Annotations[hardwareDetailsAnnotation]
 			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
 				return true
@@ -270,14 +270,14 @@ func TestHardwareDetails_StatusPresent(t *testing.T) {
 	}
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
-	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd := metal3api.HardwareDetails{}
 	hwd.Hostname = "existinghost"
 	host.Status.HardwareDetails = &hwd
 
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			_, found := host.Annotations[hardwareDetailsAnnotation]
 			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "existinghost" && !found {
 				return true
@@ -298,14 +298,14 @@ func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
 	}
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
-	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd := metal3api.HardwareDetails{}
 	hwd.Hostname = "existinghost"
 	host.Status.HardwareDetails = &hwd
 
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			_, found := host.Annotations[hardwareDetailsAnnotation]
 			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
 				return true
@@ -326,7 +326,7 @@ func TestHardwareDetails_Invalid(t *testing.T) {
 	}
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
-	hwd := metal3v1alpha1.HardwareDetails{}
+	hwd := metal3api.HardwareDetails{}
 	hwd.Hostname = "existinghost"
 	host.Status.HardwareDetails = &hwd
 
@@ -342,15 +342,15 @@ func TestHardwareDetails_Invalid(t *testing.T) {
 func TestStatusAnnotation_EmptyStatus(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		metal3v1alpha1.StatusAnnotation: statusAnnotation,
+		metal3api.StatusAnnotation: statusAnnotation,
 	}
 	host.Spec.Online = true
-	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			if host.Status.HardwareProfile == "StatusProfile" && host.Status.Provisioning.Image.URL == "bar" {
 				return true
 			}
@@ -364,18 +364,18 @@ func TestStatusAnnotation_EmptyStatus(t *testing.T) {
 func TestStatusAnnotation_StatusPresent(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		metal3v1alpha1.StatusAnnotation: statusAnnotation,
+		metal3api.StatusAnnotation: statusAnnotation,
 	}
 
 	host.Spec.Online = true
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
-	host.Status.Provisioning.Image = metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Status.Provisioning.Image = metal3api.Image{URL: "foo", Checksum: "123"}
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			_, found := host.Annotations[metal3v1alpha1.StatusAnnotation]
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[metal3api.StatusAnnotation]
 			if host.Status.HardwareProfile != "StatusProfile" && host.Status.Provisioning.Image.URL == "foo" && !found {
 				return true
 			}
@@ -404,15 +404,15 @@ func TestStatusAnnotation_Partial(t *testing.T) {
 
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		metal3v1alpha1.StatusAnnotation: string(packedStatus),
+		metal3api.StatusAnnotation: string(packedStatus),
 	}
 	host.Spec.Online = true
-	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			if host.Status.HardwareProfile == "StatusProfile" && host.Status.Provisioning.Image.URL == "bar" {
 				return true
 			}
@@ -427,18 +427,18 @@ func TestHardwareDataExist(t *testing.T) {
 
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		metal3v1alpha1.StatusAnnotation: statusAnnotation,
+		metal3api.StatusAnnotation: statusAnnotation,
 	}
 	host.Spec.Online = true
 
-	hardwareData := &metal3v1alpha1.HardwareData{
+	hardwareData := &metal3api.HardwareData{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: host.Namespace,
 		},
-		Spec: metal3v1alpha1.HardwareDataSpec{
-			HardwareDetails: &metal3v1alpha1.HardwareDetails{
-				CPU: metal3v1alpha1.CPU{
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{
+				CPU: metal3api.CPU{
 					Model: "fake-model",
 				},
 				Hostname: host.Name,
@@ -449,8 +449,8 @@ func TestHardwareDataExist(t *testing.T) {
 	r := newTestReconciler(host, hardwareData)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			_, found := host.Annotations[metal3v1alpha1.StatusAnnotation]
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[metal3api.StatusAnnotation]
 			if found && host.Status.HardwareDetails.CPU.Model != "fake-model" {
 				return false
 			}
@@ -463,12 +463,12 @@ func TestHardwareDataExist(t *testing.T) {
 func TestPause(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		metal3v1alpha1.PausedAnnotation: "true",
+		metal3api.PausedAnnotation: "true",
 	}
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			// Because the host is created with the annotation, we
 			// expect it to never have any reconciling done at all, so
 			// it has no finalizer.
@@ -488,7 +488,7 @@ func TestInspectDisabled(t *testing.T) {
 		inspectAnnotationPrefix: "disabled",
 	}
 	r := newTestReconciler(host)
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 	assert.Nil(t, host.Status.HardwareDetails)
 }
 
@@ -496,7 +496,7 @@ func TestInspectDisabled(t *testing.T) {
 func TestInspectEnabled(t *testing.T) {
 	host := newDefaultHost(t)
 	r := newTestReconciler(host)
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 	assert.NotNil(t, host.Status.HardwareDetails)
 }
 
@@ -507,9 +507,9 @@ func TestAddFinalizers(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("host finalizers: %v", host.ObjectMeta.Finalizers)
-			if !utils.StringInList(host.ObjectMeta.Finalizers, metal3v1alpha1.BareMetalHostFinalizer) {
+			if !utils.StringInList(host.ObjectMeta.Finalizers, metal3api.BareMetalHostFinalizer) {
 				return false
 			}
 
@@ -529,9 +529,9 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	r := newTestReconciler(host)
 
 	// Let the host reach the available state before deleting it
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StateAvailable)
+	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
 	doDeleteHost(host, r)
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StateDeleting)
+	waitForProvisioningState(t, r, host, metal3api.StateDeleting)
 
 	// The next reconcile loop will start the delete process,
 	// and as a first step the Ironic node will be removed
@@ -570,7 +570,7 @@ func TestSetLastUpdated(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("LastUpdated: %v", host.Status.LastUpdated)
 			if !host.Status.LastUpdated.IsZero() {
 				return true
@@ -590,7 +590,7 @@ func TestInspectionDisabledAnnotation(t *testing.T) {
 	assert.True(t, inspectionDisabled(host))
 }
 
-func makeReconcileInfo(host *metal3v1alpha1.BareMetalHost) *reconcileInfo {
+func makeReconcileInfo(host *metal3api.BareMetalHost) *reconcileInfo {
 	return &reconcileInfo{
 		log:  logf.Log.WithName("controllers").WithName("BareMetalHost").WithName("baremetal_controller"),
 		host: host,
@@ -604,7 +604,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 		Annotations    map[string]string
 		expectForce    bool
 		expectedReboot bool
-		expectedMode   metal3v1alpha1.RebootMode
+		expectedMode   metal3api.RebootMode
 	}{
 		{
 			Scenario: "No annotations",
@@ -637,7 +637,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 				rebootAnnotationPrefix + "/foo": "{\"mode\": \"soft\"}",
 			},
 			expectedReboot: true,
-			expectedMode:   metal3v1alpha1.RebootModeSoft,
+			expectedMode:   metal3api.RebootModeSoft,
 		},
 		{
 			Scenario: "Suffixed with hard reboot",
@@ -645,7 +645,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 				rebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
 			},
 			expectedReboot: true,
-			expectedMode:   metal3v1alpha1.RebootModeHard,
+			expectedMode:   metal3api.RebootModeHard,
 		},
 		{
 			Scenario: "Suffixed with bad JSON",
@@ -661,7 +661,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 				rebootAnnotationPrefix + "/bar": "{\"mode\": \"soft\"}",
 			},
 			expectedReboot: true,
-			expectedMode:   metal3v1alpha1.RebootModeHard,
+			expectedMode:   metal3api.RebootModeHard,
 		},
 		{
 			Scenario: "Suffixed with force",
@@ -688,7 +688,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 			host.Annotations = tc.Annotations
 
 			if tc.expectedMode == "" {
-				tc.expectedMode = metal3v1alpha1.RebootModeSoft
+				tc.expectedMode = metal3api.RebootModeSoft
 			}
 
 			hasReboot, rebootMode := hasRebootAnnotation(info, tc.expectForce)
@@ -705,16 +705,16 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	host.Annotations = make(map[string]string)
 	host.Annotations[rebootAnnotationPrefix] = ""
 	host.Status.PoweredOn = true
-	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
+	host.Status.Provisioning.State = metal3api.StateProvisioned
 	host.Spec.Online = true
-	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 	host.Spec.Image.URL = "foo"
 	host.Status.Provisioning.Image.URL = "foo"
 
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			if host.Status.PoweredOn {
 				return false
 			}
@@ -724,7 +724,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			if _, exists := host.Annotations[rebootAnnotationPrefix]; exists {
 				return false
 			}
@@ -734,7 +734,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			if !host.Status.PoweredOn {
 				return false
 			}
@@ -745,7 +745,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 
 	//make sure we don't go into another reboot
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 
 			if !host.Status.PoweredOn {
 				return false
@@ -764,16 +764,16 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	annotation := rebootAnnotationPrefix + "/foo"
 	host.Annotations[annotation] = ""
 	host.Status.PoweredOn = true
-	host.Status.Provisioning.State = metal3v1alpha1.StateProvisioned
+	host.Status.Provisioning.State = metal3api.StateProvisioned
 	host.Spec.Online = true
-	host.Spec.Image = &metal3v1alpha1.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 	host.Spec.Image.URL = "foo"
 	host.Status.Provisioning.Image.URL = "foo"
 
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			if host.Status.PoweredOn {
 				return false
 			}
@@ -783,7 +783,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			//we expect that the machine will be powered off until we remove annotation
 			if host.Status.PoweredOn {
 				return false
@@ -797,7 +797,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	r.Update(goctx.TODO(), host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 
 			if !host.Status.PoweredOn {
 				return false
@@ -809,7 +809,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 
 	//make sure we don't go into another reboot
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			if !host.Status.PoweredOn {
 				return false
 			}
@@ -819,7 +819,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	)
 }
 
-func getHostSecret(t *testing.T, r *BareMetalHostReconciler, host *metal3v1alpha1.BareMetalHost) (secret *corev1.Secret) {
+func getHostSecret(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost) (secret *corev1.Secret) {
 	secret = &corev1.Secret{}
 	secretName := types.NamespacedName{
 		Namespace: host.Namespace,
@@ -840,7 +840,7 @@ func TestSecretUpdateOwnerRefAndEnvironmentLabelOnStartup(t *testing.T) {
 	assert.Empty(t, secret.OwnerReferences)
 	assert.Empty(t, secret.Labels)
 
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StateInspecting)
+	waitForProvisioningState(t, r, host, metal3api.StateInspecting)
 
 	secret = getHostSecret(t, r, host)
 	assert.Equal(t, host.Name, secret.OwnerReferences[0].Name)
@@ -859,7 +859,7 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Version != "" {
@@ -879,7 +879,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Version != "" {
@@ -903,7 +903,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	}
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Reference != nil && host.Status.GoodCredentials.Reference.Name == "bmc-creds-valid2" {
@@ -923,7 +923,7 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	r := newTestReconciler(host, badSecret)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
 			if host.Status.GoodCredentials.Version != "" {
@@ -940,7 +940,7 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	}
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 
 			t.Logf("ref: %v ver: %s", host.Status.GoodCredentials.Reference,
 				host.Status.GoodCredentials.Version)
@@ -959,14 +959,14 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 // credentials is placed into the "discovered" state.
 func TestDiscoveredHost(t *testing.T) {
 	noAddressOrSecret := newHost("missing-bmc-address",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
+		&metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
 				Address:         "",
 				CredentialsName: "",
 			},
 		})
 	r := newTestReconciler(noAddressOrSecret)
-	waitForStatus(t, r, noAddressOrSecret, metal3v1alpha1.OperationalStatusDiscovered)
+	waitForStatus(t, r, noAddressOrSecret, metal3api.OperationalStatusDiscovered)
 	if noAddressOrSecret.Status.ErrorType != "" {
 		t.Errorf("Unexpected error type %s", noAddressOrSecret.Status.ErrorType)
 	}
@@ -982,14 +982,14 @@ func TestMissingBMCParameters(t *testing.T) {
 	testCases := []struct {
 		Scenario string
 		Secret   *corev1.Secret
-		Host     *metal3v1alpha1.BareMetalHost
+		Host     *metal3api.BareMetalHost
 	}{
 		{
 			Scenario: "secret without username",
 			Secret:   newBMCCredsSecret("bmc-creds-no-user", "", "Pass"),
 			Host: newHost("missing-bmc-username",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: "bmc-creds-no-user",
 					},
@@ -1000,8 +1000,8 @@ func TestMissingBMCParameters(t *testing.T) {
 			Scenario: "secret without password",
 			Secret:   newBMCCredsSecret("bmc-creds-no-pass", "User", ""),
 			Host: newHost("missing-bmc-password",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: "bmc-creds-no-pass",
 					},
@@ -1012,8 +1012,8 @@ func TestMissingBMCParameters(t *testing.T) {
 			Scenario: "missing address",
 			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("missing-bmc-address",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
 						Address:         "",
 						CredentialsName: "bmc-creds-ok",
 					},
@@ -1024,8 +1024,8 @@ func TestMissingBMCParameters(t *testing.T) {
 			Scenario: "missing secret",
 			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("missing-bmc-credentials-ref",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: "",
 					},
@@ -1036,8 +1036,8 @@ func TestMissingBMCParameters(t *testing.T) {
 			Scenario: "no such secret",
 			Secret:   newBMCCredsSecret("bmc-creds-ok", "User", "Pass"),
 			Host: newHost("non-existent-bmc-secret-ref",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: "this-secret-does-not-exist",
 					},
@@ -1049,10 +1049,10 @@ func TestMissingBMCParameters(t *testing.T) {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			r := newTestReconciler(tc.Secret, tc.Host)
 			waitForError(t, r, tc.Host)
-			if tc.Host.Status.OperationalStatus != metal3v1alpha1.OperationalStatusError {
+			if tc.Host.Status.OperationalStatus != metal3api.OperationalStatusError {
 				t.Errorf("Unexpected operational status %s", tc.Host.Status.OperationalStatus)
 			}
-			if tc.Host.Status.ErrorType != metal3v1alpha1.RegistrationError {
+			if tc.Host.Status.ErrorType != metal3api.RegistrationError {
 				t.Errorf("Unexpected error type %s", tc.Host.Status.ErrorType)
 			}
 		})
@@ -1065,8 +1065,8 @@ func TestFixSecret(t *testing.T) {
 
 	secret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 	host := newHost("fix-secret",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
+		&metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
 				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-no-user",
 			},
@@ -1100,15 +1100,15 @@ func TestBreakThenFixSecret(t *testing.T) {
 	// registered and get a provisioning ID.
 	secret := newBMCCredsSecret("bmc-creds-toggle-user", "User", "Pass")
 	host := newHost("break-then-fix-secret",
-		&metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
+		&metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
 				Address:         "ipmi://192.168.122.1:6233",
 				CredentialsName: "bmc-creds-toggle-user",
 			},
 		})
 	r := newTestReconciler(host, secret)
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			id := host.Status.Provisioning.ID
 			t.Logf("Waiting for provisioning ID to be set: %q", id)
 			return id != ""
@@ -1157,7 +1157,7 @@ func TestSetHardwareProfile(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("profile: %v", host.Status.HardwareProfile)
 			if host.Status.HardwareProfile != "" {
 				return true
@@ -1174,7 +1174,7 @@ func TestCreateHardwareDetails(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("new host details: %v", host.Status.HardwareDetails)
 			if host.Status.HardwareDetails != nil {
 				return true
@@ -1193,7 +1193,7 @@ func TestNeedsProvisioning(t *testing.T) {
 		t.Fatal("host without spec image should not need provisioning")
 	}
 
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "https://example.com/image-name",
 		Checksum: "12345",
 	}
@@ -1224,7 +1224,7 @@ func TestNeedsProvisioningCustomDeploy(t *testing.T) {
 		customDeploy        string
 		currentCustomDeploy string
 		online              bool
-		image               *metal3v1alpha1.Image
+		image               *metal3api.Image
 
 		needsProvisioning bool
 	}{
@@ -1254,7 +1254,7 @@ func TestNeedsProvisioningCustomDeploy(t *testing.T) {
 			name:                "with custom deploy and new image",
 			customDeploy:        "install_everything",
 			currentCustomDeploy: "install_everything",
-			image: &metal3v1alpha1.Image{
+			image: &metal3api.Image{
 				URL:      "https://example.com/image-name",
 				Checksum: "12345",
 			},
@@ -1268,12 +1268,12 @@ func TestNeedsProvisioningCustomDeploy(t *testing.T) {
 
 			host.Spec.Online = tc.online
 			if tc.customDeploy != "" {
-				host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+				host.Spec.CustomDeploy = &metal3api.CustomDeploy{
 					Method: tc.customDeploy,
 				}
 			}
 			if tc.currentCustomDeploy != "" {
-				host.Status.Provisioning.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+				host.Status.Provisioning.CustomDeploy = &metal3api.CustomDeploy{
 					Method: tc.currentCustomDeploy,
 				}
 			}
@@ -1290,7 +1290,7 @@ func TestNeedsProvisioningCustomDeploy(t *testing.T) {
 // status block is filled in for provisioned hosts.
 func TestProvision(t *testing.T) {
 	host := newDefaultHost(t)
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "https://example.com/image-name",
 		Checksum: "12345",
 	}
@@ -1298,7 +1298,7 @@ func TestProvision(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("image details: %v", host.Spec.Image)
 			t.Logf("provisioning image details: %v", host.Status.Provisioning.Image)
 			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
@@ -1314,18 +1314,18 @@ func TestProvision(t *testing.T) {
 // of the status block is filled in for provisioned hosts.
 func TestProvisionCustomDeploy(t *testing.T) {
 	host := newDefaultHost(t)
-	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+	host.Spec.CustomDeploy = &metal3api.CustomDeploy{
 		Method: "install_everything",
 	}
 	host.Spec.Online = true
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("custom deploy: %v", host.Spec.CustomDeploy)
 			t.Logf("provisioning custom deploy: %v", host.Status.Provisioning.CustomDeploy)
 			t.Logf("provisioning state: %v", host.Status.Provisioning.State)
-			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method == "install_everything" && host.Status.Provisioning.State == metal3v1alpha1.StateProvisioned
+			return host.Status.Provisioning.CustomDeploy != nil && host.Status.Provisioning.CustomDeploy.Method == "install_everything" && host.Status.Provisioning.State == metal3api.StateProvisioned
 		},
 	)
 }
@@ -1334,10 +1334,10 @@ func TestProvisionCustomDeploy(t *testing.T) {
 // portion of the status block is filled in for provisioned hosts.
 func TestProvisionCustomDeployWithURL(t *testing.T) {
 	host := newDefaultHost(t)
-	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+	host.Spec.CustomDeploy = &metal3api.CustomDeploy{
 		Method: "install_everything",
 	}
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "https://example.com/image-name",
 		Checksum: "12345",
 	}
@@ -1345,7 +1345,7 @@ func TestProvisionCustomDeployWithURL(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("image details: %v", host.Spec.Image)
 			t.Logf("custom deploy: %v", host.Spec.CustomDeploy)
 			t.Logf("provisioning image details: %v", host.Status.Provisioning.Image)
@@ -1368,7 +1368,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		host.Spec.ExternallyProvisioned = true
 		r := newTestReconciler(host)
 
-		waitForProvisioningState(t, r, host, metal3v1alpha1.StateExternallyProvisioned)
+		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
 	})
 
 	t.Run("externally provisioned to inspecting", func(t *testing.T) {
@@ -1377,7 +1377,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		host.Spec.ExternallyProvisioned = true
 		r := newTestReconciler(host)
 
-		waitForProvisioningState(t, r, host, metal3v1alpha1.StateExternallyProvisioned)
+		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
 
 		host.Spec.ExternallyProvisioned = false
 		err := r.Update(goctx.TODO(), host)
@@ -1386,7 +1386,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		}
 		t.Log("set externally provisioned to false")
 
-		waitForProvisioningState(t, r, host, metal3v1alpha1.StateInspecting)
+		waitForProvisioningState(t, r, host, metal3api.StateInspecting)
 	})
 
 	t.Run("preparing to externally provisioned", func(t *testing.T) {
@@ -1394,7 +1394,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		host.Spec.Online = true
 		r := newTestReconciler(host)
 
-		waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+		waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 
 		host.Spec.ExternallyProvisioned = true
 		err := r.Update(goctx.TODO(), host)
@@ -1403,7 +1403,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		}
 		t.Log("set externally provisioned to true")
 
-		waitForProvisioningState(t, r, host, metal3v1alpha1.StateExternallyProvisioned)
+		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
 	})
 
 }
@@ -1416,7 +1416,7 @@ func TestPowerOn(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("power status: %v", host.Status.PoweredOn)
 			return host.Status.PoweredOn
 		},
@@ -1431,7 +1431,7 @@ func TestPowerOff(t *testing.T) {
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("power status: %v", host.Status.PoweredOn)
 			return !host.Status.PoweredOn
 		},
@@ -1442,52 +1442,52 @@ func TestPowerOff(t *testing.T) {
 func TestDeleteHost(t *testing.T) {
 	now := metav1.Now()
 
-	type HostFactory func() *metal3v1alpha1.BareMetalHost
+	type HostFactory func() *metal3api.BareMetalHost
 
 	testCases := []HostFactory{
-		func() *metal3v1alpha1.BareMetalHost {
+		func() *metal3api.BareMetalHost {
 			host := newDefaultNamedHost("with-finalizer", t)
 			host.Finalizers = append(host.Finalizers,
-				metal3v1alpha1.BareMetalHostFinalizer)
+				metal3api.BareMetalHostFinalizer)
 			return host
 		},
-		func() *metal3v1alpha1.BareMetalHost {
+		func() *metal3api.BareMetalHost {
 			host := newDefaultNamedHost("without-bmc", t)
-			host.Spec.BMC = metal3v1alpha1.BMCDetails{}
+			host.Spec.BMC = metal3api.BMCDetails{}
 			host.Finalizers = append(host.Finalizers,
-				metal3v1alpha1.BareMetalHostFinalizer)
+				metal3api.BareMetalHostFinalizer)
 			return host
 		},
-		func() *metal3v1alpha1.BareMetalHost {
+		func() *metal3api.BareMetalHost {
 			t.Logf("host with bad credentials, no user")
 			host := newHost("fix-secret",
-				&metal3v1alpha1.BareMetalHostSpec{
-					BMC: metal3v1alpha1.BMCDetails{
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: "bmc-creds-no-user",
 					},
 				})
 			host.Finalizers = append(host.Finalizers,
-				metal3v1alpha1.BareMetalHostFinalizer)
+				metal3api.BareMetalHostFinalizer)
 			return host
 		},
-		func() *metal3v1alpha1.BareMetalHost {
+		func() *metal3api.BareMetalHost {
 			host := newDefaultNamedHost("host-with-hw-details", t)
-			host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{}
+			host.Status.HardwareDetails = &metal3api.HardwareDetails{}
 			host.Finalizers = append(host.Finalizers,
-				metal3v1alpha1.BareMetalHostFinalizer)
+				metal3api.BareMetalHostFinalizer)
 			return host
 		},
-		func() *metal3v1alpha1.BareMetalHost {
+		func() *metal3api.BareMetalHost {
 			host := newDefaultNamedHost("provisioned-host", t)
-			host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{}
-			host.Status.Provisioning.Image = metal3v1alpha1.Image{
+			host.Status.HardwareDetails = &metal3api.HardwareDetails{}
+			host.Status.Provisioning.Image = metal3api.Image{
 				URL:      "image-url",
 				Checksum: "image-checksum",
 			}
 			host.Spec.Image = &host.Status.Provisioning.Image
 			host.Finalizers = append(host.Finalizers,
-				metal3v1alpha1.BareMetalHostFinalizer)
+				metal3api.BareMetalHostFinalizer)
 			return host
 		},
 	}
@@ -1502,7 +1502,7 @@ func TestDeleteHost(t *testing.T) {
 			r := newTestReconcilerWithFixture(&fix, host, badSecret)
 
 			tryReconcile(t, r, host,
-				func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+				func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 					return fix.Deleted && host == nil && !utils.StringInList(badSecret.Finalizers, secretutils.SecretsFinalizer)
 				},
 			)
@@ -1519,21 +1519,21 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 
 	testCases := []struct {
 		Scenario string
-		Host     metal3v1alpha1.BareMetalHost
+		Host     metal3api.BareMetalHost
 		Dirty    bool
-		Expected *metal3v1alpha1.RootDeviceHints
+		Expected *metal3api.RootDeviceHints
 	}{
 		{
 			Scenario: "override profile with explicit hints",
-			Host: metal3v1alpha1.BareMetalHost{
+			Host: metal3api.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
 					Namespace: "myns",
 					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 				},
-				Spec: metal3v1alpha1.BareMetalHostSpec{
+				Spec: metal3api.BareMetalHostSpec{
 					HardwareProfile: "libvirt",
-					RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+					RootDeviceHints: &metal3api.RootDeviceHints{
 						DeviceName:         "userd_devicename",
 						HCTL:               "1:2:3:4",
 						Model:              "userd_model",
@@ -1545,16 +1545,16 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 						WWNVendorExtension: "userd_vendor_extension",
 						Rotational:         &rotational,
 					},
-					RAID: &metal3v1alpha1.RAIDConfig{
-						SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+					RAID: &metal3api.RAIDConfig{
+						SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 					},
 				},
-				Status: metal3v1alpha1.BareMetalHostStatus{
+				Status: metal3api.BareMetalHostStatus{
 					HardwareProfile: "libvirt",
 				},
 			},
 			Dirty: true,
-			Expected: &metal3v1alpha1.RootDeviceHints{
+			Expected: &metal3api.RootDeviceHints{
 				DeviceName:         "userd_devicename",
 				HCTL:               "1:2:3:4",
 				Model:              "userd_model",
@@ -1570,75 +1570,75 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 
 		{
 			Scenario: "use profile hints",
-			Host: metal3v1alpha1.BareMetalHost{
+			Host: metal3api.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
 					Namespace: "myns",
 					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 				},
-				Spec: metal3v1alpha1.BareMetalHostSpec{
+				Spec: metal3api.BareMetalHostSpec{
 					HardwareProfile: "libvirt",
 				},
-				Status: metal3v1alpha1.BareMetalHostStatus{
+				Status: metal3api.BareMetalHostStatus{
 					HardwareProfile: "libvirt",
 				},
 			},
 			Dirty: true,
-			Expected: &metal3v1alpha1.RootDeviceHints{
+			Expected: &metal3api.RootDeviceHints{
 				DeviceName: "/dev/vda",
 			},
 		},
 
 		{
 			Scenario: "default profile hints",
-			Host: metal3v1alpha1.BareMetalHost{
+			Host: metal3api.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
 					Namespace: "myns",
 					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 				},
-				Spec: metal3v1alpha1.BareMetalHostSpec{
+				Spec: metal3api.BareMetalHostSpec{
 					HardwareProfile: "unknown",
 				},
-				Status: metal3v1alpha1.BareMetalHostStatus{
+				Status: metal3api.BareMetalHostStatus{
 					HardwareProfile: "unknown",
 				},
 			},
 			Dirty: true,
-			Expected: &metal3v1alpha1.RootDeviceHints{
+			Expected: &metal3api.RootDeviceHints{
 				DeviceName: "/dev/sda",
 			},
 		},
 
 		{
 			Scenario: "rotational values same",
-			Host: metal3v1alpha1.BareMetalHost{
+			Host: metal3api.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
 					Namespace: "myns",
 					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 				},
-				Spec: metal3v1alpha1.BareMetalHostSpec{
+				Spec: metal3api.BareMetalHostSpec{
 					HardwareProfile: "libvirt",
-					RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+					RootDeviceHints: &metal3api.RootDeviceHints{
 						MinSizeGigabytes: 40,
 						Rotational:       &rotational,
 					},
 				},
-				Status: metal3v1alpha1.BareMetalHostStatus{
+				Status: metal3api.BareMetalHostStatus{
 					HardwareProfile: "libvirt",
-					Provisioning: metal3v1alpha1.ProvisionStatus{
-						RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+					Provisioning: metal3api.ProvisionStatus{
+						RootDeviceHints: &metal3api.RootDeviceHints{
 							MinSizeGigabytes: 40,
 							Rotational:       &rotationalTwo,
 						},
-						RAID: &metal3v1alpha1.RAIDConfig{
-							SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+						RAID: &metal3api.RAIDConfig{
+							SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 						}},
 				},
 			},
 			Dirty: false,
-			Expected: &metal3v1alpha1.RootDeviceHints{
+			Expected: &metal3api.RootDeviceHints{
 				MinSizeGigabytes: 40,
 				Rotational:       &rotational,
 			},
@@ -1646,33 +1646,33 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 
 		{
 			Scenario: "rotational values different",
-			Host: metal3v1alpha1.BareMetalHost{
+			Host: metal3api.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
 					Namespace: "myns",
 					UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 				},
-				Spec: metal3v1alpha1.BareMetalHostSpec{
+				Spec: metal3api.BareMetalHostSpec{
 					HardwareProfile: "libvirt",
-					RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+					RootDeviceHints: &metal3api.RootDeviceHints{
 						MinSizeGigabytes: 40,
 						Rotational:       &rotational,
 					},
 				},
-				Status: metal3v1alpha1.BareMetalHostStatus{
+				Status: metal3api.BareMetalHostStatus{
 					HardwareProfile: "libvirt",
-					Provisioning: metal3v1alpha1.ProvisionStatus{
-						RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+					Provisioning: metal3api.ProvisionStatus{
+						RootDeviceHints: &metal3api.RootDeviceHints{
 							MinSizeGigabytes: 40,
 							Rotational:       &rotationalFalse,
 						},
-						RAID: &metal3v1alpha1.RAIDConfig{
-							SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+						RAID: &metal3api.RAIDConfig{
+							SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 						}},
 				},
 			},
 			Dirty: true,
-			Expected: &metal3v1alpha1.RootDeviceHints{
+			Expected: &metal3api.RootDeviceHints{
 				MinSizeGigabytes: 40,
 				Rotational:       &rotational,
 			},
@@ -1707,8 +1707,8 @@ func TestProvisionerIsReady(t *testing.T) {
 
 	assert.Equal(t, 0.0, promutil.ToFloat64(provisionerNotReady))
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			return host.Status.Provisioning.State != metal3v1alpha1.StateNone
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.Provisioning.State != metal3api.StateNone
 		},
 	)
 	assert.Equal(t, 4.0, promutil.ToFloat64(provisionerNotReady))
@@ -1731,8 +1731,8 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-generation-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 0}},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 1}},
+				ObjectOld: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 0}},
+				ObjectNew: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{Generation: 1}},
 			},
 
 			expectedProcess: true,
@@ -1740,18 +1740,18 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "skip-if-same-generation-finalizers-and-annotations",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectOld: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
-					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Finalizers: []string{metal3api.BareMetalHostFinalizer},
 					Annotations: map[string]string{
-						metal3v1alpha1.PausedAnnotation: "true",
+						metal3api.PausedAnnotation: "true",
 					},
 				}},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectNew: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
-					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Finalizers: []string{metal3api.BareMetalHostFinalizer},
 					Annotations: map[string]string{
-						metal3v1alpha1.PausedAnnotation: "true",
+						metal3api.PausedAnnotation: "true",
 					},
 				}},
 			},
@@ -1761,16 +1761,16 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-annotations-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectOld: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation:  0,
-					Finalizers:  []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Finalizers:  []string{metal3api.BareMetalHostFinalizer},
 					Annotations: map[string]string{},
 				}},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectNew: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
-					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Finalizers: []string{metal3api.BareMetalHostFinalizer},
 					Annotations: map[string]string{
-						metal3v1alpha1.PausedAnnotation: "true",
+						metal3api.PausedAnnotation: "true",
 					},
 				}},
 			},
@@ -1780,18 +1780,18 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-finalizers-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectOld: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
 					Finalizers: []string{},
 					Annotations: map[string]string{
-						metal3v1alpha1.PausedAnnotation: "true",
+						metal3api.PausedAnnotation: "true",
 					},
 				}},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectNew: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
-					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Finalizers: []string{metal3api.BareMetalHostFinalizer},
 					Annotations: map[string]string{
-						metal3v1alpha1.PausedAnnotation: "true",
+						metal3api.PausedAnnotation: "true",
 					},
 				}},
 			},
@@ -1801,16 +1801,16 @@ func TestUpdateEventHandler(t *testing.T) {
 		{
 			name: "process-same-generation-finalizers-and-annotation-change",
 			event: event.UpdateEvent{
-				ObjectOld: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectOld: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation:  0,
 					Finalizers:  []string{},
 					Annotations: map[string]string{},
 				}},
-				ObjectNew: &metal3v1alpha1.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+				ObjectNew: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
 					Generation: 0,
-					Finalizers: []string{metal3v1alpha1.BareMetalHostFinalizer},
+					Finalizers: []string{metal3api.BareMetalHostFinalizer},
 					Annotations: map[string]string{
-						metal3v1alpha1.PausedAnnotation: "true",
+						metal3api.PausedAnnotation: "true",
 					},
 				}},
 			},
@@ -1829,9 +1829,9 @@ func TestUpdateEventHandler(t *testing.T) {
 
 func TestErrorCountIncrementsAlways(t *testing.T) {
 
-	errorTypes := []metal3v1alpha1.ErrorType{metal3v1alpha1.RegistrationError, metal3v1alpha1.InspectionError, metal3v1alpha1.ProvisioningError, metal3v1alpha1.PowerManagementError}
+	errorTypes := []metal3api.ErrorType{metal3api.RegistrationError, metal3api.InspectionError, metal3api.ProvisioningError, metal3api.PowerManagementError}
 
-	b := &metal3v1alpha1.BareMetalHost{}
+	b := &metal3api.BareMetalHost{}
 	assert.Equal(t, b.Status.ErrorCount, 0)
 
 	for _, c := range errorTypes {
@@ -1842,15 +1842,15 @@ func TestErrorCountIncrementsAlways(t *testing.T) {
 }
 
 func TestGetImageAvailable(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			Image: &metal3v1alpha1.Image{
+	host := metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL: "http://example.test/image",
 			},
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
-			Provisioning: metal3v1alpha1.ProvisionStatus{
-				State: metal3v1alpha1.StateAvailable,
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
+				State: metal3api.StateAvailable,
 			},
 		},
 	}
@@ -1861,15 +1861,15 @@ func TestGetImageAvailable(t *testing.T) {
 }
 
 func TestGetImageProvisioning(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			Image: &metal3v1alpha1.Image{
+	host := metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL: "http://example.test/image",
 			},
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
-			Provisioning: metal3v1alpha1.ProvisionStatus{
-				State: metal3v1alpha1.StateProvisioning,
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
+				State: metal3api.StateProvisioning,
 			},
 		},
 	}
@@ -1882,16 +1882,16 @@ func TestGetImageProvisioning(t *testing.T) {
 }
 
 func TestGetImageProvisioned(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			Image: &metal3v1alpha1.Image{
+	host := metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL: "http://example.test/image2",
 			},
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
-			Provisioning: metal3v1alpha1.ProvisionStatus{
-				State: metal3v1alpha1.StateProvisioned,
-				Image: metal3v1alpha1.Image{
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
+				State: metal3api.StateProvisioned,
+				Image: metal3api.Image{
 					URL: "http://example.test/image",
 				},
 			},
@@ -1906,16 +1906,16 @@ func TestGetImageProvisioned(t *testing.T) {
 }
 
 func TestGetImageDeprovisioning(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			Image: &metal3v1alpha1.Image{
+	host := metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL: "http://example.test/image2",
 			},
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
-			Provisioning: metal3v1alpha1.ProvisionStatus{
-				State: metal3v1alpha1.StateDeprovisioning,
-				Image: metal3v1alpha1.Image{
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
+				State: metal3api.StateDeprovisioning,
+				Image: metal3api.Image{
 					URL: "http://example.test/image",
 				},
 			},
@@ -1930,15 +1930,15 @@ func TestGetImageDeprovisioning(t *testing.T) {
 }
 
 func TestGetImageExternallyPprovisioned(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			Image: &metal3v1alpha1.Image{
+	host := metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL: "http://example.test/image",
 			},
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
-			Provisioning: metal3v1alpha1.ProvisionStatus{
-				State: metal3v1alpha1.StateExternallyProvisioned,
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
+				State: metal3api.StateExternallyProvisioned,
 			},
 		},
 	}
@@ -1951,10 +1951,10 @@ func TestGetImageExternallyPprovisioned(t *testing.T) {
 }
 
 func TestUpdateRAID(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
-		Spec: metal3v1alpha1.BareMetalHostSpec{
+	host := metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{
 			HardwareProfile: "libvirt",
-			RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+			RootDeviceHints: &metal3api.RootDeviceHints{
 				DeviceName:         "userd_devicename",
 				HCTL:               "1:2:3:4",
 				Model:              "userd_model",
@@ -1966,13 +1966,13 @@ func TestUpdateRAID(t *testing.T) {
 				WWNVendorExtension: "userd_vendor_extension",
 			},
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
-			Provisioning: metal3v1alpha1.ProvisionStatus{
-				RAID: &metal3v1alpha1.RAIDConfig{
-					HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
-					SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
+				RAID: &metal3api.RAIDConfig{
+					HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
+					SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 				},
-				RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+				RootDeviceHints: &metal3api.RootDeviceHints{
 					DeviceName:         "userd_devicename",
 					HCTL:               "1:2:3:4",
 					Model:              "userd_model",
@@ -1989,38 +1989,38 @@ func TestUpdateRAID(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		raid     *metal3v1alpha1.RAIDConfig
+		raid     *metal3api.RAIDConfig
 		dirty    bool
-		expected *metal3v1alpha1.RAIDConfig
+		expected *metal3api.RAIDConfig
 	}{
 		{
 			name:  "keep current hardware RAID, clear current software RAID",
 			raid:  nil,
 			dirty: true,
-			expected: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			expected: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 		},
 		{
 			name:  "keep current hardware RAID, clear current software RAID",
-			raid:  &metal3v1alpha1.RAIDConfig{},
+			raid:  &metal3api.RAIDConfig{},
 			dirty: false,
-			expected: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			expected: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 		},
 		{
 			name: "Configure hardwareRAIDVolumes",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Level: "1",
 					},
 				},
 			},
 			dirty: true,
-			expected: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			expected: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -2029,26 +2029,26 @@ func TestUpdateRAID(t *testing.T) {
 		},
 		{
 			name: "Configure hardwareRAIDVolumes",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Level: "1",
 					},
 				},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
 				},
 			},
 			dirty: true,
-			expected: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			expected: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Level: "1",
 					},
 				},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -2057,38 +2057,38 @@ func TestUpdateRAID(t *testing.T) {
 		},
 		{
 			name: "Clear hardwareRAIDVolumes",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
 			},
 			dirty: true,
-			expected: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
+			expected: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
 			},
 		},
 		{
 			name: "Clear hardwareRAIDVolumes",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 			dirty: true,
-			expected: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			expected: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 		},
 		{
 			name: "Configure SoftwareRAIDVolumes",
-			raid: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
 				},
 			},
 			dirty: true,
-			expected: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			expected: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -2097,12 +2097,12 @@ func TestUpdateRAID(t *testing.T) {
 		},
 		{
 			name: "Clear softwareRAIDVolumes",
-			raid: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			raid: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 			dirty: true,
-			expected: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			expected: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 		},
 	}
@@ -2119,7 +2119,7 @@ func TestUpdateRAID(t *testing.T) {
 	}
 }
 
-func doDeleteHost(host *metal3v1alpha1.BareMetalHost, reconciler *BareMetalHostReconciler) {
+func doDeleteHost(host *metal3api.BareMetalHost, reconciler *BareMetalHostReconciler) {
 	now := metav1.Now()
 	host.DeletionTimestamp = &now
 	reconciler.Client.Update(context.Background(), host)
@@ -2134,14 +2134,14 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 
 	fix.SetValidateError("malformed url")
 	waitForError(t, r, host)
-	assert.Equal(t, metal3v1alpha1.StateRegistering, host.Status.Provisioning.State)
-	assert.Equal(t, metal3v1alpha1.OperationalStatusError, host.Status.OperationalStatus)
-	assert.Equal(t, metal3v1alpha1.RegistrationError, host.Status.ErrorType)
+	assert.Equal(t, metal3api.StateRegistering, host.Status.Provisioning.State)
+	assert.Equal(t, metal3api.OperationalStatusError, host.Status.OperationalStatus)
+	assert.Equal(t, metal3api.RegistrationError, host.Status.ErrorType)
 	assert.Equal(t, "malformed url", host.Status.ErrorMessage)
 
 	doDeleteHost(host, r)
 
-	tryReconcile(t, r, host, func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+	tryReconcile(t, r, host, func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 		return host == nil
 	})
 }
@@ -2244,8 +2244,8 @@ func TestGetHardwareProfileName(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			host := newHost("test", &metal3v1alpha1.BareMetalHostSpec{
-				BMC: metal3v1alpha1.BMCDetails{
+			host := newHost("test", &metal3api.BareMetalHostSpec{
+				BMC: metal3api.BMCDetails{
 					Address: tc.Address,
 				},
 				HardwareProfile: tc.SpecProfile,
@@ -2261,8 +2261,8 @@ func TestGetHostArchitecture(t *testing.T) {
 	host := newDefaultHost(t)
 	assert.Equal(t, "x86_64", getHostArchitecture(host))
 
-	host.Status.HardwareDetails = &metal3v1alpha1.HardwareDetails{
-		CPU: metal3v1alpha1.CPU{
+	host.Status.HardwareDetails = &metal3api.HardwareDetails{
+		CPU: metal3api.CPU{
 			Arch: "aarch64",
 		},
 	}
@@ -2279,7 +2279,7 @@ func TestGetPreprovImageNoFormats(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, imgData)
 
-	imgData, err = r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{})
+	imgData, err = r.getPreprovImage(i, []metal3api.ImageFormat{})
 	assert.True(t, errors.As(err, &imageBuildError{}))
 	assert.EqualError(t, err, "no acceptable formats for preprovisioning image")
 	assert.Nil(t, imgData)
@@ -2288,7 +2288,7 @@ func TestGetPreprovImageNoFormats(t *testing.T) {
 		Name:      host.Name,
 		Namespace: host.Namespace,
 	},
-		&metal3v1alpha1.PreprovisioningImage{}))
+		&metal3api.PreprovisioningImage{}))
 }
 
 func TestGetPreprovImageCreateUpdate(t *testing.T) {
@@ -2301,11 +2301,11 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	r := newTestReconciler(host, newSecret(secretName, nil))
 	i := makeReconcileInfo(host)
 
-	imgData, err := r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{"iso"})
+	imgData, err := r.getPreprovImage(i, []metal3api.ImageFormat{"iso"})
 	assert.NoError(t, err)
 	assert.Nil(t, imgData)
 
-	img := metal3v1alpha1.PreprovisioningImage{}
+	img := metal3api.PreprovisioningImage{}
 	assert.NoError(t, r.Client.Get(goctx.TODO(), client.ObjectKey{
 		Name:      host.Name,
 		Namespace: host.Namespace,
@@ -2319,7 +2319,7 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	host.Spec.PreprovisioningNetworkDataName = newSecretName
 	host.Labels["cat.metal3.io"] = "meow"
 
-	imgData, err = r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{"iso"})
+	imgData, err = r.getPreprovImage(i, []metal3api.ImageFormat{"iso"})
 	assert.NoError(t, err)
 	assert.Nil(t, imgData)
 
@@ -2336,27 +2336,27 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 func TestGetPreprovImage(t *testing.T) {
 	host := newDefaultHost(t)
 	imageURL := "http://example.test/image.iso"
-	acceptFormats := []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatISO, metal3v1alpha1.ImageFormatInitRD}
-	image := &metal3v1alpha1.PreprovisioningImage{
+	acceptFormats := []metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD}
+	image := &metal3api.PreprovisioningImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: namespace,
 		},
-		Spec: metal3v1alpha1.PreprovisioningImageSpec{
+		Spec: metal3api.PreprovisioningImageSpec{
 			Architecture:  "x86_64",
 			AcceptFormats: acceptFormats,
 		},
-		Status: metal3v1alpha1.PreprovisioningImageStatus{
+		Status: metal3api.PreprovisioningImageStatus{
 			Architecture: "x86_64",
-			Format:       metal3v1alpha1.ImageFormatISO,
+			Format:       metal3api.ImageFormatISO,
 			ImageUrl:     imageURL,
 			Conditions: []metav1.Condition{
 				{
-					Type:   string(metal3v1alpha1.ConditionImageReady),
+					Type:   string(metal3api.ConditionImageReady),
 					Status: metav1.ConditionTrue,
 				},
 				{
-					Type:   string(metal3v1alpha1.ConditionImageError),
+					Type:   string(metal3api.ConditionImageError),
 					Status: metav1.ConditionFalse,
 				},
 			},
@@ -2369,31 +2369,31 @@ func TestGetPreprovImage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, imgData)
 	assert.Equal(t, imageURL, imgData.ImageURL)
-	assert.Equal(t, metal3v1alpha1.ImageFormatISO, imgData.Format)
+	assert.Equal(t, metal3api.ImageFormatISO, imgData.Format)
 }
 
 func TestGetPreprovImageNotCurrent(t *testing.T) {
 	host := newDefaultHost(t)
 	imageURL := "http://example.test/image.iso"
-	image := &metal3v1alpha1.PreprovisioningImage{
+	image := &metal3api.PreprovisioningImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: namespace,
 		},
-		Spec: metal3v1alpha1.PreprovisioningImageSpec{
+		Spec: metal3api.PreprovisioningImageSpec{
 			Architecture: "x86_64",
 		},
-		Status: metal3v1alpha1.PreprovisioningImageStatus{
+		Status: metal3api.PreprovisioningImageStatus{
 			Architecture: "x86_64",
-			Format:       metal3v1alpha1.ImageFormatISO,
+			Format:       metal3api.ImageFormatISO,
 			ImageUrl:     imageURL,
 			Conditions: []metav1.Condition{
 				{
-					Type:   string(metal3v1alpha1.ConditionImageReady),
+					Type:   string(metal3api.ConditionImageReady),
 					Status: metav1.ConditionFalse,
 				},
 				{
-					Type:   string(metal3v1alpha1.ConditionImageError),
+					Type:   string(metal3api.ConditionImageError),
 					Status: metav1.ConditionFalse,
 				},
 			},
@@ -2402,7 +2402,7 @@ func TestGetPreprovImageNotCurrent(t *testing.T) {
 	r := newTestReconciler(host, image)
 	i := makeReconcileInfo(host)
 
-	imgData, err := r.getPreprovImage(i, []metal3v1alpha1.ImageFormat{metal3v1alpha1.ImageFormatISO})
+	imgData, err := r.getPreprovImage(i, []metal3api.ImageFormat{metal3api.ImageFormatISO})
 	assert.NoError(t, err)
 	assert.Nil(t, imgData)
 }
@@ -2413,27 +2413,27 @@ func TestPreprovImageAvailable(t *testing.T) {
 
 	testCases := []struct {
 		Scenario   string
-		Spec       metal3v1alpha1.PreprovisioningImageSpec
-		Status     metal3v1alpha1.PreprovisioningImageStatus
+		Spec       metal3api.PreprovisioningImageSpec
+		Status     metal3api.PreprovisioningImageStatus
 		Available  bool
 		BuildError bool
 	}{
 		{
 			Scenario: "ready no netdata",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:  "x86_64",
-				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats: []metal3api.ImageFormat{"iso", "initrd"},
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2442,25 +2442,25 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "ready",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
-				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats:   []metal3api.ImageFormat{"iso", "initrd"},
 				NetworkDataName: "network_secret_1",
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
-				NetworkData: metal3v1alpha1.SecretStatus{
+				NetworkData: metal3api.SecretStatus{
 					Name:    "network_secret_1",
 					Version: "1000",
 				},
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2469,25 +2469,25 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "ready initrd",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
-				AcceptFormats:   []metal3v1alpha1.ImageFormat{"initrd"},
+				AcceptFormats:   []metal3api.ImageFormat{"initrd"},
 				NetworkDataName: "network_secret_1",
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "initrd",
-				NetworkData: metal3v1alpha1.SecretStatus{
+				NetworkData: metal3api.SecretStatus{
 					Name:    "network_secret_1",
 					Version: "1000",
 				},
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2496,25 +2496,25 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "ready initrd fallback",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
-				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats:   []metal3api.ImageFormat{"iso", "initrd"},
 				NetworkDataName: "network_secret_1",
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "initrd",
-				NetworkData: metal3v1alpha1.SecretStatus{
+				NetworkData: metal3api.SecretStatus{
 					Name:    "network_secret_1",
 					Version: "1000",
 				},
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2523,25 +2523,25 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "ready secret outdated",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
-				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats:   []metal3api.ImageFormat{"iso", "initrd"},
 				NetworkDataName: "network_secret_1",
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
-				NetworkData: metal3v1alpha1.SecretStatus{
+				NetworkData: metal3api.SecretStatus{
 					Name:    "network_secret_1",
 					Version: "42",
 				},
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2550,25 +2550,25 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "ready secret mismatch",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:    "x86_64",
-				AcceptFormats:   []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats:   []metal3api.ImageFormat{"iso", "initrd"},
 				NetworkDataName: "network_secret_1",
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
-				NetworkData: metal3v1alpha1.SecretStatus{
+				NetworkData: metal3api.SecretStatus{
 					Name:    "network_secret_0",
 					Version: "1",
 				},
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2577,20 +2577,20 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "ready arch mismatch",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:  "aarch64",
-				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats: []metal3api.ImageFormat{"iso", "initrd"},
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2599,20 +2599,20 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "ready format mismatch",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:  "x86_64",
-				AcceptFormats: []metal3v1alpha1.ImageFormat{"initrd"},
+				AcceptFormats: []metal3api.ImageFormat{"initrd"},
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2621,20 +2621,20 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "not ready",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:  "x86_64",
-				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats: []metal3api.ImageFormat{"iso", "initrd"},
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionFalse,
 					},
 					{
-						Type:   string(metal3v1alpha1.ConditionImageError),
+						Type:   string(metal3api.ConditionImageError),
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -2643,20 +2643,20 @@ func TestPreprovImageAvailable(t *testing.T) {
 		},
 		{
 			Scenario: "failed",
-			Spec: metal3v1alpha1.PreprovisioningImageSpec{
+			Spec: metal3api.PreprovisioningImageSpec{
 				Architecture:  "x86_64",
-				AcceptFormats: []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+				AcceptFormats: []metal3api.ImageFormat{"iso", "initrd"},
 			},
-			Status: metal3v1alpha1.PreprovisioningImageStatus{
+			Status: metal3api.PreprovisioningImageStatus{
 				Architecture: "x86_64",
 				Format:       "iso",
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(metal3v1alpha1.ConditionImageReady),
+						Type:   string(metal3api.ConditionImageReady),
 						Status: metav1.ConditionFalse,
 					},
 					{
-						Type:    string(metal3v1alpha1.ConditionImageError),
+						Type:    string(metal3api.ConditionImageError),
 						Status:  metav1.ConditionTrue,
 						Message: "oops",
 					},
@@ -2669,7 +2669,7 @@ func TestPreprovImageAvailable(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			image := metal3v1alpha1.PreprovisioningImage{
+			image := metal3api.PreprovisioningImage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      host.Name,
 					Namespace: namespace,
@@ -2752,14 +2752,14 @@ func TestBMHTransitionToPreparing(t *testing.T) {
 	host.Spec.ConsumerRef = &corev1.ObjectReference{}
 	r := newTestReconciler(host)
 
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StateAvailable)
+	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
 
 	// use different values between spec and status to force cleaning
-	host.Status.Provisioning.Firmware = &metal3v1alpha1.FirmwareConfig{
+	host.Status.Provisioning.Firmware = &metal3api.FirmwareConfig{
 		VirtualizationEnabled:             &True,
 		SimultaneousMultithreadingEnabled: &False,
 	}
-	host.Spec.Firmware = &metal3v1alpha1.FirmwareConfig{
+	host.Spec.Firmware = &metal3api.FirmwareConfig{
 		VirtualizationEnabled:             &False,
 		SimultaneousMultithreadingEnabled: &True,
 	}
@@ -2769,7 +2769,7 @@ func TestBMHTransitionToPreparing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 }
 
 func TestHFSTransitionToPreparing(t *testing.T) {
@@ -2779,22 +2779,22 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 	host.Spec.ExternallyProvisioned = false
 	r := newTestReconciler(host)
 
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StateAvailable)
+	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
 
 	// Update HFS so host will go through cleaning
-	hfs := &metal3v1alpha1.HostFirmwareSettings{}
+	hfs := &metal3api.HostFirmwareSettings{}
 	key := client.ObjectKey{
 		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
 	if err := r.Get(goctx.TODO(), key, hfs); err != nil {
 		t.Fatal(err)
 	}
 
-	hfs.Status = metal3v1alpha1.HostFirmwareSettingsStatus{
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
 		Conditions: []metav1.Condition{
 			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
 			{Type: "Valid", Status: "True", Reason: "Success"},
 		},
-		Settings: metal3v1alpha1.SettingsMap{
+		Settings: metal3api.SettingsMap{
 			"ProcVirtualization": "Enabled",
 			"SecureBoot":         "Enabled",
 		},
@@ -2802,7 +2802,7 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 
 	r.Update(goctx.TODO(), hfs)
 
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 }
 
 // TestHFSEmptyStatusSettings ensures that BMH does not move to the next state
@@ -2815,17 +2815,17 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 	host.Spec.ExternallyProvisioned = false
 	r := newTestReconciler(host)
 
-	waitForProvisioningState(t, r, host, metal3v1alpha1.StatePreparing)
+	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 
 	// Update HFS so host will go through cleaning
-	hfs := &metal3v1alpha1.HostFirmwareSettings{}
+	hfs := &metal3api.HostFirmwareSettings{}
 	key := client.ObjectKey{
 		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
 	if err := r.Get(goctx.TODO(), key, hfs); err != nil {
 		t.Fatal(err)
 	}
 
-	hfs.Status = metal3v1alpha1.HostFirmwareSettingsStatus{
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
 		Conditions: []metav1.Condition{
 			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
 			{Type: "Valid", Status: "True", Reason: "Success"},
@@ -2835,13 +2835,13 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 	r.Update(goctx.TODO(), hfs)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			return host.Status.Provisioning.State == metal3v1alpha1.StatePreparing
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.Provisioning.State == metal3api.StatePreparing
 		},
 	)
 
 	// Clear the change, it will no longer be blocked
-	hfs.Status = metal3v1alpha1.HostFirmwareSettingsStatus{
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
 		Conditions: []metav1.Condition{
 			{Type: "ChangeDetected", Status: "False", Reason: "Success"},
 			{Type: "Valid", Status: "True", Reason: "Success"},
@@ -2850,8 +2850,8 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 
 	r.Update(goctx.TODO(), hfs)
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
-			return host.Status.Provisioning.State == metal3v1alpha1.StateAvailable
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.Provisioning.State == metal3api.StateAvailable
 		},
 	)
 }

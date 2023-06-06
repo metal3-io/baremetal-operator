@@ -7,7 +7,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/pkg/errors"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 )
@@ -63,7 +63,7 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 }
 
 // BuildTargetRAIDCfg build RAID logical disks, this method doesn't set the root volume
-func BuildTargetRAIDCfg(raid *metal3v1alpha1.RAIDConfig) (logicalDisks []nodes.LogicalDisk, err error) {
+func BuildTargetRAIDCfg(raid *metal3api.RAIDConfig) (logicalDisks []nodes.LogicalDisk, err error) {
 	// Deal possible panic
 	defer func() {
 		r := recover()
@@ -87,7 +87,7 @@ func BuildTargetRAIDCfg(raid *metal3v1alpha1.RAIDConfig) (logicalDisks []nodes.L
 }
 
 // A private method to build hardware RAID disks
-func buildTargetHardwareRAIDCfg(volumes []metal3v1alpha1.HardwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
+func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
 	var (
 		logicalDisk    nodes.LogicalDisk
 		nameCheckFlags = make(map[string]int)
@@ -152,7 +152,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3v1alpha1.HardwareRAIDVolume) (lo
 }
 
 // A private method to build software RAID disks
-func buildTargetSoftwareRAIDCfg(volumes []metal3v1alpha1.SoftwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
+func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
 	var (
 		logicalDisk nodes.LogicalDisk
 	)
@@ -184,7 +184,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3v1alpha1.SoftwareRAIDVolume) (lo
 }
 
 // BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec
-func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig, actual *metal3v1alpha1.RAIDConfig) (cleanSteps []nodes.CleanStep, err error) {
+func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, actual *metal3api.RAIDConfig) (cleanSteps []nodes.CleanStep, err error) {
 	_, err = CheckRAIDInterface(raidInterface, target, actual)
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3v1alpha1.RAIDConfig
 }
 
 // CheckRAIDInterface checks the current RAID interface against the requested configuration
-func CheckRAIDInterface(raidInterface string, target, actual *metal3v1alpha1.RAIDConfig) (string, error) {
+func CheckRAIDInterface(raidInterface string, target, actual *metal3api.RAIDConfig) (string, error) {
 	if target == nil {
 		return raidInterface, nil
 	}

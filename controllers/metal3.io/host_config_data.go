@@ -5,14 +5,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 )
 
 // hostConfigData is an implementation of host configuration data interface.
 // Object is able to retrive data from secrets referenced in a host spec
 type hostConfigData struct {
-	host          *metal3v1alpha1.BareMetalHost
+	host          *metal3api.BareMetalHost
 	log           logr.Logger
 	secretManager secretutils.SecretManager
 }

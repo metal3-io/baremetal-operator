@@ -8,7 +8,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/stretchr/testify/assert"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func TestBuildTargetRAIDCfg(t *testing.T) {
@@ -23,14 +23,14 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 
 	cases := []struct {
 		name          string
-		raid          *metal3v1alpha1.RAIDConfig
+		raid          *metal3api.RAIDConfig
 		expected      []nodes.LogicalDisk
 		expectedError string
 	}{
 		{
 			name: "hardware raid, physicalDisks without controller",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:          "volume1",
 						Level:         "1",
@@ -43,8 +43,8 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		}, // end of test case
 		{
 			name: "hardware raid, len(physicalDisks) != numberOfPhysicalDisks",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:                  "volume1",
 						Level:                 "1",
@@ -59,8 +59,8 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		},
 		{
 			name: "hardware raid",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:       "root",
 						Level:      "1",
@@ -72,7 +72,7 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 						Rotational: &TRUE,
 					},
 				},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -98,8 +98,8 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		},
 		{
 			name: "hardware raid, same volume's name",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "v1",
 						Level: "1",
@@ -114,8 +114,8 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		},
 		{
 			name: "hardware raid, volume's name is empty",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "",
 						Level: "1",
@@ -141,11 +141,11 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		},
 		{
 			name: "software raid",
-			raid: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
-						PhysicalDisks: []metal3v1alpha1.RootDeviceHints{
+						PhysicalDisks: []metal3api.RootDeviceHints{
 							{
 								MinSizeGigabytes: 100,
 							},
@@ -180,8 +180,8 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		},
 		{
 			name: "software raid, the level in first volume isn't RAID1",
-			raid: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			raid: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "0",
 					},
@@ -199,7 +199,7 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		},
 		{
 			name: "volumes is nil",
-			raid: &metal3v1alpha1.RAIDConfig{
+			raid: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: nil,
 				SoftwareRAIDVolumes: nil,
 			},
@@ -207,9 +207,9 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 		},
 		{
 			name: "volumes is empty",
-			raid: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			raid: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 			expected: nil,
 		},
@@ -235,8 +235,8 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 	cases := []struct {
 		name          string
 		raidInterface string
-		target        *metal3v1alpha1.RAIDConfig
-		actual        *metal3v1alpha1.RAIDConfig
+		target        *metal3api.RAIDConfig
+		actual        *metal3api.RAIDConfig
 		expected      []nodes.CleanStep
 		expectedError bool
 	}{
@@ -248,13 +248,13 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		{
 			name:          "keep hardware RAID",
 			raidInterface: "irmc",
-			target:        &metal3v1alpha1.RAIDConfig{},
+			target:        &metal3api.RAIDConfig{},
 		},
 		{
 			name:          "configure hardware RAID",
 			raidInterface: "irmc",
-			target: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			target: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "root",
 						Level: "1",
@@ -275,16 +275,16 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		{
 			name:          "have same hardware RAID",
 			raidInterface: "irmc",
-			target: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			target: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "root",
 						Level: "1",
 					},
 				},
 			},
-			actual: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			actual: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "root",
 						Level: "1",
@@ -295,11 +295,11 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		{
 			name:          "clear hardware RAID",
 			raidInterface: "irmc",
-			target: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{},
+			target: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
 			},
-			actual: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			actual: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "root",
 						Level: "1",
@@ -316,8 +316,8 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		{
 			name:          "configure software RAID",
 			raidInterface: "agent",
-			target: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			target: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -341,15 +341,15 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		{
 			name:          "have same software RAID",
 			raidInterface: "agent",
-			target: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			target: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
 				},
 			},
-			actual: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			actual: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -359,26 +359,26 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		{
 			name:          "keep missing software RAID",
 			raidInterface: "agent",
-			target: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			target: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
 		},
 		{
 			name:          "keep empty software RAID",
 			raidInterface: "agent",
-			target: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			target: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
-			actual: &metal3v1alpha1.RAIDConfig{},
+			actual: &metal3api.RAIDConfig{},
 		},
 		{
 			name:          "clear software RAID",
 			raidInterface: "agent",
-			target: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			target: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
-			actual: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			actual: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -413,22 +413,22 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 func TestCheckRAIDConfigure(t *testing.T) {
 	cases := []struct {
 		raidInterface        string
-		RAID                 *metal3v1alpha1.RAIDConfig
+		RAID                 *metal3api.RAIDConfig
 		expectedError        bool
 		expectedNewInterface string
-		currentRAID          *metal3v1alpha1.RAIDConfig
+		currentRAID          *metal3api.RAIDConfig
 	}{
 		{
 			raidInterface: "no-raid",
 		},
 		{
 			raidInterface: "no-raid",
-			RAID:          &metal3v1alpha1.RAIDConfig{},
+			RAID:          &metal3api.RAIDConfig{},
 		},
 		{
 			raidInterface: "no-raid",
-			RAID: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			RAID: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "root",
 						Level: "1",
@@ -439,8 +439,8 @@ func TestCheckRAIDConfigure(t *testing.T) {
 		},
 		{
 			raidInterface: "no-raid",
-			RAID: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			RAID: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -453,12 +453,12 @@ func TestCheckRAIDConfigure(t *testing.T) {
 		},
 		{
 			raidInterface: "agent",
-			RAID:          &metal3v1alpha1.RAIDConfig{},
+			RAID:          &metal3api.RAIDConfig{},
 		},
 		{
 			raidInterface: "agent",
-			RAID: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			RAID: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "root",
 						Level: "1",
@@ -469,8 +469,8 @@ func TestCheckRAIDConfigure(t *testing.T) {
 		},
 		{
 			raidInterface: "agent",
-			RAID: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			RAID: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -482,12 +482,12 @@ func TestCheckRAIDConfigure(t *testing.T) {
 		},
 		{
 			raidInterface: "hardware",
-			RAID:          &metal3v1alpha1.RAIDConfig{},
+			RAID:          &metal3api.RAIDConfig{},
 		},
 		{
 			raidInterface: "hardware",
-			RAID: &metal3v1alpha1.RAIDConfig{
-				HardwareRAIDVolumes: []metal3v1alpha1.HardwareRAIDVolume{
+			RAID: &metal3api.RAIDConfig{
+				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
 						Name:  "root",
 						Level: "1",
@@ -497,8 +497,8 @@ func TestCheckRAIDConfigure(t *testing.T) {
 		},
 		{
 			raidInterface: "hardware",
-			RAID: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			RAID: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},
@@ -508,11 +508,11 @@ func TestCheckRAIDConfigure(t *testing.T) {
 		},
 		{
 			raidInterface: "hardware",
-			RAID: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{},
+			RAID: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
 			},
-			currentRAID: &metal3v1alpha1.RAIDConfig{
-				SoftwareRAIDVolumes: []metal3v1alpha1.SoftwareRAIDVolume{
+			currentRAID: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level: "1",
 					},

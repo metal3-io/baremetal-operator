@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	cliflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -44,10 +46,26 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
+type TLSVersion string
+
+// Constants for TLS versions.
+const (
+	TLSVersion12 TLSVersion = "TLS12"
+	TLSVersion13 TLSVersion = "TLS13"
+)
+
+type TLSOptions struct {
+	TLSMaxVersion   string
+	TLSMinVersion   string
+	TLSCipherSuites string
+}
+
 var (
-	scheme     = k8sruntime.NewScheme()
-	setupLog   = ctrl.Log.WithName("setup")
-	healthAddr string
+	scheme               = k8sruntime.NewScheme()
+	setupLog             = ctrl.Log.WithName("setup")
+	healthAddr           string
+	tlsOptions           = TLSOptions{}
+	tlsSupportedVersions = []string{"TLS12", "TLS13"}
 )
 
 const leaderElectionID = "baremetal-operator"
@@ -132,6 +150,22 @@ func main() {
 		"Maximum queries per second from the controller client to the Kubernetes API server. Default 20")
 	flag.IntVar(&restConfigBurst, "kube-api-burst", 30,
 		"Maximum number of queries that should be allowed in one burst from the controller client to the Kubernetes API server. Default 30")
+	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", "TLS12",
+		"The minimum TLS version in use by the webhook server.\n"+
+			fmt.Sprintf("Possible values are %s.", strings.Join(tlsSupportedVersions, ", ")),
+	)
+	flag.StringVar(&tlsOptions.TLSMaxVersion, "tls-max-version", "TLS13",
+		"The maximum TLS version in use by the webhook server.\n"+
+			fmt.Sprintf("Possible values are %s.", strings.Join(tlsSupportedVersions, ", ")),
+	)
+
+	tlsCipherPreferredValues := cliflag.PreferredTLSCipherNames()
+	tlsCipherInsecureValues := cliflag.InsecureTLSCipherNames()
+	flag.StringVar(&tlsOptions.TLSCipherSuites, "tls-cipher-suites", "",
+		"Comma-separated list of cipher suites for the webhook server. "+
+			"If omitted, the default Go cipher suites will be used. \n"+
+			"Preferred values: "+strings.Join(tlsCipherPreferredValues, ", ")+". \n"+
+			"Insecure values: "+strings.Join(tlsCipherInsecureValues, ", ")+".")
 	flag.Parse()
 
 	logOpts := zap.Options{}
@@ -149,7 +183,11 @@ func main() {
 	if leaderElectionNamespace == "" {
 		leaderElectionNamespace = watchNamespace
 	}
-
+	tlsOptionOverrides, err := GetTLSOptionOverrideFuncs(tlsOptions)
+	if err != nil {
+		setupLog.Error(err, "unable to add TLS settings to the webhook server")
+		os.Exit(1)
+	}
 	restConfig := ctrl.GetConfigOrDie()
 	restConfig.QPS = float32(restConfigQPS)
 	restConfig.Burst = restConfigBurst
@@ -158,14 +196,8 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: metricsBindAddr,
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: webhookPort,
-			TLSOpts: []func(*tls.Config){
-				func(c *tls.Config) {
-					if c.MinVersion < tls.VersionTLS12 {
-						c.MinVersion = tls.VersionTLS12
-					}
-				},
-			},
+			Port:    webhookPort,
+			TLSOpts: tlsOptionOverrides,
 		}),
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        leaderElectionID,
@@ -253,4 +285,77 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// GetTLSOptionOverrideFuncs returns a list of TLS configuration overrides to be used
+// by the webhook server.
+func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) {
+	var tlsOptions []func(config *tls.Config)
+
+	tlsMinVersion, err := GetTLSVersion(options.TLSMinVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsMaxVersion, err := GetTLSVersion(options.TLSMaxVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	if tlsMaxVersion != 0 && tlsMinVersion > tlsMaxVersion {
+		return nil, fmt.Errorf("TLS version flag min version (%s) is greater than max version (%s)",
+			options.TLSMinVersion, options.TLSMaxVersion)
+	}
+
+	tlsOptions = append(tlsOptions, func(cfg *tls.Config) {
+		cfg.MinVersion = tlsMinVersion
+	})
+
+	tlsOptions = append(tlsOptions, func(cfg *tls.Config) {
+		cfg.MaxVersion = tlsMaxVersion
+	})
+	// Cipher suites should not be set if empty.
+	if options.TLSMinVersion == string(TLSVersion13) &&
+		options.TLSMaxVersion == string(TLSVersion13) &&
+		options.TLSCipherSuites != "" {
+		setupLog.Info("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers")
+		options.TLSCipherSuites = ""
+	}
+
+	if options.TLSCipherSuites != "" {
+		tlsCipherSuites := strings.Split(options.TLSCipherSuites, ",")
+		suites, err := cliflag.TLSCipherSuites(tlsCipherSuites)
+		if err != nil {
+			return nil, err
+		}
+
+		insecureCipherValues := cliflag.InsecureTLSCipherNames()
+		for _, cipher := range tlsCipherSuites {
+			for _, insecureCipherName := range insecureCipherValues {
+				if insecureCipherName == cipher {
+					setupLog.Info(fmt.Sprintf("warning: use of insecure cipher '%s' detected.", cipher))
+				}
+			}
+		}
+		tlsOptions = append(tlsOptions, func(cfg *tls.Config) {
+			cfg.CipherSuites = suites
+		})
+	}
+
+	return tlsOptions, nil
+}
+
+// GetTLSVersion returns the corresponding tls.Version or error.
+func GetTLSVersion(version string) (uint16, error) {
+	var v uint16
+
+	switch version {
+	case string(TLSVersion12):
+		v = tls.VersionTLS12
+	case string(TLSVersion13):
+		v = tls.VersionTLS13
+	default:
+		return 0, fmt.Errorf("unexpected TLS version %q (must be one of: TLS12, TLS13)", version)
+	}
+	return v, nil
 }

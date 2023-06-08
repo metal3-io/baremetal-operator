@@ -9,7 +9,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 	"github.com/stretchr/testify/assert"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -345,7 +345,7 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 	liveFormat := "live-iso"
 	imageTypes := []struct {
 		DeployInterface string
-		Image           *metal3v1alpha1.Image
+		Image           *metal3api.Image
 		InstanceInfo    map[string]interface{}
 		DriverInfo      map[string]interface{}
 	}{
@@ -364,7 +364,7 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			},
 		},
 		{
-			Image: &metal3v1alpha1.Image{
+			Image: &metal3api.Image{
 				URL:      "theimage",
 				Checksum: "thechecksum",
 			},
@@ -387,7 +387,7 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 		},
 		{
 			DeployInterface: "ramdisk",
-			Image: &metal3v1alpha1.Image{
+			Image: &metal3api.Image{
 				URL:        "theimage",
 				DiskFormat: &liveFormat,
 			},
@@ -764,7 +764,7 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMode: metal3v1alpha1.UEFISecureBoot}, false, false)
+	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMode: metal3api.UEFISecureBoot}, false, false)
 	if err != nil {
 		t.Fatalf("error from ValidateManagementAccess: %s", err)
 	}
@@ -777,7 +777,7 @@ func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
 	defer ironic.Stop()
 
 	host := makeHost()
-	host.Spec.BMC = metal3v1alpha1.BMCDetails{}
+	host.Spec.BMC = metal3api.BMCDetails{}
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
@@ -800,7 +800,7 @@ func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
 	defer ironic.Stop()
 
 	host := makeHost()
-	host.Spec.BMC = metal3v1alpha1.BMCDetails{
+	host.Spec.BMC = metal3api.BMCDetails{
 		Address: "<ipmi://192.168.122.1:6233>",
 	}
 
@@ -827,7 +827,7 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 		Name              string
 		Address           string
 		PreprovImgEnabled bool
-		Expected          []metal3v1alpha1.ImageFormat
+		Expected          []metal3api.ImageFormat
 	}{
 		{
 			Name:     "disabled ipmi",
@@ -843,13 +843,13 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 			Name:              "enabled ipmi",
 			Address:           "ipmi://example.test",
 			PreprovImgEnabled: true,
-			Expected:          []metal3v1alpha1.ImageFormat{"initrd"},
+			Expected:          []metal3api.ImageFormat{"initrd"},
 		},
 		{
 			Name:              "enabled virtualmedia",
 			Address:           "redfish-virtualmedia://example.test",
 			PreprovImgEnabled: true,
-			Expected:          []metal3v1alpha1.ImageFormat{"iso", "initrd"},
+			Expected:          []metal3api.ImageFormat{"iso", "initrd"},
 		},
 	}
 
@@ -963,7 +963,7 @@ func TestSetDeployImage(t *testing.T) {
 				GeneratedImage: imageprovider.GeneratedImage{
 					ImageURL: buildIso,
 				},
-				Format: metal3v1alpha1.ImageFormatISO,
+				Format: metal3api.ImageFormatISO,
 			},
 			ExpectBuild: true,
 			ExpectISO:   true,
@@ -982,7 +982,7 @@ func TestSetDeployImage(t *testing.T) {
 				GeneratedImage: imageprovider.GeneratedImage{
 					ImageURL: buildRamdisk,
 				},
-				Format: metal3v1alpha1.ImageFormatInitRD,
+				Format: metal3api.ImageFormatInitRD,
 			},
 			ExpectBuild: true,
 			ExpectISO:   false,
@@ -1003,7 +1003,7 @@ func TestSetDeployImage(t *testing.T) {
 					KernelURL:         buildKernel,
 					ExtraKernelParams: kernelParams,
 				},
-				Format: metal3v1alpha1.ImageFormatInitRD,
+				Format: metal3api.ImageFormatInitRD,
 			},
 			ExpectBuild:        true,
 			ExpectISO:          false,
@@ -1024,7 +1024,7 @@ func TestSetDeployImage(t *testing.T) {
 				GeneratedImage: imageprovider.GeneratedImage{
 					ImageURL: buildIso,
 				},
-				Format: metal3v1alpha1.ImageFormatISO,
+				Format: metal3api.ImageFormatISO,
 			},
 			ExpectBuild: false,
 			ExpectISO:   false,
@@ -1041,7 +1041,7 @@ func TestSetDeployImage(t *testing.T) {
 				GeneratedImage: imageprovider.GeneratedImage{
 					ImageURL: buildRamdisk,
 				},
-				Format: metal3v1alpha1.ImageFormatInitRD,
+				Format: metal3api.ImageFormatInitRD,
 			},
 			ExpectISO: false,
 			ExpectPXE: false,
@@ -1056,7 +1056,7 @@ func TestSetDeployImage(t *testing.T) {
 				GeneratedImage: imageprovider.GeneratedImage{
 					ImageURL: buildRamdisk,
 				},
-				Format: metal3v1alpha1.ImageFormatISO,
+				Format: metal3api.ImageFormatISO,
 			},
 			ExpectISO: false,
 			ExpectPXE: false,
@@ -1072,7 +1072,7 @@ func TestSetDeployImage(t *testing.T) {
 				GeneratedImage: imageprovider.GeneratedImage{
 					ImageURL: buildRamdisk,
 				},
-				Format: metal3v1alpha1.ImageFormatISO,
+				Format: metal3api.ImageFormatISO,
 			},
 			ExpectISO: false,
 			ExpectPXE: false,

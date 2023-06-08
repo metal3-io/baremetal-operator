@@ -6,7 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
@@ -66,13 +66,13 @@ type Fixture struct {
 	// state to manage the two-step adopt process
 	adopted bool
 	// state to manage provisioning
-	image metal3v1alpha1.Image
+	image metal3api.Image
 	// state to manage power
 	poweredOn bool
 
 	validateError string
 
-	customDeploy *metal3v1alpha1.CustomDeploy
+	customDeploy *metal3api.CustomDeploy
 }
 
 // NewProvisioner returns a new Fixture Provisioner
@@ -117,7 +117,7 @@ func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.Managemen
 	return
 }
 
-func (p *fixtureProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+func (p *fixtureProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat, error) {
 	return nil, nil
 }
 
@@ -125,7 +125,7 @@ func (p *fixtureProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.Ima
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	// The inspection is ongoing. We'll need to check the fixture
 	// status for the server here until it is ready for us to get the
 	// inspection details. Simulate that for now by creating the
@@ -133,9 +133,9 @@ func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, resta
 	p.log.Info("continuing inspection by setting details")
 	started = true
 	details =
-		&metal3v1alpha1.HardwareDetails{
+		&metal3api.HardwareDetails{
 			RAMMebibytes: 128 * 1024,
-			NIC: []metal3v1alpha1.NIC{
+			NIC: []metal3api.NIC{
 				{
 					Name:      "nic-1",
 					Model:     "virt-io",
@@ -153,24 +153,24 @@ func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, resta
 					PXE:       false,
 				},
 			},
-			Storage: []metal3v1alpha1.Storage{
+			Storage: []metal3api.Storage{
 				{
 					Name:       "disk-1 (boot)",
 					Rotational: false,
-					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					SizeBytes:  metal3api.TebiByte * 93,
 					Model:      "Dell CFJ61",
 				},
 				{
 					Name:       "disk-2",
 					Rotational: false,
-					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					SizeBytes:  metal3api.TebiByte * 93,
 					Model:      "Dell CFJ61",
 				},
 			},
-			CPU: metal3v1alpha1.CPU{
+			CPU: metal3api.CPU{
 				Arch:           "x86_64",
 				Model:          "FancyPants CPU",
-				ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+				ClockMegahertz: 3.0 * metal3api.GigaHertz,
 				Flags:          []string{"fpu", "hypervisor", "sse", "vmx"},
 				Count:          1,
 			},
@@ -251,7 +251,7 @@ func (p *fixtureProvisioner) Deprovision(restartOnFailure bool) (result provisio
 	if p.state.image.URL != "" {
 		p.publisher("DeprovisionStarted", "Image deprovisioning started")
 		p.log.Info("clearing hardware details")
-		p.state.image = metal3v1alpha1.Image{}
+		p.state.image = metal3api.Image{}
 		result.Dirty = true
 		return result, nil
 	}
@@ -311,7 +311,7 @@ func (p *fixtureProvisioner) PowerOn(force bool) (result provisioner.Result, err
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
 	if p.state.poweredOn {
@@ -336,15 +336,15 @@ func (p *fixtureProvisioner) IsReady() (result bool, err error) {
 	return p.state.BecomeReadyCounter == 0, nil
 }
 
-func (p *fixtureProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, err error) {
+func (p *fixtureProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	p.log.Info("getting BIOS settings")
 	return
 }
 
-func (p *fixtureProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }

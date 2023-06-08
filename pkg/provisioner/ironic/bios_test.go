@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -23,32 +23,32 @@ func TestGetFirmwareSettings(t *testing.T) {
 
 	cases := []struct {
 		name                string
-		expectedSettingsMap metal3v1alpha1.SettingsMap
-		expectedSchemaMap   map[string]metal3v1alpha1.SettingSchema
+		expectedSettingsMap metal3api.SettingsMap
+		expectedSchemaMap   map[string]metal3api.SettingSchema
 		includeSchema       bool
 		ironic              *testserver.IronicMock
 		expectedError       string
 	}{
 		{
 			name: "no-schema",
-			expectedSettingsMap: metal3v1alpha1.SettingsMap{
+			expectedSettingsMap: metal3api.SettingsMap{
 				"L2Cache":            "10x256 KB",
 				"NumCores":           "10",
 				"ProcVirtualization": "Enabled",
 			},
-			expectedSchemaMap: map[string]metal3v1alpha1.SettingSchema{},
+			expectedSchemaMap: map[string]metal3api.SettingSchema{},
 			ironic:            testserver.NewIronic(t).BIOSSettings(nodeUUID),
 			includeSchema:     false,
 			expectedError:     "",
 		},
 		{
 			name: "include-schema",
-			expectedSettingsMap: metal3v1alpha1.SettingsMap{
+			expectedSettingsMap: metal3api.SettingsMap{
 				"L2Cache":            "10x256 KB",
 				"NumCores":           "10",
 				"ProcVirtualization": "Enabled",
 			},
-			expectedSchemaMap: map[string]metal3v1alpha1.SettingSchema{
+			expectedSchemaMap: map[string]metal3api.SettingSchema{
 				"L2Cache": {
 					AttributeType:   "String",
 					AllowableValues: []string{},
@@ -86,8 +86,8 @@ func TestGetFirmwareSettings(t *testing.T) {
 		},
 		{
 			name:                "error404",
-			expectedSettingsMap: metal3v1alpha1.SettingsMap(nil),
-			expectedSchemaMap:   map[string]metal3v1alpha1.SettingSchema(nil),
+			expectedSettingsMap: metal3api.SettingsMap(nil),
+			expectedSchemaMap:   map[string]metal3api.SettingSchema(nil),
 			ironic:              testserver.NewIronic(t).NoBIOS(nodeUUID),
 			includeSchema:       false,
 			expectedError:       "could not get node for BIOS settings: Host not registered",

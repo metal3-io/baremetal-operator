@@ -10,7 +10,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
@@ -158,7 +158,7 @@ func TestPowerOff(t *testing.T) {
 		expectedRequestAfter int
 		expectedErrorResult  bool
 		expectedReason       string
-		rebootMode           metal3v1alpha1.RebootMode
+		rebootMode           metal3api.RebootMode
 	}{
 		{
 			name: "node-already-power-off",
@@ -184,7 +184,7 @@ func TestPowerOff(t *testing.T) {
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}),
-			rebootMode:     metal3v1alpha1.RebootModeSoft,
+			rebootMode:     metal3api.RebootModeSoft,
 			expectedDirty:  true,
 			expectedReason: softPowerOffReason,
 		},
@@ -196,7 +196,7 @@ func TestPowerOff(t *testing.T) {
 				UUID:                 nodeUUID,
 			}),
 			expectedDirty:  true,
-			rebootMode:     metal3v1alpha1.RebootModeHard,
+			rebootMode:     metal3api.RebootModeHard,
 			expectedReason: hardPowerOffReason,
 		},
 		{
@@ -226,7 +226,7 @@ func TestPowerOff(t *testing.T) {
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}),
-			rebootMode:     metal3v1alpha1.RebootModeSoft,
+			rebootMode:     metal3api.RebootModeSoft,
 			force:          true,
 			expectedDirty:  true,
 			expectedReason: hardPowerOffReason,
@@ -239,7 +239,7 @@ func TestPowerOff(t *testing.T) {
 				UUID:                 nodeUUID,
 				LastError:            "hard power off failed",
 			}),
-			rebootMode:          metal3v1alpha1.RebootModeHard,
+			rebootMode:          metal3api.RebootModeHard,
 			expectedDirty:       false,
 			expectedErrorResult: true,
 		},
@@ -251,7 +251,7 @@ func TestPowerOff(t *testing.T) {
 				UUID:                 nodeUUID,
 				LastError:            "hard power off failed",
 			}),
-			rebootMode:     metal3v1alpha1.RebootModeHard,
+			rebootMode:     metal3api.RebootModeHard,
 			force:          true,
 			expectedDirty:  true,
 			expectedReason: hardPowerOffReason,
@@ -335,7 +335,7 @@ func TestSoftPowerOffFallback(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, err = prov.PowerOff(metal3v1alpha1.RebootModeSoft, false)
+	_, err = prov.PowerOff(metal3api.RebootModeSoft, false)
 	assert.Error(t, err)
 	assert.False(t, errors.As(err, &softPowerOffUnsupportedError{}))
 

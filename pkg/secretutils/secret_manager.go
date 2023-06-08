@@ -13,12 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
 const (
-	SecretsFinalizer = metal3v1alpha1.BareMetalHostFinalizer + "/secret"
+	SecretsFinalizer = metal3api.BareMetalHostFinalizer + "/secret"
 )
 
 // SecretManager is a type for fetching Secrets whether or not they are in the

@@ -13,7 +13,7 @@ import (
 	"k8s.io/utils/pointer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -467,7 +467,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 
 	provData := provisioner.ProvisionData{
 		Image:           *host.Spec.Image,
-		BootMode:        metal3v1alpha1.DefaultBootMode,
+		BootMode:        metal3api.DefaultBootMode,
 		RootDeviceHints: host.Status.Provisioning.RootDeviceHints,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -522,28 +522,28 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
+	host := metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
 			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
+		Spec: metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
 				Address: "test://test.bmc/",
 			},
-			Image: &metal3v1alpha1.Image{
+			Image: &metal3api.Image{
 				URL:          "not-empty",
 				Checksum:     "checksum",
-				ChecksumType: metal3v1alpha1.MD5,
+				ChecksumType: metal3api.MD5,
 				DiskFormat:   pointer.StringPtr("raw"),
 			},
 			Online:          true,
 			HardwareProfile: "unknown",
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
+		Status: metal3api.BareMetalHostStatus{
 			HardwareProfile: "libvirt",
-			Provisioning: metal3v1alpha1.ProvisionStatus{
+			Provisioning: metal3api.ProvisionStatus{
 				ID: "provisioning-id",
 			},
 		},
@@ -563,7 +563,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	hwProf, _ := profile.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
 		Image:           *host.Spec.Image,
-		BootMode:        metal3v1alpha1.DefaultBootMode,
+		BootMode:        metal3api.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -630,27 +630,27 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeDell(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
+	host := metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
 			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
+		Spec: metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
 				Address: "test://test.bmc/",
 			},
-			Image: &metal3v1alpha1.Image{
+			Image: &metal3api.Image{
 				URL:          "not-empty",
 				Checksum:     "checksum",
-				ChecksumType: metal3v1alpha1.MD5,
+				ChecksumType: metal3api.MD5,
 				//DiskFormat not given to verify it is not added in instance_info
 			},
 			Online: true,
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
+		Status: metal3api.BareMetalHostStatus{
 			HardwareProfile: "dell",
-			Provisioning: metal3v1alpha1.ProvisionStatus{
+			Provisioning: metal3api.ProvisionStatus{
 				ID: "provisioning-id",
 			},
 		},
@@ -670,7 +670,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	hwProf, _ := profile.GetProfile("dell")
 	provData := provisioner.ProvisionData{
 		Image:           *host.Spec.Image,
-		BootMode:        metal3v1alpha1.DefaultBootMode,
+		BootMode:        metal3api.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -743,7 +743,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 
 	provData := provisioner.ProvisionData{
 		Image:    *host.Spec.Image,
-		BootMode: metal3v1alpha1.DefaultBootMode,
+		BootMode: metal3api.DefaultBootMode,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
 
@@ -812,7 +812,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 
 	provData := provisioner.ProvisionData{
 		Image:    *host.Spec.Image,
-		BootMode: metal3v1alpha1.DefaultBootMode,
+		BootMode: metal3api.DefaultBootMode,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
 
@@ -876,7 +876,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 	host := makeHost()
 	host.Spec.Image.URL = "newimage"
 	host.Spec.Image.Checksum = "thechecksum"
-	host.Spec.Image.ChecksumType = metal3v1alpha1.MD5
+	host.Spec.Image.ChecksumType = metal3api.MD5
 	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher,
 		"https://ironic.test", auth, "https://ironic.test", auth,
 	)
@@ -892,7 +892,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 
 	provData := provisioner.ProvisionData{
 		Image:    *host.Spec.Image,
-		BootMode: metal3v1alpha1.DefaultBootMode,
+		BootMode: metal3api.DefaultBootMode,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
 
@@ -964,8 +964,8 @@ func TestGetUpdateOptsForNodeCustomDeploy(t *testing.T) {
 	ironicNode := &nodes.Node{}
 
 	provData := provisioner.ProvisionData{
-		Image:        metal3v1alpha1.Image{},
-		BootMode:     metal3v1alpha1.DefaultBootMode,
+		Image:        metal3api.Image{},
+		BootMode:     metal3api.DefaultBootMode,
 		CustomDeploy: host.Spec.CustomDeploy,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -1024,7 +1024,7 @@ func TestGetUpdateOptsForNodeCustomDeployWithImage(t *testing.T) {
 
 	provData := provisioner.ProvisionData{
 		Image:        *host.Spec.Image,
-		BootMode:     metal3v1alpha1.DefaultBootMode,
+		BootMode:     metal3api.DefaultBootMode,
 		CustomDeploy: host.Spec.CustomDeploy,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -1092,8 +1092,8 @@ func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
 	}
 
 	provData := provisioner.ProvisionData{
-		Image:        metal3v1alpha1.Image{},
-		BootMode:     metal3v1alpha1.DefaultBootMode,
+		Image:        metal3api.Image{},
+		BootMode:     metal3api.DefaultBootMode,
 		CustomDeploy: host.Spec.CustomDeploy,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
@@ -1147,28 +1147,28 @@ func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
-	host := metal3v1alpha1.BareMetalHost{
+	host := metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
 			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
+		Spec: metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
 				Address: "test://test.bmc/",
 			},
-			Image: &metal3v1alpha1.Image{
+			Image: &metal3api.Image{
 				URL:          "not-empty",
 				Checksum:     "checksum",
-				ChecksumType: metal3v1alpha1.MD5,
+				ChecksumType: metal3api.MD5,
 				DiskFormat:   pointer.StringPtr("raw"),
 			},
 			Online:          true,
 			HardwareProfile: "unknown",
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
+		Status: metal3api.BareMetalHostStatus{
 			HardwareProfile: "libvirt",
-			Provisioning: metal3v1alpha1.ProvisionStatus{
+			Provisioning: metal3api.ProvisionStatus{
 				ID: "provisioning-id",
 			},
 		},
@@ -1188,7 +1188,7 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	hwProf, _ := profile.GetProfile("libvirt")
 	provData := provisioner.ProvisionData{
 		Image:           *host.Spec.Image,
-		BootMode:        metal3v1alpha1.UEFISecureBoot,
+		BootMode:        metal3api.UEFISecureBoot,
 		HardwareProfile: hwProf,
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates

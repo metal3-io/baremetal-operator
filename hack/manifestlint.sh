@@ -37,6 +37,6 @@ else
     --volume "${PWD}:/workdir:ro,z" \
     --entrypoint sh \
     --workdir /workdir \
-    ghcr.io/yannh/kubeconform:v0.5.0-alpine@sha256:ae1583859c7c9683b2f044a9cc911d9427030cd48ec33eeff6c0f23396780da9 \
+    ghcr.io/yannh/kubeconform:v0.6.2-alpine@sha256:49b5f6b320d30c1b8b72a7abdf02740ac9dc36a3ba23b934d1c02f7b37e6e740 \
     /workdir/hack/manifestlint.sh "${@}"
 fi;

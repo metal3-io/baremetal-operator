@@ -29,10 +29,8 @@ func testStateMachine(host *metal3api.BareMetalHost) *hostStateMachine {
 
 // Create a reconciler with a fake client to satisfy states that use the client
 func testNewReconciler(host *metal3api.BareMetalHost) *BareMetalHostReconciler {
-
-	c := fakeclient.NewFakeClient(host)
 	reconciler := &BareMetalHostReconciler{
-		Client:             c,
+		Client:             fakeclient.NewClientBuilder().WithObjects(host).Build(),
 		ProvisionerFactory: nil,
 		Log:                ctrl.Log.WithName("host_state_machine").WithName("BareMetalHost"),
 	}
@@ -245,7 +243,7 @@ func TestDetach(t *testing.T) {
 		},
 		{
 			Scenario:                  "DeleteDetachedProvisionedHost",
-			Host:                      host(metal3api.StateProvisioned).SetOperationalStatus(metal3api.OperationalStatusDetached).setDeletion().build(),
+			Host:                      host(metal3api.StateProvisioned).SetOperationalStatus(metal3api.OperationalStatusDetached).setDeletion().withFinalizer().build(),
 			HasDetachedAnnotation:     true,
 			ExpectedDetach:            false,
 			ExpectedDirty:             true,
@@ -399,7 +397,7 @@ func TestDetach(t *testing.T) {
 		},
 		{
 			Scenario:                  "DeletingHost",
-			Host:                      host(metal3api.StateDeleting).setDeletion().build(),
+			Host:                      host(metal3api.StateDeleting).setDeletion().withFinalizer().build(),
 			HasDetachedAnnotation:     true,
 			ExpectedDetach:            false,
 			ExpectedDirty:             false,
@@ -999,7 +997,7 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 		},
 		{
 			Scenario:    "deprovisioning-to-deleting",
-			Host:        host(metal3api.StateDeprovisioning).setDeletion().build(),
+			Host:        host(metal3api.StateDeprovisioning).setDeletion().withFinalizer().build(),
 			TargetState: metal3api.StateDeleting,
 		},
 	}
@@ -1254,6 +1252,11 @@ func (hb *hostBuilder) DisableInspection() *hostBuilder {
 func (hb *hostBuilder) setDeletion() *hostBuilder {
 	date := metav1.Date(2021, time.January, 18, 10, 18, 0, 0, time.UTC)
 	hb.DeletionTimestamp = &date
+	return hb
+}
+
+func (hb *hostBuilder) withFinalizer() *hostBuilder {
+	hb.Finalizers = []string{"test"}
 	return hb
 }
 

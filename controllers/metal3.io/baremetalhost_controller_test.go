@@ -134,9 +134,11 @@ func newDefaultHost(t *testing.T) *metal3api.BareMetalHost {
 }
 
 func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Object) *BareMetalHostReconciler {
-
-	c := fakeclient.NewFakeClient(initObjs...)
-
+	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
+	for _, v := range initObjs {
+		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+	}
+	c := clientBuilder.Build()
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
 	c.Create(goctx.TODO(), bmcSecret)
@@ -530,13 +532,14 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 
 	// Let the host reach the available state before deleting it
 	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
-	doDeleteHost(host, r)
+	err := doDeleteHost(host, r)
+	assert.NoError(t, err)
 	waitForProvisioningState(t, r, host, metal3api.StateDeleting)
 
 	// The next reconcile loop will start the delete process,
 	// and as a first step the Ironic node will be removed
 	request := newRequest(host)
-	_, err := r.Reconcile(context.Background(), request)
+	_, err = r.Reconcile(context.Background(), request)
 	assert.NoError(t, err)
 
 	// The next reconcile loop remove the finalizers from
@@ -2119,10 +2122,8 @@ func TestUpdateRAID(t *testing.T) {
 	}
 }
 
-func doDeleteHost(host *metal3api.BareMetalHost, reconciler *BareMetalHostReconciler) {
-	now := metav1.Now()
-	host.DeletionTimestamp = &now
-	reconciler.Client.Update(context.Background(), host)
+func doDeleteHost(host *metal3api.BareMetalHost, reconciler *BareMetalHostReconciler) error {
+	return reconciler.Client.Delete(context.Background(), host)
 }
 
 func TestInvalidBMHCanBeDeleted(t *testing.T) {
@@ -2139,7 +2140,8 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 	assert.Equal(t, metal3api.RegistrationError, host.Status.ErrorType)
 	assert.Equal(t, "malformed url", host.Status.ErrorMessage)
 
-	doDeleteHost(host, r)
+	err := doDeleteHost(host, r)
+	assert.NoError(t, err)
 
 	tryReconcile(t, r, host, func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 		return host == nil

@@ -36,7 +36,9 @@ var (
 // Test support for HostFirmwareSettings in the HostFirmwareSettingsReconciler
 func getTestHFSReconciler(host *metal3api.HostFirmwareSettings) *HostFirmwareSettingsReconciler {
 
-	c := fakeclient.NewFakeClient(host)
+	c := fakeclient.NewClientBuilder().WithRuntimeObjects(host).WithStatusSubresource(host).
+		Build()
+
 	reconciler := &HostFirmwareSettingsReconciler{
 		Client: c,
 		Log:    ctrl.Log.WithName("test_reconciler").WithName("HostFirmwareSettings"),

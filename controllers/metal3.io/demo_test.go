@@ -4,6 +4,8 @@ import (
 	goctx "context"
 	"testing"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,7 +18,11 @@ import (
 
 func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 
-	c := fakeclient.NewFakeClient(initObjs...)
+	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
+	for _, v := range initObjs {
+		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+	}
+	c := clientBuilder.Build()
 
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})

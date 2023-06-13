@@ -105,7 +105,7 @@ manifest-lint: ## Run manifest validation
 build: generate manifests manager tools ## Build everything
 
 .PHONY: manager
-manager: generate lint ## Build manager binary
+manager: ## Build manager binary
 	go build -ldflags $(LDFLAGS) -o bin/$(OPERATOR_NAME) main.go
 
 .PHONY: run

@@ -148,7 +148,7 @@ func TestBMCEventSubscriptionUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.bes.ValidateUpdate(tt.old); !errorContains(err, tt.wantedErr) {
+			if _, err := tt.bes.ValidateUpdate(tt.old); !errorContains(err, tt.wantedErr) {
 				t.Errorf("BMCEventSubscription.ValidateUpdate() error = %v, wantErr %v", err, tt.wantedErr)
 			}
 		})

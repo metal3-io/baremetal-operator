@@ -6,20 +6,20 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/stretchr/testify/assert"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 func TestBuildCapabilitiesValue(t *testing.T) {
 	cases := []struct {
 		Scenario      string
 		Node          nodes.Node
-		Mode          metal3v1alpha1.BootMode
+		Mode          metal3api.BootMode
 		ExpectedValue string
 	}{
 		{
 			Scenario:      "unset",
 			Node:          nodes.Node{},
-			Mode:          metal3v1alpha1.UEFI,
+			Mode:          metal3api.UEFI,
 			ExpectedValue: "boot_mode:uefi",
 		},
 		{
@@ -29,7 +29,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "",
 				},
 			},
-			Mode:          metal3v1alpha1.UEFI,
+			Mode:          metal3api.UEFI,
 			ExpectedValue: "boot_mode:uefi",
 		},
 		{
@@ -39,7 +39,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
-			Mode:          metal3v1alpha1.UEFI,
+			Mode:          metal3api.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
 		},
 		{
@@ -49,7 +49,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
-			Mode:          metal3v1alpha1.UEFISecureBoot,
+			Mode:          metal3api.UEFISecureBoot,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi,secure_boot:true",
 		},
 		{
@@ -59,7 +59,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
-			Mode:          metal3v1alpha1.UEFI,
+			Mode:          metal3api.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
 		},
 		{
@@ -69,7 +69,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "boot_mode:bios,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
-			Mode:          metal3v1alpha1.Legacy,
+			Mode:          metal3api.Legacy,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:bios",
 		},
 		{
@@ -79,7 +79,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "boot_mode:bios,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
-			Mode:          metal3v1alpha1.UEFI,
+			Mode:          metal3api.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
 		},
 		{
@@ -89,7 +89,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
-			Mode:          metal3v1alpha1.Legacy,
+			Mode:          metal3api.Legacy,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:bios",
 		},
 		{
@@ -99,7 +99,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
-			Mode:          metal3v1alpha1.UEFISecureBoot,
+			Mode:          metal3api.UEFISecureBoot,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi,secure_boot:true",
 		},
 		{
@@ -109,7 +109,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,secure_boot:true",
 				},
 			},
-			Mode:          metal3v1alpha1.UEFI,
+			Mode:          metal3api.UEFI,
 			ExpectedValue: "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,boot_mode:uefi",
 		},
 	}

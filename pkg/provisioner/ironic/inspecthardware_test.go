@@ -9,7 +9,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
@@ -270,7 +270,7 @@ func TestInspectHardware(t *testing.T) {
 			}
 
 			result, started, details, err := prov.InspectHardware(
-				provisioner.InspectData{BootMode: metal3v1alpha1.DefaultBootMode},
+				provisioner.InspectData{BootMode: metal3api.DefaultBootMode},
 				tc.restartOnFailure, false, tc.forceReboot)
 
 			assert.Equal(t, tc.expectedStarted, started)

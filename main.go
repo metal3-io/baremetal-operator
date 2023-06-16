@@ -49,6 +49,8 @@ var (
 	healthAddr string
 )
 
+const leaderElectionID = "baremetal-operator"
+
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
@@ -151,20 +153,26 @@ func main() {
 	restConfig := ctrl.GetConfigOrDie()
 	restConfig.QPS = float32(restConfigQPS)
 	restConfig.Burst = restConfigBurst
-	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:                  scheme,
-		MetricsBindAddress:      metricsBindAddr,
-		Port:                    webhookPort,
-		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        "baremetal-operator",
-		LeaderElectionNamespace: leaderElectionNamespace,
-		Namespace:               watchNamespace,
-		HealthProbeBindAddress:  healthAddr,
 
-		NewCache: cache.BuilderWithOptions(cache.Options{
-			SelectorsByObject: secretutils.AddSecretSelector(nil),
+	ctrlOpts := ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: metricsBindAddr,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: webhookPort,
 		}),
-	})
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        leaderElectionID,
+		LeaderElectionNamespace: leaderElectionNamespace,
+		HealthProbeBindAddress:  healthAddr,
+		Cache: cache.Options{
+			ByObject: secretutils.AddSecretSelector(nil),
+		},
+	}
+	if watchNamespace != "" {
+		ctrlOpts.Cache.Namespaces = []string{watchNamespace}
+	}
+
+	mgr, err := ctrl.NewManager(restConfig, ctrlOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

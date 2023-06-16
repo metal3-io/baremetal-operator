@@ -8,7 +8,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
@@ -37,7 +37,7 @@ func newTestProvisionerFactory() ironicProvisionerFactory {
 
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
-func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
+func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
 	hostData := provisioner.BuildHostData(host, bmcCreds)
 
 	tlsConf := clients.TLSConfig{}
@@ -57,25 +57,25 @@ func newProvisionerWithSettings(host metal3v1alpha1.BareMetalHost, bmcCreds bmc.
 	return factory.ironicProvisioner(hostData, publisher)
 }
 
-func makeHost() metal3v1alpha1.BareMetalHost {
+func makeHost() metal3api.BareMetalHost {
 	rotational := true
 
-	return metal3v1alpha1.BareMetalHost{
+	return metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "myhost",
 			Namespace: "myns",
 			UID:       "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
-		Spec: metal3v1alpha1.BareMetalHostSpec{
-			BMC: metal3v1alpha1.BMCDetails{
+		Spec: metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
 				Address: "test://test.bmc/",
 			},
-			Image: &metal3v1alpha1.Image{
+			Image: &metal3api.Image{
 				URL: "not-empty",
 			},
 			Online:          true,
 			HardwareProfile: "libvirt",
-			RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+			RootDeviceHints: &metal3api.RootDeviceHints{
 				DeviceName:         "userd_devicename",
 				HCTL:               "1:2:3:4",
 				Model:              "userd_model",
@@ -88,12 +88,12 @@ func makeHost() metal3v1alpha1.BareMetalHost {
 				Rotational:         &rotational,
 			},
 		},
-		Status: metal3v1alpha1.BareMetalHostStatus{
-			Provisioning: metal3v1alpha1.ProvisionStatus{
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
 				ID: "provisioning-id",
 				// Place the hints in the status field to pretend the
 				// controller has already reconciled partially.
-				RootDeviceHints: &metal3v1alpha1.RootDeviceHints{
+				RootDeviceHints: &metal3api.RootDeviceHints{
 					DeviceName:         "userd_devicename",
 					HCTL:               "1:2:3:4",
 					Model:              "userd_model",
@@ -105,23 +105,23 @@ func makeHost() metal3v1alpha1.BareMetalHost {
 					WWNVendorExtension: "userd_vendor_extension",
 					Rotational:         &rotational,
 				},
-				BootMode: metal3v1alpha1.UEFI,
+				BootMode: metal3api.UEFI,
 			},
 			HardwareProfile: "libvirt",
 		},
 	}
 }
 
-func makeHostLiveIso() (host metal3v1alpha1.BareMetalHost) {
+func makeHostLiveIso() (host metal3api.BareMetalHost) {
 	host = makeHost()
 	format := "live-iso"
 	host.Spec.Image.DiskFormat = &format
 	return host
 }
 
-func makeHostCustomDeploy(only bool) (host metal3v1alpha1.BareMetalHost) {
+func makeHostCustomDeploy(only bool) (host metal3api.BareMetalHost) {
 	host = makeHost()
-	host.Spec.CustomDeploy = &metal3v1alpha1.CustomDeploy{
+	host.Spec.CustomDeploy = &metal3api.CustomDeploy{
 		Method: "install_everything",
 	}
 	if only {
@@ -136,7 +136,7 @@ func nullEventPublisher(reason, message string) {}
 func TestNewNoBMCDetails(t *testing.T) {
 	// Create a host without BMC details
 	host := makeHost()
-	host.Spec.BMC = metal3v1alpha1.BMCDetails{}
+	host.Spec.BMC = metal3api.BMCDetails{}
 
 	factory := newTestProvisionerFactory()
 	prov, err := factory.NewProvisioner(provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)

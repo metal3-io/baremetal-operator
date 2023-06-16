@@ -4,6 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -14,9 +15,9 @@ const (
 // AddSecretSelector adds a selector to a cache.SelectorsByObject that filters
 // Secrets so that only those labelled as part of the baremetal environment get
 // cached. The input may be nil.
-func AddSecretSelector(selectors cache.SelectorsByObject) cache.SelectorsByObject {
+func AddSecretSelector(selectors map[client.Object]cache.ByObject) map[client.Object]cache.ByObject {
 	secret := &corev1.Secret{}
-	newSelectors := cache.SelectorsByObject{
+	newSelectors := map[client.Object]cache.ByObject{
 		secret: {
 			Label: labels.SelectorFromSet(
 				labels.Set{
@@ -24,9 +25,11 @@ func AddSecretSelector(selectors cache.SelectorsByObject) cache.SelectorsByObjec
 				}),
 		},
 	}
+
 	if selectors == nil {
 		return newSelectors
 	}
+
 	selectors[secret] = newSelectors[secret]
 	return selectors
 }

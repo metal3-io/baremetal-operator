@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
@@ -59,8 +59,8 @@ type HostFirmwareSettingsReconciler struct {
 
 type rInfo struct {
 	log    logr.Logger
-	hfs    *metal3v1alpha1.HostFirmwareSettings
-	bmh    *metal3v1alpha1.BareMetalHost
+	hfs    *metal3api.HostFirmwareSettings
+	bmh    *metal3api.BareMetalHost
 	events []corev1.Event
 }
 
@@ -84,7 +84,7 @@ func (info *rInfo) publishEvent(reason, message string) {
 			Namespace:  info.hfs.Namespace,
 			Name:       info.hfs.Name,
 			UID:        info.hfs.UID,
-			APIVersion: metal3v1alpha1.GroupVersion.String(),
+			APIVersion: metal3api.GroupVersion.String(),
 		},
 		Reason:  reason,
 		Message: message,
@@ -117,7 +117,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	reqLogger.Info("start")
 
 	// Get the corresponding baremetalhost in this namespace, if one doesn't exist don't continue processing
-	bmh := &metal3v1alpha1.BareMetalHost{}
+	bmh := &metal3api.BareMetalHost{}
 	if err = r.Get(context.TODO(), req.NamespacedName, bmh); err != nil {
 		reqLogger.Info("could not get baremetalhost, not running reconciler")
 		if k8serrors.IsNotFound(err) {
@@ -132,7 +132,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Fetch the HostFirmwareSettings
-	hfs := &metal3v1alpha1.HostFirmwareSettings{}
+	hfs := &metal3api.HostFirmwareSettings{}
 	info := &rInfo{log: reqLogger, hfs: hfs, bmh: bmh}
 	if err = r.Get(ctx, req.NamespacedName, hfs); err != nil {
 		// The HFS resource may have been deleted
@@ -180,7 +180,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// requeue to run again after delay
-	if meta.IsStatusConditionTrue(info.hfs.Status.Conditions, string(metal3v1alpha1.FirmwareSettingsChangeDetected)) {
+	if meta.IsStatusConditionTrue(info.hfs.Status.Conditions, string(metal3api.FirmwareSettingsChangeDetected)) {
 		// If there is a difference between Spec and Status shorten the query from Ironic so that the Status is updated when cleaning completes
 		return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected}, nil
 	}
@@ -188,7 +188,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 }
 
 // Get the firmware settings from the provisioner and update hostFirmwareSettings
-func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSettings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, info *rInfo) (err error) {
+func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSettings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, info *rInfo) (err error) {
 
 	// get or create a firmwareSchema to hold schema
 	firmwareSchema, err := r.getOrCreateFirmwareSchema(info, schema)
@@ -204,14 +204,14 @@ func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSetti
 }
 
 // Update the HostFirmwareSettings resource using the settings and schema from provisioner
-func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings metal3v1alpha1.SettingsMap, schema *metal3v1alpha1.FirmwareSchema) (err error) {
+func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings metal3api.SettingsMap, schema *metal3api.FirmwareSchema) (err error) {
 
 	dirty := false
-	var newStatus metal3v1alpha1.HostFirmwareSettingsStatus
-	newStatus.Settings = make(metal3v1alpha1.SettingsMap)
+	var newStatus metal3api.HostFirmwareSettingsStatus
+	newStatus.Settings = make(metal3api.SettingsMap)
 
 	// Set hostFirmwareSetting to use this schema
-	newStatus.FirmwareSchema = &metal3v1alpha1.SchemaReference{
+	newStatus.FirmwareSchema = &metal3api.SchemaReference{
 		Namespace: schema.ObjectMeta.Namespace,
 		Name:      schema.ObjectMeta.Name}
 
@@ -249,7 +249,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 	generation := info.hfs.GetGeneration()
 
 	if specMismatch {
-		if setCondition(generation, &newStatus, info, metal3v1alpha1.FirmwareSettingsChangeDetected, metav1.ConditionTrue, reason, "") {
+		if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsChangeDetected, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
 
@@ -257,7 +257,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 		// Eventually this will be handled by a webhook
 		errors := r.validateHostFirmwareSettings(info, &newStatus, schema)
 		if len(errors) == 0 {
-			if setCondition(generation, &newStatus, info, metal3v1alpha1.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
+			if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
 				dirty = true
 			}
 		} else {
@@ -268,15 +268,15 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 				}
 			}
 			reason = reasonConfigurationError
-			if setCondition(generation, &newStatus, info, metal3v1alpha1.FirmwareSettingsValid, metav1.ConditionFalse, reason, "Invalid BIOS setting") {
+			if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsValid, metav1.ConditionFalse, reason, "Invalid BIOS setting") {
 				dirty = true
 			}
 		}
 	} else {
-		if setCondition(generation, &newStatus, info, metal3v1alpha1.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
+		if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
-		if setCondition(generation, &newStatus, info, metal3v1alpha1.FirmwareSettingsChangeDetected, metav1.ConditionFalse, reason, "") {
+		if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsChangeDetected, metav1.ConditionFalse, reason, "") {
 			dirty = true
 		}
 	}
@@ -295,12 +295,12 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 }
 
 // Get a firmware schema that matches the host vendor or create one if it doesn't exist
-func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, schema map[string]metal3v1alpha1.SettingSchema) (fSchema *metal3v1alpha1.FirmwareSchema, err error) {
+func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, schema map[string]metal3api.SettingSchema) (fSchema *metal3api.FirmwareSchema, err error) {
 
 	info.log.Info("getting firmwareSchema")
 
 	schemaName := GetSchemaName(schema)
-	firmwareSchema := &metal3v1alpha1.FirmwareSchema{}
+	firmwareSchema := &metal3api.FirmwareSchema{}
 
 	// If a schema exists that matches, use that, otherwise create a new one
 	if err = r.Get(context.TODO(), client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
@@ -323,7 +323,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 		return nil, err
 	}
 
-	firmwareSchema = &metal3v1alpha1.FirmwareSchema{
+	firmwareSchema = &metal3api.FirmwareSchema{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      schemaName,
 			Namespace: info.hfs.ObjectMeta.Namespace,
@@ -337,7 +337,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	}
 
 	// Copy in the schema from provisioner
-	firmwareSchema.Spec.Schema = make(map[string]metal3v1alpha1.SettingSchema)
+	firmwareSchema.Spec.Schema = make(map[string]metal3api.SettingSchema)
 	for k, v := range schema {
 		// Don't store Password settings in Schema as these aren't stored in HostFirmwareSettings
 		if strings.Contains(k, "Password") {
@@ -367,7 +367,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&metal3v1alpha1.HostFirmwareSettings{}).
+		For(&metal3api.HostFirmwareSettings{}).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: r.updateEventHandler,
@@ -389,7 +389,7 @@ func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent)
 }
 
 // Validate the HostFirmwareSetting Spec against the schema
-func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInfo, status *metal3v1alpha1.HostFirmwareSettingsStatus, schema *metal3v1alpha1.FirmwareSchema) []error {
+func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInfo, status *metal3api.HostFirmwareSettingsStatus, schema *metal3api.FirmwareSchema) []error {
 
 	var errors []error
 
@@ -432,8 +432,8 @@ func (r *HostFirmwareSettingsReconciler) publishEvent(request ctrl.Request, even
 	return
 }
 
-func setCondition(generation int64, status *metal3v1alpha1.HostFirmwareSettingsStatus, info *rInfo,
-	cond metal3v1alpha1.SettingsConditionType, newStatus metav1.ConditionStatus,
+func setCondition(generation int64, status *metal3api.HostFirmwareSettingsStatus, info *rInfo,
+	cond metal3api.SettingsConditionType, newStatus metav1.ConditionStatus,
 	reason conditionReason, message string) bool {
 	newCondition := metav1.Condition{
 		Type:               string(cond),
@@ -452,7 +452,7 @@ func setCondition(generation int64, status *metal3v1alpha1.HostFirmwareSettingsS
 }
 
 // Generate a name based on the schema key and values which should be the same for similar hardware
-func GetSchemaName(schema map[string]metal3v1alpha1.SettingSchema) string {
+func GetSchemaName(schema map[string]metal3api.SettingSchema) string {
 
 	// Schemas from the same vendor and model should be identical for both keys and values.
 	hashkeys := make([]string, 0, len(schema))

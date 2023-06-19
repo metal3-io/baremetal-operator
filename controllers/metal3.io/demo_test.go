@@ -4,19 +4,25 @@ import (
 	goctx "context"
 	"testing"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 )
 
 func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 
-	c := fakeclient.NewFakeClient(initObjs...)
+	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
+	for _, v := range initObjs {
+		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+	}
+	c := clientBuilder.Build()
 
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
@@ -36,7 +42,7 @@ func TestDemoRegistrationError(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
@@ -54,13 +60,13 @@ func TestDemoRegistering(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.Status.Provisioning.State == metal3v1alpha1.StateRegistering
+			return host.Status.Provisioning.State == metal3api.StateRegistering
 		},
 	)
 }
@@ -72,20 +78,20 @@ func TestDemoInspecting(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.Status.Provisioning.State == metal3v1alpha1.StateInspecting
+			return host.Status.Provisioning.State == metal3api.StateInspecting
 		},
 	)
 }
 
 func TestDemoPreparing(t *testing.T) {
 	host := newDefaultNamedHost(demo.PreparingHost, t)
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
 	}
@@ -93,20 +99,20 @@ func TestDemoPreparing(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.Status.Provisioning.State == metal3v1alpha1.StatePreparing
+			return host.Status.Provisioning.State == metal3api.StatePreparing
 		},
 	)
 }
 
 func TestDemoPreparingError(t *testing.T) {
 	host := newDefaultNamedHost(demo.PreparingErrorHost, t)
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
 	}
@@ -114,13 +120,13 @@ func TestDemoPreparingError(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.Status.Provisioning.State == metal3v1alpha1.StatePreparing
+			return host.Status.Provisioning.State == metal3api.StatePreparing
 		},
 	)
 }
@@ -132,13 +138,13 @@ func TestDemoAvailable(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.Status.Provisioning.State == metal3v1alpha1.StateAvailable
+			return host.Status.Provisioning.State == metal3api.StateAvailable
 		},
 	)
 }
@@ -147,7 +153,7 @@ func TestDemoAvailable(t *testing.T) {
 // that it is being provisioned
 func TestDemoProvisioning(t *testing.T) {
 	host := newDefaultNamedHost(demo.ProvisioningHost, t)
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
 	}
@@ -155,13 +161,13 @@ func TestDemoProvisioning(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.Status.Provisioning.State == metal3v1alpha1.StateProvisioning
+			return host.Status.Provisioning.State == metal3api.StateProvisioning
 		},
 	)
 }
@@ -170,7 +176,7 @@ func TestDemoProvisioning(t *testing.T) {
 // that it has been provisioned
 func TestDemoProvisioned(t *testing.T) {
 	host := newDefaultNamedHost(demo.ProvisionedHost, t)
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
 	}
@@ -178,13 +184,13 @@ func TestDemoProvisioned(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,
 				host.Status.ErrorMessage,
 			)
-			return host.Status.Provisioning.State == metal3v1alpha1.StateProvisioned
+			return host.Status.Provisioning.State == metal3api.StateProvisioned
 		},
 	)
 }
@@ -193,7 +199,7 @@ func TestDemoProvisioned(t *testing.T) {
 // reports that it had and error while being provisioned
 func TestDemoValidationError(t *testing.T) {
 	host := newDefaultNamedHost(demo.ValidationErrorHost, t)
-	host.Spec.Image = &metal3v1alpha1.Image{
+	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
 	}
@@ -201,7 +207,7 @@ func TestDemoValidationError(t *testing.T) {
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
-		func(host *metal3v1alpha1.BareMetalHost, result reconcile.Result) bool {
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("Status: %q State: %q ErrorMessage: %q",
 				host.OperationalStatus(),
 				host.Status.Provisioning.State,

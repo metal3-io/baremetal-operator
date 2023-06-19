@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
@@ -114,7 +114,7 @@ func (p *demoProvisioner) ValidateManagementAccess(data provisioner.ManagementAc
 	return
 }
 
-func (p *demoProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageFormat, error) {
+func (p *demoProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat, error) {
 	return nil, nil
 }
 
@@ -122,7 +122,7 @@ func (p *demoProvisioner) PreprovisioningImageFormats() ([]metal3v1alpha1.ImageF
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3v1alpha1.HardwareDetails, err error) {
+func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	started = true
 	hostName := p.objectMeta.Name
 
@@ -136,9 +136,9 @@ func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, restartO
 
 	p.log.Info("continuing inspection by setting details")
 	details =
-		&metal3v1alpha1.HardwareDetails{
+		&metal3api.HardwareDetails{
 			RAMMebibytes: 128 * 1024,
-			NIC: []metal3v1alpha1.NIC{
+			NIC: []metal3api.NIC{
 				{
 					Name:      "nic-1",
 					Model:     "virt-io",
@@ -156,24 +156,24 @@ func (p *demoProvisioner) InspectHardware(data provisioner.InspectData, restartO
 					PXE:       false,
 				},
 			},
-			Storage: []metal3v1alpha1.Storage{
+			Storage: []metal3api.Storage{
 				{
 					Name:       "disk-1 (boot)",
 					Rotational: false,
-					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					SizeBytes:  metal3api.TebiByte * 93,
 					Model:      "Dell CFJ61",
 				},
 				{
 					Name:       "disk-2",
 					Rotational: false,
-					SizeBytes:  metal3v1alpha1.TebiByte * 93,
+					SizeBytes:  metal3api.TebiByte * 93,
 					Model:      "Dell CFJ61",
 				},
 			},
-			CPU: metal3v1alpha1.CPU{
+			CPU: metal3api.CPU{
 				Arch:           "x86_64",
 				Model:          "Core 2 Duo",
-				ClockMegahertz: 3.0 * metal3v1alpha1.GigaHertz,
+				ClockMegahertz: 3.0 * metal3api.GigaHertz,
 				Flags:          []string{"lm", "hypervisor", "vmx"},
 				Count:          1,
 			},
@@ -330,7 +330,7 @@ func (p *demoProvisioner) PowerOn(force bool) (result provisioner.Result, err er
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOff(rebootMode metal3v1alpha1.RebootMode, force bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
 
 	hostName := p.objectMeta.Name
 	switch hostName {
@@ -354,16 +354,16 @@ func (p *demoProvisioner) IsReady() (result bool, err error) {
 	return true, nil
 }
 
-func (p *demoProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3v1alpha1.SettingsMap, schema map[string]metal3v1alpha1.SettingSchema, err error) {
+func (p *demoProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 
 	p.log.Info("getting BIOS settings")
 	return
 }
 
-func (p *demoProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3v1alpha1.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (p *demoProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (p *demoProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3v1alpha1.BMCEventSubscription) (result provisioner.Result, err error) {
+func (p *demoProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }

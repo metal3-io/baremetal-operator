@@ -33,9 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
@@ -64,7 +63,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 	}()
 
 	// Fetch the BMCEventSubscription
-	subscription := &metal3v1alpha1.BMCEventSubscription{}
+	subscription := &metal3api.BMCEventSubscription{}
 	err = r.Get(ctx, request.NamespacedName, subscription)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -78,7 +77,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 		return ctrl.Result{}, errors.Wrap(err, "could not load subscription")
 	}
 
-	host := &metal3v1alpha1.BareMetalHost{}
+	host := &metal3api.BareMetalHost{}
 	namespacedHostName := types.NamespacedName{
 		Name:      subscription.Spec.HostName,
 		Namespace: request.Namespace,
@@ -130,7 +129,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 
 }
 
-func (r *BMCEventSubscriptionReconciler) handleError(ctx context.Context, subscription *metal3v1alpha1.BMCEventSubscription, e error, message string, requeue bool) (ctrl.Result, error) {
+func (r *BMCEventSubscriptionReconciler) handleError(ctx context.Context, subscription *metal3api.BMCEventSubscription, e error, message string, requeue bool) (ctrl.Result, error) {
 	subscription.Status.Error = message
 	err := r.Status().Update(ctx, subscription)
 	if err != nil {
@@ -145,7 +144,7 @@ func (r *BMCEventSubscriptionReconciler) handleError(ctx context.Context, subscr
 
 }
 
-func (r *BMCEventSubscriptionReconciler) addFinalizer(ctx context.Context, subscription *metal3v1alpha1.BMCEventSubscription) error {
+func (r *BMCEventSubscriptionReconciler) addFinalizer(ctx context.Context, subscription *metal3api.BMCEventSubscription) error {
 	reqLogger := r.Log.WithName("bmceventsubscription")
 
 	// Add a finalizer to newly created objects.
@@ -153,10 +152,10 @@ func (r *BMCEventSubscriptionReconciler) addFinalizer(ctx context.Context, subsc
 		reqLogger.Info(
 			"adding finalizer",
 			"existingFinalizers", subscription.Finalizers,
-			"newValue", metal3v1alpha1.BMCEventSubscriptionFinalizer,
+			"newValue", metal3api.BMCEventSubscriptionFinalizer,
 		)
 		subscription.Finalizers = append(subscription.Finalizers,
-			metal3v1alpha1.BMCEventSubscriptionFinalizer)
+			metal3api.BMCEventSubscriptionFinalizer)
 		err := r.Update(ctx, subscription)
 		if err != nil {
 			return errors.Wrap(err, "failed to add finalizer")
@@ -167,7 +166,7 @@ func (r *BMCEventSubscriptionReconciler) addFinalizer(ctx context.Context, subsc
 	return nil
 }
 
-func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context, prov provisioner.Provisioner, subscription *metal3v1alpha1.BMCEventSubscription) error {
+func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
 	reqLogger := r.Log.WithName("bmceventsubscription")
 
 	if subscription.Status.SubscriptionID != "" {
@@ -194,7 +193,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 	return r.Status().Update(ctx, subscription)
 }
 
-func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context, prov provisioner.Provisioner, subscription *metal3v1alpha1.BMCEventSubscription) error {
+func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
 	reqLogger := r.Log.WithName("bmceventsubscription")
 	reqLogger.Info("deleting subscription")
 
@@ -205,7 +204,7 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context,
 
 		// Remove finalizer to allow deletion
 		subscription.Finalizers = utils.FilterStringFromList(
-			subscription.Finalizers, metal3v1alpha1.BMCEventSubscriptionFinalizer)
+			subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer)
 		reqLogger.Info("cleanup is complete, removed finalizer",
 			"remaining", subscription.Finalizers)
 		if err := r.Update(context.Background(), subscription); err != nil {
@@ -216,7 +215,7 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context,
 	return nil
 }
 
-func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, host *metal3v1alpha1.BareMetalHost) (prov provisioner.Provisioner, ready bool, err error) {
+func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, host *metal3api.BareMetalHost) (prov provisioner.Provisioner, ready bool, err error) {
 	reqLogger := r.Log.WithValues("bmceventsubscription", request.NamespacedName)
 
 	prov, err = r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostDataNoBMC(*host), nil)
@@ -241,7 +240,7 @@ func (r *BMCEventSubscriptionReconciler) secretManager(log logr.Logger) secretut
 	return secretutils.NewSecretManager(log, r.Client, r.APIReader)
 }
 
-func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3v1alpha1.BMCEventSubscription) ([]map[string]string, error) {
+func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3api.BMCEventSubscription) ([]map[string]string, error) {
 	headers := []map[string]string{}
 
 	if subscription.Spec.HTTPHeadersRef == nil {
@@ -270,8 +269,8 @@ func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3v1alp
 }
 
 func (r *BMCEventSubscriptionReconciler) updateEventHandler(e event.UpdateEvent) bool {
-	_, oldOK := e.ObjectOld.(*metal3v1alpha1.BMCEventSubscription)
-	_, newOK := e.ObjectNew.(*metal3v1alpha1.BMCEventSubscription)
+	_, oldOK := e.ObjectOld.(*metal3api.BMCEventSubscription)
+	_, newOK := e.ObjectNew.(*metal3api.BMCEventSubscription)
 	if !(oldOK && newOK) {
 		return true
 	}
@@ -292,14 +291,14 @@ func (r *BMCEventSubscriptionReconciler) updateEventHandler(e event.UpdateEvent)
 // SetupWithManager registers the reconciler to be run by the manager
 func (r *BMCEventSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&metal3v1alpha1.BMCEventSubscription{}).
+		For(&metal3api.BMCEventSubscription{}).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: r.updateEventHandler,
 		}).
-		Watches(&source.Kind{Type: &metal3v1alpha1.BareMetalHost{}}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
+		Watches(&metal3api.BareMetalHost{}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
 		Complete(r)
 }
 
-func subscriptionHasFinalizer(subscription *metal3v1alpha1.BMCEventSubscription) bool {
-	return utils.StringInList(subscription.Finalizers, metal3v1alpha1.BMCEventSubscriptionFinalizer)
+func subscriptionHasFinalizer(subscription *metal3api.BMCEventSubscription) bool {
+	return utils.StringInList(subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer)
 }

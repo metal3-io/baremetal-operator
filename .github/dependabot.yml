@@ -1,0 +1,62 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: ":seedling:"
+    labels:
+      - "ok-to-test"
+    # Go
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Ignore controller-runtime as its upgraded manually.
+      - dependency-name: "sigs.k8s.io/controller-runtime"
+      # Ignore k8s and its transitives modules as they are upgraded manually
+      # together with controller-runtime.
+      - dependency-name: "k8s.io/*"
+    commit-message:
+      prefix: ":seedling:"
+    labels:
+      - "ok-to-test"
+  - package-ecosystem: "gomod"
+    directory: "/apis"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Ignore controller-runtime as its upgraded manually.
+      - dependency-name: "sigs.k8s.io/controller-runtime"
+      # Ignore k8s and its transitives modules as they are upgraded manually
+      # together with controller-runtime.
+      - dependency-name: "k8s.io/*"
+    commit-message:
+      prefix: ":seedling:"
+    labels:
+      - "ok-to-test"
+  - package-ecosystem: "gomod"
+    directory: "/pkg/hardwareutils"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: ":seedling:"
+    labels:
+      - "ok-to-test"
+  - package-ecosystem: "gomod"
+    directory: "/hack/tools"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Ignore k8s and its transitives modules as they are upgraded manually
+      # together with controller-runtime.
+      - dependency-name: "sigs.k8s.io/controller-tools"
+    commit-message:
+      prefix: ":seedling:"
+    labels:
+      - "ok-to-test"

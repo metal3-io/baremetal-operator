@@ -19,7 +19,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@dc323e67f16fb5f7663d20ff7941f27f5809e9b6 # v2.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 
       - name: Collect all yaml
         id: list_yaml
@@ -42,7 +42,7 @@ jobs:
         value: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@dc323e67f16fb5f7663d20ff7941f27f5809e9b6 # v2.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 
       - name: Run kubesec scanner
         uses: controlplaneio/kubesec-action@43d0ddff5ffee89a6bb9f29b64cd865411137b14

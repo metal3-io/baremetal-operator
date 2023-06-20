@@ -158,7 +158,8 @@ func TestGetNICDetails(t *testing.T) {
 			{
 				Name:        "eth1",
 				IPV6Address: "2001:db8::1",
-				MACAddress:  "66:77:88:99:aa:bb"},
+				MACAddress:  "66:77:88:99:aa:bb",
+				SpeedMbps:   1000},
 			{
 				Name:        "eth46",
 				IPV6Address: "2001:db8::2",
@@ -179,11 +180,6 @@ func TestGetNICDetails(t *testing.T) {
 					},
 					"switch_port_untagged_vlan_id": 1,
 				},
-			},
-		},
-		introspection.ExtraHardwareDataSection{
-			"eth1": introspection.ExtraHardwareData{
-				"speed": "1Gbps",
 			},
 		})
 
@@ -233,74 +229,16 @@ func TestGetNICDetails(t *testing.T) {
 	}
 }
 
-func TestGetNICSpeedGbps(t *testing.T) {
-	s1 := getNICSpeedGbps(introspection.ExtraHardwareData{
-		"speed": "25Gbps",
-	})
-	if s1 != 25 {
-		t.Errorf("Expected speed 25, got %d", s1)
-	}
-
-	s2 := getNICSpeedGbps(introspection.ExtraHardwareData{
-		"speed": "100Mbps",
-	})
-	if s2 != 0 {
-		t.Errorf("Expected speed 0, got %d", s2)
-	}
-
-	s3 := getNICSpeedGbps(introspection.ExtraHardwareData{
-		"speed": 10,
-	})
-	if s3 != 0 {
-		t.Errorf("Expected speed 0, got %d", s3)
-	}
-
-	s4 := getNICSpeedGbps(introspection.ExtraHardwareData{})
-	if s4 != 0 {
-		t.Errorf("Expected speed 0, got %d", s4)
-	}
-}
-
 func TestGetFirmwareDetails(t *testing.T) {
 	// Test full (known) firmware payload
-	firmware := getFirmwareDetails(introspection.ExtraHardwareDataSection{
-		"bios": {
-			"vendor":  "foobar",
-			"version": "1.2.3",
-			"date":    "2019-07-10",
-		},
+	firmware := getFirmwareDetails(introspection.SystemFirmwareType{
+		Vendor:    "foobar",
+		Version:   "1.2.3",
+		BuildDate: "2019-07-10",
 	})
 
 	if firmware.BIOS.Vendor != "foobar" {
 		t.Errorf("Expected firmware BIOS vendor to be foobar, but got: %s", firmware)
-	}
-
-	// Ensure we can handle partial firmware/bios data
-	firmware = getFirmwareDetails(introspection.ExtraHardwareDataSection{
-		"bios": {
-			"vendor":  "foobar",
-			"version": "1.2.3",
-		},
-	})
-
-	if firmware.BIOS.Date != "" {
-		t.Errorf("Expected firmware BIOS date to be empty but got: %s", firmware)
-	}
-
-	// Ensure we can handle unexpected types
-	firmware = getFirmwareDetails(introspection.ExtraHardwareDataSection{
-		"bios": {
-			"vendor":  3,
-			"version": []int{2, 1},
-			"date":    map[string]string{"year": "2019", "month": "07", "day": "10"},
-		},
-	})
-
-	// Finally, ensure we can handle completely empty firmware data
-	firmware = getFirmwareDetails(introspection.ExtraHardwareDataSection{})
-
-	if (firmware != metal3api.Firmware{}) {
-		t.Errorf("Expected firmware data to be empty but got: %s", firmware)
 	}
 
 }

@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/go-logr/logr v1.2.4
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
-	github.com/gophercloud/gophercloud v1.3.0
+	github.com/gophercloud/gophercloud v1.4.1-0.20230614092438-44d55f08cdc0
 	github.com/metal3-io/baremetal-operator/apis v0.2.0
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.2.0
 	github.com/pkg/errors v0.9.1

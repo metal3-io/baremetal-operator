@@ -736,15 +736,13 @@ type BareMetalHostStatus struct {
 	// after modifying this file
 
 	// OperationalStatus holds the status of the host and its
-	// validated by the checkStatusAnnotation function in
-	// baremetalhost_validation.go
+	// validated by the checkStatusAnnotation function
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError and its validated
-	// by the checkStatusAnnotation function in
-	// baremetalhost_validation.go
+	// by the checkStatusAnnotation function
 	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 

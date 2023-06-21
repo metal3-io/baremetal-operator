@@ -144,6 +144,9 @@ const (
 	OperationalStatusDetached OperationalStatus = "detached"
 )
 
+// OperationalStatusAllowed represents the allowed values of OperationalStatus
+var OperationalStatusAllowed = []string{"", string(OperationalStatusOK), string(OperationalStatusDiscovered), string(OperationalStatusError), string(OperationalStatusDelayed), string(OperationalStatusDetached)}
+
 // ErrorType indicates the class of problem that has caused the Host resource
 // to enter an error state.
 type ErrorType string
@@ -172,6 +175,9 @@ const (
 	// controller is unable to detatch the host from the provisioner
 	DetachError ErrorType = "detach error"
 )
+
+// ErrorTypeAllowed represents the allowed values of ErrorType
+var ErrorTypeAllowed = []string{"", string(ProvisionedRegistrationError), string(RegistrationError), string(InspectionError), string(PreparationError), string(ProvisioningError), string(PowerManagementError)}
 
 // ProvisioningState defines the states the provisioner will report
 // the host has having.

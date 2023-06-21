@@ -263,14 +263,11 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 // the file baremetalhost_types.go
 func checkStatusAnnotation(bmhstatus *BareMetalHostStatus) error {
 
-	operatstatus_allowed := []string{"", string(OperationalStatusOK), string(OperationalStatusDiscovered), string(OperationalStatusError), string(OperationalStatusDelayed), string(OperationalStatusDetached)}
-	errortype_allowed := []string{"", string(ProvisionedRegistrationError), string(RegistrationError), string(InspectionError), string(PreparationError), string(ProvisioningError), string(PowerManagementError)}
-
-	if !slices.Contains(operatstatus_allowed, string(bmhstatus.OperationalStatus)) {
+	if !slices.Contains(OperationalStatusAllowed, string(bmhstatus.OperationalStatus)) {
 		return fmt.Errorf("invalid OperationalStatus='%s' in StatusAnnotation", string(bmhstatus.OperationalStatus))
 	}
 
-	if !slices.Contains(errortype_allowed, string(bmhstatus.ErrorType)) {
+	if !slices.Contains(ErrorTypeAllowed, string(bmhstatus.ErrorType)) {
 		return fmt.Errorf("invalid ErrorType='%s' in StatusAnnotation", string(bmhstatus.ErrorType))
 	}
 

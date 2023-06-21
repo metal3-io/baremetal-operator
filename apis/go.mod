@@ -6,7 +6,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.4
 	k8s.io/api v0.27.2
 	k8s.io/apimachinery v0.27.2
 	sigs.k8s.io/controller-runtime v0.15.0

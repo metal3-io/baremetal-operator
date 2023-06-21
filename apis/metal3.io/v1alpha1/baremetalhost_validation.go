@@ -189,14 +189,14 @@ func validateAnnotations(host *BareMetalHost) []error {
 
 		switch {
 		case annotation == StatusAnnotation:
-			err = validStatusAnnotation(value)
+			err = validateStatusAnnotation(value)
 		case strings.HasPrefix(annotation, RebootAnnotationPrefix+"/") || annotation == RebootAnnotationPrefix:
-			err = validRebootAnnotation(value)
+			err = validateRebootAnnotation(value)
 		case annotation == InspectAnnotation:
-			err = validInspectAnnotation(value)
+			err = validateInspectAnnotation(value)
 		case annotation == HardwareDetailsAnnotation:
 			inspect := host.Annotations[InspectAnnotation]
-			err = validHwdDetailsAnnotation(value, inspect)
+			err = validateHwdDetailsAnnotation(value, inspect)
 		default:
 			err = nil
 		}
@@ -208,7 +208,7 @@ func validateAnnotations(host *BareMetalHost) []error {
 	return errs
 }
 
-func validStatusAnnotation(statusannotation string) error {
+func validateStatusAnnotation(statusannotation string) error {
 	if statusannotation != "" {
 
 		objStatus, err := unmarshalStatusAnnotation([]byte(statusannotation))
@@ -277,7 +277,7 @@ func checkStatusAnnotation(bmhstatus *BareMetalHostStatus) error {
 	return nil
 }
 
-func validHwdDetailsAnnotation(hwdetannotaiton string, inspect string) error {
+func validateHwdDetailsAnnotation(hwdetannotaiton string, inspect string) error {
 	if hwdetannotaiton == "" {
 		return nil
 	}
@@ -301,7 +301,7 @@ func validHwdDetailsAnnotation(hwdetannotaiton string, inspect string) error {
 	return nil
 }
 
-func validInspectAnnotation(inspectannotation string) error {
+func validateInspectAnnotation(inspectannotation string) error {
 
 	valid_values := []string{"disabled", ""}
 
@@ -312,7 +312,7 @@ func validInspectAnnotation(inspectannotation string) error {
 	return nil
 }
 
-func validRebootAnnotation(rebootannotation string) error {
+func validateRebootAnnotation(rebootannotation string) error {
 	if rebootannotation == "" {
 		return nil
 	}

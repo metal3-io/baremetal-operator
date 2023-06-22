@@ -44,7 +44,8 @@ own, file and fix any/all issues that come up, including gaps in documentation!
 
 ### Codebase
 
-Baremetal Operator doesn't follow release cadence and versioning of upstream Kubernetes semantic versioning. This codebase guarantees the following:
+Baremetal Operator doesn't follow release cadence and versioning of upstream
+Kubernetes semantic versioning. This codebase guarantees the following:
 
 - A (*minor*) release CAN include:
    - Introduction of new API versions, or new Kinds.
@@ -61,25 +62,18 @@ Types and functions not in public APIs are not considered part of the guarantee.
 
 #### Backporting
 
-**Note: At present we only have main branch, there is no other release branch. As such backporting is not
-an option currently. Once we have release branches the following should be considered.**
-
-We only accept backports of critical bugs, security issues, or bugs without easy workarounds, any
+We only accept backports of critical bugs, security issues, or bugs without
+easy workarounds, any
 backport MUST not be breaking for either API or behavioral changes.
 We generally do not accept PRs against older release branches.
 
 ## Branches
 
-Baremetal Operator has only the *main* branch currently.
-
-The goal is to have two types of branches in future: the *main* branch and *release-X* branches.
-
 The *main* branch is where development happens. All the latest and
-greatest code, including breaking changes, happens on main. Currently patch releases are done from this branch
-only.
+greatest code, including breaking changes, happens on main.
 
-The *release-X* branches will contain stable, backwards compatible code. On every
-major or minor release, a new branch will be created. It is from these
+The *release-X.Y* branches will contain stable, backwards compatible code. On
+every major or minor release, a new branch will be created. It is from these
 branches that minor and patch releases will be tagged. In some cases, it may
 be necessary to open PRs for bugfixes directly against stable branches, but
 this should generally not be the case.
@@ -114,15 +108,13 @@ mistakes](https://github.com/golang/go/wiki/CodeReviewComments) in your PRs.
 
 ## Backporting a Patch
 
-Baremetal Operator does not yet maintain branches other than `main`. However, in future there will be
-release branches as well.
-
-Once we will have release branches in future, Baremetal Operator will maintain older versions through `release-X.Y` branches. We accept backports of bug fixes to the most recent
-release branch. For example, if the most recent branch is `release-0.2`, and the
+Baremetal Operator will maintain older versions through `release-X.Y` branches.
+We accept backports of bug fixes to the most recent
+release branch. For example, if the most recent branch is `release-0.3`, and the
 `main` branch is under active
-development for v0.3.0, a bug fix that merged to `main` that also affects
-`v0.2.x` may be considered for backporting
-to `release-0.2`. We generally do not accept PRs against older release branches.
+development for v0.4.0, a bug fix that merged to `main` that also affects
+`v0.3.x` may be considered for backporting
+to `release-0.3`. We generally do not accept PRs against older release branches.
 
 ## Breaking Changes
 
@@ -142,7 +134,8 @@ Examples of breaking changes include:
 - Removing or renaming a CRD
 - Removing or renaming an exported constant, variable, type, or function
 - Updating the version of critical libraries such as controller-runtime,
-  client-go, apimachinery, etc. (patch versions of these libraries are not considered as breaking change)
+  client-go, apimachinery, etc. (patch versions of these libraries are not
+  considered as breaking change)
 - Some version updates may be acceptable, for picking up bug fixes, but
   maintainers must exercise caution when reviewing.
 
@@ -176,8 +169,10 @@ Metal3 maintainers can assign you an issue or pull request by leaving a
 ### Commands and Workflow
 
 Baremetal Operator follows the standard Kubernetes workflow: any PR
-needs `lgtm` and `approved` labels, and PRs must pass the tests before being merged.
-See [the contributor docs](https://github.com/kubernetes/community/blob/master/contributors/guide/pull-requests.md#the-testing-and-merge-workflow) for more info.
+needs `lgtm` and `approved` labels, and PRs must pass the tests before being
+merged. See
+[the contributor docs](https://github.com/kubernetes/community/blob/master/contributors/guide/pull-requests.md#the-testing-and-merge-workflow)
+for more info.
 
 We use the same priority and kind labels as Kubernetes. See the labels
 tab in GitHub for the full list.

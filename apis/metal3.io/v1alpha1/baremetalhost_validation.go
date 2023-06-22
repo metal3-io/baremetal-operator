@@ -211,18 +211,15 @@ func validateAnnotations(host *BareMetalHost) []error {
 func validateStatusAnnotation(statusAnnotation string) error {
 	if statusAnnotation != "" {
 
-		objBMHStatus, err := unmarshalStatusAnnotation([]byte(statusAnnotation))
-		if err != nil {
-			return fmt.Errorf("invalid status annotation, error=%w", err)
-		}
+		objBMHStatus := &BareMetalHostStatus{}
 
 		deco := json.NewDecoder(strings.NewReader(statusAnnotation))
 		deco.DisallowUnknownFields()
-		if err = deco.Decode(&BareMetalHostStatus{}); err != nil {
-			return fmt.Errorf("invalid field in StatusAnnotation, error=%w", err)
+		if err := deco.Decode(objBMHStatus); err != nil {
+			return fmt.Errorf("error decoding status annotation, error=%w", err)
 		}
 
-		if err = checkStatusAnnotation(objBMHStatus); err != nil {
+		if err := checkStatusAnnotation(objBMHStatus); err != nil {
 			return err
 		}
 	}
@@ -284,15 +281,11 @@ func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspect string) error
 	}
 
 	objHwdDet := &HardwareDetails{}
-	err := json.Unmarshal([]byte(hwdDetAnnotation), objHwdDet)
-	if err != nil {
-		return fmt.Errorf("failed to fetch Hardware Details from annotation, error=%w", err)
-	}
 
 	deco := json.NewDecoder(strings.NewReader(hwdDetAnnotation))
 	deco.DisallowUnknownFields()
-	if err = deco.Decode(objHwdDet); err != nil {
-		return fmt.Errorf("invalid field in Hardware Details Annotation, error=%w", err)
+	if err := deco.Decode(objHwdDet); err != nil {
+		return fmt.Errorf("error decoding hardware details annotation, error=%w", err)
 	}
 
 	return nil
@@ -327,12 +320,4 @@ func validateRebootAnnotation(rebootAnnotation string) error {
 	}
 
 	return nil
-}
-
-func unmarshalStatusAnnotation(content []byte) (*BareMetalHostStatus, error) {
-	objStatus := &BareMetalHostStatus{}
-	if err := json.Unmarshal(content, objStatus); err != nil {
-		return nil, errors.Wrap(err, "Failed to fetch Status from annotation")
-	}
-	return objStatus, nil
 }

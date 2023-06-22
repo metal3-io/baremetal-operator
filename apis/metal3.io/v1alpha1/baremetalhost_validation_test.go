@@ -616,7 +616,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omsainvalidfield,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid field in StatusAnnotation, error=json: unknown field \"InvalidField\"",
+			wantedErr: "error decoding status annotation, error=json: unknown field \"InvalidField\"",
 		},
 		{
 			name: "invalidOpstatusStatusAnnotation",
@@ -640,7 +640,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omsainvalidfmt,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid status annotation, error=Failed to fetch Status from annotation: unexpected end of JSON input",
+			wantedErr: "error decoding status annotation, error=unexpected EOF",
 		},
 		{
 			name: "invalidValueRebootAnnotationPrefix",
@@ -672,7 +672,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: omhainvalid,
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid field in Hardware Details Annotation, error=json: unknown field \"INVALIDField\"",
+			wantedErr: "error decoding hardware details annotation, error=json: unknown field \"INVALIDField\"",
 		},
 		{
 			name: "invalidJsonHardwareDetailsAnnotation",
@@ -680,7 +680,7 @@ func TestValidateCreate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: om_ha_invalid_format,
 			},
 			oldBMH:    nil,
-			wantedErr: "failed to fetch Hardware Details from annotation, error=unexpected end of JSON input",
+			wantedErr: "error decoding hardware details annotation, error=unexpected EOF",
 		},
 		{
 			name: "invalidValueInspectAnnotation",

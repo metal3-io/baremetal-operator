@@ -43,96 +43,6 @@ func TestValidateCreate(t *testing.T) {
 		Namespace: "test-namespace",
 	}
 
-	om_sa_valid := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			StatusAnnotation: `{"operationalStatus": "OK"}`,
-		},
-	}
-
-	omsainvalidfield := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			StatusAnnotation: `{"InvalidField":"NotOK"}`,
-		},
-	}
-
-	omsainvalidopst := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			StatusAnnotation: `{"operationalStatus":"NotOK"}`,
-		},
-	}
-
-	omsainvaliderrtype := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			StatusAnnotation: `{"errorType":"No Error"}`,
-		},
-	}
-
-	omsainvalidfmt := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			StatusAnnotation: `{"operationalStatus":"OK"`,
-		},
-	}
-
-	omrainvalidval := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			RebootAnnotationPrefix: `{"mode":"medium"}`,
-		},
-	}
-
-	om_ra_key_invalidval := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			RebootAnnotationPrefix + "/my-key": `{"mode":"medium"}`,
-		},
-	}
-
-	omhainvalid_inspect := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			HardwareDetailsAnnotation: `{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}`,
-		},
-	}
-
-	omhainvalid := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			InspectAnnotation:         "disabled",
-			HardwareDetailsAnnotation: `{"INVALIDField":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}`,
-		},
-	}
-
-	om_ha_invalid_format := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			InspectAnnotation:         "disabled",
-			HardwareDetailsAnnotation: `{"INVALIDField":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"`,
-		},
-	}
-
-	omiainvalidvalue := metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-		Annotations: map[string]string{
-			InspectAnnotation: "enable",
-		},
-	}
-
 	enable := true
 
 	// for RAID validation test cases
@@ -605,7 +515,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "validStatusAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om_sa_valid,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						StatusAnnotation: `{"operationalStatus": "OK"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "",
@@ -613,7 +530,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidFieldStatusAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omsainvalidfield,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						StatusAnnotation: `{"InvalidField":"NotOK"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "error decoding status annotation, error=json: unknown field \"InvalidField\"",
@@ -621,7 +545,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidOpstatusStatusAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omsainvalidopst,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						StatusAnnotation: `{"operationalStatus":"NotOK"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "invalid OperationalStatus='NotOK' in StatusAnnotation",
@@ -629,7 +560,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidErrtypeStatusAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omsainvaliderrtype,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						StatusAnnotation: `{"errorType":"No Error"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "invalid ErrorType='No Error' in StatusAnnotation",
@@ -637,7 +575,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidFormatStatusAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omsainvalidfmt,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						StatusAnnotation: `{"operationalStatus":"OK"`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "error decoding status annotation, error=unexpected EOF",
@@ -645,7 +590,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidValueRebootAnnotationPrefix",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omrainvalidval,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						RebootAnnotationPrefix: `{"mode":"medium"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "invalid RebootMode in RebootAnnotation",
@@ -653,7 +605,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidValueRebootAnnotationWithKey",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om_ra_key_invalidval,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						RebootAnnotationPrefix + "/my-key": `{"mode":"medium"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "invalid RebootMode in RebootAnnotation",
@@ -661,7 +620,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "inspectionNotDisabledHardwareDetailsAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omhainvalid_inspect,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						HardwareDetailsAnnotation: `{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "inspection has to be disabled for HardwareDetailsAnnotation, check if {'inspect.metal3.io' : 'disabled'}",
@@ -669,7 +635,15 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidFieldHardwareDetailsAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omhainvalid,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						InspectAnnotation:         "disabled",
+						HardwareDetailsAnnotation: `{"INVALIDField":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "error decoding hardware details annotation, error=json: unknown field \"INVALIDField\"",
@@ -677,7 +651,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidJsonHardwareDetailsAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om_ha_invalid_format,
+				TypeMeta: tm, ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						InspectAnnotation:         "disabled",
+						HardwareDetailsAnnotation: `{"INVALIDField":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"`,
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "error decoding hardware details annotation, error=unexpected EOF",
@@ -685,7 +666,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "invalidValueInspectAnnotation",
 			newBMH: &BareMetalHost{
-				TypeMeta: tm, ObjectMeta: omiainvalidvalue,
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						InspectAnnotation: "enabled",
+					},
+				},
 			},
 			oldBMH:    nil,
 			wantedErr: "invalid value for Inspect Annotation",

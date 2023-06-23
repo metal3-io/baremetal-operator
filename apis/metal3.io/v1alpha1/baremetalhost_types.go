@@ -741,14 +741,12 @@ type BareMetalHostStatus struct {
 	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
 
-	// OperationalStatus holds the status of the host and its
-	// validated by the checkStatusAnnotation function
+	// OperationalStatus holds the status of the host
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
 	// ErrorType indicates the type of failure encountered when the
-	// OperationalStatus is OperationalStatusError and its validated
-	// by the checkStatusAnnotation function
+	// OperationalStatus is OperationalStatusError
 	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 

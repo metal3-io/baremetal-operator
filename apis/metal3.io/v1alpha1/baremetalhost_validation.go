@@ -57,8 +57,8 @@ func (host *BareMetalHost) validateHost() []error {
 		}
 	}
 
-	if annot_errors := validateAnnotations(host); annot_errors != nil {
-		errs = append(errs, annot_errors...)
+	if annotationErrors := validateAnnotations(host); annotationErrors != nil {
+		errs = append(errs, annotationErrors...)
 	}
 
 	return errs

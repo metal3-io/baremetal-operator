@@ -47,6 +47,19 @@ const (
 	// annotation is present and status is empty, BMO will reconstruct BMH Status
 	// from the status annotation.
 	StatusAnnotation = "baremetalhost.metal3.io/status"
+
+	// RebootAnnotation is the annotation which tells the host which mode to use
+	// when rebooting - hard/soft
+	RebootAnnotationPrefix = "reboot.metal3.io"
+
+	// InspectAnnotation is used to specify if automatic introspection carried out
+	// during registration of BMH is enabled or disabled
+	InspectAnnotation = "inspect.metal3.io"
+
+	// HardwareDetailsAnnotation provides the hardware details for the host
+	// in case its not already part of the host status and when introspection
+	// is disabed
+	HardwareDetailsAnnotation = "inspect.metal3.io/hardwaredetails"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
@@ -131,6 +144,9 @@ const (
 	OperationalStatusDetached OperationalStatus = "detached"
 )
 
+// OperationalStatusAllowed represents the allowed values of OperationalStatus
+var OperationalStatusAllowed = []string{"", string(OperationalStatusOK), string(OperationalStatusDiscovered), string(OperationalStatusError), string(OperationalStatusDelayed), string(OperationalStatusDetached)}
+
 // ErrorType indicates the class of problem that has caused the Host resource
 // to enter an error state.
 type ErrorType string
@@ -159,6 +175,9 @@ const (
 	// controller is unable to detatch the host from the provisioner
 	DetachError ErrorType = "detach error"
 )
+
+// ErrorTypeAllowed represents the allowed values of ErrorType
+var ErrorTypeAllowed = []string{"", string(ProvisionedRegistrationError), string(RegistrationError), string(InspectionError), string(PreparationError), string(ProvisioningError), string(PowerManagementError)}
 
 // ProvisioningState defines the states the provisioner will report
 // the host has having.

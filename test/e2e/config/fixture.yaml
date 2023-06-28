@@ -1,0 +1,25 @@
+images:
+# Use locally built e2e images
+- name: quay.io/metal3-io/baremetal-operator:e2e
+  loadBehavior: tryLoad
+
+variables:
+  DEPLOY_IRONIC: "false"
+  DEPLOY_BMO: "true"
+  DEPLOY_CERT_MANAGER: "true"
+  BMO_KUSTOMIZATION: "../../config/overlays/fixture"
+  # Test credentials. The tests will create a BMH with these.
+  # For the fixture provider it does not matter much what we put here.
+  BMC_USER: admin
+  BMC_PASSWORD: password
+  BMC_ADDRESS: ipmi://192.168.222.1:16230
+  BOOT_MAC_ADDRESS: "00:60:2f:31:81:01"
+
+intervals:
+  inspection/wait-unmanaged: ["1m", "10ms"]
+  inspection/wait-registering: ["5s", "10ms"]
+  inspection/wait-registration-error: ["5s", "10ms"]
+  inspection/wait-inspecting: ["5s", "10ms"]
+  inspection/wait-available: ["5s", "1ms"]
+  default/wait-deployment: ["5m", "1s"]
+  ironic/wait-deployment: ["10m", "2s"]

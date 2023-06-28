@@ -19,6 +19,7 @@ Things you should do before making a release:
 Creating a release requires repository `write` permissions for:
 
 - Tag pushing
+- Branch creation
 - GitHub Release publishing
 
 These permissions are implicit for the org admins and repository admins.
@@ -30,7 +31,7 @@ should not be given permissions directly.
 
 ## Process
 
-BMO uses [semantic versioning](https://semver.org).
+BMO uses [semantic versioning](https://semver.org). For version `v0.x.y`:
 
 ### Repository setup
 
@@ -40,11 +41,17 @@ Clone the repository:
 or if using existing repository, verify your intended remote is set to
 `metal3-io`: `git remote -v`. For this document, we assume it is `origin`.
 
+- If creating a new minor branch, identify the commit you wish to create the
+  branch from, and create a branch `release-0.x`:
+  `git checkout <sha> -b release-0.x` and push it to remote:
+  `git push origin release-0.x` to create it
+- If creating a new patch release, use existing branch `release-0.x`:
+  `git checkout origin/release-0.x`
+
 ### Tags
 
-BMO does not have release branches. Release is created by tagging a commit off
-the main branch. First we create a primary release tag, that triggers release
-note creation and image building processes.
+First we create a primary release tag, that triggers release note creation and
+image building processes.
 
 - Create a signed, annotated tag with: `git tag -s -a v0.x.y -m v0.x.y`
 - Push the tags to the GitHub repository: `git push origin v0.x.y`
@@ -61,7 +68,8 @@ We also need to create one or more tags for the Go modules ecosystem:
 - For any subdirectory with `go.mod` in it (excluding `hack/tools`), create
   another Git tag with directory prefix, ie.
   `git tag -s api/v0.x.y -m api/v0.x.y`.
-  For BMO, these directories are `api` and `pkg/hardwareutils`.
+  For BMO, these directories are `api` and `pkg/hardwareutils`. This enables
+  the tags to be used as a Go module version for any downstream users.
   **NOTE**: Do not create annotated tags for go modules.
 
 ### Release artifacts
@@ -77,8 +85,11 @@ Git tags pushed:
 Container images built and tagged at Quay registry:
 
 - [baremetal-operator:v0.x.y](https://quay.io/repository/metal3-io/baremetal-operator?tab=tags)
+- [keepalived:v0.x.y](https://quay.io/repository/metal3-io/keepalived?tab=tags)
 
-BMO release in GitHub will only contain source code as artifact.
+Files included in the release page:
+
+- Source code
 
 ### Release notes
 
@@ -97,9 +108,35 @@ Next step is to clean up the release note manually.
 - If it is a release candidate (RC) or a pre-release, tick pre-release box.
 - Publish the release.
 
-## Impact on Metal3
+## Post-release actions for new release branches
 
-Release process is complete, but further additional actions are required
-in the Metal3 project to take in the new major/minor release. These steps are
-documented in
+Some post-release actions are needed if new minor or major branch was created.
+
+### Branch protection rules
+
+Branch protection rules need to be applied to the new release branch. Copy the
+settings after the previous release branch, with the exception of
+`Required tests` selection. Required tests can only be selected after new
+keywords are implemented in Jenkins JJB, and project-infra, and have been run
+at least once in the PR targeting the branch in question.
+
+### Update README.md and build badges
+
+Update `README.md` with release specific information, both on `main` and
+in the new `release-0.x` branch as necessary.
+
+<!-- No example PR yet. To be added when first release from branch is made
+[Example](https://github.com/metal3-io/cluster-api-provider-metal3/pull/949) -->
+
+In the `release-0.x` branch, update the build badges in the `README.md` to point
+to correct Jenkins jobs, so the build statuses of the release branch are
+visible.
+
+<!-- No example PR yet. To be added when first release from branch is made
+[Example](https://github.com/metal3-io/cluster-api-provider-metal3/pull/951) -->
+
+## Additional actions outside this repository
+
+Further additional actions are required in the Metal3 project after BMO
+release. For that, please continue following the instructions provided in
 [Metal3 release process](https://github.com/metal3-io/metal3-docs/blob/main/processes/releasing.md)

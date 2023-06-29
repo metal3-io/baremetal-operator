@@ -1,0 +1,137 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: baremetal-operator-system
+namePrefix: baremetal-operator-
+
+resources:
+- manager.yaml
+- crds/metal3.io_baremetalhosts.yaml
+- crds/metal3.io_hostfirmwaresettings.yaml
+- crds/metal3.io_firmwareschemas.yaml
+- crds/metal3.io_preprovisioningimages.yaml
+- crds/metal3.io_bmceventsubscriptions.yaml
+- crds/metal3.io_hardwaredata.yaml
+- rbac
+- webhook
+- certmanager
+
+patches:
+- path: cainjection_in_baremetalhosts.yaml
+# Protect the /metrics endpoint by putting it behind auth.
+# If you want your controller-manager to expose the /metrics
+# endpoint w/o any authn/z, please comment the following line.
+- path: manager_auth_proxy_patch.yaml
+
+# Mount the controller config file for loading manager configurations
+# through a ComponentConfig type
+# - path: manager_config_patch.yaml
+
+# TODO: Seems like we are not using all of this. Can we remove it completely?
+# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
+# crd/kustomization.yaml
+- path: manager_webhook_patch.yaml
+
+- path: webhookcainjection_patch.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- name: manager-config
+  files:
+  - controller_manager_config.yaml
+# You need to create this configmap in your overlay
+# - name: ironic
+#   behavior: create
+#   envs:
+#   - ironic.env
+
+
+replacements:
+# Set the namespace in the CA injection annotation on the CRD and validating webhook config
+- source:
+    version: v1
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    fieldPath: metadata.namespace
+  targets:
+  - select:
+      kind: CustomResourceDefinition
+      name: baremetalhosts.metal3.io
+    fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: "/"
+      index: 0
+  - select:
+      kind: ValidatingWebhookConfiguration
+      name: validating-webhook-configuration
+    fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: "/"
+      index: 0
+# Set the name in the CA injection annotation on the CRD and validating webhook config
+- source:
+    version: v1
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    fieldPath: metadata.name
+  targets:
+  - select:
+      kind: CustomResourceDefinition
+      name: baremetalhosts.metal3.io
+    fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: "/"
+      index: 1
+- source:
+    version: v1
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    fieldPath: metadata.name
+  targets:
+  - select:
+      kind: ValidatingWebhookConfiguration
+      name: validating-webhook-configuration
+    fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: "/"
+      index: 1
+# Set the SERVICE_NAME in the certificate dnsNames field (index 0)
+- source:
+    version: v1
+    kind: Service
+    name: webhook-service
+    fieldPath: metadata.name
+  targets:
+  - select:
+      group: cert-manager.io
+      kind: Certificate
+      name: serving-cert
+    fieldPaths:
+    - spec.dnsNames.*
+    options:
+      delimiter: "."
+      index: 0
+# Set the SERVICE_NAMESPACE in the certificate dnsNames field (index 1)
+- source:
+    version: v1
+    kind: Service
+    name: webhook-service
+    fieldPath: metadata.namespace
+  targets:
+  - select:
+      group: cert-manager.io
+      kind: Certificate
+      name: serving-cert
+    fieldPaths:
+    - spec.dnsNames.*
+    options:
+      delimiter: "."
+      index: 1

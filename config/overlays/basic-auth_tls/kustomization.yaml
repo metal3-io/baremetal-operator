@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: baremetal-operator-system
+namePrefix: baremetal-operator-
+resources:
+- ../../base
+- ../../namespace
+
+components:
+- ../../components/basic-auth
+- ../../components/tls
+
+# You will need to create the following secrets.
+# How you do that is up to you. This is just an example.
+# secretGenerator:
+#   - name: ironic-credentials
+#     literals:
+#     - username=<admin-username>
+#     - password=<admin-password>
+#   - name: ironic-inspector-credentials
+#     literals:
+#     - username=<inspector-username>
+#     - password=<inspector-password>
+
+# You will need to create a ConfigMap with environment variables for Ironic.
+# This is an example of how you can achieve that in your overlay.
+# There is an example ironic.env file in ../../default.
+# generatorOptions:
+#   disableNameSuffixHash: true
+# configMapGenerator:
+# - behavior: create
+#   envs:
+#   - ironic.env
+#   name: ironic

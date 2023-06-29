@@ -106,30 +106,29 @@ TEMP_IRONIC_OVERLAY="${SCRIPTDIR}/ironic-deployment/overlays/temp"
 rm -rf "${TEMP_IRONIC_OVERLAY}"
 mkdir -p "${TEMP_IRONIC_OVERLAY}"
 
+TEMP_BMO_OVERLAY="${SCRIPTDIR}/config/overlays/temp"
+rm -rf "${TEMP_BMO_OVERLAY}"
+mkdir -p "${TEMP_BMO_OVERLAY}"
+
 KUSTOMIZE="${SCRIPTDIR}/tools/bin/kustomize"
 make -C "$(dirname "$0")/.." "${KUSTOMIZE}"
 
-# Create a temporary overlay where we can make changes.
+# Create a temporary overlay for Ironic where we can make changes.
 pushd "${TEMP_IRONIC_OVERLAY}"
 ${KUSTOMIZE} create --resources=../../../config/namespace \
   --namespace=baremetal-operator-system --nameprefix=baremetal-operator-
 
 if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-    BMO_SCENARIO="${SCRIPTDIR}/config/basic-auth"
     if [[ "${DEPLOY_TLS}" == "true" ]]; then
-        BMO_SCENARIO="${BMO_SCENARIO}/tls"
         # Basic-auth + TLS is special since TLS also means reverse proxy, which affects basic-auth.
         # Therefore we have an overlay that we use as base for this case.
         ${KUSTOMIZE} edit add resource ../../overlays/basic-auth_tls
     else
-        BMO_SCENARIO="${BMO_SCENARIO}/default"
         ${KUSTOMIZE} edit add resource ../../base
         ${KUSTOMIZE} edit add component ../../components/basic-auth
     fi
 else
-    BMO_SCENARIO="${SCRIPTDIR}/config"
     if [[ "${DEPLOY_TLS}" == "true" ]]; then
-        BMO_SCENARIO="${BMO_SCENARIO}/tls"
         ${KUSTOMIZE} edit add component ../../components/tls
     fi
 fi
@@ -140,6 +139,21 @@ fi
 
 if [[ "${DEPLOY_MARIADB}" == "true" ]]; then
     ${KUSTOMIZE} edit add component ../../components/mariadb
+fi
+
+popd
+
+# Create a temporary overlay for BMO where we can make changes.
+pushd "${TEMP_BMO_OVERLAY}"
+${KUSTOMIZE} create --resources=../../default \
+    --namespace=baremetal-operator-system
+
+if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
+    ${KUSTOMIZE} edit add component ../../components/basic-auth
+fi
+
+if [ "${DEPLOY_TLS}" == "true" ]; then
+    ${KUSTOMIZE} edit add component ../../components/tls
 fi
 
 popd
@@ -187,11 +201,18 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     fi
 
     if [[ "${DEPLOY_BMO}" == "true" ]]; then
-        echo "${IRONIC_USERNAME}" > "${BMO_SCENARIO}/ironic-username"
-        echo "${IRONIC_PASSWORD}" > "${BMO_SCENARIO}/ironic-password"
+        echo "${IRONIC_USERNAME}" > "${TEMP_BMO_OVERLAY}/ironic-username"
+        echo "${IRONIC_PASSWORD}" > "${TEMP_BMO_OVERLAY}/ironic-password"
 
-        echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_SCENARIO}/ironic-inspector-username"
-        echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_SCENARIO}/ironic-inspector-password"
+        echo "${IRONIC_INSPECTOR_USERNAME}" > "${TEMP_BMO_OVERLAY}/ironic-inspector-username"
+        echo "${IRONIC_INSPECTOR_PASSWORD}" > "${TEMP_BMO_OVERLAY}/ironic-inspector-password"
+
+        pushd "${TEMP_BMO_OVERLAY}"
+        ${KUSTOMIZE} edit add secret ironic-credentials \
+            --from-file=username=ironic-username --from-file=password=ironic-password
+        ${KUSTOMIZE} edit add secret ironic-inspector-credentials \
+            --from-file=username=ironic-inspector-username --from-file=password=ironic-inspector-username
+        popd
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
@@ -208,9 +229,9 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
 fi
 
 if [[ "${DEPLOY_BMO}" == "true" ]]; then
-    pushd "${SCRIPTDIR}"
+    pushd "${TEMP_BMO_OVERLAY}"
     # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${BMO_SCENARIO}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build "${TEMP_BMO_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
     popd
 fi
 
@@ -251,10 +272,10 @@ fi
 
 if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     if [[ "${DEPLOY_BMO}" == "true" ]]; then
-        rm "${BMO_SCENARIO}/ironic-username"
-        rm "${BMO_SCENARIO}/ironic-password"
-        rm "${BMO_SCENARIO}/ironic-inspector-username"
-        rm "${BMO_SCENARIO}/ironic-inspector-password"
+        rm "${TEMP_BMO_OVERLAY}/ironic-username"
+        rm "${TEMP_BMO_OVERLAY}/ironic-password"
+        rm "${TEMP_BMO_OVERLAY}/ironic-inspector-username"
+        rm "${TEMP_BMO_OVERLAY}/ironic-inspector-password"
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then

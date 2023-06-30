@@ -5,13 +5,13 @@ go 1.19
 require (
 	github.com/go-logr/logr v1.2.4
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
-	github.com/gophercloud/gophercloud v1.3.0
+	github.com/gophercloud/gophercloud v1.4.1-0.20230614092438-44d55f08cdc0
 	github.com/metal3-io/baremetal-operator/apis v0.2.0
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.15.1
-	github.com/stretchr/testify v1.8.1
-	go.etcd.io/etcd/client/pkg/v3 v3.5.7
+	github.com/prometheus/client_golang v1.16.0
+	github.com/stretchr/testify v1.8.4
+	go.etcd.io/etcd/client/pkg/v3 v3.5.9
 	go.uber.org/zap v1.24.0
 	k8s.io/api v0.27.2
 	k8s.io/apimachinery v0.27.2
@@ -51,10 +51,11 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect

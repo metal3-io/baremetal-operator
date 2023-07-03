@@ -14,10 +14,10 @@ import (
 // GetHardwareDetails converts Ironic introspection data into BareMetalHost HardwareDetails.
 func GetHardwareDetails(data *introspection.Data) *metal3api.HardwareDetails {
 	details := new(metal3api.HardwareDetails)
-	details.Firmware = getFirmwareDetails(data.Extra.Firmware)
+	details.Firmware = getFirmwareDetails(data.Inventory.SystemVendor.Firmware)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
 	details.RAMMebibytes = data.MemoryMB
-	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces, data.Extra.Network)
+	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
 	details.CPU = getCPUDetails(&data.Inventory.CPU)
 	details.Hostname = data.Inventory.Hostname
@@ -47,18 +47,8 @@ func getVLANs(intf introspection.BaseInterfaceType) (vlans []metal3api.VLAN, vla
 	return
 }
 
-func getNICSpeedGbps(intfExtradata introspection.ExtraHardwareData) (speedGbps int) {
-	if speed, ok := intfExtradata["speed"].(string); ok {
-		if strings.HasSuffix(speed, "Gbps") {
-			fmt.Sscanf(speed, "%d", &speedGbps)
-		}
-	}
-	return
-}
-
 func getNICDetails(ifdata []introspection.InterfaceType,
-	basedata map[string]introspection.BaseInterfaceType,
-	extradata introspection.ExtraHardwareDataSection) []metal3api.NIC {
+	basedata map[string]introspection.BaseInterfaceType) []metal3api.NIC {
 	var nics []metal3api.NIC
 	for _, intf := range ifdata {
 		baseIntf := basedata[intf.Name]
@@ -74,7 +64,7 @@ func getNICDetails(ifdata []introspection.InterfaceType,
 				IP:        intf.IPV4Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,
-				SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),
+				SpeedGbps: intf.SpeedMbps / 1000,
 				PXE:       baseIntf.PXE,
 			})
 		}
@@ -87,7 +77,7 @@ func getNICDetails(ifdata []introspection.InterfaceType,
 				IP:        intf.IPV6Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,
-				SpeedGbps: getNICSpeedGbps(extradata[intf.Name]),
+				SpeedGbps: intf.SpeedMbps / 1000,
 				PXE:       baseIntf.PXE,
 			})
 		}
@@ -155,22 +145,12 @@ func getCPUDetails(cpudata *introspection.CPUType) metal3api.CPU {
 	return cpu
 }
 
-func getFirmwareDetails(firmwaredata introspection.ExtraHardwareDataSection) metal3api.Firmware {
-
-	// handle bios optionally
-	var bios metal3api.BIOS
-
-	if biosdata, ok := firmwaredata["bios"]; ok {
-		// we do not know if all fields will be supplied
-		// as this is not a structured response
-		// so we must handle each field conditionally
-		bios.Vendor, _ = biosdata["vendor"].(string)
-		bios.Version, _ = biosdata["version"].(string)
-		bios.Date, _ = biosdata["date"].(string)
-	}
-
+func getFirmwareDetails(firmwaredata introspection.SystemFirmwareType) metal3api.Firmware {
 	return metal3api.Firmware{
-		BIOS: bios,
+		BIOS: metal3api.BIOS{
+			Vendor:  firmwaredata.Vendor,
+			Version: firmwaredata.Version,
+			Date:    firmwaredata.BuildDate,
+		},
 	}
-
 }

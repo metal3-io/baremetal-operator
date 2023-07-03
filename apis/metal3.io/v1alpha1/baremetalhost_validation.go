@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -53,6 +55,10 @@ func (host *BareMetalHost) validateHost() []error {
 		if err := validateImageURL(host.Spec.Image.URL); err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	if annotationErrors := validateAnnotations(host); annotationErrors != nil {
+		errs = append(errs, annotationErrors...)
 	}
 
 	return errs
@@ -175,6 +181,52 @@ func validateDNSName(hostaddress string) error {
 	return nil
 }
 
+func validateAnnotations(host *BareMetalHost) []error {
+	var errs []error
+	var err error
+
+	for annotation, value := range host.Annotations {
+
+		switch {
+		case annotation == StatusAnnotation:
+			err = validateStatusAnnotation(value)
+		case strings.HasPrefix(annotation, RebootAnnotationPrefix+"/") || annotation == RebootAnnotationPrefix:
+			err = validateRebootAnnotation(value)
+		case annotation == InspectAnnotation:
+			err = validateInspectAnnotation(value)
+		case annotation == HardwareDetailsAnnotation:
+			inspect := host.Annotations[InspectAnnotation]
+			err = validateHwdDetailsAnnotation(value, inspect)
+		default:
+			err = nil
+		}
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errs
+}
+
+func validateStatusAnnotation(statusAnnotation string) error {
+	if statusAnnotation != "" {
+
+		objBMHStatus := &BareMetalHostStatus{}
+
+		deco := json.NewDecoder(strings.NewReader(statusAnnotation))
+		deco.DisallowUnknownFields()
+		if err := deco.Decode(objBMHStatus); err != nil {
+			return fmt.Errorf("error decoding status annotation, error=%w", err)
+		}
+
+		if err := checkStatusAnnotation(objBMHStatus); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func validateImageURL(imageURL string) error {
 
 	_, err := url.ParseRequestURI(imageURL)
@@ -199,5 +251,73 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 	if strings.Contains(subpath, "/") {
 		return fmt.Errorf("Device Name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"%s\"", rdh.DeviceName)
 	}
+	return nil
+}
+
+// When making changes to this function for operationalstatus and errortype,
+// also make the corresponding changes in the OperationalStatus and
+// ErrorType fields in the struct definition of BareMetalHostStatus in
+// the file baremetalhost_types.go
+func checkStatusAnnotation(bmhStatus *BareMetalHostStatus) error {
+
+	if !slices.Contains(OperationalStatusAllowed, string(bmhStatus.OperationalStatus)) {
+		return fmt.Errorf("invalid OperationalStatus='%s' in StatusAnnotation", string(bmhStatus.OperationalStatus))
+	}
+
+	if !slices.Contains(ErrorTypeAllowed, string(bmhStatus.ErrorType)) {
+		return fmt.Errorf("invalid ErrorType='%s' in StatusAnnotation", string(bmhStatus.ErrorType))
+	}
+
+	return nil
+}
+
+func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspect string) error {
+	if hwdDetAnnotation == "" {
+		return nil
+	}
+
+	if inspect != "disabled" {
+		return fmt.Errorf("inspection has to be disabled for HardwareDetailsAnnotation, check if {'inspect.metal3.io' : 'disabled'}")
+	}
+
+	objHwdDet := &HardwareDetails{}
+
+	deco := json.NewDecoder(strings.NewReader(hwdDetAnnotation))
+	deco.DisallowUnknownFields()
+	if err := deco.Decode(objHwdDet); err != nil {
+		return fmt.Errorf("error decoding hardware details annotation, error=%w", err)
+	}
+
+	return nil
+}
+
+func validateInspectAnnotation(inspectAnnotation string) error {
+
+	inspectAnnotationAllowed := []string{"disabled", ""}
+
+	if !slices.Contains(inspectAnnotationAllowed, inspectAnnotation) {
+		return fmt.Errorf("invalid value for Inspect Annotation")
+	}
+
+	return nil
+}
+
+func validateRebootAnnotation(rebootAnnotation string) error {
+	if rebootAnnotation == "" {
+		return nil
+	}
+
+	objStatus := &RebootAnnotationArguments{}
+	err := json.Unmarshal([]byte(rebootAnnotation), objStatus)
+	if err != nil {
+		return fmt.Errorf("failed to fetch Reboot from annotation, %w", err)
+	}
+
+	supportedRebootModes := []string{"hard", "soft", ""}
+
+	if !slices.Contains(supportedRebootModes, string(objStatus.Mode)) {
+		return fmt.Errorf("invalid RebootMode in RebootAnnotation")
+	}
+
 	return nil
 }

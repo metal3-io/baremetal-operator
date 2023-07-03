@@ -2,7 +2,9 @@
 bin
 build/_output
 build/_test
+test/fuzz/output
 _artifacts
+test/fuzz/output
 # Created by https://www.gitignore.io/api/go
 ### Go ###
 # Binaries for programs and plugins

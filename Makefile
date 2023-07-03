@@ -338,3 +338,10 @@ clean: ## Remove all temporary files and folders
 .PHONY: clean-e2e
 clean-e2e: ## Remove everything related to e2e tests
 	./hack/clean-e2e.sh
+
+## --------------------------------------
+## Fuzzing
+## --------------------------------------
+.PHONY: fuzz
+fuzz:  ## Run fuzzing target
+	./test/fuzz/fuzzing.sh

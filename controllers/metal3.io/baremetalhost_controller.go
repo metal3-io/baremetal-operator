@@ -485,6 +485,31 @@ func setErrorMessage(host *metal3api.BareMetalHost, errType metal3api.ErrorType,
 	host.Status.ErrorCount++
 }
 
+func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	info.log.Info("host ready to be powered off")
+	provResult, err := prov.PowerOff(
+		metal3api.RebootModeHard,
+		info.host.Status.ErrorType == metal3api.PowerManagementError)
+
+	if err != nil {
+		return actionError{errors.Wrap(err, "failed to power off before deleting node")}
+	}
+
+	if provResult.ErrorMessage != "" {
+		return recordActionFailure(info, metal3api.PowerManagementError, provResult.ErrorMessage)
+	}
+
+	if provResult.Dirty {
+		result := actionContinue{provResult.RequeueAfter}
+		if clearError(info.host) {
+			return actionUpdate{result}
+		}
+		return result
+	}
+
+	return actionComplete{}
+}
+
 // Manage deletion of the host
 func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info(

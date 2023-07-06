@@ -227,6 +227,10 @@ const (
 	// learn about the hardware components available there
 	StateInspecting ProvisioningState = "inspecting"
 
+	// StatePoweringOffBeforeDelete means we are in the process of
+	// powering off the node before it's deleted.
+	StatePoweringOffBeforeDelete ProvisioningState = "powering off before delete"
+
 	// StateDeleting means we are in the process of cleaning up the host
 	// ready for deletion
 	StateDeleting ProvisioningState = "deleting"

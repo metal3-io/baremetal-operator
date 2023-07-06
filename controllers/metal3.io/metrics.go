@@ -118,6 +118,11 @@ var deleteWithoutDeprov = prometheus.NewCounter(prometheus.CounterOpts{
 	Help: "Number of times a host is deleted despite deprovisioning failing",
 })
 
+var deleteWithoutPowerOff = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "metal3_delete_without_powering_off_total",
+	Help: "Number of times a host is deleted despite powering off failing",
+})
+
 var provisionerNotReady = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "metal3_provisioner_not_ready_total",
 	Help: "Number of times a host is not provision ready",

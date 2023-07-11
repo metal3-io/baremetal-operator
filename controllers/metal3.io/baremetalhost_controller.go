@@ -57,9 +57,6 @@ const (
 	preprovImageRetryDelay        = time.Minute * 5
 	provisionerNotReadyRetryDelay = time.Second * 30
 	subResourceNotReadyRetryDelay = time.Second * 60
-	rebootAnnotationPrefix        = "reboot.metal3.io"
-	inspectAnnotationPrefix       = "inspect.metal3.io"
-	hardwareDetailsAnnotation     = inspectAnnotationPrefix + "/hardwaredetails"
 	clarifySoftPoweroffFailure    = "Continuing with hard poweroff after soft poweroff fails. More details: "
 	hardwareDataFinalizer         = metal3api.BareMetalHostFinalizer + "/hardwareData"
 )
@@ -284,8 +281,8 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, ho
 	// We either just processed the annotation, or the status is already set
 	// so we remove it
 	annotations := host.GetAnnotations()
-	if _, present := annotations[hardwareDetailsAnnotation]; present {
-		delete(host.Annotations, hardwareDetailsAnnotation)
+	if _, present := annotations[metal3api.HardwareDetailsAnnotation]; present {
+		delete(host.Annotations, metal3api.HardwareDetailsAnnotation)
 		err := r.Update(context.TODO(), host)
 		if err != nil {
 			return updated, errors.Wrap(err, "Could not update removing hardwaredetails annotation")
@@ -427,7 +424,7 @@ func getRebootAnnotationArguments(annotation string, info *reconcileInfo) (resul
 
 // isRebootAnnotation returns true if the provided annotation is a reboot annotation (either suffixed or not)
 func isRebootAnnotation(annotation string) bool {
-	return strings.HasPrefix(annotation, rebootAnnotationPrefix+"/") || annotation == rebootAnnotationPrefix
+	return strings.HasPrefix(annotation, metal3api.RebootAnnotationPrefix+"/") || annotation == metal3api.RebootAnnotationPrefix
 }
 
 // clearRebootAnnotations deletes all reboot annotations exist on the provided host
@@ -446,7 +443,7 @@ func clearRebootAnnotations(host *metal3api.BareMetalHost) (dirty bool) {
 // which means we don't inspect even in Inspecting state
 func inspectionDisabled(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
-	return annotations[inspectAnnotationPrefix] == "disabled"
+	return annotations[metal3api.InspectAnnotationPrefix] == "disabled"
 }
 
 // hasInspectAnnotation checks for existence of inspect.metal3.io annotation
@@ -454,7 +451,7 @@ func inspectionDisabled(host *metal3api.BareMetalHost) bool {
 func hasInspectAnnotation(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	if annotations != nil {
-		if expect, ok := annotations[inspectAnnotationPrefix]; ok && expect != "disabled" {
+		if expect, ok := annotations[metal3api.InspectAnnotationPrefix]; ok && expect != "disabled" {
 			return true
 		}
 	}
@@ -956,7 +953,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 
 		// Delete inspect annotation if exists
 		if hasInspectAnnotation(info.host) {
-			delete(info.host.Annotations, inspectAnnotationPrefix)
+			delete(info.host.Annotations, metal3api.InspectAnnotationPrefix)
 			dirty = true
 		}
 
@@ -1318,8 +1315,8 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	desiredPowerOnState := info.host.Spec.Online
 
 	if !info.host.Status.PoweredOn {
-		if _, suffixlessAnnotationExists := info.host.Annotations[rebootAnnotationPrefix]; suffixlessAnnotationExists {
-			delete(info.host.Annotations, rebootAnnotationPrefix)
+		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
+			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
 
 			if err = r.Update(context.TODO(), info.host); err != nil {
 				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
@@ -1591,11 +1588,11 @@ func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3api.Ba
 // extract HardwareDetails from annotation if present
 func (r *BareMetalHostReconciler) getHardwareDetailsFromAnnotation(host *metal3api.BareMetalHost) (*metal3api.HardwareDetails, error) {
 	annotations := host.GetAnnotations()
-	if annotations[hardwareDetailsAnnotation] == "" {
+	if annotations[metal3api.HardwareDetailsAnnotation] == "" {
 		return nil, nil
 	}
 	objHardwareDetails := &metal3api.HardwareDetails{}
-	decoder := json.NewDecoder(strings.NewReader(annotations[hardwareDetailsAnnotation]))
+	decoder := json.NewDecoder(strings.NewReader(annotations[metal3api.HardwareDetailsAnnotation]))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(objHardwareDetails); err != nil {
 		return nil, err

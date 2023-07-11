@@ -247,14 +247,14 @@ func waitForProvisioningState(t *testing.T, r *BareMetalHostReconciler, host *me
 func TestHardwareDetails_EmptyStatus(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		hardwareDetailsAnnotation: hwdAnnotation,
+		metal3api.HardwareDetailsAnnotation: hwdAnnotation,
 	}
 
 	r := newTestReconciler(host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
-			_, found := host.Annotations[hardwareDetailsAnnotation]
+			_, found := host.Annotations[metal3api.HardwareDetailsAnnotation]
 			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
 				return true
 			}
@@ -268,7 +268,7 @@ func TestHardwareDetails_EmptyStatus(t *testing.T) {
 func TestHardwareDetails_StatusPresent(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		hardwareDetailsAnnotation: hwdAnnotation,
+		metal3api.HardwareDetailsAnnotation: hwdAnnotation,
 	}
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
@@ -280,7 +280,7 @@ func TestHardwareDetails_StatusPresent(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
-			_, found := host.Annotations[hardwareDetailsAnnotation]
+			_, found := host.Annotations[metal3api.HardwareDetailsAnnotation]
 			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "existinghost" && !found {
 				return true
 			}
@@ -295,8 +295,8 @@ func TestHardwareDetails_StatusPresent(t *testing.T) {
 func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		inspectAnnotationPrefix:   "disabled",
-		hardwareDetailsAnnotation: hwdAnnotation,
+		metal3api.InspectAnnotationPrefix:   "disabled",
+		metal3api.HardwareDetailsAnnotation: hwdAnnotation,
 	}
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
@@ -308,7 +308,7 @@ func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
-			_, found := host.Annotations[hardwareDetailsAnnotation]
+			_, found := host.Annotations[metal3api.HardwareDetailsAnnotation]
 			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
 				return true
 			}
@@ -323,8 +323,8 @@ func TestHardwareDetails_Invalid(t *testing.T) {
 	host := newDefaultHost(t)
 	badAnnotation := fmt.Sprintf("{\"hardware\": %s}", hwdAnnotation)
 	host.Annotations = map[string]string{
-		inspectAnnotationPrefix:   "disabled",
-		hardwareDetailsAnnotation: badAnnotation,
+		metal3api.InspectAnnotationPrefix:   "disabled",
+		metal3api.HardwareDetailsAnnotation: badAnnotation,
 	}
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
@@ -487,7 +487,7 @@ func TestPause(t *testing.T) {
 func TestInspectDisabled(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = map[string]string{
-		inspectAnnotationPrefix: "disabled",
+		metal3api.InspectAnnotationPrefix: "disabled",
 	}
 	r := newTestReconciler(host)
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
@@ -589,7 +589,7 @@ func TestInspectionDisabledAnnotation(t *testing.T) {
 
 	assert.False(t, inspectionDisabled(host))
 
-	host.Annotations[inspectAnnotationPrefix] = "disabled"
+	host.Annotations[metal3api.InspectAnnotationPrefix] = "disabled"
 	assert.True(t, inspectionDisabled(host))
 }
 
@@ -615,29 +615,29 @@ func TestHasRebootAnnotation(t *testing.T) {
 		{
 			Scenario: "Simple with empty value",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix: "",
+				metal3api.RebootAnnotationPrefix: "",
 			},
 			expectedReboot: true,
 		},
 		{
 			Scenario: "Suffixed with empty value",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "",
+				metal3api.RebootAnnotationPrefix + "/foo": "",
 			},
 			expectedReboot: true,
 		},
 		{
 			Scenario: "Two suffixed with empty value",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "",
-				rebootAnnotationPrefix + "/bar": "",
+				metal3api.RebootAnnotationPrefix + "/foo": "",
+				metal3api.RebootAnnotationPrefix + "/bar": "",
 			},
 			expectedReboot: true,
 		},
 		{
 			Scenario: "Suffixed with soft reboot",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "{\"mode\": \"soft\"}",
+				metal3api.RebootAnnotationPrefix + "/foo": "{\"mode\": \"soft\"}",
 			},
 			expectedReboot: true,
 			expectedMode:   metal3api.RebootModeSoft,
@@ -645,7 +645,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 		{
 			Scenario: "Suffixed with hard reboot",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
+				metal3api.RebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
 			},
 			expectedReboot: true,
 			expectedMode:   metal3api.RebootModeHard,
@@ -653,15 +653,15 @@ func TestHasRebootAnnotation(t *testing.T) {
 		{
 			Scenario: "Suffixed with bad JSON",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "{\"bad\"= \"json\"]",
+				metal3api.RebootAnnotationPrefix + "/foo": "{\"bad\"= \"json\"]",
 			},
 			expectedReboot: true,
 		},
 		{
 			Scenario: "Two suffixed with different values",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
-				rebootAnnotationPrefix + "/bar": "{\"mode\": \"soft\"}",
+				metal3api.RebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
+				metal3api.RebootAnnotationPrefix + "/bar": "{\"mode\": \"soft\"}",
 			},
 			expectedReboot: true,
 			expectedMode:   metal3api.RebootModeHard,
@@ -669,7 +669,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 		{
 			Scenario: "Suffixed with force",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "{\"force\": true}",
+				metal3api.RebootAnnotationPrefix + "/foo": "{\"force\": true}",
 			},
 			expectForce:    true,
 			expectedReboot: true,
@@ -677,7 +677,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 		{
 			Scenario: "Expect force",
 			Annotations: map[string]string{
-				rebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
+				metal3api.RebootAnnotationPrefix + "/foo": "{\"mode\": \"hard\"}",
 			},
 			expectForce:    true,
 			expectedReboot: false,
@@ -706,7 +706,7 @@ func TestHasRebootAnnotation(t *testing.T) {
 func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = make(map[string]string)
-	host.Annotations[rebootAnnotationPrefix] = ""
+	host.Annotations[metal3api.RebootAnnotationPrefix] = ""
 	host.Status.PoweredOn = true
 	host.Status.Provisioning.State = metal3api.StateProvisioned
 	host.Spec.Online = true
@@ -728,7 +728,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
-			if _, exists := host.Annotations[rebootAnnotationPrefix]; exists {
+			if _, exists := host.Annotations[metal3api.RebootAnnotationPrefix]; exists {
 				return false
 			}
 
@@ -764,7 +764,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Annotations = make(map[string]string)
-	annotation := rebootAnnotationPrefix + "/foo"
+	annotation := metal3api.RebootAnnotationPrefix + "/foo"
 	host.Annotations[annotation] = ""
 	host.Status.PoweredOn = true
 	host.Status.Provisioning.State = metal3api.StateProvisioned

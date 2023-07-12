@@ -997,8 +997,13 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 			TargetState: metal3api.StateAvailable,
 		},
 		{
-			Scenario:    "deprovisioning-to-deleting",
+			Scenario:    "deprovisioning-to-powering-off",
 			Host:        host(metal3api.StateDeprovisioning).setDeletion().withFinalizer().build(),
+			TargetState: metal3api.StatePoweringOffBeforeDelete,
+		},
+		{
+			Scenario:    "powering-off-to-deleting",
+			Host:        host(metal3api.StatePoweringOffBeforeDelete).setDeletion().withFinalizer().build(),
 			TargetState: metal3api.StateDeleting,
 		},
 	}

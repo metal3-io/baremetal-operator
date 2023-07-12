@@ -157,7 +157,8 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: metricsBindAddr,
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: webhookPort,
+			Port:          webhookPort,
+			TLSMinVersion: "1.2",
 		}),
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        leaderElectionID,

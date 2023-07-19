@@ -50,6 +50,28 @@ spec:
         - name: cert-ironic-inspector-ca
           mountPath: "/certs/ca/ironic-inspector"
           readOnly: true
+      volumes:
+      - name: cert-ironic-ca
+        secret:
+          secretName: ironic-cacert
+      - name: cert-ironic-inspector-ca
+        secret:
+          secretName: ironic-cacert
+      - name: cert-ironic
+        secret:
+          secretName: ironic-cert
+      - name: cert-ironic-inspector
+        secret:
+          secretName: ironic-inspector-cert
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ironic-common
+spec:
+  template:
+    spec:
+      containers:
       - name: ironic-inspector
         readinessProbe:
           exec:

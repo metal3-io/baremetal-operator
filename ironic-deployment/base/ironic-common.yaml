@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ironic
+  name: ironic-common
 spec:
   replicas: 1
   minReadySeconds: 10
@@ -11,22 +11,36 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      name: ironic
+      name: ironic-common
   template:
     metadata:
       labels:
-        name: ironic
+        name: ironic-common
     spec:
       hostNetwork: true
       containers:
-      - name: ironic
+      - name: ironic-dnsmasq
         image: quay.io/metal3-io/ironic
         imagePullPolicy: Always
+        securityContext:
+          # Must be true so dnsmasq may get the capabilities via file caps
+          # KEP: https://github.com/kubernetes/enhancements/blob/master/keps/sig-security/2763-ambient-capabilities/README.md
+          allowPrivilegeEscalation: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_ADMIN
+            - NET_BIND_SERVICE
+            - NET_RAW
+          privileged: false
+          runAsUser: 997 # ironic
+          runAsGroup: 994 # ironic
         command:
-        - /bin/runironic
+        - /bin/rundnsmasq
         livenessProbe:
           exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
+            command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
@@ -34,7 +48,7 @@ spec:
           failureThreshold: 10
         readinessProbe:
           exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
+            command: ["sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"]
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
@@ -46,14 +60,6 @@ spec:
         envFrom:
         - configMapRef:
             name: ironic-bmo-configmap
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          runAsUser: 997 # ironic
-          runAsGroup: 994 # ironic
       - name: ironic-log-watch
         image: quay.io/metal3-io/ironic
         imagePullPolicy: Always
@@ -70,61 +76,38 @@ spec:
           privileged: false
           runAsUser: 997 # ironic
           runAsGroup: 994 # ironic
-      - name: ironic-httpd
+      - name: ironic-inspector
         image: quay.io/metal3-io/ironic
         imagePullPolicy: Always
-        command:
-        - /bin/runhttpd
-        livenessProbe:
-          exec:
-            command: ["sh", "-c", "curl -sSfk http://127.0.0.1:6180/images"]
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 10
-          successThreshold: 1
-          failureThreshold: 10
         readinessProbe:
           exec:
-            command: ["sh", "-c", "curl -sSfk http://127.0.0.1:6180/images"]
+            command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
           successThreshold: 1
           failureThreshold: 10
-        volumeMounts:
-        - mountPath: /shared
-          name: ironic-data-volume
-        envFrom:
-        - configMapRef:
-            name: ironic-bmo-configmap
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          runAsUser: 997 # ironic
-          runAsGroup: 994 # ironic
-      initContainers:
-      - name: ironic-ipa-downloader
-        image: quay.io/metal3-io/ironic-ipa-downloader
-        imagePullPolicy: Always
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 10
         command:
-        - /usr/local/bin/get-resource.sh
+        - /bin/runironic-inspector
         envFrom:
         - configMapRef:
             name: ironic-bmo-configmap
-        volumeMounts:
-        - mountPath: /shared
-          name: ironic-data-volume
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           privileged: false
-          runAsUser: 997 # ironic
-          runAsGroup: 994 # ironic
+          runAsUser: 996 # ironic-inspector
+          runAsGroup: 993 # ironicinspector
       volumes:
       - name: ironic-data-volume
         emptyDir: {}

@@ -1245,7 +1245,7 @@ func (hb *hostBuilder) DisableInspection() *hostBuilder {
 	if hb.Annotations == nil {
 		hb.Annotations = make(map[string]string, 1)
 	}
-	hb.Annotations[inspectAnnotationPrefix] = "disabled"
+	hb.Annotations[metal3api.InspectAnnotationPrefix] = "disabled"
 	return hb
 }
 

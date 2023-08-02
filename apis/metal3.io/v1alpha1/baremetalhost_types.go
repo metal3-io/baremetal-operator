@@ -48,18 +48,18 @@ const (
 	// from the status annotation.
 	StatusAnnotation = "baremetalhost.metal3.io/status"
 
-	// RebootAnnotation is the annotation which tells the host which mode to use
+	// RebootAnnotationPrefix is the annotation which tells the host which mode to use
 	// when rebooting - hard/soft
 	RebootAnnotationPrefix = "reboot.metal3.io"
 
-	// InspectAnnotation is used to specify if automatic introspection carried out
+	// InspectAnnotationPrefix is used to specify if automatic introspection carried out
 	// during registration of BMH is enabled or disabled
-	InspectAnnotation = "inspect.metal3.io"
+	InspectAnnotationPrefix = "inspect.metal3.io"
 
 	// HardwareDetailsAnnotation provides the hardware details for the host
 	// in case its not already part of the host status and when introspection
 	// is disabed
-	HardwareDetailsAnnotation = "inspect.metal3.io/hardwaredetails"
+	HardwareDetailsAnnotation = InspectAnnotationPrefix + "/hardwaredetails"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
@@ -226,6 +226,10 @@ const (
 	// StateInspecting means we are running the agent on the host to
 	// learn about the hardware components available there
 	StateInspecting ProvisioningState = "inspecting"
+
+	// StatePoweringOffBeforeDelete means we are in the process of
+	// powering off the node before it's deleted.
+	StatePoweringOffBeforeDelete ProvisioningState = "powering off before delete"
 
 	// StateDeleting means we are in the process of cleaning up the host
 	// ready for deletion

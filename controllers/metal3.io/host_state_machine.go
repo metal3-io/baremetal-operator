@@ -41,19 +41,20 @@ type stateHandler func(*reconcileInfo) actionResult
 
 func (hsm *hostStateMachine) handlers() map[metal3api.ProvisioningState]stateHandler {
 	return map[metal3api.ProvisioningState]stateHandler{
-		metal3api.StateNone:                  hsm.handleNone,
-		metal3api.StateUnmanaged:             hsm.handleUnmanaged,
-		metal3api.StateRegistering:           hsm.handleRegistering,
-		metal3api.StateInspecting:            hsm.handleInspecting,
-		metal3api.StateExternallyProvisioned: hsm.handleExternallyProvisioned,
-		metal3api.StateMatchProfile:          hsm.handleMatchProfile, // Backward compatibility, remove eventually
-		metal3api.StatePreparing:             hsm.handlePreparing,
-		metal3api.StateAvailable:             hsm.handleAvailable,
-		metal3api.StateReady:                 hsm.handleAvailable,
-		metal3api.StateProvisioning:          hsm.handleProvisioning,
-		metal3api.StateProvisioned:           hsm.handleProvisioned,
-		metal3api.StateDeprovisioning:        hsm.handleDeprovisioning,
-		metal3api.StateDeleting:              hsm.handleDeleting,
+		metal3api.StateNone:                    hsm.handleNone,
+		metal3api.StateUnmanaged:               hsm.handleUnmanaged,
+		metal3api.StateRegistering:             hsm.handleRegistering,
+		metal3api.StateInspecting:              hsm.handleInspecting,
+		metal3api.StateExternallyProvisioned:   hsm.handleExternallyProvisioned,
+		metal3api.StateMatchProfile:            hsm.handleMatchProfile, // Backward compatibility, remove eventually
+		metal3api.StatePreparing:               hsm.handlePreparing,
+		metal3api.StateAvailable:               hsm.handleAvailable,
+		metal3api.StateReady:                   hsm.handleAvailable,
+		metal3api.StateProvisioning:            hsm.handleProvisioning,
+		metal3api.StateProvisioned:             hsm.handleProvisioned,
+		metal3api.StateDeprovisioning:          hsm.handleDeprovisioning,
+		metal3api.StatePoweringOffBeforeDelete: hsm.handlePoweringOffBeforeDelete,
+		metal3api.StateDeleting:                hsm.handleDeleting,
 	}
 }
 
@@ -223,7 +224,7 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 
 	switch hsm.NextState {
 	default:
-		hsm.NextState = metal3api.StateDeleting
+		hsm.NextState = metal3api.StatePoweringOffBeforeDelete
 	case metal3api.StateProvisioning, metal3api.StateProvisioned:
 		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
 			if delayDeleteForDetachedHost(hsm.Host) {
@@ -231,6 +232,7 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 				deleteDelayedForDetached.Inc()
 				return false
 			}
+			// We cannot power off a detached host.  Skip to delete.
 			hsm.NextState = metal3api.StateDeleting
 		} else {
 			hsm.NextState = metal3api.StateDeprovisioning
@@ -240,6 +242,9 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		return false
 	case metal3api.StateDeleting:
 		// Already in deleting state. Allow state machine to run.
+		return false
+	case metal3api.StatePoweringOffBeforeDelete:
+		// Already in powering off state. Allow state machine to run.
 		return false
 	}
 	return true
@@ -322,7 +327,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	case metal3api.StateMatchProfile:
 		// Backward compatibility, remove eventually
 		return
-	case metal3api.StateDeleting:
+	case metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
 		// In the deleting state the whole idea is to de-register the host
 		return
 	case metal3api.StateRegistering:
@@ -571,6 +576,37 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 				// delete.
 				return skipToDelete()
 			}
+		}
+	}
+	return actResult
+}
+
+func (hsm *hostStateMachine) handlePoweringOffBeforeDelete(info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionPowerOffBeforeDeleting(hsm.Provisioner, info)
+	skipToDelete := func() actionResult {
+		hsm.NextState = metal3api.StateDeleting
+		info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutPowerOff.Inc)
+		return actionComplete{}
+	}
+
+	switch r := actResult.(type) {
+	case actionComplete:
+		hsm.NextState = metal3api.StateDeleting
+		hsm.Host.Status.ErrorCount = 0
+		hsm.Host.Status.PoweredOn = false
+	case actionFailed:
+		// If the provisioner gives up deprovisioning and
+		// deletion has been requested, continue to delete.
+		if hsm.Host.Status.ErrorCount > 3 {
+			info.log.Info("Giving up on host power off after 3 attempts.")
+			return skipToDelete()
+		}
+	case actionError:
+		if r.NeedsRegistration() && !hsm.haveCreds {
+			// If the host is not registered as a node in Ironic and we
+			// lack the credentials to power it off, just continue to
+			// delete.
+			return skipToDelete()
 		}
 	}
 	return actResult

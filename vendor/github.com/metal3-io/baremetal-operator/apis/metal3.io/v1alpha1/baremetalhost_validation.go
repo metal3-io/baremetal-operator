@@ -192,10 +192,10 @@ func validateAnnotations(host *BareMetalHost) []error {
 			err = validateStatusAnnotation(value)
 		case strings.HasPrefix(annotation, RebootAnnotationPrefix+"/") || annotation == RebootAnnotationPrefix:
 			err = validateRebootAnnotation(value)
-		case annotation == InspectAnnotation:
+		case annotation == InspectAnnotationPrefix:
 			err = validateInspectAnnotation(value)
 		case annotation == HardwareDetailsAnnotation:
-			inspect := host.Annotations[InspectAnnotation]
+			inspect := host.Annotations[InspectAnnotationPrefix]
 			err = validateHwdDetailsAnnotation(value, inspect)
 		default:
 			err = nil

@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -353,6 +354,6 @@ func (r *PreprovisioningImageReconciler) CanStart() bool {
 func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3.PreprovisioningImage{}).
-		Owns(&corev1.Secret{}).
+		Owns(&corev1.Secret{}, builder.MatchEveryOwner).
 		Complete(r)
 }

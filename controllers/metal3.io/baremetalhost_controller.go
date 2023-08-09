@@ -678,6 +678,10 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 }
 
 func getHostArchitecture(host *metal3api.BareMetalHost) string {
+	if host.Spec.Architecture != "" {
+		return host.Spec.Architecture
+	}
+	// FIXME(dtantsur): this relies on the essentially deprecated HardwareDetails field.
 	if host.Status.HardwareDetails != nil &&
 		host.Status.HardwareDetails.CPU.Arch != "" {
 		return host.Status.HardwareDetails.CPU.Arch
@@ -1841,6 +1845,16 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 			return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
 		}
 		reqLogger.Info("deleted status annotation")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if host.Spec.Architecture == "" && hardwareData != nil && hardwareData.Spec.HardwareDetails != nil && hardwareData.Spec.HardwareDetails.CPU.Arch != "" {
+		newArch := hardwareData.Spec.HardwareDetails.CPU.Arch
+		reqLogger.Info("updating architecture", "Architecture", newArch)
+		host.Spec.Architecture = newArch
+		if err := r.Client.Update(context.Background(), host); err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to update architecture")
+		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil

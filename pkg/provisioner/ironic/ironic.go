@@ -1033,14 +1033,11 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, hasCustomDeploy, updater)
 
 	opts := optionsData{
-		"root_device": devicehints.MakeHintMap(data.RootDeviceHints),
-
-		// FIXME(dhellmann): This should come from inspecting the host.
-		"cpu_arch": data.HardwareProfile.CPUArch,
-
-		"local_gb": data.HardwareProfile.LocalGB,
-
+		"root_device":  devicehints.MakeHintMap(data.RootDeviceHints),
 		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+	}
+	if data.CPUArchitecture != "" {
+		opts["cpu_arch"] = data.CPUArchitecture
 	}
 	updater.SetPropertiesOpts(opts, ironicNode)
 

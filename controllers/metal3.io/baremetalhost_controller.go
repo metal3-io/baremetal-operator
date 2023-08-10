@@ -686,10 +686,8 @@ func getHostArchitecture(host *metal3api.BareMetalHost) string {
 		host.Status.HardwareDetails.CPU.Arch != "" {
 		return host.Status.HardwareDetails.CPU.Arch
 	}
-	if hwprof, err := profile.GetProfile(host.Status.HardwareProfile); err == nil {
-		return hwprof.CPUArch
-	}
-	return ""
+	// This is probably the case for most hardware, and is useful for compatibility with hardware profiles.
+	return "x86_64"
 }
 
 func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats []metal3api.ImageFormat) (*provisioner.PreprovisioningImage, error) {
@@ -1187,6 +1185,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		CPUArchitecture: getHostArchitecture(info.host),
 	}, forceReboot)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}

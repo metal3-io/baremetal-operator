@@ -46,12 +46,10 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-type TLSVersion string
-
 // Constants for TLS versions.
 const (
-	TLSVersion12 TLSVersion = "TLS12"
-	TLSVersion13 TLSVersion = "TLS13"
+	TLSVersion12 = "TLS12"
+	TLSVersion13 = "TLS13"
 )
 
 type TLSOptions struct {
@@ -65,7 +63,7 @@ var (
 	setupLog             = ctrl.Log.WithName("setup")
 	healthAddr           string
 	tlsOptions           = TLSOptions{}
-	tlsSupportedVersions = []string{"TLS12", "TLS13"}
+	tlsSupportedVersions = []string{TLSVersion12, TLSVersion13}
 )
 
 const leaderElectionID = "baremetal-operator"
@@ -150,11 +148,11 @@ func main() {
 		"Maximum queries per second from the controller client to the Kubernetes API server. Default 20")
 	flag.IntVar(&restConfigBurst, "kube-api-burst", 30,
 		"Maximum number of queries that should be allowed in one burst from the controller client to the Kubernetes API server. Default 30")
-	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", "TLS12",
+	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", TLSVersion12,
 		"The minimum TLS version in use by the webhook server.\n"+
 			fmt.Sprintf("Possible values are %s.", strings.Join(tlsSupportedVersions, ", ")),
 	)
-	flag.StringVar(&tlsOptions.TLSMaxVersion, "tls-max-version", "TLS13",
+	flag.StringVar(&tlsOptions.TLSMaxVersion, "tls-max-version", TLSVersion13,
 		"The maximum TLS version in use by the webhook server.\n"+
 			fmt.Sprintf("Possible values are %s.", strings.Join(tlsSupportedVersions, ", ")),
 	)
@@ -315,8 +313,7 @@ func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) 
 		cfg.MaxVersion = tlsMaxVersion
 	})
 	// Cipher suites should not be set if empty.
-	if options.TLSMinVersion == string(TLSVersion13) &&
-		options.TLSMaxVersion == string(TLSVersion13) &&
+	if tlsMinVersion >= tls.VersionTLS13 &&
 		options.TLSCipherSuites != "" {
 		setupLog.Info("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers")
 		options.TLSCipherSuites = ""
@@ -350,12 +347,12 @@ func GetTLSVersion(version string) (uint16, error) {
 	var v uint16
 
 	switch version {
-	case string(TLSVersion12):
+	case TLSVersion12:
 		v = tls.VersionTLS12
-	case string(TLSVersion13):
+	case TLSVersion13:
 		v = tls.VersionTLS13
 	default:
-		return 0, fmt.Errorf("unexpected TLS version %q (must be one of: TLS12, TLS13)", version)
+		return 0, fmt.Errorf("unexpected TLS version %q (must be one of: %s)", version, strings.Join(tlsSupportedVersions, ", "))
 	}
 	return v, nil
 }

@@ -2263,6 +2263,10 @@ func TestGetHostArchitecture(t *testing.T) {
 	host := newDefaultHost(t)
 	assert.Equal(t, "x86_64", getHostArchitecture(host))
 
+	host.Spec.Architecture = "aarch64"
+	assert.Equal(t, "aarch64", getHostArchitecture(host))
+
+	host.Spec.Architecture = ""
 	host.Status.HardwareDetails = &metal3api.HardwareDetails{
 		CPU: metal3api.CPU{
 			Arch: "aarch64",

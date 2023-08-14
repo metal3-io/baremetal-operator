@@ -678,14 +678,16 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 }
 
 func getHostArchitecture(host *metal3api.BareMetalHost) string {
+	if host.Spec.Architecture != "" {
+		return host.Spec.Architecture
+	}
+	// FIXME(dtantsur): this relies on the essentially deprecated HardwareDetails field.
 	if host.Status.HardwareDetails != nil &&
 		host.Status.HardwareDetails.CPU.Arch != "" {
 		return host.Status.HardwareDetails.CPU.Arch
 	}
-	if hwprof, err := profile.GetProfile(host.Status.HardwareProfile); err == nil {
-		return hwprof.CPUArch
-	}
-	return ""
+	// This is probably the case for most hardware, and is useful for compatibility with hardware profiles.
+	return "x86_64"
 }
 
 func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats []metal3api.ImageFormat) (*provisioner.PreprovisioningImage, error) {
@@ -1183,6 +1185,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		CPUArchitecture: getHostArchitecture(info.host),
 	}, forceReboot)
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to provision")}
@@ -1841,6 +1844,16 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 			return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
 		}
 		reqLogger.Info("deleted status annotation")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if host.Spec.Architecture == "" && hardwareData != nil && hardwareData.Spec.HardwareDetails != nil && hardwareData.Spec.HardwareDetails.CPU.Arch != "" {
+		newArch := hardwareData.Spec.HardwareDetails.CPU.Arch
+		reqLogger.Info("updating architecture", "Architecture", newArch)
+		host.Spec.Architecture = newArch
+		if err := r.Client.Update(context.Background(), host); err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to update architecture")
+		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil

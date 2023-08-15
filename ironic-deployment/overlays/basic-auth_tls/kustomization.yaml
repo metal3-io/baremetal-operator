@@ -12,5 +12,5 @@ components:
 # When using TLS, the ironic-httpd container is acting as a reverse-proxy.
 # This means that we need to add the basic-auth related environment
 # variables on ironic-httpd with this patch.
-patchesStrategicMerge:
-- basic-auth_tls.yaml
+patches:
+- path: basic-auth_tls.yaml

@@ -10,25 +10,25 @@ resources:
 - bases/metal3.io_hardwaredata.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
-patchesStrategicMerge:
+patches:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
-#- patches/webhook_in_baremetalhosts.yaml
-#- patches/webhook_in_hostfirmwaresettings.yaml
-#- patches/webhook_in_firmwareschemas.yaml
-#- patches/webhook_in_preprovisioningimages.yaml
-#- patches/webhook_in_bmceventsubscriptions.yaml
-#- patches/webhook_in_hardwaredata.yaml
+#- path: patches/webhook_in_baremetalhosts.yaml
+#- path: patches/webhook_in_hostfirmwaresettings.yaml
+#- path: patches/webhook_in_firmwareschemas.yaml
+#- path: patches/webhook_in_preprovisioningimages.yaml
+#- path: patches/webhook_in_bmceventsubscriptions.yaml
+#- path: patches/webhook_in_hardwaredata.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
 # patches here are for enabling the CA injection for each CRD
-- patches/cainjection_in_baremetalhosts.yaml
-#- patches/cainjection_in_hostfirmwaresettings.yaml
-#- patches/cainjection_in_firmwareschemas.yaml
-#- patches/cainjection_in_preprovisioningimages.yaml
-#- patches/cainjection_in_bmceventsubscriptions.yaml
-#- patches/cainjection_in_hardwaredata.yaml
+- path: patches/cainjection_in_baremetalhosts.yaml
+#- path: patches/cainjection_in_hostfirmwaresettings.yaml
+#- path: patches/cainjection_in_firmwareschemas.yaml
+#- path: patches/cainjection_in_preprovisioningimages.yaml
+#- path: patches/cainjection_in_bmceventsubscriptions.yaml
+#- path: patches/cainjection_in_hardwaredata.yaml
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.

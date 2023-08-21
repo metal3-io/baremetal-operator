@@ -3,7 +3,7 @@ module github.com/metal3-io/baremetal-operator/apis
 go 1.20
 
 require (
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4

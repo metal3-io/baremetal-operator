@@ -90,7 +90,7 @@ func (m *MockServer) Handler(pattern string, handlerFunc http.HandlerFunc) *Mock
 	return m
 }
 
-func (m *MockServer) buildHandler(pattern string) func(http.ResponseWriter, *http.Request) {
+func (m *MockServer) buildHandler(_ string) func(http.ResponseWriter, *http.Request) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if response, ok := m.responsesByMethod[r.URL.Path][r.Method]; ok {

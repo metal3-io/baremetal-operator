@@ -47,7 +47,7 @@ func (f *EnvFixture) SetUp() {
 	f.replace("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE", f.liveISOForcePersistentBootDevice)
 }
 
-func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, forcePersistent string) {
+func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
 	assert.Equal(t, f.kernelURL, c.deployKernelURL)
 	assert.Equal(t, f.ramdiskURL, c.deployRamdiskURL)
 	assert.Equal(t, f.isoURL, c.deployISOURL)

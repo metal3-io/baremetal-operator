@@ -32,7 +32,7 @@ func (r *RAIDTestBMC) RAIDInterface() string                                 { r
 func (r *RAIDTestBMC) VendorInterface() string                               { return "" }
 func (r *RAIDTestBMC) SupportsSecureBoot() bool                              { return false }
 func (r *RAIDTestBMC) RequiresProvisioningNetwork() bool                     { return true }
-func (r *RAIDTestBMC) BuildBIOSSettings(fwConf *bmc.FirmwareConfig) ([]map[string]string, error) {
+func (r *RAIDTestBMC) BuildBIOSSettings(_ *bmc.FirmwareConfig) ([]map[string]string, error) {
 	return nil, nil
 }
 

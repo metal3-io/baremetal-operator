@@ -548,7 +548,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	return deleteComplete{}
 }
 
-func (r *BareMetalHostReconciler) actionUnmanaged(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionUnmanaged(_ provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.HasBMCDetails() {
 		return actionComplete{}
 	}

@@ -193,7 +193,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 	return r.Status().Update(ctx, subscription)
 }
 
-func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
+func (r *BMCEventSubscriptionReconciler) deleteSubscription(_ context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
 	reqLogger := r.Log.WithName("bmceventsubscription")
 	reqLogger.Info("deleting subscription")
 

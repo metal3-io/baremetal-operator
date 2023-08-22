@@ -27,6 +27,8 @@ type TLSConfig struct {
 	ClientPrivateKeyFile  string
 	InsecureSkipVerify    bool
 	SkipClientSANVerify   bool
+	TLSMinVersion         uint16
+	TLSMaxVersion         uint16
 }
 
 func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*gophercloud.ServiceClient, error) {
@@ -36,6 +38,8 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*go
 		KeyFile:             tlsConf.ClientPrivateKeyFile,
 		InsecureSkipVerify:  tlsConf.InsecureSkipVerify,
 		SkipClientSANVerify: tlsConf.SkipClientSANVerify,
+		MinVersion:          tlsConf.TLSMinVersion,
+		MaxVersion:          tlsConf.TLSMaxVersion,
 	}
 	if _, err := os.Stat(tlsConf.TrustedCAFile); err != nil {
 		if os.IsNotExist(err) {

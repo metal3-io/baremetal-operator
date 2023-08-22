@@ -116,7 +116,8 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			actualVal := buildCapabilitiesValue(&tc.Node, tc.Mode)
+			node := tc.Node
+			actualVal := buildCapabilitiesValue(&node, tc.Mode)
 			assert.Equal(t, tc.ExpectedValue, actualVal)
 		})
 	}

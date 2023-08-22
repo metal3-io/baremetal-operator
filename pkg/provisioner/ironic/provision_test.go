@@ -460,8 +460,8 @@ func TestIronicHasSameImage(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
-
-			sameImage := prov.ironicHasSameImage(&tc.node, *host.Spec.Image)
+			node := tc.node
+			sameImage := prov.ironicHasSameImage(&node, *host.Spec.Image)
 			assert.Equal(t, tc.expected, sameImage)
 		})
 	}

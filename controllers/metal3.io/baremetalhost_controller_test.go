@@ -1684,15 +1684,18 @@ func TestUpdateRootDeviceHints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			info := makeReconcileInfo(&tc.Host)
-			dirty, newStatus, err := getHostProvisioningSettings(&tc.Host, info)
+			host := tc.Host
+			info := makeReconcileInfo(&host)
+			dirty, newStatus, err := getHostProvisioningSettings(&host, info)
 			if err != nil {
 				t.Fatal(err)
 			}
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
 			assert.Equal(t, tc.Expected, newStatus.Provisioning.RootDeviceHints)
 
-			dirty, err = saveHostProvisioningSettings(&tc.Host, info)
+			dirty, err = saveHostProvisioningSettings(&host, info)
+			tc.Host = host
+
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2202,7 +2205,8 @@ func TestCredentialsFromSecret(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			actual := credentialsFromSecret(&c.input)
+			input := c.input
+			actual := credentialsFromSecret(&input)
 			assert.Equal(t, c.expected, *actual)
 		})
 	}

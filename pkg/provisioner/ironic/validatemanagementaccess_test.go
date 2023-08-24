@@ -1235,7 +1235,7 @@ func TestSetExternalURLRemoving(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	driverInfo := make(map[string]interface{}, 0)
+	driverInfo := make(map[string]interface{})
 	driverInfo["external_http_url"] = "non-empty"
 	updatedDriverInfo := setExternalURL(prov, driverInfo)
 

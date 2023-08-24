@@ -842,7 +842,8 @@ func TestProvisioningCancelled(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			hsm := testStateMachine(&tc.Host)
+			host := tc.Host
+			hsm := testStateMachine(&host)
 			actual := hsm.provisioningCancelled()
 			if tc.Expected && !actual {
 				t.Error("expected to need deprovisioning")

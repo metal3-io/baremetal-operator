@@ -150,7 +150,8 @@ func TestMakeHintMap(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			actual := MakeHintMap(&tc.Hints)
+			hints := tc.Hints
+			actual := MakeHintMap(&hints)
 			assert.Equal(t, tc.Expected, actual, "hint map does not match")
 		})
 	}

@@ -51,11 +51,13 @@ digraph BaremetalHost {
     Provisioned -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
 
     ExternallyProvisioned [shape=doublecircle]
-    ExternallyProvisioned -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    ExternallyProvisioned -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     Deprovisioning -> Provisioning [label="NeedsProvisioning()"]
     Deprovisioning -> Available [label="!NeedsProvisioning()"]
-    Deprovisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
+
+    Deprovisioning -> PoweringOffBeforeDelete
+    PoweringOffBeforeDelete -> Deleting
 
     Deleting [shape=doublecircle]
 }

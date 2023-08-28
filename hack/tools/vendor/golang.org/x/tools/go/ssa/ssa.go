@@ -36,7 +36,7 @@ type Program struct {
 	bounds        map[boundsKey]*Function    // bounds for curried x.Method closures
 	thunks        map[selectionKey]*Function // thunks for T.Method expressions
 	instances     map[*Function]*instanceSet // instances of generic functions
-	parameterized tpWalker                   // determines whether a type is parameterized.
+	parameterized tpWalker                   // determines whether a type reaches a type parameter.
 }
 
 // A Package is a single analyzed Go package containing Members for
@@ -258,8 +258,8 @@ type Node interface {
 // or method.
 //
 // If Blocks is nil, this indicates an external function for which no
-// Go source code is available.  In this case, FreeVars and Locals
-// are nil too.  Clients performing whole-program analysis must
+// Go source code is available.  In this case, FreeVars, Locals, and
+// Params are nil too.  Clients performing whole-program analysis must
 // handle external functions specially.
 //
 // Blocks contains the function's control-flow graph (CFG).
@@ -661,6 +661,30 @@ type Convert struct {
 	X Value
 }
 
+// The MultiConvert instruction yields the conversion of value X to type
+// Type(). Either X.Type() or Type() must be a type parameter. Each
+// type in the type set of X.Type() can be converted to each type in the
+// type set of Type().
+//
+// See the documentation for Convert, ChangeType, and SliceToArrayPointer
+// for the conversions that are permitted. Additionally conversions of
+// slices to arrays are permitted.
+//
+// This operation can fail dynamically (see SliceToArrayPointer).
+//
+// Pos() returns the ast.CallExpr.Lparen, if the instruction arose
+// from an explicit conversion in the source.
+//
+// Example printed form:
+//
+//	t1 = multiconvert D <- S (t0) [*[2]rune <- []rune | string <- []rune]
+type MultiConvert struct {
+	register
+	X    Value
+	from []*typeparams.Term
+	to   []*typeparams.Term
+}
+
 // ChangeInterface constructs a value of one interface type from a
 // value of another interface type known to be assignable to it.
 // This operation cannot fail.
@@ -688,6 +712,9 @@ type ChangeInterface struct {
 // the type set of X.Type() must be a slice types that can be converted to
 // all types in the type set of Type() which must all be pointer to array
 // types.
+//
+// This operation can fail dynamically if the length of the slice is less
+// than the length of the array.
 //
 // Example printed form:
 //
@@ -838,7 +865,7 @@ type Slice struct {
 type FieldAddr struct {
 	register
 	X     Value // *struct
-	Field int   // field is typeparams.CoreType(X.Type().Underlying().(*types.Pointer).Elem()).(*types.Struct).Field(Field)
+	Field int   // index into CoreType(CoreType(X.Type()).(*types.Pointer).Elem()).(*types.Struct).Fields
 }
 
 // The Field instruction yields the Field of struct X.
@@ -857,7 +884,7 @@ type FieldAddr struct {
 type Field struct {
 	register
 	X     Value // struct
-	Field int   // index into typeparams.CoreType(X.Type()).(*types.Struct).Fields
+	Field int   // index into CoreType(X.Type()).(*types.Struct).Fields
 }
 
 // The IndexAddr instruction yields the address of the element at
@@ -1023,6 +1050,9 @@ type Next struct {
 // result of the conversion; on failure it returns (z, false) where z
 // is AssertedType's zero value.  The components of the pair must be
 // accessed using the Extract instruction.
+//
+// If Underlying: tests whether interface value X has the underlying
+// type AssertedType.
 //
 // If AssertedType is a concrete type, TypeAssert checks whether the
 // dynamic type in interface X is equal to it, and if so, the result
@@ -1505,12 +1535,25 @@ func (fn *Function) TypeParams() *typeparams.TypeParamList {
 // from fn.Origin().
 func (fn *Function) TypeArgs() []types.Type { return fn.typeargs }
 
-// Origin is the function fn is an instantiation of. Returns nil if fn is not
-// an instantiation.
+// Origin returns the generic function from which fn was instantiated,
+// or nil if fn is not an instantiation.
 func (fn *Function) Origin() *Function {
 	if fn.parent != nil && len(fn.typeargs) > 0 {
-		// Nested functions are BUILT at a different time than there instances.
-		return fn.parent.Origin().AnonFuncs[fn.anonIdx]
+		// Nested functions are BUILT at a different time than their instances.
+		// Build declared package if not yet BUILT. This is not an expected use
+		// case, but is simple and robust.
+		fn.declaredPackage().Build()
+	}
+	return origin(fn)
+}
+
+// origin is the function that fn is an instantiation of. Returns nil if fn is
+// not an instantiation.
+//
+// Precondition: fn and the origin function are done building.
+func origin(fn *Function) *Function {
+	if fn.parent != nil && len(fn.typeargs) > 0 {
+		return origin(fn.parent).AnonFuncs[fn.anonIdx]
 	}
 	return fn.topLevelOrigin
 }
@@ -1639,6 +1682,10 @@ func (v *ChangeType) Operands(rands []*Value) []*Value {
 }
 
 func (v *Convert) Operands(rands []*Value) []*Value {
+	return append(rands, &v.X)
+}
+
+func (v *MultiConvert) Operands(rands []*Value) []*Value {
 	return append(rands, &v.X)
 }
 

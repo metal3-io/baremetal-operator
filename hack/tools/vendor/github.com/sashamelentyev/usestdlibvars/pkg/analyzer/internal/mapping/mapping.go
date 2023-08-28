@@ -161,9 +161,10 @@ var TimeLayout = map[string]string{
 	time.StampMilli:  "time.StampMilli",
 	time.StampMicro:  "time.StampMicro",
 	time.StampNano:   "time.StampNano",
+	time.DateTime:    "time.DateTime",
+	time.DateOnly:    "time.DateOnly",
+	time.TimeOnly:    "time.TimeOnly",
 }
-
-var OSDevNull = map[string]string{}
 
 var SQLIsolationLevel = map[string]string{
 	// sql.LevelDefault.String():         "sql.LevelDefault.String()",
@@ -199,5 +200,3 @@ var ConstantKind = map[string]string{
 	constant.Float.String():   "constant.Float.String()",
 	constant.Complex.String(): "constant.Complex.String()",
 }
-
-var SyslogPriority = map[string]string{}

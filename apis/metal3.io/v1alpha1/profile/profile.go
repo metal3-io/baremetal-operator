@@ -20,15 +20,6 @@ type Profile struct {
 	// RootDeviceHints holds the suggestions for placing the storage
 	// for the root filesystem.
 	RootDeviceHints metal3v1alpha1.RootDeviceHints
-
-	// RootGB is the size of the root volume in GB
-	RootGB int
-
-	// LocalGB is the size of something(?)
-	LocalGB int
-
-	// CPUArch is the architecture of the CPU.
-	CPUArch string
 }
 
 var profiles = make(map[string]Profile)
@@ -39,9 +30,6 @@ func init() {
 		RootDeviceHints: metal3v1alpha1.RootDeviceHints{
 			DeviceName: "/dev/sda",
 		},
-		RootGB:  10,
-		LocalGB: 50,
-		CPUArch: "x86_64",
 	}
 
 	profiles["libvirt"] = Profile{
@@ -49,9 +37,6 @@ func init() {
 		RootDeviceHints: metal3v1alpha1.RootDeviceHints{
 			DeviceName: "/dev/vda",
 		},
-		RootGB:  10,
-		LocalGB: 50,
-		CPUArch: "x86_64",
 	}
 
 	profiles["dell"] = Profile{
@@ -59,9 +44,6 @@ func init() {
 		RootDeviceHints: metal3v1alpha1.RootDeviceHints{
 			HCTL: "0:0:0:0",
 		},
-		RootGB:  10,
-		LocalGB: 50,
-		CPUArch: "x86_64",
 	}
 
 	profiles["dell-raid"] = Profile{
@@ -69,9 +51,6 @@ func init() {
 		RootDeviceHints: metal3v1alpha1.RootDeviceHints{
 			HCTL: "0:2:0:0",
 		},
-		RootGB:  10,
-		LocalGB: 50,
-		CPUArch: "x86_64",
 	}
 
 	profiles["openstack"] = Profile{
@@ -79,9 +58,6 @@ func init() {
 		RootDeviceHints: metal3v1alpha1.RootDeviceHints{
 			DeviceName: "/dev/vdb",
 		},
-		RootGB:  10,
-		LocalGB: 50,
-		CPUArch: "x86_64",
 	}
 }
 

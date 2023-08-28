@@ -102,7 +102,8 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 		os.Exit(1)
-	} else {
-		fmt.Fprint(os.Stdout, result)
 	}
+
+	fmt.Fprint(os.Stdout, result)
+
 }

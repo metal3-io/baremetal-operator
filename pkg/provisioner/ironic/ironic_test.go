@@ -131,7 +131,7 @@ func makeHostCustomDeploy(only bool) (host metal3api.BareMetalHost) {
 }
 
 // Implements provisioner.EventPublisher to swallow events for tests.
-func nullEventPublisher(reason, message string) {}
+func nullEventPublisher(_, _ string) {}
 
 func TestNewNoBMCDetails(t *testing.T) {
 	// Create a host without BMC details

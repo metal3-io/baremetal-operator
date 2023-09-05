@@ -37,3 +37,6 @@ ironic-deployment/overlays/temp
 
 # Development containers (https://containers.dev/)
 .devcontainer
+
+# release-notes
+/releasenotes

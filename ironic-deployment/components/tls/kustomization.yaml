@@ -4,8 +4,8 @@ kind: Component
 resources:
 - certificate.yaml
 
-patchesStrategicMerge:
-- tls.yaml
+patches:
+- path: tls.yaml
 
 configurations:
 - kustomizeconfig.yaml

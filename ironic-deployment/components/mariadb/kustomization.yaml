@@ -4,8 +4,8 @@ kind: Component
 resources:
 - certificate.yaml
 
-patchesStrategicMerge:
-- mariadb_patch.yaml
+patches:
+- path: mariadb_patch.yaml
 
 secretGenerator:
 - literals:

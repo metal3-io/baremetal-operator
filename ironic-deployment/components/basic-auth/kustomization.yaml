@@ -17,5 +17,5 @@ secretGenerator:
   files:
   - auth-config=ironic-inspector-auth-config
 
-patchesStrategicMerge:
-- auth.yaml
+patches:
+- path: auth.yaml

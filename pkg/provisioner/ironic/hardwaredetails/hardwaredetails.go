@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/inventory"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -47,7 +48,7 @@ func getVLANs(intf introspection.BaseInterfaceType) (vlans []metal3api.VLAN, vla
 	return
 }
 
-func getNICDetails(ifdata []introspection.InterfaceType,
+func getNICDetails(ifdata []inventory.InterfaceType,
 	basedata map[string]introspection.BaseInterfaceType) []metal3api.NIC {
 	var nics []metal3api.NIC
 	for _, intf := range ifdata {
@@ -85,7 +86,7 @@ func getNICDetails(ifdata []introspection.InterfaceType,
 	return nics
 }
 
-func getDiskType(diskdata introspection.RootDiskType) metal3api.DiskType {
+func getDiskType(diskdata inventory.RootDiskType) metal3api.DiskType {
 	if diskdata.Rotational {
 		return metal3api.HDD
 	}
@@ -97,7 +98,7 @@ func getDiskType(diskdata introspection.RootDiskType) metal3api.DiskType {
 	return metal3api.SSD
 }
 
-func getStorageDetails(diskdata []introspection.RootDiskType) []metal3api.Storage {
+func getStorageDetails(diskdata []inventory.RootDiskType) []metal3api.Storage {
 	storage := make([]metal3api.Storage, len(diskdata))
 	for i, disk := range diskdata {
 		device := disk.Name
@@ -121,7 +122,7 @@ func getStorageDetails(diskdata []introspection.RootDiskType) []metal3api.Storag
 	return storage
 }
 
-func getSystemVendorDetails(vendor introspection.SystemVendorType) metal3api.HardwareSystemVendor {
+func getSystemVendorDetails(vendor inventory.SystemVendorType) metal3api.HardwareSystemVendor {
 	return metal3api.HardwareSystemVendor{
 		Manufacturer: vendor.Manufacturer,
 		ProductName:  vendor.ProductName,
@@ -129,7 +130,7 @@ func getSystemVendorDetails(vendor introspection.SystemVendorType) metal3api.Har
 	}
 }
 
-func getCPUDetails(cpudata *introspection.CPUType) metal3api.CPU {
+func getCPUDetails(cpudata *inventory.CPUType) metal3api.CPU {
 	var freq float64
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
 	freq = math.Round(freq) // Ensure freq has no fractional part
@@ -145,7 +146,7 @@ func getCPUDetails(cpudata *introspection.CPUType) metal3api.CPU {
 	return cpu
 }
 
-func getFirmwareDetails(firmwaredata introspection.SystemFirmwareType) metal3api.Firmware {
+func getFirmwareDetails(firmwaredata inventory.SystemFirmwareType) metal3api.Firmware {
 	return metal3api.Firmware{
 		BIOS: metal3api.BIOS{
 			Vendor:  firmwaredata.Vendor,

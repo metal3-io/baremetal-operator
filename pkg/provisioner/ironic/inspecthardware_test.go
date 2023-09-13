@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/inventory"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
@@ -70,7 +71,7 @@ func TestInspectHardware(t *testing.T) {
 			}),
 			inspector: testserver.NewInspector(t).Ready().
 				WithIntrospectionData(nodeUUID, introspection.Data{
-					Inventory: introspection.InventoryType{
+					Inventory: inventory.InventoryType{
 						Hostname: "node-0",
 					},
 				}),
@@ -195,7 +196,7 @@ func TestInspectHardware(t *testing.T) {
 			}),
 			inspector: testserver.NewInspector(t).Ready().
 				WithIntrospectionData(nodeUUID, introspection.Data{
-					Inventory: introspection.InventoryType{
+					Inventory: inventory.InventoryType{
 						Hostname: "node-0",
 					},
 				}),

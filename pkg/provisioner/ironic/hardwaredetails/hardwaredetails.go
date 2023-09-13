@@ -6,19 +6,26 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/inventory"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 // GetHardwareDetails converts Ironic introspection data into BareMetalHost HardwareDetails.
-func GetHardwareDetails(data *introspection.Data) *metal3api.HardwareDetails {
+func GetHardwareDetails(data *nodes.InventoryData, logger logr.Logger) *metal3api.HardwareDetails {
+	inspectorData, err := data.PluginData.AsInspectorData()
+	if err != nil {
+		logger.Error(err, "cannot get plugin data from inventory, some fields will not be available")
+	}
+
 	details := new(metal3api.HardwareDetails)
 	details.Firmware = getFirmwareDetails(data.Inventory.SystemVendor.Firmware)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
-	details.RAMMebibytes = data.MemoryMB
-	details.NIC = getNICDetails(data.Inventory.Interfaces, data.AllInterfaces)
+	details.RAMMebibytes = data.Inventory.Memory.PhysicalMb
+	details.NIC = getNICDetails(data.Inventory.Interfaces, inspectorData.AllInterfaces)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
 	details.CPU = getCPUDetails(&data.Inventory.CPU)
 	details.Hostname = data.Inventory.Hostname

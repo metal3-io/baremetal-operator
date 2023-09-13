@@ -95,8 +95,8 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 
 	// Ensure we have a microversion high enough to get the features
 	// we need. Update docs/configuration.md when updating the version.
-	// Version 1.74 allows retrival of the BIOS Registry
-	client.Microversion = "1.74"
+	// Version 1.81 allows retrival of Node inventory
+	client.Microversion = "1.81"
 
 	return updateHTTPClient(client, tls)
 }

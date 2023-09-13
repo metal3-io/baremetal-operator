@@ -44,21 +44,3 @@ func (m *InspectorMock) WithIntrospection(nodeUUID string, status introspection.
 	m.ResponseJSON("/v1/introspection/"+nodeUUID, status)
 	return m
 }
-
-// WithIntrospectionFailed configures the server with an error response for /v1/introspection/<node>
-func (m *InspectorMock) WithIntrospectionFailed(nodeUUID string, errorCode int) *InspectorMock {
-	m.ErrorResponse("/v1/introspection/"+nodeUUID, errorCode)
-	return m
-}
-
-// WithIntrospectionData configures the server with a valid response for /v1/introspection/<node>/data
-func (m *InspectorMock) WithIntrospectionData(nodeUUID string, data introspection.Data) *InspectorMock {
-	m.ResponseJSON("/v1/introspection/"+nodeUUID+"/data", data)
-	return m
-}
-
-// WithIntrospectionDataFailed configures the server with an error response for /v1/introspection/<node>/data
-func (m *InspectorMock) WithIntrospectionDataFailed(nodeUUID string, errorCode int) *InspectorMock {
-	m.ErrorResponse("/v1/introspection/"+nodeUUID+"/data", errorCode)
-	return m
-}

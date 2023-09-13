@@ -12,7 +12,6 @@ import (
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -844,8 +843,8 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 		return
 	}
 
-	// TODO(dtantsur): change this to use Ironic native inspection data API.
-	response := introspection.GetIntrospectionData(p.inspector, ironicNode.UUID)
+	p.log.Info("getting hardware details from inspection")
+	response := nodes.GetInventory(p.client, ironicNode.UUID)
 	introData, err := response.Extract()
 	if err != nil {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
@@ -860,7 +859,7 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 	// Introspection is done
 	p.log.Info("inspection finished successfully", "data", response.Body)
 
-	details = hardwaredetails.GetHardwareDetails(introData)
+	details = hardwaredetails.GetHardwareDetails(introData, p.log)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 	result, err = operationComplete()
 	return

@@ -225,6 +225,9 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 	switch hsm.NextState {
 	default:
 		hsm.NextState = metal3api.StatePoweringOffBeforeDelete
+	case metal3api.StateRegistering, metal3api.StateUnmanaged, metal3api.StateNone:
+		// Skip the power off before delete
+		hsm.NextState = metal3api.StateDeleting
 	case metal3api.StateProvisioning, metal3api.StateProvisioned:
 		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
 			if delayDeleteForDetachedHost(hsm.Host) {

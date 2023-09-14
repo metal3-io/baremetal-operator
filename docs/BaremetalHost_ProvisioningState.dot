@@ -5,40 +5,30 @@ digraph BaremetalHost {
 
     Unmanaged [shape=doublecircle]
     Unmanaged -> Registering [label="BMC.* != \"\""]
-    Unmanaged -> Deleting1 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting1 [shape=point]
+    Unmanaged -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     ExternallyProvisioned [label="Externally\nProvisioned"]
 
     Registering -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
     Registering -> Preparing [label="!externallyProvisioned && inspectionDisabled()"]
     Registering -> ExternallyProvisioned [label="externallyProvisioned"]
-    Registering -> Deleting2 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting2 [shape=point]
+    Registering -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     ExternallyProvisioned -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
     ExternallyProvisioned -> Preparing [label="!externallyProvisioned && !NeedsHardwareInspection()"]
     Available -> ExternallyProvisioned [label="externallyProvisioned"]
 
     Inspecting -> Preparing [label="done"]
-    Inspecting -> Deleting3 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting3 [shape=point]
-
-    Deleting5 [shape=point]
+    Inspecting -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     Preparing -> Available [label="done"]
-    Preparing -> Deleting6 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting6 [shape=point]
+    Preparing -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     Available [shape=doublecircle]
     Available -> Provisioning [label="NeedsProvisioning()"]
     Available -> Preparing [label="saveHostProvisioningSettings()"]
     Available -> Preparing [label="getHostFirmwareSettings()"]
-    Available -> Deleting7 [label="!DeletionTimestamp.IsZero()"]
+    Available -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
     Available -> Inspecting [label="hasInspectAnnotation()"]
 
     Deleting7 [shape=point]

@@ -327,7 +327,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	case metal3api.StateMatchProfile:
 		// Backward compatibility, remove eventually
 		return
-	case metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
+	case metal3api.StateDeleting:
 		// In the deleting state the whole idea is to de-register the host
 		return
 	case metal3api.StateRegistering:

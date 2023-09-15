@@ -9,13 +9,13 @@ digraph BaremetalHost {
 
     ExternallyProvisioned [label="Externally\nProvisioned"]
 
-    Registering -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
-    Registering -> Preparing [label="!externallyProvisioned && inspectionDisabled()"]
+    Registering -> Inspecting [label="!externallyProvisioned &&\nNeedsHardwareInspection()"]
+    Registering -> Preparing [label="!externallyProvisioned &&\ninspectionDisabled()"]
     Registering -> ExternallyProvisioned [label="externallyProvisioned"]
     Registering -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
-    ExternallyProvisioned -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
-    ExternallyProvisioned -> Preparing [label="!externallyProvisioned && !NeedsHardwareInspection()"]
+    ExternallyProvisioned -> Inspecting [label="!externallyProvisioned &&\nNeedsHardwareInspection()"]
+    ExternallyProvisioned -> Preparing [label="!externallyProvisioned &&\n!NeedsHardwareInspection()"]
     Available -> ExternallyProvisioned [label="externallyProvisioned"]
 
     Inspecting -> Preparing [label="done"]
@@ -34,7 +34,7 @@ digraph BaremetalHost {
     Deleting7 [shape=point]
 
     Provisioning -> Provisioned [label=done]
-    Provisioning -> Deprovisioning [label="failed || !DeletionTimestamp.IsZero()"]
+    Provisioning -> Deprovisioning [label="failed ||\n!DeletionTimestamp.IsZero()"]
 
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="provisioningCancelled()"]

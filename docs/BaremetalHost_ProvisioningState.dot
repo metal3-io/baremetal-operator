@@ -5,57 +5,49 @@ digraph BaremetalHost {
 
     Unmanaged [shape=doublecircle]
     Unmanaged -> Registering [label="BMC.* != \"\""]
-    Unmanaged -> Deleting1 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting1 [shape=point]
+    Unmanaged -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     ExternallyProvisioned [label="Externally\nProvisioned"]
 
-    Registering -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
-    Registering -> Preparing [label="!externallyProvisioned && inspectionDisabled()"]
+    Registering -> Inspecting [label="!externallyProvisioned &&\nNeedsHardwareInspection()"]
+    Registering -> Preparing [label="!externallyProvisioned &&\ninspectionDisabled()"]
     Registering -> ExternallyProvisioned [label="externallyProvisioned"]
-    Registering -> Deleting2 [label="!DeletionTimestamp.IsZero()"]
+    Registering -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
-    Deleting2 [shape=point]
-
-    ExternallyProvisioned -> Inspecting [label="!externallyProvisioned && NeedsHardwareInspection()"]
-    ExternallyProvisioned -> Preparing [label="!externallyProvisioned && !NeedsHardwareInspection()"]
+    ExternallyProvisioned -> Inspecting [label="!externallyProvisioned &&\nNeedsHardwareInspection()"]
+    ExternallyProvisioned -> Preparing [label="!externallyProvisioned &&\n!NeedsHardwareInspection()"]
     Available -> ExternallyProvisioned [label="externallyProvisioned"]
 
     Inspecting -> Preparing [label="done"]
-    Inspecting -> Deleting3 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting3 [shape=point]
-
-    Deleting5 [shape=point]
+    Inspecting -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     Preparing -> Available [label="done"]
-    Preparing -> Deleting6 [label="!DeletionTimestamp.IsZero()"]
-
-    Deleting6 [shape=point]
+    Preparing -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     Available [shape=doublecircle]
     Available -> Provisioning [label="NeedsProvisioning()"]
     Available -> Preparing [label="saveHostProvisioningSettings()"]
     Available -> Preparing [label="getHostFirmwareSettings()"]
-    Available -> Deleting7 [label="!DeletionTimestamp.IsZero()"]
+    Available -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
     Available -> Inspecting [label="hasInspectAnnotation()"]
 
     Deleting7 [shape=point]
 
     Provisioning -> Provisioned [label=done]
-    Provisioning -> Deprovisioning [label="failed || !DeletionTimestamp.IsZero()"]
+    Provisioning -> Deprovisioning [label="failed ||\n!DeletionTimestamp.IsZero()"]
 
     Provisioned [shape=doublecircle]
     Provisioned -> Deprovisioning [label="provisioningCancelled()"]
     Provisioned -> Deprovisioning [label="!DeletionTimestamp.IsZero()"]
 
     ExternallyProvisioned [shape=doublecircle]
-    ExternallyProvisioned -> Deleting [label="!DeletionTimestamp.IsZero()"]
+    ExternallyProvisioned -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
 
     Deprovisioning -> Provisioning [label="NeedsProvisioning()"]
     Deprovisioning -> Available [label="!NeedsProvisioning()"]
-    Deprovisioning -> Deleting [label="!DeletionTimestamp.IsZero()"]
+
+    Deprovisioning -> PoweringOffBeforeDelete
+    PoweringOffBeforeDelete -> Deleting
 
     Deleting [shape=doublecircle]
 }

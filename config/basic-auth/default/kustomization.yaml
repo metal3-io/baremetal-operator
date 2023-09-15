@@ -15,5 +15,5 @@ secretGenerator:
     - username=ironic-inspector-username
     - password=ironic-inspector-password
 
-patchesStrategicMerge:
-- credentials_patch.yaml
+patches:
+- path: credentials_patch.yaml

@@ -241,12 +241,20 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 			hsm.NextState = metal3api.StateDeprovisioning
 		}
 	case metal3api.StateDeprovisioning:
+		if hsm.Host.Status.ErrorType == metal3api.RegistrationError && hsm.Host.Status.ErrorCount > 3 {
+			hsm.NextState = metal3api.StateDeleting
+			return true
+		}
 		// Allow state machine to run to continue deprovisioning.
 		return false
 	case metal3api.StateDeleting:
 		// Already in deleting state. Allow state machine to run.
 		return false
 	case metal3api.StatePoweringOffBeforeDelete:
+		if hsm.Host.Status.ErrorType == metal3api.RegistrationError && hsm.Host.Status.ErrorCount > 3 {
+			hsm.NextState = metal3api.StateDeleting
+			return true
+		}
 		// Already in powering off state. Allow state machine to run.
 		return false
 	}

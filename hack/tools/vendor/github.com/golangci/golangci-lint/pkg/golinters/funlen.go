@@ -24,7 +24,7 @@ func NewFunlen(settings *config.FunlenSettings) *goanalysis.Linter {
 	analyzer := &analysis.Analyzer{
 		Name: funlenName,
 		Doc:  goanalysis.TheOnlyanalyzerDoc,
-		Run: func(pass *analysis.Pass) (interface{}, error) {
+		Run: func(pass *analysis.Pass) (any, error) {
 			issues := runFunlen(pass, settings)
 
 			if len(issues) == 0 {
@@ -52,7 +52,7 @@ func NewFunlen(settings *config.FunlenSettings) *goanalysis.Linter {
 func runFunlen(pass *analysis.Pass, settings *config.FunlenSettings) []goanalysis.Issue {
 	var lintIssues []funlen.Message
 	for _, file := range pass.Files {
-		fileIssues := funlen.Run(file, pass.Fset, settings.Lines, settings.Statements)
+		fileIssues := funlen.Run(file, pass.Fset, settings.Lines, settings.Statements, settings.IgnoreComments)
 		lintIssues = append(lintIssues, fileIssues...)
 	}
 

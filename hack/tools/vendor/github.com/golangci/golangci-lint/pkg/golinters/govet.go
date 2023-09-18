@@ -14,6 +14,8 @@ import (
 	"golang.org/x/tools/go/analysis/passes/copylock"
 	_ "golang.org/x/tools/go/analysis/passes/ctrlflow" // unused, internal analyzer
 	"golang.org/x/tools/go/analysis/passes/deepequalerrors"
+	"golang.org/x/tools/go/analysis/passes/defers"
+	"golang.org/x/tools/go/analysis/passes/directive"
 	"golang.org/x/tools/go/analysis/passes/errorsas"
 	"golang.org/x/tools/go/analysis/passes/fieldalignment"
 	"golang.org/x/tools/go/analysis/passes/findcall"
@@ -31,6 +33,7 @@ import (
 	"golang.org/x/tools/go/analysis/passes/shadow"
 	"golang.org/x/tools/go/analysis/passes/shift"
 	"golang.org/x/tools/go/analysis/passes/sigchanyzer"
+	"golang.org/x/tools/go/analysis/passes/slog"
 	"golang.org/x/tools/go/analysis/passes/sortslice"
 	"golang.org/x/tools/go/analysis/passes/stdmethods"
 	"golang.org/x/tools/go/analysis/passes/stringintconv"
@@ -60,6 +63,8 @@ var (
 		composite.Analyzer,
 		copylock.Analyzer,
 		deepequalerrors.Analyzer,
+		defers.Analyzer,
+		directive.Analyzer,
 		errorsas.Analyzer,
 		fieldalignment.Analyzer,
 		findcall.Analyzer,
@@ -75,6 +80,7 @@ var (
 		shadow.Analyzer,
 		shift.Analyzer,
 		sigchanyzer.Analyzer,
+		slog.Analyzer,
 		sortslice.Analyzer,
 		stdmethods.Analyzer,
 		stringintconv.Analyzer,
@@ -89,7 +95,7 @@ var (
 		unusedwrite.Analyzer,
 	}
 
-	// https://github.com/golang/go/blob/879db69ce2de814bc3203c39b45617ba51cc5366/src/cmd/vet/main.go#L40-L68
+	// https://github.com/golang/go/blob/c19c4c566c63818dfd059b352e52c4710eecf14d/src/cmd/vet/main.go#L47-L78
 	defaultAnalyzers = []*analysis.Analyzer{
 		asmdecl.Analyzer,
 		assign.Analyzer,
@@ -99,6 +105,7 @@ var (
 		cgocall.Analyzer,
 		composite.Analyzer,
 		copylock.Analyzer,
+		directive.Analyzer,
 		errorsas.Analyzer,
 		framepointer.Analyzer,
 		httpresponse.Analyzer,
@@ -109,11 +116,13 @@ var (
 		printf.Analyzer,
 		shift.Analyzer,
 		sigchanyzer.Analyzer,
+		slog.Analyzer,
 		stdmethods.Analyzer,
 		stringintconv.Analyzer,
 		structtag.Analyzer,
 		testinggoroutine.Analyzer,
 		tests.Analyzer,
+		timeformat.Analyzer,
 		unmarshal.Analyzer,
 		unreachable.Analyzer,
 		unsafeptr.Analyzer,
@@ -122,7 +131,7 @@ var (
 )
 
 func NewGovet(settings *config.GovetSettings) *goanalysis.Linter {
-	var conf map[string]map[string]interface{}
+	var conf map[string]map[string]any
 	if settings != nil {
 		conf = settings.Settings
 	}

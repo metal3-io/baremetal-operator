@@ -431,6 +431,10 @@ type BareMetalHostSpec struct {
 	// A custom deploy procedure.
 	// +optional
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
+
+	// CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset, eventually populated by inspection.
+	// +optional
+	Architecture string `json:"architecture,omitempty"`
 }
 
 // AutomatedCleaningMode is the interface to enable/disable automated cleaning

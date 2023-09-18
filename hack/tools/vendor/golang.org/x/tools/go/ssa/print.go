@@ -51,6 +51,14 @@ func relType(t types.Type, from *types.Package) string {
 	return s
 }
 
+func relTerm(term *typeparams.Term, from *types.Package) string {
+	s := relType(term.Type(), from)
+	if term.Tilde() {
+		return "~" + s
+	}
+	return s
+}
+
 func relString(m Member, from *types.Package) string {
 	// NB: not all globals have an Object (e.g. init$guard),
 	// so use Package().Object not Object.Package().
@@ -87,7 +95,7 @@ func (v *Alloc) String() string {
 		op = "new"
 	}
 	from := v.Parent().relPkg()
-	return fmt.Sprintf("%s %s (%s)", op, relType(deref(v.Type()), from), v.Comment)
+	return fmt.Sprintf("%s %s (%s)", op, relType(mustDeref(v.Type()), from), v.Comment)
 }
 
 func (v *Phi) String() string {
@@ -174,6 +182,24 @@ func (v *ChangeInterface) String() string     { return printConv("change interfa
 func (v *SliceToArrayPointer) String() string { return printConv("slice to array pointer", v, v.X) }
 func (v *MakeInterface) String() string       { return printConv("make", v, v.X) }
 
+func (v *MultiConvert) String() string {
+	from := v.Parent().relPkg()
+
+	var b strings.Builder
+	b.WriteString(printConv("multiconvert", v, v.X))
+	b.WriteString(" [")
+	for i, s := range v.from {
+		for j, d := range v.to {
+			if i != 0 || j != 0 {
+				b.WriteString(" | ")
+			}
+			fmt.Fprintf(&b, "%s <- %s", relTerm(d, from), relTerm(s, from))
+		}
+	}
+	b.WriteString("]")
+	return b.String()
+}
+
 func (v *MakeClosure) String() string {
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "make closure %s", relName(v.Fn, v))
@@ -233,21 +259,19 @@ func (v *MakeChan) String() string {
 }
 
 func (v *FieldAddr) String() string {
-	st := typeparams.CoreType(deref(v.X.Type())).(*types.Struct)
 	// Be robust against a bad index.
 	name := "?"
-	if 0 <= v.Field && v.Field < st.NumFields() {
-		name = st.Field(v.Field).Name()
+	if fld := fieldOf(mustDeref(v.X.Type()), v.Field); fld != nil {
+		name = fld.Name()
 	}
 	return fmt.Sprintf("&%s.%s [#%d]", relName(v.X, v), name, v.Field)
 }
 
 func (v *Field) String() string {
-	st := typeparams.CoreType(v.X.Type()).(*types.Struct)
 	// Be robust against a bad index.
 	name := "?"
-	if 0 <= v.Field && v.Field < st.NumFields() {
-		name = st.Field(v.Field).Name()
+	if fld := fieldOf(v.X.Type(), v.Field); fld != nil {
+		name = fld.Name()
 	}
 	return fmt.Sprintf("%s.%s [#%d]", relName(v.X, v), name, v.Field)
 }
@@ -426,7 +450,7 @@ func WritePackage(buf *bytes.Buffer, p *Package) {
 
 		case *Global:
 			fmt.Fprintf(buf, "  var   %-*s %s\n",
-				maxname, name, relType(mem.Type().(*types.Pointer).Elem(), from))
+				maxname, name, relType(mustDeref(mem.Type()), from))
 		}
 	}
 

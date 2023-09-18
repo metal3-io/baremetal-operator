@@ -73,6 +73,10 @@ spec:
           spec:
             description: BareMetalHostSpec defines the desired state of BareMetalHost
             properties:
+              architecture:
+                description: CPU architecture of the host, e.g. "x86_64" or "aarch64".
+                  If unset, eventually populated by inspection.
+                type: string
               automatedCleaningMode:
                 default: metadata
                 description: When set to disabled, automated cleaning will be avoided

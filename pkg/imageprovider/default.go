@@ -21,7 +21,7 @@ func NewDefaultImageProvider() ImageProvider {
 	}
 }
 
-func (eip envImageProvider) SupportsArchitecture(arch string) bool {
+func (eip envImageProvider) SupportsArchitecture(_ string) bool {
 	return true
 }
 
@@ -41,7 +41,7 @@ func (eip envImageProvider) SupportsFormat(format metal3.ImageFormat) bool {
 	}
 }
 
-func (eip envImageProvider) BuildImage(data ImageData, networkData NetworkData, log logr.Logger) (image GeneratedImage, err error) {
+func (eip envImageProvider) BuildImage(data ImageData, _ NetworkData, _ logr.Logger) (image GeneratedImage, err error) {
 	switch data.Format {
 	case metal3.ImageFormatISO:
 		image.ImageURL = eip.isoURL
@@ -53,6 +53,6 @@ func (eip envImageProvider) BuildImage(data ImageData, networkData NetworkData, 
 	return
 }
 
-func (eip envImageProvider) DiscardImage(data ImageData) error {
+func (eip envImageProvider) DiscardImage(_ ImageData) error {
 	return nil
 }

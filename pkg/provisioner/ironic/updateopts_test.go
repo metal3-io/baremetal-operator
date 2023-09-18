@@ -599,14 +599,6 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			Path:  "/instance_uuid",
 			Value: "27720611-e5d1-45d3-ba3a-222dcfaa4ca2",
 		},
-		{
-			Path:  "/properties/cpu_arch",
-			Value: "x86_64",
-		},
-		{
-			Path:  "/properties/local_gb",
-			Value: 50,
-		},
 	}
 
 	for _, e := range expected {
@@ -672,6 +664,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		Image:           *host.Spec.Image,
 		BootMode:        metal3api.DefaultBootMode,
 		HardwareProfile: hwProf,
+		CPUArchitecture: "x86_64",
 	}
 	patches := prov.getUpdateOptsForNode(ironicNode, provData).Updates
 
@@ -701,10 +694,6 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		{
 			Path:  "/properties/cpu_arch",
 			Value: "x86_64",
-		},
-		{
-			Path:  "/properties/local_gb",
-			Value: 50,
 		},
 	}
 

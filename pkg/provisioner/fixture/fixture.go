@@ -97,7 +97,7 @@ func (p *fixtureProvisioner) HasCapacity() (result bool, err error) {
 
 // ValidateManagementAccess tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, restartOnFailure bool) (result provisioner.Result, provID string, err error) {
+func (p *fixtureProvisioner) ValidateManagementAccess(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	if p.state.validateError != "" {
@@ -125,7 +125,7 @@ func (p *fixtureProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFor
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *fixtureProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	// The inspection is ongoing. We'll need to check the fixture
 	// status for the server here until it is ready for us to get the
 	// inspection details. Simulate that for now by creating the
@@ -191,7 +191,7 @@ func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.Hardware
 }
 
 // Prepare remove existing configuration and set new configuration
-func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
+func (p *fixtureProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
 	p.log.Info("preparing host")
 	started = unprepared
 	return
@@ -199,7 +199,7 @@ func (p *fixtureProvisioner) Prepare(data provisioner.PrepareData, unprepared bo
 
 // Adopt notifies the provisioner that the state machine believes the host
 // to be currently provisioned, and that it should be managed as such.
-func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	if !p.state.adopted {
 		p.state.adopted = true
@@ -212,7 +212,7 @@ func (p *fixtureProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure 
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
-func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
 	p.log.Info("provisioning image to host")
 
 	if data.CustomDeploy != nil && p.state.customDeploy == nil {
@@ -238,7 +238,7 @@ func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData, forceRebo
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *fixtureProvisioner) Deprovision(restartOnFailure bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is deprovisioned")
 
 	result.RequeueAfter = deprovisionRequeueDelay
@@ -295,7 +295,7 @@ func (p *fixtureProvisioner) Detach() (result provisioner.Result, err error) {
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
 	if !p.state.poweredOn {
@@ -311,7 +311,7 @@ func (p *fixtureProvisioner) PowerOn(force bool) (result provisioner.Result, err
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
 	if p.state.poweredOn {
@@ -336,15 +336,15 @@ func (p *fixtureProvisioner) IsReady() (result bool, err error) {
 	return p.state.BecomeReadyCounter == 0, nil
 }
 
-func (p *fixtureProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
+func (p *fixtureProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	p.log.Info("getting BIOS settings")
 	return
 }
 
-func (p *fixtureProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }

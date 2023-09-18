@@ -842,7 +842,8 @@ func TestProvisioningCancelled(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			hsm := testStateMachine(&tc.Host)
+			host := tc.Host
+			hsm := testStateMachine(&host)
 			actual := hsm.provisioningCancelled()
 			if tc.Expected && !actual {
 				t.Error("expected to need deprovisioning")
@@ -1328,7 +1329,7 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 	return m.callsNoError[methodName]
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (m *mockProvisioner) ValidateManagementAccess(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
@@ -1336,7 +1337,7 @@ func (m *mockProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat
 	return nil, nil
 }
 
-func (m *mockProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (m *mockProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	details = &metal3api.HardwareDetails{}
 	return m.getNextResultByMethod("InspectHardware"), true, details, err
 }
@@ -1345,19 +1346,19 @@ func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 	return
 }
 
-func (m *mockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
+func (m *mockProvisioner) Prepare(_ provisioner.PrepareData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
 	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 
-func (m *mockProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Adopt"), err
 }
 
-func (m *mockProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Provision"), err
 }
 
-func (m *mockProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Deprovision"), err
 }
 
@@ -1370,11 +1371,11 @@ func (m *mockProvisioner) Detach() (result provisioner.Result, err error) {
 	return res, err
 }
 
-func (m *mockProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOn"), err
 }
 
-func (m *mockProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOff"), err
 }
 
@@ -1382,15 +1383,15 @@ func (m *mockProvisioner) IsReady() (result bool, err error) {
 	return
 }
 
-func (m *mockProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
+func (m *mockProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	return
 }
 
-func (m *mockProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (m *mockProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
+func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }
 

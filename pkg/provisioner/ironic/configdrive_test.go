@@ -149,7 +149,8 @@ func TestEmpty(t *testing.T) {
 
 			var diskFormat *string
 			if tc.diskFormat != "" {
-				diskFormat = &tc.diskFormat
+				dFormat := tc.diskFormat
+				diskFormat = &dFormat
 			}
 
 			result, err := prov.getConfigDrive(provisioner.ProvisionData{

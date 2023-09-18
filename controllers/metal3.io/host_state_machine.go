@@ -389,7 +389,7 @@ func (hsm *hostStateMachine) handleUnmanaged(info *reconcileInfo) actionResult {
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleRegistering(_ *reconcileInfo) actionResult {
 	// Getting to the state handler at all means we have successfully
 	// registered using the current BMC credentials, so we can move to the
 	// next state. We will not return to the Registering state, even
@@ -414,7 +414,7 @@ func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult 
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleMatchProfile(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleMatchProfile(_ *reconcileInfo) actionResult {
 	// Backward compatibility, remove eventually
 	hsm.NextState = metal3api.StatePreparing
 	hsm.Host.Status.ErrorCount = 0

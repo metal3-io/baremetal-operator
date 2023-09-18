@@ -65,11 +65,11 @@ func (m *hsfMockProvisioner) HasCapacity() (result bool, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) ValidateManagementAccess(data provisioner.ManagementAccessData, credentialsChanged, force bool) (result provisioner.Result, provID string, err error) {
+func (m *hsfMockProvisioner) ValidateManagementAccess(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) InspectHardware(data provisioner.InspectData, force, refresh bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (m *hsfMockProvisioner) InspectHardware(_ provisioner.InspectData, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	return
 }
 
@@ -77,19 +77,19 @@ func (m *hsfMockProvisioner) UpdateHardwareState() (hwState provisioner.Hardware
 	return
 }
 
-func (m *hsfMockProvisioner) Prepare(data provisioner.PrepareData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
+func (m *hsfMockProvisioner) Prepare(_ provisioner.PrepareData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) Adopt(data provisioner.AdoptData, force bool) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) Provision(data provisioner.ProvisionData, forceReboot bool) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) Deprovision(force bool) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
 	return
 }
 
@@ -101,11 +101,11 @@ func (m *hsfMockProvisioner) Detach() (result provisioner.Result, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) PowerOn(force bool) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
 	return
 }
 
@@ -113,16 +113,16 @@ func (m *hsfMockProvisioner) IsReady() (result bool, err error) {
 	return
 }
 
-func (m *hsfMockProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
+func (m *hsfMockProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 
 	return m.Settings, m.Schema, m.Error
 }
 
-func (m *hsfMockProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (m *hsfMockProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
+func (m *hsfMockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }
 

@@ -8,6 +8,7 @@ package ssa
 // Currently it checks CFG invariants but little at the instruction level.
 
 import (
+	"bytes"
 	"fmt"
 	"go/types"
 	"io"
@@ -108,6 +109,9 @@ func (s *sanity) checkInstr(idx int, instr Instruction) {
 			for i, e := range instr.Edges {
 				if e == nil {
 					s.errorf("phi node '%s' has no value for edge #%d from %s", instr.Comment, i, s.block.Preds[i])
+				} else if !types.Identical(instr.typ, e.Type()) {
+					s.errorf("phi node '%s' has a different type (%s) for edge #%d from %s (%s)",
+						instr.Comment, instr.Type(), i, s.block.Preds[i], e.Type())
 				}
 			}
 		}
@@ -137,7 +141,7 @@ func (s *sanity) checkInstr(idx int, instr Instruction) {
 				s.errorf("convert %s -> %s: at least one type must be basic (or all basic, []byte, or []rune)", from, to)
 			}
 		}
-
+	case *MultiConvert:
 	case *Defer:
 	case *Extract:
 	case *Field:
@@ -409,8 +413,10 @@ func (s *sanity) checkFunction(fn *Function) bool {
 		s.errorf("nil Prog")
 	}
 
+	var buf bytes.Buffer
 	_ = fn.String()               // must not crash
 	_ = fn.RelString(fn.relPkg()) // must not crash
+	WriteFunction(&buf, fn)       // must not crash
 
 	// All functions have a package, except delegates (which are
 	// shared across packages, or duplicated as weak symbols in a

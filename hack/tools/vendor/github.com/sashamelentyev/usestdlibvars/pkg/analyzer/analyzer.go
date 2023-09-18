@@ -48,11 +48,11 @@ func flags() flag.FlagSet {
 	flags.Bool(TimeLayoutFlag, false, "suggest the use of time.Layout")
 	flags.Bool(CryptoHashFlag, false, "suggest the use of crypto.Hash.String()")
 	flags.Bool(RPCDefaultPathFlag, false, "suggest the use of rpc.DefaultXXPath")
-	flags.Bool(OSDevNullFlag, false, "suggest the use of os.DevNull")
+	flags.Bool(OSDevNullFlag, false, "[DEPRECATED] suggest the use of os.DevNull")
 	flags.Bool(SQLIsolationLevelFlag, false, "suggest the use of sql.LevelXX.String()")
 	flags.Bool(TLSSignatureSchemeFlag, false, "suggest the use of tls.SignatureScheme.String()")
 	flags.Bool(ConstantKindFlag, false, "suggest the use of constant.Kind.String()")
-	flags.Bool(SyslogPriorityFlag, false, "suggest the use of syslog.Priority")
+	flags.Bool(SyslogPriorityFlag, false, "[DEPRECATED] suggest the use of syslog.Priority")
 	return *flags
 }
 
@@ -119,6 +119,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		case *ast.IfStmt:
 			cond, ok := n.Cond.(*ast.BinaryExpr)
 			if !ok {
+				return
+			}
+
+			switch cond.Op {
+			case token.LSS, token.GTR, token.LEQ, token.GEQ:
 				return
 			}
 
@@ -461,13 +466,7 @@ func checkRPCDefaultPath(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	}
 }
 
-func checkOSDevNull(pass *analysis.Pass, basicLit *ast.BasicLit) {
-	currentVal := getBasicLitValue(basicLit)
-
-	if newVal, ok := mapping.OSDevNull[currentVal]; ok {
-		report(pass, basicLit.Pos(), currentVal, newVal)
-	}
-}
+func checkOSDevNull(pass *analysis.Pass, basicLit *ast.BasicLit) {}
 
 func checkSQLIsolationLevel(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
@@ -493,13 +492,7 @@ func checkConstantKind(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	}
 }
 
-func checkSyslogPriority(pass *analysis.Pass, basicLit *ast.BasicLit) {
-	currentVal := getBasicLitValue(basicLit)
-
-	if newVal, ok := mapping.SyslogPriority[currentVal]; ok {
-		report(pass, basicLit.Pos(), currentVal, newVal)
-	}
-}
+func checkSyslogPriority(pass *analysis.Pass, basicLit *ast.BasicLit) {}
 
 // getBasicLitFromArgs gets the *ast.BasicLit of a function argument.
 //

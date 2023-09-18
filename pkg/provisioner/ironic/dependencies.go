@@ -15,26 +15,22 @@ const (
 )
 
 type ironicDependenciesChecker struct {
-	client    *gophercloud.ServiceClient
-	inspector *gophercloud.ServiceClient
-	log       logr.Logger
+	client *gophercloud.ServiceClient
+	log    logr.Logger
 }
 
-func newIronicDependenciesChecker(client *gophercloud.ServiceClient, inspector *gophercloud.ServiceClient, log logr.Logger) *ironicDependenciesChecker {
+func newIronicDependenciesChecker(client *gophercloud.ServiceClient, log logr.Logger) *ironicDependenciesChecker {
 	return &ironicDependenciesChecker{
-		client:    client,
-		inspector: inspector,
-		log:       log,
+		client: client,
+		log:    log,
 	}
 }
 
 func (i *ironicDependenciesChecker) IsReady() (result bool, err error) {
-
-	ready, err := i.checkIronic()
-	if ready && err == nil {
-		ready = i.checkIronicInspector()
+	ready := i.checkEndpoint(i.client)
+	if ready {
+		ready, err = i.checkIronicConductor()
 	}
-
 	return ready, err
 }
 
@@ -51,14 +47,6 @@ func (i *ironicDependenciesChecker) checkEndpoint(client *gophercloud.ServiceCli
 	}
 
 	return err == nil
-}
-
-func (i *ironicDependenciesChecker) checkIronic() (ready bool, err error) {
-	ready = i.checkEndpoint(i.client)
-	if ready {
-		ready, err = i.checkIronicConductor()
-	}
-	return ready, err
 }
 
 func (i *ironicDependenciesChecker) checkIronicConductor() (ready bool, err error) {
@@ -85,8 +73,4 @@ func (i *ironicDependenciesChecker) checkIronicConductor() (ready bool, err erro
 	ready = driverCount > 0
 
 	return ready, err
-}
-
-func (i *ironicDependenciesChecker) checkIronicInspector() (ready bool) {
-	return i.checkEndpoint(i.inspector)
 }

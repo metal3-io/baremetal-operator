@@ -63,9 +63,7 @@ func TestFindExistingHost(t *testing.T) {
 			host.ObjectMeta.Name = tc.hostName
 			host.Status.Provisioning.ID = tc.provisioningID
 
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-				tc.ironic.Endpoint(), auth, "https://inspector.test/", auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, tc.ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}

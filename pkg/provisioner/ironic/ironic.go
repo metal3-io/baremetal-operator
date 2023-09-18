@@ -97,8 +97,6 @@ type ironicProvisioner struct {
 	bootMACAddress string
 	// a client for talking to ironic
 	client *gophercloud.ServiceClient
-	// a client for talking to ironic-inspector
-	inspector *gophercloud.ServiceClient
 	// a logger configured for this host
 	log logr.Logger
 	// a debug logger configured for this host
@@ -1965,7 +1963,7 @@ func ironicNodeName(objMeta metav1.ObjectMeta) string {
 func (p *ironicProvisioner) IsReady() (result bool, err error) {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
 
-	checker := newIronicDependenciesChecker(p.client, p.inspector, p.log)
+	checker := newIronicDependenciesChecker(p.client, p.log)
 	return checker.IsReady()
 }
 

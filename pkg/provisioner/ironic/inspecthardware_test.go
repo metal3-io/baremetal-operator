@@ -21,9 +21,8 @@ func TestInspectHardware(t *testing.T) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 
 	cases := []struct {
-		name      string
-		ironic    *testserver.IronicMock
-		inspector *testserver.InspectorMock
+		name   string
+		ironic *testserver.IronicMock
 
 		restartOnFailure bool
 		refresh          bool
@@ -207,11 +206,6 @@ func TestInspectHardware(t *testing.T) {
 				defer tc.ironic.Stop()
 			}
 
-			if tc.inspector != nil {
-				tc.inspector.Start()
-				defer tc.inspector.Stop()
-			}
-
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
 			publishedMsg := ""
@@ -219,9 +213,7 @@ func TestInspectHardware(t *testing.T) {
 				publishedMsg = reason + " " + message
 			}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
-				tc.ironic.Endpoint(), auth, tc.inspector.Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, tc.ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}

@@ -9,7 +9,6 @@ import (
 
 type EnvFixture struct {
 	ironicEndpoint                   string
-	inspectorEndpoint                string
 	kernelURL                        string
 	ramdiskURL                       string
 	isoURL                           string
@@ -40,7 +39,6 @@ func (f *EnvFixture) replace(env, value string) {
 func (f *EnvFixture) SetUp() {
 	f.origEnv = map[string]string{}
 	f.replace("IRONIC_ENDPOINT", f.ironicEndpoint)
-	f.replace("IRONIC_INSPECTOR_ENDPOINT", f.inspectorEndpoint)
 	f.replace("DEPLOY_KERNEL_URL", f.kernelURL)
 	f.replace("DEPLOY_RAMDISK_URL", f.ramdiskURL)
 	f.replace("DEPLOY_ISO_URL", f.isoURL)
@@ -54,9 +52,8 @@ func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
 	assert.Equal(t, f.liveISOForcePersistentBootDevice, c.liveISOForcePersistentBootDevice)
 }
 
-func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic, inspector string) {
+func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic string) {
 	assert.Equal(t, f.ironicEndpoint, ironic)
-	assert.Equal(t, f.inspectorEndpoint, inspector)
 }
 
 func TestLoadConfigFromEnv(t *testing.T) {
@@ -189,25 +186,12 @@ func TestLoadEndpointsFromEnv(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name: "both",
-			env: EnvFixture{
-				ironicEndpoint:    "http://ironic.test",
-				inspectorEndpoint: "http://ironic-inspector.test",
-			},
-		}, {
-			name: "ironic-only",
+			name: "with-ironic",
 			env: EnvFixture{
 				ironicEndpoint: "http://ironic.test",
 			},
-			expectError: true,
 		}, {
-			name: "inspector-only",
-			env: EnvFixture{
-				inspectorEndpoint: "http://ironic-inspector.test",
-			},
-			expectError: true,
-		}, {
-			name:        "neither",
+			name:        "without-ironic",
 			env:         EnvFixture{},
 			expectError: true,
 		},
@@ -217,12 +201,12 @@ func TestLoadEndpointsFromEnv(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			defer tc.env.TearDown()
 			tc.env.SetUp()
-			i, ii, err := loadEndpointsFromEnv()
+			i, err := loadEndpointsFromEnv()
 			if tc.expectError {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)
-				tc.env.VerifyEndpoints(t, i, ii)
+				tc.env.VerifyEndpoints(t, i)
 			}
 		})
 	}

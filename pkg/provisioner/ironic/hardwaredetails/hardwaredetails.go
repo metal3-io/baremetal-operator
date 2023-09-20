@@ -101,11 +101,14 @@ func getStorageDetails(diskdata []introspection.RootDiskType) []metal3api.Storag
 	storage := make([]metal3api.Storage, len(diskdata))
 	for i, disk := range diskdata {
 		device := disk.Name
+		allNames := []string{device}
 		if disk.ByPath != "" {
 			device = disk.ByPath
+			allNames = append(allNames, device)
 		}
 		storage[i] = metal3api.Storage{
 			Name:               device,
+			AlternateNames:     allNames,
 			Rotational:         disk.Rotational,
 			Type:               getDiskType(disk),
 			SizeBytes:          metal3api.Capacity(disk.Size),

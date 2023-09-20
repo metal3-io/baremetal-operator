@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -35,7 +36,19 @@ func main() {
 		InsecureSkipVerify: ironicInsecure,
 	}
 
-	ironic, err := clients.IronicClient(opts.Endpoint, opts.AuthConfig, tlsConf)
+	endpoint := opts.Endpoint
+	parsedEndpoint, err := url.Parse(endpoint)
+	if err != nil {
+		fmt.Printf("invalid ironic endpoint: %s", err)
+		os.Exit(1)
+	}
+
+	if parsedEndpoint.Port() == "5050" {
+		parsedEndpoint.Host = strings.Replace(parsedEndpoint.Host, ":5050", ":6385", 1)
+		endpoint = parsedEndpoint.String()
+	}
+
+	ironic, err := clients.IronicClient(endpoint, opts.AuthConfig, tlsConf)
 	if err != nil {
 		fmt.Printf("could not get ironic client: %s", err)
 		os.Exit(1)
@@ -50,7 +63,7 @@ func main() {
 
 	json, err := json.MarshalIndent(hardwaredetails.GetHardwareDetails(data, klog.NewKlogr()), "", "\t")
 	if err != nil {
-		fmt.Printf("could not convert introspection data: %s", err)
+		fmt.Printf("could not convert inspection data: %s", err)
 		os.Exit(1)
 	}
 

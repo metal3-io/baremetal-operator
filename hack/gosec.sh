@@ -8,7 +8,10 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 if [ "${IS_CONTAINER}" != "false" ]; then
   export XDG_CACHE_HOME="/tmp/.cache"
 
-  gosec -severity medium --confidence medium -quiet ./...
+  # It seems like gosec does not handle submodules well. Therefore we skip them and run separately.
+  gosec -severity medium --confidence medium -quiet -exclude-dir=apis -exclude-dir=hack/tools  ./...
+  (cd apis && gosec -severity medium --confidence medium -quiet ./...)
+  (cd hack/tools && gosec -severity medium --confidence medium -quiet ./...)
 else
   "${CONTAINER_RUNTIME}" run --rm \
     --env IS_CONTAINER=TRUE \

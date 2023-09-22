@@ -96,7 +96,7 @@ the release workflow. For a release, we should have the following artifacts:
 Git tags pushed:
 
 - Primary release tag: `v0.x.y`
-- Go module tags: `api/v0.x.y` and `pkg/hardwareutils/v0.x.y`
+- Go module tags: `apis/v0.x.y` and `pkg/hardwareutils/v0.x.y`
 
 Container images built and tagged at Quay registry:
 

@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -364,10 +365,11 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconcile int) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.HostFirmwareSettings{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: r.updateEventHandler,

@@ -81,12 +81,11 @@ We also need to create one or more tags for the Go modules ecosystem:
 
 - For any subdirectory with `go.mod` in it (excluding `hack/tools`), create
   another Git tag with directory prefix, ie.
-  `git tag -s apis/v0.x.y`.
-  For BMO, these directories are `apis` and `pkg/hardwareutils`. This enables
-  the tags to be used as a Go module version for any downstream users.
-  **NOTE**: Do not create annotated tags (`-a` or `-m`) for Go modules. Release
-  notes expects only the main tag to be annotated, otherwise it might create
-  incorrect release notes.
+  `git tag apis/v0.x.y` and `git tag pkg/hardwareutils/v0.x.y`. This
+  enables the tags to be used as a Go module version for any downstream users.
+  **NOTE**: Do not create annotated tags (`-a`, or implicitly via `-m` or `-s`)
+  for Go modules. Release notes expects only the main tag to be annotated,
+  otherwise it might create incorrect release notes.
 
 ### Release artifacts
 

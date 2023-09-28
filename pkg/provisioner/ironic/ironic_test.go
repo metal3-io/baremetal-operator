@@ -37,7 +37,7 @@ func newTestProvisionerFactory() ironicProvisionerFactory {
 
 // A private function to construct an ironicProvisioner (rather than a
 // Provisioner interface) in a consistent way for tests.
-func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig, inspectorURL string, inspectorAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
+func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
 	hostData := provisioner.BuildHostData(host, bmcCreds)
 
 	tlsConf := clients.TLSConfig{}
@@ -46,14 +46,8 @@ func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Crede
 		return nil, err
 	}
 
-	clientInspector, err := clients.InspectorClient(inspectorURL, inspectorAuthSettings, tlsConf)
-	if err != nil {
-		return nil, err
-	}
-
 	factory := newTestProvisionerFactory()
 	factory.clientIronic = clientIronic
-	factory.clientInspector = clientInspector
 	return factory.ironicProvisioner(hostData, publisher)
 }
 

@@ -29,10 +29,9 @@ func deleteTest(t *testing.T, detach bool) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 
 	cases := []struct {
-		name      string
-		ironic    *testserver.IronicMock
-		inspector *testserver.InspectorMock
-		hostName  string
+		name     string
+		ironic   *testserver.IronicMock
+		hostName string
 
 		expectedDirty        bool
 		expectedRequestAfter time.Duration
@@ -177,11 +176,6 @@ func deleteTest(t *testing.T, detach bool) {
 				defer tc.ironic.Stop()
 			}
 
-			if tc.inspector != nil {
-				tc.inspector.Start()
-				defer tc.inspector.Stop()
-			}
-
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
 
@@ -190,9 +184,7 @@ func deleteTest(t *testing.T, detach bool) {
 			}
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-				tc.ironic.Endpoint(), auth, tc.inspector.Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, tc.ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}

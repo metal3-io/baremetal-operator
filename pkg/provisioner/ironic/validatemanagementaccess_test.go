@@ -30,9 +30,7 @@ func TestValidateManagementAccessNoMAC(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -62,9 +60,7 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -96,9 +92,7 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -132,9 +126,7 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -170,9 +162,7 @@ func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -211,9 +201,7 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -248,9 +236,7 @@ func TestValidateManagementAccessExistingNodeNameUpdate(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -323,9 +309,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 			defer ironic.Stop()
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-				ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
@@ -436,9 +420,7 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			defer ironic.Stop()
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-				ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
@@ -494,9 +476,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 			defer ironic.Stop()
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-				ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
@@ -552,9 +532,7 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -601,9 +579,7 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -645,9 +621,7 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -690,9 +664,7 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -730,9 +702,7 @@ func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -757,9 +727,7 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -780,9 +748,7 @@ func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
 	host.Spec.BMC = metal3api.BMCDetails{}
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -805,9 +771,7 @@ func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
 	}
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
@@ -858,10 +822,7 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 			host := makeHost()
 			host.Spec.BMC.Address = tc.Address
 
-			prov, _ := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-				ironicEndpoint, auth,
-				ironicEndpoint, auth,
-			)
+			prov, _ := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironicEndpoint, auth)
 			prov.config.havePreprovImgBuilder = tc.PreprovImgEnabled
 
 			fmts, err := prov.PreprovisioningImageFormats()
@@ -1163,9 +1124,7 @@ func TestSetExternalURL(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
 
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
@@ -1195,9 +1154,7 @@ func TestSetExternalURLIPv4(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
 
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)
@@ -1227,9 +1184,7 @@ func TestSetExternalURLRemoving(t *testing.T) {
 	defer ironic.Stop()
 
 	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil,
-		ironic.Endpoint(), auth, testserver.NewInspector(t).Endpoint(), auth,
-	)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
 
 	if err != nil {
 		t.Fatalf("could not create provisioner: %s", err)

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/inventory"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -21,9 +21,8 @@ func TestInspectHardware(t *testing.T) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 
 	cases := []struct {
-		name      string
-		ironic    *testserver.IronicMock
-		inspector *testserver.InspectorMock
+		name   string
+		ironic *testserver.IronicMock
 
 		restartOnFailure bool
 		refresh          bool
@@ -54,8 +53,7 @@ func TestInspectHardware(t *testing.T) {
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "manageable",
-			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionDataFailed(nodeUUID, http.StatusNotFound),
+			}).WithInventoryFailed(nodeUUID, http.StatusNotFound),
 
 			expectedStarted:      true,
 			expectedDirty:        true,
@@ -67,13 +65,11 @@ func TestInspectHardware(t *testing.T) {
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "manageable",
+			}).WithInventory(nodeUUID, nodes.InventoryData{
+				Inventory: inventory.InventoryType{
+					Hostname: "node-0",
+				},
 			}),
-			inspector: testserver.NewInspector(t).Ready().
-				WithIntrospectionData(nodeUUID, introspection.Data{
-					Inventory: introspection.InventoryType{
-						Hostname: "node-0",
-					},
-				}),
 
 			refresh: true,
 
@@ -87,10 +83,9 @@ func TestInspectHardware(t *testing.T) {
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "manageable",
-			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionDataFailed(nodeUUID, http.StatusBadRequest),
+			}).WithInventoryFailed(nodeUUID, http.StatusBadRequest),
 
-			expectedError: "failed to retrieve hardware introspection data: Bad request with: \\[GET http://127.0.0.1:.*/v1/introspection/33ce8659-7400-4c68-9535-d10766f07a58/data\\], error message: An error\\\n",
+			expectedError: "failed to retrieve hardware introspection data: Bad request with: \\[GET http://127.0.0.1:.*/v1/nodes/33ce8659-7400-4c68-9535-d10766f07a58/inventory\\], error message: An error\\\n",
 		},
 		{
 			name: "introspection-status-retry-on-wait",
@@ -192,13 +187,11 @@ func TestInspectHardware(t *testing.T) {
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.Manageable),
+			}).WithInventory(nodeUUID, nodes.InventoryData{
+				Inventory: inventory.InventoryType{
+					Hostname: "node-0",
+				},
 			}),
-			inspector: testserver.NewInspector(t).Ready().
-				WithIntrospectionData(nodeUUID, introspection.Data{
-					Inventory: introspection.InventoryType{
-						Hostname: "node-0",
-					},
-				}),
 
 			expectedDirty:       false,
 			expectedDetailsHost: "node-0",
@@ -213,11 +206,6 @@ func TestInspectHardware(t *testing.T) {
 				defer tc.ironic.Stop()
 			}
 
-			if tc.inspector != nil {
-				tc.inspector.Start()
-				defer tc.inspector.Stop()
-			}
-
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
 			publishedMsg := ""
@@ -225,9 +213,7 @@ func TestInspectHardware(t *testing.T) {
 				publishedMsg = reason + " " + message
 			}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
-				tc.ironic.Endpoint(), auth, tc.inspector.Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, tc.ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}

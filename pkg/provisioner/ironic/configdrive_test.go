@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -130,19 +129,11 @@ func TestEmpty(t *testing.T) {
 			ironic.Start()
 			defer ironic.Stop()
 
-			inspector := testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
-				Finished: false,
-			})
-			inspector.Start()
-			defer inspector.Stop()
-
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
 			publisher := func(reason, message string) {}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
-				ironic.Endpoint(), auth, inspector.Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}

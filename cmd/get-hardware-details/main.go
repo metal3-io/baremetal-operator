@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -43,8 +44,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Previously, this command accepted the Inspector endpoint. But since
+	// we're transitioning to not using Inspector directly, it now requires
+	// the Ironic endpoint. Try to handle the transition by checking for
+	// the well-known Inspector port and replacing it with the Ironic port.
 	if parsedEndpoint.Port() == "5050" {
-		parsedEndpoint.Host = strings.Replace(parsedEndpoint.Host, ":5050", ":6385", 1)
+		parsedEndpoint.Host = net.JoinHostPort(parsedEndpoint.Hostname(), "6385")
 		endpoint = parsedEndpoint.String()
 	}
 

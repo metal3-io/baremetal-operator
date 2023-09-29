@@ -42,6 +42,7 @@ const (
 	warning       = ":warning: Breaking Changes"
 	other         = ":seedling: Others"
 	unknown       = ":question: Sort these by hand"
+	superseded    = ":recycle: Superseded or Reverted"
 )
 
 var (
@@ -52,6 +53,7 @@ var (
 		documentation,
 		other,
 		unknown,
+		superseded,
 	}
 
 	fromTag = flag.String("from", "", "The tag or commit to start from.")
@@ -104,6 +106,7 @@ func run() int {
 		warning:       {},
 		other:         {},
 		unknown:       {},
+		superseded:    {},
 	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -171,6 +174,9 @@ func run() int {
 		merges[key] = append(merges[key], formatMerge(body, prNumber))
 	}
 
+	// Add empty superseded section
+	merges[superseded] = append(merges[superseded], "- `<insert superseded bumps and reverts here>`")
+
 	// TODO Turn this into a link (requires knowing the project name + organization)
 	fmt.Printf("Changes since %v\n---\n", lastTag)
 
@@ -186,7 +192,7 @@ func run() int {
 	}
 
 	fmt.Printf("The container image for this release is: %v\n", latestTag)
-	fmt.Println("Thanks to all our contributors! 😊")
+	fmt.Println("\nThanks to all our contributors! 😊")
 
 	return 0
 }

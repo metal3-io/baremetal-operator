@@ -5,10 +5,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"k8s.io/klog/v2"
 
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
@@ -34,22 +37,38 @@ func main() {
 		InsecureSkipVerify: ironicInsecure,
 	}
 
-	inspector, err := clients.InspectorClient(opts.Endpoint, opts.AuthConfig, tlsConf)
+	endpoint := opts.Endpoint
+	parsedEndpoint, err := url.Parse(endpoint)
 	if err != nil {
-		fmt.Printf("could not get inspector client: %s", err)
+		fmt.Printf("invalid ironic endpoint: %s", err)
 		os.Exit(1)
 	}
 
-	introData := introspection.GetIntrospectionData(inspector, opts.NodeID)
+	// Previously, this command accepted the Inspector endpoint. But since
+	// we're transitioning to not using Inspector directly, it now requires
+	// the Ironic endpoint. Try to handle the transition by checking for
+	// the well-known Inspector port and replacing it with the Ironic port.
+	if parsedEndpoint.Port() == "5050" {
+		parsedEndpoint.Host = net.JoinHostPort(parsedEndpoint.Hostname(), "6385")
+		endpoint = parsedEndpoint.String()
+	}
+
+	ironic, err := clients.IronicClient(endpoint, opts.AuthConfig, tlsConf)
+	if err != nil {
+		fmt.Printf("could not get ironic client: %s", err)
+		os.Exit(1)
+	}
+
+	introData := nodes.GetInventory(ironic, opts.NodeID)
 	data, err := introData.Extract()
 	if err != nil {
-		fmt.Printf("could not get introspection data: %s", err)
+		fmt.Printf("could not get inspection data: %s", err)
 		os.Exit(1)
 	}
 
-	json, err := json.MarshalIndent(hardwaredetails.GetHardwareDetails(data), "", "\t")
+	json, err := json.MarshalIndent(hardwaredetails.GetHardwareDetails(data, klog.NewKlogr()), "", "\t")
 	if err != nil {
-		fmt.Printf("could not convert introspection data: %s", err)
+		fmt.Printf("could not convert inspection data: %s", err)
 		os.Exit(1)
 	}
 
@@ -58,7 +77,7 @@ func main() {
 
 func getOptions() (o options) {
 	if len(os.Args) != 3 {
-		fmt.Println("Usage: get-hardware-details <inspector URI> <node UUID>")
+		fmt.Println("Usage: get-hardware-details <ironic URI> <node UUID>")
 		os.Exit(1)
 	}
 

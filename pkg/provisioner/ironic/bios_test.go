@@ -100,18 +100,13 @@ func TestGetFirmwareSettings(t *testing.T) {
 			tc.ironic.Start()
 			defer tc.ironic.Stop()
 
-			inspector := testserver.NewInspector(t).Start()
-			defer inspector.Stop()
-
 			host := makeHost()
 			host.Name = "node-1"
 			host.Status.Provisioning.ID = nodeUUID
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher,
-				tc.ironic.Endpoint(), auth, inspector.Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, tc.ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}

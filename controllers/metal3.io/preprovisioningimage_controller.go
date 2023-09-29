@@ -31,6 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
@@ -351,9 +352,10 @@ func (r *PreprovisioningImageReconciler) CanStart() bool {
 	return false
 }
 
-func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconcile int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3.PreprovisioningImage{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
 		Owns(&corev1.Secret{}, builder.MatchEveryOwner).
 		Complete(r)
 }

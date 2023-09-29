@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/inventory"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
-	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 	"github.com/stretchr/testify/assert"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -21,11 +21,11 @@ func TestInspectHardware(t *testing.T) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 
 	cases := []struct {
-		name      string
-		ironic    *testserver.IronicMock
-		inspector *testserver.InspectorMock
+		name   string
+		ironic *testserver.IronicMock
 
 		restartOnFailure bool
+		refresh          bool
 		forceReboot      bool
 
 		expectedStarted      bool
@@ -43,7 +43,6 @@ func TestInspectHardware(t *testing.T) {
 				UUID:           nodeUUID,
 				ProvisionState: "available",
 			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 
 			expectedStarted:      false,
 			expectedDirty:        true,
@@ -53,9 +52,8 @@ func TestInspectHardware(t *testing.T) {
 			name: "introspection-status-start-new-hardware-inspection",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				UUID:           nodeUUID,
-				ProvisionState: "active",
-			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
+				ProvisionState: "manageable",
+			}).WithInventoryFailed(nodeUUID, http.StatusNotFound),
 
 			expectedStarted:      true,
 			expectedDirty:        true,
@@ -63,44 +61,48 @@ func TestInspectHardware(t *testing.T) {
 			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
-			name:   "introspection-data-failed",
-			ironic: testserver.NewIronic(t).WithDefaultResponses(),
-			inspector: testserver.NewInspector(t).Ready().
-				WithIntrospection(nodeUUID, introspection.Introspection{
-					Finished: true,
-				}).
-				WithIntrospectionDataFailed(nodeUUID, http.StatusBadRequest),
+			name: "introspection-status-refresh-hardware-inspection",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: "manageable",
+			}).WithInventory(nodeUUID, nodes.InventoryData{
+				Inventory: inventory.InventoryType{
+					Hostname: "node-0",
+				},
+			}),
 
-			expectedError: "failed to retrieve hardware introspection data: Bad request with: \\[GET http://127.0.0.1:.*/v1/introspection/33ce8659-7400-4c68-9535-d10766f07a58/data\\], error message: An error\\\n",
+			refresh: true,
+
+			expectedStarted:      true,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
-			name: "introspection-status-failed-404-retry-on-wait",
+			name: "introspection-data-failed",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: "manageable",
+			}).WithInventoryFailed(nodeUUID, http.StatusBadRequest),
+
+			expectedError: "failed to retrieve hardware introspection data: Bad request with: \\[GET http://127.0.0.1:.*/v1/nodes/33ce8659-7400-4c68-9535-d10766f07a58/inventory\\], error message: An error\\\n",
+		},
+		{
+			name: "introspection-status-retry-on-wait",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspect wait",
 			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 
 			expectedDirty:        true,
 			expectedRequestAfter: 15,
 		},
 		{
-			name: "introspection-status-failed-extraction",
+			name: "introspection-status-retry-on-inspecting",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspecting",
 			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusBadRequest),
-
-			expectedError: "failed to extract hardware inspection status: Bad request with: \\[GET http://127.0.0.1:.*/v1/introspection/33ce8659-7400-4c68-9535-d10766f07a58\\], error message: An error\\\n",
-		},
-		{
-			name: "introspection-status-failed-404-retry",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				UUID:           nodeUUID,
-				ProvisionState: "inspecting",
-			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 
 			expectedDirty:        true,
 			expectedRequestAfter: 15,
@@ -108,11 +110,9 @@ func TestInspectHardware(t *testing.T) {
 		{
 			name: "introspection-failed",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				UUID: nodeUUID,
-			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
-				Finished: true,
-				Error:    "Timeout",
+				UUID:           nodeUUID,
+				ProvisionState: "inspect failed",
+				LastError:      "Timeout",
 			}),
 
 			expectedResultError: "Timeout",
@@ -120,15 +120,13 @@ func TestInspectHardware(t *testing.T) {
 		{
 			name: "introspection-aborted",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				UUID: nodeUUID,
+				UUID:           nodeUUID,
+				ProvisionState: "inspect failed",
+				LastError:      "Inspection was aborted by request.",
 			}).NodeUpdate(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectFail),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
-				Finished: true,
-				Error:    "Canceled by operator",
-			}),
 
 			expectedStarted:      true,
 			expectedDirty:        true,
@@ -136,26 +134,11 @@ func TestInspectHardware(t *testing.T) {
 			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
-			name: "inspection-in-progress (not yet finished)",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				UUID:           nodeUUID,
-				ProvisionState: string(nodes.Manageable),
-			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
-				Finished: false,
-			}),
-			expectedDirty:        true,
-			expectedRequestAfter: 15,
-		},
-		{
 			name: "inspection-in-progress - forceReboot",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectWait),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospection(nodeUUID, introspection.Introspection{
-				Finished: false,
-			}),
 			forceReboot: true,
 
 			expectedStarted:      true,
@@ -163,31 +146,11 @@ func TestInspectHardware(t *testing.T) {
 			expectedRequestAfter: 10,
 		},
 		{
-			name: "inspection-in-progress (but node still in InspectWait)",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
-				UUID:           nodeUUID,
-				ProvisionState: string(nodes.InspectWait),
-			}),
-			inspector: testserver.NewInspector(t).Ready().
-				WithIntrospection(nodeUUID, introspection.Introspection{
-					Finished: true,
-				}).
-				WithIntrospectionData(nodeUUID, introspection.Data{
-					Inventory: introspection.InventoryType{
-						Hostname: "node-0",
-					},
-				}),
-
-			expectedDirty:        true,
-			expectedRequestAfter: 15,
-		},
-		{
 			name: "inspection-failed",
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectFail),
 			}),
-			inspector: testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 
 			expectedResultError: "Inspection failed",
 		},
@@ -200,7 +163,6 @@ func TestInspectHardware(t *testing.T) {
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectFail),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
-			inspector:        testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 			restartOnFailure: true,
 
 			expectedStarted:      true,
@@ -214,7 +176,6 @@ func TestInspectHardware(t *testing.T) {
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectWait),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
-			inspector:   testserver.NewInspector(t).Ready().WithIntrospectionFailed(nodeUUID, http.StatusNotFound),
 			forceReboot: true,
 
 			expectedStarted:      true,
@@ -226,16 +187,11 @@ func TestInspectHardware(t *testing.T) {
 			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.Manageable),
+			}).WithInventory(nodeUUID, nodes.InventoryData{
+				Inventory: inventory.InventoryType{
+					Hostname: "node-0",
+				},
 			}),
-			inspector: testserver.NewInspector(t).Ready().
-				WithIntrospection(nodeUUID, introspection.Introspection{
-					Finished: true,
-				}).
-				WithIntrospectionData(nodeUUID, introspection.Data{
-					Inventory: introspection.InventoryType{
-						Hostname: "node-0",
-					},
-				}),
 
 			expectedDirty:       false,
 			expectedDetailsHost: "node-0",
@@ -250,11 +206,6 @@ func TestInspectHardware(t *testing.T) {
 				defer tc.ironic.Stop()
 			}
 
-			if tc.inspector != nil {
-				tc.inspector.Start()
-				defer tc.inspector.Stop()
-			}
-
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
 			publishedMsg := ""
@@ -262,16 +213,14 @@ func TestInspectHardware(t *testing.T) {
 				publishedMsg = reason + " " + message
 			}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
-				tc.ironic.Endpoint(), auth, tc.inspector.Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, tc.ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
 			result, started, details, err := prov.InspectHardware(
 				provisioner.InspectData{BootMode: metal3api.DefaultBootMode},
-				tc.restartOnFailure, false, tc.forceReboot)
+				tc.restartOnFailure, tc.refresh, tc.forceReboot)
 
 			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

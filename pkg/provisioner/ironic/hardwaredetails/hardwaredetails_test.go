@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/gophercloud/gophercloud/openstack/baremetal/inventory"
 	"github.com/gophercloud/gophercloud/openstack/baremetalintrospection/v1/introspection"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -150,7 +151,7 @@ func TestGetVLANsMalformed(t *testing.T) {
 
 func TestGetNICDetails(t *testing.T) {
 	nics := getNICDetails(
-		[]introspection.InterfaceType{
+		[]inventory.InterfaceType{
 			{
 				Name:        "eth0",
 				IPV4Address: "192.0.2.1",
@@ -231,7 +232,7 @@ func TestGetNICDetails(t *testing.T) {
 
 func TestGetFirmwareDetails(t *testing.T) {
 	// Test full (known) firmware payload
-	firmware := getFirmwareDetails(introspection.SystemFirmwareType{
+	firmware := getFirmwareDetails(inventory.SystemFirmwareType{
 		Vendor:    "foobar",
 		Version:   "1.2.3",
 		BuildDate: "2019-07-10",

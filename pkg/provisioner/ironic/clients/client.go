@@ -9,8 +9,6 @@ import (
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
-	httpbasicintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/httpbasic"
-	noauthintrospection "github.com/gophercloud/gophercloud/openstack/baremetalintrospection/noauth"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 )
 
@@ -95,31 +93,8 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 
 	// Ensure we have a microversion high enough to get the features
 	// we need. Update docs/configuration.md when updating the version.
-	// Version 1.74 allows retrival of the BIOS Registry
-	client.Microversion = "1.74"
+	// Version 1.81 allows retrival of Node inventory
+	client.Microversion = "1.81"
 
-	return updateHTTPClient(client, tls)
-}
-
-// InspectorClient creates a client for Ironic Inspector
-func InspectorClient(inspectorEndpoint string, auth AuthConfig, tls TLSConfig) (client *gophercloud.ServiceClient, err error) {
-	switch auth.Type {
-	case NoAuth:
-		client, err = noauthintrospection.NewBareMetalIntrospectionNoAuth(
-			noauthintrospection.EndpointOpts{
-				IronicInspectorEndpoint: inspectorEndpoint,
-			})
-	case HTTPBasicAuth:
-		client, err = httpbasicintrospection.NewBareMetalIntrospectionHTTPBasic(httpbasicintrospection.EndpointOpts{
-			IronicInspectorEndpoint:     inspectorEndpoint,
-			IronicInspectorUser:         auth.Username,
-			IronicInspectorUserPassword: auth.Password,
-		})
-	default:
-		err = fmt.Errorf("Unknown auth type %s", auth.Type)
-	}
-	if err != nil {
-		return
-	}
 	return updateHTTPClient(client, tls)
 }

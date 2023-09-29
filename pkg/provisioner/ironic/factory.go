@@ -19,11 +19,9 @@ type ironicProvisionerFactory struct {
 	log    logr.Logger
 	config ironicConfig
 
-	// Keep pointers to ironic and inspector clients configured with
-	// the global auth settings to reuse the connection between
-	// reconcilers.
-	clientIronic    *gophercloud.ServiceClient
-	clientInspector *gophercloud.ServiceClient
+	// Keep pointers to ironic client configured with the global
+	// auth settings to reuse the connection between reconcilers.
+	clientIronic *gophercloud.ServiceClient
 }
 
 func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder bool) provisioner.Factory {
@@ -40,7 +38,7 @@ func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder bool) provi
 }
 
 func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
-	ironicAuth, inspectorAuth, err := clients.LoadAuth()
+	ironicAuth, err := clients.LoadAuth()
 	if err != nil {
 		return err
 	}
@@ -50,7 +48,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 		return err
 	}
 
-	ironicEndpoint, inspectorEndpoint, err := loadEndpointsFromEnv()
+	ironicEndpoint, err := loadEndpointsFromEnv()
 	if err != nil {
 		return err
 	}
@@ -60,8 +58,6 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 	f.log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
 		"ironicAuthType", ironicAuth.Type,
-		"inspectorEndpoint", inspectorEndpoint,
-		"inspectorAuthType", inspectorAuth.Type,
 		"deployKernelURL", f.config.deployKernelURL,
 		"deployRamdiskURL", f.config.deployRamdiskURL,
 		"deployISOURL", f.config.deployISOURL,
@@ -75,12 +71,6 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 
 	f.clientIronic, err = clients.IronicClient(
 		ironicEndpoint, ironicAuth, tlsConf)
-	if err != nil {
-		return err
-	}
-
-	f.clientInspector, err = clients.InspectorClient(
-		inspectorEndpoint, inspectorAuth, tlsConf)
 	if err != nil {
 		return err
 	}
@@ -100,7 +90,6 @@ func (f ironicProvisionerFactory) ironicProvisioner(hostData provisioner.HostDat
 		disableCertVerification: hostData.DisableCertificateVerification,
 		bootMACAddress:          hostData.BootMACAddress,
 		client:                  f.clientIronic,
-		inspector:               f.clientInspector,
 		log:                     provisionerLogger,
 		debugLog:                provisionerLogger.V(1),
 		publisher:               publisher,
@@ -167,16 +156,11 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 	return c, nil
 }
 
-func loadEndpointsFromEnv() (ironicEndpoint, inspectorEndpoint string, err error) {
+func loadEndpointsFromEnv() (ironicEndpoint string, err error) {
 	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
 	if ironicEndpoint == "" {
 		err = errors.New("No IRONIC_ENDPOINT variable set")
 	}
-	inspectorEndpoint = os.Getenv("IRONIC_INSPECTOR_ENDPOINT")
-	if inspectorEndpoint == "" {
-		err = errors.New("No IRONIC_INSPECTOR_ENDPOINT variable set")
-	}
-
 	return
 }
 

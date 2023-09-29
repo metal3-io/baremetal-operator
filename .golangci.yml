@@ -25,3 +25,15 @@ issues:
   - linters:
     - staticcheck
     text: "SA1019:"
+  # Dot imports for gomega and ginkgo are allowed
+  # within test files and test utils.
+  - linters:
+    - revive
+    - stylecheck
+    path: _test\.go
+    text: should not use dot imports
+  - linters:
+    - revive
+    - stylecheck
+    path: (e2e)/.*.go
+    text: should not use dot imports

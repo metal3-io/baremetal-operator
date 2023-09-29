@@ -1,7 +1,8 @@
-# Temporary Build Files
+# Temporary Build/Output Files
 bin
 build/_output
 build/_test
+_artifacts
 # Created by https://www.gitignore.io/api/go
 ### Go ###
 # Binaries for programs and plugins

@@ -1,13 +1,13 @@
 # Gophercloud: an OpenStack SDK for Go
-[![Build Status](https://travis-ci.org/gophercloud/gophercloud.svg?branch=master)](https://travis-ci.org/gophercloud/gophercloud)
 [![Coverage Status](https://coveralls.io/repos/github/gophercloud/gophercloud/badge.svg?branch=master)](https://coveralls.io/github/gophercloud/gophercloud?branch=master)
 
-Gophercloud is an OpenStack Go SDK.
+[Reference documentation](http://godoc.org/github.com/gophercloud/gophercloud)
 
-## Useful links
+Gophercloud is a Go SDK for OpenStack.
 
-* [Reference documentation](http://godoc.org/github.com/gophercloud/gophercloud)
-* [Effective Go](https://golang.org/doc/effective_go.html)
+Join us on kubernetes slack, on [#gophercloud](https://kubernetes.slack.com/archives/C05G4NJ6P6X). Visit [slack.k8s.io](https://slack.k8s.io) for an invitation.
+
+This is the development branch of Gophercloud; stable releases are cut from the branch `v1`.
 
 ## How to install
 
@@ -40,7 +40,7 @@ You will need to retrieve the following:
   Credentials, a pre-generated token, or any other supported authentication
   mechanism.
 
-For users that have the OpenStack dashboard installed, there's a shortcut. If
+For users who have the OpenStack dashboard installed, there's a shortcut. If
 you visit the `project/api_access` path in Horizon and click on the
 "Download OpenStack RC File" button at the top right hand corner, you can
 download either a `clouds.yaml` file or an `openrc` bash file that exports all

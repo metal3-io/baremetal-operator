@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -123,6 +125,7 @@ func main() {
 	var webhookPort int
 	var restConfigQPS float64
 	var restConfigBurst int
+	var controllerConcurrency int
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -165,6 +168,8 @@ func main() {
 			"If omitted, the default Go cipher suites will be used. \n"+
 			"Preferred values: "+strings.Join(tlsCipherPreferredValues, ", ")+". \n"+
 			"Insecure values: "+strings.Join(tlsCipherInsecureValues, ", ")+".")
+	flag.IntVar(&controllerConcurrency, "controller-concurrency", 0,
+		"Number of CRs of each type to process simultaneously")
 	flag.Parse()
 
 	logOpts := zap.Options{}
@@ -228,12 +233,18 @@ func main() {
 		provisionerFactory = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
 	}
 
+	maxConcurrency, err := getMaxConcurrentReconciles(controllerConcurrency)
+	if err != nil {
+		setupLog.Error(err, "unable to create controllers")
+		os.Exit(1)
+	}
+
 	if err = (&metal3iocontroller.BareMetalHostReconciler{
 		Client:             mgr.GetClient(),
 		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 		ProvisionerFactory: provisionerFactory,
 		APIReader:          mgr.GetAPIReader(),
-	}).SetupWithManager(mgr, preprovImgEnable); err != nil {
+	}).SetupWithManager(mgr, preprovImgEnable, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)
 	}
@@ -247,7 +258,7 @@ func main() {
 			ImageProvider: imageprovider.NewDefaultImageProvider(),
 		}
 		if imgReconciler.CanStart() {
-			if err = (&imgReconciler).SetupWithManager(mgr); err != nil {
+			if err = (&imgReconciler).SetupWithManager(mgr, maxConcurrency); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "PreprovisioningImage")
 				os.Exit(1)
 			}
@@ -259,7 +270,7 @@ func main() {
 		Client:             mgr.GetClient(),
 		Log:                ctrl.Log.WithName("controllers").WithName("HostFirmwareSettings"),
 		ProvisionerFactory: provisionerFactory,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HostFirmwareSettings")
 		os.Exit(1)
 	}
@@ -268,7 +279,7 @@ func main() {
 		Client:             mgr.GetClient(),
 		Log:                ctrl.Log.WithName("controllers").WithName("BMCEventSubscription"),
 		ProvisionerFactory: provisionerFactory,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BMCEventSubscription")
 		os.Exit(1)
 	}
@@ -356,4 +367,38 @@ func GetTLSVersion(version string) (uint16, error) {
 		return 0, fmt.Errorf("unexpected TLS version %q (must be one of: %s)", version, strings.Join(tlsSupportedVersions, ", "))
 	}
 	return v, nil
+}
+
+func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
+	if controllerConcurrency > 0 {
+		ctrl.Log.Info(fmt.Sprintf("controller concurrency will be set to %d according to command line flag", controllerConcurrency))
+		return controllerConcurrency, nil
+	} else if controllerConcurrency < 0 {
+		return 0, fmt.Errorf("controller concurrency value: %d is invalid", controllerConcurrency)
+	}
+
+	// controller-concurrency value is 0 i.e. no values passed via the flag
+	// maxConcurrentReconcile value would be set based on env var or number of CPUs.
+	maxConcurrentReconciles := runtime.NumCPU()
+	if maxConcurrentReconciles > 8 {
+		maxConcurrentReconciles = 8
+	}
+	if maxConcurrentReconciles < 2 {
+		maxConcurrentReconciles = 2
+	}
+	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
+		mcr, err := strconv.Atoi(mcrEnv)
+		if err != nil {
+			return 0, errors.Wrap(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
+		}
+		if mcr > 0 {
+			ctrl.Log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
+			maxConcurrentReconciles = mcr
+		} else {
+			ctrl.Log.Info(fmt.Sprintf("Invalid BMO_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+		}
+	} else {
+		ctrl.Log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+	}
+	return maxConcurrentReconciles, nil
 }

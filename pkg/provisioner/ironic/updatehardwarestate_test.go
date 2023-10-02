@@ -19,7 +19,6 @@ func TestUpdateHardwareState(t *testing.T) {
 	cases := []struct {
 		name                 string
 		ironic               *testserver.IronicMock
-		inspector            *testserver.InspectorMock
 		hostCurrentlyPowered bool
 		hostName             string
 
@@ -113,11 +112,6 @@ func TestUpdateHardwareState(t *testing.T) {
 				defer tc.ironic.Stop()
 			}
 
-			if tc.inspector != nil {
-				tc.inspector.Start()
-				defer tc.inspector.Stop()
-			}
-
 			host := makeHost()
 			host.Status.Provisioning.ID = nodeUUID
 			host.Status.PoweredOn = tc.hostCurrentlyPowered
@@ -130,9 +124,7 @@ func TestUpdateHardwareState(t *testing.T) {
 				publishedMsg = reason + " " + message
 			}
 			auth := clients.AuthConfig{Type: clients.NoAuth}
-			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher,
-				tc.ironic.Endpoint(), auth, tc.inspector.Endpoint(), auth,
-			)
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, tc.ironic.Endpoint(), auth)
 			if err != nil {
 				t.Fatalf("could not create provisioner: %s", err)
 			}

@@ -10,7 +10,7 @@ if [ "${IS_CONTAINER}" != "false" ]; then
 
   make lint
 else
-  "${CONTAINER_RUNTIME}" run --rm \
+  "${CONTAINER_RUNTIME}" run -u "$(id -u)" --rm \
     --env IS_CONTAINER=TRUE \
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:rw,z" \
     --entrypoint sh \

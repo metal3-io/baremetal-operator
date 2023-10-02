@@ -39,8 +39,9 @@ func readAuthFile(filename string) (string, error) {
 	return strings.TrimSpace(string(content)), err
 }
 
-func load(clientType string) (auth AuthConfig, err error) {
-	authPath := path.Join(authRoot(), clientType)
+// LoadAuth loads the Ironic configuration from the environment
+func LoadAuth() (auth AuthConfig, err error) {
+	authPath := path.Join(authRoot(), "ironic")
 
 	if _, err := os.Stat(authPath); err != nil {
 		if os.IsNotExist(err) {
@@ -66,16 +67,6 @@ func load(clientType string) (auth AuthConfig, err error) {
 	} else if auth.Password == "" {
 		err = fmt.Errorf("Empty HTTP Basic Auth password")
 	}
-	return
-}
-
-// LoadAuth loads the Ironic and Inspector configuration from the environment
-func LoadAuth() (ironicAuth, inspectorAuth AuthConfig, err error) {
-	ironicAuth, err = load("ironic")
-	if err != nil {
-		return
-	}
-	inspectorAuth, err = load("ironic-inspector")
 	return
 }
 

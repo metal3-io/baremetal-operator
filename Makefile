@@ -4,6 +4,8 @@ DEBUG = --debug
 COVER_PROFILE = cover.out
 GO_VERSION ?= 1.20.6
 
+ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
 # CRD Generation Options
 #
 # allowDangerousTypes=true lets use the float64 field for clock speeds
@@ -19,6 +21,8 @@ BIN_DIR := bin
 CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
+GINKGO = tools/bin/ginkgo
+GINKGO_VER = v2.11.0
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
@@ -37,6 +41,25 @@ export IRONIC_ENDPOINT=http://localhost:6385/v1/
 export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
 export GO111MODULE=on
 export GOFLAGS=
+
+#
+# Ginkgo configuration.
+#
+GINKGO_FOCUS ?=
+GINKGO_SKIP ?=
+GINKGO_NODES ?= 1
+GINKGO_TIMEOUT ?= 2h
+GINKGO_POLL_PROGRESS_AFTER ?= 60m
+GINKGO_POLL_PROGRESS_INTERVAL ?= 5m
+E2E_CONF_FILE ?= $(ROOT_DIR)/test/e2e/config/ironic.yaml
+USE_EXISTING_CLUSTER ?= true
+SKIP_RESOURCE_CLEANUP ?= false
+GINKGO_NOCOLOR ?= false
+
+# to set multiple ginkgo skip flags, if any
+ifneq ($(strip $(GINKGO_SKIP)),)
+_SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
+endif
 
 .PHONY: help
 help:  ## Display this help
@@ -80,6 +103,17 @@ unit-cover: ## Run unit tests with code coverage
 unit-verbose: ## Run unit tests with verbose output
 	TEST_FLAGS=-v make unit
 
+ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
+
+.PHONY: test-e2e
+test-e2e: $(GINKGO) ## Run the end-to-end tests
+	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \
+		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e --focus="$(GINKGO_FOCUS)" \
+		$(_SKIP_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
+		--output-dir="$(ARTIFACTS)" --junit-report="junit.e2e_suite.1.xml" $(GINKGO_ARGS) test/e2e -- \
+		-e2e.config="$(E2E_CONF_FILE)" -e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER) \
+		-e2e.skip-resource-cleanup=$(SKIP_RESOURCE_CLEANUP) -e2e.artifacts-folder="$(ARTIFACTS)"
+
 ## --------------------------------------
 ## Linter Targets
 ## --------------------------------------
@@ -93,6 +127,7 @@ tools/bin/golangci-lint: hack/tools/go.mod
 .PHONY: lint
 lint: tools/bin/golangci-lint
 	$< run
+	cd test; ../$< run
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation
@@ -103,7 +138,7 @@ manifest-lint: ## Run manifest validation
 ## --------------------------------------
 
 .PHONY: build
-build: generate manifests manager tools ## Build everything
+build: generate manifests manager tools build-e2e ## Build everything
 
 .PHONY: manager
 manager: ## Build manager binary
@@ -139,6 +174,10 @@ $(CONTROLLER_GEN): hack/tools/go.mod
 
 $(KUSTOMIZE): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v4
+
+.PHONY: build-e2e
+build-e2e:
+	cd test; go build ./...
 
 .PHONY: manifests
 manifests: manifests-generate manifests-kustomize ## Generate manifests e.g. CRD, RBAC etc.
@@ -235,6 +274,9 @@ tools:
 	go build -o bin/make-bm-worker cmd/make-bm-worker/main.go
 	go build -o bin/make-virt-host cmd/make-virt-host/main.go
 
+$(GINKGO): ## Install ginkgo in tools/bin
+	GOBIN=$(abspath tools/bin) go install github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VER)
+
 ## --------------------------------------
 ## Tilt / Kind
 ## --------------------------------------
@@ -265,6 +307,8 @@ mod: ## Clean up go module settings
 	cd pkg/hardwareutils; go mod verify
 	cd hack/tools; go mod tidy
 	cd hack/tools; go mod verify
+	cd test; go mod tidy
+	cd test; go mod verify
 
 .PHONY: vendor
 vendor:
@@ -297,3 +341,7 @@ go-version: ## Print the go version we use to compile our binaries and images
 .PHONY: clean
 clean: ## Remove all temporary files and folders
 	rm -rf ironic-deployment/overlays/temp
+
+.PHONY: clean-e2e
+clean-e2e: ## Remove everything related to e2e tests
+	./hack/clean-e2e.sh

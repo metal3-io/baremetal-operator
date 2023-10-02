@@ -1,0 +1,28 @@
+images:
+# Use locally built e2e images
+- name: quay.io/metal3-io/baremetal-operator:e2e
+  loadBehavior: tryLoad
+- name: quay.io/metal3-io/ironic:e2e
+  loadBehavior: tryLoad
+
+# These variables can be overridden with environment variables.
+variables:
+  DEPLOY_IRONIC: "true"
+  DEPLOY_BMO: "true"
+  DEPLOY_CERT_MANAGER: "true"
+  BMO_KUSTOMIZATION: "../../config/overlays/e2e"
+  IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
+  # Test credentials. The tests will create a BMH with these.
+  BMC_USER: admin
+  BMC_PASSWORD: password
+  BMC_ADDRESS: ipmi://192.168.222.1:16230
+  BOOT_MAC_ADDRESS: "00:60:2f:31:81:01"
+
+intervals:
+  inspection/wait-unmanaged: ["1m", "5s"]
+  inspection/wait-registering: ["1m", "5s"]
+  inspection/wait-registration-error: ["1m", "5s"]
+  inspection/wait-inspecting: ["2m", "10s"]
+  inspection/wait-available: ["10m", "10s"]
+  default/wait-deployment: ["5m", "1s"]
+  ironic/wait-deployment: ["10m", "2s"]

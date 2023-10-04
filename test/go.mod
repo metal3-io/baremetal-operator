@@ -3,6 +3,8 @@ module github.com/metal3-io/baremetal-operator/test
 go 1.20
 
 require (
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
+	github.com/dvyukov/go-fuzz v0.0.0-20230614170735-95bc4d742dfa
 	github.com/metal3-io/baremetal-operator/apis v0.3.1
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.10

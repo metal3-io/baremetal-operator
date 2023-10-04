@@ -334,6 +334,7 @@ go-version: ## Print the go version we use to compile our binaries and images
 .PHONY: clean
 clean: ## Remove all temporary files and folders
 	rm -rf ironic-deployment/overlays/temp
+	rm -rf test/fuzz/bin test/fuzz/corpus test/fuzz/output
 
 .PHONY: clean-e2e
 clean-e2e: ## Remove everything related to e2e tests
@@ -342,6 +343,11 @@ clean-e2e: ## Remove everything related to e2e tests
 ## --------------------------------------
 ## Fuzzing
 ## --------------------------------------
+
+.PHONY: build-fuzzers
+build-fuzzers:  ## Build fuzzers
+	./test/fuzz/build.sh
+
 .PHONY: fuzz
-fuzz:  ## Run fuzzing target
-	./test/fuzz/fuzzing.sh
+fuzz:  ## Run fuzzers
+	./test/fuzz/run.sh

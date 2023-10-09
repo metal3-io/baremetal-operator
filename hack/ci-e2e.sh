@@ -60,8 +60,14 @@ export BOOT_MAC_ADDRESS
 export BMC_USER=admin
 export BMC_PASSWORD=password
 
+# We need to gather artifacts/logs before exiting also if there are errors
+set +e
+
 # Run the e2e tests
 make test-e2e
+test_status="$?"
 
 # Collect all artifacts
 tar --directory test/e2e/ -czf artifacts.tar.gz _artifacts
+
+exit "${test_status}"

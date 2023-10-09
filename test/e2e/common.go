@@ -15,7 +15,10 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -152,4 +155,33 @@ func WaitForBmhInState(ctx context.Context, input WaitForBmhInStateInput, interv
 		g.Expect(input.Client.Get(ctx, key, &bmh)).To(Succeed())
 		g.Expect(bmh.Status.Provisioning.State).To(Equal(input.State))
 	}, intervals...).Should(Succeed())
+}
+
+// WaitForNamespaceDeletedInput is the input for WaitForNamespaceDeleted.
+type WaitForNamespaceDeletedInput struct {
+	Getter    framework.Getter
+	Namespace corev1.Namespace
+}
+
+// WaitForNamespaceDeleted waits until the namespace object has been deleted.
+func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedInput, intervals ...interface{}) {
+	Eventually(func() bool {
+		namespace := &corev1.Namespace{}
+		key := client.ObjectKey{
+			Name: input.Namespace.Name,
+		}
+		return apierrors.IsNotFound(input.Getter.Get(ctx, key, namespace))
+	}, intervals...).Should(BeTrue())
+}
+
+func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, intervals ...interface{}) {
+	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+		Deleter: clusterProxy.GetClient(),
+		Name:    namespace.Name,
+	})
+	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
+		Getter:    clusterProxy.GetClient(),
+		Namespace: *namespace,
+	}, intervals...)
+	cancelWatches()
 }

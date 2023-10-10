@@ -110,7 +110,7 @@ mistakes](https://github.com/golang/go/wiki/CodeReviewComments) in your PRs.
 
 Baremetal Operator will maintain older versions through `release-X.Y` branches.
 We accept backports of bug fixes to the most recent
-release branch. For example, if the most recent branch is `release-0.3`, and the
+release branch. For example, if the most recent branch is `release-0.4`, and the
 `main` branch is under active
 development for v0.4.0, a bug fix that merged to `main` that also affects
 `v0.3.x` may be considered for backporting

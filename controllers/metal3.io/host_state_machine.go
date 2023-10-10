@@ -585,8 +585,8 @@ func (hsm *hostStateMachine) handlePoweringOffBeforeDelete(info *reconcileInfo) 
 			return skipToDelete()
 		}
 	case actionError:
-		if r.NeedsRegistration() && !hsm.haveCreds {
-			// If the host is not registered as a node in Ironic and we
+		if r.NeedsRegistration() || !hsm.haveCreds {
+			// If the host is not registered as a node in Ironic or we
 			// lack the credentials to power it off, just continue to
 			// delete.
 			return skipToDelete()

@@ -233,14 +233,14 @@ var _ = Describe("External Inspection", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("waiting for the BMH to be in registering state")
-		WaitForBmhInState(ctx, WaitForBmhInStateInput{
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateRegistering,
 		}, e2eConfig.GetIntervals(specName, "wait-registering")...)
 
 		By("waiting for the BMH to become available")
-		WaitForBmhInState(ctx, WaitForBmhInStateInput{
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateAvailable,

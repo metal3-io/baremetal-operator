@@ -8,22 +8,28 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
+
+	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
-var _ = Describe("Inspection", func() {
+var _ = Describe("basic", func() {
 	var (
-		specName       = "inspection"
+		specName       = "basic-ops"
 		namespace      *corev1.Namespace
 		cancelWatches  context.CancelFunc
 		bmcUser        string
 		bmcPassword    string
 		bmcAddress     string
 		bootMacAddress string
+	)
+	const (
+		rebootAnnotation   = "reboot.metal3.io"
+		poweroffAnnotation = "reboot.metal3.io/poweroff"
 	)
 	BeforeEach(func() {
 		bmcUser = e2eConfig.GetVariable("BMC_USER")
@@ -39,58 +45,7 @@ var _ = Describe("Inspection", func() {
 		})
 	})
 
-	It("should put BMH without BMC credentials in unmanaged state", func() {
-		By("creating a BMH")
-		bmh := metal3api.BareMetalHost{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-unmanaged",
-				Namespace: namespace.Name,
-			},
-		}
-		err := clusterProxy.GetClient().Create(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("waiting for the BMH to be in unmanaged state")
-		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
-			Client: clusterProxy.GetClient(),
-			Bmh:    bmh,
-			State:  metal3api.StateUnmanaged,
-		}, e2eConfig.GetIntervals(specName, "wait-unmanaged")...)
-	})
-
-	It("should fail to register the BMH if the secret is missing", func() {
-		By("creating a BMH")
-		bmh := metal3api.BareMetalHost{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-registration-error",
-				Namespace: namespace.Name,
-			},
-			Spec: metal3api.BareMetalHostSpec{
-				BMC: metal3api.BMCDetails{
-					Address:         "ipmi://127.0.0.1:5678",
-					CredentialsName: "bmc-credentials",
-				},
-			},
-		}
-		err := clusterProxy.GetClient().Create(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("trying to register the BMH")
-		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
-			Client: clusterProxy.GetClient(),
-			Bmh:    bmh,
-			State:  metal3api.StateRegistering,
-		}, e2eConfig.GetIntervals(specName, "wait-registering")...)
-
-		By("waiting for registration error on the BMH")
-		Eventually(func(g Gomega) {
-			key := types.NamespacedName{Namespace: bmh.Namespace, Name: bmh.Name}
-			g.Expect(clusterProxy.GetClient().Get(ctx, key, &bmh)).To(Succeed())
-			g.Expect(bmh.Status.ErrorType).To(Equal(metal3api.RegistrationError))
-		}, e2eConfig.GetIntervals(specName, "wait-registration-error")...).Should(Succeed())
-	})
-
-	It("should inspect a newly created BMH", func() {
+	It("should control power cycle of BMH though annotations", func() {
 		By("creating a secret with BMH credentials")
 		bmcCredentials := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -108,10 +63,14 @@ var _ = Describe("Inspection", func() {
 		By("creating a BMH")
 		bmh := metal3api.BareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-inspect",
+				Name:      specName + "-powercycle",
 				Namespace: namespace.Name,
+				Annotations: map[string]string{
+					"inspect.metal3.io": "disabled",
+				},
 			},
 			Spec: metal3api.BareMetalHostSpec{
+				Online: true,
 				BMC: metal3api.BMCDetails{
 					Address:         bmcAddress,
 					CredentialsName: "bmc-credentials",
@@ -130,19 +89,46 @@ var _ = Describe("Inspection", func() {
 			State:  metal3api.StateRegistering,
 		}, e2eConfig.GetIntervals(specName, "wait-registering")...)
 
-		By("waiting for the BMH to be in inspecting state")
-		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
-			Client: clusterProxy.GetClient(),
-			Bmh:    bmh,
-			State:  metal3api.StateInspecting,
-		}, e2eConfig.GetIntervals(specName, "wait-inspecting")...)
-
 		By("waiting for the BMH to become available")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateAvailable,
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("setting the reboot annotation and checking that the BMH was rebooted")
+		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, rebootAnnotation, pointer.String("{\"force\": true}"))
+
+		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  PoweredOff,
+		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
+		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  PoweredOn,
+		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
+		By("setting the power off annotation on the BMH and checking that it worked")
+		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, pointer.String("{\"force\": true}"))
+
+		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  PoweredOff,
+		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
+		// power on
+		By("removing the power off annotation and checking that the BMH powers on")
+		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, nil)
+
+		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  PoweredOn,
+		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
 	})
 
 	AfterEach(func() {

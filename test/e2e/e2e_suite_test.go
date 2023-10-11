@@ -103,13 +103,17 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	if e2eConfig.GetVariable("DEPLOY_CERT_MANAGER") != "false" {
 		// Install cert-manager
 		By("Installing cert-manager")
-		cmd := exec.Command("cmctl", "x", "install")
-		output, err := cmd.CombinedOutput()
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
-		By("Checking that the cert-manager API is available")
-		cmd = exec.Command("cmctl", "check", "api")
-		output, err = cmd.CombinedOutput()
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
+		cmd := exec.Command("cmctl", "check", "api")
+		_, err := cmd.CombinedOutput()
+		if err != nil {
+			cmd = exec.Command("cmctl", "x", "install")
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
+			By("Checking that the cert-manager API is available")
+			cmd = exec.Command("cmctl", "check", "api")
+			output, err = cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
+		}
 	}
 
 	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {

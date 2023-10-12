@@ -12,7 +12,7 @@ GitHub pull requests.
    - [Codebase](#codebase)
       - [Backporting](#backporting)
 - [Branches](#branches)
-   - [Support and guarantees](#support-and-guarantees)
+   - [CI Support and Branch Maintenance](#ci-support-and-branch-maintenance)
 - [Contributing a Patch](#contributing-a-patch)
 - [Backporting a Patch](#backporting-a-patch)
 - [Breaking Changes](#breaking-changes)
@@ -79,11 +79,11 @@ branches that minor and patch releases will be tagged. In some cases, it may
 be necessary to open PRs for bugfixes directly against stable branches, but
 this should generally not be the case.
 
-### Support and guarantees
+### CI Support and Branch Maintenance
 
 Baremetal-operator maintains the most recent release/releases for all supported
-APIs and contract versions. Support for this section refers to the ability to
-backport and release patch versions;
+APIs and contract versions. Support for this section refers to CI support and
+the ability to backport and release patch versions;
 [backport policy](#backporting) is defined above.
 
 - The API version is determined from the GroupVersion defined in the top-level
@@ -92,7 +92,7 @@ backport and release patch versions;
 - The EOL date of each API Version is determined from the last release available
   once a new API version is published.
 
-| API Version  | Supported Until                                               |
+| API Version  | Maintained Until                                              |
 | ------------ | ------------------------------------------------------------- |
 | **v1alpha1** | TBD (current latest)                                          |
 | **v1beta1**  | Upcoming (Proposal [PR](https://github.com/metal3-io/metal3-docs/pull/332))                                         |
@@ -116,7 +116,7 @@ backport and release patch versions;
    CAPM3. Once BMO e2e tests take over, we can follow the above policy for
    dropping tests.
 
-| Minor Release | API Version  | Supported Until                               |
+| Minor Release | API Version  | Maintained Until                              |
 | ------------- | ------------ | --------------------------------------------- |
 | v0.4.x        | **v1alpha1** | when v0.6.0 will be released                  |
 | v0.3.x        | **v1alpha1** | when v0.5.0 will be released                  |

@@ -12,6 +12,7 @@ GitHub pull requests.
    - [Codebase](#codebase)
       - [Backporting](#backporting)
 - [Branches](#branches)
+   - [Support and guarantees](#support-and-guarantees)
 - [Contributing a Patch](#contributing-a-patch)
 - [Backporting a Patch](#backporting-a-patch)
 - [Breaking Changes](#breaking-changes)
@@ -77,6 +78,56 @@ every major or minor release, a new branch will be created. It is from these
 branches that minor and patch releases will be tagged. In some cases, it may
 be necessary to open PRs for bugfixes directly against stable branches, but
 this should generally not be the case.
+
+### Support and guarantees
+
+Baremetal-operator maintains the most recent release/releases for all supported
+APIs and contract versions. Support for this section refers to the ability to
+backport and release patch versions;
+[backport policy](#backporting) is defined above.
+
+- The API version is determined from the GroupVersion defined in the top-level
+  `apis/` package.
+
+- The EOL date of each API Version is determined from the last release available
+  once a new API version is published.
+
+| API Version  | Supported Until                                               |
+| ------------ | ------------------------------------------------------------- |
+| **v1alpha1** | TBD (current latest)                                          |
+| **v1beta1**  | Upcoming (Proposal [PR](https://github.com/metal3-io/metal3-docs/pull/332))                                         |
+
+- For the current stable API version (v1alpha1) we support the two most recent
+  minor releases; older minor releases are immediately unsupported when a new
+  major/minor release is available.
+
+- Once we have v1beta1 API, we will determine support policies for older API
+  versions.
+
+- We will maintain test coverage for all supported minor releases and for one
+  additional release for the current stable API version in case we have to do an
+  emergency patch release. For example, if v0.4 and v0.3 are currently
+  supported, we will also maintain test coverage for v0.2 for one additional
+  release cycle. When v0.5 is released, tests for v0.2 will be removed.
+
+**Note**: Currently, BMO release branches are tested with CAPM3 integration/e2e
+   tests, so dropping a test for BMO release version is dependant on CAPM3
+   release. As such, we might test a BMO release until we drop the test for
+   CAPM3. Once BMO e2e tests take over, we can follow the above policy for
+   dropping tests.
+
+| Minor Release | API Version  | Supported Until                               |
+| ------------- | ------------ | --------------------------------------------- |
+| v0.4.x        | **v1alpha1** | when v0.6.0 will be released                  |
+| v0.3.x        | **v1alpha1** | when v0.5.0 will be released                  |
+| v0.2.x        | **v1alpha1** | EOL since 2023-08-30 (*)                      |
+| v0.1.x        | **v1alpha1** | EOL since 2023-04-26 (*)                      |
+
+(*) Previous support policy applies, older minor releases were immediately
+unsupported when a new major/minor release was available
+
+- Exceptions can be filed with maintainers and taken into consideration on a
+  case-by-case basis.
 
 ## Contributing a Patch
 

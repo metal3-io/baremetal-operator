@@ -209,8 +209,10 @@ spec:
                 type: object
               hardwareProfile:
                 description: What is the name of the hardware profile for this host?
-                  It should only be necessary to set this when inspection cannot automatically
-                  determine the profile.
+                  Hardware profiles are deprecated and should not be used. Use the
+                  separate fields Architecture and RootDeviceHints instead. Set to
+                  "empty" to prepare for the future version of the API without hardware
+                  profiles.
                 type: string
               image:
                 description: Image holds the details of the image to be provisioned.

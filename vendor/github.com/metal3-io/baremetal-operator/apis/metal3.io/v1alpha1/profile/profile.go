@@ -10,6 +10,9 @@ const (
 	// DefaultProfileName is the default hardware profile to use when
 	// no other profile matches.
 	DefaultProfileName string = "unknown"
+
+	// EmptyProfileName is the hardware profile without configuration.
+	EmptyProfileName string = "empty"
 )
 
 // Profile holds the settings for a class of hardware.
@@ -58,6 +61,10 @@ func init() {
 		RootDeviceHints: metal3v1alpha1.RootDeviceHints{
 			DeviceName: "/dev/vdb",
 		},
+	}
+
+	profiles[EmptyProfileName] = Profile{
+		Name: EmptyProfileName,
 	}
 }
 

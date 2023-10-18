@@ -38,6 +38,8 @@ ironic-deployment/overlays/temp
 
 # Development containers (https://containers.dev/)
 .devcontainer
+# Python venv
+.venv
 
 # release-notes
 /releasenotes

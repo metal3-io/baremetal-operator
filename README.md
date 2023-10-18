@@ -28,6 +28,27 @@ components, see the [Metal³ docs](https://github.com/metal3-io/metal3-docs).
 * [Testing](docs/testing.md)
 * [Publishing Images](docs/publishing-images.md)
 
+## Integration tests
+
+Currently a PR in BMO is tested with CAPM3 integration tests. There are two
+types of CAPM3 integration test, CAPM3 e2e integration tests and ansible
+integration tests. You will see one of each kind as a required test on a BMO PR.
+Eventually these tests will be replaced with BMO's own
+[e2e tests](test/e2e/README.md). BMO e2e tests are currently under active
+development. Here are the tests which run on different branches in BMO:
+
+* **/test-centos-e2e-integration-main** runs CAPM3 e2e integration tests with
+  CAPM3 main branch and BMO **main** branch on Centos
+* **/test-ubuntu-integration-main** runs ansible integration tests with CAPM3
+  main branch and BMO **main** branch on Ubuntu
+
+Release-0.4 branch:
+
+* **/test-centos-e2e-integration-release-1-5** runs CAPM3 e2e integration tests
+  with CAPM3 release-1.5 branch and BMO **release-0.4 branch** on Centos
+* **/test-ubuntu-integration-release-1-5** runs ansible integration tests with CAPM3
+  release-1.5 branch and BMO **release-0.4 branch** on Ubuntu
+
 ### Important Notes
 
 Whenever there is a change in `config/` directory, please remember to run the

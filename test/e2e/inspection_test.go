@@ -146,10 +146,6 @@ var _ = Describe("Inspection", func() {
 	})
 
 	AfterEach(func() {
-		framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
-			Deleter: clusterProxy.GetClient(),
-			Name:    namespace.Name,
-		})
-		cancelWatches()
+		cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 	})
 })

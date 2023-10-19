@@ -2,6 +2,13 @@ images:
 # Use locally built e2e images
 - name: quay.io/metal3-io/baremetal-operator:e2e
   loadBehavior: tryLoad
+# Save some time and network by using cached images if available
+- name: quay.io/jetstack/cert-manager-cainjector:v1.13.1
+  loadBehavior: tryLoad
+- name: quay.io/jetstack/cert-manager-webhook:v1.13.1
+  loadBehavior: tryLoad
+- name: quay.io/jetstack/cert-manager-controller:v1.13.1
+  loadBehavior: tryLoad
 
 variables:
   DEPLOY_IRONIC: "false"
@@ -21,5 +28,7 @@ intervals:
   inspection/wait-registration-error: ["5s", "10ms"]
   inspection/wait-inspecting: ["5s", "10ms"]
   inspection/wait-available: ["5s", "1ms"]
+  external-inspection/wait-available: ["5s", "1ms"]
   default/wait-deployment: ["5m", "1s"]
+  default/wait-namespace-deleted: ["20s", "1s"]
   ironic/wait-deployment: ["10m", "2s"]

@@ -363,9 +363,11 @@ type BareMetalHostSpec struct {
 	// BIOS configuration for bare metal server
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
-	// What is the name of the hardware profile for this host? It
-	// should only be necessary to set this when inspection cannot
-	// automatically determine the profile.
+	// What is the name of the hardware profile for this host?
+	// Hardware profiles are deprecated and should not be used.
+	// Use the separate fields Architecture and RootDeviceHints instead.
+	// Set to "empty" to prepare for the future version of the API
+	// without hardware profiles.
 	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
 	// Provide guidance about how to choose the device for the image

@@ -4,6 +4,13 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic:e2e
   loadBehavior: tryLoad
+# Save some time and network by using cached images if available
+- name: quay.io/jetstack/cert-manager-cainjector:v1.13.1
+  loadBehavior: tryLoad
+- name: quay.io/jetstack/cert-manager-webhook:v1.13.1
+  loadBehavior: tryLoad
+- name: quay.io/jetstack/cert-manager-controller:v1.13.1
+  loadBehavior: tryLoad
 
 # These variables can be overridden with environment variables.
 variables:
@@ -22,7 +29,9 @@ intervals:
   inspection/wait-unmanaged: ["1m", "5s"]
   inspection/wait-registering: ["1m", "5s"]
   inspection/wait-registration-error: ["1m", "5s"]
-  inspection/wait-inspecting: ["2m", "10s"]
+  inspection/wait-inspecting: ["5m", "10s"]
   inspection/wait-available: ["10m", "10s"]
+  external-inspection/wait-available: ["20s", "1s"]
   default/wait-deployment: ["5m", "1s"]
+  default/wait-namespace-deleted: ["10m", "1s"]
   ironic/wait-deployment: ["10m", "2s"]

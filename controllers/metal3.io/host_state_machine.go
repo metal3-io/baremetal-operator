@@ -225,6 +225,9 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 	switch hsm.NextState {
 	default:
 		hsm.NextState = metal3api.StatePoweringOffBeforeDelete
+	case metal3api.StateRegistering, metal3api.StateUnmanaged, metal3api.StateNone:
+		// Skip the power off before delete
+		hsm.NextState = metal3api.StateDeleting
 	case metal3api.StateProvisioning, metal3api.StateProvisioned:
 		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
 			if delayDeleteForDetachedHost(hsm.Host) {
@@ -238,12 +241,20 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 			hsm.NextState = metal3api.StateDeprovisioning
 		}
 	case metal3api.StateDeprovisioning:
+		if hsm.Host.Status.ErrorType == metal3api.RegistrationError && hsm.Host.Status.ErrorCount > 3 {
+			hsm.NextState = metal3api.StateDeleting
+			return true
+		}
 		// Allow state machine to run to continue deprovisioning.
 		return false
 	case metal3api.StateDeleting:
 		// Already in deleting state. Allow state machine to run.
 		return false
 	case metal3api.StatePoweringOffBeforeDelete:
+		if hsm.Host.Status.ErrorType == metal3api.RegistrationError && hsm.Host.Status.ErrorCount > 3 {
+			hsm.NextState = metal3api.StateDeleting
+			return true
+		}
 		// Already in powering off state. Allow state machine to run.
 		return false
 	}
@@ -327,7 +338,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	case metal3api.StateMatchProfile:
 		// Backward compatibility, remove eventually
 		return
-	case metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
+	case metal3api.StateDeleting:
 		// In the deleting state the whole idea is to de-register the host
 		return
 	case metal3api.StateRegistering:

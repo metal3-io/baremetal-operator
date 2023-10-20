@@ -802,14 +802,25 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return actionError{err}
 	}
 
+	hostConf := &hostConfigData{
+		host:          info.host,
+		log:           info.log.WithName("host_config_data"),
+		secretManager: r.secretManager(info.log),
+	}
+	preprovisioningNetworkData, err := hostConf.PreprovisioningNetworkData()
+	if err != nil {
+		return recordActionFailure(info, metal3api.RegistrationError, "failed to read preprovisioningNetworkData")
+	}
+
 	provResult, provID, err := prov.ValidateManagementAccess(
 		provisioner.ManagementAccessData{
-			BootMode:              info.host.Status.Provisioning.BootMode,
-			AutomatedCleaningMode: info.host.Spec.AutomatedCleaningMode,
-			State:                 info.host.Status.Provisioning.State,
-			CurrentImage:          getCurrentImage(info.host),
-			PreprovisioningImage:  preprovImg,
-			HasCustomDeploy:       hasCustomDeploy(info.host),
+			BootMode:                   info.host.Status.Provisioning.BootMode,
+			AutomatedCleaningMode:      info.host.Spec.AutomatedCleaningMode,
+			State:                      info.host.Status.Provisioning.State,
+			CurrentImage:               getCurrentImage(info.host),
+			PreprovisioningImage:       preprovImg,
+			PreprovisioningNetworkData: preprovisioningNetworkData,
+			HasCustomDeploy:            hasCustomDeploy(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)

@@ -94,6 +94,26 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 	return networkDataRaw, err
 }
 
+// PreprovisioningNetworkData get preprovisioning network configuration
+func (hcd *hostConfigData) PreprovisioningNetworkData() (string, error) {
+	if hcd.host.Spec.PreprovisioningNetworkDataName == "" {
+		return "", nil
+	}
+	networkDataRaw, err := hcd.getSecretData(
+		hcd.host.Spec.PreprovisioningNetworkDataName,
+		hcd.host.Namespace,
+		"networkData",
+	)
+	if err != nil {
+		_, isNoDataErr := err.(NoDataInSecretError)
+		if isNoDataErr {
+			hcd.log.Info("PreprovisioningNetworkData networkData key is not set, returning empty data")
+			return "", nil
+		}
+	}
+	return networkDataRaw, err
+}
+
 // MetaData get host metatdata
 func (hcd *hostConfigData) MetaData() (string, error) {
 	if hcd.host.Spec.MetaData == nil {

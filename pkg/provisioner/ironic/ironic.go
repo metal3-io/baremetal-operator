@@ -456,6 +456,25 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		// below.
 	}
 
+	// If no PreprovisioningImage builder is enabled we set the Node network_data
+	// this enables Ironic to inject the network_data into the ramdisk image
+	if !p.config.havePreprovImgBuilder {
+		networkDataRaw := data.PreprovisioningNetworkData
+		if networkDataRaw != "" {
+			var networkData map[string]interface{}
+			if yamlErr := yaml.Unmarshal([]byte(networkDataRaw), &networkData); yamlErr != nil {
+				p.log.Info("failed to unmarshal networkData from PreprovisioningNetworkData")
+				result, err = transientError(fmt.Errorf("invalid preprovisioningNetworkData: %w", yamlErr))
+				return
+			}
+			numUpdates := len(updater.Updates)
+			updater.SetTopLevelOpt("network_data", networkData, ironicNode.NetworkData)
+			if len(updater.Updates) != numUpdates {
+				p.log.Info("adding preprovisioning network_data for node", "node", ironicNode.UUID)
+			}
+		}
+	}
+
 	ironicNode, success, result, err := p.tryUpdateNode(ironicNode, updater)
 	if !success {
 		return

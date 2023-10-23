@@ -39,16 +39,16 @@ docker run --name vbmc --network host -d \
   quay.io/metal3-io/vbmc
 
 # Create libvirt domain
-NAME="bmo-e2e-0"
+VM_NAME="bmo-e2e-0"
 BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
 VBMC_PORT="16230"
-virt-install --connect qemu:///system -n "${NAME}" --description "Virtualized BareMetalHost" --osinfo=ubuntu-lts-latest \
+virt-install --connect qemu:///system -n "${VM_NAME}" --description "Virtualized BareMetalHost" --osinfo=ubuntu-lts-latest \
   --ram=4096 --vcpus=2 --disk size=20 --graphics=none --console pty --serial pty --pxe \
   --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" --noautoconsole
 
 # Add BMH VM to VBMC
-docker exec vbmc vbmc add "${NAME}" --port "${VBMC_PORT}"
-docker exec vbmc vbmc start "${NAME}"
+docker exec vbmc vbmc add "${VM_NAME}" --port "${VBMC_PORT}"
+docker exec vbmc vbmc start "${VM_NAME}"
 docker exec vbmc vbmc list
 
 # These variables are used by the tests. They override variables in the config file.

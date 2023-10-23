@@ -11,12 +11,13 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
@@ -34,6 +35,13 @@ const (
 	// TryLoadImage causes any errors that occur when loading an image to be
 	// ignored.
 	TryLoadImage LoadImageBehavior = "tryLoad"
+)
+
+type PowerState string
+
+const (
+	PoweredOn  PowerState = "on"
+	PoweredOff PowerState = "off"
 )
 
 // Config defines the configuration of an e2e test environment.
@@ -142,13 +150,13 @@ func (c *Config) GetVariable(varName string) string {
 	return value
 }
 
-type WaitForBmhInStateInput struct {
+type WaitForBmhInProvisioningStateInput struct {
 	Client client.Client
 	Bmh    metal3api.BareMetalHost
 	State  metal3api.ProvisioningState
 }
 
-func WaitForBmhInState(ctx context.Context, input WaitForBmhInStateInput, intervals ...interface{}) {
+func WaitForBmhInProvisioningState(ctx context.Context, input WaitForBmhInProvisioningStateInput, intervals ...interface{}) {
 	Eventually(func(g Gomega) {
 		bmh := metal3api.BareMetalHost{}
 		key := types.NamespacedName{Namespace: input.Bmh.Namespace, Name: input.Bmh.Name}
@@ -184,4 +192,19 @@ func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace
 		Namespace: *namespace,
 	}, intervals...)
 	cancelWatches()
+}
+
+type WaitForBmhInPowerStateInput struct {
+	Client client.Client
+	Bmh    metal3api.BareMetalHost
+	State  PowerState
+}
+
+func WaitForBmhInPowerState(ctx context.Context, input WaitForBmhInPowerStateInput, intervals ...interface{}) {
+	Eventually(func(g Gomega) {
+		bmh := metal3api.BareMetalHost{}
+		key := types.NamespacedName{Namespace: input.Bmh.Namespace, Name: input.Bmh.Name}
+		g.Expect(input.Client.Get(ctx, key, &bmh)).To(Succeed())
+		g.Expect(bmh.Status.PoweredOn).To(Equal(input.State == PoweredOn))
+	}, intervals...).Should(Succeed())
 }

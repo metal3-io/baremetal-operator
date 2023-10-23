@@ -15,6 +15,7 @@ variables:
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/fixture"
+  EXPECTED_HOST_NAME: ""
   # Test credentials. The tests will create a BMH with these.
   # For the fixture provider it does not matter much what we put here.
   BMC_USER: admin

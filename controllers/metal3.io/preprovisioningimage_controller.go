@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
-	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
@@ -44,7 +44,7 @@ const (
 	maxRetryDelay = time.Minute * 10
 )
 
-// PreprovisioningImageReconciler reconciles a PreprovisioningImage object
+// PreprovisioningImageReconciler reconciles a PreprovisioningImage object.
 type PreprovisioningImageReconciler struct {
 	client.Client
 	Log           logr.Logger
@@ -71,7 +71,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 
 	result := ctrl.Result{}
 
-	img := metal3.PreprovisioningImage{}
+	img := metal3api.PreprovisioningImage{}
 	err := r.Get(ctx, req.NamespacedName, &img)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -87,7 +87,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, err
 		}
 		img.Finalizers = utils.FilterStringFromList(
-			img.Finalizers, metal3.PreprovisioningImageFinalizer)
+			img.Finalizers, metal3api.PreprovisioningImageFinalizer)
 		err := r.Update(ctx, &img)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
@@ -95,9 +95,9 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if !utils.StringInList(img.Finalizers, metal3.PreprovisioningImageFinalizer) {
+	if !utils.StringInList(img.Finalizers, metal3api.PreprovisioningImageFinalizer) {
 		log.Info("adding finalizer")
-		img.Finalizers = append(img.Finalizers, metal3.PreprovisioningImageFinalizer)
+		img.Finalizers = append(img.Finalizers, metal3api.PreprovisioningImageFinalizer)
 		err := r.Update(ctx, &img)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
@@ -130,13 +130,13 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	return result, err
 }
 
-func configChanged(img *metal3.PreprovisioningImage, format metal3.ImageFormat, networkDataStatus metal3.SecretStatus) bool {
+func configChanged(img *metal3api.PreprovisioningImage, format metal3api.ImageFormat, networkDataStatus metal3api.SecretStatus) bool {
 	return !(img.Status.Format == format &&
 		img.Status.Architecture == img.Spec.Architecture &&
 		img.Status.NetworkData == networkDataStatus)
 }
 
-func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage, log logr.Logger) (bool, error) {
+func (r *PreprovisioningImageReconciler) update(img *metal3api.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
 	if !r.ImageProvider.SupportsArchitecture(img.Spec.Architecture) {
@@ -161,7 +161,7 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 
 	if configChanged(img, format, secretStatus) {
 		reason := "Config changed"
-		if meta.IsStatusConditionTrue(img.Status.Conditions, string(metal3.ConditionImageReady)) {
+		if meta.IsStatusConditionTrue(img.Status.Conditions, string(metal3api.ConditionImageReady)) {
 			// Ensure we mark the status as not ready before we remove the build
 			// from the image cache.
 			setUnready(generation, &img.Status, reason)
@@ -204,7 +204,7 @@ func (r *PreprovisioningImageReconciler) update(img *metal3.PreprovisioningImage
 		"Generated image"), nil
 }
 
-func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3.PreprovisioningImageSpec, log logr.Logger) (format metal3.ImageFormat) {
+func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3api.PreprovisioningImageSpec, log logr.Logger) (format metal3api.ImageFormat) {
 	for _, acceptableFormat := range spec.AcceptFormats {
 		if r.ImageProvider.SupportsFormat(acceptableFormat) {
 			return acceptableFormat
@@ -218,7 +218,7 @@ func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3.Preprovision
 	return
 }
 
-func (r *PreprovisioningImageReconciler) discardExistingImage(img *metal3.PreprovisioningImage, log logr.Logger) error {
+func (r *PreprovisioningImageReconciler) discardExistingImage(img *metal3api.PreprovisioningImage, log logr.Logger) error {
 	if img.Status.Format == "" {
 		return nil
 	}
@@ -231,8 +231,8 @@ func (r *PreprovisioningImageReconciler) discardExistingImage(img *metal3.Prepro
 	})
 }
 
-func getErrorRetryDelay(status metal3.PreprovisioningImageStatus) time.Duration {
-	errorCond := meta.FindStatusCondition(status.Conditions, string(metal3.ConditionImageError))
+func getErrorRetryDelay(status metal3api.PreprovisioningImageStatus) time.Duration {
+	errorCond := meta.FindStatusCondition(status.Conditions, string(metal3api.ConditionImageError))
 	if errorCond == nil || errorCond.Status != metav1.ConditionTrue {
 		return 0
 	}
@@ -246,10 +246,10 @@ func getErrorRetryDelay(status metal3.PreprovisioningImageStatus) time.Duration 
 	return delay
 }
 
-func getNetworkData(secretManager secretutils.SecretManager, img *metal3.PreprovisioningImage) (*corev1.Secret, metal3.SecretStatus, error) {
+func getNetworkData(secretManager secretutils.SecretManager, img *metal3api.PreprovisioningImage) (*corev1.Secret, metal3api.SecretStatus, error) {
 	networkDataSecret := img.Spec.NetworkDataName
 	if networkDataSecret == "" {
-		return nil, metal3.SecretStatus{}, nil
+		return nil, metal3api.SecretStatus{}, nil
 	}
 
 	secretKey := client.ObjectKey{
@@ -258,17 +258,17 @@ func getNetworkData(secretManager secretutils.SecretManager, img *metal3.Preprov
 	}
 	secret, err := secretManager.AcquireSecret(secretKey, img, false)
 	if err != nil {
-		return nil, metal3.SecretStatus{}, err
+		return nil, metal3api.SecretStatus{}, err
 	}
 
-	return secret, metal3.SecretStatus{
+	return secret, metal3api.SecretStatus{
 		Name:    networkDataSecret,
 		Version: secret.GetResourceVersion(),
 	}, nil
 }
 
-func setImageCondition(generation int64, status *metal3.PreprovisioningImageStatus,
-	cond metal3.ImageStatusConditionType, newStatus metav1.ConditionStatus,
+func setImageCondition(generation int64, status *metal3api.PreprovisioningImageStatus,
+	cond metal3api.ImageStatusConditionType, newStatus metav1.ConditionStatus,
 	time metav1.Time, reason imageConditionReason, message string) {
 	newCondition := metav1.Condition{
 		Type:               string(cond),
@@ -281,10 +281,9 @@ func setImageCondition(generation int64, status *metal3.PreprovisioningImageStat
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
-func setImage(generation int64, status *metal3.PreprovisioningImageStatus, image imageprovider.GeneratedImage,
-	format metal3.ImageFormat, networkData metal3.SecretStatus, arch string,
+func setImage(generation int64, status *metal3api.PreprovisioningImageStatus, image imageprovider.GeneratedImage,
+	format metal3api.ImageFormat, networkData metal3api.SecretStatus, arch string,
 	message string) bool {
-
 	newStatus := status.DeepCopy()
 	newStatus.ImageUrl = image.ImageURL
 	newStatus.KernelUrl = image.KernelURL
@@ -300,10 +299,10 @@ func setImage(generation int64, status *metal3.PreprovisioningImageStatus, image
 		ready = metav1.ConditionTrue
 	}
 	setImageCondition(generation, newStatus,
-		metal3.ConditionImageReady, ready,
+		metal3api.ConditionImageReady, ready,
 		time, reason, message)
 	setImageCondition(generation, newStatus,
-		metal3.ConditionImageError, metav1.ConditionFalse,
+		metal3api.ConditionImageError, metav1.ConditionFalse,
 		time, reason, "")
 
 	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
@@ -311,13 +310,13 @@ func setImage(generation int64, status *metal3.PreprovisioningImageStatus, image
 	return changed
 }
 
-func setUnready(generation int64, status *metal3.PreprovisioningImageStatus, message string) bool {
+func setUnready(generation int64, status *metal3api.PreprovisioningImageStatus, message string) bool {
 	newStatus := status.DeepCopy()
 
 	time := metav1.Now()
 	reason := reasonImageSuccess
 	setImageCondition(generation, newStatus,
-		metal3.ConditionImageReady, metav1.ConditionFalse,
+		metal3api.ConditionImageReady, metav1.ConditionFalse,
 		time, reason, message)
 
 	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
@@ -325,16 +324,16 @@ func setUnready(generation int64, status *metal3.PreprovisioningImageStatus, mes
 	return changed
 }
 
-func setError(generation int64, status *metal3.PreprovisioningImageStatus, reason imageConditionReason, message string) bool {
+func setError(generation int64, status *metal3api.PreprovisioningImageStatus, reason imageConditionReason, message string) bool {
 	newStatus := status.DeepCopy()
 	newStatus.ImageUrl = ""
 
 	time := metav1.Now()
 	setImageCondition(generation, newStatus,
-		metal3.ConditionImageReady, metav1.ConditionFalse,
+		metal3api.ConditionImageReady, metav1.ConditionFalse,
 		time, reason, "")
 	setImageCondition(generation, newStatus,
-		metal3.ConditionImageError, metav1.ConditionTrue,
+		metal3api.ConditionImageError, metav1.ConditionTrue,
 		time, reason, message)
 
 	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
@@ -343,7 +342,7 @@ func setError(generation int64, status *metal3.PreprovisioningImageStatus, reaso
 }
 
 func (r *PreprovisioningImageReconciler) CanStart() bool {
-	for _, fmt := range []metal3.ImageFormat{metal3.ImageFormatISO, metal3.ImageFormatInitRD} {
+	for _, fmt := range []metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD} {
 		if r.ImageProvider.SupportsFormat(fmt) {
 			return true
 		}
@@ -354,7 +353,7 @@ func (r *PreprovisioningImageReconciler) CanStart() bool {
 
 func (r *PreprovisioningImageReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconcile int) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&metal3.PreprovisioningImage{}).
+		For(&metal3api.PreprovisioningImage{}).
 		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
 		Owns(&corev1.Secret{}, builder.MatchEveryOwner).
 		Complete(r)

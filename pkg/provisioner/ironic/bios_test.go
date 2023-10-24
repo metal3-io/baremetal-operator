@@ -12,7 +12,6 @@ import (
 )
 
 func TestGetFirmwareSettings(t *testing.T) {
-
 	nodeUUID := "158c5d59-9ace-9631-ed51-d842a45f1c52"
 	iTrue := true
 	iFalse := false
@@ -90,13 +89,12 @@ func TestGetFirmwareSettings(t *testing.T) {
 			expectedSchemaMap:   map[string]metal3api.SettingSchema(nil),
 			ironic:              testserver.NewIronic(t).NoBIOS(nodeUUID),
 			includeSchema:       false,
-			expectedError:       "could not get node for BIOS settings: Host not registered",
+			expectedError:       "could not get node for BIOS settings: host not registered",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			tc.ironic.Start()
 			defer tc.ironic.Stop()
 

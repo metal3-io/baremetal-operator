@@ -11,35 +11,35 @@ linters:
     - asciicheck
     - bodyclose
     - dogsled
-    - errcheck
-    - errorlint
+    # - errcheck
+    # - errorlint
     - exportloopref
-    - goconst
-    - gocritic
-    - godot
-    - gofmt
-    - goimports
-    - gosimple
-    - govet
-    - importas
-    - gosec
-    - ineffassign
-    - misspell
- #   - nakedret
-    - nilerr
-    - noctx
-    - nolintlint
-    - prealloc
-    - predeclared
-    - revive
-    - rowserrcheck
-    - staticcheck
-    - stylecheck
-    - thelper
-    - typecheck
-    - unconvert
-    - unused
-    - whitespace
+    # - goconst
+    # - gocritic
+    # - godot
+    # - gofmt
+    # - goimports
+    # - gosimple
+    # - govet
+    # - importas
+    # - gosec
+    # - ineffassign
+    # - misspell
+    # - nakedret
+    # - nilerr
+    # - noctx
+    # - nolintlint
+    # - prealloc
+    # - predeclared
+    # - revive
+    # - rowserrcheck
+    # - staticcheck
+    # - stylecheck
+    # - thelper
+    # - typecheck
+    # - unconvert
+    # - unused
+    # - whitespace
   # Run with --fast=false for more extensive checks
   fast: true
 

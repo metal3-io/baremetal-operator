@@ -5,7 +5,7 @@ import (
 )
 
 // EmptyBMCAddressError is returned when the BMC address field
-// for a host is empty
+// for a host is empty.
 type EmptyBMCAddressError struct {
 	message string
 }
@@ -16,7 +16,7 @@ func (e EmptyBMCAddressError) Error() string {
 }
 
 // EmptyBMCSecretError is returned when the BMC secret
-// for a host is empty
+// for a host is empty.
 type EmptyBMCSecretError struct {
 	message string
 }
@@ -27,7 +27,7 @@ func (e EmptyBMCSecretError) Error() string {
 }
 
 // ResolveBMCSecretRefError is returned when the BMC secret
-// for a host is defined but cannot be found
+// for a host is defined but cannot be found.
 type ResolveBMCSecretRefError struct {
 	message string
 }
@@ -38,7 +38,7 @@ func (e ResolveBMCSecretRefError) Error() string {
 }
 
 // NoDataInSecretError is returned when host configuration
-// data were not found in referenced secret
+// data were not found in referenced secret.
 type NoDataInSecretError struct {
 	secret string
 	key    string

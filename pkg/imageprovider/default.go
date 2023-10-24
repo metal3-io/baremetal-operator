@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 type envImageProvider struct {
@@ -25,11 +25,11 @@ func (eip envImageProvider) SupportsArchitecture(_ string) bool {
 	return true
 }
 
-func (eip envImageProvider) SupportsFormat(format metal3.ImageFormat) bool {
+func (eip envImageProvider) SupportsFormat(format metal3api.ImageFormat) bool {
 	switch format {
-	case metal3.ImageFormatISO:
+	case metal3api.ImageFormatISO:
 		return eip.isoURL != ""
-	case metal3.ImageFormatInitRD:
+	case metal3api.ImageFormatInitRD:
 		// Assume we are running inside the same process as the BMH controller -
 		// if there is no kernel URL then it will be unable to use the initrd.
 		if os.Getenv("DEPLOY_KERNEL_URL") == "" {
@@ -43,12 +43,12 @@ func (eip envImageProvider) SupportsFormat(format metal3.ImageFormat) bool {
 
 func (eip envImageProvider) BuildImage(data ImageData, _ NetworkData, _ logr.Logger) (image GeneratedImage, err error) {
 	switch data.Format {
-	case metal3.ImageFormatISO:
+	case metal3api.ImageFormatISO:
 		image.ImageURL = eip.isoURL
-	case metal3.ImageFormatInitRD:
+	case metal3api.ImageFormatInitRD:
 		image.ImageURL = eip.initrdURL
 	default:
-		err = BuildInvalidError(fmt.Errorf("Unsupported image format \"%s\"", data.Format))
+		err = BuildInvalidError(fmt.Errorf("unsupported image format \"%s\"", data.Format))
 	}
 	return
 }

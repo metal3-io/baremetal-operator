@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -73,7 +73,7 @@ const leaderElectionID = "baremetal-operator"
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
-	_ = metal3iov1alpha1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 }
 
 func printVersion() {
@@ -97,7 +97,7 @@ func setupChecks(mgr ctrl.Manager) {
 }
 
 func setupWebhooks(mgr ctrl.Manager) {
-	var bmh webhook.Validator = &metal3iov1alpha1.BareMetalHost{}
+	var bmh webhook.Validator = &metal3api.BareMetalHost{}
 	if err := ctrl.NewWebhookManagedBy(mgr).
 		For(bmh).
 		Complete(); err != nil {
@@ -105,7 +105,7 @@ func setupWebhooks(mgr ctrl.Manager) {
 		os.Exit(1)
 	}
 
-	var bmces webhook.Validator = &metal3iov1alpha1.BMCEventSubscription{}
+	var bmces webhook.Validator = &metal3api.BMCEventSubscription{}
 	if err := ctrl.NewWebhookManagedBy(mgr).
 		For(bmces).
 		Complete(); err != nil {

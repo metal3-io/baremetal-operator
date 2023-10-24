@@ -8,12 +8,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 // This is an upper limit for the ErrorCount, so that the max backoff
-// timeout will not exceed (roughly) 8 hours
+// timeout will not exceed (roughly) 8 hours.
 const maxBackOffCount = 9
 
 func init() {
@@ -57,7 +57,7 @@ func (r actionUpdate) Dirty() bool {
 }
 
 // actionDelayed it's the same of an actionUpdate, but the requeue time
-// is calculated using a fixed backoff with jitter
+// is calculated using a fixed backoff with jitter.
 type actionDelayed struct {
 	actionUpdate
 }
@@ -120,7 +120,7 @@ func (r actionError) NeedsRegistration() bool {
 // and that the resource should be marked as in error.
 type actionFailed struct {
 	dirty      bool
-	ErrorType  metal3.ErrorType
+	ErrorType  metal3api.ErrorType
 	errorCount int
 }
 
@@ -133,9 +133,8 @@ type actionFailed struct {
 // 6  [32m, 1h4m]
 // 7  [1h4m, 2h8m]
 // 8  [2h8m, 4h16m]
-// 9  [4h16m, 8h32m]
+// 9  [4h16m, 8h32m].
 func calculateBackoff(errorCount int) time.Duration {
-
 	if errorCount > maxBackOffCount {
 		errorCount = maxBackOffCount
 	}

@@ -3,6 +3,9 @@ bin
 build/_output
 build/_test
 _artifacts
+artifacts.tar.gz
+test/e2e/images
+
 # Created by https://www.gitignore.io/api/go
 ### Go ###
 # Binaries for programs and plugins

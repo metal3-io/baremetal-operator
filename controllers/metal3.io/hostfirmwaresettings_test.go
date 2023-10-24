@@ -33,9 +33,8 @@ var (
 	upperBound = 20
 )
 
-// Test support for HostFirmwareSettings in the HostFirmwareSettingsReconciler
+// Test support for HostFirmwareSettings in the HostFirmwareSettingsReconciler.
 func getTestHFSReconciler(host *metal3api.HostFirmwareSettings) *HostFirmwareSettingsReconciler {
-
 	c := fakeclient.NewClientBuilder().WithRuntimeObjects(host).WithStatusSubresource(host).
 		Build()
 
@@ -114,7 +113,6 @@ func (m *hsfMockProvisioner) IsReady() (result bool, err error) {
 }
 
 func (m *hsfMockProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
-
 	return m.Settings, m.Schema, m.Error
 }
 
@@ -127,7 +125,6 @@ func (m *hsfMockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEv
 }
 
 func getSchema() *metal3api.FirmwareSchema {
-
 	schema := &metal3api.FirmwareSchema{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "FirmwareSchema",
@@ -148,9 +145,8 @@ func getSchema() *metal3api.FirmwareSchema {
 	return schema
 }
 
-// Mock settings to return from provisioner
+// Mock settings to return from provisioner.
 func getCurrentSettings() metal3api.SettingsMap {
-
 	return metal3api.SettingsMap{
 		"L2Cache":               "10x512 KB",
 		"NetworkBootRetryCount": "20",
@@ -160,9 +156,8 @@ func getCurrentSettings() metal3api.SettingsMap {
 	}
 }
 
-// Mock schema to return from provisioner
+// Mock schema to return from provisioner.
 func getCurrentSchemaSettings() map[string]metal3api.SettingSchema {
-
 	return map[string]metal3api.SettingSchema{
 		"AssetTag": {
 			AttributeType: "String",
@@ -202,9 +197,8 @@ func getCurrentSchemaSettings() map[string]metal3api.SettingSchema {
 	}
 }
 
-// Create the baremetalhost reconciler and use that to create bmh in same namespace
+// Create the baremetalhost reconciler and use that to create bmh in same namespace.
 func createBaremetalHost() *metal3api.BareMetalHost {
-
 	bmh := &metal3api.BareMetalHost{}
 	bmh.ObjectMeta = metav1.ObjectMeta{Name: hostName, Namespace: hostNamespace}
 	c := fakeclient.NewFakeClient(bmh)
@@ -255,9 +249,8 @@ func getExpectedSchemaTwoOwners() *metal3api.FirmwareSchema {
 	return firmwareSchema
 }
 
-// Create an HFS with input spec settings
+// Create an HFS with input spec settings.
 func getHFS(spec metal3api.HostFirmwareSettingsSpec) *metal3api.HostFirmwareSettings {
-
 	hfs := &metal3api.HostFirmwareSettings{}
 
 	hfs.Status = metal3api.HostFirmwareSettingsStatus{
@@ -282,9 +275,8 @@ func getHFS(spec metal3api.HostFirmwareSettingsSpec) *metal3api.HostFirmwareSett
 	return hfs
 }
 
-// Test the hostfirmwaresettings reconciler functions
+// Test the hostfirmwaresettings reconciler functions.
 func TestStoreHostFirmwareSettings(t *testing.T) {
-
 	testCases := []struct {
 		Scenario string
 		// the resource that the reconciler is managing
@@ -551,7 +543,6 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-
 			ctx := context.TODO()
 			prov := getMockProvisioner(getCurrentSettings(), getCurrentSchemaSettings())
 
@@ -621,9 +612,8 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 	}
 }
 
-// Test the function to validate hostFirmwareSettings
+// Test the function to validate hostFirmwareSettings.
 func TestValidateHostFirmwareSettings(t *testing.T) {
-
 	testCases := []struct {
 		Scenario      string
 		SpecSettings  metal3api.HostFirmwareSettingsSpec
@@ -680,7 +670,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 					"SomeNewSetting": intstr.FromString("foo"),
 				},
 			},
-			ExpectedError: "Setting SomeNewSetting is not in the Status field",
+			ExpectedError: "setting SomeNewSetting is not in the Status field",
 		},
 		{
 			Scenario: "invalid password in spec",
@@ -692,7 +682,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 					"SysPassword":           intstr.FromString("Pa%$word"),
 				},
 			},
-			ExpectedError: "Cannot set Password field",
+			ExpectedError: "cannot set Password field",
 		},
 		{
 			Scenario: "string instead of int",
@@ -709,7 +699,6 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-
 			hfs := getHFS(tc.SpecSettings)
 			r := getTestHFSReconciler(hfs)
 			info := &rInfo{

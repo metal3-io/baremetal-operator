@@ -59,7 +59,7 @@ const (
 	hardwareDataFinalizer         = metal3api.BareMetalHostFinalizer + "/hardwareData"
 )
 
-// BareMetalHostReconciler reconciles a BareMetalHost object
+// BareMetalHostReconciler reconciles a BareMetalHost object.
 type BareMetalHostReconciler struct {
 	client.Client
 	Log                logr.Logger
@@ -68,7 +68,7 @@ type BareMetalHostReconciler struct {
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
-// hold them in a context
+// hold them in a context.
 type reconcileInfo struct {
 	log               logr.Logger
 	host              *metal3api.BareMetalHost
@@ -79,7 +79,7 @@ type reconcileInfo struct {
 	postSaveCallbacks []func()
 }
 
-// match the provisioner.EventPublisher interface
+// match the provisioner.EventPublisher interface.
 func (info *reconcileInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, info.host.NewEvent(reason, message))
 }
@@ -98,9 +98,8 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 //+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
 
-// Reconcile handles changes to BareMetalHost resources
+// Reconcile handles changes to BareMetalHost resources.
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
-
 	reconcileCounters.With(hostMetricLabels(request)).Inc()
 	defer func() {
 		if err != nil {
@@ -232,7 +231,6 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	// over when there is an unrecoverable error (tracked through the
 	// error state of the host).
 	if actResult.Dirty() {
-
 		// Save Host
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
@@ -258,7 +256,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 }
 
 // Consume inspect.metal3.io/hardwaredetails when either
-// inspect.metal3.io=disabled or there are no existing HardwareDetails
+// inspect.metal3.io=disabled or there are no existing HardwareDetails.
 func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, host *metal3api.BareMetalHost) (bool, error) {
 	updated := false
 	if host.Status.HardwareDetails == nil || inspectionDisabled(host) {
@@ -307,7 +305,6 @@ func logResult(info *reconcileInfo, result ctrl.Result) {
 }
 
 func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, errorMessage string) actionFailed {
-
 	setErrorMessage(info.host, errorType, errorMessage)
 
 	eventType := map[metal3api.ErrorType]string{
@@ -379,7 +376,7 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl
 	}
 }
 
-// hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist
+// hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist.
 func hasRebootAnnotation(info *reconcileInfo, expectForce bool) (hasReboot bool, rebootMode metal3api.RebootMode) {
 	rebootMode = metal3api.RebootModeSoft
 
@@ -420,12 +417,12 @@ func getRebootAnnotationArguments(annotation string, info *reconcileInfo) (resul
 	return
 }
 
-// isRebootAnnotation returns true if the provided annotation is a reboot annotation (either suffixed or not)
+// isRebootAnnotation returns true if the provided annotation is a reboot annotation (either suffixed or not).
 func isRebootAnnotation(annotation string) bool {
 	return strings.HasPrefix(annotation, metal3api.RebootAnnotationPrefix+"/") || annotation == metal3api.RebootAnnotationPrefix
 }
 
-// clearRebootAnnotations deletes all reboot annotations exist on the provided host
+// clearRebootAnnotations deletes all reboot annotations exist on the provided host.
 func clearRebootAnnotations(host *metal3api.BareMetalHost) (dirty bool) {
 	for annotation := range host.Annotations {
 		if isRebootAnnotation(annotation) {
@@ -438,14 +435,14 @@ func clearRebootAnnotations(host *metal3api.BareMetalHost) (dirty bool) {
 }
 
 // inspectionDisabled checks for existence of inspect.metal3.io=disabled
-// which means we don't inspect even in Inspecting state
+// which means we don't inspect even in Inspecting state.
 func inspectionDisabled(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	return annotations[metal3api.InspectAnnotationPrefix] == "disabled"
 }
 
 // hasInspectAnnotation checks for existence of inspect.metal3.io annotation
-// and returns true if it exist
+// and returns true if it exist.
 func hasInspectAnnotation(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	if annotations != nil {
@@ -472,7 +469,7 @@ func clearError(host *metal3api.BareMetalHost) (dirty bool) {
 }
 
 // setErrorMessage updates the ErrorMessage in the host Status struct
-// and increases the ErrorCount
+// and increases the ErrorCount.
 func setErrorMessage(host *metal3api.BareMetalHost, errType metal3api.ErrorType, message string) {
 	host.Status.OperationalStatus = metal3api.OperationalStatusError
 	host.Status.ErrorType = errType
@@ -505,7 +502,7 @@ func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(prov provisioner.
 	return actionComplete{}
 }
 
-// Manage deletion of the host
+// Manage deletion of the host.
 func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info(
 		"marked to be deleted",
@@ -583,7 +580,7 @@ func hasCustomDeploy(host *metal3api.BareMetalHost) bool {
 	}
 }
 
-// detachHost() detaches the host from the Provisioner
+// detachHost() detaches the host from the Provisioner.
 func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	provResult, err := prov.Detach()
 	if err != nil {
@@ -1500,7 +1497,6 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 }
 
 func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo) error {
-
 	// Check if HostFirmwareSettings already exists
 	hfs := &metal3api.HostFirmwareSettings{}
 	if err := r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
@@ -1521,7 +1517,6 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 			}
 
 			info.log.Info("created new hostFirmwareSettings resource")
-
 		} else {
 			// Error reading the object
 			return errors.Wrap(err, "could not load hostFirmwareSettings resource")
@@ -1531,12 +1526,10 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 	return nil
 }
 
-// Get the stored firmware settings if there are valid changes
+// Get the stored firmware settings if there are valid changes.
 func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (dirty bool, hfs *metal3api.HostFirmwareSettings, err error) {
-
 	hfs = &metal3api.HostFirmwareSettings{}
 	if err = r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
-
 		if !k8serrors.IsNotFound(err) {
 			// Error reading the object
 			return false, nil, errors.Wrap(err, "could not load host firmware settings")
@@ -1549,7 +1542,6 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 
 	// Check if there are settings in the Spec that are different than the Status
 	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3api.FirmwareSettingsChangeDetected)) {
-
 		// Check if the status settings have been populated
 		if len(hfs.Status.Settings) == 0 {
 			return false, nil, errors.New("host firmware status settings not available")
@@ -1583,7 +1575,7 @@ func unmarshalStatusAnnotation(content []byte) (*metal3api.BareMetalHostStatus, 
 	return objStatus, nil
 }
 
-// extract host from Status annotation
+// extract host from Status annotation.
 func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3api.BareMetalHost) (*metal3api.BareMetalHostStatus, error) {
 	annotations := host.GetAnnotations()
 	content := []byte(annotations[metal3api.StatusAnnotation])
@@ -1597,7 +1589,7 @@ func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3api.Ba
 	return objStatus, nil
 }
 
-// extract HardwareDetails from annotation if present
+// extract HardwareDetails from annotation if present.
 func (r *BareMetalHostReconciler) getHardwareDetailsFromAnnotation(host *metal3api.BareMetalHost) (*metal3api.HardwareDetails, error) {
 	annotations := host.GetAnnotations()
 	if annotations[metal3api.HardwareDetailsAnnotation] == "" {
@@ -1635,7 +1627,6 @@ func (r *BareMetalHostReconciler) secretManager(log logr.Logger) secretutils.Sec
 
 // Retrieve the secret containing the credentials for talking to the BMC.
 func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, host *metal3api.BareMetalHost) (*corev1.Secret, error) {
-
 	if host.Spec.BMC.CredentialsName == "" {
 		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
 	}
@@ -1672,7 +1663,6 @@ func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
 // right and manufacture bmc.Credentials.  This does not actually try
 // to use the credentials.
 func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Request, host *metal3api.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
-
 	// Retrieve the BMC secret from Kubernetes for this host
 	bmcCredsSecret, err = r.getBMCSecretAndSetOwner(request, host)
 	if err != nil {
@@ -1704,7 +1694,6 @@ func (r *BareMetalHostReconciler) publishEvent(request ctrl.Request, event corev
 		reqLogger.Info("failed to record event, ignoring",
 			"reason", event.Reason, "message", event.Message, "error", err)
 	}
-	return
 }
 
 func (r *BareMetalHostReconciler) hostHasStatus(host *metal3api.BareMetalHost) bool {
@@ -1726,12 +1715,12 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 		return true
 	}
 
-	//If the update increased the resource Generation then let's process it
+	// If the update increased the resource Generation then let's process it
 	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 		return true
 	}
 
-	//Discard updates that did not increase the resource Generation (such as on Status.LastUpdated), except for the finalizers or annotations
+	// Discard updates that did not increase the resource Generation (such as on Status.LastUpdated), except for the finalizers or annotations
 	if reflect.DeepEqual(e.ObjectNew.GetFinalizers(), e.ObjectOld.GetFinalizers()) && reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations()) {
 		return false
 	}
@@ -1739,9 +1728,8 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 	return true
 }
 
-// SetupWithManager registers the reconciler to be run by the manager
+// SetupWithManager registers the reconciler to be run by the manager.
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgEnable bool, maxConcurrentReconcile int) error {
-
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.BareMetalHost{}).
 		WithEventFilter(
@@ -1761,7 +1749,6 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 }
 
 func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *metal3api.BareMetalHost, request ctrl.Request) (result ctrl.Result, err error) {
-
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 
 	// Fetch the HardwareData
@@ -1814,7 +1801,6 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 			return ctrl.Result{Requeue: true}, nil
 		}
 		reqLogger.Info("No status cache found")
-
 	}
 	// The status annotation is unneeded, as the status subresource is
 	// already present. The annotation data will get outdated, so remove it.
@@ -1839,5 +1825,4 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
-
 }

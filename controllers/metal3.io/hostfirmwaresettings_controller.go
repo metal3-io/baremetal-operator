@@ -51,7 +51,7 @@ const (
 	reconcilerRequeueDelayChangeDetected = time.Minute * 1
 )
 
-// HostFirmwareSettingsReconciler reconciles a HostFirmwareSettings object
+// HostFirmwareSettingsReconciler reconciles a HostFirmwareSettings object.
 type HostFirmwareSettingsReconciler struct {
 	client.Client
 	Log                logr.Logger
@@ -73,7 +73,6 @@ const (
 )
 
 func (info *rInfo) publishEvent(reason, message string) {
-
 	t := metav1.Now()
 	hfsEvent := corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
@@ -113,7 +112,6 @@ func (info *rInfo) publishEvent(reason, message string) {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.6.4/pkg/reconcile
 func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-
 	reqLogger := r.Log.WithValues("hostfirmwaresettings", req.NamespacedName)
 	reqLogger.Info("start")
 
@@ -188,9 +186,8 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelay}, nil
 }
 
-// Get the firmware settings from the provisioner and update hostFirmwareSettings
+// Get the firmware settings from the provisioner and update hostFirmwareSettings.
 func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSettings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, info *rInfo) (err error) {
-
 	// get or create a firmwareSchema to hold schema
 	firmwareSchema, err := r.getOrCreateFirmwareSchema(info, schema)
 	if err != nil {
@@ -204,9 +201,8 @@ func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSetti
 	return nil
 }
 
-// Update the HostFirmwareSettings resource using the settings and schema from provisioner
+// Update the HostFirmwareSettings resource using the settings and schema from provisioner.
 func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings metal3api.SettingsMap, schema *metal3api.FirmwareSchema) (err error) {
-
 	dirty := false
 	var newStatus metal3api.HostFirmwareSettingsStatus
 	newStatus.Settings = make(metal3api.SettingsMap)
@@ -292,12 +288,10 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 		return r.Status().Update(context.TODO(), info.hfs)
 	}
 	return nil
-
 }
 
-// Get a firmware schema that matches the host vendor or create one if it doesn't exist
+// Get a firmware schema that matches the host vendor or create one if it doesn't exist.
 func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, schema map[string]metal3api.SettingSchema) (fSchema *metal3api.FirmwareSchema, err error) {
-
 	info.log.Info("getting firmwareSchema")
 
 	schemaName := GetSchemaName(schema)
@@ -306,7 +300,6 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	// If a schema exists that matches, use that, otherwise create a new one
 	if err = r.Get(context.TODO(), client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
 		firmwareSchema); err == nil {
-
 		info.log.Info("found existing firmwareSchema resource")
 
 		// Add hfs as owner so can be garbage collected on delete, if already an owner it will just be overwritten
@@ -366,7 +359,6 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconcile int) error {
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.HostFirmwareSettings{}).
 		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
@@ -378,10 +370,9 @@ func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager, maxC
 }
 
 func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent) bool {
-
 	r.Log.Info("hostfirmwaresettings in event handler")
 
-	//If the update increased the resource Generation then let's process it
+	// If the update increased the resource Generation then let's process it
 	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 		r.Log.Info("returning true as generation changed from event handler")
 		return true
@@ -390,21 +381,20 @@ func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent)
 	return false
 }
 
-// Validate the HostFirmwareSetting Spec against the schema
+// Validate the HostFirmwareSetting Spec against the schema.
 func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInfo, status *metal3api.HostFirmwareSettingsStatus, schema *metal3api.FirmwareSchema) []error {
-
 	var errors []error
 
 	for name, val := range info.hfs.Spec.Settings {
 		// Prohibit any Spec settings with "Password"
 		if strings.Contains(name, "Password") {
-			errors = append(errors, fmt.Errorf("Cannot set Password field"))
+			errors = append(errors, fmt.Errorf("cannot set Password field"))
 			continue
 		}
 
 		// The setting must be in the Status
 		if _, ok := status.Settings[name]; !ok {
-			errors = append(errors, fmt.Errorf("Setting %s is not in the Status field", name))
+			errors = append(errors, fmt.Errorf("setting %s is not in the Status field", name))
 			continue
 		}
 
@@ -431,7 +421,6 @@ func (r *HostFirmwareSettingsReconciler) publishEvent(request ctrl.Request, even
 		reqLogger.Info("failed to record event, ignoring",
 			"reason", event.Reason, "message", event.Message, "error", err)
 	}
-	return
 }
 
 func setCondition(generation int64, status *metal3api.HostFirmwareSettingsStatus, info *rInfo,
@@ -453,17 +442,14 @@ func setCondition(generation int64, status *metal3api.HostFirmwareSettingsStatus
 	return false
 }
 
-// Generate a name based on the schema key and values which should be the same for similar hardware
+// Generate a name based on the schema key and values which should be the same for similar hardware.
 func GetSchemaName(schema map[string]metal3api.SettingSchema) string {
-
 	// Schemas from the same vendor and model should be identical for both keys and values.
 	hashkeys := make([]string, 0, len(schema))
 	for k, v := range schema {
 		hashkeys = append(hashkeys, k)
 		hashkeys = append(hashkeys, v.AttributeType)
-		for _, av := range v.AllowableValues {
-			hashkeys = append(hashkeys, av)
-		}
+		hashkeys = append(hashkeys, v.AllowableValues...)
 		if v.LowerBound != nil {
 			hashkeys = append(hashkeys, strconv.Itoa(*v.LowerBound))
 		}
@@ -483,7 +469,7 @@ func GetSchemaName(schema map[string]metal3api.SettingSchema) string {
 	sort.Strings(hashkeys)
 
 	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%v", hashkeys)))
+	fmt.Fprintf(h, "%v", hashkeys)
 	hash := fmt.Sprintf("%x", h.Sum(nil))[:8]
 
 	return "schema-" + hash

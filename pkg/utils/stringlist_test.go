@@ -28,7 +28,6 @@ func TestStringInList(t *testing.T) {
 		if c.expect != got {
 			t.Errorf("Expected '%t', but got '%t'", c.expect, got)
 		}
-
 	}
 }
 
@@ -55,6 +54,5 @@ func TestFilterStringFromList(t *testing.T) {
 		if !reflect.DeepEqual(newList, c.expectStr) {
 			t.Errorf("Expected '%s', but got '%s'", c.expectStr, newList)
 		}
-
 	}
 }

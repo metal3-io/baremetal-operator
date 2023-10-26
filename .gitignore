@@ -17,6 +17,9 @@ _artifacts
 *.out
 # End of https://www.gitignore.io/api/go
 
+# go.work files
+go.work
+go.work.sum
 
 # Tilt files.
 .tiltbuild

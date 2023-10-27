@@ -92,17 +92,19 @@ func TestProvisionWithHostConfig(t *testing.T) {
 	testBMCSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
 
 	testCases := []struct {
-		Scenario                 string
-		Host                     *metal3api.BareMetalHost
-		UserDataSecret           *corev1.Secret
-		PreprovNetworkDataSecret *corev1.Secret
-		NetworkDataSecret        *corev1.Secret
-		ExpectedUserData         string
-		ErrUserData              bool
-		ExpectedNetworkData      string
-		ErrNetworkData           bool
-		ExpectedMetaData         string
-		ErrMetaData              bool
+		Scenario                           string
+		Host                               *metal3api.BareMetalHost
+		UserDataSecret                     *corev1.Secret
+		PreprovNetworkDataSecret           *corev1.Secret
+		NetworkDataSecret                  *corev1.Secret
+		ExpectedUserData                   string
+		ErrUserData                        bool
+		ExpectedNetworkData                string
+		ErrNetworkData                     bool
+		ExpectedPreprovisioningNetworkData string
+		ErrPreprovisioningNetworkData      bool
+		ExpectedMetaData                   string
+		ErrMetaData                        bool
 	}{
 		{
 			Scenario: "host with user data only",
@@ -151,11 +153,12 @@ func TestProvisionWithHostConfig(t *testing.T) {
 					},
 					PreprovisioningNetworkDataName: "net-data",
 				}),
-			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),
-			ExpectedUserData:    "",
-			ErrUserData:         false,
-			ExpectedNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
-			ErrNetworkData:      false,
+			NetworkDataSecret:                  newSecret("net-data", map[string]string{"networkData": "key: value"}),
+			ExpectedUserData:                   "",
+			ErrUserData:                        false,
+			ExpectedNetworkData:                base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ExpectedPreprovisioningNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ErrNetworkData:                     false,
 		},
 		{
 			Scenario: "host with preprov and regular network data",
@@ -165,17 +168,19 @@ func TestProvisionWithHostConfig(t *testing.T) {
 						Address:         "ipmi://192.168.122.1:6233",
 						CredentialsName: defaultSecretName,
 					},
-					PreprovisioningNetworkDataName: "preprov-net-data",
+					PreprovisioningNetworkDataName: "net-data2",
 					NetworkData: &corev1.SecretReference{
 						Name:      "net-data",
 						Namespace: namespace,
 					},
 				}),
-			NetworkDataSecret:   newSecret("net-data", map[string]string{"networkData": "key: value"}),
-			ExpectedUserData:    "",
-			ErrUserData:         false,
-			ExpectedNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value")),
-			ErrNetworkData:      false,
+			NetworkDataSecret:                  newSecret("net-data", map[string]string{"networkData": "key: value"}),
+			PreprovNetworkDataSecret:           newSecret("net-data2", map[string]string{"networkData": "key: value2"}),
+			ExpectedUserData:                   "",
+			ErrUserData:                        false,
+			ExpectedNetworkData:                base64.StdEncoding.EncodeToString([]byte("key: value")),
+			ExpectedPreprovisioningNetworkData: base64.StdEncoding.EncodeToString([]byte("key: value2")),
+			ErrNetworkData:                     false,
 		},
 		{
 			Scenario: "host with network data only",
@@ -336,6 +341,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			c.Create(goctx.TODO(), testBMCSecret)
 			c.Create(goctx.TODO(), tc.UserDataSecret)
 			c.Create(goctx.TODO(), tc.NetworkDataSecret)
+			c.Create(goctx.TODO(), tc.PreprovNetworkDataSecret)
 			baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
 			hcd := &hostConfigData{
 				host:          tc.Host,
@@ -358,7 +364,16 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			}
 
 			if actualNetworkData != tc.ExpectedNetworkData {
-				t.Fatal(fmt.Errorf("Failed to assert NetworkData. Expected '%s' got '%s'", actualNetworkData, tc.ExpectedNetworkData))
+				t.Fatal(fmt.Errorf("Failed to assert NetworkData. Expected '%s' got '%s'", tc.ExpectedNetworkData, actualNetworkData))
+			}
+
+			actualPreprovisioningNetworkData, err := hcd.PreprovisioningNetworkData()
+			if err != nil && !tc.ErrPreprovisioningNetworkData {
+				t.Fatal(err)
+			}
+
+			if actualPreprovisioningNetworkData != tc.ExpectedPreprovisioningNetworkData {
+				t.Fatal(fmt.Errorf("Failed to assert PreprovisioningNetworkData. Expected '%s' got '%s'", tc.ExpectedPreprovisioningNetworkData, actualPreprovisioningNetworkData))
 			}
 
 			actualMetaData, err := hcd.MetaData()

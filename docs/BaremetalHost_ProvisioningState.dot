@@ -5,14 +5,14 @@ digraph BaremetalHost {
 
     Unmanaged [shape=doublecircle]
     Unmanaged -> Registering [label="BMC.* != \"\""]
-    Unmanaged -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
+    Unmanaged -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     ExternallyProvisioned [label="Externally\nProvisioned"]
 
     Registering -> Inspecting [label="!externallyProvisioned &&\nNeedsHardwareInspection()"]
     Registering -> Preparing [label="!externallyProvisioned &&\ninspectionDisabled()"]
     Registering -> ExternallyProvisioned [label="externallyProvisioned"]
-    Registering -> PoweringOffBeforeDelete [label="!DeletionTimestamp.IsZero()"]
+    Registering -> Deleting [label="!DeletionTimestamp.IsZero()"]
 
     ExternallyProvisioned -> Inspecting [label="!externallyProvisioned &&\nNeedsHardwareInspection()"]
     ExternallyProvisioned -> Preparing [label="!externallyProvisioned &&\n!NeedsHardwareInspection()"]

@@ -22,7 +22,7 @@ verify_go_version()
 
     local go_version
     IFS=" " read -ra go_version <<< "$(go version)"
-    if ! [[ "${MINIMUM_GO_VERSION}" =~ .*"${go_version[2]}".* ]]; then
+    if [[ "${MINIMUM_GO_VERSION}" != $(echo -e "${MINIMUM_GO_VERSION}\n${go_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) ]] && [[ "${go_version[2]}" != "devel" ]]; then
         cat << EOF
 Detected go version: ${go_version[2]}.
 Requires ${MINIMUM_GO_VERSION} or greater.

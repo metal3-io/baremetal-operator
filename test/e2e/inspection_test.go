@@ -51,7 +51,7 @@ var _ = Describe("Inspection", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("waiting for the BMH to be in unmanaged state")
-		WaitForBmhInState(ctx, WaitForBmhInStateInput{
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateUnmanaged,
@@ -76,7 +76,7 @@ var _ = Describe("Inspection", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("trying to register the BMH")
-		WaitForBmhInState(ctx, WaitForBmhInStateInput{
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateRegistering,
@@ -124,21 +124,21 @@ var _ = Describe("Inspection", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("waiting for the BMH to be in registering state")
-		WaitForBmhInState(ctx, WaitForBmhInStateInput{
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateRegistering,
 		}, e2eConfig.GetIntervals(specName, "wait-registering")...)
 
 		By("waiting for the BMH to be in inspecting state")
-		WaitForBmhInState(ctx, WaitForBmhInStateInput{
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateInspecting,
 		}, e2eConfig.GetIntervals(specName, "wait-inspecting")...)
 
 		By("waiting for the BMH to become available")
-		WaitForBmhInState(ctx, WaitForBmhInStateInput{
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),
 			Bmh:    bmh,
 			State:  metal3api.StateAvailable,

@@ -3,7 +3,7 @@ module github.com/metal3-io/baremetal-operator
 go 1.20
 
 require (
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.3.0
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/gophercloud/gophercloud v1.5.1-0.20230912084133-c79ed6d3b371
 	github.com/metal3-io/baremetal-operator/apis v0.2.0

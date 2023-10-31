@@ -61,9 +61,6 @@ Types and functions not in public APIs are not considered part of the guarantee.
 
 #### Backporting
 
-**Note: At present we only have main branch, there is no other release branch. As such backporting is not
-an option currently. Once we have release branches the following should be considered.**
-
 We only accept backports of critical bugs, security issues, or bugs without easy workarounds, any
 backport MUST not be breaking for either API or behavioral changes.
 We generally do not accept PRs against older release branches.

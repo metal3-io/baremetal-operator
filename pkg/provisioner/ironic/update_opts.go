@@ -100,15 +100,13 @@ func getUpdateOperation(name string, currentData map[string]interface{}, desired
 	desiredValue = deref(desiredValue)
 	if desiredValue != nil {
 		if !(present && optionValueEqual(deref(current), desiredValue)) {
-			if log.GetSink() != nil {
-				if present {
-					log.Info("updating option data",
-						"value", sanitisedValue(desiredValue),
-						"old_value", current)
-				} else {
-					log.Info("adding option data",
-						"value", sanitisedValue(desiredValue))
-				}
+			if present {
+				log.Info("updating option data",
+					"value", sanitisedValue(desiredValue),
+					"oldValue", current)
+			} else {
+				log.Info("adding option data",
+					"value", sanitisedValue(desiredValue))
 			}
 			return &nodes.UpdateOperation{
 				Op:    nodes.AddOp, // Add also does replace
@@ -118,9 +116,7 @@ func getUpdateOperation(name string, currentData map[string]interface{}, desired
 		}
 	} else {
 		if present {
-			if log.GetSink() != nil {
-				log.Info("removing option data")
-			}
+			log.Info("removing option data")
 			return &nodes.UpdateOperation{
 				Op:   nodes.RemoveOp,
 				Path: path,
@@ -142,9 +138,6 @@ func updateOptsBuilder(logger logr.Logger) *nodeUpdater {
 }
 
 func (nu *nodeUpdater) logger(basepath, option string) logr.Logger {
-	if nu.log.GetSink() == nil {
-		return logr.Logger{}
-	}
 	log := nu.log.WithValues("option", option)
 	if basepath != "" {
 		log = log.WithValues("section", basepath[1:])

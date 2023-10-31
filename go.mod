@@ -8,7 +8,7 @@ require (
 	github.com/gophercloud/gophercloud v1.5.1-0.20230912084133-c79ed6d3b371
 	github.com/metal3-io/baremetal-operator/apis v0.2.0
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.2.0
-	github.com/onsi/gomega v1.28.1
+	github.com/onsi/gomega v1.29.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/stretchr/testify v1.8.4

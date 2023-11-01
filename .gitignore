@@ -24,6 +24,11 @@ test/e2e/images
 go.work
 go.work.sum
 
+# Common editor / temporary files
+*~
+*.tmp
+.DS_Store
+
 # Tilt files.
 .tiltbuild
 /tilt.d

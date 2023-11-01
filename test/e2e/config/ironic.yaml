@@ -19,6 +19,7 @@ variables:
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
+  EXPECTED_HOST_NAME: "localhost.localdomain"
   # Test credentials. The tests will create a BMH with these.
   BMC_USER: admin
   BMC_PASSWORD: password

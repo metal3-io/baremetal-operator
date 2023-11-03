@@ -23,22 +23,22 @@ import (
 )
 
 // log is for logging in this package.
-var baremetalhostlog = logf.Log.WithName("baremetalhost-resource")
+var baremetalhostlog = logf.Log.WithName("webhooks").WithName("BareMetalHost")
 
 //+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-baremetalhost,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=baremetalhosts,versions=v1alpha1,name=baremetalhost.metal3.io
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *BareMetalHost) ValidateCreate() (admission.Warnings, error) {
-	baremetalhostlog.Info("validate create", "name", r.Name)
+	baremetalhostlog.Info("validate create", "namespace", r.Namespace, "name", r.Name)
 	return nil, errors.NewAggregate(r.validateHost())
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *BareMetalHost) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	baremetalhostlog.Info("validate update", "name", r.Name)
+	baremetalhostlog.Info("validate update", "namespace", r.Namespace, "name", r.Name)
 	bmh, casted := old.(*BareMetalHost)
 	if !casted {
-		baremetalhostlog.Error(fmt.Errorf("old object conversion error"), "validate update error")
+		baremetalhostlog.Error(fmt.Errorf("old object conversion error for %s/%s", r.Namespace, r.Name), "validate update error")
 		return nil, nil
 	}
 	return nil, errors.NewAggregate(r.validateChanges(bmh))

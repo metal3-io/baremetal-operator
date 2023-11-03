@@ -326,7 +326,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	var ironicNode *nodes.Node
-	updater := updateOptsBuilder(p.debugLog)
+	updater := updateOptsBuilder(p.log)
 
 	p.debugLog.Info("validating management access")
 
@@ -541,7 +541,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 }
 
 func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
-	updater := updateOptsBuilder(p.debugLog)
+	updater := updateOptsBuilder(p.log)
 
 	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
@@ -710,13 +710,13 @@ func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeU
 		return
 	}
 
-	p.log.Info("updating node settings in ironic")
+	p.log.Info("updating node settings in ironic", "updateCount", len(updater.Updates))
 	updatedNode, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
 	switch err.(type) {
 	case nil:
 		success = true
 	case gophercloud.ErrDefault409:
-		p.log.Info("could not update node settings in ironic, busy")
+		p.log.Info("could not update node settings in ironic, busy or update cannot be applied in the current state")
 		result, err = retryAfterDelay(provisionRequeueDelay)
 	default:
 		result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
@@ -780,7 +780,7 @@ func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result prov
 func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
 	_, started, result, err = p.tryUpdateNode(
 		ironicNode,
-		updateOptsBuilder(p.debugLog).
+		updateOptsBuilder(p.log).
 			SetPropertiesOpts(optionsData{
 				"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 			}, ironicNode),
@@ -1042,7 +1042,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 }
 
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
-	updater := updateOptsBuilder(p.debugLog)
+	updater := updateOptsBuilder(p.log)
 
 	hasCustomDeploy := data.CustomDeploy != nil && data.CustomDeploy.Method != ""
 	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, hasCustomDeploy, updater)
@@ -1798,7 +1798,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// Make sure we don't have a stale instance UUID
 		if ironicNode.InstanceUUID != "" {
 			p.log.Info("removing stale instance UUID before deletion", "instanceUUID", ironicNode.InstanceUUID)
-			updater := updateOptsBuilder(p.debugLog)
+			updater := updateOptsBuilder(p.log)
 			updater.SetTopLevelOpt("instance_uuid", nil, ironicNode.InstanceUUID)
 			_, success, result, err := p.tryUpdateNode(ironicNode, updater)
 			if !success {

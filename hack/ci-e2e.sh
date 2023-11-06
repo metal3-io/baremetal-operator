@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 
+# -----------------------------------------------------------------------------
+# Description: This script sets up the environment and runs E2E tests for the
+#              BMO project. It uses either vbmc or sushy-tools based on 
+#              the BMO_E2E_EMULATOR environment variable.
+# Usage:       export BMO_E2E_EMULATOR="vbmc"  # Or "sushy-tools"
+#              ./ci-e2e.sh
+# -----------------------------------------------------------------------------
+
 set -eux
 
 REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 cd "${REPO_ROOT}" || exit 1
+
+# BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
+BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 
 # Ensure requirements are installed
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
@@ -32,58 +43,83 @@ minikube start
 # Load the BMO e2e image into it
 minikube image load quay.io/metal3-io/baremetal-operator:e2e
 
-# Start VBMC
-docker run --name vbmc --network host -d \
-  -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
-  -v /var/run/libvirt/libvirt-sock-ro:/var/run/libvirt/libvirt-sock-ro \
-  quay.io/metal3-io/vbmc
-
 # Create libvirt domain
 VM_NAME="bmo-e2e-0"
-BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
-VBMC_PORT="16230"
-virt-install --connect qemu:///system -n "${VM_NAME}" --description "Virtualized BareMetalHost" --osinfo=ubuntu-lts-latest \
-  --ram=4096 --vcpus=2 --disk size=20 --graphics=none --console pty --serial pty --pxe \
-  --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" --noautoconsole
+export BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
 
-# Add BMH VM to VBMC
-docker exec vbmc vbmc add "${VM_NAME}" --port "${VBMC_PORT}"
-docker exec vbmc vbmc start "${VM_NAME}"
-docker exec vbmc vbmc list
+virt-install \
+  --connect qemu:///system \
+  --name "${VM_NAME}" \
+  --description "Virtualized BareMetalHost" \
+  --osinfo=ubuntu-lts-latest \
+  --ram=4096 \
+  --vcpus=2 \
+  --disk size=20 \
+  --graphics=none \
+  --console pty \
+  --serial pty \
+  --pxe \
+  --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" \
+  --noautoconsole
+
+# This IP is defined by the network we created above.
+IP_ADDRESS="192.168.222.1"
 
 # These variables are used by the tests. They override variables in the config file.
-# This IP is defined by the network we created above.
-# Together with the VBMC_PORT this becomes the BMC_ADDRESS used by the BMH in the test.
-IP_ADDRESS="192.168.222.1"
-export BMC_ADDRESS="ipmi://${IP_ADDRESS}:${VBMC_PORT}"
-export BOOT_MAC_ADDRESS
 # These are the VBMC defaults (used since we did not specify anything else for `vbmc add`).
 export BMC_USER=admin
 export BMC_PASSWORD=password
+
+if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
+	# VBMC variables
+  VBMC_PORT="16230"
+  export BMC_ADDRESS="ipmi://${IP_ADDRESS}:${VBMC_PORT}"
+
+  # Start VBMC
+  docker run --name vbmc --network host -d \
+    -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
+    -v /var/run/libvirt/libvirt-sock-ro:/var/run/libvirt/libvirt-sock-ro \
+    quay.io/metal3-io/vbmc
+
+  # Add BMH VM to VBMC
+  docker exec vbmc vbmc add "${VM_NAME}" --port "${VBMC_PORT}"
+  docker exec vbmc vbmc start "${VM_NAME}"
+  docker exec vbmc vbmc list
+
+elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
+  # Sushy-tools variables
+  SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
+  SUSHY_PORT="8000"
+  export BMC_ADDRESS="redfish+http://${IP_ADDRESS}:${SUSHY_PORT}/redfish/v1/Systems/${VM_NAME}"
+
+  # Start sushy-tools
+  docker run --name sushy-tools -d --network host \
+    -v "${SUSHY_EMULATOR_FILE}":/etc/sushy/sushy-emulator.conf:Z \
+    -v /var/run/libvirt:/var/run/libvirt:Z \
+    -e SUSHY_EMULATOR_CONFIG=/etc/sushy/sushy-emulator.conf \
+    quay.io/metal3-io/sushy-tools:latest sushy-emulator
+
+else
+  echo "Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
+  exit 1
+fi
+
+# Image server variables
 CIRROS_VERSION="0.6.2"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
-IMAGE_FOLDER="${REPO_ROOT}/test/e2e/images"
+IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 
-## Setup image server
-# Create a directory for images
-
-mkdir -p "${IMAGE_FOLDER}"
-pushd "${IMAGE_FOLDER}"
-
-## Setup image server
-# Check if IMAGE_FILE already exists
-if [[ ! -f "${IMAGE_FILE}" ]]; then
-    wget "https://download.cirros-cloud.net/${CIRROS_VERSION}/${IMAGE_FILE}"
-else
-    echo "${IMAGE_FILE} already exists. Skipping download."
-fi
-
+## Download and run image server
+mkdir -p "${IMAGE_DIR}"
+pushd "${IMAGE_DIR}"
+wget --quiet "https://download.cirros-cloud.net/${CIRROS_VERSION}/${IMAGE_FILE}"
 popd
 
-# Run image server
-docker run --rm --name image-server-e2e -d -p 80:8080 -v "${IMAGE_FOLDER}:/usr/share/nginx/html" nginxinc/nginx-unprivileged
+docker run --name image-server-e2e -d \
+  -p 80:8080 \
+  -v "${IMAGE_DIR}:/usr/share/nginx/html" nginxinc/nginx-unprivileged
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e

@@ -1979,14 +1979,6 @@ func ironicNodeName(objMeta metav1.ObjectMeta) string {
 	return objMeta.Namespace + nameSeparator + objMeta.Name
 }
 
-// IsReady checks if the provisioning backend is available
-func (p *ironicProvisioner) IsReady() (result bool, err error) {
-	p.debugLog.Info("verifying ironic provisioner dependencies")
-
-	checker := newIronicDependenciesChecker(p.client, p.log)
-	return checker.IsReady()
-}
-
 func (p *ironicProvisioner) HasCapacity() (result bool, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {

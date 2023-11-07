@@ -1,57 +1,31 @@
 package ironic
 
 import (
-	"strings"
-	"time"
-
-	"github.com/go-logr/logr"
-	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/pagination"
 )
 
-const (
-	checkRequeueDelay = time.Second * 10
-)
-
-type ironicDependenciesChecker struct {
-	client *gophercloud.ServiceClient
-	log    logr.Logger
-}
-
-func newIronicDependenciesChecker(client *gophercloud.ServiceClient, log logr.Logger) *ironicDependenciesChecker {
-	return &ironicDependenciesChecker{
-		client: client,
-		log:    log,
-	}
-}
-
-func (i *ironicDependenciesChecker) IsReady() (result bool, err error) {
-	ready := i.checkEndpoint(i.client)
+// IsReady checks if the provisioning backend is available
+func (p *ironicProvisioner) IsReady() (result bool, err error) {
+	p.debugLog.Info("verifying ironic provisioner dependencies")
+	ready := p.checkEndpoint()
 	if ready {
-		ready, err = i.checkIronicConductor()
+		ready, err = p.checkIronicConductor()
 	}
 	return ready, err
 }
 
-func (i *ironicDependenciesChecker) checkEndpoint(client *gophercloud.ServiceClient) (ready bool) {
-
-	// NOTE: Some versions of Ironic inspector returns 404 for /v1/ but 200 for /v1,
-	// which seems to be the default behavior for Flask. Remove the trailing slash
-	// from the client endpoint.
-	endpoint := strings.TrimSuffix(client.Endpoint, "/")
-
-	_, err := client.Get(endpoint, nil, nil)
+func (p *ironicProvisioner) checkEndpoint() (ready bool) {
+	_, err := p.client.Get(p.client.Endpoint, nil, nil)
 	if err != nil {
-		i.log.Info("error caught while checking endpoint", "endpoint", client.Endpoint, "error", err)
+		p.log.Info("error caught while checking endpoint", "endpoint", p.client.Endpoint, "error", err)
 	}
 
 	return err == nil
 }
 
-func (i *ironicDependenciesChecker) checkIronicConductor() (ready bool, err error) {
-
-	pager := drivers.ListDrivers(i.client, drivers.ListDriversOpts{
+func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {
+	pager := drivers.ListDrivers(p.client, drivers.ListDriversOpts{
 		Detail: false,
 	})
 	err = pager.Err

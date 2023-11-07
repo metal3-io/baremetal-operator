@@ -3,25 +3,24 @@ package ironic
 import (
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/pagination"
+
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
-// IsReady checks if the provisioning backend is available
-func (p *ironicProvisioner) IsReady() (result bool, err error) {
+// TryInit checks if the provisioning backend is available
+func (p *ironicProvisioner) TryInit() (ready bool, err error) {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
-	ready := p.checkEndpoint()
-	if ready {
-		ready, err = p.checkIronicConductor()
-	}
-	return ready, err
-}
 
-func (p *ironicProvisioner) checkEndpoint() (ready bool) {
-	_, err := p.client.Get(p.client.Endpoint, nil, nil)
+	p.availableFeatures, err = clients.GetAvailableFeatures(p.client)
 	if err != nil {
-		p.log.Info("error caught while checking endpoint", "endpoint", p.client.Endpoint, "error", err)
+		p.log.Info("error caught while checking endpoint, will retry", "endpoint", p.client.Endpoint, "error", err)
+		return false, nil
 	}
 
-	return err == nil
+	p.client.Microversion = p.availableFeatures.ChooseMicroversion()
+	p.availableFeatures.Log(p.debugLog)
+
+	return p.checkIronicConductor()
 }
 
 func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {

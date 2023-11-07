@@ -73,8 +73,8 @@ github.com/google/safetext v0.0.0-20230106111101-7156a760e523 h1:i4NsbmB9pD5+Ggp
 github.com/google/safetext v0.0.0-20230106111101-7156a760e523/go.mod h1:mJNEy0r5YPHC7ChQffpOszlGB4L1iqjXWpIEKcFpr9s=
 github.com/google/uuid v1.4.0 h1:MtMxsa51/r9yyhkyLsVeVt0B+BGQZzpQiTQ4eHZ8bc4=
 github.com/google/uuid v1.4.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/gophercloud/gophercloud v1.5.1-0.20230912084133-c79ed6d3b371 h1:/4TDrmUM3o52/9J3Pn4mZ3VP7CYiFkDKRNuWyxLkpp4=
-github.com/gophercloud/gophercloud v1.5.1-0.20230912084133-c79ed6d3b371/go.mod h1:vYRGjRkTeMAwdvQFTVuPGfRWv4dc3J2QHy9H3bHD6Pc=
+github.com/gophercloud/gophercloud v1.5.1-0.20231106162611-af1813efe0d1 h1:4crYiUFYzhxv60/bsLnyc7esUsOqQl3DgErAGNsOgL8=
+github.com/gophercloud/gophercloud v1.5.1-0.20231106162611-af1813efe0d1/go.mod h1:99P1GdytPKaSR7/ugQJo1dX6th5FlHdXXvKqvRJQfO4=
 github.com/imdario/mergo v0.3.12 h1:b6R2BslTbIEToALKP7LxUvijTsNI9TAe80pLWN2g/HU=
 github.com/imdario/mergo v0.3.12/go.mod h1:jmQim1M+e3UYxmgPu/WyfjB3N3VflVyUjjjwH0dnCYA=
 github.com/inconshreveable/mousetrap v1.0.1 h1:U3uMjPSQEBMNp1lFxmllqCPM6P5u/Xq7Pgzkat/bFNc=

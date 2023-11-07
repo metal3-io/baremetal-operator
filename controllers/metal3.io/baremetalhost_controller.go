@@ -208,7 +208,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	ready, err := prov.IsReady()
+	ready, err := prov.TryInit()
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to check services availability")
 	}

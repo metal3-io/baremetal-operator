@@ -65,7 +65,7 @@ func TestProvisionerIsReady(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			ready, err := prov.IsReady()
+			ready, err := prov.TryInit()
 			if err != nil {
 				t.Fatalf("could not determine ready state: %s", err)
 			}

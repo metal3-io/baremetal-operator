@@ -349,8 +349,8 @@ func (p *demoProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provi
 	// return result, nil
 }
 
-// IsReady always returns true for the demo provisioner
-func (p *demoProvisioner) IsReady() (result bool, err error) {
+// TryInit always returns true for the demo provisioner
+func (p *demoProvisioner) TryInit() (result bool, err error) {
 	return true, nil
 }
 

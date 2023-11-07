@@ -151,7 +151,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	ready, err := prov.IsReady()
+	ready, err := prov.TryInit()
 	if err != nil || !ready {
 		var msg string
 		if err == nil {

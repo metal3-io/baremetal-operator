@@ -33,7 +33,7 @@ intervals:
   default/wait-registering: ["1m", "5s"]
   inspection/wait-registration-error: ["1m", "5s"]
   external-inspection/wait-available: ["20s", "1s"]
-  default/wait-inspecting: ["2m", "10s"]
+  default/wait-inspecting: ["2m", "2s"]
   default/wait-available: ["10m", "1s"]
   default/wait-deployment: ["5m", "1s"]
   default/wait-namespace-deleted: ["10m", "1s"]

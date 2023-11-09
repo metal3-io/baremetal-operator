@@ -46,6 +46,7 @@ ironic-inspector-auth-config
 ironic-rpc-auth-config
 HTTP_BASIC_HTPASSWD
 ironic-deployment/overlays/temp
+config/overlays/temp
 
 # Development containers (https://containers.dev/)
 .devcontainer

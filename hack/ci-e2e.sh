@@ -122,6 +122,30 @@ docker run --name image-server-e2e -d \
   -p 80:8080 \
   -v "${IMAGE_DIR}:/usr/share/nginx/html" nginxinc/nginx-unprivileged
 
+# Generate credentials
+BMO_OVERLAY="${REPO_ROOT}/config/overlays/e2e"
+IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
+
+IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+
+echo "${IRONIC_USERNAME}" > "${BMO_OVERLAY}/ironic-username"
+echo "${IRONIC_PASSWORD}" > "${BMO_OVERLAY}/ironic-password"
+echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_OVERLAY}/ironic-inspector-username"
+echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_OVERLAY}/ironic-inspector-password"
+
+envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
+  "${IRONIC_OVERLAY}/ironic-auth-config"
+envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl" > \
+  "${IRONIC_OVERLAY}/ironic-inspector-auth-config"
+
+echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+  "${IRONIC_OVERLAY}/ironic-htpasswd"
+echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
+  "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_OVERLAY}/ironic-inspector-htpasswd"
+
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e
 

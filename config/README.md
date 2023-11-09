@@ -12,6 +12,8 @@ in `hack/ci-e2e.sh`, and put them directly in the `e2e` overlays.
 be done in many ways, e.g. through the
 [external secrets operator](https://external-secrets.io/latest/) or directly in
 your overlay.
+In the CI system we generate the necessary credentials before starting the test
+in `hack/ci-e2e.sh`, and put them directly in the `e2e` overlays.
 
 - **base** - This is the kustomize base that we start from.
 - **components** - In here you will find re-usable kustomize components for TLS

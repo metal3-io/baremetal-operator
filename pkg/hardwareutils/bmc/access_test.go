@@ -464,6 +464,7 @@ func TestStaticDriverInfo(t *testing.T) {
 		driver     string
 		bios       string
 		boot       string
+		firmware   string
 		management string
 		power      string
 		vendor     string
@@ -475,6 +476,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ipmi",
 			bios:       "",
 			boot:       "ipxe",
+			firmware:   "",
 			management: "",
 			power:      "",
 		},
@@ -486,6 +488,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ipmi",
 			bios:       "",
 			boot:       "ipxe",
+			firmware:   "",
 			management: "",
 			power:      "",
 		},
@@ -497,6 +500,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "",
 			boot:       "ipxe",
+			firmware:   "",
 			management: "",
 			power:      "",
 		},
@@ -508,6 +512,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "irmc",
 			bios:       "",
 			boot:       "ipxe",
+			firmware:   "",
 			management: "",
 			power:      "",
 		},
@@ -519,6 +524,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "ipxe",
+			firmware:   "redfish",
 			management: "",
 			power:      "",
 		},
@@ -530,6 +536,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-virtual-media",
+			firmware:   "redfish",
 			management: "",
 			power:      "",
 		},
@@ -541,6 +548,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-virtual-media",
+			firmware:   "redfish",
 			management: "",
 			power:      "",
 		},
@@ -552,6 +560,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-virtual-media",
+			firmware:   "redfish",
 			management: "",
 			power:      "",
 		},
@@ -563,6 +572,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "ipxe",
+			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			vendor:     "idrac-redfish",
@@ -575,6 +585,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			bios:     "",
 			boot:     "redfish-virtual-media",
+			firmware: "redfish",
 		},
 
 		{
@@ -584,6 +595,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			bios:     "",
 			boot:     "redfish-virtual-media",
+			firmware: "redfish",
 		},
 
 		{
@@ -593,6 +605,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			bios:     "",
 			boot:     "redfish-virtual-media",
+			firmware: "redfish",
 		},
 
 		{
@@ -602,6 +615,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
+			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			vendor:     "idrac-redfish",
@@ -614,6 +628,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
+			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			vendor:     "idrac-redfish",
@@ -626,6 +641,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
+			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
 			vendor:     "idrac-redfish",
@@ -638,6 +654,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ibmc",
 			bios:       "",
 			boot:       "ipxe",
+			firmware:   "",
 			management: "ibmc",
 			power:      "ibmc",
 		},
@@ -649,6 +666,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ilo",
 			bios:       "",
 			boot:       "ilo-ipxe",
+			firmware:   "",
 			management: "",
 			power:      "",
 		},
@@ -660,6 +678,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ilo",
 			bios:       "",
 			boot:       "ilo-virtual-media",
+			firmware:   "",
 			management: "",
 			power:      "",
 		},
@@ -671,6 +690,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ilo5",
 			bios:       "",
 			boot:       "ilo-ipxe",
+			firmware:   "",
 			management: "",
 			power:      "",
 		},
@@ -693,6 +713,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			if acc.BIOSInterface() != tc.bios {
 				t.Fatalf("Unexpected bios interface %q, expected %q",
 					acc.BIOSInterface(), tc.bios)
+			}
+			if acc.FirmwareInterface() != tc.firmware {
+				t.Fatalf("Unexpected firmware interface %q, expected %q",
+					acc.FirmwareInterface(), tc.firmware)
 			}
 			if acc.VendorInterface() != tc.vendor {
 				t.Fatalf("Unexpected vendor interface %q, expected %q",

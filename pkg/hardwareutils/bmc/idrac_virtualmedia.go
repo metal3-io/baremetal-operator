@@ -76,6 +76,10 @@ func (a *redfishiDracVirtualMediaAccessDetails) BootInterface() string {
 	return "idrac-redfish-virtual-media"
 }
 
+func (a *redfishiDracVirtualMediaAccessDetails) FirmwareInterface() string {
+	return "redfish"
+}
+
 func (a *redfishiDracVirtualMediaAccessDetails) ManagementInterface() string {
 	return "idrac-redfish"
 }

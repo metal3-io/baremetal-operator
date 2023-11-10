@@ -75,6 +75,10 @@ func (a *redfishVirtualMediaAccessDetails) BootInterface() string {
 	return "redfish-virtual-media"
 }
 
+func (a *redfishVirtualMediaAccessDetails) FirmwareInterface() string {
+	return "redfish"
+}
+
 func (a *redfishVirtualMediaAccessDetails) ManagementInterface() string {
 	return ""
 }

@@ -107,6 +107,10 @@ func (a *redfishAccessDetails) BootInterface() string {
 	return "ipxe"
 }
 
+func (a *redfishAccessDetails) FirmwareInterface() string {
+	return "redfish"
+}
+
 func (a *redfishAccessDetails) ManagementInterface() string {
 	return ""
 }
@@ -153,6 +157,10 @@ func (a *redfishiDracAccessDetails) BIOSInterface() string {
 
 func (a *redfishiDracAccessDetails) BootInterface() string {
 	return "ipxe"
+}
+
+func (a *redfishiDracAccessDetails) FirmwareInterface() string {
+	return "redfish"
 }
 
 func (a *redfishiDracAccessDetails) ManagementInterface() string {

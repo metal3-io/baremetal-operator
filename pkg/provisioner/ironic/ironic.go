@@ -367,24 +367,28 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			return
 		}
 
-		ironicNode, err = nodes.Create(
-			p.client,
-			nodes.CreateOpts{
-				Driver:              bmcAccess.Driver(),
-				BIOSInterface:       bmcAccess.BIOSInterface(),
-				BootInterface:       bmcAccess.BootInterface(),
-				Name:                ironicNodeName(p.objectMeta),
-				DriverInfo:          driverInfo,
-				DeployInterface:     p.deployInterface(data),
-				InspectInterface:    "inspector",
-				ManagementInterface: bmcAccess.ManagementInterface(),
-				PowerInterface:      bmcAccess.PowerInterface(),
-				RAIDInterface:       bmcAccess.RAIDInterface(),
-				VendorInterface:     bmcAccess.VendorInterface(),
-				Properties: map[string]interface{}{
-					"capabilities": bootModeCapabilities[data.BootMode],
-				},
-			}).Extract()
+		nodeCreateOpts := nodes.CreateOpts{
+			Driver:              bmcAccess.Driver(),
+			BIOSInterface:       bmcAccess.BIOSInterface(),
+			BootInterface:       bmcAccess.BootInterface(),
+			Name:                ironicNodeName(p.objectMeta),
+			DriverInfo:          driverInfo,
+			DeployInterface:     p.deployInterface(data),
+			InspectInterface:    "inspector",
+			ManagementInterface: bmcAccess.ManagementInterface(),
+			PowerInterface:      bmcAccess.PowerInterface(),
+			RAIDInterface:       bmcAccess.RAIDInterface(),
+			VendorInterface:     bmcAccess.VendorInterface(),
+			Properties: map[string]interface{}{
+				"capabilities": bootModeCapabilities[data.BootMode],
+			},
+		}
+
+		if p.availableFeatures.HasFirmwareUpdates() {
+			nodeCreateOpts.FirmwareInterface = bmcAccess.FirmwareInterface()
+		}
+
+		ironicNode, err = nodes.Create(p.client, nodeCreateOpts).Extract()
 		switch err.(type) {
 		case nil:
 			p.publisher("Registered", "Registered new host")

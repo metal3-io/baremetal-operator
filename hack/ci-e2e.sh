@@ -10,7 +10,8 @@
 
 set -eux
 
-REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
+
 cd "${REPO_ROOT}" || exit 1
 
 # BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
@@ -20,8 +21,8 @@ BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="${PATH}:/usr/local/go/bin"
 "${REPO_ROOT}/hack/e2e/ensure_minikube.sh"
+# CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
-"${REPO_ROOT}/hack/e2e/ensure_cmctl.sh"
 
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker

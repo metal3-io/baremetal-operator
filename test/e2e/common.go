@@ -20,8 +20,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
+
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/kustomize/api/krusty"
+	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
 // LoadImageBehavior indicates the behavior when loading an image.
@@ -207,4 +210,14 @@ func WaitForBmhInPowerState(ctx context.Context, input WaitForBmhInPowerStateInp
 		g.Expect(input.Client.Get(ctx, key, &bmh)).To(Succeed())
 		g.Expect(bmh.Status.PoweredOn).To(Equal(input.State == PoweredOn))
 	}, intervals...).Should(Succeed())
+}
+
+func buildKustomizeManifest(source string) ([]byte, error) {
+	kustomizer := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
+	fSys := filesys.MakeFsOnDisk()
+	resources, err := kustomizer.Run(fSys, source)
+	if err != nil {
+		return nil, err
+	}
+	return resources.AsYaml()
 }

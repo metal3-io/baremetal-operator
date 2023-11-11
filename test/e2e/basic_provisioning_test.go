@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
@@ -23,6 +22,7 @@ import (
 var _ = Describe("BMH Provisioning and Annotation Management", func() {
 	var (
 		specName       = "provisioning-ops"
+		secretName     = "bmc-credentials"
 		namespace      *corev1.Namespace
 		cancelWatches  context.CancelFunc
 		bmcUser        string
@@ -47,18 +47,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 
 	It("provisions a BMH, applies detached and status annotations, then deprovisions", func() {
 		By("Creating a secret with BMH credentials")
-		bmcCredentials := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bmc-credentials",
-				Namespace: namespace.Name,
-			},
-			StringData: map[string]string{
-				"username": bmcUser,
-				"password": bmcPassword,
-			},
-		}
-		err := clusterProxy.GetClient().Create(ctx, &bmcCredentials)
-		Expect(err).NotTo(HaveOccurred())
+		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
 
 		By("Creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
@@ -80,7 +69,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 				BootMACAddress: bootMacAddress,
 			},
 		}
-		err = clusterProxy.GetClient().Create(ctx, &bmh)
+		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for the BMH to become available")
@@ -117,7 +106,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
 
 		By("Retrieving the latest BMH object")
-		err = clusterProxy.GetClient().Get(ctx, client.ObjectKey{
+		err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 			Name:      bmh.Name,
 			Namespace: bmh.Namespace,
 		}, &bmh)
@@ -146,32 +135,20 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for the BMH to be deleted")
-		Eventually(func() (string, error) {
-			var currentBmh metal3api.BareMetalHost
-			err := clusterProxy.GetClient().Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: bmh.Namespace}, &currentBmh)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					// If the BMH is not found, we assume it has been successfully deleted.
-					return "deleted", nil
-				}
-				// Any other error should be returned.
-				return "", err
-			}
-
-			currentStatus := currentBmh.Status.Provisioning.State
-
-			// If the state is 'deleting' or 'provisioned', we continue polling.
-			if currentStatus == "deleting" || currentStatus == "provisioned" {
-				return string(currentStatus), nil
-			}
-
-			// Any other state is unexpected, and we stop the polling.
-			return "", StopTrying(fmt.Sprintf("BMH is in an unexpected state: %s", currentStatus))
-		}, e2eConfig.GetIntervals(specName, "wait-deleted")...).Should(Equal("deleted"))
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+			UndesiredStates: []metal3api.ProvisioningState{
+				metal3api.StateProvisioning,
+				metal3api.StateRegistering,
+				metal3api.StateDeprovisioning,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-deleted")...)
 
 		By("Waiting for the secret to be deleted")
 		Eventually(func() bool {
-			err := clusterProxy.GetClient().Get(ctx, client.ObjectKey{
+			err := clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 				Name:      "bmc-credentials",
 				Namespace: namespace.Name,
 			}, &corev1.Secret{})
@@ -179,20 +156,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 		}, e2eConfig.GetIntervals(specName, "wait-secret-deletion")...).Should(BeTrue())
 
 		By("Creating a secret with BMH credentials")
-		secretName := "bmc-credentials"
-		bmcCredentials = corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: namespace.Name,
-			},
-			StringData: map[string]string{
-				"username": bmcUser,
-				"password": bmcPassword,
-			},
-		}
-
-		err = clusterProxy.GetClient().Create(ctx, &bmcCredentials)
-		Expect(err).NotTo(HaveOccurred())
+		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
 
 		By("Recreating the BMH with the previously saved status in the status annotation")
 		bmh = metal3api.BareMetalHost{
@@ -225,23 +189,17 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Checking that the BMH goes directly to 'provisioned' state")
-		Eventually(func() (string, error) {
-			var currentBmh metal3api.BareMetalHost
-			err := clusterProxy.GetClient().Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: bmh.Namespace}, &currentBmh)
-			if err != nil {
-				// Handle errors that may occur while fetching the BMH.
-				return "", err
-			}
-
-			currentStatus := currentBmh.Status.Provisioning.State
-
-			if currentStatus == "provisioned" || currentStatus == "" {
-				return string(currentStatus), nil
-			}
-
-			// Any other state is unexpected, and we stop the polling.
-			return "", StopTrying(fmt.Sprintf("BMH should not be in '%s' state", currentStatus))
-		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...).Should(Equal("provisioned"))
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateProvisioned,
+			UndesiredStates: []metal3api.ProvisioningState{
+				metal3api.StateProvisioning,
+				metal3api.StateRegistering,
+				metal3api.StateDeprovisioning,
+				metal3api.StateDeleting,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
 
 		By("Triggering the deprovisioning of the BMH")
 		helper, err = patch.NewHelper(&bmh, clusterProxy.GetClient())
@@ -262,6 +220,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 			Bmh:    bmh,
 			State:  metal3api.StateAvailable,
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
 	})
 
 	AfterEach(func() {

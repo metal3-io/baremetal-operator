@@ -20,6 +20,7 @@ import (
 var _ = Describe("basic", func() {
 	var (
 		specName       = "basic-ops"
+		secretName     = "bmc-credentials"
 		namespace      *corev1.Namespace
 		cancelWatches  context.CancelFunc
 		bmcUser        string
@@ -47,18 +48,7 @@ var _ = Describe("basic", func() {
 
 	It("should control power cycle of BMH though annotations", func() {
 		By("creating a secret with BMH credentials")
-		bmcCredentials := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bmc-credentials",
-				Namespace: namespace.Name,
-			},
-			StringData: map[string]string{
-				"username": bmcUser,
-				"password": bmcPassword,
-			},
-		}
-		err := clusterProxy.GetClient().Create(ctx, &bmcCredentials)
-		Expect(err).NotTo(HaveOccurred())
+		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
 
 		By("creating a BMH")
 		bmh := metal3api.BareMetalHost{
@@ -79,7 +69,7 @@ var _ = Describe("basic", func() {
 				BootMACAddress: bootMacAddress,
 			},
 		}
-		err = clusterProxy.GetClient().Create(ctx, &bmh)
+		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("waiting for the BMH to become available")

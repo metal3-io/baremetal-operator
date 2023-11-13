@@ -221,3 +221,7 @@ func buildKustomizeManifest(source string) ([]byte, error) {
 	}
 	return resources.AsYaml()
 }
+
+func StringPtr(s string) *string {
+	return &s
+}

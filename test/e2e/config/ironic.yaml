@@ -32,7 +32,9 @@ variables:
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.0"
-
+  LIVE_ISO_IMAGE: "https://artifactory.nordix.org/artifactory/metal3/images/iso/minimal_linux_live-v2.iso"
+  LIVE_ISO_ADDRESS: "redfish-virtualmedia+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-0"
+  
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]
   default/wait-registering: ["1m", "5s"]
@@ -44,8 +46,9 @@ intervals:
   default/wait-namespace-deleted: ["10m", "1s"]
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-power-state: ["10m", "100ms"]
-  default/wait-provisioning: ["20s", "1s"]
+  default/wait-provisioning: ["1m", "1s"]
   default/wait-provisioned: ["5m", "1s"]
   default/wait-deprovisioning: ["1m", "10ms"]
+  default/wait-read: ["1m", "1s"]
   default/wait-deleted: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]

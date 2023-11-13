@@ -57,8 +57,8 @@ virt-install \
   --vcpus=2 \
   --disk size=20 \
   --graphics=none \
-  --console pty \
-  --serial pty \
+  --console pty,target_type=serial \
+  --serial file,path="/var/log/libvirt/qemu/"${VM_NAME}-serial0.log \
   --pxe \
   --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" \
   --noautoconsole
@@ -115,7 +115,7 @@ IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 ## Download and run image server
 mkdir -p "${IMAGE_DIR}"
 pushd "${IMAGE_DIR}"
-wget --quiet "https://download.cirros-cloud.net/${CIRROS_VERSION}/${IMAGE_FILE}"
+wget --quiet https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
 popd
 
 docker run --name image-server-e2e -d \

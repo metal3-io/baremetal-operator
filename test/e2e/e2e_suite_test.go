@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/apps/v1"
@@ -188,7 +189,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	metal3api.AddToScheme(scheme)
 
 	e2eConfig = LoadE2EConfig(configPath)
-	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
+	withMetal3LogCollectorOpt := framework.WithMachineLogCollector(capm3_e2e.Metal3LogCollector{})
+	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme, withMetal3LogCollectorOpt)
 })
 
 // Using a SynchronizedAfterSuite for controlling how to delete resources shared across ParallelNodes (~ginkgo threads).

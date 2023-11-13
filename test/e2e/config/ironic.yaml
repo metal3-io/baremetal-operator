@@ -5,6 +5,8 @@ images:
 - name: quay.io/metal3-io/ironic:e2e
   loadBehavior: tryLoad
 # Save some time and network by using cached images if available
+- name: quay.io/metal3-io/baremetal-operator:release-0.4
+  loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.13.1
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-webhook:v1.13.1
@@ -14,12 +16,18 @@ images:
 
 # These variables can be overridden with environment variables.
 variables:
+  # These settings are for the "default" cluster, which is used for all tests except upgrade ones
   DEPLOY_IRONIC: "true"
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
-  EXPECTED_HOST_NAME: "bmo-e2e-0"
+  # These settings are for the separate cluster that are used for upgrade tests
+  UPGRADE_DEPLOY_IRONIC: "true"
+  UPGRADE_DEPLOY_BMO: "true"
+  UPGRADE_DEPLOY_CERT_MANAGER: "true"
+  UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/e2e-release-0.4"
+
   # Test credentials. The tests will create a BMH with these.
   BMC_USER: admin
   BMC_PASSWORD: password
@@ -29,6 +37,8 @@ variables:
   # BMC_ADDRESS: "ipmi://192.168.222.1:16230"
   BMC_ADDRESS: "redfish+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-0"
   BOOT_MAC_ADDRESS: "00:60:2f:31:81:01"
+  EXPECTED_HOST_NAME: "bmo-e2e-0"
+
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.1"

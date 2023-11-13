@@ -17,6 +17,18 @@ cd "${REPO_ROOT}" || exit 1
 # BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
 BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 
+case "${GINKGO_FOCUS:-}" in
+  *upgrade*)
+    export DEPLOY_IRONIC="false"
+    export DEPLOY_BMO="false"
+    export DEPLOY_CERT_MANAGER="false"
+    ;;
+  *)
+    export GINKGO_SKIP="${GINKGO_SKIP:-upgrade}"
+    ;;
+esac
+export USE_EXISTING_CLUSTER="true"
+
 # Ensure requirements are installed
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="${PATH}:/usr/local/go/bin"
@@ -141,6 +153,12 @@ echo "${IRONIC_USERNAME}" > "${BMO_OVERLAY}/ironic-username"
 echo "${IRONIC_PASSWORD}" > "${BMO_OVERLAY}/ironic-password"
 echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_OVERLAY}/ironic-inspector-username"
 echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_OVERLAY}/ironic-inspector-password"
+
+BMO_UPGRADE_FROM_OVERLAY="${REPO_ROOT}/config/overlays/e2e-release-0.4"
+echo "${IRONIC_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-username"
+echo "${IRONIC_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-password"
+echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-username"
+echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-password"
 
 envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${IRONIC_OVERLAY}/ironic-auth-config"

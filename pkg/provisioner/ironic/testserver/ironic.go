@@ -51,6 +51,7 @@ func (m *IronicMock) WithDefaultResponses() *IronicMock {
 	m.AddDefaultResponse("/v1/nodes/{id}/states/power", "", http.StatusAccepted, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/states/raid", "", http.StatusNoContent, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/validate", "", http.StatusOK, validateResult)
+	m.AddDefaultResponse("/v1/drivers/{driver}", "", http.StatusOK, "{}")
 
 	return m
 }
@@ -79,16 +80,22 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 			],
 			"links": [
 			  {
-				"href": "http://[fd00:1101::3]:6385/v1/drivers/fake-hardware",
+				"href": "http://[fd00:1101::3]:6385/v1/drivers/test",
 				"rel": "self"
 			  },
 			  {
-				"href": "http://[fd00:1101::3]:6385/drivers/fake-hardware",
+				"href": "http://[fd00:1101::3]:6385/drivers/test",
 				"rel": "bookmark"
 			  }
 			],
-			"name": "fake-hardware"
+			"name": "test"
 		}]
+	}
+	`, http.StatusOK)
+	m.ResponseWithCode("/v1/drivers/test", `
+	{
+	    "enabled_deploy_interfaces": ["direct", "ramdisk", "custom-agent"],
+	    "enabled_inspect_interfaces": ["agent", "inspector", "no-inspect"]
 	}
 	`, http.StatusOK)
 	return m

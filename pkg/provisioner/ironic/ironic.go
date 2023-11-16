@@ -8,8 +8,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 
@@ -315,6 +317,19 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 	return nil
 }
 
+func (p *ironicProvisioner) getInspectInterface(bmcAccess bmc.AccessDetails) (string, error) {
+	driver, err := drivers.GetDriverDetails(p.client, bmcAccess.Driver()).Extract()
+	if err != nil {
+		return "", fmt.Errorf("cannot load information about driver %s: %w", bmcAccess.Driver(), err)
+	}
+
+	if slices.Contains(driver.EnabledInspectInterfaces, "agent") {
+		return "agent", nil
+	}
+
+	return "inspector", nil // backward compatibility
+}
+
 // ValidateManagementAccess registers the host with the provisioning
 // system and tests the connection information for the host to verify
 // that the location and credentials work.
@@ -367,6 +382,12 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			return
 		}
 
+		inspectInterface, driverErr := p.getInspectInterface(bmcAccess)
+		if driverErr != nil {
+			result, err = transientError(driverErr)
+			return
+		}
+
 		nodeCreateOpts := nodes.CreateOpts{
 			Driver:              bmcAccess.Driver(),
 			BIOSInterface:       bmcAccess.BIOSInterface(),
@@ -374,7 +395,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			Name:                ironicNodeName(p.objectMeta),
 			DriverInfo:          driverInfo,
 			DeployInterface:     p.deployInterface(data),
-			InspectInterface:    "inspector",
+			InspectInterface:    inspectInterface,
 			ManagementInterface: bmcAccess.ManagementInterface(),
 			PowerInterface:      bmcAccess.PowerInterface(),
 			RAIDInterface:       bmcAccess.RAIDInterface(),

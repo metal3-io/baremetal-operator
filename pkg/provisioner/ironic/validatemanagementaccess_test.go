@@ -50,6 +50,7 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 
 	// Set up ironic server to return the node
 	ironic := testserver.NewIronic(t).
+		WithDrivers().
 		Node(nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: host.Status.Provisioning.ID,
@@ -86,7 +87,7 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 		createdNode = &node
 	}
 
-	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
@@ -105,6 +106,45 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 	assert.NotEqual(t, "", createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
 	assert.Equal(t, createdNode.DeployInterface, "")
+	assert.Equal(t, "agent", createdNode.InspectInterface)
+}
+
+func TestValidateManagementAccessCreateNodeOldInspection(t *testing.T) {
+	// Create a host without a bootMACAddress and with a BMC that
+	// does not require one.
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Spec.Image = nil
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.AddDefaultResponse("/v1/drivers/test", "GET", 200, `
+	    {"enabled_inspect_interfaces": ["inspector", "no-inspect"]}
+	`)
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "", result.ErrorMessage)
+	assert.NotEqual(t, "", createdNode.UUID)
+	assert.Equal(t, createdNode.UUID, provID)
+	assert.Equal(t, "inspector", createdNode.InspectInterface)
 }
 
 func TestValidateManagementAccessCreateWithImage(t *testing.T) {
@@ -120,7 +160,7 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 		createdNode = &node
 	}
 
-	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
@@ -156,7 +196,7 @@ func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
 		createdNode = &node
 	}
 
-	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()

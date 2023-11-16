@@ -16,7 +16,7 @@ import (
 
 // GetHardwareDetails converts Ironic introspection data into BareMetalHost HardwareDetails.
 func GetHardwareDetails(data *nodes.InventoryData, logger logr.Logger) *metal3api.HardwareDetails {
-	inspectorData, err := data.PluginData.AsInspectorData()
+	ironicData, inspectorData, err := data.PluginData.GuessFormat()
 	if err != nil {
 		logger.Error(err, "cannot get plugin data from inventory, some fields will not be available")
 	}
@@ -25,18 +25,18 @@ func GetHardwareDetails(data *nodes.InventoryData, logger logr.Logger) *metal3ap
 	details.Firmware = getFirmwareDetails(data.Inventory.SystemVendor.Firmware)
 	details.SystemVendor = getSystemVendorDetails(data.Inventory.SystemVendor)
 	details.RAMMebibytes = data.Inventory.Memory.PhysicalMb
-	details.NIC = getNICDetails(data.Inventory.Interfaces, inspectorData.AllInterfaces)
+	details.NIC = getNICDetails(data.Inventory.Interfaces, ironicData, inspectorData)
 	details.Storage = getStorageDetails(data.Inventory.Disks)
 	details.CPU = getCPUDetails(&data.Inventory.CPU)
 	details.Hostname = data.Inventory.Hostname
 	return details
 }
 
-func getVLANs(intf introspection.BaseInterfaceType) (vlans []metal3api.VLAN, vlanid metal3api.VLANID) {
-	if intf.LLDPProcessed == nil {
+func getVLANs(lldp map[string]interface{}) (vlans []metal3api.VLAN, vlanid metal3api.VLANID) {
+	if lldp == nil {
 		return
 	}
-	if spvs, ok := intf.LLDPProcessed["switch_port_vlans"]; ok {
+	if spvs, ok := lldp["switch_port_vlans"]; ok {
 		if data, ok := spvs.([]map[string]interface{}); ok {
 			vlans = make([]metal3api.VLAN, len(data))
 			for i, vlan := range data {
@@ -49,18 +49,28 @@ func getVLANs(intf introspection.BaseInterfaceType) (vlans []metal3api.VLAN, vla
 			}
 		}
 	}
-	if vid, ok := intf.LLDPProcessed["switch_port_untagged_vlan_id"].(int); ok {
+	if vid, ok := lldp["switch_port_untagged_vlan_id"].(int); ok {
 		vlanid = metal3api.VLANID(vid)
 	}
 	return
 }
 
 func getNICDetails(ifdata []inventory.InterfaceType,
-	basedata map[string]introspection.BaseInterfaceType) []metal3api.NIC {
+	ironicData *inventory.StandardPluginData,
+	inspectorData *introspection.Data) []metal3api.NIC {
 	var nics []metal3api.NIC
 	for _, intf := range ifdata {
-		baseIntf := basedata[intf.Name]
-		vlans, vlanid := getVLANs(baseIntf)
+		var lldp map[string]interface{}
+		var pxeEnabled bool
+		if ironicData != nil {
+			pxeEnabled = ironicData.AllInterfaces[intf.Name].PXEEnabled
+			lldp = ironicData.ParsedLLDP[intf.Name]
+		} else {
+			pxeEnabled = inspectorData.AllInterfaces[intf.Name].PXE
+			lldp = inspectorData.AllInterfaces[intf.Name].LLDPProcessed
+		}
+
+		vlans, vlanid := getVLANs(lldp)
 		// We still store one nic even if both ips are unset
 		// if both are set, we store two nics with each ip
 		if intf.IPV4Address != "" || intf.IPV6Address == "" {
@@ -73,7 +83,7 @@ func getNICDetails(ifdata []inventory.InterfaceType,
 				VLANs:     vlans,
 				VLANID:    vlanid,
 				SpeedGbps: intf.SpeedMbps / 1000,
-				PXE:       baseIntf.PXE,
+				PXE:       pxeEnabled,
 			})
 		}
 		if intf.IPV6Address != "" {
@@ -86,7 +96,7 @@ func getNICDetails(ifdata []inventory.InterfaceType,
 				VLANs:     vlans,
 				VLANID:    vlanid,
 				SpeedGbps: intf.SpeedMbps / 1000,
-				PXE:       baseIntf.PXE,
+				PXE:       pxeEnabled,
 			})
 		}
 	}

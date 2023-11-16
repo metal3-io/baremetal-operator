@@ -86,13 +86,6 @@ var _ = Describe("Re-Inspection", func() {
 		err = clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("waiting for the BMH to be in registering state")
-		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
-			Client: clusterProxy.GetClient(),
-			Bmh:    bmh,
-			State:  metal3api.StateRegistering,
-		}, e2eConfig.GetIntervals(specName, "wait-registering")...)
-
 		By("waiting for the BMH to become available")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 			Client: clusterProxy.GetClient(),

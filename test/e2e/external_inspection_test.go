@@ -133,7 +133,7 @@ const hardwareDetails = `
       "version": "1.15.0-1"
     }
   },
-  "hostname": "localhost.localdomain",
+  "hostname": "bmo-e2e-0",
   "nics": [
     {
       "ip": "192.168.222.122",

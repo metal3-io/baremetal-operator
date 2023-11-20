@@ -25,6 +25,7 @@ variables:
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.0"
+  SSH_CHECK_PROVISIONED: "false"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "10ms"]

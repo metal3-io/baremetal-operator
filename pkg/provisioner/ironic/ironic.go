@@ -20,6 +20,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
@@ -103,6 +104,8 @@ type ironicProvisioner struct {
 	debugLog logr.Logger
 	// an event publisher for recording significant events
 	publisher provisioner.EventPublisher
+	// available API features
+	availableFeatures clients.AvailableFeatures
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
@@ -1977,14 +1980,6 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 
 func ironicNodeName(objMeta metav1.ObjectMeta) string {
 	return objMeta.Namespace + nameSeparator + objMeta.Name
-}
-
-// IsReady checks if the provisioning backend is available
-func (p *ironicProvisioner) IsReady() (result bool, err error) {
-	p.debugLog.Info("verifying ironic provisioner dependencies")
-
-	checker := newIronicDependenciesChecker(p.client, p.log)
-	return checker.IsReady()
 }
 
 func (p *ironicProvisioner) HasCapacity() (result bool, err error) {

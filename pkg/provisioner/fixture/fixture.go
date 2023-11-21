@@ -325,8 +325,8 @@ func (p *fixtureProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result pr
 	return result, nil
 }
 
-// IsReady returns the current availability status of the provisioner
-func (p *fixtureProvisioner) IsReady() (result bool, err error) {
+// TryInit returns the current availability status of the provisioner
+func (p *fixtureProvisioner) TryInit() (result bool, err error) {
 	p.log.Info("checking provisioner status")
 
 	if p.state.BecomeReadyCounter > 0 {

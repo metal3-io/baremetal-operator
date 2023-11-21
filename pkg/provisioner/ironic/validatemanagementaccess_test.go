@@ -25,7 +25,7 @@ func TestValidateManagementAccessNoMAC(t *testing.T) {
 	host.Spec.BootMACAddress = ""
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
-	ironic := testserver.NewIronic(t).Ready().NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.Start()
 	defer ironic.Stop()
 
@@ -49,7 +49,7 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 	host.Spec.BootMACAddress = ""
 
 	// Set up ironic server to return the node
-	ironic := testserver.NewIronic(t).Ready().
+	ironic := testserver.NewIronic(t).
 		Node(nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: host.Status.Provisioning.ID,
@@ -86,7 +86,7 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 		createdNode = &node
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
@@ -120,7 +120,7 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 		createdNode = &node
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
@@ -156,7 +156,7 @@ func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
 		createdNode = &node
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
 	ironic.Start()
 	defer ironic.Stop()
@@ -190,7 +190,7 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 		t.Fatal("create callback should not be invoked for existing node")
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(nodes.Node{
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(nodes.Node{
 		Name: host.Namespace + nameSeparator + host.Name,
 		UUID: "uuid",
 	}).NodeUpdate(
@@ -289,7 +289,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 				t.Fatal("create callback should not be invoked for existing node")
 			}
 
-			ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(nodes.Node{
+			ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(nodes.Node{
 				Name:           host.Namespace + nameSeparator + host.Name,
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
@@ -451,7 +451,7 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			if provisionState == "" {
 				provisionState = string(nodes.Manageable)
 			}
-			ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(nodes.Node{
+			ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(nodes.Node{
 				Name:            host.Namespace + nameSeparator + host.Name,
 				UUID:            "uuid", // to match status in host
 				ProvisionState:  provisionState,
@@ -517,7 +517,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 					"test_port":      "42",
 				},
 			}
-			ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(node).NodeUpdate(nodes.Node{
+			ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(node).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			}).WithNodeStatesProvisionUpdate(node.UUID)
 			ironic.Start()
@@ -615,7 +615,7 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 		t.Fatal("create callback should not be invoked for existing node")
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
 	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
 	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
 	ironic.AddDefaultResponse("/v1/nodes/"+existingNode.UUID, "PATCH", http.StatusOK, "{\"uuid\": \"33ce8659-7400-4c68-9535-d10766f07a58\"}")
@@ -657,7 +657,7 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 		t.Fatal("create callback should not be invoked for existing node")
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
 	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
 	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
 	ironic.AddDefaultResponse("/v1/nodes/random-wrong-id", "GET", http.StatusNotFound, "")
@@ -701,7 +701,7 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 		t.Fatal("create callback should not be invoked for existing node")
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(existingNode).Port(existingNodePort)
 	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
 	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
 	ironic.Start()
@@ -738,7 +738,7 @@ func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
 		t.Fatal("create callback should not be invoked for existing node")
 	}
 
-	ironic := testserver.NewIronic(t).Ready().CreateNodes(createCallback).Node(existingNode).NodeUpdate(nodes.Node{
+	ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(existingNode).NodeUpdate(nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
 	}).Port(existingNodePort)
 	ironic.Start()
@@ -770,7 +770,7 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 	host := makeHost()
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 
-	ironic := testserver.NewIronic(t).Ready().NoNode("myns" + nameSeparator + host.Name).NoNode(host.Name)
+	ironic := testserver.NewIronic(t).NoNode("myns" + nameSeparator + host.Name).NoNode(host.Name)
 	ironic.Start()
 	defer ironic.Stop()
 
@@ -788,7 +788,7 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 }
 
 func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
-	ironic := testserver.NewIronic(t).Ready()
+	ironic := testserver.NewIronic(t)
 	ironic.Start()
 	defer ironic.Stop()
 
@@ -809,7 +809,7 @@ func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
 }
 
 func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
-	ironic := testserver.NewIronic(t).Ready()
+	ironic := testserver.NewIronic(t)
 	ironic.Start()
 	defer ironic.Stop()
 
@@ -1160,7 +1160,7 @@ func TestSetExternalURL(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC.Address = "redfish-virtualmedia://[fe80::fc33:62ff:fe83:8a76]:6233"
 
-	ironic := testserver.NewIronic(t).Ready().
+	ironic := testserver.NewIronic(t).
 		Node(nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: host.Status.Provisioning.ID,
@@ -1190,7 +1190,7 @@ func TestSetExternalURLIPv4(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC.Address = "redfish-virtualmedia://1.1.1.1:1111"
 
-	ironic := testserver.NewIronic(t).Ready().
+	ironic := testserver.NewIronic(t).
 		Node(nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: host.Status.Provisioning.ID,
@@ -1220,7 +1220,7 @@ func TestSetExternalURLRemoving(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC.Address = "redfish-virtualmedia://1.1.1.1:1111"
 
-	ironic := testserver.NewIronic(t).Ready().
+	ironic := testserver.NewIronic(t).
 		Node(nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: host.Status.Provisioning.ID,

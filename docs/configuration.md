@@ -16,9 +16,6 @@ drivers that support ISO boot. Optional if kernel/ramdisk are set.
 `IRONIC_ENDPOINT` -- The URL for the operator to use when talking to
 Ironic.
 
-`IRONIC_INSPECTOR_ENDPOINT` -- The URL for the operator to use when talking to
-Ironic Inspector.
-
 `IRONIC_CACERT_FILE` -- The path of the CA certificate file of Ironic, if needed
 
 `IRONIC_INSECURE` -- ("True", "False") Whether to skip the ironic certificate

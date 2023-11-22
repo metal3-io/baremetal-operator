@@ -1,0 +1,28 @@
+name: build-images-action
+on:
+  pull_request:
+permissions: {}
+jobs:
+  build:
+    name: Build container images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: build bmo image
+        uses: sozo-design/curl@v1.0.2
+        with:
+          args: https://jenkins.nordix.org/job/metal3_baremetal-operator_container_image_building/buildWithParameters --user metal3.bot@gmail.com:${{ secrets.JENKINS_TOKEN }} --data BUILD_CONTAINER_IMAGE_BRANCH="main"
+      - name: build keepalived image
+        uses: toptal/jenkins-job-trigger-action@137fff703dd260b52b53d3ba1960396415abc568 # 1.0.2
+        with:
+          jenkins_url: "https://jenkins.nordix.org/"
+          jenkins_user: "metal3.bot@gmail.com"
+          jenkins_token: ${{ secrets.JENKINS_TOKEN }}
+          job_name: "metal3_keepalived_container_image_building"
+          job_params: |
+            {
+              "BUILD_CONTAINER_IMAGE_NAME": "keepalived",
+              "BUILD_CONTAINER_IMAGE_BRANCH": "${{ github.ref }}"
+            }
+          job_timeout: "1000"

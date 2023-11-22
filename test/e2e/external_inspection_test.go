@@ -174,6 +174,7 @@ const hardwareDetails = `
 var _ = Describe("External Inspection", func() {
 	var (
 		specName       = "external-inspection"
+		secretName     = "bmc-credentials"
 		namespace      *corev1.Namespace
 		cancelWatches  context.CancelFunc
 		bmcUser        string
@@ -197,18 +198,7 @@ var _ = Describe("External Inspection", func() {
 
 	It("should skip inspection and become available when a BMH has annotations with hardware details and inspection disabled", func() {
 		By("creating a secret with BMH credentials")
-		bmcCredentials := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bmc-credentials",
-				Namespace: namespace.Name,
-			},
-			StringData: map[string]string{
-				"username": bmcUser,
-				"password": bmcPassword,
-			},
-		}
-		err := clusterProxy.GetClient().Create(ctx, &bmcCredentials)
-		Expect(err).NotTo(HaveOccurred())
+		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
 
 		By("creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
@@ -229,7 +219,7 @@ var _ = Describe("External Inspection", func() {
 				BootMACAddress: bootMacAddress,
 			},
 		}
-		err = clusterProxy.GetClient().Create(ctx, &bmh)
+		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("waiting for the BMH to become available")

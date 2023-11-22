@@ -42,4 +42,5 @@ intervals:
   default/wait-deprovisioning: ["5s", "10ms"]
   default/wait-available: ["20s", "1s"]
   default/wait-deleting: ["5s", "10ms"]
+  default/wait-deleted: ["5s", "10ms"]
   default/wait-secret-deletion: ["5s", "10ms"]

@@ -70,6 +70,10 @@ func (a *testAccessDetails) BootInterface() string {
 	return "ipxe"
 }
 
+func (a *testAccessDetails) FirmwareInterface() string {
+	return ""
+}
+
 func (a *testAccessDetails) ManagementInterface() string {
 	return ""
 }

@@ -84,7 +84,7 @@ func (a *redfishVirtualMediaAccessDetails) PowerInterface() string {
 }
 
 func (a *redfishVirtualMediaAccessDetails) RAIDInterface() string {
-	return "no-raid"
+	return "redfish"
 }
 
 func (a *redfishVirtualMediaAccessDetails) VendorInterface() string {

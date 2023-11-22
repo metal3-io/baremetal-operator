@@ -116,7 +116,7 @@ func (a *redfishAccessDetails) PowerInterface() string {
 }
 
 func (a *redfishAccessDetails) RAIDInterface() string {
-	return "no-raid"
+	return "redfish"
 }
 
 func (a *redfishAccessDetails) VendorInterface() string {

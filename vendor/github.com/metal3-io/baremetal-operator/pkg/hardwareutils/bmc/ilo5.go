@@ -78,6 +78,10 @@ func (a *iLO5AccessDetails) BootInterface() string {
 	return "ilo-ipxe"
 }
 
+func (a *iLO5AccessDetails) FirmwareInterface() string {
+	return ""
+}
+
 func (a *iLO5AccessDetails) ManagementInterface() string {
 	return ""
 }

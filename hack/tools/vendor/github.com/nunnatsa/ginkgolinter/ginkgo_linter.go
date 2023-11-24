@@ -356,10 +356,19 @@ func checkEqualDifferentTypes(pass *analysis.Pass, matcher *ast.CallExpr, actual
 			return false
 		}
 
+		matcherFuncName, ok = handler.GetActualFuncName(nested)
+		switch matcherFuncName {
+		case equal, beIdenticalTo:
+		case not:
+			return checkEqualDifferentTypes(pass, nested, actualArg, handler, old, parentPointer)
+		default:
+			return false
+		}
+
 		if t := getFuncType(pass, matcher.Args[0]); t != nil {
 			actualType = t
 			matcher = nested
-			matcherFuncName, ok = handler.GetActualFuncName(nested)
+
 			if !ok {
 				return false
 			}

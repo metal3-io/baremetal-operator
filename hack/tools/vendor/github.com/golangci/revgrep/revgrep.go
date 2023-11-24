@@ -340,8 +340,6 @@ func (c *Checker) linesChanged() map[string][]pos {
 // If revisionFrom is set but revisionTo is not, untracked files will be included, to exclude untracked files set revisionTo to HEAD~.
 // It's incorrect to specify revisionTo without a revisionFrom.
 func GitPatch(revisionFrom, revisionTo string) (io.Reader, []string, error) {
-	var patch bytes.Buffer
-
 	// check if git repo exists
 	if err := exec.Command("git", "status", "--porcelain").Run(); err != nil {
 		// don't return an error, we assume the error is not repo exists
@@ -365,8 +363,9 @@ func GitPatch(revisionFrom, revisionTo string) (io.Reader, []string, error) {
 		newFiles = append(newFiles, string(file))
 	}
 
+	var patch bytes.Buffer
 	if revisionFrom != "" {
-		cmd := exec.Command("git", "diff", "--color=never", "--no-ext-diff", "--default-prefix", "--relative", revisionFrom)
+		cmd := gitDiff(revisionFrom)
 		if revisionTo != "" {
 			cmd.Args = append(cmd.Args, revisionTo)
 		}
@@ -380,11 +379,12 @@ func GitPatch(revisionFrom, revisionTo string) (io.Reader, []string, error) {
 		if revisionTo == "" {
 			return &patch, newFiles, nil
 		}
+
 		return &patch, nil, nil
 	}
 
 	// make a patch for unstaged changes
-	cmd := exec.Command("git", "diff", "--color=never", "--no-ext-diff", "--default-prefix", "--relative", "--")
+	cmd := gitDiff("--")
 	cmd.Stdout = &patch
 	if err := cmd.Run(); err != nil {
 		return nil, nil, fmt.Errorf("error executing git diff: %w", err)
@@ -399,11 +399,63 @@ func GitPatch(revisionFrom, revisionTo string) (io.Reader, []string, error) {
 
 	// check for changes in recent commit
 
-	cmd = exec.Command("git", "diff", "--color=never", "--no-ext-diff", "--default-prefix", "--relative", "HEAD~", "--")
+	cmd = gitDiff("HEAD~", "--")
 	cmd.Stdout = &patch
 	if err := cmd.Run(); err != nil {
 		return nil, nil, fmt.Errorf("error executing git diff HEAD~: %w", err)
 	}
 
 	return &patch, nil, nil
+}
+
+func gitDiff(extraArgs ...string) *exec.Cmd {
+	cmd := exec.Command("git", "diff", "--color=never", "--no-ext-diff")
+
+	if isSupportedByGit(2, 41, 0) {
+		cmd.Args = append(cmd.Args, "--default-prefix")
+	}
+
+	cmd.Args = append(cmd.Args, "--relative")
+	cmd.Args = append(cmd.Args, extraArgs...)
+
+	return cmd
+}
+
+func isSupportedByGit(major, minor, patch int) bool {
+	output, err := exec.Command("git", "version").CombinedOutput()
+	if err != nil {
+		return false
+	}
+
+	parts := bytes.Split(bytes.TrimSpace(output), []byte(" "))
+	if len(parts) < 3 {
+		return false
+	}
+
+	v := string(parts[2])
+	if v == "" {
+		return false
+	}
+
+	vp := regexp.MustCompile(`^(\d+)\.(\d+)(?:\.(\d+))?.*$`).FindStringSubmatch(v)
+	if len(vp) < 4 {
+		return false
+	}
+
+	currentMajor, err := strconv.Atoi(vp[1])
+	if err != nil {
+		return false
+	}
+
+	currentMinor, err := strconv.Atoi(vp[2])
+	if err != nil {
+		return false
+	}
+
+	currentPatch, err := strconv.Atoi(vp[3])
+	if err != nil {
+		return false
+	}
+
+	return currentMajor*1_000_000_000+currentMinor*1_000_000+currentPatch*1_000 >= major*1_000_000_000+minor*1_000_000+patch*1_000
 }

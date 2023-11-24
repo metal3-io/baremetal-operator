@@ -97,7 +97,7 @@ func TestProvision(t *testing.T) {
 		},
 		{
 			name: "active state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 			}),
@@ -106,7 +106,7 @@ func TestProvision(t *testing.T) {
 		},
 		{
 			name: "other state: Cleaning",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Cleaning),
 				UUID:           nodeUUID,
 			}),
@@ -115,7 +115,7 @@ func TestProvision(t *testing.T) {
 		},
 		{
 			name: "other state: Deploy Wait",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.DeployWait),
 				UUID:           nodeUUID,
 			}),
@@ -243,7 +243,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "deleting state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Deleting),
 				UUID:           nodeUUID,
 			}),
@@ -252,7 +252,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "cleaning state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Cleaning),
 				UUID:           nodeUUID,
 			}),
@@ -261,7 +261,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "cleanWait state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.CleanWait),
 				UUID:           nodeUUID,
 			}),

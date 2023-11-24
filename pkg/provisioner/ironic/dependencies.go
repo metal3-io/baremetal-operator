@@ -1,57 +1,30 @@
 package ironic
 
 import (
-	"strings"
-	"time"
-
-	"github.com/go-logr/logr"
-	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/pagination"
+
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
-const (
-	checkRequeueDelay = time.Second * 10
-)
+// TryInit checks if the provisioning backend is available
+func (p *ironicProvisioner) TryInit() (ready bool, err error) {
+	p.debugLog.Info("verifying ironic provisioner dependencies")
 
-type ironicDependenciesChecker struct {
-	client *gophercloud.ServiceClient
-	log    logr.Logger
-}
-
-func newIronicDependenciesChecker(client *gophercloud.ServiceClient, log logr.Logger) *ironicDependenciesChecker {
-	return &ironicDependenciesChecker{
-		client: client,
-		log:    log,
-	}
-}
-
-func (i *ironicDependenciesChecker) IsReady() (result bool, err error) {
-	ready := i.checkEndpoint(i.client)
-	if ready {
-		ready, err = i.checkIronicConductor()
-	}
-	return ready, err
-}
-
-func (i *ironicDependenciesChecker) checkEndpoint(client *gophercloud.ServiceClient) (ready bool) {
-
-	// NOTE: Some versions of Ironic inspector returns 404 for /v1/ but 200 for /v1,
-	// which seems to be the default behavior for Flask. Remove the trailing slash
-	// from the client endpoint.
-	endpoint := strings.TrimSuffix(client.Endpoint, "/")
-
-	_, err := client.Get(endpoint, nil, nil)
+	p.availableFeatures, err = clients.GetAvailableFeatures(p.client)
 	if err != nil {
-		i.log.Info("error caught while checking endpoint", "endpoint", client.Endpoint, "error", err)
+		p.log.Info("error caught while checking endpoint, will retry", "endpoint", p.client.Endpoint, "error", err)
+		return false, nil
 	}
 
-	return err == nil
+	p.client.Microversion = p.availableFeatures.ChooseMicroversion()
+	p.availableFeatures.Log(p.debugLog)
+
+	return p.checkIronicConductor()
 }
 
-func (i *ironicDependenciesChecker) checkIronicConductor() (ready bool, err error) {
-
-	pager := drivers.ListDrivers(i.client, drivers.ListDriversOpts{
+func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {
+	pager := drivers.ListDrivers(p.client, drivers.ListDriversOpts{
 		Detail: false,
 	})
 	err = pager.Err

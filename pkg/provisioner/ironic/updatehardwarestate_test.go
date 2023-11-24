@@ -29,14 +29,14 @@ func TestUpdateHardwareState(t *testing.T) {
 	}{
 		{
 			name: "unknown-power-state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID: nodeUUID,
 			}),
 			expectUnreadablePower: true,
 		},
 		{
 			name: "updated-power-on-state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power on",
 			}),
@@ -44,7 +44,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "not-updated-power-on-state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power on",
 			}),
@@ -52,7 +52,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "updated-power-off-state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power off",
 			}),
@@ -60,7 +60,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "not-updated-power-off-state",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "power off",
 			}),
@@ -68,7 +68,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name: "no-power",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:       nodeUUID,
 				PowerState: "None",
 			}),
@@ -79,7 +79,7 @@ func TestUpdateHardwareState(t *testing.T) {
 			name: "node-not-found",
 
 			hostName: "worker-0",
-			ironic:   testserver.NewIronic(t).Ready().NodeError(nodeUUID, http.StatusGatewayTimeout),
+			ironic:   testserver.NewIronic(t).NodeError(nodeUUID, http.StatusGatewayTimeout),
 
 			expectedError: "failed to find node by ID 33ce8659-7400-4c68-9535-d10766f07a58: Gateway Timeout.*",
 
@@ -89,7 +89,7 @@ func TestUpdateHardwareState(t *testing.T) {
 			name: "node-not-found-by-name",
 
 			hostName: "worker-0",
-			ironic:   testserver.NewIronic(t).Ready().NoNode(nodeUUID).NodeError("myns"+nameSeparator+"myhost", http.StatusGatewayTimeout),
+			ironic:   testserver.NewIronic(t).NoNode(nodeUUID).NodeError("myns"+nameSeparator+"myhost", http.StatusGatewayTimeout),
 
 			expectedError: "Host not registered",
 
@@ -97,7 +97,7 @@ func TestUpdateHardwareState(t *testing.T) {
 		},
 		{
 			name:   "not-ironic-node",
-			ironic: testserver.NewIronic(t).Ready().NoNode(nodeUUID).NoNode("myns" + nameSeparator + "myhost").NoNode("myhost"),
+			ironic: testserver.NewIronic(t).NoNode(nodeUUID).NoNode("myns" + nameSeparator + "myhost").NoNode("myhost"),
 
 			expectedError: "Host not registered",
 

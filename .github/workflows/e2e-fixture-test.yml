@@ -1,0 +1,35 @@
+name: E2E Fixture Test
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'hack/*.sh'
+      - 'LICENSE'
+      - 'SECURITY_CONTACTS'
+      - 'DCO'
+      - 'OWNERS'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+    - name: Build BMO e2e Docker Image
+      env:
+        IMG: quay.io/metal3-io/baremetal-operator:e2e
+      run: make docker
+
+    - name: Set Up Environment and Run BMO e2e Tests
+      env:
+        E2E_CONF_FILE: ${GITHUB_WORKSPACE}/test/e2e/config/fixture.yaml
+        USE_EXISTING_CLUSTER: "false"
+      run: make test-e2e

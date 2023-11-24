@@ -89,7 +89,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-status-retry-on-wait",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspect wait",
 			}),
@@ -99,7 +99,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-status-retry-on-inspecting",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspecting",
 			}),
@@ -109,7 +109,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-failed",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspect failed",
 				LastError:      "Timeout",
@@ -119,7 +119,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "introspection-aborted",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: "inspect failed",
 				LastError:      "Inspection was aborted by request.",
@@ -135,7 +135,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "inspection-in-progress - forceReboot",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectWait),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
@@ -147,7 +147,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "inspection-failed",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectFail),
 			}),
@@ -156,7 +156,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "inspection-failed force",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectFail),
 			}).NodeUpdate(nodes.Node{
@@ -172,7 +172,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "inspection-forceReboot",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.InspectWait),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
@@ -184,7 +184,7 @@ func TestInspectHardware(t *testing.T) {
 		},
 		{
 			name: "inspection-complete",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				UUID:           nodeUUID,
 				ProvisionState: string(nodes.Manageable),
 			}).WithInventory(nodeUUID, nodes.InventoryData{

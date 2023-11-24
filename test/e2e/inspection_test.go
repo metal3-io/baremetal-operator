@@ -18,6 +18,7 @@ import (
 var _ = Describe("Inspection", func() {
 	var (
 		specName       = "inspection"
+		secretName     = "bmc-credentials"
 		namespace      *corev1.Namespace
 		cancelWatches  context.CancelFunc
 		bmcUser        string
@@ -92,18 +93,7 @@ var _ = Describe("Inspection", func() {
 
 	It("should inspect a newly created BMH", func() {
 		By("creating a secret with BMH credentials")
-		bmcCredentials := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bmc-credentials",
-				Namespace: namespace.Name,
-			},
-			StringData: map[string]string{
-				"username": bmcUser,
-				"password": bmcPassword,
-			},
-		}
-		err := clusterProxy.GetClient().Create(ctx, &bmcCredentials)
-		Expect(err).NotTo(HaveOccurred())
+		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
 
 		By("creating a BMH")
 		bmh := metal3api.BareMetalHost{
@@ -120,15 +110,8 @@ var _ = Describe("Inspection", func() {
 				BootMACAddress: bootMacAddress,
 			},
 		}
-		err = clusterProxy.GetClient().Create(ctx, &bmh)
+		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
-
-		By("waiting for the BMH to be in registering state")
-		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
-			Client: clusterProxy.GetClient(),
-			Bmh:    bmh,
-			State:  metal3api.StateRegistering,
-		}, e2eConfig.GetIntervals(specName, "wait-registering")...)
 
 		By("waiting for the BMH to be in inspecting state")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{

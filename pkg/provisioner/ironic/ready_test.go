@@ -23,14 +23,14 @@ func TestProvisionerIsReady(t *testing.T) {
 	}{
 		{
 			name:                "IsReady",
-			ironic:              testserver.NewIronic(t).Ready().WithDrivers(),
-			expectedIronicCalls: "/v1;/v1/drivers;",
+			ironic:              testserver.NewIronic(t).WithDrivers(),
+			expectedIronicCalls: "/v1/;/v1/drivers;",
 			expectedIsReady:     true,
 		},
 		{
 			name:                "NoDriversLoaded",
-			ironic:              testserver.NewIronic(t).Ready(),
-			expectedIronicCalls: "/v1;/v1/drivers;",
+			ironic:              testserver.NewIronic(t),
+			expectedIronicCalls: "/v1/;/v1/drivers;",
 		},
 		{
 			name:            "IronicDown",
@@ -40,13 +40,13 @@ func TestProvisionerIsReady(t *testing.T) {
 			name:                "IronicNotOk",
 			ironic:              testserver.NewIronic(t).NotReady(http.StatusInternalServerError),
 			expectedIsReady:     false,
-			expectedIronicCalls: "/v1;",
+			expectedIronicCalls: "/v1/;",
 		},
 		{
 			name:                "IronicNotOkAndNotExpected",
 			ironic:              testserver.NewIronic(t).NotReady(http.StatusBadGateway),
 			expectedIsReady:     false,
-			expectedIronicCalls: "/v1;",
+			expectedIronicCalls: "/v1/;",
 		},
 	}
 
@@ -65,7 +65,7 @@ func TestProvisionerIsReady(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			ready, err := prov.IsReady()
+			ready, err := prov.TryInit()
 			if err != nil {
 				t.Fatalf("could not determine ready state: %s", err)
 			}

@@ -122,7 +122,7 @@ func TestEmpty(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ironic := testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic := testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 			})

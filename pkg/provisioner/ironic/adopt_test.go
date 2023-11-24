@@ -27,7 +27,7 @@ func TestAdopt(t *testing.T) {
 	}{
 		{
 			name: "node-in-enroll",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Enroll),
 				UUID:           nodeUUID,
 			}),
@@ -47,7 +47,7 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-adopting",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Adopting),
 				UUID:           nodeUUID,
 			}),
@@ -57,7 +57,7 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-verifying",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Verifying),
 				UUID:           nodeUUID,
 			}),
@@ -67,7 +67,7 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-AdoptFail",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.AdoptFail),
 				UUID:           nodeUUID,
 			}),
@@ -88,7 +88,7 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-Active",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 			}),
@@ -97,7 +97,7 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-Maintenance",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 				Maintenance:    true,
@@ -109,7 +109,7 @@ func TestAdopt(t *testing.T) {
 		},
 		{
 			name: "node-in-Fault",
-			ironic: testserver.NewIronic(t).Ready().Node(nodes.Node{
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 				Maintenance:    true,

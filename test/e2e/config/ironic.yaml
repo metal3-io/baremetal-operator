@@ -19,20 +19,33 @@ variables:
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
+  EXPECTED_HOST_NAME: "localhost.localdomain"
   # Test credentials. The tests will create a BMH with these.
   BMC_USER: admin
   BMC_PASSWORD: password
-  BMC_ADDRESS: ipmi://192.168.222.1:16230
+  # During development, select the preferred BMC interface when running tests from the command line:
+  # Note: These settings are only applicable for command line executions, not when running via the ci-e2e.sh script.
+  # Uncomment the desired BMC_ADDRESS line:
+  # BMC_ADDRESS: "ipmi://192.168.222.1:16230"
+  BMC_ADDRESS: "redfish+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-0"
   BOOT_MAC_ADDRESS: "00:60:2f:31:81:01"
+  IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
+  IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
+  CERT_MANAGER_VERSION: "v1.13.0"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]
   default/wait-registering: ["1m", "5s"]
   inspection/wait-registration-error: ["1m", "5s"]
   external-inspection/wait-available: ["20s", "1s"]
-  default/wait-inspecting: ["2m", "10s"]
-  default/wait-available: ["10m", "10s"]
+  default/wait-inspecting: ["2m", "2s"]
+  default/wait-available: ["10m", "1s"]
   default/wait-deployment: ["5m", "1s"]
   default/wait-namespace-deleted: ["10m", "1s"]
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-power-state: ["10m", "100ms"]
+  default/wait-provisioning: ["20s", "1s"]
+  default/wait-provisioned: ["5m", "1s"]
+  default/wait-deprovisioning: ["1m", "10ms"]
+  default/wait-deleted: ["20s", "10ms"]
+  default/wait-secret-deletion: ["1m", "1s"]

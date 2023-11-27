@@ -9,8 +9,6 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: ":seedling:"
-    labels:
-      - "ok-to-test"
     # Go
   - package-ecosystem: "gomod"
     directory: "/"

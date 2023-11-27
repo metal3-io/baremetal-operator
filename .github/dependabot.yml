@@ -22,8 +22,6 @@ updates:
       - dependency-name: "k8s.io/*"
     commit-message:
       prefix: ":seedling:"
-    labels:
-      - "ok-to-test"
   - package-ecosystem: "gomod"
     directory: "/apis"
     schedule:
@@ -36,16 +34,12 @@ updates:
       - dependency-name: "k8s.io/*"
     commit-message:
       prefix: ":seedling:"
-    labels:
-      - "ok-to-test"
   - package-ecosystem: "gomod"
     directory: "/pkg/hardwareutils"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: ":seedling:"
-    labels:
-      - "ok-to-test"
   - package-ecosystem: "gomod"
     directory: "/hack/tools"
     schedule:
@@ -56,5 +50,3 @@ updates:
       - dependency-name: "sigs.k8s.io/controller-tools"
     commit-message:
       prefix: ":seedling:"
-    labels:
-      - "ok-to-test"

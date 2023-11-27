@@ -59,6 +59,8 @@ REGISTRY="quay.io"
 
 # if the given tag doesn't exist, we run only pre-tag checks
 TAG_EXISTS=""
+# we skip some checks if we cannot download release information
+RELEASE_EXISTS=""
 
 
 #
@@ -267,16 +269,29 @@ download_release_information()
 {
     # download release information json, requires GITHUB_TOKEN
     echo "Downloading release information ..."
+    local release_id
 
     if ! curl -SsL --fail \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             -o "${RELEASE_JSON}" \
-            "https://api.github.com/repos/${PROJECT}/releases/tags/v${VERSION}" >/dev/null; then
+            "https://api.github.com/repos/${PROJECT}/releases" >/dev/null; then
         echo "ERROR: could not download release information, check token and permissions"
         exit 1
     fi
+    release_id=$(jq '.[] | select(.name == "v'"${VERSION}"'") | .id' "${RELEASE_JSON}")
+
+    if [[ -z "${release_id}" ]] || ! curl -SsL --fail \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -o "${RELEASE_JSON}" \
+            "https://api.github.com/repos/${PROJECT}/releases/${release_id}" >/dev/null; then
+        echo "WARNING: could not download release information for tag v${VERSION} (id '${release_id}')"
+        echo "WARNING: will skip all release note checks"
+    fi
+    RELEASE_EXISTS=true
 
     echo -e "Done\n"
 }
@@ -541,7 +556,7 @@ verify_vulnerabilities()
     # run osv-scanner to verify if we have open vulnerabilities in deps
     echo "Verifying vulnerabilities ..."
 
-    "${OSVSCANNER_CMD[@]}" -r . > "${SCAN_LOG}"
+    "${OSVSCANNER_CMD[@]}" -r . > "${SCAN_LOG}" || true
     if ! grep -q "No vulnerabilities found" "${SCAN_LOG}"; then
         cat "${SCAN_LOG}"
     fi
@@ -564,8 +579,10 @@ if [[ -n "${TAG_EXISTS}" ]]; then
     download_release_information
     verify_git_tags
     verify_git_tag_types
-    verify_release_notes
-    verify_release_artefacts
+    if [[ -n "${RELEASE_EXISTS}" ]]; then
+        verify_release_notes
+        verify_release_artefacts
+    fi
     verify_container_images
 fi
 

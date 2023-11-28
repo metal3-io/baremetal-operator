@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -197,6 +198,9 @@ type Node struct {
 
 	// Deploy interface for a node, e.g. “iscsi”.
 	DeployInterface string `json:"deploy_interface"`
+
+	// Firmware interface for a node, e.g. “redfish”.
+	FirmwareInterface string `json:"firmware_interface"`
 
 	// Interface used for node inspection, e.g. “no-inspect”.
 	InspectInterface string `json:"inspect_interface"`
@@ -404,6 +408,7 @@ type NodeValidation struct {
 	Boot       DriverValidation `json:"boot"`
 	Console    DriverValidation `json:"console"`
 	Deploy     DriverValidation `json:"deploy"`
+	Firmware   DriverValidation `json:"firmware"`
 	Inspect    DriverValidation `json:"inspect"`
 	Management DriverValidation `json:"management"`
 	Network    DriverValidation `json:"network"`
@@ -546,10 +551,44 @@ func (pd PluginData) AsMap() (result map[string]interface{}, err error) {
 	return
 }
 
-// Interpret plugin data as coming from ironic-inspector.
+// AsStandardData interprets plugin data as coming from ironic native inspection.
+func (pd PluginData) AsStandardData() (result inventory.StandardPluginData, err error) {
+	err = json.Unmarshal(pd.RawMessage, &result)
+	return
+}
+
+// AsInspectorData interprets plugin data as coming from ironic-inspector.
 func (pd PluginData) AsInspectorData() (result introspection.Data, err error) {
 	err = json.Unmarshal(pd.RawMessage, &result)
 	return
+}
+
+// GuessFormat tries to guess which format the data is in. Unless there is
+// an error while parsing, one result will be valid, the other - nil.
+// Unknown (but still parseable) format defaults to standard.
+func (pd PluginData) GuessFormat() (*inventory.StandardPluginData, *introspection.Data, error) {
+	// Ironic and Inspector formats are compatible, don't expect an error in either case
+	ironic, err := pd.AsStandardData()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// The valid_interfaces field only exists in the Ironic data (it's called just interfaces in Inspector)
+	if len(ironic.ValidInterfaces) > 0 {
+		return &ironic, nil, nil
+	}
+
+	inspector, err := pd.AsInspectorData()
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot interpret PluginData as coming from inspector on conversion: %w", err)
+	}
+
+	// If the format does not match anything (but still parses), assume a heavily customized deployment
+	if len(inspector.Interfaces) == 0 {
+		return &ironic, nil, nil
+	}
+
+	return nil, &inspector, nil
 }
 
 // InventoryData is the full node inventory.
@@ -570,4 +609,36 @@ func (r InventoryResult) Extract() (*InventoryData, error) {
 	var data InventoryData
 	err := r.ExtractInto(&data)
 	return &data, err
+}
+
+// ListFirmwareResult is the response from a ListFirmware operation. Call its Extract method
+// to interpret it as an array of FirmwareComponent structs.
+type ListFirmwareResult struct {
+	gophercloud.Result
+}
+
+// A particular Firmware Component for a node
+type FirmwareComponent struct {
+	// The UTC date and time when the resource was created, ISO 8601 format.
+	CreatedAt time.Time `json:"created_at"`
+	// The UTC date and time when the resource was updated, ISO 8601 format. May be “null”.
+	UpdatedAt *time.Time `json:"updated_at"`
+	// The Component name
+	Component string `json:"component"`
+	// The initial version of the firmware component.
+	InitialVersion string `json:"initial_version"`
+	// The current version of the firmware component.
+	CurrentVersion string `json:"current_version"`
+	// The last firmware version updated for the component.
+	LastVersionFlashed string `json:"last_version_flashed,omitempty"`
+}
+
+// Extract interprets a ListFirmwareResult as an array of FirmwareComponent structs, if possible.
+func (r ListFirmwareResult) Extract() ([]FirmwareComponent, error) {
+	var s struct {
+		Components []FirmwareComponent `json:"firmware"`
+	}
+
+	err := r.ExtractInto(&s)
+	return s.Components, err
 }

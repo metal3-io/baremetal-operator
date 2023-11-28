@@ -392,7 +392,7 @@ func TestValidateCreate(t *testing.T) {
 					BMC: BMCDetails{
 						Address: "ipmi://-host.example.com.org"}}},
 			oldBMH:    nil,
-			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [-host.example.com.org] is invalid",
+			wantedErr: "failed to parse BMC address information: BMC address hostname/IP : [-host.example.com.org] is invalid",
 		},
 		{
 			name: "invalidDNSNameinvalidcharacter",
@@ -403,7 +403,7 @@ func TestValidateCreate(t *testing.T) {
 					BMC: BMCDetails{
 						Address: "ipmi://host+1.example.com.org"}}},
 			oldBMH:    nil,
-			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [host+1.example.com.org] is invalid",
+			wantedErr: "failed to parse BMC address information: BMC address hostname/IP : [host+1.example.com.org] is invalid",
 		},
 		{
 			name: "invalidDNSNameinvalidformat",
@@ -414,7 +414,7 @@ func TestValidateCreate(t *testing.T) {
 					BMC: BMCDetails{
 						Address: "[@]host.example.com"}}},
 			oldBMH:    nil,
-			wantedErr: "BMO validation: failed to parse BMC address information: parse \"ipmi://[@]host.example.com\": net/url: invalid userinfo",
+			wantedErr: "failed to parse BMC address information: parse \"ipmi://[@]host.example.com\": net/url: invalid userinfo",
 		},
 		{
 			name: "invalidDNSNameinvalidbmc",
@@ -436,7 +436,7 @@ func TestValidateCreate(t *testing.T) {
 					BMC: BMCDetails{
 						Address: "ipmi://[fe80::fc33:62ff:fe33:8xff]:6223"}}},
 			oldBMH:    nil,
-			wantedErr: "BMO validation: failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
+			wantedErr: "failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
 		},
 		{
 			name: "validRootDeviceHint",
@@ -478,7 +478,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "Device Name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"/dev/disk/by-uuid/cdaacd50-3a4c-421c-91c0-fe9ba7b8b2f1\"",
+			wantedErr: "device name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"/dev/disk/by-uuid/cdaacd50-3a4c-421c-91c0-fe9ba7b8b2f1\"",
 		},
 		{
 			name: "invalidRootDeviceHintNoPath",
@@ -492,7 +492,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "Device Name of root device hint must be a /dev/ path, not \"sda\"",
+			wantedErr: "device name of root device hint must be a /dev/ path, not \"sda\"",
 		},
 		{
 			name: "invalidImageURL",
@@ -510,7 +510,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "Image URL test1 is an invalid URL",
+			wantedErr: "image URL test1 is invalid: parse \"test1\": invalid URI for request",
 		},
 		{
 			name: "validStatusAnnotation",
@@ -540,7 +540,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "error decoding status annotation, error=json: unknown field \"InvalidField\"",
+			wantedErr: "error decoding status annotation: json: unknown field \"InvalidField\"",
 		},
 		{
 			name: "invalidOpstatusStatusAnnotation",
@@ -555,7 +555,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid OperationalStatus='NotOK' in StatusAnnotation",
+			wantedErr: "invalid operationalStatus 'NotOK' in the baremetalhost.metal3.io/status annotation",
 		},
 		{
 			name: "invalidErrtypeStatusAnnotation",
@@ -570,7 +570,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid ErrorType='No Error' in StatusAnnotation",
+			wantedErr: "invalid errorType 'No Error' in the baremetalhost.metal3.io/status annotation",
 		},
 		{
 			name: "invalidFormatStatusAnnotation",
@@ -585,7 +585,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "error decoding status annotation, error=unexpected EOF",
+			wantedErr: "error decoding status annotation: unexpected EOF",
 		},
 		{
 			name: "invalidValueRebootAnnotationPrefix",
@@ -600,7 +600,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid RebootMode in RebootAnnotation",
+			wantedErr: "invalid mode in the reboot.metal3.io annotation, allowed are \"hard\", \"soft\" or \"\"",
 		},
 		{
 			name: "invalidValueRebootAnnotationWithKey",
@@ -615,7 +615,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid RebootMode in RebootAnnotation",
+			wantedErr: "invalid mode in the reboot.metal3.io annotation, allowed are \"hard\", \"soft\" or \"\"",
 		},
 		{
 			name: "inspectionNotDisabledHardwareDetailsAnnotation",
@@ -630,7 +630,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "inspection has to be disabled for HardwareDetailsAnnotation, check if {'inspect.metal3.io' : 'disabled'}",
+			wantedErr: "when hardware details are provided, the inspect.metal3.io annotation must be set to disabled",
 		},
 		{
 			name: "invalidFieldHardwareDetailsAnnotation",
@@ -646,7 +646,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "error decoding hardware details annotation, error=json: unknown field \"INVALIDField\"",
+			wantedErr: "error decoding the inspect.metal3.io/hardwaredetails annotation: json: unknown field \"INVALIDField\"",
 		},
 		{
 			name: "invalidJsonHardwareDetailsAnnotation",
@@ -661,7 +661,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "error decoding hardware details annotation, error=unexpected EOF",
+			wantedErr: "error decoding the inspect.metal3.io/hardwaredetails annotation: unexpected EOF",
 		},
 		{
 			name: "invalidValueInspectAnnotation",
@@ -676,7 +676,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "invalid value for Inspect Annotation",
+			wantedErr: "invalid value for the inspect.metal3.io annotation, allowed are \"disabled\" or \"\"",
 		},
 	}
 

@@ -27,7 +27,7 @@ type TLSConfig struct {
 	SkipClientSANVerify   bool
 }
 
-func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*gophercloud.ServiceClient, error) {
+func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) error {
 	tlsInfo := transport.TLSInfo{
 		TrustedCAFile:       tlsConf.TrustedCAFile,
 		CertFile:            tlsConf.ClientCertificateFile,
@@ -39,21 +39,21 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*go
 		if os.IsNotExist(err) {
 			tlsInfo.TrustedCAFile = ""
 		} else {
-			return client, err
+			return err
 		}
 	}
 	if _, err := os.Stat(tlsConf.ClientCertificateFile); err != nil {
 		if os.IsNotExist(err) {
 			tlsInfo.CertFile = ""
 		} else {
-			return client, err
+			return err
 		}
 	}
 	if _, err := os.Stat(tlsConf.ClientPrivateKeyFile); err != nil {
 		if os.IsNotExist(err) {
 			tlsInfo.KeyFile = ""
 		} else {
-			return client, err
+			return err
 		}
 	}
 	if tlsInfo.CertFile != "" && tlsInfo.KeyFile != "" {
@@ -62,13 +62,13 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) (*go
 
 	tlsTransport, err := transport.NewTransport(tlsInfo, tlsConnectionTimeout)
 	if err != nil {
-		return client, err
+		return err
 	}
 	c := http.Client{
 		Transport: tlsTransport,
 	}
 	client.HTTPClient = c
-	return client, nil
+	return nil
 }
 
 // IronicClient creates a client for Ironic
@@ -91,10 +91,8 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 		return
 	}
 
-	// Ensure we have a microversion high enough to get the features
-	// we need. Update docs/configuration.md when updating the version.
-	// Version 1.81 allows retrival of Node inventory
-	client.Microversion = "1.81"
+	client.Microversion = baseline
 
-	return updateHTTPClient(client, tls)
+	err = updateHTTPClient(client, tls)
+	return
 }

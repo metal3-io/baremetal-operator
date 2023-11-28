@@ -87,6 +87,10 @@ func (a *ibmcAccessDetails) BootInterface() string {
 	return "ipxe"
 }
 
+func (a *ibmcAccessDetails) FirmwareInterface() string {
+	return ""
+}
+
 func (a *ibmcAccessDetails) ManagementInterface() string {
 	return "ibmc"
 }

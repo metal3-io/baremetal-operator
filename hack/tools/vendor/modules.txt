@@ -81,7 +81,7 @@ github.com/breml/bidichk/pkg/bidichk
 # github.com/breml/errchkjson v0.3.6
 ## explicit; go 1.20
 github.com/breml/errchkjson
-# github.com/butuzov/ireturn v0.2.1
+# github.com/butuzov/ireturn v0.2.2
 ## explicit; go 1.18
 github.com/butuzov/ireturn/analyzer
 github.com/butuzov/ireturn/analyzer/internal/config
@@ -255,7 +255,7 @@ github.com/golangci/go-misc/deadcode
 github.com/golangci/gofmt/gofmt
 github.com/golangci/gofmt/gofmt/internal/diff
 github.com/golangci/gofmt/goimports
-# github.com/golangci/golangci-lint v1.55.0
+# github.com/golangci/golangci-lint v1.55.2
 ## explicit; go 1.20
 github.com/golangci/golangci-lint/cmd/golangci-lint
 github.com/golangci/golangci-lint/internal/cache
@@ -291,7 +291,7 @@ github.com/golangci/maligned
 # github.com/golangci/misspell v0.4.1
 ## explicit; go 1.19
 github.com/golangci/misspell
-# github.com/golangci/revgrep v0.5.0
+# github.com/golangci/revgrep v0.5.2
 ## explicit; go 1.19
 github.com/golangci/revgrep
 # github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4
@@ -303,7 +303,7 @@ github.com/google/gnostic/compiler
 github.com/google/gnostic/extensions
 github.com/google/gnostic/jsonschema
 github.com/google/gnostic/openapiv2
-# github.com/google/go-cmp v0.5.9
+# github.com/google/go-cmp v0.6.0
 ## explicit; go 1.13
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
@@ -490,7 +490,7 @@ github.com/nishanths/exhaustive
 # github.com/nishanths/predeclared v0.2.2
 ## explicit; go 1.14
 github.com/nishanths/predeclared/passes/predeclared
-# github.com/nunnatsa/ginkgolinter v0.14.0
+# github.com/nunnatsa/ginkgolinter v0.14.1
 ## explicit; go 1.20
 github.com/nunnatsa/ginkgolinter
 github.com/nunnatsa/ginkgolinter/ginkgohandler
@@ -581,7 +581,7 @@ github.com/sashamelentyev/interfacebloat/pkg/analyzer
 ## explicit; go 1.20
 github.com/sashamelentyev/usestdlibvars/pkg/analyzer
 github.com/sashamelentyev/usestdlibvars/pkg/analyzer/internal/mapping
-# github.com/securego/gosec/v2 v2.18.1
+# github.com/securego/gosec/v2 v2.18.2
 ## explicit; go 1.20
 github.com/securego/gosec/v2
 github.com/securego/gosec/v2/analyzers
@@ -935,16 +935,16 @@ honnef.co/go/tools/staticcheck/fakereflect
 honnef.co/go/tools/staticcheck/fakexml
 honnef.co/go/tools/stylecheck
 honnef.co/go/tools/unused
-# k8s.io/api v0.27.1
+# k8s.io/api v0.27.7
 ## explicit; go 1.20
 k8s.io/api/admissionregistration/v1
 k8s.io/api/rbac/v1
-# k8s.io/apiextensions-apiserver v0.27.1
+# k8s.io/apiextensions-apiserver v0.27.7
 ## explicit; go 1.20
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
-# k8s.io/apimachinery v0.27.1
+# k8s.io/apimachinery v0.27.7
 ## explicit; go 1.20
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/resource
@@ -976,8 +976,8 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a
-## explicit; go 1.18
+# k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
+## explicit; go 1.19
 k8s.io/kube-openapi/pkg/internal
 k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json
 k8s.io/kube-openapi/pkg/validation/errors

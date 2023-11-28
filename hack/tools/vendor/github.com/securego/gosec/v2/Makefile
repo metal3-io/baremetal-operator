@@ -32,7 +32,7 @@ install-govulncheck:
 		go install golang.org/x/vuln/cmd/govulncheck@latest; \
 	fi
 
-test: install-test-deps build fmt vet sec govulncheck
+test: install-test-deps build-race fmt vet sec govulncheck
 	$(GINKGO) -v --fail-fast
 
 fmt:
@@ -63,6 +63,9 @@ test-coverage: install-test-deps
 
 build:
 	go build -o $(BIN) ./cmd/gosec/
+
+build-race:
+	go build -race -o $(BIN) ./cmd/gosec/
 
 clean:
 	rm -rf build vendor dist coverage.txt

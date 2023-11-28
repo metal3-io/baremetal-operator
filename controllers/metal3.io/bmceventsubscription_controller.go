@@ -224,7 +224,7 @@ func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, ho
 		return prov, ready, errors.Wrap(err, "failed to create provisioner")
 	}
 
-	ready, err = prov.IsReady()
+	ready, err = prov.TryInit()
 	if err != nil {
 		return prov, ready, errors.Wrap(err, "failed to check services availability")
 	}

@@ -82,6 +82,10 @@ func (a *iDracAccessDetails) BootInterface() string {
 	return "ipxe"
 }
 
+func (a *iDracAccessDetails) FirmwareInterface() string {
+	return ""
+}
+
 func (a *iDracAccessDetails) ManagementInterface() string {
 	return ""
 }

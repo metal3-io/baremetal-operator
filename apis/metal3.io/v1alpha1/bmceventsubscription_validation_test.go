@@ -37,7 +37,7 @@ func TestBMCEventSubscriptionValidateCreate(t *testing.T) {
 				Spec:       BMCEventSubscriptionSpec{Destination: "http://localhost/abc/abc"},
 			},
 			oldS:      nil,
-			wantedErr: "HostName cannot be empty",
+			wantedErr: "hostName cannot be empty",
 		},
 		{
 			name: "missingDestination",
@@ -47,7 +47,7 @@ func TestBMCEventSubscriptionValidateCreate(t *testing.T) {
 				Spec:       BMCEventSubscriptionSpec{HostName: "worker-01"},
 			},
 			oldS:      nil,
-			wantedErr: "Destination cannot be empty",
+			wantedErr: "destination cannot be empty",
 		},
 		{
 			name: "destinationNotUrl",
@@ -57,7 +57,7 @@ func TestBMCEventSubscriptionValidateCreate(t *testing.T) {
 				Spec:       BMCEventSubscriptionSpec{HostName: "worker-01", Destination: "abc"},
 			},
 			oldS:      nil,
-			wantedErr: "Destination is an invalid URL: parse \"abc\": invalid URI for request",
+			wantedErr: "destination is invalid: parse \"abc\": invalid URI for request",
 		},
 		{
 			name: "destinationMissingTrailingSlash",
@@ -67,7 +67,7 @@ func TestBMCEventSubscriptionValidateCreate(t *testing.T) {
 				Spec:       BMCEventSubscriptionSpec{HostName: "worker-01", Destination: "http://localhost"},
 			},
 			oldS:      nil,
-			wantedErr: "Hostname-only destination must have a trailing slash",
+			wantedErr: "hostname-only destination must have a trailing slash",
 		},
 	}
 

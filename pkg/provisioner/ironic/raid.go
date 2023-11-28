@@ -43,7 +43,7 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 		p.log.Info("rootDeviceHints is used, the first volume of raid will not be set to root")
 	}
 
-	updater := updateOptsBuilder(p.debugLog)
+	updater := updateOptsBuilder(p.log)
 	updater.SetTopLevelOpt("raid_interface", targetRaidInterface, ironicNode.RAIDInterface)
 	ironicNode, success, result, err := p.tryUpdateNode(ironicNode, updater)
 	if !success {

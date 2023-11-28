@@ -3,9 +3,7 @@ package e2e
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -103,16 +101,18 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	if e2eConfig.GetVariable("DEPLOY_CERT_MANAGER") != "false" {
 		// Install cert-manager
 		By("Installing cert-manager")
-		cmd := exec.Command("cmctl", "check", "api")
-		_, err := cmd.CombinedOutput()
+		err := checkCertManagerAPI(clusterProxy)
 		if err != nil {
-			cmd = exec.Command("cmctl", "x", "install")
-			output, err := cmd.CombinedOutput()
-			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
-			By("Checking that the cert-manager API is available")
-			cmd = exec.Command("cmctl", "check", "api")
-			output, err = cmd.CombinedOutput()
-			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
+			cmVersion := e2eConfig.GetVariable("CERT_MANAGER_VERSION")
+			err = installCertManager(ctx, clusterProxy, cmVersion)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Waiting for cert-manager webhook")
+			Eventually(func() error {
+				return checkCertManagerWebhook(ctx, clusterProxy)
+			}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
+			err = checkCertManagerAPI(clusterProxy)
+			Expect(err).NotTo(HaveOccurred())
 		}
 	}
 
@@ -120,9 +120,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		// Install BMO
 		By("Installing BMO")
 		kustomization := e2eConfig.GetVariable("BMO_KUSTOMIZATION")
-		cmd := exec.Command("kubectl", "--kubeconfig", clusterProxy.GetKubeconfigPath(), "apply", "-k", kustomization) //nolint:gosec
-		output, err := cmd.CombinedOutput()
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
+		manifest, err := buildKustomizeManifest(kustomization)
+		Expect(err).NotTo(HaveOccurred())
+		err = clusterProxy.Apply(ctx, manifest)
+		Expect(err).NotTo(HaveOccurred())
 
 		bmoDeployment := &v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -149,9 +150,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		// Install Ironic
 		By("Installing Ironic")
 		kustomization := e2eConfig.GetVariable("IRONIC_KUSTOMIZATION")
-		cmd := exec.Command("kubectl", "--kubeconfig", clusterProxy.GetKubeconfigPath(), "apply", "-k", kustomization) //nolint:gosec
-		output, err := cmd.CombinedOutput()
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", output))
+		manifest, err := buildKustomizeManifest(kustomization)
+		Expect(err).NotTo(HaveOccurred())
+		err = clusterProxy.Apply(ctx, manifest)
+		Expect(err).NotTo(HaveOccurred())
 
 		ironicDeployment := &v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{

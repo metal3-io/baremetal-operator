@@ -37,17 +37,26 @@ Eventually these tests will be replaced with BMO's own
 [e2e tests](test/e2e/README.md). BMO e2e tests are currently under active
 development. Here are the tests which run on different branches in BMO:
 
+**Main branch:**
+
 * **/test-centos-e2e-integration-main** runs CAPM3 e2e integration tests with
   CAPM3 main branch and BMO **main** branch on Centos
 * **/test-ubuntu-integration-main** runs ansible integration tests with CAPM3
   main branch and BMO **main** branch on Ubuntu
 
-Release-0.4 branch:
+**Release-0.4 branch:**
 
 * **/test-centos-e2e-integration-release-1-5** runs CAPM3 e2e integration tests
-  with CAPM3 release-1.5 branch and BMO **release-0.4 branch** on Centos
-* **/test-ubuntu-integration-release-1-5** runs ansible integration tests with CAPM3
-  release-1.5 branch and BMO **release-0.4 branch** on Ubuntu
+  with CAPM3 release-1.5 branch and BMO **release-0.4** branch on Centos
+* **/test-ubuntu-integration-release-1-5** runs ansible integration tests with
+  CAPM3 release-1.5 branch and BMO **release-0.4** branch on Ubuntu
+
+**Release-0.3 branch:**
+
+* **/test-centos-e2e-integration-release-1-4** runs CAPM3 e2e integration tests
+  with CAPM3 release-1.4 branch and BMO **release-0.3** branch on Centos
+* **/test-ubuntu-integration-release-1-4** runs ansible integration tests with
+  CAPM3 release-1.4 branch and BMO **release-0.3** branch on Ubuntu
 
 ### Important Notes
 

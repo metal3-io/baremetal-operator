@@ -8,8 +8,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
 
@@ -20,6 +22,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
@@ -103,6 +106,8 @@ type ironicProvisioner struct {
 	debugLog logr.Logger
 	// an event publisher for recording significant events
 	publisher provisioner.EventPublisher
+	// available API features
+	availableFeatures clients.AvailableFeatures
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
@@ -312,6 +317,19 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 	return nil
 }
 
+func (p *ironicProvisioner) getInspectInterface(bmcAccess bmc.AccessDetails) (string, error) {
+	driver, err := drivers.GetDriverDetails(p.client, bmcAccess.Driver()).Extract()
+	if err != nil {
+		return "", fmt.Errorf("cannot load information about driver %s: %w", bmcAccess.Driver(), err)
+	}
+
+	if slices.Contains(driver.EnabledInspectInterfaces, "agent") {
+		return "agent", nil
+	}
+
+	return "inspector", nil // backward compatibility
+}
+
 // ValidateManagementAccess registers the host with the provisioning
 // system and tests the connection information for the host to verify
 // that the location and credentials work.
@@ -326,7 +344,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	var ironicNode *nodes.Node
-	updater := updateOptsBuilder(p.debugLog)
+	updater := updateOptsBuilder(p.log)
 
 	p.debugLog.Info("validating management access")
 
@@ -364,24 +382,34 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			return
 		}
 
-		ironicNode, err = nodes.Create(
-			p.client,
-			nodes.CreateOpts{
-				Driver:              bmcAccess.Driver(),
-				BIOSInterface:       bmcAccess.BIOSInterface(),
-				BootInterface:       bmcAccess.BootInterface(),
-				Name:                ironicNodeName(p.objectMeta),
-				DriverInfo:          driverInfo,
-				DeployInterface:     p.deployInterface(data),
-				InspectInterface:    "inspector",
-				ManagementInterface: bmcAccess.ManagementInterface(),
-				PowerInterface:      bmcAccess.PowerInterface(),
-				RAIDInterface:       bmcAccess.RAIDInterface(),
-				VendorInterface:     bmcAccess.VendorInterface(),
-				Properties: map[string]interface{}{
-					"capabilities": bootModeCapabilities[data.BootMode],
-				},
-			}).Extract()
+		inspectInterface, driverErr := p.getInspectInterface(bmcAccess)
+		if driverErr != nil {
+			result, err = transientError(driverErr)
+			return
+		}
+
+		nodeCreateOpts := nodes.CreateOpts{
+			Driver:              bmcAccess.Driver(),
+			BIOSInterface:       bmcAccess.BIOSInterface(),
+			BootInterface:       bmcAccess.BootInterface(),
+			Name:                ironicNodeName(p.objectMeta),
+			DriverInfo:          driverInfo,
+			DeployInterface:     p.deployInterface(data),
+			InspectInterface:    inspectInterface,
+			ManagementInterface: bmcAccess.ManagementInterface(),
+			PowerInterface:      bmcAccess.PowerInterface(),
+			RAIDInterface:       bmcAccess.RAIDInterface(),
+			VendorInterface:     bmcAccess.VendorInterface(),
+			Properties: map[string]interface{}{
+				"capabilities": bootModeCapabilities[data.BootMode],
+			},
+		}
+
+		if p.availableFeatures.HasFirmwareUpdates() {
+			nodeCreateOpts.FirmwareInterface = bmcAccess.FirmwareInterface()
+		}
+
+		ironicNode, err = nodes.Create(p.client, nodeCreateOpts).Extract()
 		switch err.(type) {
 		case nil:
 			p.publisher("Registered", "Registered new host")
@@ -541,7 +569,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 }
 
 func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
-	updater := updateOptsBuilder(p.debugLog)
+	updater := updateOptsBuilder(p.log)
 
 	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
@@ -711,13 +739,13 @@ func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeU
 		return
 	}
 
-	p.log.Info("updating node settings in ironic")
+	p.log.Info("updating node settings in ironic", "updateCount", len(updater.Updates))
 	updatedNode, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
 	switch err.(type) {
 	case nil:
 		success = true
 	case gophercloud.ErrDefault409:
-		p.log.Info("could not update node settings in ironic, busy")
+		p.log.Info("could not update node settings in ironic, busy or update cannot be applied in the current state")
 		result, err = retryAfterDelay(provisionRequeueDelay)
 	default:
 		result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
@@ -781,7 +809,7 @@ func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result prov
 func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
 	_, started, result, err = p.tryUpdateNode(
 		ironicNode,
-		updateOptsBuilder(p.debugLog).
+		updateOptsBuilder(p.log).
 			SetPropertiesOpts(optionsData{
 				"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 			}, ironicNode),
@@ -1043,7 +1071,7 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 }
 
 func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
-	updater := updateOptsBuilder(p.debugLog)
+	updater := updateOptsBuilder(p.log)
 
 	hasCustomDeploy := data.CustomDeploy != nil && data.CustomDeploy.Method != ""
 	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, hasCustomDeploy, updater)
@@ -1799,7 +1827,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// Make sure we don't have a stale instance UUID
 		if ironicNode.InstanceUUID != "" {
 			p.log.Info("removing stale instance UUID before deletion", "instanceUUID", ironicNode.InstanceUUID)
-			updater := updateOptsBuilder(p.debugLog)
+			updater := updateOptsBuilder(p.log)
 			updater.SetTopLevelOpt("instance_uuid", nil, ironicNode.InstanceUUID)
 			_, success, result, err := p.tryUpdateNode(ironicNode, updater)
 			if !success {
@@ -1977,14 +2005,6 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 
 func ironicNodeName(objMeta metav1.ObjectMeta) string {
 	return objMeta.Namespace + nameSeparator + objMeta.Name
-}
-
-// IsReady checks if the provisioning backend is available
-func (p *ironicProvisioner) IsReady() (result bool, err error) {
-	p.debugLog.Info("verifying ironic provisioner dependencies")
-
-	checker := newIronicDependenciesChecker(p.client, p.log)
-	return checker.IsReady()
 }
 
 func (p *ironicProvisioner) HasCapacity() (result bool, err error) {

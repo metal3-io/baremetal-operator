@@ -20,14 +20,27 @@ type IronicMock struct {
 
 // NewIronic builds an ironic mock server
 func NewIronic(t *testing.T) *IronicMock {
-
+	server := New(t, "ironic").AddDefaultResponse("/v1/?", "", http.StatusOK, versionedRootResult)
 	return &IronicMock{
-		MockServer:   New(t, "ironic"),
+		MockServer:   server,
 		CreatedNodes: 0,
 	}
 }
 
 const validateResult = `{"boot": {"result": true}, "deploy": {"result": true}, "power": {"result": true}}`
+
+// NOTE(dtantsur): the actual result is much longer, but we only potentially care about versions.
+const versionedRootResult = `
+{
+ "id": "v1",
+ "version": {
+    "id": "v1",
+    "links": [ { "href": "/v1/", "rel": "self" } ],
+    "status": "CURRENT",
+    "min_version": "1.1",
+    "version": "1.86"
+  }
+}`
 
 // WithDefaultResponses sets a valid answer for all the API calls
 func (m *IronicMock) WithDefaultResponses() *IronicMock {
@@ -38,7 +51,7 @@ func (m *IronicMock) WithDefaultResponses() *IronicMock {
 	m.AddDefaultResponse("/v1/nodes/{id}/states/power", "", http.StatusAccepted, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/states/raid", "", http.StatusNoContent, "{}")
 	m.AddDefaultResponse("/v1/nodes/{id}/validate", "", http.StatusOK, validateResult)
-	m.Ready()
+	m.AddDefaultResponse("/v1/drivers/{driver}", "", http.StatusOK, "{}")
 
 	return m
 }
@@ -51,15 +64,9 @@ func (m *IronicMock) Endpoint() string {
 	return m.MockServer.Endpoint()
 }
 
-// Ready configures the server with a valid response for /v1
-func (m *IronicMock) Ready() *IronicMock {
-	m.ResponseWithCode("/v1", "{}", http.StatusOK)
-	return m
-}
-
-// NotReady configures the server with an error response for /v1
+// NotReady configures the server with an error response for /v1/ overriding the default response
 func (m *IronicMock) NotReady(errorCode int) *IronicMock {
-	m.ErrorResponse("/v1", errorCode)
+	m.ErrorResponse("/v1/", errorCode)
 	return m
 }
 
@@ -73,16 +80,22 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 			],
 			"links": [
 			  {
-				"href": "http://[fd00:1101::3]:6385/v1/drivers/fake-hardware",
+				"href": "http://[fd00:1101::3]:6385/v1/drivers/test",
 				"rel": "self"
 			  },
 			  {
-				"href": "http://[fd00:1101::3]:6385/drivers/fake-hardware",
+				"href": "http://[fd00:1101::3]:6385/drivers/test",
 				"rel": "bookmark"
 			  }
 			],
-			"name": "fake-hardware"
+			"name": "test"
 		}]
+	}
+	`, http.StatusOK)
+	m.ResponseWithCode("/v1/drivers/test", `
+	{
+	    "enabled_deploy_interfaces": ["direct", "ramdisk", "custom-agent"],
+	    "enabled_inspect_interfaces": ["agent", "inspector", "no-inspect"]
 	}
 	`, http.StatusOK)
 	return m

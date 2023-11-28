@@ -2,7 +2,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
-GO_VERSION ?= 1.20.10
+GO_VERSION ?= 1.20.11
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -22,7 +22,7 @@ CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
 GINKGO = tools/bin/ginkgo
-GINKGO_VER = v2.11.0
+GINKGO_VER = v2.13.0
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
@@ -38,7 +38,6 @@ export OPERATOR_NAME=baremetal-operator
 export DEPLOY_KERNEL_URL=http://172.22.0.1:6180/images/ironic-python-agent.kernel
 export DEPLOY_RAMDISK_URL=http://172.22.0.1:6180/images/ironic-python-agent.initramfs
 export IRONIC_ENDPOINT=http://localhost:6385/v1/
-export IRONIC_INSPECTOR_ENDPOINT=http://localhost:5050/v1/
 export GO111MODULE=on
 export GOFLAGS=
 

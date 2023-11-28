@@ -184,9 +184,9 @@ type Provisioner interface {
 	// if a hard reboot (force power off) is required - true if so.
 	PowerOff(rebootMode metal3api.RebootMode, force bool) (result Result, err error)
 
-	// IsReady checks if the provisioning backend is available to accept
-	// all the incoming requests.
-	IsReady() (result bool, err error)
+	// TryInit checks if the provisioning backend is available to accept
+	// all the incoming requests and configures the available features.
+	TryInit() (ready bool, err error)
 
 	// HasCapacity checks if the backend has a free (de)provisioning slot for the current host
 	HasCapacity() (result bool, err error)

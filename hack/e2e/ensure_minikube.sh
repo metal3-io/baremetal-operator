@@ -20,7 +20,7 @@ verify_minikube_version() {
   fi
   local minikube_version
   minikube_version="$(minikube version --short)"
-  if [[ "${MINIMUM_MINIKUBE_VERSION}" != "${minikube_version}" ]]; then
+  if [[ "${MINIMUM_MINIKUBE_VERSION}" != $(echo -e "${MINIMUM_MINIKUBE_VERSION}\n${minikube_version}" | sort -V | head -n1) ]]; then
       cat << EOF
 Detected minikube version: ${minikube_version}.
 Requires ${MINIMUM_MINIKUBE_VERSION} or greater.

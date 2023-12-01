@@ -115,7 +115,7 @@ IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 ## Download and run image server
 mkdir -p "${IMAGE_DIR}"
 pushd "${IMAGE_DIR}"
-wget --quiet "https://download.cirros-cloud.net/${CIRROS_VERSION}/${IMAGE_FILE}"
+wget --quiet https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
 popd
 
 docker run --name image-server-e2e -d \

@@ -9,7 +9,8 @@
   <ip address='192.168.222.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='192.168.222.2' end='192.168.222.199'/>
-      <host mac='52:54:00:6c:3c:01' name='vm1' ip='192.168.222.199'/>
+      <host mac='52:54:00:6c:3c:01' name='minikube' ip='192.168.222.199'/>
+      <host mac='00:60:2f:31:81:01' name='bmo-e2e-0' ip='192.168.222.122'/>
       <bootp file='http://192.168.222.199:6180/boot.ipxe'/>
     </dhcp>
   </ip>

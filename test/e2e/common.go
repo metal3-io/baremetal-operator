@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
@@ -18,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+
+	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -295,4 +299,63 @@ func CreateBMHCredentialsSecret(ctx context.Context, client client.Client, secre
 	}
 
 	return nil
+}
+
+func executeSSHCommand(client *ssh.Client, command string) (string, error) {
+	session, err := client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("failed to create SSH session: %v", err)
+	}
+	defer session.Close()
+
+	output, err := session.CombinedOutput(command)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command '%s': %v", command, err)
+	}
+
+	return string(output), nil
+}
+
+// HasRootOnDisk parses the output from 'df -h' and checks if the root filesystem is on a disk (as opposed to tmpfs).
+func HasRootOnDisk(output string) bool {
+	lines := strings.Split(output, "\n")
+
+	for _, line := range lines[1:] { // Skip header line
+		if line == "" {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 6 {
+			continue // Skip malformed lines
+		}
+
+		if fields[5] == "/" && !strings.Contains(fields[0], "tmpfs") {
+			return true // Found a non-tmpfs root filesystem
+		}
+	}
+
+	return false
+}
+
+// IsBootedFromDisk checks if the system, accessed via the provided ssh.Client, is booted
+// from a disk. It executes the 'df -h' command on the remote system to analyze the filesystem
+// layout. In the case of a disk boot, the output includes a disk-based root filesystem
+// (e.g., '/dev/vda1'). Conversely, in the case of a Live-ISO boot, the primary filesystems
+// are memory-based (tmpfs).
+func IsBootedFromDisk(client *ssh.Client) (bool, error) {
+	cmd := "df -h"
+	output, err := executeSSHCommand(client, cmd)
+	if err != nil {
+		return false, fmt.Errorf("error executing 'df -h': %w", err)
+	}
+
+	isDisk := HasRootOnDisk(output)
+	if isDisk {
+		capm3_e2e.Logf("System is booted from a disk.")
+	} else {
+		capm3_e2e.Logf("System is booted from a live ISO.")
+	}
+
+	return isDisk, nil
 }

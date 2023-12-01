@@ -19,7 +19,7 @@ variables:
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
-  EXPECTED_HOST_NAME: "localhost.localdomain"
+  EXPECTED_HOST_NAME: "bmo-e2e-0"
   # Test credentials. The tests will create a BMH with these.
   BMC_USER: admin
   BMC_PASSWORD: password
@@ -32,6 +32,9 @@ variables:
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.0"
+  SSH_CHECK_PROVISIONED: "true"
+  IP_BMO_E2E_0: "192.168.222.122"
+  SSH_PORT: "22"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]
@@ -49,3 +52,4 @@ intervals:
   default/wait-deprovisioning: ["1m", "10ms"]
   default/wait-deleted: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]
+  default/wait-connect-ssh: ["2m", "10s"]

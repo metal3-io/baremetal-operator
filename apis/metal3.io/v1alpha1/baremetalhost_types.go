@@ -1095,7 +1095,7 @@ func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 	case "":
 		// No type, let Ironic detect
 	case MD5, SHA256, SHA512:
-		checksumType = string(image.ChecksumType)
+		checksumType = ""
 	default:
 		return
 	}

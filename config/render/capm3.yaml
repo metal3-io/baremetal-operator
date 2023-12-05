@@ -221,12 +221,15 @@ spec:
                     description: Checksum is the checksum for the image.
                     type: string
                   checksumType:
-                    description: ChecksumType is the checksum algorithm for the image.
-                      e.g md5, sha256, sha512
+                    description: ChecksumType is the checksum algorithm for the image,
+                      e.g md5, sha256 or sha512. The special value "auto" can be used
+                      to detect the algorithm from the checksum. If missing, MD5 is
+                      used. If in doubt, use "auto".
                     enum:
                     - md5
                     - sha256
                     - sha512
+                    - auto
                     type: string
                   format:
                     description: DiskFormat contains the format of the image (raw,
@@ -871,11 +874,14 @@ spec:
                         type: string
                       checksumType:
                         description: ChecksumType is the checksum algorithm for the
-                          image. e.g md5, sha256, sha512
+                          image, e.g md5, sha256 or sha512. The special value "auto"
+                          can be used to detect the algorithm from the checksum. If
+                          missing, MD5 is used. If in doubt, use "auto".
                         enum:
                         - md5
                         - sha256
                         - sha512
+                        - auto
                         type: string
                       format:
                         description: DiskFormat contains the format of the image (raw,

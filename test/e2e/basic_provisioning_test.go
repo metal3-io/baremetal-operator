@@ -83,8 +83,9 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 		helper, err := patch.NewHelper(&bmh, clusterProxy.GetClient())
 		Expect(err).NotTo(HaveOccurred())
 		bmh.Spec.Image = &metal3api.Image{
-			URL:      e2eConfig.GetVariable("IMAGE_URL"),
-			Checksum: e2eConfig.GetVariable("IMAGE_CHECKSUM"),
+			URL:          e2eConfig.GetVariable("IMAGE_URL"),
+			Checksum:     e2eConfig.GetVariable("IMAGE_CHECKSUM"),
+			ChecksumType: metal3api.AutoChecksum,
 		}
 		bmh.Spec.RootDeviceHints = &metal3api.RootDeviceHints{
 			DeviceName: "/dev/vda",

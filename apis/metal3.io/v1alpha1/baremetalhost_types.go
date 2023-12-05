@@ -473,8 +473,8 @@ type Image struct {
 	// Checksum is the checksum for the image.
 	Checksum string `json:"checksum,omitempty"`
 
-	// ChecksumType is the checksum algorithm for the image.
-	// e.g md5, sha256, sha512
+	// ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+	// If missing, detected from the checksum length.
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 
 	// DiskFormat contains the format of the image (raw, qcow2, ...).
@@ -1093,7 +1093,7 @@ func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 
 	switch image.ChecksumType {
 	case "":
-		checksumType = string(MD5)
+		// No type, let Ironic detect
 	case MD5, SHA256, SHA512:
 		checksumType = string(image.ChecksumType)
 	default:

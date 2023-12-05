@@ -221,8 +221,9 @@ spec:
                     description: Checksum is the checksum for the image.
                     type: string
                   checksumType:
-                    description: ChecksumType is the checksum algorithm for the image.
-                      e.g md5, sha256, sha512
+                    description: ChecksumType is the checksum algorithm for the image,
+                      e.g md5, sha256 or sha512. If missing, detected from the checksum
+                      length.
                     enum:
                     - md5
                     - sha256
@@ -871,7 +872,8 @@ spec:
                         type: string
                       checksumType:
                         description: ChecksumType is the checksum algorithm for the
-                          image. e.g md5, sha256, sha512
+                          image, e.g md5, sha256 or sha512. If missing, detected from
+                          the checksum length.
                         enum:
                         - md5
                         - sha256

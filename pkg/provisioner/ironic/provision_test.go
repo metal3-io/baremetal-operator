@@ -344,6 +344,20 @@ func TestIronicHasSameImage(t *testing.T) {
 			hostChecksumType: v1alpha1.MD5,
 		},
 		{
+			name:      "image same - default checksum",
+			expected:  true,
+			liveImage: false,
+			node: nodes.Node{
+				InstanceInfo: map[string]interface{}{
+					"image_source":   "theimage",
+					"image_checksum": "thechecksum",
+				},
+			},
+			hostImage:        "theimage",
+			hostChecksum:     "thechecksum",
+			hostChecksumType: "",
+		},
+		{
 			name:      "image different",
 			expected:  false,
 			liveImage: false,
@@ -372,6 +386,21 @@ func TestIronicHasSameImage(t *testing.T) {
 			hostImage:        "theimage",
 			hostChecksum:     "different",
 			hostChecksumType: v1alpha1.MD5,
+		},
+		{
+			name:      "image checksum changed to default",
+			expected:  false,
+			liveImage: false,
+			node: nodes.Node{
+				InstanceInfo: map[string]interface{}{
+					"image_source":        "theimage",
+					"image_os_hash_value": "thechecksum",
+					"image_os_hash_algo":  "md5",
+				},
+			},
+			hostImage:        "theimage",
+			hostChecksum:     "thechecksum",
+			hostChecksumType: "",
 		},
 		{
 			name:      "image checksum type different",

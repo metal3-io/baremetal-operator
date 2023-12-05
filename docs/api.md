@@ -91,8 +91,8 @@ The sub-fields are
 * *checksum* -- The actual checksum or a URL to a file containing
   the checksum for the image at *image.url*.
 * *checksumType* -- Checksum algorithms can be specified. Currently
-  only `md5`, `sha256`, `sha512` are recognized. If nothing is specified
-  `md5` is assumed.
+  only `md5`, `sha256`, `sha512` are recognized. If nothing is specified,
+  the algorithm is guessed from the checksum length.
 * *format* -- This is the disk format of the image. It can be one of `raw`,
   `qcow2`, `vdi`, `vmdk`, `live-iso` or be left unset.
   Setting it to raw enables raw image streaming in Ironic agent for that image.

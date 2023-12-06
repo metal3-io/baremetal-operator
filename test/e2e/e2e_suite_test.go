@@ -116,6 +116,36 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		}
 	}
 
+	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
+		// Install Ironic
+		By("Installing Ironic")
+		kustomization := e2eConfig.GetVariable("IRONIC_KUSTOMIZATION")
+		manifest, err := buildKustomizeManifest(kustomization)
+		Expect(err).NotTo(HaveOccurred())
+		err = clusterProxy.Apply(ctx, manifest)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironicDeployment := &v1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ironic",
+				Namespace: "baremetal-operator-system",
+			},
+		}
+		// Wait for it to become available
+		framework.WaitForDeploymentsAvailable(ctx, framework.WaitForDeploymentsAvailableInput{
+			Getter:     clusterProxy.GetClient(),
+			Deployment: ironicDeployment,
+		}, e2eConfig.GetIntervals("ironic", "wait-deployment")...)
+		// Set up log watcher
+		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
+			GetLister:  clusterProxy.GetClient(),
+			Cache:      clusterProxy.GetCache(ctx),
+			ClientSet:  clusterProxy.GetClientSet(),
+			Deployment: ironicDeployment,
+			LogPath:    filepath.Join(artifactFolder, "logs", ironicDeployment.GetNamespace()),
+		})
+	}
+
 	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {
 		// Install BMO
 		By("Installing BMO")
@@ -143,36 +173,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			ClientSet:  clusterProxy.GetClientSet(),
 			Deployment: bmoDeployment,
 			LogPath:    filepath.Join(artifactFolder, "logs", bmoDeployment.GetNamespace()),
-		})
-	}
-
-	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
-		// Install Ironic
-		By("Installing Ironic")
-		kustomization := e2eConfig.GetVariable("IRONIC_KUSTOMIZATION")
-		manifest, err := buildKustomizeManifest(kustomization)
-		Expect(err).NotTo(HaveOccurred())
-		err = clusterProxy.Apply(ctx, manifest)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironicDeployment := &v1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "baremetal-operator-ironic",
-				Namespace: "baremetal-operator-system",
-			},
-		}
-		// Wait for it to become available
-		framework.WaitForDeploymentsAvailable(ctx, framework.WaitForDeploymentsAvailableInput{
-			Getter:     clusterProxy.GetClient(),
-			Deployment: ironicDeployment,
-		}, e2eConfig.GetIntervals("ironic", "wait-deployment")...)
-		// Set up log watcher
-		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
-			GetLister:  clusterProxy.GetClient(),
-			Cache:      clusterProxy.GetCache(ctx),
-			ClientSet:  clusterProxy.GetClientSet(),
-			Deployment: ironicDeployment,
-			LogPath:    filepath.Join(artifactFolder, "logs", ironicDeployment.GetNamespace()),
 		})
 	}
 

@@ -1,15 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
+namespace: baremetal-operator-system
 resources:
-- ../../namespace
-- ../../default
+- ../basic-auth_tls
 
 configMapGenerator:
-- behavior: replace
+- name: ironic
+  behavior: create
   envs:
   - ironic.env
-  name: ironic
 
 patches:
 - patch: |
@@ -24,3 +23,19 @@ patches:
 images:
 - name: quay.io/metal3-io/baremetal-operator
   newTag: e2e
+
+# We cannot use suffix hashes since the kustomizations we build on
+# cannot be aware of what suffixes we add.
+generatorOptions:
+  disableNameSuffixHash: true
+
+# NOTE: These credentials are generated automatically in hack/ci-e2e.sh
+secretGenerator:
+  - name: ironic-credentials
+    files:
+    - username=ironic-username
+    - password=ironic-password
+  - name: ironic-inspector-credentials
+    files:
+    - username=ironic-inspector-username
+    - password=ironic-inspector-password

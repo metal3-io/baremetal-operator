@@ -1,21 +1,45 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-secretGenerator:
-- behavior: create
-  envs:
-  - ironic-htpasswd
-  name: ironic-htpasswd
-- behavior: create
-  envs:
-  - ironic-inspector-htpasswd
-  name: ironic-inspector-htpasswd
-- name: ironic-auth-config
-  files:
-  - auth-config=ironic-auth-config
-- name: ironic-inspector-auth-config
-  files:
-  - auth-config=ironic-inspector-auth-config
+# NOTE: This component requires secrets with the basic auth credentials and config!
+# How you create them is up to you.
+# The required secrets are:
+# - ironic-htpasswd
+# - ironic-inspector-htpasswd
+# - ironic-auth-config
+# - ironic-inspector-auth-config
+#
+# The content should be as in these examples:
+#
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: ironic-htpasswd
+# data:
+#   IRONIC_HTPASSWD: <base64-encoded-htpasswd-string>
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: ironic-inspector-htpasswd
+# data:
+#   INSPECTOR_HTPASSWD: <base64-encoded-htpasswd-string>
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: ironic-auth-config
+# data:
+#   auth-config: <base64-encoded-auth-config>
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: ironic-inspector-auth-config
+# data:
+#   auth-config: <base64-encoded-auth-config>
+#
+# Check `ironic-auth-config-tpl` for a template of what to put in the auth-config.
 
 patches:
-- path: auth.yaml
+  - path: auth.yaml

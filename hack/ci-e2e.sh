@@ -47,6 +47,7 @@ minikube image load quay.io/metal3-io/baremetal-operator:e2e
 # Create libvirt domain
 VM_NAME="bmo-e2e-0"
 export BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
+SERIAL_LOG_PATH="/var/log/libvirt/qemu/${VM_NAME}-serial0.log"
 
 virt-install \
   --connect qemu:///system \
@@ -57,8 +58,11 @@ virt-install \
   --vcpus=2 \
   --disk size=20 \
   --graphics=none \
-  --console pty \
-  --serial pty \
+  --console pty,target_type=serial \
+  --serial file,path="${SERIAL_LOG_PATH}" \
+  --xml "./devices/serial/@type=pty" \
+  --xml "./devices/serial/log/@file=${SERIAL_LOG_PATH}" \
+  --xml "./devices/serial/log/@append=on" \
   --pxe \
   --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" \
   --noautoconsole
@@ -128,6 +132,11 @@ set +e
 # Run the e2e tests
 make test-e2e
 test_status="$?"
+
+LOGS_DIR="${REPO_ROOT}/test/e2e/_artifacts/logs"
+mkdir -p "${LOGS_DIR}/qemu"
+sudo sh -c "cp -r /var/log/libvirt/qemu/* ${LOGS_DIR}/qemu/"
+sudo chown -R "${USER}:${USER}" "${LOGS_DIR}/qemu"
 
 # Collect all artifacts
 tar --directory test/e2e/ -czf artifacts.tar.gz _artifacts

@@ -21,6 +21,7 @@ BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="${PATH}:/usr/local/go/bin"
 "${REPO_ROOT}/hack/e2e/ensure_minikube.sh"
+"${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
 

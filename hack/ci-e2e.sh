@@ -2,7 +2,7 @@
 
 # -----------------------------------------------------------------------------
 # Description: This script sets up the environment and runs E2E tests for the
-#              BMO project. It uses either vbmc or sushy-tools based on 
+#              BMO project. It uses either vbmc or sushy-tools based on
 #              the BMO_E2E_EMULATOR environment variable.
 # Usage:       export BMO_E2E_EMULATOR="vbmc"  # Or "sushy-tools"
 #              ./ci-e2e.sh
@@ -163,6 +163,6 @@ sudo sh -c "cp -r /var/log/libvirt/qemu/* ${LOGS_DIR}/qemu/"
 sudo chown -R "${USER}:${USER}" "${LOGS_DIR}/qemu"
 
 # Collect all artifacts
-tar --directory test/e2e/ -czf artifacts.tar.gz _artifacts
+tar --directory test/e2e/ -czf "artifacts-e2e-${BMO_E2E_EMULATOR}.tar.gz" _artifacts
 
 exit "${test_status}"

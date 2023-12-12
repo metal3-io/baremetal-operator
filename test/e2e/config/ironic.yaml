@@ -48,7 +48,7 @@ intervals:
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-power-state: ["10m", "100ms"]
   default/wait-provisioning: ["20s", "1s"]
-  default/wait-provisioned: ["5m", "1s"]
+  default/wait-provisioned: ["10m", "1s"]
   default/wait-deprovisioning: ["1m", "10ms"]
   default/wait-deleted: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/crypto/ssh"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -49,7 +50,11 @@ var _ = Describe("Live-ISO", func() {
 
 	It("should provision a BMH with live ISO and then deprovision it", func() {
 		By("Creating a secret with BMH credentials")
-		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
+		bmcCredentialsData := map[string]string{
+			"username": bmcUser,
+			"password": bmcPassword,
+		}
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 		By("Creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
@@ -71,12 +76,8 @@ var _ = Describe("Live-ISO", func() {
 					URL:        imageURL,
 					DiskFormat: pointer.String("live-iso"),
 				},
-				BootMode:              metal3api.Legacy,
-				BootMACAddress:        bootMacAddress,
-				AutomatedCleaningMode: "disabled",
-				RootDeviceHints: &metal3api.RootDeviceHints{
-					DeviceName: "/dev/vda",
-				},
+				BootMode:       metal3api.Legacy,
+				BootMACAddress: bootMacAddress,
 			},
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
@@ -99,39 +100,11 @@ var _ = Describe("Live-ISO", func() {
 		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			By("Verifying the node booted from live ISO image")
-
-			// Set up SSH client configuration
-			config := &ssh.ClientConfig{
-				User: "cirros",
-				Auth: []ssh.AuthMethod{
-					ssh.Password("gocubsgo"),
-				},
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(), // #nosec G106
-			}
-
-			ip := e2eConfig.GetVariable("IP_BMO_E2E_0")
-			sshPort := e2eConfig.GetVariable("SSH_PORT")
-			address := fmt.Sprintf("%s:%s", ip, sshPort)
-
-			// Establish an SSH connection
-			var client *ssh.Client
-			var err error
-
-			Eventually(func() error {
-				client, err = ssh.Dial("tcp", address, config)
-				return err
-			}, e2eConfig.GetIntervals(specName, "wait-connect-ssh")...).Should(Succeed(), "Failed to establish SSH connection")
-
-			defer func() {
-				if client != nil {
-					client.Close()
-				}
-			}()
-			isDisk, err := IsBootedFromDisk(client)
-			Expect(err).NotTo(HaveOccurred(), "Error in verifying boot mode")
-			Expect(isDisk).To(Equal(false), "Error booting from disk when live ISO is expected")
+			password := e2eConfig.GetVariable("CIRROS_PASSWORD")
+			auth := ssh.Password(password)
+			PerformSSHBootCheck(e2eConfig, "memory", auth)
 		} else {
-			capm3_e2e.Logf("WARNING: Skipping ssh check since SSH_CHECK_PROVISIONED != true")
+			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}
 
 		By("Triggering the deprovisioning of the BMH")

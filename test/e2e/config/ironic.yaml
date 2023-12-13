@@ -35,6 +35,10 @@ variables:
   SSH_CHECK_PROVISIONED: "true"
   IP_BMO_E2E_0: "192.168.222.122"
   SSH_PORT: "22"
+  CIRROS_USERNAME: "cirros"
+  CIRROS_PASSWORD: "gocubsgo"
+  SSH_PRIV_KEY: "./images/ssh_testkey"
+  SSH_PUB_KEY: "./images/ssh_testkey.pub"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]

@@ -50,8 +50,12 @@ var _ = Describe("Re-Inspection", func() {
 	})
 
 	It("should re-inspect the annotated BMH", func() {
-		By("creating a secret with BMH credentials")
-		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
+		By("Creating a secret with BMH credentials")
+		bmcCredentialsData := map[string]string{
+			"username": bmcUser,
+			"password": bmcPassword,
+		}
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 		By("creating a BMH with inspection disabled and hardware details added with wrong HostName")
 		newHardwareDetails := strings.Replace(hardwareDetails, "bmo-e2e-0", wrongHostName, 1)

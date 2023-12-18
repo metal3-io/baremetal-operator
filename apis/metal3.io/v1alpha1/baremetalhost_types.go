@@ -450,7 +450,7 @@ const (
 )
 
 // ChecksumType holds the algorithm name for the checksum
-// +kubebuilder:validation:Enum=md5;sha256;sha512
+// +kubebuilder:validation:Enum=md5;sha256;sha512;auto
 type ChecksumType string
 
 const (
@@ -462,6 +462,9 @@ const (
 
 	// SHA512 checksum type
 	SHA512 ChecksumType = "sha512"
+
+	// Automatically detect
+	AutoChecksum ChecksumType = "auto"
 )
 
 // Image holds the details of an image either to provisioned or that
@@ -473,8 +476,9 @@ type Image struct {
 	// Checksum is the checksum for the image.
 	Checksum string `json:"checksum,omitempty"`
 
-	// ChecksumType is the checksum algorithm for the image.
-	// e.g md5, sha256, sha512
+	// ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+	// The special value "auto" can be used to detect the algorithm from the checksum.
+	// If missing, MD5 is used. If in doubt, use "auto".
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 
 	// DiskFormat contains the format of the image (raw, qcow2, ...).
@@ -1096,6 +1100,8 @@ func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 		checksumType = string(MD5)
 	case MD5, SHA256, SHA512:
 		checksumType = string(image.ChecksumType)
+	case AutoChecksum:
+		// No type, let Ironic detect
 	default:
 		return
 	}

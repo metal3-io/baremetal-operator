@@ -71,8 +71,8 @@ github.com/google/gofuzz v1.1.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/
 github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 h1:K6RDEckDVWvDI9JAJYCmNdQXq6neHJOYx3V6jnqNEec=
 github.com/google/safetext v0.0.0-20230106111101-7156a760e523 h1:i4NsbmB9pD5+Ggp5GZKyvYY6MkjvPE8CIMlkvXFF8gA=
 github.com/google/safetext v0.0.0-20230106111101-7156a760e523/go.mod h1:mJNEy0r5YPHC7ChQffpOszlGB4L1iqjXWpIEKcFpr9s=
-github.com/google/uuid v1.4.0 h1:MtMxsa51/r9yyhkyLsVeVt0B+BGQZzpQiTQ4eHZ8bc4=
-github.com/google/uuid v1.4.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/google/uuid v1.5.0 h1:1p67kYwdtXjb0gL0BPiP1Av9wiZPo5A8z2cWkTZ+eyU=
+github.com/google/uuid v1.5.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gophercloud/gophercloud v1.5.1-0.20231117122435-08456f7fe42e h1:acHzJUXVfS+GImmi+yyM2+AOiaO94Z4KaTTFVU6Ov9U=
 github.com/gophercloud/gophercloud v1.5.1-0.20231117122435-08456f7fe42e/go.mod h1:ecnaHbFxBunc2UeAONDQbkQacv6WP1syeZ02TgAB7kA=
 github.com/imdario/mergo v0.3.12 h1:b6R2BslTbIEToALKP7LxUvijTsNI9TAe80pLWN2g/HU=

@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +20,8 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+
+	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 )
 
 var _ = Describe("BMH Provisioning and Annotation Management", func() {
@@ -47,7 +52,11 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 
 	It("provisions a BMH, applies detached and status annotations, then deprovisions", func() {
 		By("Creating a secret with BMH credentials")
-		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
+		bmcCredentialsData := map[string]string{
+			"username": bmcUser,
+			"password": bmcPassword,
+		}
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 		By("Creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
@@ -65,8 +74,9 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 					Address:         bmcAddress,
 					CredentialsName: "bmc-credentials",
 				},
-				BootMode:       metal3api.Legacy,
-				BootMACAddress: bootMacAddress,
+				BootMode:              metal3api.Legacy,
+				BootMACAddress:        bootMacAddress,
+				AutomatedCleaningMode: "disabled",
 			},
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
@@ -90,6 +100,16 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 		bmh.Spec.RootDeviceHints = &metal3api.RootDeviceHints{
 			DeviceName: "/dev/vda",
 		}
+		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
+		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+			userDataSecretName := "user-data"
+			sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
+			createCirrosInstanceAndHostnameUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath)
+			bmh.Spec.UserData = &corev1.SecretReference{
+				Name:      userDataSecretName,
+				Namespace: namespace.Name,
+			}
+		}
 		Expect(helper.Patch(ctx, &bmh)).To(Succeed())
 
 		By("Waiting for the BMH to be in provisioning state")
@@ -105,6 +125,22 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 			Bmh:    bmh,
 			State:  metal3api.StateProvisioned,
 		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
+
+		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
+		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+			By("Verifying the node booting from disk")
+			keyPath := e2eConfig.GetVariable("SSH_PRIV_KEY")
+			key, err := os.ReadFile(keyPath)
+			Expect(err).NotTo(HaveOccurred(), "unable to read private key")
+
+			signer, err := ssh.ParsePrivateKey(key)
+			Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
+
+			auth := ssh.PublicKeys(signer)
+			PerformSSHBootCheck(e2eConfig, "disk", auth)
+		} else {
+			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
+		}
 
 		By("Retrieving the latest BMH object")
 		err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
@@ -157,7 +193,11 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 		}, e2eConfig.GetIntervals(specName, "wait-secret-deletion")...).Should(BeTrue())
 
 		By("Creating a secret with BMH credentials")
-		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
+		bmcCredentialsData = map[string]string{
+			"username": bmcUser,
+			"password": bmcPassword,
+		}
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 		By("Recreating the BMH with the previously saved status in the status annotation")
 		bmh = metal3api.BareMetalHost{
@@ -174,8 +214,9 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 					Address:         bmcAddress,
 					CredentialsName: "bmc-credentials",
 				},
-				BootMode:       metal3api.Legacy,
-				BootMACAddress: bootMacAddress,
+				BootMode:              metal3api.Legacy,
+				BootMACAddress:        bootMacAddress,
+				AutomatedCleaningMode: "disabled",
 				Image: &metal3api.Image{
 					URL:      e2eConfig.GetVariable("IMAGE_URL"),
 					Checksum: e2eConfig.GetVariable("IMAGE_CHECKSUM"),

@@ -116,16 +116,17 @@ IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
 IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
+mkdir -p "${IMAGE_DIR}"
 
 ## Download and run image server
-mkdir -p "${IMAGE_DIR}"
-pushd "${IMAGE_DIR}"
-wget --quiet https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
-popd
+wget --quiet -P "${IMAGE_DIR}"/ https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
 
 docker run --name image-server-e2e -d \
   -p 80:8080 \
   -v "${IMAGE_DIR}:/usr/share/nginx/html" nginxinc/nginx-unprivileged
+
+# Generate the key pair
+ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
 
 # Generate credentials
 BMO_OVERLAY="${REPO_ROOT}/config/overlays/e2e"

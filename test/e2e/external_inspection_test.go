@@ -133,7 +133,7 @@ const hardwareDetails = `
       "version": "1.15.0-1"
     }
   },
-  "hostname": "localhost.localdomain",
+  "hostname": "bmo-e2e-0",
   "nics": [
     {
       "ip": "192.168.222.122",
@@ -197,8 +197,12 @@ var _ = Describe("External Inspection", func() {
 	})
 
 	It("should skip inspection and become available when a BMH has annotations with hardware details and inspection disabled", func() {
-		By("creating a secret with BMH credentials")
-		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
+		By("Creating a secret with BMH credentials")
+		bmcCredentialsData := map[string]string{
+			"username": bmcUser,
+			"password": bmcPassword,
+		}
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 		By("creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{

@@ -153,6 +153,7 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
 	host.Spec.Image.URL = "theimagefoo"
 	host.Spec.Image.Checksum = "thechecksumxyz"
+	host.Spec.Image.ChecksumType = "auto"
 
 	var createdNode *nodes.Node
 
@@ -391,14 +392,35 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 		},
 		{
 			Image: &metal3api.Image{
-				URL:      "theimage",
-				Checksum: "thechecksum",
+				URL:          "theimage",
+				Checksum:     "thechecksum",
+				ChecksumType: "auto",
+			},
+			InstanceInfo: map[string]interface{}{
+				"image_source":   "theimage",
+				"image_checksum": "thechecksum",
+				"capabilities":   map[string]interface{}{},
+			},
+			DriverInfo: map[string]interface{}{
+				"force_persistent_boot_device": "Default",
+				"deploy_kernel":                "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
+				"test_address":                 "test.bmc",
+				"test_username":                "",
+				"test_password":                "******", // ironic returns a placeholder
+				"test_port":                    "42",
+			},
+		},
+		{
+			Image: &metal3api.Image{
+				URL:          "theimage",
+				Checksum:     "thechecksum",
+				ChecksumType: "sha256",
 			},
 			InstanceInfo: map[string]interface{}{
 				"image_source":        "theimage",
-				"image_os_hash_algo":  "md5",
+				"image_os_hash_algo":  "sha256",
 				"image_os_hash_value": "thechecksum",
-				"image_checksum":      "thechecksum",
 				"capabilities":        map[string]interface{}{},
 			},
 			DriverInfo: map[string]interface{}{

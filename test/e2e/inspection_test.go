@@ -92,8 +92,12 @@ var _ = Describe("Inspection", func() {
 	})
 
 	It("should inspect a newly created BMH", func() {
-		By("creating a secret with BMH credentials")
-		CreateBMHCredentialsSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcUser, bmcPassword)
+		By("Creating a secret with BMH credentials")
+		bmcCredentialsData := map[string]string{
+			"username": bmcUser,
+			"password": bmcPassword,
+		}
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 		By("creating a BMH")
 		bmh := metal3api.BareMetalHost{

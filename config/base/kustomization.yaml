@@ -1,0 +1,124 @@
+# Adds namespace to all resources.
+namespace: baremetal-operator-system
+
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: baremetal-operator-
+
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+resources:
+- crds
+- rbac
+- manager.yaml
+# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
+# crd/kustomization.yaml
+- webhook
+# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
+- certmanager
+# [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
+#- prometheus
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- name: manager-config
+  files:
+  - controller_manager_config.yaml
+
+patches:
+# Protect the /metrics endpoint by putting it behind auth.
+# If you want your controller-manager to expose the /metrics
+# endpoint w/o any authn/z, please comment the following line.
+- path: manager_auth_proxy_patch.yaml
+
+# Mount the controller config file for loading manager configurations
+# through a ComponentConfig type
+#- manager_config_patch.yaml
+
+# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
+# crd/kustomization.yaml
+- path: manager_webhook_patch.yaml
+
+# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'.
+# Uncomment 'CERTMANAGER' sections in crd/kustomization.yaml to enable the CA injection in the admission webhooks.
+# 'CERTMANAGER' needs to be enabled to use ca injection
+- path: webhookcainjection_patch.yaml
+
+replacements:
+- source:
+    kind: Certificate
+    group: cert-manager.io
+    version: v1
+    name: serving-cert # this name should match the one in certificate.yaml
+    fieldpath: metadata.namespace
+  targets:
+  - select:
+      kind: ValidatingWebhookConfiguration
+    fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+  - select:
+      kind: CustomResourceDefinition
+      name: baremetalhosts.metal3.io
+    fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+- source:
+    kind: Certificate
+    group: cert-manager.io
+    version: v1
+    name: serving-cert # this name should match the one in certificate.yaml
+    fieldpath: metadata.name
+  targets:
+  - select:
+      kind: ValidatingWebhookConfiguration
+    fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 1
+  - select:
+      kind: CustomResourceDefinition
+      name: baremetalhosts.metal3.io
+    fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 1
+- source:
+    kind: Service
+    version: v1
+    name: webhook-service
+    fieldpath: metadata.namespace
+  targets:
+  - select:
+      kind: Certificate
+    fieldPaths:
+    - spec.dnsNames.*
+    options:
+      delimiter: '.'
+      index: 1
+- source:
+    kind: Service
+    version: v1
+    name: webhook-service
+    fieldpath: metadata.name
+  targets:
+  - select:
+      kind: Certificate
+    fieldPaths:
+    - spec.dnsNames.*
+    options:
+      delimiter: '.'
+      index: 0

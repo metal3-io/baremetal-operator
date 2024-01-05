@@ -6,7 +6,7 @@ RUN make tools
 RUN make tools/bin/kustomize
 
 RUN cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/ocp/ocp_kustomization.yaml /go/src/github.com/metal3-io/baremetal-operator/config/crd/kustomization.yaml &&\
-    tools/bin/kustomize build config/crd > config/crd/baremetalhost.crd.yaml &&\
+    tools/bin/kustomize build config > config/crd/baremetalhost.crd.yaml &&\
     mkdir /go/src/github.com/metal3-io/baremetal-operator/manifests &&\
     cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/baremetalhost.crd.yaml /go/src/github.com/metal3-io/baremetal-operator/manifests/0000_31_cluster-baremetal-operator_00_baremetalhost.crd.yaml
 

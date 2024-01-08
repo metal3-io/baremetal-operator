@@ -10,8 +10,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -116,64 +114,39 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		}
 	}
 
+	bmoIronicNamespace := "baremetal-operator-system"
+
 	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
 		// Install Ironic
 		By("Installing Ironic")
-		kustomization := e2eConfig.GetVariable("IRONIC_KUSTOMIZATION")
-		manifest, err := buildKustomizeManifest(kustomization)
-		Expect(err).NotTo(HaveOccurred())
-		err = clusterProxy.Apply(ctx, manifest)
+		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+			Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
+			ClusterProxy:        clusterProxy,
+			WaitForDeployment:   true,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "ironic",
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		})
 		Expect(err).NotTo(HaveOccurred())
 
-		ironicDeployment := &v1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ironic",
-				Namespace: "baremetal-operator-system",
-			},
-		}
-		// Wait for it to become available
-		framework.WaitForDeploymentsAvailable(ctx, framework.WaitForDeploymentsAvailableInput{
-			Getter:     clusterProxy.GetClient(),
-			Deployment: ironicDeployment,
-		}, e2eConfig.GetIntervals("ironic", "wait-deployment")...)
-		// Set up log watcher
-		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
-			GetLister:  clusterProxy.GetClient(),
-			Cache:      clusterProxy.GetCache(ctx),
-			ClientSet:  clusterProxy.GetClientSet(),
-			Deployment: ironicDeployment,
-			LogPath:    filepath.Join(artifactFolder, "logs", ironicDeployment.GetNamespace()),
-		})
 	}
 
 	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {
 		// Install BMO
 		By("Installing BMO")
-		kustomization := e2eConfig.GetVariable("BMO_KUSTOMIZATION")
-		manifest, err := buildKustomizeManifest(kustomization)
-		Expect(err).NotTo(HaveOccurred())
-		err = clusterProxy.Apply(ctx, manifest)
-		Expect(err).NotTo(HaveOccurred())
-
-		bmoDeployment := &v1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "baremetal-operator-controller-manager",
-				Namespace: "baremetal-operator-system",
-			},
-		}
-		// Wait for it to become available
-		framework.WaitForDeploymentsAvailable(ctx, framework.WaitForDeploymentsAvailableInput{
-			Getter:     clusterProxy.GetClient(),
-			Deployment: bmoDeployment,
-		}, e2eConfig.GetIntervals("default", "wait-deployment")...)
-		// Set up log watcher
-		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
-			GetLister:  clusterProxy.GetClient(),
-			Cache:      clusterProxy.GetCache(ctx),
-			ClientSet:  clusterProxy.GetClientSet(),
-			Deployment: bmoDeployment,
-			LogPath:    filepath.Join(artifactFolder, "logs", bmoDeployment.GetNamespace()),
+		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+			Kustomization:       e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
+			ClusterProxy:        clusterProxy,
+			WaitForDeployment:   true,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "baremetal-operator-controller-manager",
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 		})
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	return []byte(strings.Join([]string{clusterProxy.GetKubeconfigPath()}, ","))

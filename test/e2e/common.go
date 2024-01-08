@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -410,4 +411,97 @@ func PerformSSHBootCheck(e2eConfig *Config, expectedBootMode string, auth ssh.Au
 	isExpectedBootMode := (expectedBootMode == "disk" && bootedFromDisk) ||
 		(expectedBootMode == "memory" && !bootedFromDisk)
 	Expect(isExpectedBootMode).To(BeTrue(), fmt.Sprintf("Expected booting from %s, but found different mode", expectedBootMode))
+}
+
+// BuildAndApplyKustomizeInput provides input for BuildAndApplyKustomize().
+// If WaitForDeployment and/or WatchDeploymentLogs is set to true, then DeploymentName
+// and DeploymentNamespace are expected.
+type BuildAndApplyKustomizeInput struct {
+	// Path to the kustomization to build
+	Kustomization string
+
+	ClusterProxy framework.ClusterProxy
+
+	// If this is set to true. Perform a wait until the deployment specified by
+	// DeploymentName and DeploymentNamespace is available or WaitIntervals is timed out
+	WaitForDeployment bool
+
+	// If this is set to true. Set up a log watcher for the deployment specified by
+	// DeploymentName and DeploymentNamespace
+	WatchDeploymentLogs bool
+
+	// DeploymentName and DeploymentNamespace specified a deployment that will be waited and/or logged
+	DeploymentName      string
+	DeploymentNamespace string
+
+	// Path to store the deployment logs
+	LogPath string
+
+	// Intervals to use in checking and waiting for the deployment
+	WaitIntervals []interface{}
+}
+
+func (input *BuildAndApplyKustomizeInput) validate() error {
+	// If neither WaitForDeployment nor WatchDeploymentLogs is true, we don't need to validate the input
+	if !input.WaitForDeployment && !input.WatchDeploymentLogs {
+		return nil
+	}
+	if input.WaitForDeployment && input.WaitIntervals == nil {
+		return errors.Errorf("WaitIntervals is expected if WaitForDeployment is set to true")
+	}
+	if input.WatchDeploymentLogs && input.LogPath == "" {
+		return errors.Errorf("LogPath is expected if WatchDeploymentLogs is set to true")
+	}
+	if input.DeploymentName == "" || input.DeploymentNamespace == "" {
+		return errors.Errorf("DeploymentName and DeploymentNamespace are expected if WaitForDeployment or WatchDeploymentLogs is true")
+	}
+	return nil
+}
+
+// BuildAndApplyKustomize takes input from BuildAndApplyKustomizeInput. It builds the provided kustomization
+// and apply it to the cluster provided by clusterProxy
+func BuildAndApplyKustomize(ctx context.Context, input *BuildAndApplyKustomizeInput) error {
+	Expect(input.validate()).To(BeNil())
+	var err error
+	kustomization := input.Kustomization
+	clusterProxy := input.ClusterProxy
+	manifest, err := buildKustomizeManifest(kustomization)
+	if err != nil {
+		return err
+	}
+	err = clusterProxy.Apply(ctx, manifest)
+	if err != nil {
+		return err
+	}
+
+	if !input.WaitForDeployment && !input.WatchDeploymentLogs {
+		return nil
+	}
+
+	deployment := &v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      input.DeploymentName,
+			Namespace: input.DeploymentNamespace,
+		},
+	}
+
+	if input.WaitForDeployment {
+		// Wait for the deployment to become available
+		framework.WaitForDeploymentsAvailable(ctx, framework.WaitForDeploymentsAvailableInput{
+			Getter:     clusterProxy.GetClient(),
+			Deployment: deployment,
+		}, input.WaitIntervals...)
+	}
+
+	if input.WatchDeploymentLogs {
+		// Set up log watcher
+		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
+			GetLister:  clusterProxy.GetClient(),
+			Cache:      clusterProxy.GetCache(ctx),
+			ClientSet:  clusterProxy.GetClientSet(),
+			Deployment: deployment,
+			LogPath:    input.LogPath,
+		})
+	}
+	return nil
 }

@@ -30,11 +30,11 @@ variables:
   UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/e2e-release-0.5"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
+  ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.1"
   SSH_CHECK_PROVISIONED: "true"
-  CIRROS_USERNAME: "cirros"
-  CIRROS_PASSWORD: "gocubsgo"
+  SSH_USERNAME: "root"
   SSH_PRIV_KEY: "./images/ssh_testkey"
   SSH_PUB_KEY: "./images/ssh_testkey.pub"
 

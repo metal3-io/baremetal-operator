@@ -313,7 +313,7 @@ mod: ## Clean up go module settings
 ## Release
 ## --------------------------------------
 RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
-PREVIOUS_TAG ?= $(shell git tag -l | grep -B 1 $(RELEASE_TAG) | head -n 1)
+PREVIOUS_TAG ?= $(shell git tag -l | grep -B 1 "^$(RELEASE_TAG)" | head -n 1)
 RELEASE_NOTES_DIR := releasenotes
 
 $(RELEASE_NOTES_DIR):

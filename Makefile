@@ -2,7 +2,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
-GO_VERSION ?= 1.20.11
+GO_VERSION ?= 1.20.12
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 

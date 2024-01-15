@@ -4,13 +4,16 @@ on:
   pull_request_target:
     types: [opened, edited, reopened, synchronize]
 
-permissions:
-  checks: write
+permissions: {}
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
     name: verify PR contents
+    runs-on: ubuntu-latest
+
+    permissions:
+      checks: write
+
     steps:
     - name: Verifier action
       id: verifier

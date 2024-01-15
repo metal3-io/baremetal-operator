@@ -1,39 +1,39 @@
+name: release
+
 on:
   push:
     # Sequence of patterns matched against refs/tags
     tags:
     - "v*"
 
-name: release
-
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   build:
+    name: release
+    runs-on: ubuntu-latest
+
     permissions:
       contents: write
-    # This workflow is only of value to the metal3-io/baremetal-operator repository and
-    # would always fail in forks
+
     if: github.repository == 'metal3-io/baremetal-operator'
-    runs-on: ubuntu-latest
     steps:
-      - name: Export RELEASE_TAG var
-        run:  echo "RELEASE_TAG=${GITHUB_REF:10}" >> $GITHUB_ENV
-      - name: checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          fetch-depth: 0
-      - name: Install go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
-        with:
-          go-version: '1.20'
-      - name: Generate release notes
-        run: |
-          make release-notes
-      - name: Release
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        with:
-          draft: true
-          files: out/*
-          body_path: releasenotes/releasenotes.md
+    - name: Export RELEASE_TAG var
+      run: echo "RELEASE_TAG=${GITHUB_REF:10}" >> $GITHUB_ENV
+    - name: checkout code
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        fetch-depth: 0
+    - name: Install go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version: '1.20'
+    - name: Generate release notes
+      run: |
+        make release-notes
+    - name: Release
+      uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+      with:
+        draft: true
+        files: out/*
+        body_path: releasenotes/releasenotes.md

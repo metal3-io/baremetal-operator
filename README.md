@@ -46,6 +46,13 @@ development. Here are the tests which run on different branches in BMO:
 * **/test-ubuntu-integration-main** runs ansible integration tests with CAPM3
   main branch and BMO **main** branch on Ubuntu
 
+**Release-0.5 branch:**
+
+* **/test-centos-e2e-integration-release-1-6** runs CAPM3 e2e integration tests
+  with CAPM3 release-1.6 branch and BMO **release-0.5** branch on Centos
+* **/test-ubuntu-integration-release-1-6** runs ansible integration tests with
+  CAPM3 release-1.6 branch and BMO **release-0.5** branch on Ubuntu
+
 **Release-0.4 branch:**
 
 * **/test-centos-e2e-integration-release-1-5** runs CAPM3 e2e integration tests

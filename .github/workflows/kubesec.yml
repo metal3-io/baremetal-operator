@@ -1,36 +1,37 @@
 name: Kubesec
+
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   schedule:
-    - cron: '30 7 * * 4'
+  - cron: '30 7 * * 4'
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   setup:
-    # This workflow is only of value to the metal3-io/baremetal-operator repository and
-    # would always fail in forks
-    if: github.repository == 'metal3-io/baremetal-operator'
+    name: setup
     runs-on: ubuntu-20.04
+
     permissions:
       actions: read
       contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Collect all yaml
-        id: list_yaml
-        run: |
-          LIST_YAML="$(find * -type f -name '*.yaml')"
-          echo "::set-output name=value::$(IFS=$','; echo $LIST_YAML | jq -cnR '[inputs | select(length>0)]'; IFS=$'\n')"
+    if: github.repository == 'metal3-io/baremetal-operator'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+    - name: Collect all yaml
+      id: list_yaml
+      run: |
+        LIST_YAML="$(find * -type f -name '*.yaml')"
+        echo "::set-output name=value::$(IFS=$','; echo $LIST_YAML | jq -cnR '[inputs | select(length>0)]'; IFS=$'\n')"
     outputs:
       matrix: ${{ steps.list_yaml.outputs.value }}
 
   lint:
-    needs: [ setup ]
+    needs: [setup]
     name: Kubesec
     runs-on: ubuntu-20.04
     permissions:
@@ -41,24 +42,24 @@ jobs:
       matrix:
         value: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - name: Checkout code
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Run kubesec scanner
-        uses: controlplaneio/kubesec-action@43d0ddff5ffee89a6bb9f29b64cd865411137b14
-        with:
-          input: ${{ matrix.value }}
-          format: template
-          template: template/sarif.tpl
-          output: ${{ matrix.value }}.sarif
-          exit-code: "0"
+    - name: Run kubesec scanner
+      uses: controlplaneio/kubesec-action@43d0ddff5ffee89a6bb9f29b64cd865411137b14 # v0.0.2
+      with:
+        input: ${{ matrix.value }}
+        format: template
+        template: template/sarif.tpl
+        output: ${{ matrix.value }}.sarif
+        exit-code: "0"
 
-      - name: Save result into a variable
-        id: save_result
-        run: echo "::set-output name=result::$(cat ${{ matrix.value }}.sarif | jq -c '.runs')"
+    - name: Save result into a variable
+      id: save_result
+      run: echo "::set-output name=result::$(cat ${{ matrix.value }}.sarif | jq -c '.runs')"
 
-      - name: Upload Kubesec scan results to GitHub Security tab
-        if: ${{ steps.save_result.outputs.result != '[]' }}
-        uses: github/codeql-action/upload-sarif@012739e5082ff0c22ca6d6ab32e07c36df03c4a4 # v3.22.12
-        with:
-          sarif_file: ${{ matrix.value }}.sarif
+    - name: Upload Kubesec scan results to GitHub Security tab
+      if: ${{ steps.save_result.outputs.result != '[]' }}
+      uses: github/codeql-action/upload-sarif@012739e5082ff0c22ca6d6ab32e07c36df03c4a4 # v3.22.12
+      with:
+        sarif_file: ${{ matrix.value }}.sarif

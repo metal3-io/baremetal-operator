@@ -4,18 +4,18 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
     paths:
-      - '**.md'
+    - '**.md'
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   markdown-link-check:
     name: Broken Links
-    # This workflow is only of value to the metal3-io repository and
-    # would always fail in forks
-    if: github.repository == 'metal3-io/baremetal-operator'
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     steps:
     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
     - uses: gaurav-nelson/github-action-markdown-link-check@5c5dfc0ac2e225883c0e5f03a85311ec2830d368 # v1

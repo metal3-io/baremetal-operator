@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	metal3iov1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -197,9 +198,16 @@ func main() {
 	restConfig.QPS = float32(restConfigQPS)
 	restConfig.Burst = restConfigBurst
 
+	var watchNamespaces map[string]cache.Config
+	if watchNamespace != "" {
+		watchNamespaces = map[string]cache.Config{
+			watchNamespace: {},
+		}
+	}
+
 	ctrlOpts := ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsBindAddr,
+		Scheme:  scheme,
+		Metrics: metricsserver.Options{BindAddress: metricsBindAddr},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    webhookPort,
 			TLSOpts: tlsOptionOverrides,
@@ -209,11 +217,9 @@ func main() {
 		LeaderElectionNamespace: leaderElectionNamespace,
 		HealthProbeBindAddress:  healthAddr,
 		Cache: cache.Options{
-			ByObject: secretutils.AddSecretSelector(nil),
+			ByObject:          secretutils.AddSecretSelector(nil),
+			DefaultNamespaces: watchNamespaces,
 		},
-	}
-	if watchNamespace != "" {
-		ctrlOpts.Cache.Namespaces = []string{watchNamespace}
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, ctrlOpts)

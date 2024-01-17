@@ -127,7 +127,6 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 	}
 
 	return
-
 }
 
 func (r *BMCEventSubscriptionReconciler) handleError(ctx context.Context, subscription *metal3api.BMCEventSubscription, e error, message string, requeue bool) (ctrl.Result, error) {
@@ -142,7 +141,6 @@ func (r *BMCEventSubscriptionReconciler) handleError(ctx context.Context, subscr
 	}
 
 	return ctrl.Result{}, errors.Wrap(e, message)
-
 }
 
 func (r *BMCEventSubscriptionReconciler) addFinalizer(ctx context.Context, subscription *metal3api.BMCEventSubscription) error {
@@ -179,7 +177,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 
 	if err != nil {
 		reqLogger.Error(err, "failed to get http headers")
-		subscription.Status.Error = fmt.Sprintf("failed to retrieve HTTP headers secret")
+		subscription.Status.Error = "failed to retrieve HTTP headers secret"
 		updateErr := r.Status().Update(ctx, subscription)
 		if updateErr != nil {
 			return errors.Wrap(updateErr, "failed to update subscription status")
@@ -289,9 +287,8 @@ func (r *BMCEventSubscriptionReconciler) updateEventHandler(e event.UpdateEvent)
 	return true
 }
 
-// SetupWithManager registers the reconciler to be run by the manager
+// SetupWithManager registers the reconciler to be run by the manager.
 func (r *BMCEventSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconcile int) error {
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.BMCEventSubscription{}).
 		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).

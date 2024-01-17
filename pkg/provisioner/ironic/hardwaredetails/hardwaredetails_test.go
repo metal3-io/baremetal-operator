@@ -260,5 +260,4 @@ func TestGetFirmwareDetails(t *testing.T) {
 	if firmware.BIOS.Vendor != "foobar" {
 		t.Errorf("Expected firmware BIOS vendor to be foobar, but got: %s", firmware)
 	}
-
 }

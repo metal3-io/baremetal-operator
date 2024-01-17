@@ -40,7 +40,7 @@ func BuildHostData(host metal3api.BareMetalHost, bmcCreds bmc.Credentials) HostD
 	}
 }
 
-// For controllers that do not need to manage the BMC just set the host and node ID to use with Ironic API
+// For controllers that do not need to manage the BMC just set the host and node ID to use with Ironic API.
 func BuildHostDataNoBMC(host metal3api.BareMetalHost) HostData {
 	return HostData{
 		ObjectMeta:    *host.ObjectMeta.DeepCopy(),
@@ -53,7 +53,7 @@ type Factory interface {
 	NewProvisioner(hostData HostData, publish EventPublisher) (Provisioner, error)
 }
 
-// HostConfigData retrieves host configuration data
+// HostConfigData retrieves host configuration data.
 type HostConfigData interface {
 	// UserData is the interface for a function to retrieve user
 	// data for a host being provisioned.
@@ -213,16 +213,16 @@ type Result struct {
 	ErrorMessage string
 }
 
-// HardwareState holds the response from an UpdateHardwareState call
+// HardwareState holds the response from an UpdateHardwareState call.
 type HardwareState struct {
 	// PoweredOn is a pointer to a bool indicating whether the Host is currently
 	// powered on. The value is nil if the power state cannot be determined.
 	PoweredOn *bool
 }
 
-// ErrNeedsRegistration is returned if the host is not registered
-var ErrNeedsRegistration = errors.New("Host not registered")
+// ErrNeedsRegistration is returned if the host is not registered.
+var ErrNeedsRegistration = errors.New("host not registered")
 
 // ErrNeedsPreprovisioningImage is returned if a preprovisioning image is
-// required
-var ErrNeedsPreprovisioningImage = errors.New("No suitable Preprovisioning image available")
+// required.
+var ErrNeedsPreprovisioningImage = errors.New("no suitable Preprovisioning image available")

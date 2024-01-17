@@ -37,7 +37,7 @@ var (
 )
 
 const (
-	// See nodes.Node.PowerState for details
+	// See nodes.Node.PowerState for details.
 	powerOn              = string(nodes.PowerOn)
 	powerOff             = string(nodes.PowerOff)
 	softPowerOff         = string(nodes.SoftPowerOff)
@@ -66,7 +66,7 @@ func (e macAddressConflictError) Error() string {
 	return fmt.Sprintf("MAC address %s conflicts with existing node %s", e.Address, e.ExistingNode)
 }
 
-// NewMacAddressConflictError is a wrap for macAddressConflictError error
+// NewMacAddressConflictError is a wrap for macAddressConflictError error.
 func NewMacAddressConflictError(address, node string) error {
 	return macAddressConflictError{Address: address, ExistingNode: node}
 }
@@ -163,7 +163,6 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 	}
 
 	return ports.ExtractPorts(allPages)
-
 }
 
 func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
@@ -519,7 +518,6 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 	// Ensure the node is marked manageable.
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
-
 	case nodes.Enroll:
 
 		// If ironic is reporting an error, stop working on the node.
@@ -1083,12 +1081,11 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 	return updater
 }
 
-// GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
+// GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps.
 func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
-
 	ironicNode, err := p.getNode()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, fmt.Sprintf("could not get node for BIOS settings"))
+		return nil, nil, errors.Wrap(err, "could not get node for BIOS settings")
 	}
 
 	// Get the settings from Ironic via Gophercloud
@@ -1137,7 +1134,6 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 // encapsulates the logic for building the value and knowing which
 // update operation to use with the results.
 func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3api.BootMode) string {
-
 	capabilities, ok := ironicNode.Properties["capabilities"]
 	if !ok {
 		// There is no existing capabilities value
@@ -1163,7 +1159,6 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3api.BootMode)
 }
 
 func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
-
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
 	ironicNode, success, result, err := p.tryUpdateNode(ironicNode,
@@ -1220,7 +1215,7 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure b
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Enroll, nodes.Verifying:
-		return transientError(fmt.Errorf("Invalid state for adopt: %s",
+		return transientError(fmt.Errorf("invalid state for adopt: %s",
 			ironicNode.ProvisionState))
 	case nodes.Manageable:
 		_, hasImageSource := ironicNode.InstanceInfo["image_source"]
@@ -1494,7 +1489,7 @@ func (p *ironicProvisioner) Prepare(data provisioner.PrepareData, unprepared boo
 		result, err = operationContinuing(provisionRequeueDelay)
 
 	default:
-		result, err = transientError(fmt.Errorf("Have unexpected ironic node state %s", ironicNode.ProvisionState))
+		result, err = transientError(fmt.Errorf("have unexpected ironic node state %s", ironicNode.ProvisionState))
 	}
 	return
 }
@@ -1582,7 +1577,6 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboo
 	// Ironic has the settings it needs, see if it finds any issues
 	// with them.
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
-
 	case nodes.DeployFail:
 		// Since we were here ironic has recorded an error for this host,
 		// with the image and checksum we have been trying to use, so we
@@ -1801,7 +1795,7 @@ func (p *ironicProvisioner) Deprovision(restartOnFailure bool) (result provision
 
 	default:
 		// FIXME(zaneb): this error is unlikely to actually be transient
-		return transientError(fmt.Errorf("Unhandled ironic state %s", ironicNode.ProvisionState))
+		return transientError(fmt.Errorf("unhandled ironic state %s", ironicNode.ProvisionState))
 	}
 }
 
@@ -2038,7 +2032,6 @@ func (p *ironicProvisioner) HasCapacity() (result bool, err error) {
 }
 
 func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err error) {
-
 	hosts = make(map[string]struct{})
 	pager := nodes.List(p.client, nodes.ListOpts{
 		Fields: []string{"uuid,name,provision_state,boot_interface"},
@@ -2055,7 +2048,6 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 	}
 
 	for _, node := range allNodes {
-
 		switch nodes.ProvisionState(node.ProvisionState) {
 		case nodes.Cleaning, nodes.CleanWait,
 			nodes.Inspecting, nodes.InspectWait,

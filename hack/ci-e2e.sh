@@ -48,25 +48,8 @@ minikube image load quay.io/metal3-io/baremetal-operator:e2e
 # Create libvirt domain
 VM_NAME="bmo-e2e-0"
 export BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
-SERIAL_LOG_PATH="/var/log/libvirt/qemu/${VM_NAME}-serial0.log"
 
-virt-install \
-  --connect qemu:///system \
-  --name "${VM_NAME}" \
-  --description "Virtualized BareMetalHost" \
-  --osinfo=ubuntu-lts-latest \
-  --ram=4096 \
-  --vcpus=2 \
-  --disk size=20 \
-  --graphics=none \
-  --console pty,target_type=serial \
-  --serial file,path="${SERIAL_LOG_PATH}" \
-  --xml "./devices/serial/@type=pty" \
-  --xml "./devices/serial/log/@file=${SERIAL_LOG_PATH}" \
-  --xml "./devices/serial/log/@append=on" \
-  --pxe \
-  --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" \
-  --noautoconsole
+"${REPO_ROOT}/tools/bmh_test/create_vm.sh" "${VM_NAME}" "${BOOT_MAC_ADDRESS}"
 
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
@@ -88,9 +71,7 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
     quay.io/metal3-io/vbmc
 
   # Add BMH VM to VBMC
-  docker exec vbmc vbmc add "${VM_NAME}" --port "${VBMC_PORT}"
-  docker exec vbmc vbmc start "${VM_NAME}"
-  docker exec vbmc vbmc list
+  "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${VM_NAME}" "${VBMC_PORT}"
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
   # Sushy-tools variables

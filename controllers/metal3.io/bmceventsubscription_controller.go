@@ -37,7 +37,6 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
@@ -88,7 +87,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Error(err, "baremetalhost not found", "host", subscription.Spec.HostName)
 
-			message := fmt.Sprintf("baremetal host \"%s\"", subscription.Status.Error)
+			message := fmt.Sprintf("baremetal host %q", subscription.Status.Error)
 			return r.handleError(ctx, subscription, err, message, true)
 		}
 		// Error reading the object - requeue the request.
@@ -233,10 +232,6 @@ func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, ho
 	}
 
 	return prov, ready, nil
-}
-
-func (r *BMCEventSubscriptionReconciler) secretManager(log logr.Logger) secretutils.SecretManager {
-	return secretutils.NewSecretManager(log, r.Client, r.APIReader)
 }
 
 func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3api.BMCEventSubscription) ([]map[string]string, error) {

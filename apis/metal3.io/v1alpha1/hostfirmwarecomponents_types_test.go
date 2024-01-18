@@ -65,7 +65,7 @@ func TestValidateHostFirmwareComponents(t *testing.T) {
 					LastTransitionTime: metav1.NewTime(time.Now()),
 				},
 			},
-			ExpectedError: "Component nic is invalid, only 'bmc' or 'bios' are allowed as update names",
+			ExpectedError: "component nic is invalid, only 'bmc' or 'bios' are allowed as update names",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {

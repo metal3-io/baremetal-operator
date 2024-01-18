@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -128,7 +128,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 			Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
 
 			auth := ssh.PublicKeys(signer)
-			PerformSSHBootCheck(e2eConfig, "disk", auth, fmt.Sprintf("%s:%s", bmc.IpAddress, bmc.SSHPort))
+			PerformSSHBootCheck(e2eConfig, "disk", auth, fmt.Sprintf("%s:%s", bmc.IPAddress, bmc.SSHPort))
 		} else {
 			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}
@@ -180,7 +180,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 				Name:      "bmc-credentials",
 				Namespace: namespace.Name,
 			}, &corev1.Secret{})
-			return apierrors.IsNotFound(err)
+			return k8serrors.IsNotFound(err)
 		}, e2eConfig.GetIntervals(specName, "wait-secret-deletion")...).Should(BeTrue())
 
 		By("Creating a secret with BMH credentials")

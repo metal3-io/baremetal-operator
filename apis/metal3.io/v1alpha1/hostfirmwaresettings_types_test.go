@@ -10,7 +10,6 @@ import (
 )
 
 func TestValidateSetting(t *testing.T) {
-
 	lower_bound := 1
 	upper_bound := 20
 	min_length := 1

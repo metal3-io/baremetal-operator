@@ -17,6 +17,8 @@ ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 #
 #
 BIN_DIR := bin
+TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/$(BIN_DIR))
 
 CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
@@ -54,6 +56,12 @@ E2E_CONF_FILE ?= $(ROOT_DIR)/test/e2e/config/ironic.yaml
 USE_EXISTING_CLUSTER ?= true
 SKIP_RESOURCE_CLEANUP ?= false
 GINKGO_NOCOLOR ?= false
+
+GOLANGCI_LINT_BIN := golangci-lint
+GOLANGCI_LINT_VER := v1.55.2
+GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/$(GOLANGCI_LINT_BIN))
+GOLANGCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
+
 
 # to set multiple ginkgo skip flags, if any
 ifneq ($(strip $(GINKGO_SKIP)),)
@@ -120,13 +128,17 @@ test-e2e: $(GINKGO) ## Run the end-to-end tests
 .PHONY: linters
 linters: lint generate-check fmt-check
 
-tools/bin/golangci-lint: hack/tools/go.mod
-	cd hack/tools; go build -o $(abspath $@) github.com/golangci/golangci-lint/cmd/golangci-lint
+$(GOLANGCI_LINT):
+	GOBIN=$(TOOLS_BIN_DIR) go install $(GOLANGCI_LINT_PKG)@$(GOLANGCI_LINT_VER)
+
+.PHONY: $(GOLANGCI_LINT_BIN)
+$(GOLANGCI_LINT_BIN): $(GOLANGCI_LINT) ## Build a local copy of golangci-lint.
 
 .PHONY: lint
-lint: tools/bin/golangci-lint
-	$< run
-	cd test; ../$< run
+lint: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run -v ./...
+	cd test; $(GOLANGCI_LINT) run -v
+	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation
@@ -331,9 +343,10 @@ go-version: ## Print the go version we use to compile our binaries and images
 ## --------------------------------------
 
 .PHONY: clean
-clean: ## Remove all temporary files and folders
+clean: ## Remove all temporary files, directories and tools
 	rm -rf ironic-deployment/overlays/temp
 	rm -rf config/overlays/temp
+	rm -rf $(TOOLS_BIN_DIR)
 
 .PHONY: clean-e2e
 clean-e2e: ## Remove everything related to e2e tests

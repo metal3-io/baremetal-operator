@@ -113,7 +113,7 @@ docker run --name image-server-e2e -d \
 ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
 
 # Generate credentials
-BMO_OVERLAY="${REPO_ROOT}/config/overlays/e2e"
+BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
 IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
 
 IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
@@ -121,16 +121,12 @@ IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 
-echo "${IRONIC_USERNAME}" > "${BMO_OVERLAY}/ironic-username"
-echo "${IRONIC_PASSWORD}" > "${BMO_OVERLAY}/ironic-password"
-echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_OVERLAY}/ironic-inspector-username"
-echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_OVERLAY}/ironic-inspector-password"
-
-BMO_UPGRADE_FROM_OVERLAY="${REPO_ROOT}/config/overlays/e2e-release-0.4"
-echo "${IRONIC_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-username"
-echo "${IRONIC_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-password"
-echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-username"
-echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-password"
+for overlay in "${BMO_OVERLAYS[@]}"; do
+  echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
+  echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
+  echo "${IRONIC_INSPECTOR_USERNAME}" > "${overlay}/ironic-inspector-username"
+  echo "${IRONIC_INSPECTOR_PASSWORD}" > "${overlay}/ironic-inspector-password"
+done
 
 envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${IRONIC_OVERLAY}/ironic-auth-config"

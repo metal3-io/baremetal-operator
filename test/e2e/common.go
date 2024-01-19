@@ -505,3 +505,20 @@ func BuildAndApplyKustomize(ctx context.Context, input *BuildAndApplyKustomizeIn
 	}
 	return nil
 }
+
+func DeploymentRolledOut(ctx context.Context, clusterProxy framework.ClusterProxy, name string, namespace string, desiredGeneration int64) bool {
+	clientSet := clusterProxy.GetClientSet()
+	deploy, err := clientSet.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	Expect(err).To(BeNil())
+	if deploy != nil {
+		// When the number of replicas is equal to the number of available and updated
+		// replicas, we know that only "new" pods are running. When we also
+		// have the desired number of replicas and a new enough generation, we
+		// know that the rollout is complete.
+		return (deploy.Status.UpdatedReplicas == *deploy.Spec.Replicas) &&
+			(deploy.Status.AvailableReplicas == *deploy.Spec.Replicas) &&
+			(deploy.Status.Replicas == *deploy.Spec.Replicas) &&
+			(deploy.Status.ObservedGeneration >= desiredGeneration)
+	}
+	return false
+}

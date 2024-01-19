@@ -33,6 +33,6 @@ jobs:
 
     - name: Set Up Environment and Run BMO e2e Tests
       env:
-        E2E_CONF_FILE: ${GITHUB_WORKSPACE}/test/e2e/config/fixture.yaml
+        E2E_CONF_FILE: ${{ github.workspace }}/test/e2e/config/fixture.yaml
         USE_EXISTING_CLUSTER: "false"
       run: make test-e2e

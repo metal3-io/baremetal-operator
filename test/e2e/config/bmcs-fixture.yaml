@@ -1,0 +1,16 @@
+# For fixture config, only the `hostName` field matters. The number of BMCs,
+# however, needs to be equal or larger than `GINKGO_NODES`.
+- user: admin
+  password: password
+  address: "redfish+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-0"
+  bootMacAddress: "00:60:2f:31:81:01"
+  hostName: ""
+  ipAddress: "192.168.222.122"
+  sshPort: "22"
+- user: admin
+  password: password
+  address: "redfish+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-1"
+  bootMacAddress: "00:60:2f:31:81:02"
+  hostName: ""
+  ipAddress: "192.168.222.123"
+  sshPort: "22"

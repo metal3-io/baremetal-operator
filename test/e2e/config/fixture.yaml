@@ -25,13 +25,6 @@ variables:
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
   UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/fixture-release-0.4"
 
-  BMC_ADDRESS: ipmi://192.168.222.1:16230
-  BOOT_MAC_ADDRESS: "00:60:2f:31:81:01"
-  EXPECTED_HOST_NAME: ""
-  # Test credentials. The tests will create a BMH with these.
-  # For the fixture provider it does not matter much what we put here.
-  BMC_USER: admin
-  BMC_PASSWORD: password
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.1"
@@ -45,13 +38,13 @@ intervals:
   inspection/wait-available: ["5s", "1ms"]
   external-inspection/wait-available: ["5s", "1ms"]
   default/wait-deployment: ["5m", "1s"]
-  default/wait-namespace-deleted: ["20s", "1s"]
+  default/wait-namespace-deleted: ["1m", "1s"]
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-registration: ["5s", "5ms"]
-  default/wait-provisioning: ["30s", "10ms"]
-  default/wait-provisioned: ["1m", "1s"]
+  default/wait-provisioning: ["1m", "10ms"]
+  default/wait-provisioned: ["5m", "1s"]
   default/wait-deprovisioning: ["5s", "10ms"]
-  default/wait-available: ["2m", "1s"]
+  default/wait-available: ["5m", "1s"]
   default/wait-deleting: ["5s", "10ms"]
   default/wait-deleted: ["5s", "10ms"]
   default/wait-secret-deletion: ["5s", "10ms"]

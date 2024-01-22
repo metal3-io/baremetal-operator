@@ -173,21 +173,12 @@ const hardwareDetails = `
 
 var _ = Describe("External Inspection", func() {
 	var (
-		specName       = "external-inspection"
-		secretName     = "bmc-credentials"
-		namespace      *corev1.Namespace
-		cancelWatches  context.CancelFunc
-		bmcUser        string
-		bmcPassword    string
-		bmcAddress     string
-		bootMacAddress string
+		specName      = "external-inspection"
+		secretName    = "bmc-credentials"
+		namespace     *corev1.Namespace
+		cancelWatches context.CancelFunc
 	)
 	BeforeEach(func() {
-		bmcUser = e2eConfig.GetVariable("BMC_USER")
-		bmcPassword = e2eConfig.GetVariable("BMC_PASSWORD")
-		bmcAddress = e2eConfig.GetVariable("BMC_ADDRESS")
-		bootMacAddress = e2eConfig.GetVariable("BOOT_MAC_ADDRESS")
-
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:   clusterProxy.GetClient(),
 			ClientSet: clusterProxy.GetClientSet(),
@@ -199,8 +190,8 @@ var _ = Describe("External Inspection", func() {
 	It("should skip inspection and become available when a BMH has annotations with hardware details and inspection disabled", func() {
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
-			"username": bmcUser,
-			"password": bmcPassword,
+			"username": bmc.User,
+			"password": bmc.Password,
 		}
 		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
@@ -216,11 +207,11 @@ var _ = Describe("External Inspection", func() {
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
-					Address:         bmcAddress,
+					Address:         bmc.Address,
 					CredentialsName: "bmc-credentials",
 				},
 				BootMode:       metal3api.Legacy,
-				BootMACAddress: bootMacAddress,
+				BootMACAddress: bmc.BootMacAddress,
 			},
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)

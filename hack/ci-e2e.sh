@@ -17,6 +17,8 @@ cd "${REPO_ROOT}" || exit 1
 # BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
 BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 
+export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
+
 case "${GINKGO_FOCUS:-}" in
   *upgrade*)
     export DEPLOY_IRONIC="false"

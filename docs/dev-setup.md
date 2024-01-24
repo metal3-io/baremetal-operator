@@ -176,19 +176,25 @@ and specially the [Baremetal Operator Integration](https://github.com/metal3-io/
 
 ### Making (virtual) BareMetalHosts with Tilt interface
 
-Virtinst, libvirt-clients, libvirt-daemon-system, and [Virtualbmc](https://pypi.org/project/virtualbmc/) are required to to create BareMetalHosts this way. The network and VBMC needed for making a BareMetalHosts can be initialized with
+Virtinst, libvirt-clients, libvirt-daemon-system, and
+[Virtualbmc](https://pypi.org/project/virtualbmc/) are required to to
+create BareMetalHosts this way. The network and VBMC needed for making a
+BareMetalHosts can be initialized with
 
 ```sh
 tools/bmh_test/run_local_bmh_test_setup.sh
 ```
 
-When Tilt is up, it is possible to make BareMetalHosts by pressing a button in the Tilt localhost interface. This is currently only supported for Unix based systems. This button runs the content of file
+When Tilt is up, it is possible to make BareMetalHosts by pressing a
+button in the Tilt localhost interface. This is currently only supported
+for Unix based systems. This button runs the content of file
 
 ```sh
 tools/bmh_test/create_bmh.sh <NAME> <VBMC_PORT>
 ```
 
-and adds the values given to the button as arguments. Controlplane host can be created with
+and adds the values given to the button as arguments. Controlplane host
+can be created with
 
 ```sh
 tools/bmh_test/create_bmh.sh <NAME> <VBMC_PORT> <CONSUMER> <CONSUMER_NAMESPACE>

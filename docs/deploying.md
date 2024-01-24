@@ -136,11 +136,12 @@ ironic-deployment/
 └── README.md
 ```
 
-The `ironic-deployment` folder contains kustomizations for deploying Ironic.
-It makes use of kustomize components for basic auth, TLS and keepalived configurations.
-This makes it easy to combine the configurations, for example basic auth + TLS.
-There are some ready made overlays in the `overlays` folder that shows how this can be done.
-For more information, check the readme in the `ironic-deployment` folder.
+The `ironic-deployment` folder contains kustomizations for deploying
+Ironic. It makes use of kustomize components for basic auth, TLS and
+keepalived configurations. This makes it easy to combine the
+configurations, for example basic auth + TLS. There are some ready made
+overlays in the `overlays` folder that shows how this can be done. For
+more information, check the readme in the `ironic-deployment` folder.
 
 ## Deployment commands
 

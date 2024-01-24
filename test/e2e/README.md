@@ -38,7 +38,8 @@ Ironic. Without any changes, the whole suite (including optional tests) will be 
 Please note, however, that it is quite questionable to call this configuration
 "end to end".
 
-Fixture provider is configured to be the default one. This is how to run the e2e test suite with it:
+Fixture provider is configured to be the default one. This is how to run
+the e2e test suite with it:
 
 ```bash
 make test-e2e

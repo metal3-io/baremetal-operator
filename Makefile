@@ -183,8 +183,8 @@ manifests: manifests-generate manifests-kustomize ## Generate manifests e.g. CRD
 
 .PHONY: manifests-generate
 manifests-generate: $(CONTROLLER_GEN)
-	cd apis; $(abspath $<) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:webhook:dir=../config/webhook/ output:crd:artifacts:config=../config/crd/bases
-	$< rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/rbac
+	cd apis; $(abspath $<) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:webhook:dir=../config/base/webhook/ output:crd:artifacts:config=../config/base/crds/bases
+	$< rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/base/rbac
 
 .PHONY: manifests-kustomize
 manifests-kustomize: $(KUSTOMIZE)
@@ -193,7 +193,7 @@ manifests-kustomize: $(KUSTOMIZE)
 .PHONY: set-manifest-image-bmo
 set-manifest-image-bmo: $(KUSTOMIZE) manifests
 	$(info Updating container image for BMO to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd config/default && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/baremetal-operator=${MANIFEST_IMG}:${MANIFEST_TAG}
+	cd config/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/baremetal-operator=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: set-manifest-image-ironic
 set-manifest-image-ironic: $(KUSTOMIZE) manifests
@@ -340,6 +340,7 @@ go-version: ## Print the go version we use to compile our binaries and images
 .PHONY: clean
 clean: ## Remove all temporary files and folders
 	rm -rf ironic-deployment/overlays/temp
+	rm -rf config/overlays/temp
 
 .PHONY: clean-e2e
 clean-e2e: ## Remove everything related to e2e tests

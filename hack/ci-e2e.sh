@@ -21,6 +21,7 @@ BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="${PATH}:/usr/local/go/bin"
 "${REPO_ROOT}/hack/e2e/ensure_minikube.sh"
+"${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
 
@@ -47,6 +48,7 @@ minikube image load quay.io/metal3-io/baremetal-operator:e2e
 # Create libvirt domain
 VM_NAME="bmo-e2e-0"
 export BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
+SERIAL_LOG_PATH="/var/log/libvirt/qemu/${VM_NAME}-serial0.log"
 
 virt-install \
   --connect qemu:///system \
@@ -57,8 +59,11 @@ virt-install \
   --vcpus=2 \
   --disk size=20 \
   --graphics=none \
-  --console pty \
-  --serial pty \
+  --console pty,target_type=serial \
+  --serial file,path="${SERIAL_LOG_PATH}" \
+  --xml "./devices/serial/@type=pty" \
+  --xml "./devices/serial/log/@file=${SERIAL_LOG_PATH}" \
+  --xml "./devices/serial/log/@append=on" \
   --pxe \
   --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" \
   --noautoconsole
@@ -111,16 +116,41 @@ IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
 IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
+mkdir -p "${IMAGE_DIR}"
 
 ## Download and run image server
-mkdir -p "${IMAGE_DIR}"
-pushd "${IMAGE_DIR}"
-wget --quiet "https://download.cirros-cloud.net/${CIRROS_VERSION}/${IMAGE_FILE}"
-popd
+wget --quiet -P "${IMAGE_DIR}"/ https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
 
 docker run --name image-server-e2e -d \
   -p 80:8080 \
   -v "${IMAGE_DIR}:/usr/share/nginx/html" nginxinc/nginx-unprivileged
+
+# Generate the key pair
+ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
+
+# Generate credentials
+BMO_OVERLAY="${REPO_ROOT}/config/overlays/e2e"
+IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
+
+IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+
+echo "${IRONIC_USERNAME}" > "${BMO_OVERLAY}/ironic-username"
+echo "${IRONIC_PASSWORD}" > "${BMO_OVERLAY}/ironic-password"
+echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_OVERLAY}/ironic-inspector-username"
+echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_OVERLAY}/ironic-inspector-password"
+
+envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
+  "${IRONIC_OVERLAY}/ironic-auth-config"
+envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl" > \
+  "${IRONIC_OVERLAY}/ironic-inspector-auth-config"
+
+echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+  "${IRONIC_OVERLAY}/ironic-htpasswd"
+echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
+  "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_OVERLAY}/ironic-inspector-htpasswd"
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e
@@ -128,6 +158,11 @@ set +e
 # Run the e2e tests
 make test-e2e
 test_status="$?"
+
+LOGS_DIR="${REPO_ROOT}/test/e2e/_artifacts/logs"
+mkdir -p "${LOGS_DIR}/qemu"
+sudo sh -c "cp -r /var/log/libvirt/qemu/* ${LOGS_DIR}/qemu/"
+sudo chown -R "${USER}:${USER}" "${LOGS_DIR}/qemu"
 
 # Collect all artifacts
 tar --directory test/e2e/ -czf artifacts.tar.gz _artifacts

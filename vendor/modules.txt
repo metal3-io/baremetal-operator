@@ -71,7 +71,7 @@ github.com/google/gofuzz
 ## explicit; go 1.19
 github.com/google/safetext/common
 github.com/google/safetext/yamltemplate
-# github.com/google/uuid v1.4.0
+# github.com/google/uuid v1.5.0
 ## explicit
 github.com/google/uuid
 # github.com/gophercloud/gophercloud v1.5.1-0.20231117122435-08456f7fe42e
@@ -170,7 +170,7 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.4
 ## explicit; go 1.20
 github.com/stretchr/testify/assert
-# go.etcd.io/etcd/client/pkg/v3 v3.5.10
+# go.etcd.io/etcd/client/pkg/v3 v3.5.11
 ## explicit; go 1.20
 go.etcd.io/etcd/client/pkg/v3/fileutil
 go.etcd.io/etcd/client/pkg/v3/tlsutil

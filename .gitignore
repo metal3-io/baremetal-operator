@@ -44,8 +44,13 @@ password
 ironic-auth-config
 ironic-inspector-auth-config
 ironic-rpc-auth-config
+ironic-username
+ironic-password
+ironic-inspector-username
+ironic-inspector-password
 HTTP_BASIC_HTPASSWD
 ironic-deployment/overlays/temp
+config/overlays/temp
 
 # Development containers (https://containers.dev/)
 .devcontainer

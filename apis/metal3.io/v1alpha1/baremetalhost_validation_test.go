@@ -720,7 +720,45 @@ func TestValidateUpdate(t *testing.T) {
 				Spec: BareMetalHostSpec{
 					BMC: BMCDetails{
 						Address: "test-address"}}},
-			wantedErr: "BMC address can not be changed once it is set",
+			wantedErr: "BMC address can not be changed if the BMH is not in the Registering state, " +
+				"or if the BMH is not detached.",
+		},
+		{
+			name: "updateAddressBMHRegistering",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "test-address-changed"}},
+				Status: BareMetalHostStatus{
+					Provisioning: ProvisionStatus{
+						State: ProvisioningState(StateRegistering)}}},
+			oldBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "test-address"}}},
+			wantedErr: "",
+		},
+		{
+			name: "updateAddressBMHDetached",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "test-address-changed"}},
+				Status: BareMetalHostStatus{
+					OperationalStatus: OperationalStatus(OperationalStatusDetached)}},
+			oldBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "test-address"}}},
+			wantedErr: "",
 		},
 		{
 			name: "updateBootMAC",

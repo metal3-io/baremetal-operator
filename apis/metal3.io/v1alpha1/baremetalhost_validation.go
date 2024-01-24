@@ -75,8 +75,12 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 		errs = append(errs, err...)
 	}
 
-	if old.Spec.BMC.Address != "" && host.Spec.BMC.Address != old.Spec.BMC.Address {
-		errs = append(errs, errors.New("BMC address can not be changed once it is set"))
+	if old.Spec.BMC.Address != "" &&
+		host.Spec.BMC.Address != old.Spec.BMC.Address &&
+		host.Status.OperationalStatus != OperationalStatusDetached &&
+		host.Status.Provisioning.State != StateRegistering {
+		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not "+
+			"in the Registering state, or if the BMH is not detached."))
 	}
 
 	if old.Spec.BootMACAddress != "" && host.Spec.BootMACAddress != old.Spec.BootMACAddress {

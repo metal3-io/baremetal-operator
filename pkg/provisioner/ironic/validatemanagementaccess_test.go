@@ -892,6 +892,64 @@ func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
 	assert.Equal(t, "failed to parse BMC address information: failed to parse BMC address information: parse \"<ipmi://192.168.122.1:6233>\": first path segment in URL cannot contain colon", result.ErrorMessage)
 }
 
+func TestValidateManagementAccessUpdateBMCAddress(t *testing.T) {
+	host := makeHost()
+	host.Spec.BMC.Address = "ipmi://192.168.122.10:623"
+	host.Status.Provisioning.ID = "uuid"
+
+	ironic := testserver.NewIronic(t).
+		Node(nodes.Node{
+			Name: host.Namespace + nameSeparator + host.Name,
+			UUID: "uuid",
+			DriverInfo: map[string]interface{}{
+				"ipmi_address":    "192.168.122.1",
+				"ipmi_port":       623,
+				"ipmi_username":   "",
+				"ipmi_password":   "",
+				"ipmi_priv_level": "ADMINISTRATOR",
+				"deploy_kernel":   "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk":  "http://deploy.test/ipa.initramfs",
+			},
+			ProvisionState: string(nodes.Verifying),
+		}).NodeUpdate(
+		nodes.Node{
+			Name: host.Namespace + nameSeparator + host.Name,
+			UUID: "uuid",
+			DriverInfo: map[string]interface{}{
+				"ipmi_address":    "192.168.122.10",
+				"ipmi_port":       623,
+				"ipmi_username":   "",
+				"ipmi_password":   "",
+				"ipmi_priv_level": "ADMINISTRATOR",
+				"deploy_kernel":   "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk":  "http://deploy.test/ipa.initramfs",
+			},
+			ProvisionState: string(nodes.Verifying),
+		})
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	if err != nil {
+		t.Fatalf("error from ValidateManagementAccess: %s", err)
+	}
+	assert.Equal(t, "", result.ErrorMessage)
+	assert.Equal(t, "uuid", provID)
+
+	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
+	assert.Equal(t, "/driver_info", updates[0].Path)
+	newValues := updates[0].Value.(map[string]interface{})
+	assert.Equal(t, "192.168.122.10", newValues["ipmi_address"])
+}
+
 func TestPreprovisioningImageFormats(t *testing.T) {
 	ironicEndpoint := "http://ironic.test"
 	auth := clients.AuthConfig{Type: clients.NoAuth}

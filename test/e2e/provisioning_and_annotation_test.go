@@ -26,22 +26,13 @@ import (
 
 var _ = Describe("BMH Provisioning and Annotation Management", func() {
 	var (
-		specName       = "provisioning-ops"
-		secretName     = "bmc-credentials"
-		namespace      *corev1.Namespace
-		cancelWatches  context.CancelFunc
-		bmcUser        string
-		bmcPassword    string
-		bmcAddress     string
-		bootMacAddress string
+		specName      = "provisioning-ops"
+		secretName    = "bmc-credentials"
+		namespace     *corev1.Namespace
+		cancelWatches context.CancelFunc
 	)
 
 	BeforeEach(func() {
-		bmcUser = e2eConfig.GetVariable("BMC_USER")
-		bmcPassword = e2eConfig.GetVariable("BMC_PASSWORD")
-		bmcAddress = e2eConfig.GetVariable("BMC_ADDRESS")
-		bootMacAddress = e2eConfig.GetVariable("BOOT_MAC_ADDRESS")
-
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:   clusterProxy.GetClient(),
 			ClientSet: clusterProxy.GetClientSet(),
@@ -53,8 +44,8 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 	It("provisions a BMH, applies detached and status annotations, then deprovisions", func() {
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
-			"username": bmcUser,
-			"password": bmcPassword,
+			"username": bmc.User,
+			"password": bmc.Password,
 		}
 		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
@@ -71,11 +62,11 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 			Spec: metal3api.BareMetalHostSpec{
 				Online: true,
 				BMC: metal3api.BMCDetails{
-					Address:         bmcAddress,
+					Address:         bmc.Address,
 					CredentialsName: "bmc-credentials",
 				},
 				BootMode:              metal3api.Legacy,
-				BootMACAddress:        bootMacAddress,
+				BootMACAddress:        bmc.BootMacAddress,
 				AutomatedCleaningMode: "disabled",
 			},
 		}
@@ -137,7 +128,7 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 			Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
 
 			auth := ssh.PublicKeys(signer)
-			PerformSSHBootCheck(e2eConfig, "disk", auth)
+			PerformSSHBootCheck(e2eConfig, "disk", auth, fmt.Sprintf("%s:%s", bmc.IpAddress, bmc.SSHPort))
 		} else {
 			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}
@@ -194,8 +185,8 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData = map[string]string{
-			"username": bmcUser,
-			"password": bmcPassword,
+			"username": bmc.User,
+			"password": bmc.Password,
 		}
 		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
@@ -211,11 +202,11 @@ var _ = Describe("BMH Provisioning and Annotation Management", func() {
 			Spec: metal3api.BareMetalHostSpec{
 				Online: true,
 				BMC: metal3api.BMCDetails{
-					Address:         bmcAddress,
+					Address:         bmc.Address,
 					CredentialsName: "bmc-credentials",
 				},
 				BootMode:              metal3api.Legacy,
-				BootMACAddress:        bootMacAddress,
+				BootMACAddress:        bmc.BootMacAddress,
 				AutomatedCleaningMode: "disabled",
 				Image: &metal3api.Image{
 					URL:      e2eConfig.GetVariable("IMAGE_URL"),

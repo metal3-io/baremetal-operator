@@ -38,6 +38,7 @@ export PATH="${PATH}:/usr/local/go/bin"
 "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
+"${REPO_ROOT}/hack/e2e/ensure_yq.sh"
 
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
@@ -59,39 +60,20 @@ minikube start
 # Load the BMO e2e image into it
 minikube image load quay.io/metal3-io/baremetal-operator:e2e
 
-# Create libvirt domain
-VM_NAME="bmo-e2e-0"
-export BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
-
-"${REPO_ROOT}/tools/bmh_test/create_vm.sh" "${VM_NAME}" "${BOOT_MAC_ADDRESS}"
-
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 
-# These variables are used by the tests. They override variables in the config file.
-# These are the VBMC defaults (used since we did not specify anything else for `vbmc add`).
-export BMC_USER=admin
-export BMC_PASSWORD=password
-
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
-	# VBMC variables
-  VBMC_PORT="16230"
-  export BMC_ADDRESS="ipmi://${IP_ADDRESS}:${VBMC_PORT}"
-
   # Start VBMC
   docker run --name vbmc --network host -d \
     -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
     -v /var/run/libvirt/libvirt-sock-ro:/var/run/libvirt/libvirt-sock-ro \
     quay.io/metal3-io/vbmc
 
-  # Add BMH VM to VBMC
-  "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${VM_NAME}" "${VBMC_PORT}"
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
-  SUSHY_PORT="8000"
-  export BMC_ADDRESS="redfish+http://${IP_ADDRESS}:${SUSHY_PORT}/redfish/v1/Systems/${VM_NAME}"
 
   # Start sushy-tools
   docker run --name sushy-tools -d --network host \
@@ -104,6 +86,13 @@ else
   echo "Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1
 fi
+
+export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMO_E2E_EMULATOR}.yaml"
+"${REPO_ROOT}/hack/create_bmcs.sh" "${E2E_BMCS_CONF_FILE}" baremetal-e2e
+
+# Set the number of ginkgo processes to the number of BMCs
+n_vms=$(yq '. | length' "${E2E_BMCS_CONF_FILE}")
+export GINKGO_NODES="${n_vms}"
 
 # Image server variables
 CIRROS_VERSION="0.6.2"
@@ -152,6 +141,7 @@ echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWOR
   "${IRONIC_OVERLAY}/ironic-htpasswd"
 echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
   "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_OVERLAY}/ironic-inspector-htpasswd"
+
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e

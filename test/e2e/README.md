@@ -46,6 +46,14 @@ test suite with it:
 make test-e2e
 ```
 
+## BMCs config
+
+In case you want to run the tests with your own hardware, the information
+regarding BMCs should be stored in a yaml file, whose path is exported to
+`E2E_BMCS_CONF_FILE` variable (please take a look at
+[bmcs-sushy-tools.yaml](../../test/e2e/config/bmcs-sushy-tools.yaml)
+to understand the file structure).
+
 ## Tests
 
 Here is a list of the currently implemented tests. As mentioned above, we divide

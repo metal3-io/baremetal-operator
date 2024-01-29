@@ -27,11 +27,17 @@ var (
 	// configPath is the path to the e2e config file.
 	configPath string
 
+	// bmcConfigPath is the path to the file whose content is the list of bmcs used in the test
+	bmcConfigPath string
+
 	// useExistingCluster instructs the test to use the current cluster instead of creating a new one (default discovery rules apply).
 	useExistingCluster bool
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *Config
+
+	// bmcs to be used for this test, read from bmcConfigPath
+	bmcs *[]BMC
 
 	// artifactFolder is the folder to store e2e test artifacts.
 	artifactFolder string
@@ -45,10 +51,14 @@ var (
 	// clusterProvider manages provisioning of the cluster to be used for the e2e tests.
 	// Please note that provisioning will be skipped if e2e.use-existing-cluster is provided.
 	clusterProvider bootstrap.ClusterProvider
+
+	// the BMC instance to use in a parallel test
+	bmc BMC
 )
 
 func init() {
 	flag.StringVar(&configPath, "e2e.config", "", "path to the e2e config file")
+	flag.StringVar(&bmcConfigPath, "e2e.bmcsConfig", "", "path to the bmcs config file")
 	flag.StringVar(&artifactFolder, "e2e.artifacts-folder", "_artifacts", "folder where e2e test artifact should be stored")
 	flag.BoolVar(&useExistingCluster, "e2e.use-existing-cluster", false, "if true, the test uses the current cluster instead of creating a new one (default discovery rules apply)")
 	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
@@ -161,6 +171,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	metal3api.AddToScheme(scheme)
 
 	e2eConfig = LoadE2EConfig(configPath)
+	bmcs = LoadBMCConfig(bmcConfigPath)
+	bmc = (*bmcs)[GinkgoParallelProcess()-1]
 	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
 })
 

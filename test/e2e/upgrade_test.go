@@ -175,20 +175,12 @@ var _ = Describe("BMO Upgrade", func() {
 		specName               = "upgrade"
 		secretName             = "bmc-credentials"
 		namespace              *corev1.Namespace
-		bmcUser                string
-		bmcPassword            string
-		bmcAddress             string
-		bootMacAddress         string
 		bmoIronicNamespace     string
 		upgradeClusterProvider bootstrap.ClusterProvider
 		upgradeClusterProxy    framework.ClusterProxy
 		bmh                    metal3api.BareMetalHost
 	)
 	BeforeEach(func() {
-		bmcUser = e2eConfig.GetVariable("BMC_USER")
-		bmcPassword = e2eConfig.GetVariable("BMC_PASSWORD")
-		bmcAddress = e2eConfig.GetVariable("BMC_ADDRESS")
-		bootMacAddress = e2eConfig.GetVariable("BOOT_MAC_ADDRESS")
 		bmoIronicNamespace = "baremetal-operator-system"
 		var kubeconfigPath string
 
@@ -266,8 +258,8 @@ var _ = Describe("BMO Upgrade", func() {
 	It("Should upgrade BMO to latest version", func() {
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
-			"username": bmcUser,
-			"password": bmcPassword,
+			"username": bmc.User,
+			"password": bmc.Password,
 		}
 		CreateSecret(ctx, upgradeClusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
@@ -284,11 +276,11 @@ var _ = Describe("BMO Upgrade", func() {
 			Spec: metal3api.BareMetalHostSpec{
 				Online: true,
 				BMC: metal3api.BMCDetails{
-					Address:         bmcAddress,
+					Address:         bmc.Address,
 					CredentialsName: secretName,
 				},
 				BootMode:       metal3api.Legacy,
-				BootMACAddress: bootMacAddress,
+				BootMACAddress: bmc.BootMacAddress,
 			},
 		}
 		err := upgradeClusterProxy.GetClient().Create(ctx, &bmh)

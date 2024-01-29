@@ -48,11 +48,12 @@ export GOFLAGS=
 #
 GINKGO_FOCUS ?=
 GINKGO_SKIP ?=
-GINKGO_NODES ?= 1
+GINKGO_NODES ?= 2
 GINKGO_TIMEOUT ?= 2h
 GINKGO_POLL_PROGRESS_AFTER ?= 60m
 GINKGO_POLL_PROGRESS_INTERVAL ?= 5m
 E2E_CONF_FILE ?= $(ROOT_DIR)/test/e2e/config/fixture.yaml
+E2E_BMCS_CONF_FILE ?= $(ROOT_DIR)/test/e2e/config/bmcs-fixture.yaml
 USE_EXISTING_CLUSTER ?= false
 SKIP_RESOURCE_CLEANUP ?= false
 GINKGO_NOCOLOR ?= false
@@ -118,7 +119,8 @@ test-e2e: $(GINKGO) ## Run the end-to-end tests
 		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e --focus="$(GINKGO_FOCUS)" \
 		$(_SKIP_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
 		--output-dir="$(ARTIFACTS)" --junit-report="junit.e2e_suite.1.xml" $(GINKGO_ARGS) test/e2e -- \
-		-e2e.config="$(E2E_CONF_FILE)" -e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER) \
+		-e2e.config="$(E2E_CONF_FILE)" -e2e.bmcsConfig="$(E2E_BMCS_CONF_FILE)" \
+		-e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER) \
 		-e2e.skip-resource-cleanup=$(SKIP_RESOURCE_CLEANUP) -e2e.artifacts-folder="$(ARTIFACTS)"
 
 ## --------------------------------------

@@ -391,13 +391,10 @@ echo "%s" >> /root/.ssh/authorized_keys`, sshPubKeyData, sshPubKeyData)
 // PerformSSHBootCheck performs an SSH check to verify the node's boot source.
 // The `expectedBootMode` parameter should be "disk" or "memory".
 // The `auth` parameter is an ssh.AuthMethod for authentication.
-func PerformSSHBootCheck(e2eConfig *Config, expectedBootMode string, auth ssh.AuthMethod) {
-	ip := e2eConfig.GetVariable("IP_BMO_E2E_0")
-	sshPort := e2eConfig.GetVariable("SSH_PORT")
-	address := fmt.Sprintf("%s:%s", ip, sshPort)
+func PerformSSHBootCheck(e2eConfig *Config, expectedBootMode string, auth ssh.AuthMethod, sshAddress string) {
 	user := e2eConfig.GetVariable("CIRROS_USERNAME")
 
-	client := EstablishSSHConnection(e2eConfig, auth, user, address)
+	client := EstablishSSHConnection(e2eConfig, auth, user, sshAddress)
 	defer func() {
 		if client != nil {
 			client.Close()

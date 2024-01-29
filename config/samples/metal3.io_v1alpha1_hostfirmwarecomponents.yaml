@@ -1,0 +1,28 @@
+apiVersion: metal3.io/v1alpha1
+kind: HostFirmwareComponents
+metadata:
+  namespace: host3firmwarecomponents.metal3.io
+spec:
+  updates:
+  - name: bios
+    url: https://myurl.with.firmware.for.bios
+  - name: bmc
+    url: https://myurl.with.firmware.for.bmc
+status:
+  components:
+  - component: bios
+    initialVersion: "v1.0.0"
+    currentVersion: "v1.5.0"
+    lastVersionFlashed: "v1.5.0"
+    updatedAt: "2023-10-13T13:50:06Z"
+  - component: bmc
+    initialVersion: "v1.0.5"
+    currentVersion: "v1.2.0"
+    lastVersionFlashed: "v1.2.0"
+    updatedAt: "2023-10-13T13:50:06Z"
+  updates:
+  - name: bios
+    url: https://myurl.with.firmware.for.bios
+  - name: bmc
+    url: https://myurl.with.firmware.for.bmc
+  lastUpdated: "2023-10-13T13:50:06Z"

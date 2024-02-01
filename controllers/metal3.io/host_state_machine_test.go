@@ -1397,6 +1397,10 @@ func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEvent
 	return result, nil
 }
 
+func (p *mockProvisioner) GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error) {
+	return components, nil
+}
+
 func TestUpdateBootModeStatus(t *testing.T) {
 	testCases := []struct {
 		Scenario       string

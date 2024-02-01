@@ -2,6 +2,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: hostfirmwarecomponents-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: baremetal-operator
+    app.kubernetes.io/part-of: baremetal-operator
+    app.kubernetes.io/managed-by: kustomize
   name: hostfirmwarecomponents-editor-role
 rules:
 - apiGroups:
@@ -9,13 +16,13 @@ rules:
   resources:
   - hostfirmwarecomponents
   verbs:
+  - create
+  - delete
   - get
   - list
-  - watch
-  - create
-  - update
   - patch
-  - delete
+  - update
+  - watch
 - apiGroups:
   - metal3.io
   resources:

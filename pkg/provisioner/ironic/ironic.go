@@ -1152,6 +1152,53 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 	return settings, schema, nil
 }
 
+// GetFirmwareComponents gets all available firmware components for a node and return a list.
+func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareComponentStatus, error) {
+	ironicNode, err := p.getNode()
+	if err != nil {
+		return nil, fmt.Errorf("could not get node to retrieve firmware components: %w", err)
+	}
+
+	if !p.availableFeatures.HasFirmwareUpdates() {
+		return nil, fmt.Errorf("current ironic version does not support firmware updates")
+	}
+	// Get the components from Ironic via Gophercloud
+	componentList, componentListErr := nodes.ListFirmware(p.ctx, p.client, ironicNode.UUID).Extract()
+
+	if componentListErr != nil {
+		bmcAccess, _ := p.bmcAccess()
+		if bmcAccess.FirmwareInterface() == "no-firmware" {
+			return nil, fmt.Errorf("node %s is using firmware interface %s: %w", ironicNode.UUID, bmcAccess.FirmwareInterface(), componentListErr)
+		}
+
+		return nil, fmt.Errorf("could not get firmware components for node %s: %w", ironicNode.UUID, componentListErr)
+	}
+
+	// Setting to 2 since we only support bmc and bios
+	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 2)
+
+	// Iterate over the list of components to extract their information and update the list.
+	for _, fwc := range componentList {
+		if fwc.Component != "bios" && fwc.Component != "bmc" {
+			p.log.Info("ignoring firmware component for node", "component", fwc.Component, "node", ironicNode.UUID)
+			continue
+		}
+		component := metal3api.FirmwareComponentStatus{
+			Component:          fwc.Component,
+			InitialVersion:     fwc.InitialVersion,
+			CurrentVersion:     fwc.CurrentVersion,
+			LastVersionFlashed: fwc.LastVersionFlashed,
+			UpdatedAt: metav1.Time{
+				Time: *fwc.UpdatedAt,
+			},
+		}
+		componentsInfo = append(componentsInfo, component)
+		p.log.Info("firmware component added for node", "component", fwc.Component, "node", ironicNode.UUID)
+	}
+
+	return componentsInfo, componentListErr
+}
+
 // We can't just replace the capabilities because we need to keep the
 // values provided by inspection. We can't replace only the boot_mode
 // because the API isn't fine-grained enough for that. So we have to

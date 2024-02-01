@@ -64,10 +64,11 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: metal3.io
   group: metal3.io
   kind: HostFirmwareComponents
-  path: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha
+  path: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1

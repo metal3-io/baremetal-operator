@@ -1,7 +1,14 @@
-# permissions for end users to edit hostfirmwarecomponents.
+# permissions for end users to view hostfirmwarecomponents.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: hostfirmwarecomponents-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: baremetal-operator
+    app.kubernetes.io/part-of: baremetal-operator
+    app.kubernetes.io/managed-by: kustomize
   name: hostfirmwarecomponents-viewer-role
 rules:
 - apiGroups:

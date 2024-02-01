@@ -22,8 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // FirmwareUpdate defines a firmware update specification.
 type FirmwareUpdate struct {
 	Component string `json:"component"`
@@ -34,9 +32,9 @@ type FirmwareUpdate struct {
 type FirmwareComponentStatus struct {
 	Component          string      `json:"component"`
 	InitialVersion     string      `json:"initialVersion"`
-	CurrentVersion     string      `json:"currentVersion"`
-	LastVersionFlashed string      `json:"lastVersionFlashed"`
-	UpdatedAt          metav1.Time `json:"updatedAt"`
+	CurrentVersion     string      `json:"currentVersion,omitempty"`
+	LastVersionFlashed string      `json:"lastVersionFlashed,omitempty"`
+	UpdatedAt          metav1.Time `json:"updatedAt,omitempty"`
 }
 
 type UpdatesConditionType string
@@ -77,7 +75,6 @@ type HostFirmwareComponentsStatus struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:resource:shortName=hfc
 //+kubebuilder:subresource:status
 
 // HostFirmwareComponents is the Schema for the hostfirmwarecomponents API.

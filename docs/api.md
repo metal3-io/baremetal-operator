@@ -29,6 +29,8 @@ The sub-fields are
 BMC URLs vary based on the type of BMC and the protocol used to
 communicate with them.
 
+<!-- markdownlint-disable MD013 -->
+
 | Technology      | Protocol | Boot method   | Format                                            | Notes                                                                   |
 |-----------------|----------|---------------|---------------------------------------------------|-------------------------------------------------------------------------|
 | Generic IPMI    | IPMI     | iPXE          | `ipmi://<host>:<port>` or just `<host>:<port>`    | Port is optional, defaults to 623                                       |
@@ -44,6 +46,8 @@ communicate with them.
 | HPE iLO 5       | iLO      | iPXE          | `ilo5://<host>:<port>`                            |                                                                         |
 |                 | Redfish  | iPXE          | `ilo5-redfish://<host>:<port>/<systemID>`         |                                                                         |
 |                 | Redfish  | Virtual media | `ilo5-virtualmedia://<host>:<port>/<systemID>`    |                                                                         |
+
+<!-- markdownlint-enable MD013 -->
 
 All protocols based on HTTPS (i.e. not IPMI) with an exception of iRMC allow
 optionally specifying the carrier protocol in the form of `+http` or `+https`,
@@ -834,35 +838,44 @@ metadata:
 
 ## HardwareData
 
-A **HardwareData** resource contains hardware specifications data of a specific host
-and it is tightly coupled to its owner resource BareMetalHost. The data in the HardwareData
-comes from Ironic after a successful inspection phase. As such, operator will create HardwareData
-resource for a specific BareMetalHost during transitioning phase from inspecting into available
-state of the BareMetalHost. HardwareData gets deleted automatically by the operator whenever its
-BareMetalHost is deleted. Deprovisioning of the BareMetalHost should not trigger the deletion of
-HardwareData, but during next provisioning it can be re-created (with the same name and namespace)
-with the latest inspection data retrieved from Ironic. HardwareData holds the same name and namespace
-as its corresponding BareMetalHost resource. Currently, HardwareData doesn't have *Status* subresource
-but only the *Spec*, which we cover next.
+A **HardwareData** resource contains hardware specifications data of a
+specific host and it is tightly coupled to its owner resource
+BareMetalHost. The data in the HardwareData comes from Ironic after a
+successful inspection phase. As such, operator will create HardwareData
+resource for a specific BareMetalHost during transitioning phase from
+inspecting into available state of the BareMetalHost. HardwareData gets
+deleted automatically by the operator whenever its BareMetalHost is
+deleted. Deprovisioning of the BareMetalHost should not trigger the
+deletion of HardwareData, but during next provisioning it can be
+re-created (with the same name and namespace) with the latest inspection
+data retrieved from Ironic. HardwareData holds the same name and
+namespace as its corresponding BareMetalHost resource. Currently,
+HardwareData doesn't have *Status* subresource but only the *Spec*,
+which we cover next.
 
 ### HardwareData spec
 
-As you probably already noticed, the *Spec* of HardwareData is the same as [.Status.hardware](#hardware)
-of the BareMetalHost. However, this behaviour is temporary and eventually we will drop
-[.Status.hardware](#hardware) from BareMetalHost and only rely on HardwareData *Spec*. The reason
-for having duplication of inspection data at the  moment is to avoid breaking the existing deployments.
+As you probably already noticed, the *Spec* of HardwareData is the same
+as [.Status.hardware](#hardware) of the BareMetalHost. However, this
+behaviour is temporary and eventually we will drop
+[.Status.hardware](#hardware) from BareMetalHost and only rely on
+HardwareData *Spec*. The reason for having duplication of inspection
+data at the  moment is to avoid breaking the existing deployments.
 
 ## PreprovisioningImage
 
-A **PreprovisioningImage** resource is automatically created by baremetal-operator for each BareMetalHost
-to ensure creation of a *preprovisioning image* for it. In this context, a preprovisioning image
-is an ISO or initramfs file that contains the [Ironic agent](https://docs.openstack.org/ironic-python-agent/).
-The relevant parts of BareMetalHost are copied to the PreprovisioningImage *Spec*,
+A **PreprovisioningImage** resource is automatically created by
+baremetal-operator for each BareMetalHost to ensure creation of a
+*preprovisioning image* for it. In this context, a preprovisioning image
+is an ISO or initramfs file that contains the [Ironic
+agent](https://docs.openstack.org/ironic-python-agent/). The relevant
+parts of BareMetalHost are copied to the PreprovisioningImage *Spec*,
 the resulting image is expected to appear in the *Status*.
 
-The baremetal-operator project contains a simple controller for PreprovisioningImages
-that uses images provided in the environment variables `DEPLOY_ISO_URL` and `DEPLOY_RAMDISK_URL`.
-More sophisticated controllers may be written downstream (for example, the OpenShift
+The baremetal-operator project contains a simple controller for
+PreprovisioningImages that uses images provided in the environment
+variables `DEPLOY_ISO_URL` and `DEPLOY_RAMDISK_URL`. More sophisticated
+controllers may be written downstream (for example, the OpenShift
 [image-customization-controller](https://github.com/openshift/image-customization-controller)).
 
 ### PreprovisioningImage spec
@@ -874,8 +887,9 @@ The PreprovisioningImage's spec provides input for the image building process.
 * `architecture`: the CPU architecture to build the image for, e.g. `x86_64`.
   The default PreprovisioningImage controller does not use this field.
 
-* `networkData`: the name of a *Secret* with the network configuration for the image.
-  The default PreprovisioningImage controller does not use this field.
+* `networkData`: the name of a *Secret* with the network configuration
+  for the image. The default PreprovisioningImage controller does not
+  use this field.
 
 ### PreprovisioningImage status
 
@@ -883,15 +897,18 @@ The PreprovisioningImage's status provides information about the resulting image
 
 * `architecture`: the CPU architecture of the image, e.g. `x86_64`.
 
-* `extraKernelParams`: additional kernel parameters that baremetal-operator will add to the node
-  when PXE booting the initramfs image. Has no meaning for ISO images.
+* `extraKernelParams`: additional kernel parameters that
+  baremetal-operator will add to the node when PXE booting the initramfs
+  image. Has no meaning for ISO images.
 
-* `format`: format of the image: `iso` or `initrd`. Must be one of the formats provided in `acceptFormats`.
+* `format`: format of the image: `iso` or `initrd`. Must be one of the
+  formats provided in `acceptFormats`.
 
 * `imageUrl`: the URL of the resulting image.
 
-* `kernelUrl`: the URL of the kernel to use together with the initramfs image. If not provided,
-  baremetal-operator uses the default kernel image from the environment variables.
-  Has no meaning for ISO images.
+* `kernelUrl`: the URL of the kernel to use together with the initramfs
+  image. If not provided, baremetal-operator uses the default kernel
+  image from the environment variables. Has no meaning for ISO images.
 
-* `networkData`: the name of a *Secret* with the network configuration of the image.
+* `networkData`: the name of a *Secret* with the network configuration
+  of the image.

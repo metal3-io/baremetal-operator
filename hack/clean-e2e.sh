@@ -7,11 +7,9 @@ minikube delete
 docker rm -f vbmc
 docker rm -f image-server-e2e
 docker rm -f sushy-tools
-virsh -c qemu:///system destroy --domain bmo-e2e-0
-virsh -c qemu:///system undefine --domain bmo-e2e-0 --nvram --remove-all-storage
-virsh -c qemu:///system net-destroy baremetal-e2e
-virsh -c qemu:///system net-undefine baremetal-e2e
+
+"${REPO_ROOT}/tools/bmh_test/clean_local_bmh_test_setup.sh" "^bmo-e2e-"
 
 rm -rf "${REPO_ROOT}/test/e2e/_artifacts"
-rm -rf "${REPO_ROOT}/artifacts.tar.gz"
+rm -rf "${REPO_ROOT}"/artifacts-*
 rm -rf "${REPO_ROOT}/test/e2e/images"

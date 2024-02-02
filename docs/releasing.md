@@ -132,22 +132,21 @@ Branch protection rules need to be applied to the new release branch. Copy the
 settings after the previous release branch, with the exception of
 `Required tests` selection. Required tests can only be selected after new
 keywords are implemented in Jenkins JJB, and project-infra, and have been run at
-least once in the PR targeting the branch in question.
+least once in the PR targeting the branch in question. Branch protection rules
+require user to have `admin` permissions in the repository.
 
 ### Update README.md and build badges
 
 Update `README.md` with release specific information, both on `main` and in the
 new `release-0.x` branch as necessary.
 
-<!-- No example PR yet. To be added when first release from branch is made
-[Example](https://github.com/metal3-io/cluster-api-provider-metal3/pull/949) -->
+[Prior art](https://github.com/metal3-io/baremetal-operator/pull/1517)
 
 In the `release-0.x` branch, update the build badges in the `README.md` to point
 to correct Jenkins jobs, so the build statuses of the release branch are
 visible.
 
-<!-- No example PR yet. To be added when first release from branch is made
-[Example](https://github.com/metal3-io/cluster-api-provider-metal3/pull/951) -->
+[Prior art](https://github.com/metal3-io/baremetal-operator/pull/1518)
 
 ## Additional actions outside this repository
 

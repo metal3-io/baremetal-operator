@@ -1,0 +1,24 @@
+# permissions for end users to edit hostfirmwarecomponents.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hostfirmwarecomponents-editor-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwarecomponents
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwarecomponents/status
+  verbs:
+  - get

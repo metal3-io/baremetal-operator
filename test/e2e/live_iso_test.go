@@ -22,22 +22,14 @@ import (
 
 var _ = Describe("Live-ISO", func() {
 	var (
-		specName       = "live-iso-ops"
-		secretName     = "bmc-credentials"
-		namespace      *corev1.Namespace
-		cancelWatches  context.CancelFunc
-		bmcUser        string
-		bmcPassword    string
-		bmcAddress     string
-		bootMacAddress string
-		imageURL       string
+		specName      = "live-iso-ops"
+		secretName    = "bmc-credentials"
+		namespace     *corev1.Namespace
+		cancelWatches context.CancelFunc
+		imageURL      string
 	)
 
 	BeforeEach(func() {
-		bmcUser = e2eConfig.GetVariable("BMC_USER")
-		bmcPassword = e2eConfig.GetVariable("BMC_PASSWORD")
-		bmcAddress = e2eConfig.GetVariable("BMC_ADDRESS")
-		bootMacAddress = e2eConfig.GetVariable("BOOT_MAC_ADDRESS")
 		imageURL = e2eConfig.GetVariable("IMAGE_URL")
 
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
@@ -51,8 +43,8 @@ var _ = Describe("Live-ISO", func() {
 	It("should provision a BMH with live ISO and then deprovision it", func() {
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
-			"username": bmcUser,
-			"password": bmcPassword,
+			"username": bmc.User,
+			"password": bmc.Password,
 		}
 		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
@@ -69,7 +61,7 @@ var _ = Describe("Live-ISO", func() {
 			Spec: metal3api.BareMetalHostSpec{
 				Online: true,
 				BMC: metal3api.BMCDetails{
-					Address:         bmcAddress,
+					Address:         bmc.Address,
 					CredentialsName: secretName,
 				},
 				Image: &metal3api.Image{
@@ -77,7 +69,7 @@ var _ = Describe("Live-ISO", func() {
 					DiskFormat: pointer.String("live-iso"),
 				},
 				BootMode:       metal3api.Legacy,
-				BootMACAddress: bootMacAddress,
+				BootMACAddress: bmc.BootMacAddress,
 			},
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
@@ -102,7 +94,7 @@ var _ = Describe("Live-ISO", func() {
 			By("Verifying the node booted from live ISO image")
 			password := e2eConfig.GetVariable("CIRROS_PASSWORD")
 			auth := ssh.Password(password)
-			PerformSSHBootCheck(e2eConfig, "memory", auth)
+			PerformSSHBootCheck(e2eConfig, "memory", auth, fmt.Sprintf("%s:%s", bmc.IpAddress, bmc.SSHPort))
 		} else {
 			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}

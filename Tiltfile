@@ -2,6 +2,7 @@
 
 update_settings(k8s_upsert_timeout_secs=60)  # on first tilt up, often can take longer than 30 seconds
 
+load("ext://uibutton", "cmd_button", "location", "text_input")
 # set defaults
 settings = {
     "allowed_contexts": [
@@ -169,6 +170,30 @@ def include_user_tilt_files():
     for f in user_tiltfiles:
         include(f)
 
+def include_custom_buttons(): 
+
+    local_resource(
+        name = "BareMetalHosts",
+        cmd = ["bash", "-c", "echo This is a local resource for BareMetalHosts"],
+        auto_init = False,
+        trigger_mode = TRIGGER_MODE_MANUAL,
+    )
+
+    cmd_button(
+        'BareMetalHosts:add_new_bmh',
+        argv=['sh', '-c', 'tools/bmh_test/create_bmh.sh $NAME $VBMC_PORT $CONSUMER $CONSUMER_NAMESPACE' ],
+        resource = "BareMetalHosts",
+        icon_name='add_box',
+        text='Add New baremetalhost',
+        inputs=[
+            text_input('NAME', '"bmh-test-" is automatically added to the begining of the name. This naming convention is later used to clean the local testing environment.'),
+            text_input('VBMC_PORT'),
+            text_input('CONSUMER'),
+            text_input('CONSUMER_NAMESPACE'),
+        ],
+    )
+
+
 ##############################
 # Actual work happens here
 ##############################
@@ -176,6 +201,8 @@ def include_user_tilt_files():
 validate_auth()
 
 include_user_tilt_files()
+
+include_custom_buttons()
 
 load_provider_tiltfiles(["."])
 local("make tools/bin/kustomize")

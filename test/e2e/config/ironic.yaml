@@ -5,6 +5,8 @@ images:
 - name: quay.io/metal3-io/ironic:e2e
   loadBehavior: tryLoad
 # Save some time and network by using cached images if available
+- name: quay.io/metal3-io/baremetal-operator:release-0.4
+  loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.13.1
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-webhook:v1.13.1
@@ -14,27 +16,23 @@ images:
 
 # These variables can be overridden with environment variables.
 variables:
+  # These settings are for the "default" cluster, which is used for all tests except upgrade ones
   DEPLOY_IRONIC: "true"
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
-  EXPECTED_HOST_NAME: "bmo-e2e-0"
-  # Test credentials. The tests will create a BMH with these.
-  BMC_USER: admin
-  BMC_PASSWORD: password
-  # During development, select the preferred BMC interface when running tests from the command line:
-  # Note: These settings are only applicable for command line executions, not when running via the ci-e2e.sh script.
-  # Uncomment the desired BMC_ADDRESS line:
-  # BMC_ADDRESS: "ipmi://192.168.222.1:16230"
-  BMC_ADDRESS: "redfish+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-0"
-  BOOT_MAC_ADDRESS: "00:60:2f:31:81:01"
+
+  # These settings are for the separate cluster that are used for upgrade tests
+  UPGRADE_DEPLOY_IRONIC: "true"
+  UPGRADE_DEPLOY_BMO: "true"
+  UPGRADE_DEPLOY_CERT_MANAGER: "true"
+  UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/e2e-release-0.4"
+
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.1"
   SSH_CHECK_PROVISIONED: "true"
-  IP_BMO_E2E_0: "192.168.222.122"
-  SSH_PORT: "22"
   CIRROS_USERNAME: "cirros"
   CIRROS_PASSWORD: "gocubsgo"
   SSH_PRIV_KEY: "./images/ssh_testkey"
@@ -52,7 +50,7 @@ intervals:
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-power-state: ["10m", "100ms"]
   default/wait-provisioning: ["20s", "1s"]
-  default/wait-provisioned: ["5m", "1s"]
+  default/wait-provisioned: ["10m", "1s"]
   default/wait-deprovisioning: ["1m", "10ms"]
   default/wait-deleted: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]

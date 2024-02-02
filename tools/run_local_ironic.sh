@@ -31,10 +31,6 @@ IRONIC_CERT_FILE="${IRONIC_CERT_FILE:-}"
 IRONIC_KEY_FILE="${IRONIC_KEY_FILE:-}"
 IRONIC_TLS_SETUP=${IRONIC_TLS_SETUP:-"true"}
 
-IRONIC_INSPECTOR_CACERT_FILE="${IRONIC_INSPECTOR_CACERT_FILE:-}"
-IRONIC_INSPECTOR_CERT_FILE="${IRONIC_INSPECTOR_CERT_FILE:-}"
-IRONIC_INSPECTOR_KEY_FILE="${IRONIC_INSPECTOR_KEY_FILE:-}"
-
 MARIADB_CACERT_FILE="${MARIADB_CACERT_FILE:-}"
 MARIADB_CERT_FILE="${MARIADB_CERT_FILE:-}"
 MARIADB_KEY_FILE="${MARIADB_KEY_FILE:-}"
@@ -72,15 +68,6 @@ if [ "$IRONIC_TLS_SETUP" = "true" ]; then
             -out "${IRONIC_CERT_FILE}" -keyout "${IRONIC_KEY_FILE}"
     fi
 
-    if [ -z "$IRONIC_INSPECTOR_CERT_FILE" ]; then
-        IRONIC_INSPECTOR_CERT_FILE="${IRONIC_DATA_DIR}/tls/inspector.crt"
-        IRONIC_INSPECTOR_KEY_FILE="${IRONIC_DATA_DIR}/tls/inspector.key"
-        IRONIC_INSPECTOR_CACERT_FILE="${IRONIC_CERT_FILE}"
-        sudo openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=ironic" \
-            -addext "subjectAltName = IP:${CLUSTER_PROVISIONING_IP},IP:${PROVISIONING_IP}" \
-            -out "${IRONIC_INSPECTOR_CERT_FILE}" -keyout "${IRONIC_INSPECTOR_KEY_FILE}"
-    fi
-
     export IRONIC_BASE_URL="https://${CLUSTER_PROVISIONING_IP}"
     if [ -z "$IRONIC_CACERT_FILE" ]; then
         export IRONIC_CACERT_FILE=$IRONIC_CERT_FILE
@@ -96,13 +83,11 @@ IRONIC_ENDPOINT="${IRONIC_ENDPOINT:-"${IRONIC_BASE_URL}:6385/v1/"}"
 CACHEURL="${CACHEURL:-"http://${PROVISIONING_IP}/images"}"
 IRONIC_FAST_TRACK="${IRONIC_FAST_TRACK:-"true"}"
 IRONIC_REVERSE_PROXY_SETUP=${IRONIC_REVERSE_PROXY_SETUP:-"true"}
-INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP:-"true"}
 IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB:-"false"}
 if [[ $IRONIC_TLS_SETUP == *false* ]]
 then
      # No reverse proxy for Ironic if TLS is not used
      IRONIC_REVERSE_PROXY_SETUP="false"
-     INSPECTOR_REVERSE_PROXY_SETUP="false"
 fi
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES:-"all"}
 
@@ -120,15 +105,14 @@ IRONIC_FAST_TRACK=${IRONIC_FAST_TRACK}
 IRONIC_KERNEL_PARAMS=${IRONIC_KERNEL_PARAMS}
 IRONIC_BOOT_ISO_SOURCE=${IRONIC_BOOT_ISO_SOURCE}
 IRONIC_TLS_SETUP=${IRONIC_TLS_SETUP}
-IRONIC_INSPECTOR_TLS_SETUP=${IRONIC_TLS_SETUP}
 IRONIC_REVERSE_PROXY_SETUP=${IRONIC_REVERSE_PROXY_SETUP}
-INSPECTOR_REVERSE_PROXY_SETUP=${INSPECTOR_REVERSE_PROXY_SETUP}
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES}
 IPA_BASEURI=${IPA_BASEURI}
 IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB}
 HTTP_PROXY=${HTTP_PROXY}
 HTTPS_PROXY=${HTTPS_PROXY}
 NO_PROXY=${NO_PROXY}
+USE_IRONIC_INSPECTOR=false
 EOF
 
 if [ "$IRONIC_TLS_SETUP" == "true" ] && [ -n "$IRONIC_CA_CERT_B64" ]; then
@@ -163,15 +147,6 @@ fi
 if [ -r "$IRONIC_KEY_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_KEY_FILE}:/certs/ironic/tls.key "
 fi
-if [ -r "$IRONIC_INSPECTOR_CACERT_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_INSPECTOR_CACERT_FILE}:/certs/ca/ironic-inspector/tls.crt "
-fi
-if [ -r "$IRONIC_INSPECTOR_CERT_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_INSPECTOR_CERT_FILE}:/certs/ironic-inspector/tls.crt "
-fi
-if [ -r "$IRONIC_INSPECTOR_KEY_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_INSPECTOR_KEY_FILE}:/certs/ironic-inspector/tls.key "
-fi
 
 if [ -r "$MARIADB_CACERT_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_CACERT_FILE}:/certs/ca/mariadb/tls.crt "
@@ -201,14 +176,6 @@ if [ -n "$IRONIC_USERNAME" ]; then
      BASIC_AUTH_MOUNTS="-v ${IRONIC_DATA_DIR}/auth/ironic-auth-config:/auth/ironic/auth-config"
      IRONIC_HTPASSWD="$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")"
      IRONIC_HTPASSWD="--env HTTP_BASIC_HTPASSWD=${IRONIC_HTPASSWD} --env IRONIC_HTPASSWD=${IRONIC_HTPASSWD}"
-fi
-IRONIC_INSPECTOR_HTPASSWD=""
-if [ -n "$IRONIC_INSPECTOR_USERNAME" ]; then
-     envsubst < "${SCRIPTDIR}/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl" > \
-        "${IRONIC_DATA_DIR}/auth/ironic-inspector-auth-config"
-     BASIC_AUTH_MOUNTS="${BASIC_AUTH_MOUNTS} -v ${IRONIC_DATA_DIR}/auth/ironic-inspector-auth-config:/auth/ironic-inspector/auth-config"
-     IRONIC_INSPECTOR_HTPASSWD="$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" "${IRONIC_INSPECTOR_PASSWORD}")"
-     IRONIC_INSPECTOR_HTPASSWD="--env HTTP_BASIC_HTPASSWD=${IRONIC_INSPECTOR_HTPASSWD} --env INSPECTOR_HTPASSWD=${IRONIC_INSPECTOR_HTPASSWD}"
 fi
 
 sudo mkdir -p "$IRONIC_DATA_DIR/html/images"
@@ -303,12 +270,4 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-endpoin
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-log-watch \
     ${POD} --entrypoint /bin/runlogwatch.sh \
-     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
-
-# Start Ironic Inspector
-# shellcheck disable=SC2086
-sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-inspector \
-     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_INSPECTOR_HTPASSWD} \
-     --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     --entrypoint /bin/runironic-inspector \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"

@@ -5,9 +5,7 @@ kind: Component
 # How you create them is up to you.
 # The required secrets are:
 # - ironic-htpasswd
-# - ironic-inspector-htpasswd
 # - ironic-auth-config
-# - ironic-inspector-auth-config
 #
 # The content should be as in these examples:
 #
@@ -21,21 +19,7 @@ kind: Component
 # apiVersion: v1
 # kind: Secret
 # metadata:
-#   name: ironic-inspector-htpasswd
-# data:
-#   INSPECTOR_HTPASSWD: <base64-encoded-htpasswd-string>
-# ---
-# apiVersion: v1
-# kind: Secret
-# metadata:
 #   name: ironic-auth-config
-# data:
-#   auth-config: <base64-encoded-auth-config>
-# ---
-# apiVersion: v1
-# kind: Secret
-# metadata:
-#   name: ironic-inspector-auth-config
 # data:
 #   auth-config: <base64-encoded-auth-config>
 #

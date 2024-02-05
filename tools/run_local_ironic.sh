@@ -39,6 +39,10 @@ MARIADB_CACERT_FILE="${MARIADB_CACERT_FILE:-}"
 MARIADB_CERT_FILE="${MARIADB_CERT_FILE:-}"
 MARIADB_KEY_FILE="${MARIADB_KEY_FILE:-}"
 
+IPXE_CACERT_FILE="${IPXE_CACERT_FILE:-}"
+IPXE_CERT_FILE="${IPXE_CERT_FILE:-}"
+IPXE_KEY_FILE="${IPXE_KEY_FILE:-}"
+
 # Variables used to configure IPA handling
 IPA_DOWNLOAD_ENABLED="${IPA_DOWNLOAD_ENABLED:-true}"
 USE_LOCAL_IPA="${USE_LOCAL_IPA:-false}"
@@ -149,34 +153,44 @@ fi
 
 CERTS_MOUNTS=""
 
-if [ -n "$IRONIC_CACERT_FILE" ]; then
+if [ -r "$IRONIC_CACERT_FILE" ]; then
      CERTS_MOUNTS="-v ${IRONIC_CACERT_FILE}:/certs/ca/ironic/tls.crt "
 fi
 
-if [ -n "$IRONIC_CERT_FILE" ]; then
+if [ -r "$IRONIC_CERT_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_CERT_FILE}:/certs/ironic/tls.crt "
 fi
-if [ -n "$IRONIC_KEY_FILE" ]; then
+if [ -r "$IRONIC_KEY_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_KEY_FILE}:/certs/ironic/tls.key "
 fi
-if [ -n "$IRONIC_INSPECTOR_CACERT_FILE" ]; then
+if [ -r "$IRONIC_INSPECTOR_CACERT_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_INSPECTOR_CACERT_FILE}:/certs/ca/ironic-inspector/tls.crt "
 fi
-if [ -n "$IRONIC_INSPECTOR_CERT_FILE" ]; then
+if [ -r "$IRONIC_INSPECTOR_CERT_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_INSPECTOR_CERT_FILE}:/certs/ironic-inspector/tls.crt "
 fi
-if [ -n "$IRONIC_INSPECTOR_KEY_FILE" ]; then
+if [ -r "$IRONIC_INSPECTOR_KEY_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_INSPECTOR_KEY_FILE}:/certs/ironic-inspector/tls.key "
 fi
 
-if [ -n "$MARIADB_CACERT_FILE" ]; then
+if [ -r "$MARIADB_CACERT_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_CACERT_FILE}:/certs/ca/mariadb/tls.crt "
 fi
-if [ -n "$MARIADB_CERT_FILE" ]; then
+if [ -r "$MARIADB_CERT_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_CERT_FILE}:/certs/mariadb/tls.crt "
 fi
-if [ -n "$MARIADB_KEY_FILE" ]; then
+if [ -r "$MARIADB_KEY_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_KEY_FILE}:/certs/mariadb/tls.key "
+fi
+
+if [[ -r "${IPXE_CACERT_FILE}" ]]; then
+     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IPXE_CACERT_FILE}:/certs/ca/ipxe/tls.crt "
+fi
+if [[ -r "${IPXE_CERT_FILE}" ]]; then
+     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IPXE_CERT_FILE}:/certs/ipxe/tls.crt "
+fi
+if [[ -r "${IPXE_KEY_FILE}" ]]; then
+     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IPXE_KEY_FILE}:/certs/ipxe/tls.key "
 fi
 
 BASIC_AUTH_MOUNTS=""
@@ -250,7 +264,7 @@ fi
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/rundnsmasq
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
-     ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE

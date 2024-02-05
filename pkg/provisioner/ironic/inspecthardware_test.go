@@ -17,7 +17,6 @@ import (
 )
 
 func TestInspectHardware(t *testing.T) {
-
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 
 	cases := []struct {

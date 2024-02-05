@@ -6,6 +6,7 @@ import (
 )
 
 func compareStrings(t *testing.T, s1, s2 string) bool {
+	t.Helper()
 	if s1 == s2 {
 		return true
 	}

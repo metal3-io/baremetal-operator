@@ -1,0 +1,14 @@
+- user: admin
+  password: password
+  address: "ipmi://192.168.222.1:16230"
+  bootMacAddress: "00:60:2f:31:81:01"
+  hostName: "bmo-e2e-0"
+  ipAddress: "192.168.222.122"
+  sshPort: "22"
+- user: admin
+  password: password
+  address: "ipmi://192.168.222.1:16231"
+  bootMacAddress: "00:60:2f:31:81:02"
+  hostName: "bmo-e2e-1"
+  ipAddress: "192.168.222.123"
+  sshPort: "22"

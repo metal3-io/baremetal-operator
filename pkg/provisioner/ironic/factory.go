@@ -115,7 +115,7 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 	if !havePreprovImgBuilder {
 		if c.deployISOURL == "" &&
 			(c.deployKernelURL == "" || c.deployRamdiskURL == "") {
-			return c, errors.New("Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set")
+			return c, errors.New("either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set")
 		}
 		if (c.deployKernelURL == "" && c.deployRamdiskURL != "") ||
 			(c.deployKernelURL != "" && c.deployRamdiskURL == "") {
@@ -130,14 +130,14 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 	if maxHostsStr := os.Getenv("PROVISIONING_LIMIT"); maxHostsStr != "" {
 		value, err := strconv.Atoi(maxHostsStr)
 		if err != nil {
-			return c, fmt.Errorf("Invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
+			return c, fmt.Errorf("invalid value set for variable PROVISIONING_LIMIT=%s", maxHostsStr)
 		}
 		c.maxBusyHosts = value
 	}
 
 	if forcePersistentBootDevice := os.Getenv("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE"); forcePersistentBootDevice != "" {
 		if forcePersistentBootDevice != "Default" && forcePersistentBootDevice != "Always" && forcePersistentBootDevice != "Never" {
-			return c, fmt.Errorf("Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
+			return c, fmt.Errorf("invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
 		}
 		c.liveISOForcePersistentBootDevice = forcePersistentBootDevice
 	}
@@ -159,7 +159,7 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 func loadEndpointsFromEnv() (ironicEndpoint string, err error) {
 	ironicEndpoint = os.Getenv("IRONIC_ENDPOINT")
 	if ironicEndpoint == "" {
-		err = errors.New("No IRONIC_ENDPOINT variable set")
+		err = errors.New("no IRONIC_ENDPOINT variable set")
 	}
 	return
 }
@@ -179,12 +179,12 @@ func loadTLSConfigFromEnv() clients.TLSConfig {
 	}
 	insecure := false
 	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
-	if strings.ToLower(ironicInsecureStr) == "true" {
+	if strings.EqualFold(ironicInsecureStr, "true") {
 		insecure = true
 	}
 	skipClientSANVerify := false
 	ironicSkipClientSANVerifyStr := os.Getenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
-	if strings.ToLower(ironicSkipClientSANVerifyStr) == "true" {
+	if strings.EqualFold(ironicSkipClientSANVerifyStr, "true") {
 		skipClientSANVerify = true
 	}
 	return clients.TLSConfig{

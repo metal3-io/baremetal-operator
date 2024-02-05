@@ -17,7 +17,6 @@ import (
 )
 
 func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
-
 	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
 	for _, v := range initObjs {
 		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
@@ -36,9 +35,9 @@ func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 }
 
 // TestDemoRegistrationError tests that a host with the right name reports
-// a registration error
+// a registration error.
 func TestDemoRegistrationError(t *testing.T) {
-	host := newDefaultNamedHost(demo.RegistrationErrorHost, t)
+	host := newDefaultNamedHost(t, demo.RegistrationErrorHost)
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -54,9 +53,9 @@ func TestDemoRegistrationError(t *testing.T) {
 }
 
 // TestDemoRegistering tests that a host with the right name reports
-// that it is being registered
+// that it is being registered.
 func TestDemoRegistering(t *testing.T) {
-	host := newDefaultNamedHost(demo.RegisteringHost, t)
+	host := newDefaultNamedHost(t, demo.RegisteringHost)
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -72,9 +71,9 @@ func TestDemoRegistering(t *testing.T) {
 }
 
 // TestDemoInspecting tests that a host with the right name reports
-// that it is being inspected
+// that it is being inspected.
 func TestDemoInspecting(t *testing.T) {
-	host := newDefaultNamedHost(demo.InspectingHost, t)
+	host := newDefaultNamedHost(t, demo.InspectingHost)
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -90,7 +89,7 @@ func TestDemoInspecting(t *testing.T) {
 }
 
 func TestDemoPreparing(t *testing.T) {
-	host := newDefaultNamedHost(demo.PreparingHost, t)
+	host := newDefaultNamedHost(t, demo.PreparingHost)
 	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
@@ -111,7 +110,7 @@ func TestDemoPreparing(t *testing.T) {
 }
 
 func TestDemoPreparingError(t *testing.T) {
-	host := newDefaultNamedHost(demo.PreparingErrorHost, t)
+	host := newDefaultNamedHost(t, demo.PreparingErrorHost)
 	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
@@ -132,9 +131,9 @@ func TestDemoPreparingError(t *testing.T) {
 }
 
 // TestDemoAvailable tests that a host with the right name reports
-// that it is available to be provisioned
+// that it is available to be provisioned.
 func TestDemoAvailable(t *testing.T) {
-	host := newDefaultNamedHost(demo.AvailableHost, t)
+	host := newDefaultNamedHost(t, demo.AvailableHost)
 	r := newDemoReconciler(host)
 
 	tryReconcile(t, r, host,
@@ -150,9 +149,9 @@ func TestDemoAvailable(t *testing.T) {
 }
 
 // TestDemoProvisioning tests that a host with the right name reports
-// that it is being provisioned
+// that it is being provisioned.
 func TestDemoProvisioning(t *testing.T) {
-	host := newDefaultNamedHost(demo.ProvisioningHost, t)
+	host := newDefaultNamedHost(t, demo.ProvisioningHost)
 	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
@@ -173,9 +172,9 @@ func TestDemoProvisioning(t *testing.T) {
 }
 
 // TestDemoProvisioned tests that a host with the right name reports
-// that it has been provisioned
+// that it has been provisioned.
 func TestDemoProvisioned(t *testing.T) {
-	host := newDefaultNamedHost(demo.ProvisionedHost, t)
+	host := newDefaultNamedHost(t, demo.ProvisionedHost)
 	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",
@@ -196,9 +195,9 @@ func TestDemoProvisioned(t *testing.T) {
 }
 
 // TestDemoValidationError tests that a host with the right name
-// reports that it had and error while being provisioned
+// reports that it had and error while being provisioned.
 func TestDemoValidationError(t *testing.T) {
-	host := newDefaultNamedHost(demo.ValidationErrorHost, t)
+	host := newDefaultNamedHost(t, demo.ValidationErrorHost)
 	host.Spec.Image = &metal3api.Image{
 		URL:      "a-url",
 		Checksum: "a-checksum",

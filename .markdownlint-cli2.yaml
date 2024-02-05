@@ -1,0 +1,9 @@
+# Reference: https://github.com/DavidAnson/markdownlint-cli2#markdownlint-cli2yaml
+
+config:
+  ul-indent:
+    # Kramdown wanted us to have 3 earlier, tho this CLI recommends 2 or 4
+    indent: 3
+
+# Don't autofix anything, we're linting here
+fix: false

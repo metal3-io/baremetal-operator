@@ -46,6 +46,7 @@ func (f *EnvFixture) SetUp() {
 }
 
 func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
+	t.Helper()
 	assert.Equal(t, f.kernelURL, c.deployKernelURL)
 	assert.Equal(t, f.ramdiskURL, c.deployRamdiskURL)
 	assert.Equal(t, f.isoURL, c.deployISOURL)
@@ -53,6 +54,7 @@ func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
 }
 
 func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic string) {
+	t.Helper()
 	assert.Equal(t, f.ironicEndpoint, ironic)
 }
 
@@ -88,21 +90,21 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		{
 			name:          "no deploy info",
 			env:           EnvFixture{},
-			expectedError: "Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError: "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
 		},
 		{
 			name: "only kernel",
 			env: EnvFixture{
 				kernelURL: "http://kernel",
 			},
-			expectedError: "Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError: "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
 		},
 		{
 			name: "only ramdisk",
 			env: EnvFixture{
 				ramdiskURL: "http://ramdisk",
 			},
-			expectedError:         "Either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError:         "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
 			expectedImgBuildError: "DEPLOY_RAMDISK_URL requires DEPLOY_KERNEL_URL to be set also",
 		},
 		{
@@ -152,8 +154,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 				isoURL:                           "http://iso",
 				liveISOForcePersistentBootDevice: "NotAValidOption",
 			},
-			expectedError:         "Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
-			expectedImgBuildError: "Invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
+			expectedError:         "invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
+			expectedImgBuildError: "invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
 		},
 	}
 

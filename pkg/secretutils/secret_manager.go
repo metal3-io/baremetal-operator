@@ -30,7 +30,7 @@ type SecretManager struct {
 	apiReader client.Reader
 }
 
-// NewSecretManager returns a new SecretManager
+// NewSecretManager returns a new SecretManager.
 func NewSecretManager(log logr.Logger, cacheClient client.Client, apiReader client.Reader) SecretManager {
 	return SecretManager{
 		log:       log.WithName("secret_manager"),
@@ -69,7 +69,7 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 	log := sm.log.WithValues("secret", secret.Name, "secretNamespace", secret.Namespace)
 	needsUpdate := false
 	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
-		log.Info("settting secret environment label")
+		log.Info("setting secret environment label")
 		metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
 		needsUpdate = true
 	}

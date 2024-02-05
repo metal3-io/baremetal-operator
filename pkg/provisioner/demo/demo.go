@@ -67,7 +67,7 @@ type demoProvisioner struct {
 
 type Demo struct{}
 
-// NewProvisioner returns a new demo Provisioner
+// NewProvisioner returns a new demo Provisioner.
 func (d Demo) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
 		objectMeta: hostData.ObjectMeta,
@@ -91,7 +91,6 @@ func (p *demoProvisioner) ValidateManagementAccess(_ provisioner.ManagementAcces
 	hostName := p.objectMeta.Name
 
 	switch hostName {
-
 	case RegistrationErrorHost:
 		// We have set an error, so Reconcile() will stop
 		result.ErrorMessage = "failed to register new host"
@@ -192,12 +191,11 @@ func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareSta
 	return
 }
 
-// Prepare remove existing configuration and set new configuration
+// Prepare remove existing configuration and set new configuration.
 func (p *demoProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
 	hostName := p.objectMeta.Name
 
 	switch hostName {
-
 	case PreparingErrorHost:
 		p.log.Info("preparing error host")
 		result.ErrorMessage = "preparing failed"
@@ -228,12 +226,10 @@ func (p *demoProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisi
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
 func (p *demoProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
-
 	hostName := p.objectMeta.Name
 	p.log.Info("provisioning image to host")
 
 	switch hostName {
-
 	case ValidationErrorHost:
 		p.log.Info("setting validation error")
 		result.ErrorMessage = "validation failed"
@@ -254,7 +250,6 @@ func (p *demoProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
 func (p *demoProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
-
 	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
@@ -310,7 +305,6 @@ func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
 func (p *demoProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
-
 	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
@@ -331,7 +325,6 @@ func (p *demoProvisioner) PowerOn(_ bool) (result provisioner.Result, err error)
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
 func (p *demoProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
-
 	hostName := p.objectMeta.Name
 	switch hostName {
 	default:
@@ -355,7 +348,6 @@ func (p *demoProvisioner) TryInit() (result bool, err error) {
 }
 
 func (p *demoProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
-
 	p.log.Info("getting BIOS settings")
 	return
 }

@@ -17,7 +17,7 @@ const (
 	softwareRAIDInterface string = "agent"
 )
 
-// setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps
+// setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps.
 func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (provisioner.Result, error) {
 	targetRaidInterface, err := CheckRAIDInterface(raidInterface, data.TargetRAIDConfig, data.ActualRAIDConfig)
 	if err != nil {
@@ -62,7 +62,7 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 	return provisioner.Result{}, nil
 }
 
-// BuildTargetRAIDCfg build RAID logical disks, this method doesn't set the root volume
+// BuildTargetRAIDCfg build RAID logical disks, this method doesn't set the root volume.
 func BuildTargetRAIDCfg(raid *metal3api.RAIDConfig) (logicalDisks []nodes.LogicalDisk, err error) {
 	// Deal possible panic
 	defer func() {
@@ -86,7 +86,7 @@ func BuildTargetRAIDCfg(raid *metal3api.RAIDConfig) (logicalDisks []nodes.Logica
 	return
 }
 
-// A private method to build hardware RAID disks
+// A private method to build hardware RAID disks.
 func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
 	var (
 		logicalDisk    nodes.LogicalDisk
@@ -151,7 +151,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 	return
 }
 
-// A private method to build software RAID disks
+// A private method to build software RAID disks.
 func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logicalDisks []nodes.LogicalDisk, err error) {
 	var (
 		logicalDisk nodes.LogicalDisk
@@ -183,7 +183,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 	return
 }
 
-// BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec
+// BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec.
 func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, actual *metal3api.RAIDConfig) (cleanSteps []nodes.CleanStep, err error) {
 	_, err = CheckRAIDInterface(raidInterface, target, actual)
 	if err != nil {
@@ -276,7 +276,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, act
 	return
 }
 
-// CheckRAIDInterface checks the current RAID interface against the requested configuration
+// CheckRAIDInterface checks the current RAID interface against the requested configuration.
 func CheckRAIDInterface(raidInterface string, target, actual *metal3api.RAIDConfig) (string, error) {
 	if target == nil {
 		return raidInterface, nil

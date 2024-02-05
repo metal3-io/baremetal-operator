@@ -10,8 +10,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -29,11 +27,17 @@ var (
 	// configPath is the path to the e2e config file.
 	configPath string
 
+	// bmcConfigPath is the path to the file whose content is the list of bmcs used in the test
+	bmcConfigPath string
+
 	// useExistingCluster instructs the test to use the current cluster instead of creating a new one (default discovery rules apply).
 	useExistingCluster bool
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *Config
+
+	// bmcs to be used for this test, read from bmcConfigPath
+	bmcs *[]BMC
 
 	// artifactFolder is the folder to store e2e test artifacts.
 	artifactFolder string
@@ -47,10 +51,14 @@ var (
 	// clusterProvider manages provisioning of the cluster to be used for the e2e tests.
 	// Please note that provisioning will be skipped if e2e.use-existing-cluster is provided.
 	clusterProvider bootstrap.ClusterProvider
+
+	// the BMC instance to use in a parallel test
+	bmc BMC
 )
 
 func init() {
 	flag.StringVar(&configPath, "e2e.config", "", "path to the e2e config file")
+	flag.StringVar(&bmcConfigPath, "e2e.bmcsConfig", "", "path to the bmcs config file")
 	flag.StringVar(&artifactFolder, "e2e.artifacts-folder", "_artifacts", "folder where e2e test artifact should be stored")
 	flag.BoolVar(&useExistingCluster, "e2e.use-existing-cluster", false, "if true, the test uses the current cluster instead of creating a new one (default discovery rules apply)")
 	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
@@ -116,64 +124,39 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		}
 	}
 
+	bmoIronicNamespace := "baremetal-operator-system"
+
 	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
 		// Install Ironic
 		By("Installing Ironic")
-		kustomization := e2eConfig.GetVariable("IRONIC_KUSTOMIZATION")
-		manifest, err := buildKustomizeManifest(kustomization)
-		Expect(err).NotTo(HaveOccurred())
-		err = clusterProxy.Apply(ctx, manifest)
+		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+			Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
+			ClusterProxy:        clusterProxy,
+			WaitForDeployment:   true,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "ironic",
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		})
 		Expect(err).NotTo(HaveOccurred())
 
-		ironicDeployment := &v1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ironic",
-				Namespace: "baremetal-operator-system",
-			},
-		}
-		// Wait for it to become available
-		framework.WaitForDeploymentsAvailable(ctx, framework.WaitForDeploymentsAvailableInput{
-			Getter:     clusterProxy.GetClient(),
-			Deployment: ironicDeployment,
-		}, e2eConfig.GetIntervals("ironic", "wait-deployment")...)
-		// Set up log watcher
-		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
-			GetLister:  clusterProxy.GetClient(),
-			Cache:      clusterProxy.GetCache(ctx),
-			ClientSet:  clusterProxy.GetClientSet(),
-			Deployment: ironicDeployment,
-			LogPath:    filepath.Join(artifactFolder, "logs", ironicDeployment.GetNamespace()),
-		})
 	}
 
 	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {
 		// Install BMO
 		By("Installing BMO")
-		kustomization := e2eConfig.GetVariable("BMO_KUSTOMIZATION")
-		manifest, err := buildKustomizeManifest(kustomization)
-		Expect(err).NotTo(HaveOccurred())
-		err = clusterProxy.Apply(ctx, manifest)
-		Expect(err).NotTo(HaveOccurred())
-
-		bmoDeployment := &v1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "baremetal-operator-controller-manager",
-				Namespace: "baremetal-operator-system",
-			},
-		}
-		// Wait for it to become available
-		framework.WaitForDeploymentsAvailable(ctx, framework.WaitForDeploymentsAvailableInput{
-			Getter:     clusterProxy.GetClient(),
-			Deployment: bmoDeployment,
-		}, e2eConfig.GetIntervals("default", "wait-deployment")...)
-		// Set up log watcher
-		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
-			GetLister:  clusterProxy.GetClient(),
-			Cache:      clusterProxy.GetCache(ctx),
-			ClientSet:  clusterProxy.GetClientSet(),
-			Deployment: bmoDeployment,
-			LogPath:    filepath.Join(artifactFolder, "logs", bmoDeployment.GetNamespace()),
+		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+			Kustomization:       e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
+			ClusterProxy:        clusterProxy,
+			WaitForDeployment:   true,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "baremetal-operator-controller-manager",
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 		})
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	return []byte(strings.Join([]string{clusterProxy.GetKubeconfigPath()}, ","))
@@ -188,6 +171,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	metal3api.AddToScheme(scheme)
 
 	e2eConfig = LoadE2EConfig(configPath)
+	bmcs = LoadBMCConfig(bmcConfigPath)
+	bmc = (*bmcs)[GinkgoParallelProcess()-1]
 	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
 })
 

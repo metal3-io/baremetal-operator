@@ -2,7 +2,7 @@
 
 # -----------------------------------------------------------------------------
 # Description: This script sets up the environment and runs E2E tests for the
-#              BMO project. It uses either vbmc or sushy-tools based on 
+#              BMO project. It uses either vbmc or sushy-tools based on
 #              the BMO_E2E_EMULATOR environment variable.
 # Usage:       export BMO_E2E_EMULATOR="vbmc"  # Or "sushy-tools"
 #              ./ci-e2e.sh
@@ -17,6 +17,20 @@ cd "${REPO_ROOT}" || exit 1
 # BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
 BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 
+export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
+
+case "${GINKGO_FOCUS:-}" in
+  *upgrade*)
+    export DEPLOY_IRONIC="false"
+    export DEPLOY_BMO="false"
+    export DEPLOY_CERT_MANAGER="false"
+    ;;
+  *)
+    export GINKGO_SKIP="${GINKGO_SKIP:-upgrade}"
+    ;;
+esac
+export USE_EXISTING_CLUSTER="true"
+
 # Ensure requirements are installed
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="${PATH}:/usr/local/go/bin"
@@ -24,6 +38,7 @@ export PATH="${PATH}:/usr/local/go/bin"
 "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
+"${REPO_ROOT}/hack/e2e/ensure_yq.sh"
 
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
@@ -45,58 +60,20 @@ minikube start
 # Load the BMO e2e image into it
 minikube image load quay.io/metal3-io/baremetal-operator:e2e
 
-# Create libvirt domain
-VM_NAME="bmo-e2e-0"
-export BOOT_MAC_ADDRESS="00:60:2f:31:81:01"
-SERIAL_LOG_PATH="/var/log/libvirt/qemu/${VM_NAME}-serial0.log"
-
-virt-install \
-  --connect qemu:///system \
-  --name "${VM_NAME}" \
-  --description "Virtualized BareMetalHost" \
-  --osinfo=ubuntu-lts-latest \
-  --ram=4096 \
-  --vcpus=2 \
-  --disk size=20 \
-  --graphics=none \
-  --console pty,target_type=serial \
-  --serial file,path="${SERIAL_LOG_PATH}" \
-  --xml "./devices/serial/@type=pty" \
-  --xml "./devices/serial/log/@file=${SERIAL_LOG_PATH}" \
-  --xml "./devices/serial/log/@append=on" \
-  --pxe \
-  --network network=baremetal-e2e,mac="${BOOT_MAC_ADDRESS}" \
-  --noautoconsole
-
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 
-# These variables are used by the tests. They override variables in the config file.
-# These are the VBMC defaults (used since we did not specify anything else for `vbmc add`).
-export BMC_USER=admin
-export BMC_PASSWORD=password
-
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
-	# VBMC variables
-  VBMC_PORT="16230"
-  export BMC_ADDRESS="ipmi://${IP_ADDRESS}:${VBMC_PORT}"
-
   # Start VBMC
   docker run --name vbmc --network host -d \
     -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
     -v /var/run/libvirt/libvirt-sock-ro:/var/run/libvirt/libvirt-sock-ro \
     quay.io/metal3-io/vbmc
 
-  # Add BMH VM to VBMC
-  docker exec vbmc vbmc add "${VM_NAME}" --port "${VBMC_PORT}"
-  docker exec vbmc vbmc start "${VM_NAME}"
-  docker exec vbmc vbmc list
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
-  SUSHY_PORT="8000"
-  export BMC_ADDRESS="redfish+http://${IP_ADDRESS}:${SUSHY_PORT}/redfish/v1/Systems/${VM_NAME}"
 
   # Start sushy-tools
   docker run --name sushy-tools -d --network host \
@@ -109,6 +86,13 @@ else
   echo "Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1
 fi
+
+export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMO_E2E_EMULATOR}.yaml"
+"${REPO_ROOT}/hack/create_bmcs.sh" "${E2E_BMCS_CONF_FILE}" baremetal-e2e
+
+# Set the number of ginkgo processes to the number of BMCs
+n_vms=$(yq '. | length' "${E2E_BMCS_CONF_FILE}")
+export GINKGO_NODES="${n_vms}"
 
 # Image server variables
 CIRROS_VERSION="0.6.2"
@@ -142,6 +126,12 @@ echo "${IRONIC_PASSWORD}" > "${BMO_OVERLAY}/ironic-password"
 echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_OVERLAY}/ironic-inspector-username"
 echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_OVERLAY}/ironic-inspector-password"
 
+BMO_UPGRADE_FROM_OVERLAY="${REPO_ROOT}/config/overlays/e2e-release-0.4"
+echo "${IRONIC_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-username"
+echo "${IRONIC_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-password"
+echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-username"
+echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-password"
+
 envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${IRONIC_OVERLAY}/ironic-auth-config"
 envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl" > \
@@ -151,6 +141,7 @@ echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWOR
   "${IRONIC_OVERLAY}/ironic-htpasswd"
 echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
   "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_OVERLAY}/ironic-inspector-htpasswd"
+
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e
@@ -165,6 +156,6 @@ sudo sh -c "cp -r /var/log/libvirt/qemu/* ${LOGS_DIR}/qemu/"
 sudo chown -R "${USER}:${USER}" "${LOGS_DIR}/qemu"
 
 # Collect all artifacts
-tar --directory test/e2e/ -czf artifacts.tar.gz _artifacts
+tar --directory test/e2e/ -czf "artifacts-e2e-${BMO_E2E_EMULATOR}.tar.gz" _artifacts
 
 exit "${test_status}"

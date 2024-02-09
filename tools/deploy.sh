@@ -189,6 +189,12 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     pushd "${TEMP_IRONIC_OVERLAY}"
     ${KUSTOMIZE} create --resources=../../../config/namespace \
     --namespace=baremetal-operator-system --nameprefix=baremetal-operator-
+    # Disable the name suffix hash for generated resources.
+    # facilitating better compatibility with development tools like Tilt
+    cat <<EOF >>kustomization.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+EOF
 
     if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         ${KUSTOMIZE} edit add secret ironic-htpasswd --from-env-file=ironic-htpasswd
@@ -229,6 +235,12 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     pushd "${TEMP_BMO_OVERLAY}"
     ${KUSTOMIZE} create --resources=../../base,../../namespace \
     --namespace=baremetal-operator-system
+    # Disable the name suffix hash for generated resources.
+    # facilitating better compatibility with development tools like Tilt
+    cat <<EOF >>kustomization.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+EOF
 
     if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         ${KUSTOMIZE} edit add component ../../components/basic-auth

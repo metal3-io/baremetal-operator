@@ -20,7 +20,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: HostFirmwareSettings is the Schema for the hostfirmwaresettings
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -35,7 +35,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HostFirmwareSettingsSpec defines the desired state of HostFirmwareSettings
+            description: HostFirmwareSettingsSpec defines the desired state of HostFirmwareSettings.
             properties:
               settings:
                 additionalProperties:
@@ -51,7 +51,7 @@ spec:
             type: object
           status:
             description: HostFirmwareSettingsStatus defines the observed state of
-              HostFirmwareSettings
+              HostFirmwareSettings.
             properties:
               conditions:
                 description: Track whether settings stored in the spec are valid based

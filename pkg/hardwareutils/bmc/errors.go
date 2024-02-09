@@ -17,7 +17,7 @@ func (e UnknownBMCTypeError) Error() string {
 }
 
 // CredentialsValidationError is returned when the provided BMC credentials
-// are invalid (e.g. null)
+// are invalid (e.g. null).
 type CredentialsValidationError struct {
 	message string
 }

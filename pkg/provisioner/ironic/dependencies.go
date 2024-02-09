@@ -7,7 +7,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
-// TryInit checks if the provisioning backend is available
+// TryInit checks if the provisioning backend is available.
 func (p *ironicProvisioner) TryInit() (ready bool, err error) {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
 

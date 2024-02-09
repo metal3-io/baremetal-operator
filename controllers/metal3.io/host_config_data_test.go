@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	goctx "context"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -336,10 +335,10 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			tc.Host.Spec.Online = true
 
 			c := fakeclient.NewClientBuilder().WithObjects(tc.Host).Build()
-			c.Create(goctx.TODO(), testBMCSecret)
-			c.Create(goctx.TODO(), tc.UserDataSecret)
-			c.Create(goctx.TODO(), tc.NetworkDataSecret)
-			c.Create(goctx.TODO(), tc.PreprovNetworkDataSecret)
+			c.Create(context.TODO(), testBMCSecret)
+			c.Create(context.TODO(), tc.UserDataSecret)
+			c.Create(context.TODO(), tc.NetworkDataSecret)
+			c.Create(context.TODO(), tc.PreprovNetworkDataSecret)
 			baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
 			hcd := &hostConfigData{
 				host:          tc.Host,

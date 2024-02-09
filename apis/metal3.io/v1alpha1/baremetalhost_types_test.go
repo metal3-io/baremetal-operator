@@ -10,7 +10,6 @@ import (
 )
 
 func TestHostNeedsHardwareInspection(t *testing.T) {
-
 	testCases := []struct {
 		Scenario string
 		Host     BareMetalHost

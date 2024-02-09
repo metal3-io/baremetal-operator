@@ -20,7 +20,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: HostFirmwareComponents is the Schema for the hostfirmwarecomponents
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -35,7 +35,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HostFirmwareComponentsSpec defines the desired state of HostFirmwareComponents
+            description: HostFirmwareComponentsSpec defines the desired state of HostFirmwareComponents.
             properties:
               updates:
                 items:
@@ -55,7 +55,7 @@ spec:
             type: object
           status:
             description: HostFirmwareComponentsStatus defines the observed state of
-              HostFirmwareComponents
+              HostFirmwareComponents.
             properties:
               components:
                 description: Components is the list of all available firmware components

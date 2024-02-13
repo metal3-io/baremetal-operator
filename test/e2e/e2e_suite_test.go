@@ -129,7 +129,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
 		// Install Ironic
 		By("Installing Ironic")
-		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
 			Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
 			ClusterProxy:        clusterProxy,
 			WaitForDeployment:   true,
@@ -146,7 +146,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {
 		// Install BMO
 		By("Installing BMO")
-		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
 			Kustomization:       e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
 			ClusterProxy:        clusterProxy,
 			WaitForDeployment:   true,

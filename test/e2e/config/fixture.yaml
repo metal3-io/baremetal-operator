@@ -19,11 +19,8 @@ variables:
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/fixture"
 
-  # These settings are for the separate cluster that are used for upgrade tests
-  UPGRADE_DEPLOY_IRONIC: "false"
-  UPGRADE_DEPLOY_BMO: "true"
+  # This setting is for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
-  UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/fixture-release-0.5"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"
@@ -50,3 +47,20 @@ intervals:
   default/wait-deleted: ["5s", "10ms"]
   default/wait-secret-deletion: ["5s", "10ms"]
   default/wait-power-state: ["5s", "10ms"]
+
+bmoIronicUpgradeSpecs:
+- deployIronic: false
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/fixture-release-0.3"
+  upgradeEntityKustomization: "../../config/overlays/fixture"
+  upgradeEntityName: "bmo"
+- deployIronic: false
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/fixture-release-0.4"
+  upgradeEntityKustomization: "../../config/overlays/fixture"
+  upgradeEntityName: "bmo"
+- deployIronic: false
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/fixture-release-0.5"
+  upgradeEntityKustomization: "../../config/overlays/fixture"
+  upgradeEntityName: "bmo"

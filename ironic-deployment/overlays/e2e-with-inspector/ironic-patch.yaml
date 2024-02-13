@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ironic
+spec:
+  template:
+    spec:
+      containers:
+      - name: ironic-dnsmasq
+        $patch: delete

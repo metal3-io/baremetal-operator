@@ -72,13 +72,13 @@ func TestE2e(t *testing.T) {
 	g.Expect(os.MkdirAll(artifactFolder, 0755)).To(Succeed(), "Invalid test suite argument. Can't create e2e.artifacts-folder %q", artifactFolder)
 
 	RegisterFailHandler(Fail)
+	Expect(configPath).To(BeAnExistingFile(), "Invalid test suite argument. e2e.config should be an existing file.")
+	e2eConfig = LoadE2EConfig(configPath)
 	RunSpecs(t, "E2e Suite")
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	var kubeconfigPath string
-	Expect(configPath).To(BeAnExistingFile(), "Invalid test suite argument. e2e.config should be an existing file.")
-	e2eConfig = LoadE2EConfig(configPath)
 
 	if useExistingCluster {
 		kubeconfigPath = os.Getenv("KUBECONFIG")

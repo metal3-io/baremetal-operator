@@ -24,6 +24,7 @@ case "${GINKGO_FOCUS:-}" in
     export DEPLOY_IRONIC="false"
     export DEPLOY_BMO="false"
     export DEPLOY_CERT_MANAGER="false"
+    export GINKGO_NODES=1
     ;;
   *)
     export GINKGO_SKIP="${GINKGO_SKIP:-upgrade}"
@@ -94,10 +95,6 @@ fi
 export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMO_E2E_EMULATOR}.yaml"
 "${REPO_ROOT}/hack/create_bmcs.sh" "${E2E_BMCS_CONF_FILE}" baremetal-e2e
 
-# Set the number of ginkgo processes to the number of BMCs
-n_vms=$(yq '. | length' "${E2E_BMCS_CONF_FILE}")
-export GINKGO_NODES="${n_vms}"
-
 # Image server variables
 CIRROS_VERSION="0.6.2"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
@@ -117,7 +114,7 @@ docker run --name image-server-e2e -d \
 ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
 
 # Generate credentials
-BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
+BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.3" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
 IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
 
 IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
@@ -143,6 +140,18 @@ done
 echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
   "${IRONIC_OVERLAY}/ironic-htpasswd"
 
+IRONIC_WITH_INSPECTOR_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector"
+envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
+  "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-auth-config"
+
+echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+  "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-htpasswd"
+IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
+curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl 
+envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
+  "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-inspector-auth-config"
+echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
+  "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-inspector-htpasswd"
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e

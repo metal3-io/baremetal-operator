@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -21,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
 
 	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 
@@ -409,10 +411,10 @@ func PerformSSHBootCheck(e2eConfig *Config, expectedBootMode string, auth ssh.Au
 	Expect(isExpectedBootMode).To(BeTrue(), fmt.Sprintf("Expected booting from %s, but found different mode", expectedBootMode))
 }
 
-// BuildAndApplyKustomizeInput provides input for BuildAndApplyKustomize().
+// BuildAndApplyKustomizationInput provides input for BuildAndApplyKustomize().
 // If WaitForDeployment and/or WatchDeploymentLogs is set to true, then DeploymentName
 // and DeploymentNamespace are expected.
-type BuildAndApplyKustomizeInput struct {
+type BuildAndApplyKustomizationInput struct {
 	// Path to the kustomization to build
 	Kustomization string
 
@@ -437,7 +439,7 @@ type BuildAndApplyKustomizeInput struct {
 	WaitIntervals []interface{}
 }
 
-func (input *BuildAndApplyKustomizeInput) validate() error {
+func (input *BuildAndApplyKustomizationInput) validate() error {
 	// If neither WaitForDeployment nor WatchDeploymentLogs is true, we don't need to validate the input
 	if !input.WaitForDeployment && !input.WatchDeploymentLogs {
 		return nil
@@ -454,9 +456,9 @@ func (input *BuildAndApplyKustomizeInput) validate() error {
 	return nil
 }
 
-// BuildAndApplyKustomize takes input from BuildAndApplyKustomizeInput. It builds the provided kustomization
+// BuildAndApplyKustomization takes input from BuildAndApplyKustomizationInput. It builds the provided kustomization
 // and apply it to the cluster provided by clusterProxy.
-func BuildAndApplyKustomize(ctx context.Context, input *BuildAndApplyKustomizeInput) error {
+func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomizationInput) error {
 	Expect(input.validate()).To(BeNil())
 	var err error
 	kustomization := input.Kustomization
@@ -465,6 +467,7 @@ func BuildAndApplyKustomize(ctx context.Context, input *BuildAndApplyKustomizeIn
 	if err != nil {
 		return err
 	}
+
 	err = clusterProxy.Apply(ctx, manifest)
 	if err != nil {
 		return err
@@ -517,4 +520,31 @@ func DeploymentRolledOut(ctx context.Context, clusterProxy framework.ClusterProx
 			(deploy.Status.ObservedGeneration >= desiredGeneration)
 	}
 	return false
+}
+
+// KubectlDelete shells out to kubectl delete.
+func KubectlDelete(ctx context.Context, kubeconfigPath string, resources []byte, args ...string) error {
+	aargs := append([]string{"delete", "--kubeconfig", kubeconfigPath, "-f", "-"}, args...)
+	rbytes := bytes.NewReader(resources)
+	deleteCmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(aargs...),
+		testexec.WithStdin(rbytes),
+	)
+
+	fmt.Printf("Running kubectl %s\n", strings.Join(aargs, " "))
+	stdout, stderr, err := deleteCmd.Run(ctx)
+	fmt.Printf("stderr:\n%s\n", string(stderr))
+	fmt.Printf("stdout:\n%s\n", string(stdout))
+	return err
+}
+
+// BuildAndRemoveKustomization builds the provided kustomization to resources and removes them from the cluster
+// provided by clusterProxy.
+func BuildAndRemoveKustomization(ctx context.Context, kustomization string, clusterProxy framework.ClusterProxy) error {
+	manifest, err := buildKustomizeManifest(kustomization)
+	if err != nil {
+		return err
+	}
+	return KubectlDelete(ctx, clusterProxy.GetKubeconfigPath(), manifest)
 }

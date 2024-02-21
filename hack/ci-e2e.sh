@@ -118,14 +118,22 @@ IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
 
 IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 
 # These must be exported so that envsubst can pick them up below
 export IRONIC_USERNAME
 export IRONIC_PASSWORD
+export IRONIC_INSPECTOR_USERNAME
+export IRONIC_INSPECTOR_PASSWORD
 
 for overlay in "${BMO_OVERLAYS[@]}"; do
   echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
   echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
+  if [[ "${overlay}" =~ release-0\.[1-5]$ ]]; then
+    echo "${IRONIC_INSPECTOR_USERNAME}" > "${overlay}/ironic-inspector-username"
+    echo "${IRONIC_INSPECTOR_PASSWORD}" > "${overlay}/ironic-inspector-password"
+  fi
 done
 
 envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \

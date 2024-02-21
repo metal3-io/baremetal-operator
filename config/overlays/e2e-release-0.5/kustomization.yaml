@@ -30,3 +30,7 @@ secretGenerator:
   files:
   - username=ironic-username
   - password=ironic-password
+- name: ironic-inspector-credentials
+  files:
+  - username=ironic-inspector-username
+  - password=ironic-inspector-password

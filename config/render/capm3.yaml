@@ -2166,6 +2166,7 @@ data:
   IRONIC_ENDPOINT: http://172.22.0.2:6385/v1/
   IRONIC_FAST_TRACK: "true"
   PROVISIONING_INTERFACE: eth2
+  USE_IRONIC_INSPECTOR: "true"
 kind: ConfigMap
 metadata:
   name: ironic

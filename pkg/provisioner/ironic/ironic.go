@@ -3,6 +3,8 @@ package ironic
 import (
 	"fmt"
 	"net"
+	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -443,6 +445,26 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
 
+		var bmcAddressChanged bool
+		newAddress := make(map[string]interface{})
+		ironicAddress := make(map[string]interface{})
+		reg := regexp.MustCompile("_address$")
+		for key, value := range driverInfo {
+			if reg.MatchString(key) {
+				newAddress[key] = value
+				break
+			}
+		}
+		for key, value := range ironicNode.DriverInfo {
+			if reg.MatchString(key) {
+				ironicAddress[key] = value
+				break
+			}
+		}
+		if !reflect.DeepEqual(newAddress, ironicAddress) {
+			bmcAddressChanged = true
+		}
+
 		// When node exists but has no assigned port to it by Ironic and actuall address (MAC) is present
 		// in host config and is not allocated to different node lets try to create port for this node.
 		if p.bootMACAddress != "" {
@@ -472,9 +494,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		}
 
 		// The actual password is not returned from ironic, so we want to
-		// update the whole DriverInfo only if the credentials have changed
-		// otherwise we will be writing on every call to this function.
-		if credentialsChanged {
+		// update the whole DriverInfo only if the credentials or BMC address
+		// has changed, otherwise we will be writing on every call to this
+		// function.
+		if credentialsChanged || bmcAddressChanged {
+			p.log.Info("Updating driver info because the credentials and/or the BMC address changed")
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
 		}
 

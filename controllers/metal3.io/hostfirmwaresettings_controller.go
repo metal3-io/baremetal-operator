@@ -145,7 +145,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Create a provisioner that can access Ironic API
-	prov, err := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
+	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}

@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
@@ -110,6 +111,8 @@ type ironicProvisioner struct {
 	publisher provisioner.EventPublisher
 	// available API features
 	availableFeatures clients.AvailableFeatures
+	// request context
+	ctx context.Context
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {

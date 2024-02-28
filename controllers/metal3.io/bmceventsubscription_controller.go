@@ -100,7 +100,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 		return ctrl.Result{}, errors.Wrap(err, "failed add finalizer")
 	}
 
-	prov, ready, err := r.getProvisioner(request, host)
+	prov, ready, err := r.getProvisioner(ctx, request, host)
 
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
@@ -213,10 +213,10 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context,
 	return nil
 }
 
-func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, host *metal3api.BareMetalHost) (prov provisioner.Provisioner, ready bool, err error) {
+func (r *BMCEventSubscriptionReconciler) getProvisioner(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (prov provisioner.Provisioner, ready bool, err error) {
 	reqLogger := r.Log.WithValues("bmceventsubscription", request.NamespacedName)
 
-	prov, err = r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostDataNoBMC(*host), nil)
+	prov, err = r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*host), nil)
 	if err != nil {
 		return prov, ready, errors.Wrap(err, "failed to create provisioner")
 	}

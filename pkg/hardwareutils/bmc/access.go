@@ -1,13 +1,12 @@
 package bmc
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"regexp"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // AccessDetailsFactory describes a callable that returns a new
@@ -103,7 +102,7 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 			// values. Otherwise, report the original parser error.
 			_, _, err2 := net.SplitHostPort(address)
 			if err2 != nil {
-				return nil, errors.Wrap(err, "failed to parse BMC address information")
+				return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 			}
 		}
 		parsedURL = &url.URL{
@@ -115,7 +114,7 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 		if parsedURL.Opaque != "" {
 			parsedURL, err = url.Parse(strings.Replace(address, ":", "://", 1))
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to parse BMC address information")
+				return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 			}
 		}
 		if parsedURL.Scheme == "" {
@@ -124,7 +123,7 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 				// interpreted as a path.
 				parsedURL, err = url.Parse("ipmi://" + address)
 				if err != nil {
-					return nil, errors.Wrap(err, "failed to parse BMC address information")
+					return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 				}
 			}
 		}
@@ -132,7 +131,7 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 
 	// Check for expected hostname format
 	if err := checkDNSValid(parsedURL.Hostname()); err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
+		return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 	}
 
 	return parsedURL, nil

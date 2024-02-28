@@ -180,7 +180,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	case metal3api.StateNone, metal3api.StateUnmanaged:
 		bmcCreds = &bmc.Credentials{}
 	default:
-		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(request, host)
+		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(ctx, request, host)
 		if err != nil || bmcCreds == nil {
 			if !host.DeletionTimestamp.IsZero() {
 				// If we are in the process of deletion, try with empty credentials
@@ -525,7 +525,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	}
 
 	// Remove finalizer to allow deletion
-	secretManager := secretutils.NewSecretManager(info.log, r.Client, r.APIReader)
+	secretManager := secretutils.NewSecretManager(info.ctx, info.log, r.Client, r.APIReader)
 
 	err = secretManager.ReleaseSecret(info.bmcCredsSecret)
 	if err != nil {
@@ -642,7 +642,7 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 			Name:      image.Spec.NetworkDataName,
 			Namespace: image.ObjectMeta.Namespace,
 		}
-		secretManager := r.secretManager(info.log)
+		secretManager := r.secretManager(info.ctx, info.log)
 		networkData, err := secretManager.AcquireSecret(secretKey, info.host, false)
 		if err != nil {
 			return false, err
@@ -803,7 +803,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	hostConf := &hostConfigData{
 		host:          info.host,
 		log:           info.log.WithName("host_config_data"),
-		secretManager: r.secretManager(info.log),
+		secretManager: r.secretManager(info.ctx, info.log),
 	}
 	preprovisioningNetworkData, err := hostConf.PreprovisioningNetworkData()
 	if err != nil {
@@ -1166,7 +1166,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	hostConf := &hostConfigData{
 		host:          info.host,
 		log:           info.log.WithName("host_config_data"),
-		secretManager: r.secretManager(info.log),
+		secretManager: r.secretManager(info.ctx, info.log),
 	}
 	info.log.Info("provisioning")
 
@@ -1622,18 +1622,18 @@ func (r *BareMetalHostReconciler) setErrorCondition(ctx context.Context, request
 	return
 }
 
-func (r *BareMetalHostReconciler) secretManager(log logr.Logger) secretutils.SecretManager {
-	return secretutils.NewSecretManager(log, r.Client, r.APIReader)
+func (r *BareMetalHostReconciler) secretManager(ctx context.Context, log logr.Logger) secretutils.SecretManager {
+	return secretutils.NewSecretManager(ctx, log, r.Client, r.APIReader)
 }
 
 // Retrieve the secret containing the credentials for talking to the BMC.
-func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, host *metal3api.BareMetalHost) (*corev1.Secret, error) {
+func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (*corev1.Secret, error) {
 	if host.Spec.BMC.CredentialsName == "" {
 		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
 	}
 
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
-	secretManager := r.secretManager(reqLogger)
+	secretManager := r.secretManager(ctx, reqLogger)
 
 	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, host.Status.Provisioning.State != metal3api.StateDeleting)
 	if err != nil {
@@ -1663,9 +1663,9 @@ func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
 // Make sure the credentials for the management controller look
 // right and manufacture bmc.Credentials.  This does not actually try
 // to use the credentials.
-func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Request, host *metal3api.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
+func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
 	// Retrieve the BMC secret from Kubernetes for this host
-	bmcCredsSecret, err = r.getBMCSecretAndSetOwner(request, host)
+	bmcCredsSecret, err = r.getBMCSecretAndSetOwner(ctx, request, host)
 	if err != nil {
 		return nil, nil, err
 	}

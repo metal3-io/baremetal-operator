@@ -172,7 +172,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 		return nil
 	}
 
-	headers, err := r.getHTTPHeaders(*subscription)
+	headers, err := r.getHTTPHeaders(ctx, *subscription)
 
 	if err != nil {
 		reqLogger.Error(err, "failed to get http headers")
@@ -191,7 +191,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 	return r.Status().Update(ctx, subscription)
 }
 
-func (r *BMCEventSubscriptionReconciler) deleteSubscription(_ context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
+func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
 	reqLogger := r.Log.WithName("bmceventsubscription")
 	reqLogger.Info("deleting subscription")
 
@@ -205,7 +205,7 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(_ context.Context, p
 			subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer)
 		reqLogger.Info("cleanup is complete, removed finalizer",
 			"remaining", subscription.Finalizers)
-		if err := r.Update(context.Background(), subscription); err != nil {
+		if err := r.Update(ctx, subscription); err != nil {
 			return err
 		}
 	}
@@ -234,7 +234,7 @@ func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, ho
 	return prov, ready, nil
 }
 
-func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3api.BMCEventSubscription) ([]map[string]string, error) {
+func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(ctx context.Context, subscription metal3api.BMCEventSubscription) ([]map[string]string, error) {
 	headers := []map[string]string{}
 
 	if subscription.Spec.HTTPHeadersRef == nil {
@@ -247,7 +247,7 @@ func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3api.B
 		Namespace: subscription.Spec.HTTPHeadersRef.Namespace,
 	}
 
-	err := r.Get(context.TODO(), secretKey, secret)
+	err := r.Get(ctx, secretKey, secret)
 
 	if err != nil {
 		return headers, err

@@ -158,7 +158,7 @@ func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
 	secret.Finalizers = utils.FilterStringFromList(
 		secret.Finalizers, SecretsFinalizer)
 
-	if err := sm.client.Update(context.Background(), secret); err != nil {
+	if err := sm.client.Update(sm.ctx, secret); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to remove finalizer from secret %s in namespace %s",
 			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
 	}

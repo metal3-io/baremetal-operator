@@ -536,7 +536,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 		info.host.Finalizers, metal3api.BareMetalHostFinalizer)
 	info.log.Info("cleanup is complete, removed finalizer",
 		"remaining", info.host.Finalizers)
-	if err := r.Update(context.Background(), info.host); err != nil {
+	if err := r.Update(info.ctx, info.host); err != nil {
 		return actionError{errors.Wrap(err, "failed to remove finalizer")}
 	}
 
@@ -1017,17 +1017,17 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		},
 	}
 
-	err = r.Client.Get(context.Background(), hardwareDataKey, hardwareData)
+	err = r.Client.Get(info.ctx, hardwareDataKey, hardwareData)
 	if err == nil || !k8serrors.IsNotFound(err) {
 		// hardwareData found and we reached here due to request for another inspection.
 		// Delete it before re-creating.
 		if controllerutil.ContainsFinalizer(hardwareData, hardwareDataFinalizer) {
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 		}
-		if err := r.Update(context.Background(), hardwareData); err != nil {
+		if err := r.Update(info.ctx, hardwareData); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove hardwareData finalizer")}
 		}
-		if err := r.Client.Delete(context.Background(), hd); err != nil {
+		if err := r.Client.Delete(info.ctx, hd); err != nil {
 			return actionError{errors.Wrap(err, "failed to delete hardwareData")}
 		}
 	}
@@ -1038,7 +1038,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	}
 
 	// either hardwareData was deleted above, or not found. We need to re-create it
-	if err := r.Client.Create(context.Background(), hd); err != nil {
+	if err := r.Client.Create(info.ctx, hd); err != nil {
 		return actionError{errors.Wrap(err, "failed to create hardwareData")}
 	}
 	info.log.Info(fmt.Sprintf("Created hardwareData %q in %q namespace\n", hd.Name, hd.Namespace))
@@ -1768,7 +1768,7 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 		if controllerutil.ContainsFinalizer(hardwareData, hardwareDataFinalizer) {
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 			reqLogger.Info("removing finalizer from hardwareData")
-			if err := r.Update(context.Background(), hardwareData); err != nil {
+			if err := r.Update(ctx, hardwareData); err != nil {
 				return ctrl.Result{}, errors.Wrap(err, "failed to remove hardwareData finalizer")
 			}
 		}
@@ -1820,7 +1820,7 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 		newArch := hardwareData.Spec.HardwareDetails.CPU.Arch
 		reqLogger.Info("updating architecture", "Architecture", newArch)
 		host.Spec.Architecture = newArch
-		if err := r.Client.Update(context.Background(), host); err != nil {
+		if err := r.Client.Update(ctx, host); err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to update architecture")
 		}
 		return ctrl.Result{Requeue: true}, nil

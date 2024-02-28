@@ -13,10 +13,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/ports"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -127,7 +127,7 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage s
 	var validationErrors []string
 
 	p.log.Info("validating node settings in ironic")
-	validateResult, err := nodes.Validate(p.client, ironicNode.UUID).Extract()
+	validateResult, err := nodes.Validate(p.ctx, p.client, ironicNode.UUID).Extract()
 	if err != nil {
 		return "", err // do not wrap error so we can check type in caller
 	}
@@ -161,7 +161,7 @@ func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 
 	pager := ports.List(p.client, opts)
 
-	allPages, err := pager.AllPages()
+	allPages, err := pager.AllPages(p.ctx)
 
 	if err != nil {
 		return allPorts, err
@@ -175,7 +175,7 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 		return nil, provisioner.ErrNeedsRegistration
 	}
 
-	ironicNode, err := nodes.Get(p.client, p.nodeID).Extract()
+	ironicNode, err := nodes.Get(p.ctx, p.client, p.nodeID).Extract()
 	switch err.(type) {
 	case nil:
 		p.debugLog.Info("found existing node by ID")
@@ -199,7 +199,7 @@ func (p *ironicProvisioner) nodeHasAssignedPort(ironicNode *nodes.Node) (bool, e
 
 	pager := ports.List(p.client, opts)
 
-	allPages, err := pager.AllPages()
+	allPages, err := pager.AllPages(p.ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to page over list of ports")
 	}
@@ -250,7 +250,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 
 	for _, nodeName := range nodeSearchList {
 		p.debugLog.Info("looking for existing node by name", "name", nodeName)
-		ironicNode, err = nodes.Get(p.client, nodeName).Extract()
+		ironicNode, err = nodes.Get(p.ctx, p.client, nodeName).Extract()
 		switch err.(type) {
 		case nil:
 			p.debugLog.Info("found existing node by name", "name", nodeName, "node", ironicNode.UUID)
@@ -275,7 +275,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 
 	if len(allPorts) > 0 {
 		nodeUUID := allPorts[0].NodeUUID
-		ironicNode, err = nodes.Get(p.client, nodeUUID).Extract()
+		ironicNode, err = nodes.Get(p.ctx, p.client, nodeUUID).Extract()
 		switch err.(type) {
 		case nil:
 			p.debugLog.Info("found existing node by MAC", "MAC", bootMACAddress, "node", ironicNode.UUID, "name", ironicNode.Name)
@@ -308,6 +308,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 	enable := true
 
 	_, err := ports.Create(
+		p.ctx,
 		p.client,
 		ports.CreateOpts{
 			NodeUUID:   uuid,
@@ -322,7 +323,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 }
 
 func (p *ironicProvisioner) getInspectInterface(bmcAccess bmc.AccessDetails) (string, error) {
-	driver, err := drivers.GetDriverDetails(p.client, bmcAccess.Driver()).Extract()
+	driver, err := drivers.GetDriverDetails(p.ctx, p.client, bmcAccess.Driver()).Extract()
 	if err != nil {
 		return "", fmt.Errorf("cannot load information about driver %s: %w", bmcAccess.Driver(), err)
 	}
@@ -413,7 +414,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			nodeCreateOpts.FirmwareInterface = bmcAccess.FirmwareInterface()
 		}
 
-		ironicNode, err = nodes.Create(p.client, nodeCreateOpts).Extract()
+		ironicNode, err = nodes.Create(p.ctx, p.client, nodeCreateOpts).Extract()
 		switch err.(type) {
 		case nil:
 			p.publisher("Registered", "Registered new host")
@@ -762,7 +763,7 @@ func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeU
 	}
 
 	p.log.Info("updating node settings in ironic", "updateCount", len(updater.Updates))
-	updatedNode, err = nodes.Update(p.client, ironicNode.UUID, updater.Updates).Extract()
+	updatedNode, err = nodes.Update(p.ctx, p.client, ironicNode.UUID, updater.Updates).Extract()
 	switch err.(type) {
 	case nil:
 		success = true
@@ -795,7 +796,7 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 		return
 	}
 
-	changeResult := nodes.ChangeProvisionState(p.client, ironicNode.UUID, opts)
+	changeResult := nodes.ChangeProvisionState(p.ctx, p.client, ironicNode.UUID, opts)
 	switch changeResult.Err.(type) {
 	case nil:
 		success = true
@@ -912,7 +913,7 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 	}
 
 	p.log.Info("getting hardware details from inspection")
-	response := nodes.GetInventory(p.client, ironicNode.UUID)
+	response := nodes.GetInventory(p.ctx, p.client, ironicNode.UUID)
 	introData, err := response.Extract()
 	if err != nil {
 		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
@@ -1117,9 +1118,9 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 	var biosListErr error
 	if includeSchema {
 		opts := nodes.ListBIOSSettingsOpts{Detail: true}
-		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, ironicNode.UUID, opts).Extract()
+		settingsList, biosListErr = nodes.ListBIOSSettings(p.ctx, p.client, ironicNode.UUID, opts).Extract()
 	} else {
-		settingsList, biosListErr = nodes.ListBIOSSettings(p.client, ironicNode.UUID, nil).Extract()
+		settingsList, biosListErr = nodes.ListBIOSSettings(p.ctx, p.client, ironicNode.UUID, nil).Extract()
 	}
 	if biosListErr != nil {
 		return nil, nil, errors.Wrap(biosListErr,
@@ -1704,9 +1705,9 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboo
 func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value bool, reason string) (result provisioner.Result, err error) {
 	p.log.Info("updating maintenance in ironic", "newValue", value, "reason", reason)
 	if value {
-		err = nodes.SetMaintenance(p.client, ironicNode.UUID, nodes.MaintenanceOpts{Reason: reason}).ExtractErr()
+		err = nodes.SetMaintenance(p.ctx, p.client, ironicNode.UUID, nodes.MaintenanceOpts{Reason: reason}).ExtractErr()
 	} else {
-		err = nodes.UnsetMaintenance(p.client, ironicNode.UUID).ExtractErr()
+		err = nodes.UnsetMaintenance(p.ctx, p.client, ironicNode.UUID).ExtractErr()
 	}
 
 	switch err.(type) {
@@ -1873,7 +1874,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	}
 
 	p.log.Info("host ready to be removed")
-	err = nodes.Delete(p.client, ironicNode.UUID).ExtractErr()
+	err = nodes.Delete(p.ctx, p.client, ironicNode.UUID).ExtractErr()
 	switch err.(type) {
 	case nil:
 		p.log.Info("removed")
@@ -1932,6 +1933,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 	}
 
 	changeResult := nodes.ChangePowerState(
+		p.ctx,
 		p.client,
 		ironicNode.UUID,
 		powerStateOpts)
@@ -2061,7 +2063,7 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 		Fields: []string{"uuid,name,provision_state,boot_interface"},
 	})
 
-	page, err := pager.AllPages()
+	page, err := pager.AllPages(p.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2090,6 +2092,7 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 
 func (p *ironicProvisioner) AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	newSubscription, err := nodes.CreateSubscription(
+		p.ctx,
 		p.client,
 		p.nodeID,
 		nodes.CallVendorPassthruOpts{
@@ -2115,7 +2118,7 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 	opts := nodes.DeleteSubscriptionOpts{
 		Id: subscription.Status.SubscriptionID,
 	}
-	err = nodes.DeleteSubscription(p.client, p.nodeID, method, opts).ExtractErr()
+	err = nodes.DeleteSubscription(p.ctx, p.client, p.nodeID, method, opts).ExtractErr()
 
 	if err != nil {
 		return provisioner.Result{RequeueAfter: subscriptionRequeueDelay}, err

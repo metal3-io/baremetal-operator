@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -10,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	"k8s.io/klog/v2"
 
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
@@ -59,7 +60,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	introData := nodes.GetInventory(ironic, opts.NodeID)
+	introData := nodes.GetInventory(context.TODO(), ironic, opts.NodeID)
 	data, err := introData.Extract()
 	if err != nil {
 		fmt.Printf("could not get inspection data: %s", err)

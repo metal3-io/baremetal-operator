@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,7 +49,7 @@ func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Crede
 
 	factory := newTestProvisionerFactory()
 	factory.clientIronic = clientIronic
-	return factory.ironicProvisioner(hostData, publisher)
+	return factory.ironicProvisioner(context.TODO(), hostData, publisher)
 }
 
 func makeHost() metal3api.BareMetalHost {
@@ -133,7 +134,7 @@ func TestNewNoBMCDetails(t *testing.T) {
 	host.Spec.BMC = metal3api.BMCDetails{}
 
 	factory := newTestProvisionerFactory()
-	prov, err := factory.NewProvisioner(provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
+	prov, err := factory.NewProvisioner(context.TODO(), provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
 	assert.Equal(t, nil, err)
 	assert.NotEqual(t, nil, prov)
 }

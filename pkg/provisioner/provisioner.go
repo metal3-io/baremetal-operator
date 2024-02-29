@@ -1,6 +1,7 @@
 package provisioner
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -50,7 +51,7 @@ func BuildHostDataNoBMC(host metal3api.BareMetalHost) HostData {
 
 // Factory is the interface for creating new Provisioner objects.
 type Factory interface {
-	NewProvisioner(hostData HostData, publish EventPublisher) (Provisioner, error)
+	NewProvisioner(ctx context.Context, hostData HostData, publish EventPublisher) (Provisioner, error)
 }
 
 // HostConfigData retrieves host configuration data.

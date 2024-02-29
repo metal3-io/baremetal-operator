@@ -70,6 +70,7 @@ type BareMetalHostReconciler struct {
 // Instead of passing a zillion arguments to the action of a phase,
 // hold them in a context.
 type reconcileInfo struct {
+	ctx               context.Context
 	log               logr.Logger
 	host              *metal3api.BareMetalHost
 	request           ctrl.Request
@@ -141,7 +142,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	}
 
 	// Consume hardwaredetails from annotation if present
-	hwdUpdated, err := r.updateHardwareDetails(request, host)
+	hwdUpdated, err := r.updateHardwareDetails(ctx, request, host)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "Could not update Hardware Details")
 	} else if hwdUpdated {
@@ -179,14 +180,14 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	case metal3api.StateNone, metal3api.StateUnmanaged:
 		bmcCreds = &bmc.Credentials{}
 	default:
-		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(request, host)
+		bmcCreds, bmcCredsSecret, err = r.buildAndValidateBMCCredentials(ctx, request, host)
 		if err != nil || bmcCreds == nil {
 			if !host.DeletionTimestamp.IsZero() {
 				// If we are in the process of deletion, try with empty credentials
 				bmcCreds = &bmc.Credentials{}
 				bmcCredsSecret = &corev1.Secret{}
 			} else {
-				return r.credentialsErrorResult(err, request, host)
+				return r.credentialsErrorResult(ctx, err, request, host)
 			}
 		} else {
 			haveCreds = true
@@ -195,13 +196,14 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	initialState := host.Status.Provisioning.State
 	info := &reconcileInfo{
+		ctx:            ctx,
 		log:            reqLogger.WithValues("provisioningState", initialState),
 		host:           host,
 		request:        request,
 		bmcCredsSecret: bmcCredsSecret,
 	}
 
-	prov, err := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
+	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
@@ -234,7 +236,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
 			"provisioning state", host.Status.Provisioning.State)
-		err = r.saveHostStatus(host)
+		err = r.saveHostStatus(ctx, host)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err,
 				fmt.Sprintf("failed to save host status after %q", initialState))
@@ -246,7 +248,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	}
 
 	for _, e := range info.events {
-		r.publishEvent(request, e)
+		r.publishEvent(ctx, request, e)
 	}
 
 	logResult(info, result)
@@ -256,7 +258,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 // Consume inspect.metal3.io/hardwaredetails when either
 // inspect.metal3.io=disabled or there are no existing HardwareDetails.
-func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, host *metal3api.BareMetalHost) (bool, error) {
+func (r *BareMetalHostReconciler) updateHardwareDetails(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (bool, error) {
 	updated := false
 	if host.Status.HardwareDetails == nil || inspectionDisabled(host) {
 		objHardwareDetails, err := r.getHardwareDetailsFromAnnotation(host)
@@ -265,11 +267,11 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, ho
 		}
 		if objHardwareDetails != nil {
 			host.Status.HardwareDetails = objHardwareDetails
-			err = r.saveHostStatus(host)
+			err = r.saveHostStatus(ctx, host)
 			if err != nil {
 				return updated, errors.Wrap(err, "Could not update hardwaredetails from annotation")
 			}
-			r.publishEvent(request, host.NewEvent("UpdateHardwareDetails", "Set HardwareDetails from annotation"))
+			r.publishEvent(ctx, request, host.NewEvent("UpdateHardwareDetails", "Set HardwareDetails from annotation"))
 			updated = true
 		}
 	}
@@ -278,13 +280,13 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(request ctrl.Request, ho
 	annotations := host.GetAnnotations()
 	if _, present := annotations[metal3api.HardwareDetailsAnnotation]; present {
 		delete(host.Annotations, metal3api.HardwareDetailsAnnotation)
-		err := r.Update(context.TODO(), host)
+		err := r.Update(ctx, host)
 		if err != nil {
 			return updated, errors.Wrap(err, "Could not update removing hardwaredetails annotation")
 		}
 		// In the case where the value was not just consumed, generate an event
 		if !updated {
-			r.publishEvent(request, host.NewEvent("RemoveAnnotation", "HardwareDetails annotation ignored, status already set and inspection is not disabled"))
+			r.publishEvent(ctx, request, host.NewEvent("RemoveAnnotation", "HardwareDetails annotation ignored, status already set and inspection is not disabled"))
 		}
 	}
 	return updated, nil
@@ -338,18 +340,18 @@ func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState)
 	return actionDelayed{}
 }
 
-func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl.Request, host *metal3api.BareMetalHost) (ctrl.Result, error) {
+func (r *BareMetalHostReconciler) credentialsErrorResult(ctx context.Context, err error, request ctrl.Request, host *metal3api.BareMetalHost) (ctrl.Result, error) {
 	switch err.(type) {
 	// In the event a credential secret is defined, but we cannot find it
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *ResolveBMCSecretRefError:
 		credentialsMissing.Inc()
-		saveErr := r.setErrorCondition(request, host, metal3api.RegistrationError, err.Error())
+		saveErr := r.setErrorCondition(ctx, request, host, metal3api.RegistrationError, err.Error())
 		if saveErr != nil {
 			return ctrl.Result{Requeue: true}, saveErr
 		}
-		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+		r.publishEvent(ctx, request, host.NewEvent("BMCCredentialError", err.Error()))
 
 		return ctrl.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
 	// If a managed Host is missing a BMC address or secret, or
@@ -361,13 +363,13 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(err error, request ctrl
 	case *EmptyBMCAddressError, *EmptyBMCSecretError,
 		*bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
 		credentialsInvalid.Inc()
-		saveErr := r.setErrorCondition(request, host, metal3api.RegistrationError, err.Error())
+		saveErr := r.setErrorCondition(ctx, request, host, metal3api.RegistrationError, err.Error())
 		if saveErr != nil {
 			return ctrl.Result{Requeue: true}, saveErr
 		}
 		// Only publish the event if we do not have an error
 		// after saving so that we only publish one time.
-		r.publishEvent(request, host.NewEvent("BMCCredentialError", err.Error()))
+		r.publishEvent(ctx, request, host.NewEvent("BMCCredentialError", err.Error()))
 		return ctrl.Result{}, nil
 	default:
 		unhandledCredentialsError.Inc()
@@ -523,7 +525,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	}
 
 	// Remove finalizer to allow deletion
-	secretManager := secretutils.NewSecretManager(info.log, r.Client, r.APIReader)
+	secretManager := secretutils.NewSecretManager(info.ctx, info.log, r.Client, r.APIReader)
 
 	err = secretManager.ReleaseSecret(info.bmcCredsSecret)
 	if err != nil {
@@ -534,7 +536,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 		info.host.Finalizers, metal3api.BareMetalHostFinalizer)
 	info.log.Info("cleanup is complete, removed finalizer",
 		"remaining", info.host.Finalizers)
-	if err := r.Update(context.Background(), info.host); err != nil {
+	if err := r.Update(info.ctx, info.host); err != nil {
 		return actionError{errors.Wrap(err, "failed to remove finalizer")}
 	}
 
@@ -640,7 +642,7 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 			Name:      image.Spec.NetworkDataName,
 			Namespace: image.ObjectMeta.Namespace,
 		}
-		secretManager := r.secretManager(info.log)
+		secretManager := r.secretManager(info.ctx, info.log)
 		networkData, err := secretManager.AcquireSecret(secretKey, info.host, false)
 		if err != nil {
 			return false, err
@@ -704,7 +706,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		Name:      info.host.Name,
 		Namespace: info.host.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &preprovImage)
+	err := r.Get(info.ctx, key, &preprovImage)
 	if k8serrors.IsNotFound(err) {
 		info.log.Info("creating new PreprovisioningImage")
 		preprovImage = metal3api.PreprovisioningImage{
@@ -716,7 +718,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 			Spec: expectedSpec,
 		}
 		controllerutil.SetControllerReference(info.host, &preprovImage, r.Scheme())
-		err = r.Create(context.TODO(), &preprovImage)
+		err = r.Create(info.ctx, &preprovImage)
 		return nil, err
 	}
 	if err != nil {
@@ -740,7 +742,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 	}
 	if needsUpdate {
 		info.log.Info("updating PreprovisioningImage")
-		err = r.Update(context.TODO(), &preprovImage)
+		err = r.Update(info.ctx, &preprovImage)
 		return nil, err
 	}
 
@@ -801,7 +803,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	hostConf := &hostConfigData{
 		host:          info.host,
 		log:           info.log.WithName("host_config_data"),
-		secretManager: r.secretManager(info.log),
+		secretManager: r.secretManager(info.ctx, info.log),
 	}
 	preprovisioningNetworkData, err := hostConf.PreprovisioningNetworkData()
 	if err != nil {
@@ -970,7 +972,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		}
 
 		if dirty {
-			if err := r.Update(context.TODO(), info.host); err != nil {
+			if err := r.Update(info.ctx, info.host); err != nil {
 				return actionError{errors.Wrap(err, "failed to update the host after inspection start")}
 			}
 			return actionContinue{}
@@ -1015,17 +1017,17 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		},
 	}
 
-	err = r.Client.Get(context.Background(), hardwareDataKey, hardwareData)
+	err = r.Client.Get(info.ctx, hardwareDataKey, hardwareData)
 	if err == nil || !k8serrors.IsNotFound(err) {
 		// hardwareData found and we reached here due to request for another inspection.
 		// Delete it before re-creating.
 		if controllerutil.ContainsFinalizer(hardwareData, hardwareDataFinalizer) {
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 		}
-		if err := r.Update(context.Background(), hardwareData); err != nil {
+		if err := r.Update(info.ctx, hardwareData); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove hardwareData finalizer")}
 		}
-		if err := r.Client.Delete(context.Background(), hd); err != nil {
+		if err := r.Client.Delete(info.ctx, hd); err != nil {
 			return actionError{errors.Wrap(err, "failed to delete hardwareData")}
 		}
 	}
@@ -1036,7 +1038,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	}
 
 	// either hardwareData was deleted above, or not found. We need to re-create it
-	if err := r.Client.Create(context.Background(), hd); err != nil {
+	if err := r.Client.Create(info.ctx, hd); err != nil {
 		return actionError{errors.Wrap(err, "failed to create hardwareData")}
 	}
 	info.log.Info(fmt.Sprintf("Created hardwareData %q in %q namespace\n", hd.Name, hd.Namespace))
@@ -1164,7 +1166,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	hostConf := &hostConfigData{
 		host:          info.host,
 		log:           info.log.WithName("host_config_data"),
-		secretManager: r.secretManager(info.log),
+		secretManager: r.secretManager(info.ctx, info.log),
 	}
 	info.log.Info("provisioning")
 
@@ -1201,7 +1203,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 	}
 
 	if clearRebootAnnotations(info.host) {
-		if err := r.Update(context.TODO(), info.host); err != nil {
+		if err := r.Update(info.ctx, info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
 		return actionContinue{}
@@ -1288,7 +1290,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	}
 
 	if clearRebootAnnotations(info.host) {
-		if err = r.Update(context.TODO(), info.host); err != nil {
+		if err = r.Update(info.ctx, info.host); err != nil {
 			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
 		}
 		return actionContinue{}
@@ -1326,7 +1328,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
 			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
 
-			if err = r.Update(context.TODO(), info.host); err != nil {
+			if err = r.Update(info.ctx, info.host); err != nil {
 				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
 			}
 
@@ -1498,7 +1500,7 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo) error {
 	// Check if HostFirmwareSettings already exists
 	hfs := &metal3api.HostFirmwareSettings{}
-	if err := r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
+	if err := r.Get(info.ctx, info.request.NamespacedName, hfs); err != nil {
 		if k8serrors.IsNotFound(err) {
 			// A resource doesn't exist, create one
 			hfs.ObjectMeta = metav1.ObjectMeta{
@@ -1511,7 +1513,7 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 			if err = controllerutil.SetControllerReference(info.host, hfs, r.Scheme()); err != nil {
 				return errors.Wrap(err, "could not set bmh as controller")
 			}
-			if err = r.Create(context.TODO(), hfs); err != nil {
+			if err = r.Create(info.ctx, hfs); err != nil {
 				return errors.Wrap(err, "failure creating hostFirmwareSettings resource")
 			}
 
@@ -1528,7 +1530,7 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 // Get the stored firmware settings if there are valid changes.
 func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (dirty bool, hfs *metal3api.HostFirmwareSettings, err error) {
 	hfs = &metal3api.HostFirmwareSettings{}
-	if err = r.Get(context.TODO(), info.request.NamespacedName, hfs); err != nil {
+	if err = r.Get(info.ctx, info.request.NamespacedName, hfs); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			// Error reading the object
 			return false, nil, errors.Wrap(err, "could not load host firmware settings")
@@ -1559,11 +1561,11 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 	return false, nil, nil
 }
 
-func (r *BareMetalHostReconciler) saveHostStatus(host *metal3api.BareMetalHost) error {
+func (r *BareMetalHostReconciler) saveHostStatus(ctx context.Context, host *metal3api.BareMetalHost) error {
 	t := metav1.Now()
 	host.Status.LastUpdated = &t
 
-	return r.Status().Update(context.TODO(), host)
+	return r.Status().Update(ctx, host)
 }
 
 func unmarshalStatusAnnotation(content []byte) (*metal3api.BareMetalHostStatus, error) {
@@ -1603,7 +1605,7 @@ func (r *BareMetalHostReconciler) getHardwareDetailsFromAnnotation(host *metal3a
 	return objHardwareDetails, nil
 }
 
-func (r *BareMetalHostReconciler) setErrorCondition(request ctrl.Request, host *metal3api.BareMetalHost, errType metal3api.ErrorType, message string) (err error) {
+func (r *BareMetalHostReconciler) setErrorCondition(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost, errType metal3api.ErrorType, message string) (err error) {
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 
 	setErrorMessage(host, errType, message)
@@ -1612,7 +1614,7 @@ func (r *BareMetalHostReconciler) setErrorCondition(request ctrl.Request, host *
 		"adding error message",
 		"message", message,
 	)
-	err = r.saveHostStatus(host)
+	err = r.saveHostStatus(ctx, host)
 	if err != nil {
 		err = errors.Wrap(err, "failed to update error message")
 	}
@@ -1620,18 +1622,18 @@ func (r *BareMetalHostReconciler) setErrorCondition(request ctrl.Request, host *
 	return
 }
 
-func (r *BareMetalHostReconciler) secretManager(log logr.Logger) secretutils.SecretManager {
-	return secretutils.NewSecretManager(log, r.Client, r.APIReader)
+func (r *BareMetalHostReconciler) secretManager(ctx context.Context, log logr.Logger) secretutils.SecretManager {
+	return secretutils.NewSecretManager(ctx, log, r.Client, r.APIReader)
 }
 
 // Retrieve the secret containing the credentials for talking to the BMC.
-func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(request ctrl.Request, host *metal3api.BareMetalHost) (*corev1.Secret, error) {
+func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (*corev1.Secret, error) {
 	if host.Spec.BMC.CredentialsName == "" {
 		return nil, &EmptyBMCSecretError{message: "The BMC secret reference is empty"}
 	}
 
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
-	secretManager := r.secretManager(reqLogger)
+	secretManager := r.secretManager(ctx, reqLogger)
 
 	bmcCredsSecret, err := secretManager.AcquireSecret(host.CredentialsKey(), host, host.Status.Provisioning.State != metal3api.StateDeleting)
 	if err != nil {
@@ -1661,9 +1663,9 @@ func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
 // Make sure the credentials for the management controller look
 // right and manufacture bmc.Credentials.  This does not actually try
 // to use the credentials.
-func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Request, host *metal3api.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
+func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (bmcCreds *bmc.Credentials, bmcCredsSecret *corev1.Secret, err error) {
 	// Retrieve the BMC secret from Kubernetes for this host
-	bmcCredsSecret, err = r.getBMCSecretAndSetOwner(request, host)
+	bmcCredsSecret, err = r.getBMCSecretAndSetOwner(ctx, request, host)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1685,10 +1687,10 @@ func (r *BareMetalHostReconciler) buildAndValidateBMCCredentials(request ctrl.Re
 	return bmcCreds, bmcCredsSecret, nil
 }
 
-func (r *BareMetalHostReconciler) publishEvent(request ctrl.Request, event corev1.Event) {
+func (r *BareMetalHostReconciler) publishEvent(ctx context.Context, request ctrl.Request, event corev1.Event) {
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 	reqLogger.Info("publishing event", "reason", event.Reason, "message", event.Message)
-	err := r.Create(context.TODO(), &event)
+	err := r.Create(ctx, &event)
 	if err != nil {
 		reqLogger.Info("failed to record event, ignoring",
 			"reason", event.Reason, "message", event.Message, "error", err)
@@ -1766,7 +1768,7 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 		if controllerutil.ContainsFinalizer(hardwareData, hardwareDataFinalizer) {
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 			reqLogger.Info("removing finalizer from hardwareData")
-			if err := r.Update(context.Background(), hardwareData); err != nil {
+			if err := r.Update(ctx, hardwareData); err != nil {
 				return ctrl.Result{}, errors.Wrap(err, "failed to remove hardwareData finalizer")
 			}
 		}
@@ -1818,7 +1820,7 @@ func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *
 		newArch := hardwareData.Spec.HardwareDetails.CPU.Arch
 		reqLogger.Info("updating architecture", "Architecture", newArch)
 		host.Spec.Architecture = newArch
-		if err := r.Client.Update(context.Background(), host); err != nil {
+		if err := r.Client.Update(ctx, host); err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to update architecture")
 		}
 		return ctrl.Result{Requeue: true}, nil

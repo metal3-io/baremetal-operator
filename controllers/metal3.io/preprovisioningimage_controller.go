@@ -105,7 +105,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, nil
 	}
 
-	changed, err := r.update(&img, log)
+	changed, err := r.update(ctx, &img, log)
 
 	if k8serrors.IsNotFound(err) {
 		delay := getErrorRetryDelay(img.Status)
@@ -136,7 +136,7 @@ func configChanged(img *metal3api.PreprovisioningImage, format metal3api.ImageFo
 		img.Status.NetworkData == networkDataStatus)
 }
 
-func (r *PreprovisioningImageReconciler) update(img *metal3api.PreprovisioningImage, log logr.Logger) (bool, error) {
+func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3api.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 
 	if !r.ImageProvider.SupportsArchitecture(img.Spec.Architecture) {
@@ -149,7 +149,7 @@ func (r *PreprovisioningImageReconciler) update(img *metal3api.PreprovisioningIm
 		return setError(generation, &img.Status, reasonImageConfigurationError, "No acceptable image format supported"), nil
 	}
 
-	secretManager := secretutils.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutils.NewSecretManager(ctx, log, r.Client, r.APIReader)
 	networkData, secretStatus, err := getNetworkData(secretManager, img)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

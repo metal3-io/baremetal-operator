@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -78,7 +79,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 	return nil
 }
 
-func (f ironicProvisionerFactory) ironicProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
+func (f ironicProvisionerFactory) ironicProvisioner(ctx context.Context, hostData provisioner.HostData, publisher provisioner.EventPublisher) (*ironicProvisioner, error) {
 	provisionerLogger := f.log.WithValues("host", ironicNodeName(hostData.ObjectMeta))
 
 	p := &ironicProvisioner{
@@ -93,6 +94,7 @@ func (f ironicProvisionerFactory) ironicProvisioner(hostData provisioner.HostDat
 		log:                     provisionerLogger,
 		debugLog:                provisionerLogger.V(1),
 		publisher:               publisher,
+		ctx:                     ctx,
 	}
 
 	return p, nil
@@ -100,8 +102,8 @@ func (f ironicProvisionerFactory) ironicProvisioner(hostData provisioner.HostDat
 
 // NewProvisioner returns a new Ironic Provisioner using the global
 // configuration for finding the Ironic services.
-func (f ironicProvisionerFactory) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
-	return f.ironicProvisioner(hostData, publisher)
+func (f ironicProvisionerFactory) NewProvisioner(ctx context.Context, hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+	return f.ironicProvisioner(ctx, hostData, publisher)
 }
 
 func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {

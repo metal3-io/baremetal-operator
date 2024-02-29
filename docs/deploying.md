@@ -110,9 +110,6 @@ ironic-deployment/
 │   │   ├── ironic-auth-config
 │   │   ├── ironic-auth-config-tpl
 │   │   ├── ironic-htpasswd
-│   │   ├── ironic-inspector-auth-config
-│   │   ├── ironic-inspector-auth-config-tpl
-│   │   ├── ironic-inspector-htpasswd
 │   │   └── kustomization.yaml
 │   ├── keepalived
 │   │   ├── ironic_bmo_configmap.env
@@ -148,8 +145,8 @@ more information, check the readme in the `ironic-deployment` folder.
 There is a useful deployment script that configures and deploys BareMetal
 Operator and Ironic. It requires some variables :
 
-- IRONIC_HOST : domain name for Ironic and inspector
-- IRONIC_HOST_IP : IP on which Ironic and inspector are listening
+- IRONIC_HOST : domain name for Ironic
+- IRONIC_HOST_IP : IP on which Ironic is listening
 
 In addition you can configure the following variables. They are **optional**.
 If you leave them unset, then passwords and certificates will be generated
@@ -158,18 +155,11 @@ for you.
 - KUBECTL_ARGS : Additional arguments to kubectl apply
 - IRONIC_USERNAME : username for ironic
 - IRONIC_PASSWORD : password for ironic
-- IRONIC_INSPECTOR_USERNAME : username for inspector
-- IRONIC_INSPECTOR_PASSWORD : password for inspector
 - IRONIC_CACERT_FILE : CA certificate path for ironic
 - IRONIC_CAKEY_FILE : CA certificate key path, unneeded if ironic
   certificates exist
 - IRONIC_CERT_FILE : Ironic certificate path
 - IRONIC_KEY_FILE : Ironic certificate key path
-- IRONIC_INSPECTOR_CERT_FILE : Inspector certificate path
-- IRONIC_INSPECTOR_KEY_FILE : Inspector certificate key path
-- IRONIC_INSPECTOR_CACERT_FILE : CA certificate path for inspector, defaults to
-  IRONIC_CACERT_FILE
-- IRONIC_INSPECTOR_CAKEY_FILE : CA certificate key path, unneeded if inspector
   certificates exist
 - MARIADB_KEY_FILE: Path to the key of MariaDB
 - MARIADB_CERT_FILE:  Path to the cert of MariaDB

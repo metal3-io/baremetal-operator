@@ -1,6 +1,7 @@
 package fixture
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -76,7 +77,7 @@ type Fixture struct {
 }
 
 // NewProvisioner returns a new Fixture Provisioner.
-func (f *Fixture) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func (f *Fixture) NewProvisioner(_ context.Context, hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		provID:    hostData.ProvisionerID,
 		bmcCreds:  hostData.BMCCredentials,
@@ -325,7 +326,7 @@ func (p *fixtureProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result pr
 	return result, nil
 }
 
-// TryInit returns the current availability status of the provisioner
+// TryInit returns the current availability status of the provisioner.
 func (p *fixtureProvisioner) TryInit() (result bool, err error) {
 	p.log.Info("checking provisioner status")
 

@@ -1,14 +1,17 @@
 package ironic
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"reflect"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
@@ -108,6 +111,8 @@ type ironicProvisioner struct {
 	publisher provisioner.EventPublisher
 	// available API features
 	availableFeatures clients.AvailableFeatures
+	// request context
+	ctx context.Context
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
@@ -443,6 +448,26 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 
 		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
 
+		var bmcAddressChanged bool
+		newAddress := make(map[string]interface{})
+		ironicAddress := make(map[string]interface{})
+		reg := regexp.MustCompile("_address$")
+		for key, value := range driverInfo {
+			if reg.MatchString(key) {
+				newAddress[key] = value
+				break
+			}
+		}
+		for key, value := range ironicNode.DriverInfo {
+			if reg.MatchString(key) {
+				ironicAddress[key] = value
+				break
+			}
+		}
+		if !reflect.DeepEqual(newAddress, ironicAddress) {
+			bmcAddressChanged = true
+		}
+
 		// When node exists but has no assigned port to it by Ironic and actuall address (MAC) is present
 		// in host config and is not allocated to different node lets try to create port for this node.
 		if p.bootMACAddress != "" {
@@ -472,9 +497,11 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		}
 
 		// The actual password is not returned from ironic, so we want to
-		// update the whole DriverInfo only if the credentials have changed
-		// otherwise we will be writing on every call to this function.
-		if credentialsChanged {
+		// update the whole DriverInfo only if the credentials or BMC address
+		// has changed, otherwise we will be writing on every call to this
+		// function.
+		if credentialsChanged || bmcAddressChanged {
+			p.log.Info("Updating driver info because the credentials and/or the BMC address changed")
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
 		}
 
@@ -506,10 +533,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	if !success {
 		return
 	}
-	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
-	// if err != nil {
-	// 	return result, errors.Wrap(err, "failed to get provisioning state in ironic")
-	// }
+
 	p.log.Info("current provision state",
 		"lastError", ironicNode.LastError,
 		"current", ironicNode.ProvisionState,

@@ -94,7 +94,7 @@ var _ = Describe("Live-ISO", func() {
 			By("Verifying the node booted from live ISO image")
 			password := e2eConfig.GetVariable("CIRROS_PASSWORD")
 			auth := ssh.Password(password)
-			PerformSSHBootCheck(e2eConfig, "memory", auth, fmt.Sprintf("%s:%s", bmc.IpAddress, bmc.SSHPort))
+			PerformSSHBootCheck(e2eConfig, "memory", auth, fmt.Sprintf("%s:%s", bmc.IPAddress, bmc.SSHPort))
 		} else {
 			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}

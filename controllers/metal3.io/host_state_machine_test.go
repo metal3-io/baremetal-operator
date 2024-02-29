@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 func testStateMachine(host *metal3api.BareMetalHost) *hostStateMachine {
 	r := newTestReconciler()
-	p, _ := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostData(*host, bmc.Credentials{}),
+	p, _ := r.ProvisionerFactory.NewProvisioner(context.TODO(), provisioner.BuildHostData(*host, bmc.Credentials{}),
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p, true)
 }

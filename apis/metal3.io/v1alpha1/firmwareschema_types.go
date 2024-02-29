@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// Additional data describing the firmware setting
+// Additional data describing the firmware setting.
 type SettingSchema struct {
 
 	// The type of setting.
@@ -65,8 +65,7 @@ func (e SchemaSettingError) Error() string {
 }
 
 func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) error {
-
-	if schema.ReadOnly != nil && *schema.ReadOnly == true {
+	if schema.ReadOnly != nil && *schema.ReadOnly {
 		return SchemaSettingError{name: name, message: "it is ReadOnly"}
 	}
 
@@ -128,7 +127,7 @@ func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) err
 	}
 }
 
-// FirmwareSchemaSpec defines the desired state of FirmwareSchema
+// FirmwareSchemaSpec defines the desired state of FirmwareSchema.
 type FirmwareSchemaSpec struct {
 
 	// The hardware vendor associated with this schema
@@ -145,7 +144,7 @@ type FirmwareSchemaSpec struct {
 
 //+kubebuilder:object:root=true
 
-// FirmwareSchema is the Schema for the firmwareschemas API
+// FirmwareSchema is the Schema for the firmwareschemas API.
 type FirmwareSchema struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -153,9 +152,8 @@ type FirmwareSchema struct {
 	Spec FirmwareSchemaSpec `json:"spec,omitempty"`
 }
 
-// Check whether the setting's name and value is valid using the schema
+// Check whether the setting's name and value is valid using the schema.
 func (host *FirmwareSchema) ValidateSetting(name string, value intstr.IntOrString, schemas map[string]SettingSchema) error {
-
 	schema, ok := schemas[name]
 	if !ok {
 		return SchemaSettingError{name: name, message: "it is not in the associated schema"}
@@ -166,7 +164,7 @@ func (host *FirmwareSchema) ValidateSetting(name string, value intstr.IntOrStrin
 
 //+kubebuilder:object:root=true
 
-// FirmwareSchemaList contains a list of FirmwareSchema
+// FirmwareSchemaList contains a list of FirmwareSchema.
 type FirmwareSchemaList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

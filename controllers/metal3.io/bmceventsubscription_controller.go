@@ -37,7 +37,6 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
@@ -88,7 +87,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Error(err, "baremetalhost not found", "host", subscription.Spec.HostName)
 
-			message := fmt.Sprintf("baremetal host \"%s\"", subscription.Status.Error)
+			message := fmt.Sprintf("baremetal host %q", subscription.Status.Error)
 			return r.handleError(ctx, subscription, err, message, true)
 		}
 		// Error reading the object - requeue the request.
@@ -101,7 +100,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 		return ctrl.Result{}, errors.Wrap(err, "failed add finalizer")
 	}
 
-	prov, ready, err := r.getProvisioner(request, host)
+	prov, ready, err := r.getProvisioner(ctx, request, host)
 
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
@@ -173,7 +172,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 		return nil
 	}
 
-	headers, err := r.getHTTPHeaders(*subscription)
+	headers, err := r.getHTTPHeaders(ctx, *subscription)
 
 	if err != nil {
 		reqLogger.Error(err, "failed to get http headers")
@@ -192,7 +191,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 	return r.Status().Update(ctx, subscription)
 }
 
-func (r *BMCEventSubscriptionReconciler) deleteSubscription(_ context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
+func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context, prov provisioner.Provisioner, subscription *metal3api.BMCEventSubscription) error {
 	reqLogger := r.Log.WithName("bmceventsubscription")
 	reqLogger.Info("deleting subscription")
 
@@ -206,7 +205,7 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(_ context.Context, p
 			subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer)
 		reqLogger.Info("cleanup is complete, removed finalizer",
 			"remaining", subscription.Finalizers)
-		if err := r.Update(context.Background(), subscription); err != nil {
+		if err := r.Update(ctx, subscription); err != nil {
 			return err
 		}
 	}
@@ -214,10 +213,10 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(_ context.Context, p
 	return nil
 }
 
-func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, host *metal3api.BareMetalHost) (prov provisioner.Provisioner, ready bool, err error) {
+func (r *BMCEventSubscriptionReconciler) getProvisioner(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (prov provisioner.Provisioner, ready bool, err error) {
 	reqLogger := r.Log.WithValues("bmceventsubscription", request.NamespacedName)
 
-	prov, err = r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostDataNoBMC(*host), nil)
+	prov, err = r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*host), nil)
 	if err != nil {
 		return prov, ready, errors.Wrap(err, "failed to create provisioner")
 	}
@@ -235,11 +234,7 @@ func (r *BMCEventSubscriptionReconciler) getProvisioner(request ctrl.Request, ho
 	return prov, ready, nil
 }
 
-func (r *BMCEventSubscriptionReconciler) secretManager(log logr.Logger) secretutils.SecretManager {
-	return secretutils.NewSecretManager(log, r.Client, r.APIReader)
-}
-
-func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3api.BMCEventSubscription) ([]map[string]string, error) {
+func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(ctx context.Context, subscription metal3api.BMCEventSubscription) ([]map[string]string, error) {
 	headers := []map[string]string{}
 
 	if subscription.Spec.HTTPHeadersRef == nil {
@@ -252,7 +247,7 @@ func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(subscription metal3api.B
 		Namespace: subscription.Spec.HTTPHeadersRef.Namespace,
 	}
 
-	err := r.Get(context.TODO(), secretKey, secret)
+	err := r.Get(ctx, secretKey, secret)
 
 	if err != nil {
 		return headers, err

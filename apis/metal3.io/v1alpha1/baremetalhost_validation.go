@@ -7,10 +7,10 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
-	"golang.org/x/exp/slices"
 
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )

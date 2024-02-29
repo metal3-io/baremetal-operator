@@ -93,7 +93,6 @@ The following environment variables can be passed to configure the ironic:
 - DEPLOY_KERNEL_URL - the URL of the kernel to deploy ironic-python-agent
 - DEPLOY_RAMDISK_URL - the URL of the ramdisk to deploy ironic-python-agent
 - IRONIC_ENDPOINT - the endpoint of the ironic
-- IRONIC_INSPECTOR_ENDPOINT - the endpoint of the ironic inspector
 - CACHEURL - the URL of the cached images
 - IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
   (default true)
@@ -137,16 +136,11 @@ authentication enabled, you also need to export the following variables:
 - IRONIC_CACERT_FILE
 - IRONIC_CERT_FILE
 - IRONIC_KEY_FILE
-- IRONIC_INSPECTOR_CACERT_FILE
-- IRONIC_INSPECTOR_CERT_FILE
-- IRONIC_INSPECTOR_KEY_FILE
 
 ### Basic authentication variables
 
 - IRONIC_USERNAME
 - IRONIC_PASSWORD
-- IRONIC_INSPECTOR_USERNAME
-- IRONIC_INSPECTOR_PASSWORD
 
 The names of these variables are self explanatory. TLS variables expect the
 path of the corresponding certificate/key file as their value. Basic

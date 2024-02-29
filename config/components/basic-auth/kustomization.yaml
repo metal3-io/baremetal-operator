@@ -1,14 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-# NOTE: This component requires secrets with the basic auth credentials!
-# How you create them is up to you.
-# The required secrets are:
+# NOTE: This component requires a secret with the basic auth credentials!
+# How you create it is up to you. The required secrets is:
 # - ironic-credentials
-# - ironic-inspector-credentials
 #
-# Both should contain 2 fields: username and password.
-# Example:
+# It should contain 2 fields: username and password. Example:
 #
 # apiVersion: v1
 # kind: Secret

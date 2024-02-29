@@ -130,19 +130,17 @@ export IRONIC_INSPECTOR_PASSWORD
 for overlay in "${BMO_OVERLAYS[@]}"; do
   echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
   echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
-  echo "${IRONIC_INSPECTOR_USERNAME}" > "${overlay}/ironic-inspector-username"
-  echo "${IRONIC_INSPECTOR_PASSWORD}" > "${overlay}/ironic-inspector-password"
+  if [[ "${overlay}" =~ release-0\.[1-5]$ ]]; then
+    echo "${IRONIC_INSPECTOR_USERNAME}" > "${overlay}/ironic-inspector-username"
+    echo "${IRONIC_INSPECTOR_PASSWORD}" > "${overlay}/ironic-inspector-password"
+  fi
 done
 
 envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${IRONIC_OVERLAY}/ironic-auth-config"
-envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl" > \
-  "${IRONIC_OVERLAY}/ironic-inspector-auth-config"
 
 echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
   "${IRONIC_OVERLAY}/ironic-htpasswd"
-echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-  "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_OVERLAY}/ironic-inspector-htpasswd"
 
 
 # We need to gather artifacts/logs before exiting also if there are errors

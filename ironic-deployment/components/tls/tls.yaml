@@ -16,14 +16,9 @@ spec:
         env:
         - name: IRONIC_REVERSE_PROXY_SETUP
           value: "true"
-        - name: INSPECTOR_REVERSE_PROXY_SETUP
-          value: "true"
         volumeMounts:
         - name: cert-ironic-ca
           mountPath: "/certs/ca/ironic"
-          readOnly: true
-        - name: cert-ironic-inspector-ca
-          mountPath: "/certs/ca/ironic-inspector"
           readOnly: true
       - name: ironic-httpd
         livenessProbe:
@@ -35,50 +30,17 @@ spec:
         env:
         - name: IRONIC_REVERSE_PROXY_SETUP
           value: "true"
-        - name: INSPECTOR_REVERSE_PROXY_SETUP
-          value: "true"
         volumeMounts:
         - name: cert-ironic
           mountPath: "/certs/ironic"
           readOnly: true
-        - name: cert-ironic-inspector
-          mountPath: "/certs/ironic-inspector"
-          readOnly: true
         - name: cert-ironic-ca
           mountPath: "/certs/ca/ironic"
-          readOnly: true
-        - name: cert-ironic-inspector-ca
-          mountPath: "/certs/ca/ironic-inspector"
-          readOnly: true
-      - name: ironic-inspector
-        readinessProbe:
-          exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:5049"]
-        livenessProbe:
-          exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:5049"]
-        env:
-        - name: IRONIC_REVERSE_PROXY_SETUP
-          value: "true"
-        - name: INSPECTOR_REVERSE_PROXY_SETUP
-          value: "true"
-        volumeMounts:
-        - name: cert-ironic-ca
-          mountPath: "/certs/ca/ironic"
-          readOnly: true
-        - name: cert-ironic-inspector-ca
-          mountPath: "/certs/ca/ironic-inspector"
           readOnly: true
       volumes:
       - name: cert-ironic-ca
         secret:
           secretName: ironic-cacert
-      - name: cert-ironic-inspector-ca
-        secret:
-          secretName: ironic-cacert
       - name: cert-ironic
         secret:
           secretName: ironic-cert
-      - name: cert-ironic-inspector
-        secret:
-          secretName: ironic-inspector-cert

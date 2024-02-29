@@ -29,7 +29,7 @@ const (
 	ImageFormatInitRD ImageFormat = "initrd"
 )
 
-// PreprovisioningImageSpec defines the desired state of PreprovisioningImage
+// PreprovisioningImageSpec defines the desired state of PreprovisioningImage.
 type PreprovisioningImageSpec struct {
 	// networkDataName is the name of a Secret in the local namespace that
 	// contains network data to build in to the image.
@@ -60,15 +60,15 @@ const (
 	ConditionImageError ImageStatusConditionType = "Error"
 )
 
-// PreprovisioningImageStatus defines the observed state of PreprovisioningImage
+// PreprovisioningImageStatus defines the observed state of PreprovisioningImage.
 type PreprovisioningImageStatus struct {
 	// imageUrl is the URL from which the built image can be downloaded.
-	ImageUrl string `json:"imageUrl,omitempty"`
+	ImageUrl string `json:"imageUrl,omitempty"` //nolint:revive,stylecheck
 
 	// kernelUrl is the URL from which the kernel of the image can be downloaded.
 	// Only makes sense for initrd images.
 	// +optional
-	KernelUrl string `json:"kernelUrl,omitempty"`
+	KernelUrl string `json:"kernelUrl,omitempty"` //nolint:revive,stylecheck
 
 	// extraKernelParams is a string with extra parameters to pass to the
 	// kernel when booting the image over network. Only makes sense for initrd images.
@@ -103,7 +103,7 @@ type PreprovisioningImageStatus struct {
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",description="The reason for the image readiness status"
 // +kubebuilder:subresource:status
 
-// PreprovisioningImage is the Schema for the preprovisioningimages API
+// PreprovisioningImage is the Schema for the preprovisioningimages API.
 type PreprovisioningImage struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -114,7 +114,7 @@ type PreprovisioningImage struct {
 
 // +kubebuilder:object:root=true
 
-// PreprovisioningImageList contains a list of PreprovisioningImage
+// PreprovisioningImageList contains a list of PreprovisioningImage.
 type PreprovisioningImageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

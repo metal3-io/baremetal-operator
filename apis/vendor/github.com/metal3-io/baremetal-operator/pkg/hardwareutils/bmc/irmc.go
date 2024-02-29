@@ -4,6 +4,11 @@ import (
 	"net/url"
 )
 
+const (
+	FalseStr = "False"
+	TrueStr  = "True"
+)
+
 func init() {
 	RegisterFactory("irmc", newIRMCAccessDetails, []string{})
 }
@@ -75,7 +80,7 @@ func (a *iRMCAccessDetails) BIOSInterface() string {
 }
 
 func (a *iRMCAccessDetails) BootInterface() string {
-	return "ipxe"
+	return ipxe
 }
 
 func (a *iRMCAccessDetails) FirmwareInterface() string {
@@ -118,9 +123,9 @@ func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (s
 	var value string
 
 	if firmwareConfig.VirtualizationEnabled != nil {
-		value = "False"
+		value = FalseStr
 		if *firmwareConfig.VirtualizationEnabled {
-			value = "True"
+			value = TrueStr
 		}
 		settings = append(settings,
 			map[string]string{
@@ -131,9 +136,9 @@ func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (s
 	}
 
 	if firmwareConfig.SimultaneousMultithreadingEnabled != nil {
-		value = "False"
+		value = FalseStr
 		if *firmwareConfig.SimultaneousMultithreadingEnabled {
-			value = "True"
+			value = TrueStr
 		}
 		settings = append(settings,
 			map[string]string{
@@ -144,9 +149,9 @@ func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (s
 	}
 
 	if firmwareConfig.SriovEnabled != nil {
-		value = "False"
+		value = FalseStr
 		if *firmwareConfig.SriovEnabled {
-			value = "True"
+			value = TrueStr
 		}
 		settings = append(settings,
 			map[string]string{

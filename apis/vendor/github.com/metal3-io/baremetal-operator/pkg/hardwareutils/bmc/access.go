@@ -1,13 +1,12 @@
 package bmc
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"regexp"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // AccessDetailsFactory describes a callable that returns a new
@@ -20,7 +19,7 @@ var factories = map[string]AccessDetailsFactory{}
 // with optional scheme extensions.
 //
 // RegisterFactory("bmcname", theFunc, []string{"http", "https"})
-// maps "bmcname", "bmcname+http", and "bmcname+https" to theFunc
+// maps "bmcname", "bmcname+http", and "bmcname+https" to theFunc.
 func RegisterFactory(name string, factory AccessDetailsFactory, schemes []string) {
 	factories[name] = factory
 
@@ -91,7 +90,6 @@ type AccessDetails interface {
 }
 
 func GetParsedURL(address string) (parsedURL *url.URL, err error) {
-
 	parsedURL, err = url.Parse(address)
 	if err != nil {
 		// We failed to parse the URL, but it may just be a host or
@@ -104,7 +102,7 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 			// values. Otherwise, report the original parser error.
 			_, _, err2 := net.SplitHostPort(address)
 			if err2 != nil {
-				return nil, errors.Wrap(err, "failed to parse BMC address information")
+				return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 			}
 		}
 		parsedURL = &url.URL{
@@ -116,17 +114,16 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 		if parsedURL.Opaque != "" {
 			parsedURL, err = url.Parse(strings.Replace(address, ":", "://", 1))
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to parse BMC address information")
-
+				return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 			}
 		}
 		if parsedURL.Scheme == "" {
 			if parsedURL.Hostname() == "" {
 				// If there was no scheme at all, the hostname was
 				// interpreted as a path.
-				parsedURL, err = url.Parse(strings.Join([]string{"ipmi://", address}, ""))
+				parsedURL, err = url.Parse("ipmi://" + address)
 				if err != nil {
-					return nil, errors.Wrap(err, "failed to parse BMC address information")
+					return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 				}
 			}
 		}
@@ -134,7 +131,7 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 
 	// Check for expected hostname format
 	if err := checkDNSValid(parsedURL.Hostname()); err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
+		return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 	}
 
 	return parsedURL, nil
@@ -143,7 +140,6 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 // NewAccessDetails creates an AccessDetails structure from the URL
 // for a BMC.
 func NewAccessDetails(address string, disableCertificateVerification bool) (AccessDetails, error) {
-
 	if address == "" {
 		return nil, errors.New("missing BMC address")
 	}
@@ -162,7 +158,6 @@ func NewAccessDetails(address string, disableCertificateVerification bool) (Acce
 }
 
 func checkDNSValid(address string) error {
-
 	// Allowing empty BMC address
 	if address == "" {
 		return nil

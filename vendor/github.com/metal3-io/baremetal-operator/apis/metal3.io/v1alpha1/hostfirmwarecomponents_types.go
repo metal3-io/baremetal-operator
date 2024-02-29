@@ -42,19 +42,19 @@ type FirmwareComponentStatus struct {
 type UpdatesConditionType string
 
 const (
-	// Indicates that the updates in the Spec are different than Status
+	// Indicates that the updates in the Spec are different than Status.
 	HostFirmwareComponentsChangeDetected UpdatesConditionType = "ChangeDetected"
 
-	// Indicates if the updates are valid and can be configured on the host
+	// Indicates if the updates are valid and can be configured on the host.
 	HostFirmwareComponentsValid UpdatesConditionType = "Valid"
 )
 
-// HostFirmwareComponentsSpec defines the desired state of HostFirmwareComponents
+// HostFirmwareComponentsSpec defines the desired state of HostFirmwareComponents.
 type HostFirmwareComponentsSpec struct {
 	Updates []FirmwareUpdate `json:"updates"`
 }
 
-// HostFirmwareComponentsStatus defines the observed state of HostFirmwareComponents
+// HostFirmwareComponentsStatus defines the observed state of HostFirmwareComponents.
 type HostFirmwareComponentsStatus struct {
 	// Updates is the list of all firmware components that should be updated
 	// they are specified via name and url fields.
@@ -80,7 +80,7 @@ type HostFirmwareComponentsStatus struct {
 //+kubebuilder:resource:shortName=hfc
 //+kubebuilder:subresource:status
 
-// HostFirmwareComponents is the Schema for the hostfirmwarecomponents API
+// HostFirmwareComponents is the Schema for the hostfirmwarecomponents API.
 type HostFirmwareComponents struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -91,23 +91,21 @@ type HostFirmwareComponents struct {
 
 //+kubebuilder:object:root=true
 
-// HostFirmwareComponentsList contains a list of HostFirmwareComponents
+// HostFirmwareComponentsList contains a list of HostFirmwareComponents.
 type HostFirmwareComponentsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HostFirmwareComponents `json:"items"`
 }
 
-// Check whether the updates's names are valid
+// Check whether the updates's names are valid.
 func (host *HostFirmwareComponents) ValidateHostFirmwareComponents() error {
-
 	allowedNames := map[string]struct{}{"bmc": {}, "bios": {}}
 	for _, update := range host.Spec.Updates {
 		componentName := update.Component
 		if _, ok := allowedNames[componentName]; !ok {
-			return fmt.Errorf("Component %s is invalid, only 'bmc' or 'bios' are allowed as update names", update.Component)
+			return fmt.Errorf("component %s is invalid, only 'bmc' or 'bios' are allowed as update names", update.Component)
 		}
-
 	}
 
 	return nil

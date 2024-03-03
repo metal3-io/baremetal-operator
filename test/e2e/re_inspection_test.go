@@ -19,7 +19,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
-var _ = Describe("Re-Inspection", func() {
+var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 	var (
 		specName      = "re-inspection"
 		secretName    = "bmc-credentials"

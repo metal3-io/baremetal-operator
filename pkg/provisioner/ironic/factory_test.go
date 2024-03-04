@@ -213,3 +213,106 @@ func TestLoadEndpointsFromEnv(t *testing.T) {
 		})
 	}
 }
+func TestLoadTLSConfigFromEnv(t *testing.T) {
+	// Test Case 1.1: All environment variables set correctly
+	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
+	os.Setenv("IRONIC_CLIENT_CERT_FILE", "/path/to/client.crt")
+	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "/path/to/client.key")
+	os.Setenv("IRONIC_INSECURE", "false")
+	os.Setenv("IRONIC_SKIP_CLIENT_SAN_VERIFY", "true")
+	defer func() {
+		os.Unsetenv("IRONIC_CACERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+		os.Unsetenv("IRONIC_INSECURE")
+		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	}()
+
+	tlsConfig, err := loadTLSConfigFromEnv()
+	if err != nil {
+		t.Errorf("Error occurred while loading TLS config: %v", err)
+	}
+	// Assertion: Verify the returned TLSConfig object has all fields set with the corresponding values from the environment variables.
+	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
+		tlsConfig.ClientCertificateFile != "/path/to/client.crt" ||
+		tlsConfig.ClientPrivateKeyFile != "/path/to/client.key" ||
+		tlsConfig.InsecureSkipVerify != false ||
+		tlsConfig.SkipClientSANVerify != true {
+		t.Errorf("Unexpected TLS config values")
+	}
+
+	// Test Case 1.2: Default values used for missing environment variables
+	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
+	os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+	os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+	os.Unsetenv("IRONIC_INSECURE")
+	os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	defer func() {
+		os.Unsetenv("IRONIC_CACERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+		os.Unsetenv("IRONIC_INSECURE")
+		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	}()
+
+	tlsConfig, err = loadTLSConfigFromEnv()
+	if err != nil {
+		t.Errorf("Error occurred while loading TLS config: %v", err)
+	}
+	// Assertion: Verify the returned TLSConfig object has default values for missing environment variables.
+	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
+		tlsConfig.ClientCertificateFile != "/opt/metal3/certs/client/tls.crt" ||
+		tlsConfig.ClientPrivateKeyFile != "/opt/metal3/certs/client/tls.key" ||
+		tlsConfig.InsecureSkipVerify != false ||
+		tlsConfig.SkipClientSANVerify != false {
+		t.Errorf("Unexpected TLS config values")
+	}
+
+	// Test Case 2.1: Invalid URL for IRONIC_EXTERNAL_URL_V6
+	os.Setenv("IRONIC_EXTERNAL_URL_V6", "invalid_url")
+	_, err = loadTLSConfigFromEnv()
+	if err == nil {
+		t.Errorf("Expected error for invalid URL")
+	}
+
+	// Test Case 2.2: Invalid value for IRONIC_INSECURE (not "true" or "false")
+	os.Setenv("IRONIC_INSECURE", "unknown")
+	_, err = loadTLSConfigFromEnv()
+	if err == nil {
+		t.Errorf("Expected error for invalid value of IRONIC_INSECURE")
+	}
+
+	// Test Case 2.3: Invalid value for IRONIC_SKIP_CLIENT_SAN_VERIFY (not "true" or "false")
+	os.Setenv("IRONIC_SKIP_CLIENT_SAN_VERIFY", "unknown")
+	_, err = loadTLSConfigFromEnv()
+	if err == nil {
+		t.Errorf("Expected error for invalid value of IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	}
+
+	// Test Case 3.1: Empty environment variables
+	os.Setenv("IRONIC_CACERT_FILE", "")
+	os.Setenv("IRONIC_CLIENT_CERT_FILE", "")
+	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "")
+	os.Setenv("IRONIC_INSECURE", "")
+	os.Setenv("IRONIC_SKIP_CLIENT_SAN_VERIFY", "")
+	defer func() {
+		os.Unsetenv("IRONIC_CACERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+		os.Unsetenv("IRONIC_INSECURE")
+		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	}()
+
+	tlsConfig, err = loadTLSConfigFromEnv()
+	if err != nil {
+		t.Errorf("Error occurred while loading TLS config: %v", err)
+	}
+	// Assertion: Verify the returned TLSConfig object has all fields set to their default values.
+	if tlsConfig.TrustedCAFile != "/opt/metal3/certs/ca/tls.crt" ||
+		tlsConfig.ClientCertificateFile != "/opt/metal3/certs/client/tls.crt" ||
+		tlsConfig.ClientPrivateKeyFile != "/opt/metal3/certs/client/tls.key" ||
+		tlsConfig.InsecureSkipVerify != false ||
+		tlsConfig.SkipClientSANVerify != false {
+		t.Errorf("Unexpected TLS config values")
+	}
+}

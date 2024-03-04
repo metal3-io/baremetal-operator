@@ -43,7 +43,11 @@ minikube stop
 minikube start
 
 # Load the BMO e2e image into it
-minikube image load quay.io/metal3-io/baremetal-operator:e2e
+# minikube image load quay.io/metal3-io/baremetal-operator:e2e
+# Temporary workaround for https://github.com/kubernetes/minikube/issues/18021
+docker image save -o /tmp/bmo-e2e.tar quay.io/metal3-io/baremetal-operator:e2e
+minikube image load /tmp/bmo-e2e.tar
+rm /tmp/bmo-e2e.tar
 
 # Create libvirt domain
 VM_NAME="bmo-e2e-0"

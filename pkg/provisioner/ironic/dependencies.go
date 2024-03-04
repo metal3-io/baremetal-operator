@@ -1,8 +1,10 @@
 package ironic
 
 import (
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/drivers"
-	"github.com/gophercloud/gophercloud/pagination"
+	"context"
+
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
+	"github.com/gophercloud/gophercloud/v2/pagination"
 
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
@@ -11,7 +13,7 @@ import (
 func (p *ironicProvisioner) TryInit() (ready bool, err error) {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
 
-	p.availableFeatures, err = clients.GetAvailableFeatures(p.client)
+	p.availableFeatures, err = clients.GetAvailableFeatures(p.ctx, p.client)
 	if err != nil {
 		p.log.Info("error caught while checking endpoint, will retry", "endpoint", p.client.Endpoint, "error", err)
 		return false, nil
@@ -34,7 +36,7 @@ func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {
 	}
 
 	driverCount := 0
-	pager.EachPage(func(page pagination.Page) (bool, error) {
+	pager.EachPage(p.ctx, func(_ context.Context, page pagination.Page) (bool, error) {
 		actual, driverErr := drivers.ExtractDrivers(page)
 		if driverErr != nil {
 			return false, driverErr

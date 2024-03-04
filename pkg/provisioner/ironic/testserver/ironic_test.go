@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 )
 
 func TestIronicDatabaseClearing(t *testing.T) {

@@ -59,6 +59,3 @@ config/overlays/temp
 
 # release-notes
 /releasenotes
-
-# Jetbrains development
-.idea/

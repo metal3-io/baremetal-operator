@@ -24,7 +24,7 @@ import (
 	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 )
 
-var _ = Describe("BMH Provisioning and Annotation Management", Label("required", "provision", "annotation"),
+var _ = Describe("Provision, detach, recreate from status and deprovision", Label("required", "provision", "detach", "status", "deprovision"),
 	func() {
 		var (
 			specName      = "provisioning-ops"

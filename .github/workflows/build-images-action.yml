@@ -1,0 +1,46 @@
+name: build-images-action
+
+on:
+  push:
+    branches:
+    - 'main'
+    - 'release-*'
+    tags:
+    - 'v*'
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build container images
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    if: github.repository == 'metal3-io/baremetal-operator'
+    steps:
+    - name: build bmo image
+      uses: toptal/jenkins-job-trigger-action@137fff703dd260b52b53d3ba1960396415abc568 # 1.0.2
+      with:
+        jenkins_url: "https://jenkins.nordix.org/"
+        jenkins_user: "metal3.bot@gmail.com"
+        jenkins_token: ${{ secrets.JENKINS_TOKEN }}
+        job_name: "metal3_baremetal-operator_container_image_building"
+        job_params: |
+          {
+            "BUILD_CONTAINER_IMAGE_GIT_REFERENCE": "${{ github.ref }}"
+          }
+        job_timeout: "1000"
+    - name: build keepalived image
+      uses: toptal/jenkins-job-trigger-action@137fff703dd260b52b53d3ba1960396415abc568 # 1.0.2
+      with:
+        jenkins_url: "https://jenkins.nordix.org/"
+        jenkins_user: "metal3.bot@gmail.com"
+        jenkins_token: ${{ secrets.JENKINS_TOKEN }}
+        job_name: "metal3_keepalived_container_image_building"
+        job_params: |
+          {
+            "BUILD_CONTAINER_IMAGE_GIT_REFERENCE": "${{ github.ref }}"
+          }
+        job_timeout: "1000"

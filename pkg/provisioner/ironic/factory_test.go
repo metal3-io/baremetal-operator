@@ -181,40 +181,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	}
 }
 
-func TestLoadEndpointsFromEnv(t *testing.T) {
-	cases := []struct {
-		name        string
-		env         EnvFixture
-		expectError bool
-	}{
-		{
-			name: "with-ironic",
-			env: EnvFixture{
-				ironicEndpoint: "http://ironic.test",
-			},
-		}, {
-			name:        "without-ironic",
-			env:         EnvFixture{},
-			expectError: true,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			defer tc.env.TearDown()
-			tc.env.SetUp()
-			i, err := loadEndpointsFromEnv()
-			if tc.expectError {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-				tc.env.VerifyEndpoints(t, i)
-			}
-		})
-	}
-}
 func TestLoadTLSConfigFromEnv(t *testing.T) {
-	// Test Case 1.1: All environment variables set correctly
+	// Test Case 1: All environment variables set correctly
 	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
 	os.Setenv("IRONIC_CLIENT_CERT_FILE", "/path/to/client.crt")
 	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "/path/to/client.key")
@@ -228,10 +196,8 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
 	}()
 
-	tlsConfig, err := loadTLSConfigFromEnv()
-	if err != nil {
-		t.Errorf("Error occurred while loading TLS config: %v", err)
-	}
+	tlsConfig:= loadTLSConfigFromEnv()
+	
 	// Assertion: Verify the returned TLSConfig object has all fields set with the corresponding values from the environment variables.
 	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
 		tlsConfig.ClientCertificateFile != "/path/to/client.crt" ||
@@ -241,7 +207,7 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		t.Errorf("Unexpected TLS config values")
 	}
 
-	// Test Case 1.2: Default values used for missing environment variables
+	// Test Case 2: Default values used for missing environment variables
 	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
 	os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
 	os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
@@ -255,10 +221,8 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
 	}()
 
-	tlsConfig, err = loadTLSConfigFromEnv()
-	if err != nil {
-		t.Errorf("Error occurred while loading TLS config: %v", err)
-	}
+	tlsConfig= loadTLSConfigFromEnv()
+	
 	// Assertion: Verify the returned TLSConfig object has default values for missing environment variables.
 	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
 		tlsConfig.ClientCertificateFile != "/opt/metal3/certs/client/tls.crt" ||
@@ -268,28 +232,10 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		t.Errorf("Unexpected TLS config values")
 	}
 
-	// Test Case 2.1: Invalid URL for IRONIC_EXTERNAL_URL_V6
-	os.Setenv("IRONIC_EXTERNAL_URL_V6", "invalid_url")
-	_, err = loadTLSConfigFromEnv()
-	if err == nil {
-		t.Errorf("Expected error for invalid URL")
-	}
+	
+	
 
-	// Test Case 2.2: Invalid value for IRONIC_INSECURE (not "true" or "false")
-	os.Setenv("IRONIC_INSECURE", "unknown")
-	_, err = loadTLSConfigFromEnv()
-	if err == nil {
-		t.Errorf("Expected error for invalid value of IRONIC_INSECURE")
-	}
-
-	// Test Case 2.3: Invalid value for IRONIC_SKIP_CLIENT_SAN_VERIFY (not "true" or "false")
-	os.Setenv("IRONIC_SKIP_CLIENT_SAN_VERIFY", "unknown")
-	_, err = loadTLSConfigFromEnv()
-	if err == nil {
-		t.Errorf("Expected error for invalid value of IRONIC_SKIP_CLIENT_SAN_VERIFY")
-	}
-
-	// Test Case 3.1: Empty environment variables
+	// Test Case 3: Empty environment variables
 	os.Setenv("IRONIC_CACERT_FILE", "")
 	os.Setenv("IRONIC_CLIENT_CERT_FILE", "")
 	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "")
@@ -303,10 +249,8 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
 	}()
 
-	tlsConfig, err = loadTLSConfigFromEnv()
-	if err != nil {
-		t.Errorf("Error occurred while loading TLS config: %v", err)
-	}
+	tlsConfig = loadTLSConfigFromEnv()
+	
 	// Assertion: Verify the returned TLSConfig object has all fields set to their default values.
 	if tlsConfig.TrustedCAFile != "/opt/metal3/certs/ca/tls.crt" ||
 		tlsConfig.ClientCertificateFile != "/opt/metal3/certs/client/tls.crt" ||

@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/google/uuid v1.6.0
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	k8s.io/api v0.28.5
 	k8s.io/apimachinery v0.28.5
 	sigs.k8s.io/controller-runtime v0.16.3

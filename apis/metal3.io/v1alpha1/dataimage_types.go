@@ -22,27 +22,27 @@ import (
 
 const DataImageFinalizer = "dataimage.metal3.io"
 
-// Contains the attached DataImage
+// Contains the attached DataImage.
 type AttachedImageReference struct {
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
-// Contains the count of errors and the last error message
+// Contains the count of errors and the last error message.
 type DataImageError struct {
 	Count   int    `json:"count"`
 	Message string `json:"message"`
 }
 
-// DataImageSpec defines the desired state of DataImage
+// DataImageSpec defines the desired state of DataImage.
 type DataImageSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Url is the address of the dataImage that we want to attach
 	// to a BareMetalHost
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
-// DataImageStatus defines the observed state of DataImage
+// DataImageStatus defines the observed state of DataImage.
 type DataImageStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -60,7 +60,7 @@ type DataImageStatus struct {
 //+kubebuilder:resource:shortName=dimg
 //+kubebuilder:subresource:status
 
-// DataImage is the Schema for the dataimages API
+// DataImage is the Schema for the dataimages API.
 type DataImage struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -71,7 +71,7 @@ type DataImage struct {
 
 //+kubebuilder:object:root=true
 
-// DataImageList contains a list of DataImage
+// DataImageList contains a list of DataImage.
 type DataImageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

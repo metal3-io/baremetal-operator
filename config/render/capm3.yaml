@@ -1247,7 +1247,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DataImage is the Schema for the dataimages API
+        description: DataImage is the Schema for the dataimages API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -1262,7 +1262,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: DataImageSpec defines the desired state of DataImage
+            description: DataImageSpec defines the desired state of DataImage.
             properties:
               url:
                 description: Url is the address of the dataImage that we want to attach
@@ -1272,7 +1272,7 @@ spec:
             - url
             type: object
           status:
-            description: DataImageStatus defines the observed state of DataImage
+            description: DataImageStatus defines the observed state of DataImage.
             properties:
               attachedImage:
                 description: imageUrl is the URL from which the built image can be
@@ -1284,7 +1284,7 @@ spec:
                 - url
                 type: object
               error:
-                description: Contains the count of errors and the last error message
+                description: Contains the count of errors and the last error message.
                 properties:
                   count:
                     type: integer

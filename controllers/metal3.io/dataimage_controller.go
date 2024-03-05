@@ -28,12 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DataImageReconciler reconciles a DataImage object
+// DataImageReconciler reconciles a DataImage object.
 type DataImageReconciler struct {
 	client.Client
 	Log logr.Logger
-	//ProvisionerFactory provisioner.Factory
-	//APIReader          client.Reader
 }
 
 //+kubebuilder:rbac:groups=metal3.io,resources=dataimages,verbs=get;list;watch;create;update;patch;delete

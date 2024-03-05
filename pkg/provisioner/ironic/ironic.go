@@ -2194,3 +2194,33 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 	}
 	return operationComplete()
 }
+
+// Get DataImage Details
+// Fetches the VirtualMedia details of the BareMetalHost and updates DataImage.
+func (p *ironicProvisioner) GetDataImageStatus(dataImage *metal3api.DataImage) (err error) {
+	// TODO(hroyrh)
+	// Get BareMetalHost VirtualMedia details and handle errors
+
+	// Dummy value set
+	if dataImage.Status.AttachedImage == nil {
+		dataImage.Status.AttachedImage = &metal3api.AttachedImageReference{}
+	}
+
+	// TODO(hroyrh):
+	// Do we really set it at this point or inside detach/attach functions
+	if dataImage.Status.Error == nil {
+		dataImage.Status.Error = &metal3api.DataImageError{}
+	}
+
+	return nil
+}
+
+func (p *ironicProvisioner) AttachDataImage(_ string) (err error) {
+	p.log.Info("Calling the IronicProvisioner.AttachDataImage function")
+	return nil
+}
+
+func (p *ironicProvisioner) DetachDataImage() (err error) {
+	p.log.Info("Calling the IronicProvisioner.DetachDataImage function")
+	return nil
+}

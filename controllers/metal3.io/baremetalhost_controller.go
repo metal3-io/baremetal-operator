@@ -99,6 +99,10 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 //+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch
 
+// Allow for updating dataimage
+// +kubebuilder:rbac:groups=metal3.io,resources=dataimages,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=metal3.io,resources=dataimages/status,verbs=get;update;patch
+
 // Reconcile handles changes to BareMetalHost resources.
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
 	reconcileCounters.With(hostMetricLabels(request)).Inc()
@@ -1380,6 +1384,13 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
 	if desiredPowerOnState {
+		// If DataImage exists, handle attachment/detachment
+		dataImageResult := r.handleDataImageActions(prov, info)
+		if dataImageResult != nil {
+			// attaching/detaching DataImage failed, so we will requeue
+			return dataImageResult
+		}
+
 		provResult, err = prov.PowerOn(info.host.Status.ErrorType == metal3api.PowerManagementError)
 	} else {
 		if info.host.Status.ErrorCount > 0 {
@@ -1422,6 +1433,143 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	info.host.Status.PoweredOn = info.host.Spec.Online
 	info.host.Status.ErrorCount = 0
 	return actionUpdate{steadyStateResult}
+}
+
+// DataImage handler for attaching/detaching image.
+func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	dataImage := &metal3api.DataImage{}
+	if err := r.Get(info.ctx, info.request.NamespacedName, dataImage); err != nil {
+		// DataImage does not exist or it may have been deleted
+		if k8serrors.IsNotFound(err) {
+			info.log.Info("dataImage not found")
+			return nil
+		}
+		// Error reading the object - requeue the request.
+		return actionError{errors.Wrap(err, "could not load dataImage")}
+	}
+
+	// Set ControllerReference to DataImage
+	if !ownerReferenceExists(info.host, dataImage) {
+		if err := controllerutil.SetControllerReference(info.host, dataImage, r.Scheme()); err != nil {
+			return actionError{errors.Wrap(err, "could not set bmh as controller")}
+		}
+		if err := r.Update(info.ctx, dataImage); err != nil {
+			return actionError{errors.Wrap(err, "failure creating dataImage resource")}
+		}
+		// Should we requeue at this point
+		// return actionContinue{}
+	}
+
+	// Fetch the latest status of DataImage from node
+	if err := prov.GetDataImageStatus(dataImage); err != nil {
+		info.log.Info("Failed to get current status : ", "ErrorIs", err)
+		return actionError{errors.Wrap(err, "Failed to get latest status, Requeuing DataImageReconciler")}
+	}
+
+	deleteDataImage := false
+	if !dataImage.DeletionTimestamp.IsZero() {
+		deleteDataImage = true
+	}
+
+	diSpecURL := dataImage.Spec.URL
+
+	// We can assume non null value since GetDataImageStatus was successful
+	diAttachedURL := dataImage.Status.AttachedImage.URL
+
+	if deleteDataImage {
+		info.log.Info("DataImage requested for deletion")
+		if diAttachedURL != "" {
+			info.log.Info("Detaching DataImage as it was deleted")
+			err := r.detachDataImage(prov, info, dataImage)
+			if err != nil {
+				return actionError{errors.Wrap(err, "Failed to detach")}
+			}
+
+			if err := r.Status().Update(info.ctx, dataImage); err != nil {
+				return actionError{errors.Wrap(err, "Failed to update DataImage status")}
+			}
+		}
+
+		// In case there was no DataImage attached or we successfully detached it, we simply exit
+		return nil
+	}
+
+	if diSpecURL != diAttachedURL {
+		info.log.Info("DataImage change detected")
+		if diAttachedURL != "" {
+			info.log.Info("Detaching DataImage")
+			err := r.detachDataImage(prov, info, dataImage)
+			if err != nil {
+				return actionError{errors.Wrap(err, "Failed to detach")}
+			}
+		}
+		if diSpecURL != "" {
+			info.log.Info("Attaching DataImage")
+			err := r.attachDataImage(prov, info, dataImage)
+			if err != nil {
+				return actionError{errors.Wrap(err, "Failed to attach")}
+			}
+		}
+	}
+
+	// TODO(hroyrh) : Put a check only if dirty
+	if err := r.Status().Update(info.ctx, dataImage); err != nil {
+		return actionError{errors.Wrap(err, "Failed to update DataImage status")}
+	}
+	info.log.Info("Updated DataImage Status after handling attachment/detachment")
+
+	return nil
+}
+
+func ownerReferenceExists(owner metav1.Object, resource metav1.Object) bool {
+	ownerReferences := resource.GetOwnerReferences()
+
+	for _, ownRef := range ownerReferences {
+		if ownRef.UID == owner.GetUID() {
+			fmt.Println("Owner reference exists")
+			return true
+		}
+	}
+
+	return false
+}
+
+// Attach the DataImage to the BareMetalHost.
+func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
+	if err := prov.AttachDataImage(dataImage.Spec.URL); err != nil {
+		info.log.Info("Called the IronicProvisioner.AttachDataImage function")
+		dataImage.Status.Error.Count++
+		dataImage.Status.Error.Message = err.Error()
+		return errors.Wrap(err, "Failed to attach dataImage")
+	}
+
+	// TODO(hroyrh) : Clear errors
+
+	// Dummy value set
+	// TODO(hroyrh) Setting value directly now, update value depending on success
+	// of prov.AttachDataImage
+	dataImage.Status.AttachedImage.URL = dataImage.Spec.URL
+
+	return nil
+}
+
+// Detach the DataImage from the BareMetalHost.
+func (r *BareMetalHostReconciler) detachDataImage(prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
+	if err := prov.DetachDataImage(); err != nil {
+		info.log.Info("Called the IronicProvisioner.DetachDataImage function")
+		dataImage.Status.Error.Count++
+		dataImage.Status.Error.Message = err.Error()
+		return errors.Wrap(err, "Failed to attach dataImage")
+	}
+
+	// TODO(hroyrh) : Clear errors
+
+	// Dummy value set
+	// TODO(hroyrh) Setting value directly, update value depending on success
+	// of prov.DetachDataImage
+	dataImage.Status.AttachedImage.URL = ""
+
+	return nil
 }
 
 // A host reaching this action handler should be provisioned or externally

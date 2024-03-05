@@ -360,3 +360,15 @@ func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEv
 func (p *fixtureProvisioner) GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error) {
 	return components, nil
 }
+
+func (p *fixtureProvisioner) GetDataImageStatus(_ *metal3api.DataImage) (err error) {
+	return nil
+}
+
+func (p *fixtureProvisioner) AttachDataImage(_ string) (err error) {
+	return nil
+}
+
+func (p *fixtureProvisioner) DetachDataImage() (err error) {
+	return nil
+}

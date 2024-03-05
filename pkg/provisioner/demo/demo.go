@@ -306,3 +306,15 @@ func (p *demoProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEvent
 func (p *demoProvisioner) GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error) {
 	return components, nil
 }
+
+func (p *demoProvisioner) GetDataImageStatus(_ *metal3api.DataImage) (err error) {
+	return nil
+}
+
+func (p *demoProvisioner) AttachDataImage(_ string) (err error) {
+	return nil
+}
+
+func (p *demoProvisioner) DetachDataImage() (err error) {
+	return nil
+}

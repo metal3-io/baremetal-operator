@@ -204,6 +204,15 @@ type Provisioner interface {
 
 	// GetFirmwareComponents gets all firmware components available from a note
 	GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error)
+
+	// Get DataImage details
+	GetDataImageStatus(*metal3api.DataImage) (err error)
+
+	// Attach DataImage
+	AttachDataImage(URL string) (err error)
+
+	// Detach DataImage
+	DetachDataImage() (err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

@@ -2124,6 +2124,7 @@ data:
   IRONIC_FAST_TRACK: "true"
   IRONIC_INSPECTOR_ENDPOINT: http://172.22.0.2:5050/v1/
   PROVISIONING_INTERFACE: eth2
+  USE_IRONIC_INSPECTOR: "true"
 kind: ConfigMap
 metadata:
   name: baremetal-operator-ironic

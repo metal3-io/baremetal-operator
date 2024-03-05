@@ -182,7 +182,11 @@ func TestLoadConfigFromEnv(t *testing.T) {
 }
 
 func TestLoadTLSConfigFromEnv(t *testing.T) {
-	// Test Case 1: All environment variables set correctly
+	const (
+		TLSKeyFilePath  = "/opt/metal3/certs/client/tls.key"
+		TLSCertFilePath = "/opt/metal3/certs/client/tls.crt"
+	)
+
 	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
 	os.Setenv("IRONIC_CLIENT_CERT_FILE", "/path/to/client.crt")
 	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "/path/to/client.key")
@@ -196,9 +200,8 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
 	}()
 
-	tlsConfig:= loadTLSConfigFromEnv()
-	
-	// Assertion: Verify the returned TLSConfig object has all fields set with the corresponding values from the environment variables.
+	tlsConfig := loadTLSConfigFromEnv()
+
 	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
 		tlsConfig.ClientCertificateFile != "/path/to/client.crt" ||
 		tlsConfig.ClientPrivateKeyFile != "/path/to/client.key" ||
@@ -207,7 +210,6 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		t.Errorf("Unexpected TLS config values")
 	}
 
-	// Test Case 2: Default values used for missing environment variables
 	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
 	os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
 	os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
@@ -221,21 +223,16 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
 	}()
 
-	tlsConfig= loadTLSConfigFromEnv()
-	
-	// Assertion: Verify the returned TLSConfig object has default values for missing environment variables.
+	tlsConfig = loadTLSConfigFromEnv()
+
 	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
-		tlsConfig.ClientCertificateFile != "/opt/metal3/certs/client/tls.crt" ||
-		tlsConfig.ClientPrivateKeyFile != "/opt/metal3/certs/client/tls.key" ||
+		tlsConfig.ClientCertificateFile != TLSCertFilePath ||
+		tlsConfig.ClientPrivateKeyFile != TLSKeyFilePath ||
 		tlsConfig.InsecureSkipVerify != false ||
 		tlsConfig.SkipClientSANVerify != false {
 		t.Errorf("Unexpected TLS config values")
 	}
 
-	
-	
-
-	// Test Case 3: Empty environment variables
 	os.Setenv("IRONIC_CACERT_FILE", "")
 	os.Setenv("IRONIC_CLIENT_CERT_FILE", "")
 	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "")
@@ -250,11 +247,10 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 	}()
 
 	tlsConfig = loadTLSConfigFromEnv()
-	
-	// Assertion: Verify the returned TLSConfig object has all fields set to their default values.
+
 	if tlsConfig.TrustedCAFile != "/opt/metal3/certs/ca/tls.crt" ||
-		tlsConfig.ClientCertificateFile != "/opt/metal3/certs/client/tls.crt" ||
-		tlsConfig.ClientPrivateKeyFile != "/opt/metal3/certs/client/tls.key" ||
+		tlsConfig.ClientCertificateFile != TLSCertFilePath ||
+		tlsConfig.ClientPrivateKeyFile != TLSKeyFilePath ||
 		tlsConfig.InsecureSkipVerify != false ||
 		tlsConfig.SkipClientSANVerify != false {
 		t.Errorf("Unexpected TLS config values")

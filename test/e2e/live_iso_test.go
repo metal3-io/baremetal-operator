@@ -20,7 +20,7 @@ import (
 	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 )
 
-var _ = Describe("Live-ISO", func() {
+var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 	var (
 		specName      = "live-iso-ops"
 		secretName    = "bmc-credentials"

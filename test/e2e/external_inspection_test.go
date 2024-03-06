@@ -171,7 +171,7 @@ const hardwareDetails = `
 }
 `
 
-var _ = Describe("External Inspection", func() {
+var _ = Describe("External Inspection", Label("required", "external-inspection"), func() {
 	var (
 		specName      = "external-inspection"
 		secretName    = "bmc-credentials"

@@ -98,7 +98,6 @@ func (hsm *hostStateMachine) ensureCapacity(info *reconcileInfo, state metal3api
 func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3api.ProvisioningState,
 	info *reconcileInfo) actionResult {
 	if hsm.NextState != initialState {
-
 		// Check if there is a free slot available when trying to
 		// (de)provision an host - if not the action will be delayed.
 		// The check is limited to only the (de)provisioning states to
@@ -146,7 +145,6 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3api.Provisio
 }
 
 func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult {
-
 	// Check if there's a free slot for hosts that have been previously delayed
 	if info.host.Status.OperationalStatus == metal3api.OperationalStatusDelayed {
 		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
@@ -203,7 +201,7 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 	}
 
 	info.log.Info("No handler found for state", "state", initialState)
-	return actionError{fmt.Errorf("No handler found for state \"%s\"", initialState)}
+	return actionError{fmt.Errorf("no handler found for state \"%s\"", initialState)}
 }
 
 func updateBootModeStatus(host *metal3api.BareMetalHost) bool {
@@ -261,7 +259,7 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 	return true
 }
 
-// hasDetachedAnnotation checks for existence of baremetalhost.metal3.io/detached
+// hasDetachedAnnotation checks for existence of baremetalhost.metal3.io/detached.
 func hasDetachedAnnotation(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	if annotations != nil {

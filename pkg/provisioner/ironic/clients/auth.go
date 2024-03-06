@@ -9,17 +9,17 @@ import (
 	"strings"
 )
 
-// AuthType is the method of authenticating requests to the server
+// AuthType is the method of authenticating requests to the server.
 type AuthType string
 
 const (
-	// NoAuth uses no authentication
+	// NoAuth uses no authentication.
 	NoAuth AuthType = "noauth"
-	// HTTPBasicAuth uses HTTP Basic Authentication
+	// HTTPBasicAuth uses HTTP Basic Authentication.
 	HTTPBasicAuth AuthType = "http_basic"
 )
 
-// AuthConfig contains data needed to configure authentication in the client
+// AuthConfig contains data needed to configure authentication in the client.
 type AuthConfig struct {
 	Type     AuthType
 	Username string
@@ -39,7 +39,7 @@ func readAuthFile(filename string) (string, error) {
 	return strings.TrimSpace(string(content)), err
 }
 
-// LoadAuth loads the Ironic configuration from the environment
+// LoadAuth loads the Ironic configuration from the environment.
 func LoadAuth() (auth AuthConfig, err error) {
 	authPath := path.Join(authRoot(), "ironic")
 
@@ -63,9 +63,9 @@ func LoadAuth() (auth AuthConfig, err error) {
 	}
 
 	if auth.Username == "" {
-		err = fmt.Errorf("Empty HTTP Basic Auth username")
+		err = fmt.Errorf("empty HTTP Basic Auth username")
 	} else if auth.Password == "" {
-		err = fmt.Errorf("Empty HTTP Basic Auth password")
+		err = fmt.Errorf("empty HTTP Basic Auth password")
 	}
 	return
 }
@@ -84,7 +84,7 @@ func ConfigFromEndpointURL(endpointURL string) (endpoint string, auth AuthConfig
 		auth.Username = parsedURL.User.Username()
 		auth.Password, hasPasswd = parsedURL.User.Password()
 		if !hasPasswd {
-			err = fmt.Errorf("No password supplied for HTTP Basic Auth")
+			err = fmt.Errorf("no password supplied for HTTP Basic Auth")
 		}
 		parsedURL.User = nil
 	} else {

@@ -21,7 +21,7 @@ type fixtureHostConfigData struct {
 	metaData    string
 }
 
-// NewHostConfigData creates new host configuration data
+// NewHostConfigData creates new host configuration data.
 func NewHostConfigData(userData string, networkData string, metaData string) provisioner.HostConfigData {
 	return &fixtureHostConfigData{
 		userData:    userData,
@@ -57,7 +57,7 @@ type fixtureProvisioner struct {
 	state *Fixture
 }
 
-// Fixture contains persistent state for a particular host
+// Fixture contains persistent state for a particular host.
 type Fixture struct {
 	// counter to set the provisioner as ready
 	BecomeReadyCounter int
@@ -75,7 +75,7 @@ type Fixture struct {
 	customDeploy *metal3api.CustomDeploy
 }
 
-// NewProvisioner returns a new Fixture Provisioner
+// NewProvisioner returns a new Fixture Provisioner.
 func (f *Fixture) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &fixtureProvisioner{
 		provID:    hostData.ProvisionerID,
@@ -190,7 +190,7 @@ func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.Hardware
 	return
 }
 
-// Prepare remove existing configuration and set new configuration
+// Prepare remove existing configuration and set new configuration.
 func (p *fixtureProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
 	p.log.Info("preparing host")
 	started = unprepared

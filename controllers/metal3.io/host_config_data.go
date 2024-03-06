@@ -10,7 +10,7 @@ import (
 )
 
 // hostConfigData is an implementation of host configuration data interface.
-// Object is able to retrive data from secrets referenced in a host spec
+// Object is able to retrieve data from secrets referenced in a host spec.
 type hostConfigData struct {
 	host          *metal3api.BareMetalHost
 	log           logr.Logger
@@ -19,7 +19,7 @@ type hostConfigData struct {
 
 // Generic method for data extraction from a Secret. Function uses dataKey
 // parameter to detirmine which data to return in case secret contins multiple
-// keys
+// keys.
 func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (string, error) {
 	key := types.NamespacedName{
 		Name:      name,
@@ -45,7 +45,7 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (strin
 	return string(data), nil
 }
 
-// UserData get Operating System configuration data
+// UserData get Operating System configuration data.
 func (hcd *hostConfigData) UserData() (string, error) {
 	if hcd.host.Spec.UserData == nil {
 		hcd.log.Info("UserData is not set return empty string")
@@ -60,10 +60,9 @@ func (hcd *hostConfigData) UserData() (string, error) {
 		namespace,
 		"userData",
 	)
-
 }
 
-// NetworkData get network configuration
+// NetworkData get network configuration.
 func (hcd *hostConfigData) NetworkData() (string, error) {
 	networkData := hcd.host.Spec.NetworkData
 	if networkData == nil && hcd.host.Spec.PreprovisioningNetworkDataName != "" {

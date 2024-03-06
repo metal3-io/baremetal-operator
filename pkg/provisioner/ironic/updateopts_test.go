@@ -452,7 +452,6 @@ func TestInstanceInfoUpdateOpts(t *testing.T) {
 }
 
 func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
-
 	eventPublisher := func(reason, message string) {}
 	auth := clients.AuthConfig{Type: clients.NoAuth}
 
@@ -632,7 +631,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 				URL:          "not-empty",
 				Checksum:     "checksum",
 				ChecksumType: metal3api.MD5,
-				//DiskFormat not given to verify it is not added in instance_info
+				// DiskFormat not given to verify it is not added in instance_info
 			},
 			Online: true,
 		},

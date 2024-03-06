@@ -9,24 +9,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testbmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
-
-	_ "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 
 func TestProvision(t *testing.T) {
-
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
-	testImage := v1alpha1.Image{
+	testImage := metal3api.Image{
 		URL:          "http://test-image",
 		Checksum:     "abcd",
-		ChecksumType: v1alpha1.SHA256,
+		ChecksumType: metal3api.SHA256,
 	}
 
 	cases := []struct {
@@ -177,7 +174,7 @@ func TestProvision(t *testing.T) {
 			result, err := prov.Provision(provisioner.ProvisionData{
 				Image:      testImage,
 				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
-				BootMode:   v1alpha1.DefaultBootMode,
+				BootMode:   metal3api.DefaultBootMode,
 			}, tc.forceReboot)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
@@ -196,7 +193,6 @@ func TestProvision(t *testing.T) {
 }
 
 func TestDeprovision(t *testing.T) {
-
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
 		name                 string
@@ -326,7 +322,7 @@ func TestIronicHasSameImage(t *testing.T) {
 		liveImage        bool
 		hostImage        string
 		hostChecksum     string
-		hostChecksumType v1alpha1.ChecksumType
+		hostChecksumType metal3api.ChecksumType
 	}{
 		{
 			name:      "image same",
@@ -341,7 +337,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			},
 			hostImage:        "theimage",
 			hostChecksum:     "thechecksum",
-			hostChecksumType: v1alpha1.MD5,
+			hostChecksumType: metal3api.MD5,
 		},
 		{
 			name:      "image same - auto checksum",
@@ -370,7 +366,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			},
 			hostImage:        "different",
 			hostChecksum:     "thechecksum",
-			hostChecksumType: v1alpha1.MD5,
+			hostChecksumType: metal3api.MD5,
 		},
 		{
 			name:      "image checksum different",
@@ -385,7 +381,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			},
 			hostImage:        "theimage",
 			hostChecksum:     "different",
-			hostChecksumType: v1alpha1.MD5,
+			hostChecksumType: metal3api.MD5,
 		},
 		{
 			name:      "image checksum changed to auto",
@@ -415,7 +411,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			},
 			hostImage:        "theimage",
 			hostChecksum:     "thechecksum",
-			hostChecksumType: v1alpha1.SHA512,
+			hostChecksumType: metal3api.SHA512,
 		},
 		{
 			name:      "live image same",
@@ -447,7 +443,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			ironic.Start()
 			defer ironic.Stop()
 
-			var host v1alpha1.BareMetalHost
+			var host metal3api.BareMetalHost
 			if tc.liveImage {
 				host = makeHostLiveIso()
 				host.Spec.Image.URL = tc.hostImage
@@ -472,7 +468,6 @@ func TestIronicHasSameImage(t *testing.T) {
 }
 
 func TestBuildCleanSteps(t *testing.T) {
-
 	var True = true
 	var False = false
 
@@ -480,9 +475,9 @@ func TestBuildCleanSteps(t *testing.T) {
 	cases := []struct {
 		name             string
 		ironic           *testserver.IronicMock
-		currentSettings  v1alpha1.SettingsMap
-		desiredSettings  v1alpha1.DesiredSettingsMap
-		firmwareConfig   *v1alpha1.FirmwareConfig
+		currentSettings  metal3api.SettingsMap
+		desiredSettings  metal3api.DesiredSettingsMap
+		firmwareConfig   *metal3api.FirmwareConfig
 		expectedSettings []map[string]interface{}
 	}{
 		{
@@ -493,7 +488,7 @@ func TestBuildCleanSteps(t *testing.T) {
 			}),
 			currentSettings: nil,
 			desiredSettings: nil,
-			firmwareConfig: &v1alpha1.FirmwareConfig{
+			firmwareConfig: &metal3api.FirmwareConfig{
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
@@ -521,7 +516,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				"ProcHyperthreading": "Disabled",
 			},
 			desiredSettings: nil,
-			firmwareConfig: &v1alpha1.FirmwareConfig{
+			firmwareConfig: &metal3api.FirmwareConfig{
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
@@ -533,14 +528,14 @@ func TestBuildCleanSteps(t *testing.T) {
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
 			}),
-			currentSettings: v1alpha1.SettingsMap{
+			currentSettings: metal3api.SettingsMap{
 				"L2Cache":            "10x256 KB",
 				"NumCores":           "10",
 				"ProcVirtualization": "Disabled",
 				"ProcHyperthreading": "Enabled",
 			},
 			desiredSettings: nil,
-			firmwareConfig: &v1alpha1.FirmwareConfig{
+			firmwareConfig: &metal3api.FirmwareConfig{
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
@@ -561,19 +556,19 @@ func TestBuildCleanSteps(t *testing.T) {
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
 			}),
-			currentSettings: v1alpha1.SettingsMap{
+			currentSettings: metal3api.SettingsMap{
 				"L2Cache":               "10x256 KB",
 				"NumCores":              "10",
 				"NetworkBootRetryCount": "20",
 				"ProcVirtualization":    "Enabled",
 				"ProcHyperthreading":    "Disabled",
 			},
-			desiredSettings: v1alpha1.DesiredSettingsMap{
+			desiredSettings: metal3api.DesiredSettingsMap{
 				"NetworkBootRetryCount": intstr.FromInt(10),
 				"ProcVirtualization":    intstr.FromString("Disabled"),
 				"ProcHyperthreading":    intstr.FromString("Enabled"),
 			},
-			firmwareConfig: &v1alpha1.FirmwareConfig{
+			firmwareConfig: &metal3api.FirmwareConfig{
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
@@ -598,19 +593,19 @@ func TestBuildCleanSteps(t *testing.T) {
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
 			}),
-			currentSettings: v1alpha1.SettingsMap{
+			currentSettings: metal3api.SettingsMap{
 				"L2Cache":               "10x256 KB",
 				"NumCores":              "10",
 				"NetworkBootRetryCount": "20",
 				"ProcVirtualization":    "Enabled",
 				"ProcHyperthreading":    "Disabled",
 			},
-			desiredSettings: v1alpha1.DesiredSettingsMap{
+			desiredSettings: metal3api.DesiredSettingsMap{
 				"NetworkBootRetryCount": intstr.FromString("5"),
 				"ProcVirtualization":    intstr.FromString("Enabled"),
 				"ProcHyperthreading":    intstr.FromString("Disabled"),
 			},
-			firmwareConfig: &v1alpha1.FirmwareConfig{
+			firmwareConfig: &metal3api.FirmwareConfig{
 				VirtualizationEnabled:             &False,
 				SimultaneousMultithreadingEnabled: &True,
 			},
@@ -635,17 +630,17 @@ func TestBuildCleanSteps(t *testing.T) {
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
 			}),
-			currentSettings: v1alpha1.SettingsMap{
+			currentSettings: metal3api.SettingsMap{
 				"L2Cache":            "10x256 KB",
 				"NumCores":           "10",
 				"ProcVirtualization": "Enabled",
 				"ProcHyperthreading": "Disabled",
 			},
-			desiredSettings: v1alpha1.DesiredSettingsMap{
+			desiredSettings: metal3api.DesiredSettingsMap{
 				"ProcVirtualization": intstr.FromString("Disabled"),
 				"ProcHyperthreading": intstr.FromString("Enabled"),
 			},
-			firmwareConfig: &v1alpha1.FirmwareConfig{
+			firmwareConfig: &metal3api.FirmwareConfig{
 				VirtualizationEnabled:             &False,
 				SimultaneousMultithreadingEnabled: &True,
 			},

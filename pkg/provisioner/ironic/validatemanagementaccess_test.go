@@ -785,7 +785,6 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 }
 
 func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
-
 	existingNode := nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
 		Name: "myns" + nameSeparator + "myhost",

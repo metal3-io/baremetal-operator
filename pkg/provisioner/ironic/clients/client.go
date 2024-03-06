@@ -71,7 +71,7 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) erro
 	return nil
 }
 
-// IronicClient creates a client for Ironic
+// IronicClient creates a client for Ironic.
 func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client *gophercloud.ServiceClient, err error) {
 	switch auth.Type {
 	case NoAuth:
@@ -85,7 +85,7 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 			IronicUserPassword: auth.Password,
 		})
 	default:
-		err = fmt.Errorf("Unknown auth type %s", auth.Type)
+		err = fmt.Errorf("unknown auth type %s", auth.Type)
 	}
 	if err != nil {
 		return

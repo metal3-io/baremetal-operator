@@ -5,16 +5,16 @@ import (
 
 	"github.com/go-logr/logr"
 
-	metal3 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 // ImageData contains information about the image type being requested, and
 // metadata about the request.
 type ImageData struct {
 	ImageMetadata     *metav1.ObjectMeta
-	Format            metal3.ImageFormat
+	Format            metal3api.ImageFormat
 	Architecture      string
-	NetworkDataStatus metal3.SecretStatus
+	NetworkDataStatus metal3api.SecretStatus
 }
 
 // GeneratedImage contains information about the generated image. At least the
@@ -34,7 +34,7 @@ type ImageProvider interface {
 
 	// SupportsFormat returns whether the ImageProvider can provide images in
 	// the given format.
-	SupportsFormat(metal3.ImageFormat) bool
+	SupportsFormat(metal3api.ImageFormat) bool
 
 	// BuildImage requests the ImageProvider to build an image with the
 	// supplied network data and return a URL where it can be accessed.

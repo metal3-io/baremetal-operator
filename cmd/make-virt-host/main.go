@@ -29,26 +29,26 @@ const (
    </interface>
 */
 
-// MAC is a hardware address for a NIC
+// MAC is a hardware address for a NIC.
 type MAC struct {
 	XMLName xml.Name `xml:"mac"`
 	Address string   `xml:"address,attr"`
 }
 
-// Source is the network to which the interface is attached
+// Source is the network to which the interface is attached.
 type Source struct {
 	XMLName xml.Name `xml:"source"`
 	Bridge  string   `xml:"bridge,attr"`
 }
 
-// Interface is one NIC
+// Interface is one NIC.
 type Interface struct {
 	XMLName xml.Name `xml:"interface"`
 	MAC     MAC      `xml:"mac"`
 	Source  Source   `xml:"source"`
 }
 
-// Domain is the main tag for the XML document
+// Domain is the main tag for the XML document.
 type Domain struct {
 	Interfaces []Interface `xml:"devices>interface"`
 }
@@ -113,7 +113,7 @@ vbmc list -f json -c 'Domain name' -c Port
 */
 
 // VBMC holds the parameters for describing a virtual machine
-// controller
+// controller.
 type VBMC struct {
 	Port int    `json:"Port"`
 	Name string `json:"Domain name"`

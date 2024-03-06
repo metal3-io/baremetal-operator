@@ -25,14 +25,16 @@ const (
 // client cache, labelling so that they will be included in the client cache,
 // and optionally setting an owner reference.
 type SecretManager struct {
+	ctx       context.Context
 	log       logr.Logger
 	client    client.Client
 	apiReader client.Reader
 }
 
 // NewSecretManager returns a new SecretManager.
-func NewSecretManager(log logr.Logger, cacheClient client.Client, apiReader client.Reader) SecretManager {
+func NewSecretManager(ctx context.Context, log logr.Logger, cacheClient client.Client, apiReader client.Reader) SecretManager {
 	return SecretManager{
+		ctx:       ctx,
 		log:       log.WithName("secret_manager"),
 		client:    cacheClient,
 		apiReader: apiReader,
@@ -45,7 +47,7 @@ func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Se
 	secret = &corev1.Secret{}
 
 	// Look for secret in the filtered cache
-	err = sm.client.Get(context.TODO(), key, secret)
+	err = sm.client.Get(sm.ctx, key, secret)
 	if err == nil {
 		return secret, nil
 	}
@@ -54,7 +56,7 @@ func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Se
 	}
 
 	// Secret not in cache; check API directly for unlabelled Secret
-	err = sm.apiReader.Get(context.TODO(), key, secret)
+	err = sm.apiReader.Get(sm.ctx, key, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +108,7 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 	}
 
 	if needsUpdate {
-		if err := sm.client.Update(context.TODO(), secret); err != nil {
+		if err := sm.client.Update(sm.ctx, secret); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update secret %s in namespace %s", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
 		}
 	}
@@ -156,7 +158,7 @@ func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
 	secret.Finalizers = utils.FilterStringFromList(
 		secret.Finalizers, SecretsFinalizer)
 
-	if err := sm.client.Update(context.Background(), secret); err != nil {
+	if err := sm.client.Update(sm.ctx, secret); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to remove finalizer from secret %s in namespace %s",
 			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
 	}

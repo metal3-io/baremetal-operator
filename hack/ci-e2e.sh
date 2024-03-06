@@ -113,7 +113,7 @@ docker run --name image-server-e2e -d \
 ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
 
 # Generate credentials
-BMO_OVERLAY="${REPO_ROOT}/config/overlays/e2e"
+BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
 IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
 
 IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
@@ -121,26 +121,26 @@ IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 
-echo "${IRONIC_USERNAME}" > "${BMO_OVERLAY}/ironic-username"
-echo "${IRONIC_PASSWORD}" > "${BMO_OVERLAY}/ironic-password"
-echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_OVERLAY}/ironic-inspector-username"
-echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_OVERLAY}/ironic-inspector-password"
+# These must be exported so that envsubst can pick them up below
+export IRONIC_USERNAME
+export IRONIC_PASSWORD
+export IRONIC_INSPECTOR_USERNAME
+export IRONIC_INSPECTOR_PASSWORD
 
-BMO_UPGRADE_FROM_OVERLAY="${REPO_ROOT}/config/overlays/e2e-release-0.4"
-echo "${IRONIC_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-username"
-echo "${IRONIC_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-password"
-echo "${IRONIC_INSPECTOR_USERNAME}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-username"
-echo "${IRONIC_INSPECTOR_PASSWORD}" > "${BMO_UPGRADE_FROM_OVERLAY}/ironic-inspector-password"
+for overlay in "${BMO_OVERLAYS[@]}"; do
+  echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
+  echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
+  if [[ "${overlay}" =~ release-0\.[1-5]$ ]]; then
+    echo "${IRONIC_INSPECTOR_USERNAME}" > "${overlay}/ironic-inspector-username"
+    echo "${IRONIC_INSPECTOR_PASSWORD}" > "${overlay}/ironic-inspector-password"
+  fi
+done
 
 envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${IRONIC_OVERLAY}/ironic-auth-config"
-envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl" > \
-  "${IRONIC_OVERLAY}/ironic-inspector-auth-config"
 
 echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
   "${IRONIC_OVERLAY}/ironic-htpasswd"
-echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-  "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_OVERLAY}/ironic-inspector-htpasswd"
 
 
 # We need to gather artifacts/logs before exiting also if there are errors

@@ -20,13 +20,6 @@ patches:
 #   envs:
 #   - ironic-htpasswd
 #   name: ironic-htpasswd
-# - behavior: create
-#   envs:
-#   - ironic-inspector-htpasswd
-#   name: ironic-inspector-htpasswd
 # - name: ironic-auth-config
 #   files:
 #   - auth-config=ironic-auth-config
-# - name: ironic-inspector-auth-config
-#   files:
-#   - auth-config=ironic-inspector-auth-config

@@ -27,7 +27,7 @@ variables:
   UPGRADE_DEPLOY_IRONIC: "true"
   UPGRADE_DEPLOY_BMO: "true"
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
-  UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/e2e-release-0.4"
+  UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/e2e-release-0.5"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
@@ -42,14 +42,14 @@ intervals:
   inspection/wait-unmanaged: ["1m", "5s"]
   default/wait-registering: ["1m", "5s"]
   inspection/wait-registration-error: ["1m", "5s"]
-  external-inspection/wait-available: ["20s", "1s"]
+  external-inspection/wait-available: ["1m", "1s"]
   default/wait-inspecting: ["2m", "2s"]
   default/wait-available: ["10m", "1s"]
   default/wait-deployment: ["5m", "1s"]
   default/wait-namespace-deleted: ["10m", "1s"]
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-power-state: ["10m", "100ms"]
-  default/wait-provisioning: ["20s", "1s"]
+  default/wait-provisioning: ["1m", "1s"]
   default/wait-provisioned: ["10m", "1s"]
   default/wait-deprovisioning: ["1m", "10ms"]
   default/wait-deleted: ["20s", "10ms"]

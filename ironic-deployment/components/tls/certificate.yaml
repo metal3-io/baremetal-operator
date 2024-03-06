@@ -39,16 +39,3 @@ spec:
     kind: Issuer
     name: ca-issuer
   secretName: ironic-cert
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: ironic-inspector-cert
-spec:
-  commonName: ironic-inspector-cert
-  ipAddresses:
-  - IRONIC_HOST_IP
-  issuerRef:
-    kind: Issuer
-    name: ca-issuer
-  secretName: ironic-inspector-cert

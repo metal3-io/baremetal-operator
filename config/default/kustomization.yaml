@@ -5,7 +5,7 @@ resources:
 - ../base
 
 generatorOptions:
- disableNameSuffixHash: true
+  disableNameSuffixHash: true
 
 configMapGenerator:
 - name: ironic

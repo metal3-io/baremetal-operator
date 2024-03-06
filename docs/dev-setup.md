@@ -93,7 +93,6 @@ The following environment variables can be passed to configure the ironic:
 - DEPLOY_KERNEL_URL - the URL of the kernel to deploy ironic-python-agent
 - DEPLOY_RAMDISK_URL - the URL of the ramdisk to deploy ironic-python-agent
 - IRONIC_ENDPOINT - the endpoint of the ironic
-- IRONIC_INSPECTOR_ENDPOINT - the endpoint of the ironic inspector
 - CACHEURL - the URL of the cached images
 - IRONIC_FAST_TRACK - whether to enable fast_track provisioning or not
   (default true)
@@ -137,16 +136,11 @@ authentication enabled, you also need to export the following variables:
 - IRONIC_CACERT_FILE
 - IRONIC_CERT_FILE
 - IRONIC_KEY_FILE
-- IRONIC_INSPECTOR_CACERT_FILE
-- IRONIC_INSPECTOR_CERT_FILE
-- IRONIC_INSPECTOR_KEY_FILE
 
 ### Basic authentication variables
 
 - IRONIC_USERNAME
 - IRONIC_PASSWORD
-- IRONIC_INSPECTOR_USERNAME
-- IRONIC_INSPECTOR_PASSWORD
 
 The names of these variables are self explanatory. TLS variables expect the
 path of the corresponding certificate/key file as their value. Basic
@@ -173,6 +167,29 @@ It is also possible to develop Baremetal Operator using Tilt with CAPM3. Please
 refer to
 [the development setup guide of CAPM3](https://github.com/metal3-io/cluster-api-provider-metal3/blob/main/docs/dev-setup.md#tilt-for-dev-in-capm3)
 and specially the [Baremetal Operator Integration](https://github.com/metal3-io/cluster-api-provider-metal3/blob/main/docs/dev-setup.md#including-baremetal-operator-and-ip-address-manager)
+
+### Alternative Tilt Setup Method
+
+In case the standard Tilt setup does not work as expected, you can use the
+following alternative method:
+
+**Create a Kind Cluster**:
+
+```sh
+kind create cluster --name bmo
+```
+
+**Install Cert-Manager**:
+
+```sh
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.2/cert-manager.yaml
+```
+
+**Launch Tilt**:
+
+```sh
+tilt up
+```
 
 ### Making (virtual) BareMetalHosts with Tilt interface
 

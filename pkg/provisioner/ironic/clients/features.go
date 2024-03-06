@@ -18,7 +18,7 @@ type AvailableFeatures struct {
 // conservative when updating this value since doing so unconditionally breaks
 // operators of older Ironic, even if the feature we need is optional.
 // Update docs/configuration.md when updating the version.
-// Version 1.81 allows retrival of Node inventory
+// Version 1.81 allows retrival of Node inventory.
 const baseline = "1.81"
 
 func GetAvailableFeatures(client *gophercloud.ServiceClient) (features AvailableFeatures, err error) {
@@ -28,7 +28,7 @@ func GetAvailableFeatures(client *gophercloud.ServiceClient) (features Available
 	}
 
 	if mvs.MaxMajor != 1 || mvs.MaxMinor < 81 {
-		err = fmt.Errorf("Ironic API 1.81 or newer is required, got %d.%d", mvs.MaxMajor, mvs.MaxMinor)
+		err = fmt.Errorf("ironic API 1.81 or newer is required, got %d.%d", mvs.MaxMajor, mvs.MaxMinor)
 		return
 	}
 

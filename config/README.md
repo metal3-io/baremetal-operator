@@ -21,14 +21,11 @@ in `hack/ci-e2e.sh`, and put them directly in the `e2e` overlays.
    - **basic-auth** - Enable basic authentication. Note that the basic-auth
       component is missing the actual credentials. This is on purpose, to make
       sure that the user is setting the password instead of using sample
-      credentials. The required secrets are:
-      - `ironic-credentials`
-      - `ironic-inspector-credentials`
+      credentials. The required secret is called `ironic-credentials`.
    - **tls** - Enable TLS. A CA certificate is needed here to verify the
       connection to Ironic. If you deploy BMO together with Ironic in a
       Kubernetes cluster, they can share the secret created for Ironic. The CA
-      should be in a secret:
-      - `ironic-cacert`
+      should be in a secret `ironic-cacert`.
 - **default** - A minimal, fully working, BMO kustomization including configmap.
    Use only for development! There is no TLS or basic-auth.
 - **overlays** - Here you will find ready made overlays that use the above

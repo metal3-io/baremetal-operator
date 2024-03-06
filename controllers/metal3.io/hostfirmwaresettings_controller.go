@@ -59,6 +59,7 @@ type HostFirmwareSettingsReconciler struct {
 }
 
 type rInfo struct {
+	ctx    context.Context
 	log    logr.Logger
 	hfs    *metal3api.HostFirmwareSettings
 	bmh    *metal3api.BareMetalHost
@@ -117,7 +118,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Get the corresponding baremetalhost in this namespace, if one doesn't exist don't continue processing
 	bmh := &metal3api.BareMetalHost{}
-	if err = r.Get(context.TODO(), req.NamespacedName, bmh); err != nil {
+	if err = r.Get(ctx, req.NamespacedName, bmh); err != nil {
 		reqLogger.Info("could not get baremetalhost, not running reconciler")
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -132,7 +133,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the HostFirmwareSettings
 	hfs := &metal3api.HostFirmwareSettings{}
-	info := &rInfo{log: reqLogger, hfs: hfs, bmh: bmh}
+	info := &rInfo{ctx: ctx, log: reqLogger, hfs: hfs, bmh: bmh}
 	if err = r.Get(ctx, req.NamespacedName, hfs); err != nil {
 		// The HFS resource may have been deleted
 		if k8serrors.IsNotFound(err) {
@@ -144,7 +145,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Create a provisioner that can access Ironic API
-	prov, err := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
+	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
 	}
@@ -175,7 +176,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	for _, e := range info.events {
-		r.publishEvent(req, e)
+		r.publishEvent(ctx, req, e)
 	}
 
 	// requeue to run again after delay
@@ -285,7 +286,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 
 		t := metav1.Now()
 		info.hfs.Status.LastUpdated = &t
-		return r.Status().Update(context.TODO(), info.hfs)
+		return r.Status().Update(info.ctx, info.hfs)
 	}
 	return nil
 }
@@ -298,7 +299,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	firmwareSchema := &metal3api.FirmwareSchema{}
 
 	// If a schema exists that matches, use that, otherwise create a new one
-	if err = r.Get(context.TODO(), client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
+	if err = r.Get(info.ctx, client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
 		firmwareSchema); err == nil {
 		info.log.Info("found existing firmwareSchema resource")
 
@@ -306,7 +307,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 		if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
 			return nil, errors.Wrap(err, "could not set owner of existing firmwareSchema")
 		}
-		if err = r.Update(context.TODO(), firmwareSchema); err != nil {
+		if err = r.Update(info.ctx, firmwareSchema); err != nil {
 			return nil, err
 		}
 
@@ -348,7 +349,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 		return nil, errors.Wrap(err, "could not set owner of firmwareSchema")
 	}
 
-	if err = r.Create(context.TODO(), firmwareSchema); err != nil {
+	if err = r.Create(info.ctx, firmwareSchema); err != nil {
 		return nil, err
 	}
 
@@ -413,10 +414,10 @@ func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInf
 	return nil
 }
 
-func (r *HostFirmwareSettingsReconciler) publishEvent(request ctrl.Request, event corev1.Event) {
+func (r *HostFirmwareSettingsReconciler) publishEvent(ctx context.Context, request ctrl.Request, event corev1.Event) {
 	reqLogger := r.Log.WithValues("hostfirmwaresettings", request.NamespacedName)
 	reqLogger.Info("publishing event", "reason", event.Reason, "message", event.Message)
-	err := r.Create(context.TODO(), &event)
+	err := r.Create(ctx, &event)
 	if err != nil {
 		reqLogger.Info("failed to record event, ignoring",
 			"reason", event.Reason, "message", event.Message, "error", err)

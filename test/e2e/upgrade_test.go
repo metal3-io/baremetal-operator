@@ -175,13 +175,12 @@ var _ = Describe("BMO Upgrade", func() {
 		specName               = "upgrade"
 		secretName             = "bmc-credentials"
 		namespace              *corev1.Namespace
-		bmoIronicNamespace     string
+		bmoIronicNamespace     = "baremetal-operator-system"
 		upgradeClusterProvider bootstrap.ClusterProvider
 		upgradeClusterProxy    framework.ClusterProxy
 		bmh                    metal3api.BareMetalHost
 	)
 	BeforeEach(func() {
-		bmoIronicNamespace = "baremetal-operator-system"
 		var kubeconfigPath string
 
 		if useExistingCluster {
@@ -203,6 +202,7 @@ var _ = Describe("BMO Upgrade", func() {
 		framework.TryAddDefaultSchemes(scheme)
 		metal3api.AddToScheme(scheme)
 		upgradeClusterProxy = framework.NewClusterProxy("bmo-e2e-upgrade", kubeconfigPath, scheme)
+
 		if e2eConfig.GetVariable("UPGRADE_DEPLOY_CERT_MANAGER") != "false" {
 			By("Installing cert-manager on the upgrade cluster")
 			cmVersion := e2eConfig.GetVariable("CERT_MANAGER_VERSION")
@@ -215,12 +215,15 @@ var _ = Describe("BMO Upgrade", func() {
 			err = checkCertManagerAPI(upgradeClusterProxy)
 			Expect(err).NotTo(HaveOccurred())
 		}
+	})
 
+	It("Should upgrade BMO to latest version", func() {
 		if e2eConfig.GetVariable("UPGRADE_DEPLOY_IRONIC") != "false" {
 			// Install Ironic
+			ironicKustomization := e2eConfig.GetVariable("IRONIC_KUSTOMIZATION")
 			By("Installing Ironic on the upgrade cluster")
-			err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
-				Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
+			err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       ironicKustomization,
 				ClusterProxy:        upgradeClusterProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
@@ -230,21 +233,31 @@ var _ = Describe("BMO Upgrade", func() {
 				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 			})
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				By("Removing Ironic on the upgrade cluster")
+				BuildAndRemoveKustomization(ctx, ironicKustomization, upgradeClusterProxy)
+			})
 		}
 
 		if e2eConfig.GetVariable("UPGRADE_DEPLOY_BMO") != "false" {
-			By("Installing BMO on the upgrade cluster")
-			err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
-				Kustomization:       e2eConfig.GetVariable("UPGRADE_BMO_KUSTOMIZATION_FROM"),
+			bmoFromKustomization := e2eConfig.GetVariable("UPGRADE_BMO_KUSTOMIZATION_FROM")
+			bmoFromKustomizationName := filepath.Base(bmoFromKustomization)
+			By(fmt.Sprintf("Installing BMO from %s on the upgrade cluster", bmoFromKustomization))
+			err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       bmoFromKustomization,
 				ClusterProxy:        upgradeClusterProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
 				DeploymentName:      "baremetal-operator-controller-manager",
 				DeploymentNamespace: bmoIronicNamespace,
-				LogPath:             filepath.Join(artifactFolder, "logs", fmt.Sprintf("%s-%s", bmoIronicNamespace, specName)),
+				LogPath:             filepath.Join(artifactFolder, "logs", fmt.Sprintf("%s-%s", bmoIronicNamespace, specName), fmt.Sprintf("bmo-%s", bmoFromKustomizationName)),
 				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 			})
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				By(fmt.Sprintf("Removing BMO from %s on the upgrade cluster", bmoFromKustomization))
+				BuildAndRemoveKustomization(ctx, bmoFromKustomization, upgradeClusterProxy)
+			})
 		}
 
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
@@ -253,9 +266,6 @@ var _ = Describe("BMO Upgrade", func() {
 			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
 			LogFolder: artifactFolder,
 		})
-	})
-
-	It("Should upgrade BMO to latest version", func() {
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
 			"username": bmc.User,
@@ -269,7 +279,9 @@ var _ = Describe("BMO Upgrade", func() {
 				Name:      specName,
 				Namespace: namespace.Name,
 				Annotations: map[string]string{
-					metal3api.InspectAnnotationPrefix:   "disabled",
+					metal3api.InspectAnnotationPrefix: "disabled",
+					// hardwareDetails of release0.4 is compatible to release0.3 and release0.5 as well
+					// This can be changed to the new hardwareDetails once we no longer test release0.4
 					metal3api.HardwareDetailsAnnotation: hardwareDetailsRelease04,
 				},
 			},
@@ -298,9 +310,21 @@ var _ = Describe("BMO Upgrade", func() {
 		bmoDeployName := "baremetal-operator-controller-manager"
 		deploy, err := clientSet.AppsV1().Deployments(bmoIronicNamespace).Get(ctx, bmoDeployName, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		err = BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
-			Kustomization: e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
-			ClusterProxy:  upgradeClusterProxy,
+		bmoKustomization := e2eConfig.GetVariable("BMO_KUSTOMIZATION")
+		bmoKustomizationName := filepath.Base(bmoKustomization)
+		err = BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       bmoKustomization,
+			ClusterProxy:        upgradeClusterProxy,
+			WaitForDeployment:   false,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "baremetal-operator-controller-manager",
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(artifactFolder, "logs", fmt.Sprintf("%s-%s", bmoIronicNamespace, specName), fmt.Sprintf("bmo-%s", bmoKustomizationName)),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		})
+		DeferCleanup(func() {
+			By("Removing BMO main e2e deployment")
+			BuildAndRemoveKustomization(ctx, bmoKustomization, upgradeClusterProxy)
 		})
 		Expect(err).NotTo(HaveOccurred())
 		By("Waiting for BMO update to rollout")

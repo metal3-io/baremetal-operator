@@ -111,38 +111,6 @@ spec:
           privileged: false
           runAsUser: 997 # ironic
           runAsGroup: 994 # ironic
-      - name: ironic-inspector
-        image: quay.io/metal3-io/ironic
-        imagePullPolicy: Always
-        readinessProbe:
-          exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 10
-          successThreshold: 1
-          failureThreshold: 10
-        livenessProbe:
-          exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:5050 || curl -sSf -k https://127.0.0.1:5050"]
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 10
-          successThreshold: 1
-          failureThreshold: 10
-        command:
-        - /bin/runironic-inspector
-        envFrom:
-        - configMapRef:
-            name: ironic-bmo-configmap
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          runAsUser: 996 # ironic-inspector
-          runAsGroup: 993 # ironicinspector
       - name: ironic-httpd
         image: quay.io/metal3-io/ironic
         imagePullPolicy: Always

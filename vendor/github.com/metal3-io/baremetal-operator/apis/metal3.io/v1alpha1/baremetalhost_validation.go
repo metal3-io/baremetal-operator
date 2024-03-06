@@ -7,10 +7,10 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
-	"golang.org/x/exp/slices"
 
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
@@ -22,7 +22,7 @@ var (
 	inspectAnnotationAllowedString = "\"disabled\" or \"\""
 )
 
-// validateHost validates BareMetalHost resource for creation
+// validateHost validates BareMetalHost resource for creation.
 func (host *BareMetalHost) validateHost() []error {
 	var errs []error
 	var bmcAccess bmc.AccessDetails
@@ -67,7 +67,7 @@ func (host *BareMetalHost) validateHost() []error {
 }
 
 // validateChanges validates BareMetalHost resource on changes
-// but also covers the validations of creation
+// but also covers the validations of creation.
 func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 	var errs []error
 
@@ -75,8 +75,11 @@ func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
 		errs = append(errs, err...)
 	}
 
-	if old.Spec.BMC.Address != "" && host.Spec.BMC.Address != old.Spec.BMC.Address {
-		errs = append(errs, errors.New("BMC address can not be changed once it is set"))
+	if old.Spec.BMC.Address != "" &&
+		host.Spec.BMC.Address != old.Spec.BMC.Address &&
+		host.Status.OperationalStatus != OperationalStatusDetached &&
+		host.Status.Provisioning.State != StateRegistering {
+		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
 	if old.Spec.BootMACAddress != "" && host.Spec.BootMACAddress != old.Spec.BootMACAddress {
@@ -154,7 +157,6 @@ func validateRAID(r *RAIDConfig) []error {
 }
 
 func validateBMHName(bmhname string) error {
-
 	invalidname, _ := regexp.MatchString(`[^A-Za-z0-9\.\-\_]`, bmhname)
 	if invalidname {
 		return errors.New("BareMetalHost resource name cannot contain characters other than [A-Za-z0-9._-]")
@@ -169,7 +171,6 @@ func validateBMHName(bmhname string) error {
 }
 
 func validateDNSName(hostaddress string) error {
-
 	if hostaddress == "" {
 		return nil
 	}
@@ -183,7 +184,6 @@ func validateAnnotations(host *BareMetalHost) []error {
 	var err error
 
 	for annotation, value := range host.Annotations {
-
 		switch {
 		case annotation == StatusAnnotation:
 			err = validateStatusAnnotation(value)
@@ -207,7 +207,6 @@ func validateAnnotations(host *BareMetalHost) []error {
 
 func validateStatusAnnotation(statusAnnotation string) error {
 	if statusAnnotation != "" {
-
 		objBMHStatus := &BareMetalHostStatus{}
 
 		deco := json.NewDecoder(strings.NewReader(statusAnnotation))
@@ -225,7 +224,6 @@ func validateStatusAnnotation(statusAnnotation string) error {
 }
 
 func validateImageURL(imageURL string) error {
-
 	_, err := url.ParseRequestURI(imageURL)
 	if err != nil {
 		return fmt.Errorf("image URL %s is invalid: %w", imageURL, err)
@@ -254,9 +252,8 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 // When making changes to this function for operationalstatus and errortype,
 // also make the corresponding changes in the OperationalStatus and
 // ErrorType fields in the struct definition of BareMetalHostStatus in
-// the file baremetalhost_types.go
+// the file baremetalhost_types.go.
 func checkStatusAnnotation(bmhStatus *BareMetalHostStatus) error {
-
 	if !slices.Contains(OperationalStatusAllowed, string(bmhStatus.OperationalStatus)) {
 		return fmt.Errorf("invalid operationalStatus '%s' in the %s annotation", string(bmhStatus.OperationalStatus), StatusAnnotation)
 	}

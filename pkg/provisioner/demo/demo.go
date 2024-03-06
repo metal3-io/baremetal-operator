@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"context"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,8 +15,6 @@ import (
 )
 
 var log = logz.New().WithName("provisioner").WithName("demo")
-var deprovisionRequeueDelay = time.Second * 10
-var provisionRequeueDelay = time.Second * 10
 
 const (
 	// RegistrationErrorHost is a host that fails the registration
@@ -68,7 +67,7 @@ type demoProvisioner struct {
 type Demo struct{}
 
 // NewProvisioner returns a new demo Provisioner.
-func (d Demo) NewProvisioner(hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+func (d Demo) NewProvisioner(_ context.Context, hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
 	p := &demoProvisioner{
 		objectMeta: hostData.ObjectMeta,
 		provID:     hostData.ProvisionerID,
@@ -250,38 +249,8 @@ func (p *demoProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
 func (p *demoProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
-	hostName := p.objectMeta.Name
-	switch hostName {
-	default:
-		return result, nil
-	}
-
-	// p.log.Info("ensuring host is removed")
-
-	// result.RequeueAfter = deprovisionRequeueDelay
-
-	// // NOTE(dhellmann): In order to simulate a multi-step process,
-	// // modify some of the status data structures. This is likely not
-	// // necessary once we really have Demo doing the deprovisioning
-	// // and we can monitor it's status.
-
-	// if p.host.Status.HardwareDetails != nil {
-	// 	p.publisher("DeprovisionStarted", "Image deprovisioning started")
-	// 	p.log.Info("clearing hardware details")
-	// 	p.host.Status.HardwareDetails = nil
-	// 	result.Dirty = true
-	// 	return result, nil
-	// }
-
-	// if p.host.Status.Provisioning.ID != "" {
-	// 	p.log.Info("clearing provisioning id")
-	// 	p.host.Status.Provisioning.ID = ""
-	// 	result.Dirty = true
-	// 	return result, nil
-	// }
-
-	// p.publisher("DeprovisionComplete", "Image deprovisioning completed")
-	// return result, nil
+	p.log.Info("deprovisioning host")
+	return result, nil
 }
 
 // Delete removes the host from the provisioning system. It may be
@@ -305,44 +274,18 @@ func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
 func (p *demoProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
-	hostName := p.objectMeta.Name
-	switch hostName {
-	default:
-		return result, nil
-	}
-
-	// p.log.Info("ensuring host is powered on")
-
-	// if !p.host.Status.PoweredOn {
-	// 	p.host.Status.PoweredOn = true
-	// 	result.Dirty = true
-	// 	return result, nil
-	// }
-
-	// return result, nil
+	p.log.Info("powering on host")
+	return result, nil
 }
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
 func (p *demoProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
-	hostName := p.objectMeta.Name
-	switch hostName {
-	default:
-		return result, nil
-	}
-
-	// p.log.Info("ensuring host is powered off")
-
-	// if p.host.Status.PoweredOn {
-	// 	p.host.Status.PoweredOn = false
-	// 	result.Dirty = true
-	// 	return result, nil
-	// }
-
-	// return result, nil
+	p.log.Info("powering off host")
+	return result, nil
 }
 
-// TryInit always returns true for the demo provisioner
+// TryInit always returns true for the demo provisioner.
 func (p *demoProvisioner) TryInit() (result bool, err error) {
 	return true, nil
 }

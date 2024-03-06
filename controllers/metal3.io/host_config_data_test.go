@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	goctx "context"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -70,7 +69,7 @@ func TestLabelSecrets(t *testing.T) {
 			hcd := &hostConfigData{
 				host:          host,
 				log:           baselog.WithName("host_config_data"),
-				secretManager: secretutils.NewSecretManager(baselog, c, c),
+				secretManager: secretutils.NewSecretManager(context.TODO(), baselog, c, c),
 			}
 
 			secret := newSecret(tc.name, map[string]string{"value": "somedata"})
@@ -336,15 +335,15 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			tc.Host.Spec.Online = true
 
 			c := fakeclient.NewClientBuilder().WithObjects(tc.Host).Build()
-			c.Create(goctx.TODO(), testBMCSecret)
-			c.Create(goctx.TODO(), tc.UserDataSecret)
-			c.Create(goctx.TODO(), tc.NetworkDataSecret)
-			c.Create(goctx.TODO(), tc.PreprovNetworkDataSecret)
+			c.Create(context.TODO(), testBMCSecret)
+			c.Create(context.TODO(), tc.UserDataSecret)
+			c.Create(context.TODO(), tc.NetworkDataSecret)
+			c.Create(context.TODO(), tc.PreprovNetworkDataSecret)
 			baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
 			hcd := &hostConfigData{
 				host:          tc.Host,
 				log:           baselog.WithName("host_config_data"),
-				secretManager: secretutils.NewSecretManager(baselog, c, c),
+				secretManager: secretutils.NewSecretManager(context.TODO(), baselog, c, c),
 			}
 
 			actualUserData, err := hcd.UserData()

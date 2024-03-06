@@ -2,7 +2,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
-GO_VERSION ?= 1.20.12
+GO_VERSION ?= 1.21.7
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -139,8 +139,9 @@ $(GOLANGCI_LINT_BIN): $(GOLANGCI_LINT) ## Build a local copy of golangci-lint.
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v ./...
-	cd test; $(GOLANGCI_LINT) run -v
-	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v
+	cd apis; $(GOLANGCI_LINT) run -v ./...
+	cd test; $(GOLANGCI_LINT) run -v ./...
+	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v ./...
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation

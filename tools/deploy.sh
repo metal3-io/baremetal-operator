@@ -142,41 +142,18 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
             IRONIC_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-password")"
         fi
     fi
-    if [ -z "${IRONIC_INSPECTOR_USERNAME:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-inspector-username" ]; then
-            IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-            echo "$IRONIC_INSPECTOR_USERNAME" > "${IRONIC_AUTH_DIR}ironic-inspector-username"
-        else
-            IRONIC_INSPECTOR_USERNAME="$(cat "${IRONIC_AUTH_DIR}ironic-inspector-username")"
-        fi
-    fi
-    if [ -z "${IRONIC_INSPECTOR_PASSWORD:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-inspector-password" ]; then
-            IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-            echo "$IRONIC_INSPECTOR_PASSWORD" > "${IRONIC_AUTH_DIR}ironic-inspector-password"
-        else
-            IRONIC_INSPECTOR_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-inspector-password")"
-        fi
-    fi
 
     if [[ "${DEPLOY_BMO}" == "true" ]]; then
         echo "${IRONIC_USERNAME}" > "${TEMP_BMO_OVERLAY}/ironic-username"
         echo "${IRONIC_PASSWORD}" > "${TEMP_BMO_OVERLAY}/ironic-password"
-
-        echo "${IRONIC_INSPECTOR_USERNAME}" > "${TEMP_BMO_OVERLAY}/ironic-inspector-username"
-        echo "${IRONIC_INSPECTOR_PASSWORD}" > "${TEMP_BMO_OVERLAY}/ironic-inspector-password"
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
         envsubst < "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config-tpl" > \
         "${TEMP_IRONIC_OVERLAY}/ironic-auth-config"
-        envsubst < "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-inspector-auth-config-tpl" > \
-        "${TEMP_IRONIC_OVERLAY}/ironic-inspector-auth-config"
 
         echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
         "${TEMP_IRONIC_OVERLAY}/ironic-htpasswd"
-        echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-        "${IRONIC_INSPECTOR_PASSWORD}")" > "${TEMP_IRONIC_OVERLAY}/ironic-inspector-htpasswd"
     fi
 fi
 
@@ -192,9 +169,7 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
 
     if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         ${KUSTOMIZE} edit add secret ironic-htpasswd --from-env-file=ironic-htpasswd
-        ${KUSTOMIZE} edit add secret ironic-inspector-htpasswd --from-env-file=ironic-inspector-htpasswd
         ${KUSTOMIZE} edit add secret ironic-auth-config --from-file=auth-config=ironic-auth-config
-        ${KUSTOMIZE} edit add secret ironic-inspector-auth-config --from-file=auth-config=ironic-inspector-auth-config
 
         if [[ "${DEPLOY_TLS}" == "true" ]]; then
             # Basic-auth + TLS is special since TLS also means reverse proxy, which affects basic-auth.
@@ -235,8 +210,6 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
         # These files are created below
         ${KUSTOMIZE} edit add secret ironic-credentials \
             --from-file=username=ironic-username --from-file=password=ironic-password
-        ${KUSTOMIZE} edit add secret ironic-inspector-credentials \
-            --from-file=username=ironic-inspector-username --from-file=password=ironic-inspector-password
     fi
 
     if [[ "${DEPLOY_TLS}" == "true" ]]; then
@@ -270,11 +243,6 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     fi
     IRONIC_BMO_CONFIGMAP="${TEMP_IRONIC_OVERLAY}/ironic_bmo_configmap.env"
     cp "${IRONIC_BMO_CONFIGMAP_SOURCE}" "${IRONIC_BMO_CONFIGMAP}"
-    if grep -q "INSPECTOR_REVERSE_PROXY_SETUP" "${IRONIC_BMO_CONFIGMAP}" ; then
-        sed "s/\(INSPECTOR_REVERSE_PROXY_SETUP\).*/\1=${DEPLOY_TLS}/" -i "${IRONIC_BMO_CONFIGMAP}"
-    else
-        echo "INSPECTOR_REVERSE_PROXY_SETUP=${DEPLOY_TLS}" >> "${IRONIC_BMO_CONFIGMAP}"
-    fi
     if grep -q "RESTART_CONTAINER_CERTIFICATE_UPDATED" "${IRONIC_BMO_CONFIGMAP}" ; then
         sed "s/\(RESTART_CONTAINER_CERTIFICATE_UPDATED\).*/\1=${RESTART_CONTAINER_CERTIFICATE_UPDATED}/" -i "${IRONIC_BMO_CONFIGMAP}"
     else
@@ -302,15 +270,15 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     if [[ "${DEPLOY_BMO}" == "true" ]]; then
         rm "${TEMP_BMO_OVERLAY}/ironic-username"
         rm "${TEMP_BMO_OVERLAY}/ironic-password"
-        rm "${TEMP_BMO_OVERLAY}/ironic-inspector-username"
-        rm "${TEMP_BMO_OVERLAY}/ironic-inspector-password"
+        rm -f "${TEMP_BMO_OVERLAY}/ironic-inspector-username"
+        rm -f "${TEMP_BMO_OVERLAY}/ironic-inspector-password"
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
         rm "${TEMP_IRONIC_OVERLAY}/ironic-auth-config"
-        rm "${TEMP_IRONIC_OVERLAY}/ironic-inspector-auth-config"
-
         rm "${TEMP_IRONIC_OVERLAY}/ironic-htpasswd"
-        rm "${TEMP_IRONIC_OVERLAY}/ironic-inspector-htpasswd"
+
+        rm -f "${TEMP_IRONIC_OVERLAY}/ironic-inspector-auth-config"
+        rm -f "${TEMP_IRONIC_OVERLAY}/ironic-inspector-htpasswd"
     fi
 fi

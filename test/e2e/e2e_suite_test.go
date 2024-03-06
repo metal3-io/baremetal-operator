@@ -27,7 +27,7 @@ var (
 	// configPath is the path to the e2e config file.
 	configPath string
 
-	// bmcConfigPath is the path to the file whose content is the list of bmcs used in the test
+	// bmcConfigPath is the path to the file whose content is the list of bmcs used in the test.
 	bmcConfigPath string
 
 	// useExistingCluster instructs the test to use the current cluster instead of creating a new one (default discovery rules apply).
@@ -36,7 +36,7 @@ var (
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *Config
 
-	// bmcs to be used for this test, read from bmcConfigPath
+	// bmcs to be used for this test, read from bmcConfigPath.
 	bmcs *[]BMC
 
 	// artifactFolder is the folder to store e2e test artifacts.
@@ -52,7 +52,7 @@ var (
 	// Please note that provisioning will be skipped if e2e.use-existing-cluster is provided.
 	clusterProvider bootstrap.ClusterProvider
 
-	// the BMC instance to use in a parallel test
+	// the BMC instance to use in a parallel test.
 	bmc BMC
 )
 
@@ -69,7 +69,7 @@ func TestE2e(t *testing.T) {
 	ctrl.SetLogger(klog.Background())
 
 	// ensure the artifacts folder exists
-	g.Expect(os.MkdirAll(artifactFolder, 0755)).To(Succeed(), "Invalid test suite argument. Can't create e2e.artifacts-folder %q", artifactFolder) //nolint:gosec
+	g.Expect(os.MkdirAll(artifactFolder, 0755)).To(Succeed(), "Invalid test suite argument. Can't create e2e.artifacts-folder %q", artifactFolder)
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "E2e Suite")
@@ -129,7 +129,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
 		// Install Ironic
 		By("Installing Ironic")
-		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
 			Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
 			ClusterProxy:        clusterProxy,
 			WaitForDeployment:   true,
@@ -146,7 +146,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {
 		// Install BMO
 		By("Installing BMO")
-		err := BuildAndApplyKustomize(ctx, &BuildAndApplyKustomizeInput{
+		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
 			Kustomization:       e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
 			ClusterProxy:        clusterProxy,
 			WaitForDeployment:   true,

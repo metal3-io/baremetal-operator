@@ -1,14 +1,14 @@
 # Authenticating to Ironic
 
-Because hosts under the control of Metal³ need to contact the Ironic and Ironic
-Inspector APIs during inspection and provisioning, it is highly advisable to
-require authentication on those APIs, since the provisioned hosts running user
+Because hosts under the control of Metal³ need to contact the Ironic
+API during inspection and provisioning, it is highly advisable to
+require authentication on this API, since the provisioned hosts running user
 workloads will remain connected to the provisioning network.
 
 ## Configuration
 
-The `baremetal-operator` supports connecting to Ironic and Ironic Inspector
-configured with the following `auth_strategy` modes:
+The `baremetal-operator` supports connecting to Ironic configured with the
+following `auth_strategy` modes:
 
 * `noauth` (no authentication)
 * `http_basic` (HTTP [Basic access authentication](https://en.wikipedia.org/wiki/Basic_access_authentication))
@@ -19,10 +19,8 @@ Authentication configuration is read from the filesystem, beginning at the root
 directory specified in the environment variable `METAL3_AUTH_ROOT_DIR`. If this
 variable is empty or not specified, the default is `/opt/metal3/auth`.
 
-Within the root directory there are separate subdirectories, `ironic` for
-Ironic client configuration, and `ironic-inspector` for Ironic Inspector client
-configuration. (This allows the data to be populated from separate secrets when
-deploying in Kubernetes.)
+Within the root directory there is a separate subdirectory `ironic` for
+Ironic client configuration.
 
 ### `noauth`
 

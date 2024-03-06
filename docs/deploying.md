@@ -107,8 +107,6 @@ ironic-deployment/
 ├── components
 │   ├── basic-auth
 │   │   ├── auth.yaml
-│   │   ├── ironic-auth-config
-│   │   ├── ironic-auth-config-tpl
 │   │   ├── ironic-htpasswd
 │   │   └── kustomization.yaml
 │   ├── keepalived

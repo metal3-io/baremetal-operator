@@ -140,9 +140,6 @@ for overlay in "${BMO_OVERLAYS[@]}"; do
   fi
 done
 
-envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
-  "${IRONIC_OVERLAY}/ironic-auth-config"
-
 echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
   "${IRONIC_OVERLAY}/ironic-htpasswd"
 

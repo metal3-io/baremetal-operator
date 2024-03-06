@@ -2,7 +2,8 @@ name: E2E Fixture Test
 
 on:
   pull_request:
-    branches: [ main ]
+    branches:
+      - 'release-0.5'
     paths-ignore:
       - '**/*.md'
       - 'docs/**'

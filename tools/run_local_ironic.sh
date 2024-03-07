@@ -171,9 +171,6 @@ fi
 BASIC_AUTH_MOUNTS=""
 IRONIC_HTPASSWD=""
 if [ -n "$IRONIC_USERNAME" ]; then
-     envsubst < "${SCRIPTDIR}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
-        "${IRONIC_DATA_DIR}/auth/ironic-auth-config"
-     BASIC_AUTH_MOUNTS="-v ${IRONIC_DATA_DIR}/auth/ironic-auth-config:/auth/ironic/auth-config"
      IRONIC_HTPASSWD="$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")"
      IRONIC_HTPASSWD="--env HTTP_BASIC_HTPASSWD=${IRONIC_HTPASSWD} --env IRONIC_HTPASSWD=${IRONIC_HTPASSWD}"
 fi

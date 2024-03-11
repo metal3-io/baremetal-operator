@@ -164,7 +164,7 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     --namespace=baremetal-operator-system --nameprefix=baremetal-operator-
 
     if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-        ${KUSTOMIZE} edit add secret ironic-htpasswd --from-env-file=ironic-htpasswd
+        ${KUSTOMIZE} edit add secret ironic-htpasswd --from-file=htpasswd=ironic-htpasswd
 
         if [[ "${DEPLOY_TLS}" == "true" ]]; then
             # Basic-auth + TLS is special since TLS also means reverse proxy, which affects basic-auth.

@@ -180,9 +180,10 @@ for overlay in "${IRONIC_OVERLAYS[@]}"; do
     "${overlay}/ironic-htpasswd"
   envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${overlay}/ironic-auth-config"
+
   if [[ "${overlay}" =~ -with-inspector ]]; then
     IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
-    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl 
+    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl
     envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
       "${overlay}/ironic-inspector-auth-config"
     echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \

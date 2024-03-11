@@ -148,8 +148,8 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
-        echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
-        "${TEMP_IRONIC_OVERLAY}/ironic-htpasswd"
+        echo "${IRONIC_USERNAME}" > "${TEMP_IRONIC_OVERLAY}/ironic-username"
+        echo "${IRONIC_PASSWORD}" > "${TEMP_IRONIC_OVERLAY}/ironic-password"
     fi
 fi
 
@@ -164,7 +164,9 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     --namespace=baremetal-operator-system --nameprefix=baremetal-operator-
 
     if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
-        ${KUSTOMIZE} edit add secret ironic-htpasswd --from-env-file=ironic-htpasswd
+        # These files are created below
+        ${KUSTOMIZE} edit add secret ironic-htpasswd \
+            --from-file=username=ironic-username --from-file=password=ironic-password
 
         if [[ "${DEPLOY_TLS}" == "true" ]]; then
             # Basic-auth + TLS is special since TLS also means reverse proxy, which affects basic-auth.
@@ -270,7 +272,8 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
-        rm "${TEMP_IRONIC_OVERLAY}/ironic-htpasswd"
+        rm "${TEMP_IRONIC_OVERLAY}/ironic-username"
+        rm "${TEMP_IRONIC_OVERLAY}/ironic-password"
 
         rm -f "${TEMP_IRONIC_OVERLAY}/ironic-auth-config"
         rm -f "${TEMP_IRONIC_OVERLAY}/ironic-inspector-auth-config"

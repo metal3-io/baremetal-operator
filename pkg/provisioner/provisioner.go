@@ -200,6 +200,15 @@ type Provisioner interface {
 
 	// RemoveBMCEventSubscriptionForNode delete the subscription
 	RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result Result, err error)
+
+	// Get DataImage details
+	GetDataImageStatus(*metal3api.DataImage) (err error)
+
+	// Attach DataImage
+	AttachDataImage(URL string) (err error)
+
+	// Detach DataImage
+	DetachDataImage() (err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

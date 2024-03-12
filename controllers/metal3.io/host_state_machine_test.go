@@ -1397,6 +1397,18 @@ func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEvent
 	return result, nil
 }
 
+func (m *mockProvisioner) GetDataImageStatus(_ *metal3api.DataImage) (err error) {
+	return nil
+}
+
+func (p *mockProvisioner) AttachDataImage(url string) (err error) {
+	return nil
+}
+
+func (p *mockProvisioner) DetachDataImage() (err error) {
+	return nil
+}
+
 func TestUpdateBootModeStatus(t *testing.T) {
 	testCases := []struct {
 		Scenario       string

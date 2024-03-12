@@ -70,9 +70,6 @@ spec:
                 description: Time of last reconciliation
                 format: date-time
                 type: string
-            required:
-            - attachedImage
-            - error
             type: object
         type: object
     served: true

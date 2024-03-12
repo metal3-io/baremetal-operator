@@ -51,9 +51,9 @@ type DataImageStatus struct {
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
 	// imageUrl is the URL from which the built image can be downloaded.
-	AttachedImage *AttachedImageReference `json:"attachedImage"`
+	AttachedImage *AttachedImageReference `json:"attachedImage,omitempty"`
 
-	Error *DataImageError `json:"error"`
+	Error *DataImageError `json:"error,omitempty"`
 }
 
 //+kubebuilder:object:root=true

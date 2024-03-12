@@ -406,6 +406,37 @@ verify_container_images()
     echo -e "Done\n"
 }
 
+verify_container_base_image()
+{
+    # check if the golang used for container image build is latest of its minor
+    local image tag
+
+    echo "Verifying container base images ..."
+
+    image_and_tag="$(grep "^ARG BUILD_IMAGE=" Dockerfile | cut -f2 -d=)"
+    image="${image_and_tag/:*}"
+    image_and_tag_without_sha="${image_and_tag/@sha256:*}"
+    tag="${image_and_tag_without_sha/*:}"
+    tag_minor="${tag%.*}"
+
+    # quay paginates 50 items at a time, so it is simpler to use gcrane
+    # to list all the tags, than DIY parse the pagination logic
+    if ! "${GCRANE_CMD[@]}" ls --platform "linux/amd64" "${image}" 2>/dev/null > "${TAG_LOG}"; then
+        echo "ERROR: cannot list container tags for ${image}"
+        return 1
+    fi
+    latest_minor="$(sort -rV < "${TAG_LOG}" | cut -f2 -d: | grep -E "^v?${tag_minor/./\\.}\.[[:digit:]]+$" | head -1)"
+
+    if [[ -z "${latest_minor}" ]]; then
+        echo "WARNING: could not find any minor releases of ${image_and_tag_without_sha}"
+    elif [[ "${latest_minor}" != "${tag}" ]]; then
+        echo "WARNING: container base image ${image_and_tag_without_sha} is not the latest minor"
+        echo "WARNING: latest minor ${latest_minor} != ${tag}, needs a bump"
+    fi
+
+    echo -e "Done\n"
+}
+
 
 #
 # helper functions for module related checks
@@ -587,6 +618,7 @@ if [[ -n "${TAG_EXISTS}" ]]; then
 fi
 
 # always verified
+verify_container_base_image
 verify_module_versions
 verify_module_group_versions
 verify_module_releases

@@ -4,8 +4,8 @@ go 1.21
 
 require (
 	github.com/cert-manager/cert-manager v1.10.0
-	github.com/metal3-io/baremetal-operator/apis v0.5.0
-	github.com/metal3-io/cluster-api-provider-metal3/test v1.6.0
+	github.com/metal3-io/baremetal-operator/apis v0.5.1
+	github.com/metal3-io/cluster-api-provider-metal3/test v1.6.1
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/pkg/errors v0.9.1
@@ -15,9 +15,9 @@ require (
 	k8s.io/apimachinery v0.28.5
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	sigs.k8s.io/cluster-api v1.6.0
-	sigs.k8s.io/cluster-api/test v1.6.0
-	sigs.k8s.io/controller-runtime v0.16.3
+	sigs.k8s.io/cluster-api v1.6.3
+	sigs.k8s.io/cluster-api/test v1.6.3
+	sigs.k8s.io/controller-runtime v0.16.5
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3
 )
@@ -79,9 +79,9 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.0 // indirect
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1 // indirect
 	github.com/metal3-io/cluster-api-provider-metal3/api v1.5.1 // indirect
-	github.com/metal3-io/ip-address-manager/api v1.6.0 // indirect
+	github.com/metal3-io/ip-address-manager/api v1.6.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect

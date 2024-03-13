@@ -1,29 +1,17 @@
 # approval == this is a good idea /approve
 approvers:
-  - andfasano
-  - bfournie
   - dtantsur
-  - hardys
+  - elfosardo
   - honza
-  - kirankt
-  - mhrivnak
-  - russellb
-  - sadasu
   - zaneb
 # review == this code is good /lgtm
 reviewers:
-  - andfasano
-  - ardaguclu
-  - bfournie
-  - dhellmann
+  - derekhiggins
   - dtantsur
   - elfosardo
-  - hardys
   - honza
-  - kirankt
-  - mhrivnak
-  - russellb
-  - sadasu
+  - hroyrh
+  - iurygregory
   - zaneb
 
 # Bugzilla Information

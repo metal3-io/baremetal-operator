@@ -2197,6 +2197,8 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 
 // Get DataImage Details
 // Fetches the VirtualMedia details of the BareMetalHost and updates DataImage.
+// TODO (hroyrh) : provisioner should not change API objects directly,
+// return a structured response instead.
 func (p *ironicProvisioner) GetDataImageStatus(dataImage *metal3api.DataImage) (err error) {
 	// TODO(hroyrh)
 	// Get BareMetalHost VirtualMedia details and handle errors
@@ -2206,6 +2208,7 @@ func (p *ironicProvisioner) GetDataImageStatus(dataImage *metal3api.DataImage) (
 		dataImage.Status.AttachedImage = &metal3api.AttachedImageReference{}
 	}
 
+	// Dummy value set
 	// TODO(hroyrh):
 	// Do we really set it at this point or inside detach/attach functions
 	if dataImage.Status.Error == nil {
@@ -2217,10 +2220,31 @@ func (p *ironicProvisioner) GetDataImageStatus(dataImage *metal3api.DataImage) (
 
 func (p *ironicProvisioner) AttachDataImage(_ string) (err error) {
 	p.log.Info("Calling the IronicProvisioner.AttachDataImage function")
+
+	// TODO (hroyrh)
+	// How will we know about the device type and source type ?
+	// err = nodes.AttachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.AttachVirtualMediaOpts{
+	// 	DeviceType: nodes.VirtualMediaCD,
+	// 	ImageURL:   url,
+	// }).ExtractErr()
+	// if err != nil {
+	// 	return err
+	// }
+
 	return nil
 }
 
 func (p *ironicProvisioner) DetachDataImage() (err error) {
 	p.log.Info("Calling the IronicProvisioner.DetachDataImage function")
+
+	// TODO (hroyrh)
+	// How will we know about the device type and source type ?
+	// err = nodes.DetachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.DetachVirtualMediaOpts{
+	// 	DeviceTypes: []nodes.VirtualMediaDeviceType{nodes.VirtualMediaCD},
+	// }).ExtractErr()
+	// if err != nil {
+	// 	return err
+	// }
+
 	return nil
 }

@@ -1426,16 +1426,16 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			return nil
 		}
 		// Error reading the object - requeue the request.
-		return actionError{errors.Wrap(err, "could not load dataImage")}
+		return actionError{fmt.Errorf("could not load dataImage, %w", err)}
 	}
 
 	// Set ControllerReference to DataImage
 	if !ownerReferenceExists(info.host, dataImage) {
 		if err := controllerutil.SetControllerReference(info.host, dataImage, r.Scheme()); err != nil {
-			return actionError{errors.Wrap(err, "could not set bmh as controller")}
+			return actionError{fmt.Errorf("could not set bmh as controller, %w", err)}
 		}
 		if err := r.Update(info.ctx, dataImage); err != nil {
-			return actionError{errors.Wrap(err, "failure creating dataImage resource")}
+			return actionError{fmt.Errorf("failure creating dataImage resource, %w", err)}
 		}
 		// Should we requeue at this point
 		// return actionContinue{}
@@ -1443,8 +1443,8 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 
 	// Fetch the latest status of DataImage from node
 	if err := prov.GetDataImageStatus(dataImage); err != nil {
-		info.log.Info("Failed to get current status : ", "ErrorIs", err)
-		return actionError{errors.Wrap(err, "Failed to get latest status, Requeuing DataImageReconciler")}
+		info.log.Info("Failed to get current status", "Error", err)
+		return actionError{fmt.Errorf("failed to get latest status, Requeuing DataImageReconciler, %w", err)}
 	}
 
 	deleteDataImage := false
@@ -1452,22 +1452,22 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		deleteDataImage = true
 	}
 
-	diSpecURL := dataImage.Spec.URL
+	requestedURL := dataImage.Spec.URL
 
 	// We can assume non null value since GetDataImageStatus was successful
-	diAttachedURL := dataImage.Status.AttachedImage.URL
+	attachedURL := dataImage.Status.AttachedImage.URL
 
 	if deleteDataImage {
 		info.log.Info("DataImage requested for deletion")
-		if diAttachedURL != "" {
+		if attachedURL != "" {
 			info.log.Info("Detaching DataImage as it was deleted")
 			err := r.detachDataImage(prov, info, dataImage)
 			if err != nil {
-				return actionError{errors.Wrap(err, "Failed to detach")}
+				return actionError{fmt.Errorf("failed to detach, %w", err)}
 			}
 
 			if err := r.Status().Update(info.ctx, dataImage); err != nil {
-				return actionError{errors.Wrap(err, "Failed to update DataImage status")}
+				return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
 			}
 		}
 
@@ -1475,27 +1475,27 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		return nil
 	}
 
-	if diSpecURL != diAttachedURL {
+	if requestedURL != attachedURL {
 		info.log.Info("DataImage change detected")
-		if diAttachedURL != "" {
+		if attachedURL != "" {
 			info.log.Info("Detaching DataImage")
 			err := r.detachDataImage(prov, info, dataImage)
 			if err != nil {
-				return actionError{errors.Wrap(err, "Failed to detach")}
+				return actionError{fmt.Errorf("failed to detach, %w", err)}
 			}
 		}
-		if diSpecURL != "" {
+		if requestedURL != "" {
 			info.log.Info("Attaching DataImage")
 			err := r.attachDataImage(prov, info, dataImage)
 			if err != nil {
-				return actionError{errors.Wrap(err, "Failed to attach")}
+				return actionError{fmt.Errorf("failed to attach, %w", err)}
 			}
 		}
 	}
 
 	// TODO(hroyrh) : Put a check only if dirty
 	if err := r.Status().Update(info.ctx, dataImage); err != nil {
-		return actionError{errors.Wrap(err, "Failed to update DataImage status")}
+		return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
 	}
 	info.log.Info("Updated DataImage Status after handling attachment/detachment")
 

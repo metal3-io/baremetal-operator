@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	idrac        = "idrac"
 	idracRedfish = "idrac-redfish"
 	redfish      = "redfish"
 )

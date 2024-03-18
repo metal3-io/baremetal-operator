@@ -303,7 +303,7 @@ func TestValidateCreate(t *testing.T) {
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
 					BMC: BMCDetails{
-						Address:         "idrac://127.0.0.1",
+						Address:         "redfish://127.0.0.1",
 						CredentialsName: "test1",
 					},
 					RAID: &RAIDConfig{
@@ -329,7 +329,7 @@ func TestValidateCreate(t *testing.T) {
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
 					BMC: BMCDetails{
-						Address:         "idrac://127.0.0.1",
+						Address:         "redfish://127.0.0.1",
 						CredentialsName: "test1",
 					},
 					RAID: &RAIDConfig{
@@ -501,7 +501,7 @@ func TestValidateCreate(t *testing.T) {
 				ObjectMeta: om,
 				Spec: BareMetalHostSpec{
 					BMC: BMCDetails{
-						Address:         "idrac://127.0.0.1",
+						Address:         "redfish://127.0.0.1",
 						CredentialsName: "test1",
 					},
 					Image: &Image{

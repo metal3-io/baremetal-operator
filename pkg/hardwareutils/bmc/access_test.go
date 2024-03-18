@@ -139,46 +139,6 @@ func TestParse(t *testing.T) {
 		},
 
 		{
-			Scenario: "idrac url",
-			Address:  "idrac://192.168.122.1",
-			Type:     "idrac",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
-			Path:     "",
-		},
-
-		{
-			Scenario: "idrac url with path",
-			Address:  "idrac://192.168.122.1:6233/foo",
-			Type:     "idrac",
-			Port:     "6233",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1:6233",
-			Path:     "/foo",
-		},
-
-		{
-			Scenario: "idrac url ipv6",
-			Address:  "idrac://[fe80::fc33:62ff:fe83:8a76]",
-			Type:     "idrac",
-			Port:     "",
-			Host:     "fe80::fc33:62ff:fe83:8a76",
-			Hostname: "[fe80::fc33:62ff:fe83:8a76]",
-			Path:     "",
-		},
-
-		{
-			Scenario: "idrac url, no sep",
-			Address:  "idrac:192.168.122.1",
-			Type:     "idrac",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
-			Path:     "",
-		},
-
-		{
 			Scenario: "irmc url",
 			Address:  "irmc://192.168.122.1",
 			Type:     "irmc",
@@ -252,87 +212,6 @@ func TestParse(t *testing.T) {
 			Scenario: "redfish url no sep",
 			Address:  "redfish:192.168.122.1",
 			Type:     "redfish",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
-			Path:     "",
-		},
-
-		// ibmc
-		{
-			Scenario: "ibmc url",
-			Address:  "ibmc://192.168.122.1",
-			Type:     "ibmc",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
-			Path:     "",
-		},
-
-		{
-			Scenario: "ibmc url path",
-			Address:  "ibmc://192.168.122.1:6233/foo",
-			Type:     "ibmc",
-			Port:     "6233",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1:6233",
-			Path:     "/foo",
-		},
-
-		{
-			Scenario: "ibmc url with http scheme",
-			Address:  "ibmc+http://192.168.122.1",
-			Type:     "ibmc+http",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
-			Path:     "",
-		},
-
-		{
-			Scenario: "ibmc url with http scheme",
-			Address:  "ibmc+https://192.168.122.1",
-			Type:     "ibmc+https",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
-			Path:     "",
-		},
-
-		{
-			Scenario: "ibmc url path",
-			Address:  "ibmc://192.168.122.1:6233/foo",
-			Type:     "ibmc",
-			Port:     "6233",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1:6233",
-			Path:     "/foo",
-		},
-
-		{
-			Scenario: "ibmc url ipv6",
-			Address:  "ibmc://[fe80::fc33:62ff:fe83:8a76]",
-			Type:     "ibmc",
-			Port:     "",
-			Host:     "fe80::fc33:62ff:fe83:8a76",
-			Hostname: "[fe80::fc33:62ff:fe83:8a76]",
-			Path:     "",
-		},
-
-		{
-			Scenario: "ibmc url path ipv6",
-			Address:  "ibmc://[fe80::fc33:62ff:fe83:8a76]:6233/foo",
-			Type:     "ibmc",
-			Port:     "6233",
-			Host:     "fe80::fc33:62ff:fe83:8a76",
-			Hostname: "[fe80::fc33:62ff:fe83:8a76]:6233",
-			Path:     "/foo",
-		},
-
-		{
-			Scenario: "ibmc url no sep",
-			Address:  "ibmc:192.168.122.1",
-			Type:     "ibmc",
 			Port:     "",
 			Host:     "192.168.122.1",
 			Hostname: "192.168.122.1",
@@ -494,18 +373,6 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
-			Scenario:   "idrac",
-			input:      "idrac://192.168.122.1",
-			needsMac:   false,
-			driver:     "idrac",
-			bios:       "",
-			boot:       "ipxe",
-			firmware:   "",
-			management: "",
-			power:      "",
-		},
-
-		{
 			Scenario:   "irmc",
 			input:      "irmc://192.168.122.1",
 			needsMac:   true,
@@ -648,18 +515,6 @@ func TestStaticDriverInfo(t *testing.T) {
 		},
 
 		{
-			Scenario:   "ibmc",
-			input:      "ibmc://192.168.122.1:6233",
-			needsMac:   true,
-			driver:     "ibmc",
-			bios:       "",
-			boot:       "ipxe",
-			firmware:   "",
-			management: "ibmc",
-			power:      "ibmc",
-		},
-
-		{
 			Scenario:   "ilo4",
 			input:      "ilo4://192.168.122.1",
 			needsMac:   true,
@@ -755,79 +610,6 @@ func TestDriverInfo(t *testing.T) {
 				"ipmi_address":    "192.168.122.1",
 				"ipmi_verify_ca":  false,
 				"ipmi_priv_level": "OPERATOR",
-			},
-		},
-
-		{
-			Scenario: "idrac",
-			input:    "idrac://192.168.122.1",
-			expects: map[string]interface{}{
-				"drac_address":   "192.168.122.1",
-				"drac_password":  "",
-				"drac_username":  "",
-				"drac_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "idrac http",
-			input:    "idrac+http://192.168.122.1",
-			expects: map[string]interface{}{
-				"drac_address":   "192.168.122.1",
-				"drac_protocol":  "http",
-				"drac_password":  "",
-				"drac_username":  "",
-				"drac_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "idrac https",
-			input:    "idrac+https://192.168.122.1",
-			expects: map[string]interface{}{
-				"drac_address":   "192.168.122.1",
-				"drac_protocol":  "https",
-				"drac_password":  "",
-				"drac_username":  "",
-				"drac_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "idrac port and path http",
-			input:    "idrac://192.168.122.1:8080/foo",
-			expects: map[string]interface{}{
-				"drac_address":   "192.168.122.1",
-				"drac_port":      "8080",
-				"drac_path":      "/foo",
-				"drac_password":  "",
-				"drac_username":  "",
-				"drac_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "idrac ipv6",
-			input:    "idrac://[fe80::fc33:62ff:fe83:8a76]/foo",
-			expects: map[string]interface{}{
-				"drac_address":   "fe80::fc33:62ff:fe83:8a76",
-				"drac_path":      "/foo",
-				"drac_password":  "",
-				"drac_username":  "",
-				"drac_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "idrac ipv6 port and path",
-			input:    "idrac://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
-			expects: map[string]interface{}{
-				"drac_address":   "fe80::fc33:62ff:fe83:8a76",
-				"drac_port":      "8080",
-				"drac_path":      "/foo",
-				"drac_password":  "",
-				"drac_username":  "",
-				"drac_verify_ca": false,
 			},
 		},
 
@@ -1006,73 +788,6 @@ func TestDriverInfo(t *testing.T) {
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
-			},
-		},
-
-		// ibmc driver testcases
-		{
-			Scenario: "ibmc",
-			input:    "ibmc://192.168.122.1/foo/bar",
-			expects: map[string]interface{}{
-				"ibmc_address":   "https://192.168.122.1/foo/bar",
-				"ibmc_password":  "",
-				"ibmc_username":  "",
-				"ibmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "ibmc http",
-			input:    "ibmc+http://192.168.122.1/foo/bar",
-			expects: map[string]interface{}{
-				"ibmc_address":   "http://192.168.122.1/foo/bar",
-				"ibmc_password":  "",
-				"ibmc_username":  "",
-				"ibmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "ibmc https",
-			input:    "ibmc+https://192.168.122.1/foo/bar",
-			expects: map[string]interface{}{
-				"ibmc_address":   "https://192.168.122.1/foo/bar",
-				"ibmc_password":  "",
-				"ibmc_username":  "",
-				"ibmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "ibmc port",
-			input:    "ibmc://192.168.122.1:8080/foo/bar",
-			expects: map[string]interface{}{
-				"ibmc_address":   "https://192.168.122.1:8080/foo/bar",
-				"ibmc_password":  "",
-				"ibmc_username":  "",
-				"ibmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "ibmc ipv6",
-			input:    "ibmc://[fe80::fc33:62ff:fe83:8a76]/foo/bar",
-			expects: map[string]interface{}{
-				"ibmc_address":   "https://[fe80::fc33:62ff:fe83:8a76]/foo/bar",
-				"ibmc_password":  "",
-				"ibmc_username":  "",
-				"ibmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "ibmc ipv6 port",
-			input:    "ibmc://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
-			expects: map[string]interface{}{
-				"ibmc_address":   "https://[fe80::fc33:62ff:fe83:8a76]:8080/foo",
-				"ibmc_password":  "",
-				"ibmc_username":  "",
-				"ibmc_verify_ca": false,
 			},
 		},
 

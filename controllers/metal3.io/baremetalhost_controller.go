@@ -1365,11 +1365,14 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
 	if desiredPowerOnState {
-		// If DataImage exists, handle attachment/detachment
-		dataImageResult := r.handleDataImageActions(prov, info)
-		if dataImageResult != nil {
-			// attaching/detaching DataImage failed, so we will requeue
-			return dataImageResult
+		// We handle DataImage only for provisioned/externallyProvisioned hosts
+		if isProvisioned {
+			// If DataImage exists, handle attachment/detachment
+			dataImageResult := r.handleDataImageActions(prov, info)
+			if dataImageResult != nil {
+				// attaching/detaching DataImage failed, so we will requeue
+				return dataImageResult
+			}
 		}
 
 		provResult, err = prov.PowerOn(info.host.Status.ErrorType == metal3api.PowerManagementError)
@@ -1466,12 +1469,14 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 				return actionError{fmt.Errorf("failed to detach, %w", err)}
 			}
 
-			if err := r.Status().Update(info.ctx, dataImage); err != nil {
-				return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
-			}
+			// Requeue to give time to the DataImage Reconciler to update the
+			// status. In case of failure, we will enter this section and
+			// detachDataImage will be called again -> can this cause issues ?
+			return actionContinue{dataImageUpdateDelay}
 		}
 
-		// In case there was no DataImage attached or we successfully detached it, we simply exit
+		// In case there was no DataImage attached we simply exit
+		// Should we use actionContinue or simply return nil ?
 		return nil
 	}
 
@@ -1483,13 +1488,23 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			if err != nil {
 				return actionError{fmt.Errorf("failed to detach, %w", err)}
 			}
+
+			// Requeue to give time to the DataImage Reconciler to update the
+			// status. In case of failure, we will enter this section and
+			// detachDataImage will be called again -> can this cause issues ?
+			return actionContinue{dataImageUpdateDelay}
 		}
 		if requestedURL != "" {
-			info.log.Info("Attaching DataImage")
+			info.log.Info("Attaching DataImage", "URL", requestedURL)
 			err := r.attachDataImage(prov, info, dataImage)
 			if err != nil {
 				return actionError{fmt.Errorf("failed to attach, %w", err)}
 			}
+
+			// Requeue to give time to the DataImage Reconciler to update the
+			// status. In case of failure, we will enter this section and
+			// attachDataImage will be called again -> can this cause issues ?
+			return actionContinue{dataImageUpdateDelay}
 		}
 	}
 
@@ -1497,8 +1512,10 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 	if err := r.Status().Update(info.ctx, dataImage); err != nil {
 		return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
 	}
+
 	info.log.Info("Updated DataImage Status after handling attachment/detachment")
 
+	// Should we return actionContinue or nil ?
 	return nil
 }
 
@@ -1518,13 +1535,26 @@ func ownerReferenceExists(owner metav1.Object, resource metav1.Object) bool {
 // Attach the DataImage to the BareMetalHost.
 func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
 	if err := prov.AttachDataImage(dataImage.Spec.URL); err != nil {
-		info.log.Info("Called the IronicProvisioner.AttachDataImage function")
+		info.log.Info("Error while attaching DataImage", "DataImage", dataImage.Name, "Error", err.Error())
+
 		dataImage.Status.Error.Count++
 		dataImage.Status.Error.Message = err.Error()
-		return errors.Wrap(err, "Failed to attach dataImage")
+		// Error updating DataImage Status
+		if err := r.Status().Update(info.ctx, dataImage); err != nil {
+			return fmt.Errorf("failed to update DataImage status, %w", err)
+		}
+
+		return fmt.Errorf("failed to attach dataImage, %w", err)
 	}
 
-	// TODO(hroyrh) : Clear errors
+	info.log.Info("Attach return no error, clearning DataImage status error", "DataImage", dataImage.Name)
+	// Clear errors if attachment succeeds
+	dataImage.Status.Error.Count = 0
+	dataImage.Status.Error.Message = ""
+	// Error updating DataImage Status
+	if err := r.Status().Update(info.ctx, dataImage); err != nil {
+		return fmt.Errorf("failed to update DataImage status, %w", err)
+	}
 
 	// Dummy value set
 	// TODO(hroyrh) Setting value directly now, update value depending on success
@@ -1537,13 +1567,26 @@ func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, 
 // Detach the DataImage from the BareMetalHost.
 func (r *BareMetalHostReconciler) detachDataImage(prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
 	if err := prov.DetachDataImage(); err != nil {
-		info.log.Info("Called the IronicProvisioner.DetachDataImage function")
+		info.log.Info("Error while detaching DataImage", "DataImage", dataImage.Name, "Error", err.Error())
+
 		dataImage.Status.Error.Count++
 		dataImage.Status.Error.Message = err.Error()
-		return errors.Wrap(err, "Failed to attach dataImage")
+		// Error updating DataImage Status
+		if err := r.Status().Update(info.ctx, dataImage); err != nil {
+			return fmt.Errorf("failed to update DataImage status, %w", err)
+		}
+
+		return fmt.Errorf("failed to detach dataImage, %w", err)
 	}
 
-	// TODO(hroyrh) : Clear errors
+	info.log.Info("Attach return no error, clearning DataImage status error", "DataImage", dataImage.Name)
+	// Clear errors if detachment succeeds
+	dataImage.Status.Error.Count = 0
+	dataImage.Status.Error.Message = ""
+	// Error updating DataImage Status
+	if err := r.Status().Update(info.ctx, dataImage); err != nil {
+		return fmt.Errorf("failed to update DataImage status, %w", err)
+	}
 
 	// Dummy value set
 	// TODO(hroyrh) Setting value directly, update value depending on success

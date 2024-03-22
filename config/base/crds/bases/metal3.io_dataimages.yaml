@@ -11,8 +11,6 @@ spec:
     kind: DataImage
     listKind: DataImageList
     plural: dataimages
-    shortNames:
-    - dimg
     singular: dataimage
   scope: Namespaced
   versions:
@@ -47,8 +45,7 @@ spec:
             description: DataImageStatus defines the observed state of DataImage.
             properties:
               attachedImage:
-                description: imageUrl is the URL from which the built image can be
-                  downloaded.
+                description: Currently attached DataImage
                 properties:
                   url:
                     type: string
@@ -56,7 +53,7 @@ spec:
                 - url
                 type: object
               error:
-                description: Contains the count of errors and the last error message.
+                description: Error count and message when attaching/detaching
                 properties:
                   count:
                     type: integer

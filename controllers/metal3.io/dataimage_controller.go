@@ -37,7 +37,8 @@ import (
 )
 
 const (
-	dataImageRetryDelay = time.Second * 10
+	dataImageRetryDelay  = time.Second * 60
+	dataImageUpdateDelay = time.Second * 30
 )
 
 // DataImageReconciler reconciles a DataImage object.
@@ -128,6 +129,8 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		reqLogger.Info("the host is detached, not running reconciler")
 		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
 	}
+
+	// TODO(hroyrh) : handle Paused annotation
 
 	// Create a provisioner that can access Ironic API
 	// prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)

@@ -36,11 +36,9 @@ communicate with them.
 | Generic IPMI    | IPMI     | iPXE          | `ipmi://<host>:<port>` or just `<host>:<port>`    | Port is optional, defaults to 623                                       |
 | Generic Redfish | Redfish  | iPXE          | `redfish://<host>:<port>/<systemID>`              | System ID is a path like `/redfish/v1/Systems/System.Embedded.1`        |
 |                 |          | Virtual media | `redfish-virtualmedia://<host>:<port>/<systemID>` | Virtual media support is vendor-dependent. Should not be used for Dell. |
-| Dell iDRAC      | WSMAN    | iPXE          | `idrac://<host>:<port>`                           |                                                                         |
-|                 | Redfish  | iPXE          | `idrac-redfish://<host>:<port>/<systemID>`        | See above about system ID.                                              |
+| Dell iDRAC      | Redfish  | iPXE          | `idrac-redfish://<host>:<port>/<systemID>`        | See above about system ID.                                              |
 |                 | Redfish  | Virtual media | `idrac-virtualmedia://<host>:<port>/<systemID>`   | See above about system ID.                                              |
 | Fujitsu iRMC    | iRMC     | iPXE          | `irmc://<host>:<port>`                            | Port is optional, the default is 443.                                   |
-| HUAWEI ibmc     | ibmc     | iPXE          | `ibmc://<host>:<port>`                            |                                                                         |
 | HPE iLO 4       | iLO      | iPXE          | `ilo4://<host>:<port>`                            | Port is optional, the default is 443.                                   |
 |                 | iLO      | Virtual media | `ilo4-virtualmedia://<host>:<port>`               |                                                                         |
 | HPE iLO 5       | iLO      | iPXE          | `ilo5://<host>:<port>`                            |                                                                         |

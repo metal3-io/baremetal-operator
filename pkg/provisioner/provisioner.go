@@ -206,7 +206,7 @@ type Provisioner interface {
 	GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error)
 
 	// Get DataImage details
-	GetDataImageStatus(*metal3api.DataImage) (err error)
+	GetDataImageStatus() (dataImageStatus *metal3api.DataImageStatus, err error)
 
 	// Attach DataImage
 	AttachDataImage(URL string) (err error)

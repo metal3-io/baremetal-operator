@@ -1401,8 +1401,8 @@ func (p *mockProvisioner) GetFirmwareComponents() (components []metal3api.Firmwa
 	return components, nil
 }
 
-func (m *mockProvisioner) GetDataImageStatus(_ *metal3api.DataImage) (err error) {
-	return nil
+func (m *mockProvisioner) GetDataImageStatus() (dataImageStatus *metal3api.DataImageStatus, err error) {
+	return dataImageStatus, nil
 }
 
 func (p *mockProvisioner) AttachDataImage(url string) (err error) {

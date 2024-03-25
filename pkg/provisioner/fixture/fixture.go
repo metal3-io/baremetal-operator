@@ -361,8 +361,8 @@ func (p *fixtureProvisioner) GetFirmwareComponents() (components []metal3api.Fir
 	return components, nil
 }
 
-func (p *fixtureProvisioner) GetDataImageStatus(_ *metal3api.DataImage) (err error) {
-	return nil
+func (p *fixtureProvisioner) GetDataImageStatus() (dataImageStatus *metal3api.DataImageStatus, err error) {
+	return dataImageStatus, nil
 }
 
 func (p *fixtureProvisioner) AttachDataImage(_ string) (err error) {

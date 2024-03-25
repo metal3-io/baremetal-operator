@@ -1384,7 +1384,6 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
 	if desiredPowerOnState {
-		// We handle DataImage only for provisioned/externallyProvisioned hosts
 		if isProvisioned {
 			// If DataImage exists, handle attachment/detachment
 			dataImageResult := r.handleDataImageActions(prov, info)
@@ -1463,11 +1462,14 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		// return actionContinue{}
 	}
 
-	// Fetch the latest status of DataImage from node
-	if err := prov.GetDataImageStatus(dataImage); err != nil {
-		info.log.Info("Failed to get current status", "Error", err)
-		return actionError{fmt.Errorf("failed to get latest status, Requeuing DataImageReconciler, %w", err)}
+	// Fetch the latest status of DataImage from Node
+	dataImageStatus, err := prov.GetDataImageStatus()
+	if err != nil {
+		info.log.Info("Failed to get current DataImage status", "Error", err)
+		return actionError{fmt.Errorf("failed to get latest status, Requeuing. Error = %w", err)}
 	}
+	// Copy the fetched status into the resource status
+	dataImageStatus.DeepCopyInto(&dataImage.Status)
 
 	deleteDataImage := false
 	if !dataImage.DeletionTimestamp.IsZero() {

@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -163,11 +164,14 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Get the current status using provisioner
-	if err := prov.GetDataImageStatus(di); err != nil {
-		reqLogger.Info("Failed to get current dataimage status : ", "ErrorIs", err)
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, errors.Wrap(err, "Failed to get latest status, Requeuing DataImageReconciler")
+	// Fetch the latest status of DataImage from Node
+	dataImageStatus, err := prov.GetDataImageStatus()
+	if err != nil {
+		reqLogger.Info("Failed to get current dataimage status", "Error", err)
+		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to get latest status, Error = %w", err)
 	}
+	// Copy the fetched status into the resource status
+	dataImageStatus.DeepCopyInto(&di.Status)
 
 	// Remove finalizer if DataImage has been requested for deletion and
 	// there is no attached image, else wait for the detachment.

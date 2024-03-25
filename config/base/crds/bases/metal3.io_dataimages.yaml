@@ -11,8 +11,6 @@ spec:
     kind: DataImage
     listKind: DataImageList
     plural: dataimages
-    shortNames:
-    - dimg
     singular: dataimage
   scope: Namespaced
   versions:
@@ -37,7 +35,7 @@ spec:
             description: DataImageSpec defines the desired state of DataImage.
             properties:
               url:
-                description: URL is the address of the dataImage that we want to attach
+                description: Url is the address of the dataImage that we want to attach
                   to a BareMetalHost
                 type: string
             required:
@@ -47,7 +45,7 @@ spec:
             description: DataImageStatus defines the observed state of DataImage.
             properties:
               attachedImage:
-                description: AttachedImage shows the currently attached image
+                description: Currently attached DataImage
                 properties:
                   url:
                     type: string
@@ -55,7 +53,7 @@ spec:
                 - url
                 type: object
               error:
-                description: Error contains errors related to DataImage attachment/detachment
+                description: Error count and message when attaching/detaching
                 properties:
                   count:
                     type: integer

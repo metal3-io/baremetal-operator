@@ -22,7 +22,7 @@ import (
 
 const DataImageFinalizer = "dataimage.metal3.io"
 
-// Contains the attached DataImage.
+// Contains the DataImage currently attached to the BMH.
 type AttachedImageReference struct {
 	URL string `json:"url"`
 }
@@ -35,9 +35,7 @@ type DataImageError struct {
 
 // DataImageSpec defines the desired state of DataImage.
 type DataImageSpec struct {
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// URL is the address of the dataImage that we want to attach
+	// Url is the address of the dataImage that we want to attach
 	// to a BareMetalHost
 	URL string `json:"url"`
 }
@@ -48,15 +46,14 @@ type DataImageStatus struct {
 	// +optional
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
-	// AttachedImage shows the currently attached image
+	// Currently attached DataImage
 	AttachedImage *AttachedImageReference `json:"attachedImage,omitempty"`
 
-	// Error contains errors related to DataImage attachment/detachment
+	// Error count and message when attaching/detaching
 	Error *DataImageError `json:"error,omitempty"`
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:resource:shortName=dimg
 //+kubebuilder:subresource:status
 
 // DataImage is the Schema for the dataimages API.

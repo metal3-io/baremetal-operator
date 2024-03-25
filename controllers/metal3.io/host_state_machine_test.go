@@ -1397,8 +1397,8 @@ func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEvent
 	return result, nil
 }
 
-func (m *mockProvisioner) GetDataImageStatus(_ *metal3api.DataImage) (err error) {
-	return nil
+func (m *mockProvisioner) GetDataImageStatus() (dataImageStatus *metal3api.DataImageStatus, err error) {
+	return dataImageStatus, nil
 }
 
 func (p *mockProvisioner) AttachDataImage(url string) (err error) {

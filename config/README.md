@@ -1,7 +1,7 @@
 # Kustomizations for Baremetal Operator
 
 This folder contains kustomizations for the Baremetal Operator. They have
-traditionally been used through the [deploy.sh](../tools/deploy.sh) script,
+been used through the [deploy.go](../tools/deploy.go) program,
 which takes care of generating the necessary config for basic-auth and TLS.
 However, a more GitOps friendly way would be to create your own static overlay.
 Check the `overlays/e2e` for an example that is used in the e2e tests.

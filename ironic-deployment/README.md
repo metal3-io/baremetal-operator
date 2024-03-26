@@ -1,7 +1,7 @@
 # Kustomizations for Ironic
 
 This folder contains kustomizations for Ironic. They are mainly used
-through the [deploy.sh](../tools/deploy.sh) script, which takes care of
+through the [deploy.go](../tools/deploy.go) program, which takes care of
 generating the necessary config for basic-auth and TLS.
 
 - **base** - This is the kustomize base that we start from.

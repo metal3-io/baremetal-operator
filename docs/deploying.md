@@ -167,9 +167,11 @@ for you.
 Then run :
 
 ```sh
-./tools/deploy.sh [-b -i -t -n -k]
+go build -o tools/deploy tools/deploy.go
+./tools/deploy [-h] [-b] [-i] [-t] [-n] [-k]
 ```
 
+- `-h`: show help message
 - `-b`: deploy BMO
 - `-i`: deploy Ironic
 - `-t`: deploy with TLS enabled

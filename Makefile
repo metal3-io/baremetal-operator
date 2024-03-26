@@ -326,15 +326,15 @@ mod: ## Clean up go module settings
 ## Release
 ## --------------------------------------
 RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
-PREVIOUS_TAG ?= $(shell git tag -l | grep -B 1 "^$(RELEASE_TAG)" | head -n 1)
 RELEASE_NOTES_DIR := releasenotes
+PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+" | sort -V | grep -B1 $(RELEASE_TAG) | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$$" | head -n 1 2>/dev/null)
 
 $(RELEASE_NOTES_DIR):
 	mkdir -p $(RELEASE_NOTES_DIR)/
 
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR)
-	go run ./hack/tools/release_notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/releasenotes.md
+	go run ./hack/tools/release/notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/$(RELEASE_TAG).md
 
 go-version: ## Print the go version we use to compile our binaries and images
 	@echo $(GO_VERSION)

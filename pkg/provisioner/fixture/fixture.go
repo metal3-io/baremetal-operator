@@ -349,3 +349,15 @@ func (p *fixtureProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEven
 func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }
+
+func (p *fixtureProvisioner) GetDataImageStatus() (dataImageStatus *metal3api.DataImageStatus, err error) {
+	return dataImageStatus, nil
+}
+
+func (p *fixtureProvisioner) AttachDataImage(_ string) (err error) {
+	return nil
+}
+
+func (p *fixtureProvisioner) DetachDataImage() (err error) {
+	return nil
+}

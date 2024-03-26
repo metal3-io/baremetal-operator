@@ -177,7 +177,7 @@ func main() {
 		logOpts.Development = true
 		logOpts.TimeEncoder = zapcore.ISO8601TimeEncoder
 	} else {
-		logOpts.TimeEncoder = zapcore.EpochTimeEncoder
+		logOpts.TimeEncoder = zapcore.ISO8601TimeEncoder // zapcore.EpochTimeEncoder
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 
@@ -288,6 +288,15 @@ func main() {
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BMCEventSubscription")
+		os.Exit(1)
+	}
+
+	if err = (&metal3iocontroller.DataImageReconciler{
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("DataImage"),
+		ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr, maxConcurrency); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataImage")
 		os.Exit(1)
 	}
 

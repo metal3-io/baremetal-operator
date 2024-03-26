@@ -1,0 +1,24 @@
+# permissions for end users to edit dataimages.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dataimage-editor-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - dataimages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - dataimages/status
+  verbs:
+  - get

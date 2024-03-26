@@ -302,3 +302,15 @@ func (p *demoProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSu
 func (p *demoProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }
+
+func (p *demoProvisioner) GetDataImageStatus() (dataImageStatus *metal3api.DataImageStatus, err error) {
+	return dataImageStatus, nil
+}
+
+func (p *demoProvisioner) AttachDataImage(_ string) (err error) {
+	return nil
+}
+
+func (p *demoProvisioner) DetachDataImage() (err error) {
+	return nil
+}

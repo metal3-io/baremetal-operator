@@ -181,35 +181,78 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	}
 }
 
-func TestLoadEndpointsFromEnv(t *testing.T) {
-	cases := []struct {
-		name        string
-		env         EnvFixture
-		expectError bool
-	}{
-		{
-			name: "with-ironic",
-			env: EnvFixture{
-				ironicEndpoint: "http://ironic.test",
-			},
-		}, {
-			name:        "without-ironic",
-			env:         EnvFixture{},
-			expectError: true,
-		},
+func TestLoadTLSConfigFromEnv(t *testing.T) {
+	const (
+		TLSKeyFilePath  = "/opt/metal3/certs/client/tls.key"
+		TLSCertFilePath = "/opt/metal3/certs/client/tls.crt"
+	)
+
+	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
+	os.Setenv("IRONIC_CLIENT_CERT_FILE", "/path/to/client.crt")
+	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "/path/to/client.key")
+	os.Setenv("IRONIC_INSECURE", "false")
+	os.Setenv("IRONIC_SKIP_CLIENT_SAN_VERIFY", "true")
+	defer func() {
+		os.Unsetenv("IRONIC_CACERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+		os.Unsetenv("IRONIC_INSECURE")
+		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	}()
+
+	tlsConfig := loadTLSConfigFromEnv()
+
+	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
+		tlsConfig.ClientCertificateFile != "/path/to/client.crt" ||
+		tlsConfig.ClientPrivateKeyFile != "/path/to/client.key" ||
+		tlsConfig.InsecureSkipVerify != false ||
+		tlsConfig.SkipClientSANVerify != true {
+		t.Errorf("Unexpected TLS config values")
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			defer tc.env.TearDown()
-			tc.env.SetUp()
-			i, err := loadEndpointsFromEnv()
-			if tc.expectError {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-				tc.env.VerifyEndpoints(t, i)
-			}
-		})
+	os.Setenv("IRONIC_CACERT_FILE", "/path/to/ca.crt")
+	os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+	os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+	os.Unsetenv("IRONIC_INSECURE")
+	os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	defer func() {
+		os.Unsetenv("IRONIC_CACERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+		os.Unsetenv("IRONIC_INSECURE")
+		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	}()
+
+	tlsConfig = loadTLSConfigFromEnv()
+
+	if tlsConfig.TrustedCAFile != "/path/to/ca.crt" ||
+		tlsConfig.ClientCertificateFile != TLSCertFilePath ||
+		tlsConfig.ClientPrivateKeyFile != TLSKeyFilePath ||
+		tlsConfig.InsecureSkipVerify != false ||
+		tlsConfig.SkipClientSANVerify != false {
+		t.Errorf("Unexpected TLS config values")
+	}
+
+	os.Setenv("IRONIC_CACERT_FILE", "")
+	os.Setenv("IRONIC_CLIENT_CERT_FILE", "")
+	os.Setenv("IRONIC_CLIENT_PRIVATE_KEY_FILE", "")
+	os.Setenv("IRONIC_INSECURE", "")
+	os.Setenv("IRONIC_SKIP_CLIENT_SAN_VERIFY", "")
+	defer func() {
+		os.Unsetenv("IRONIC_CACERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_CERT_FILE")
+		os.Unsetenv("IRONIC_CLIENT_PRIVATE_KEY_FILE")
+		os.Unsetenv("IRONIC_INSECURE")
+		os.Unsetenv("IRONIC_SKIP_CLIENT_SAN_VERIFY")
+	}()
+
+	tlsConfig = loadTLSConfigFromEnv()
+
+	if tlsConfig.TrustedCAFile != "/opt/metal3/certs/ca/tls.crt" ||
+		tlsConfig.ClientCertificateFile != TLSCertFilePath ||
+		tlsConfig.ClientPrivateKeyFile != TLSKeyFilePath ||
+		tlsConfig.InsecureSkipVerify != false ||
+		tlsConfig.SkipClientSANVerify != false {
+		t.Errorf("Unexpected TLS config values")
 	}
 }

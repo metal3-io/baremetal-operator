@@ -128,7 +128,7 @@ test-e2e: $(GINKGO) ## Run the end-to-end tests
 ## --------------------------------------
 
 .PHONY: linters
-linters: lint generate-check fmt-check
+linters: lint generate-check
 
 $(GOLANGCI_LINT):
 	GOBIN=$(TOOLS_BIN_DIR) go install $(GOLANGCI_LINT_PKG)@$(GOLANGCI_LINT_VER)
@@ -167,7 +167,7 @@ demo: generate lint manifests ## Run in demo mode
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -demo-mode -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: run-test-mode
-run-test-mode: generate fmt-check lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+run-test-mode: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -test-mode -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: install
@@ -259,14 +259,6 @@ generate-check:
 .PHONY: generate-check-local
 generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
-
-.PHONY: fmt-check
-fmt-check: ## Run gofmt and report an error if any changes are made
-	./hack/gofmt.sh
-
-.PHONY: fmt
-fmt: ## Run gofmt and fix files with formatting issues
-	gofmt -s -w .
 
 ## --------------------------------------
 ## Documentation

@@ -5,8 +5,14 @@ import (
 	"strings"
 )
 
+const (
+	enabled  = "Enabled"
+	disabled = "Disabled"
+	idrac    = "idrac"
+)
+
 func init() {
-	RegisterFactory("idrac", newIDRACAccessDetails, []string{"http", "https"})
+	RegisterFactory(idrac, newIDRACAccessDetails, []string{"http", "https"})
 }
 
 func newIDRACAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
@@ -38,7 +44,7 @@ func (a *iDracAccessDetails) NeedsMAC() bool {
 }
 
 func (a *iDracAccessDetails) Driver() string {
-	return "idrac"
+	return idrac
 }
 
 func (a *iDracAccessDetails) DisableCertificateVerification() bool {
@@ -79,7 +85,7 @@ func (a *iDracAccessDetails) BIOSInterface() string {
 }
 
 func (a *iDracAccessDetails) BootInterface() string {
-	return "ipxe"
+	return ipxe
 }
 
 func (a *iDracAccessDetails) FirmwareInterface() string {
@@ -124,9 +130,9 @@ func (a *iDracAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (
 	var value string
 
 	if firmwareConfig.VirtualizationEnabled != nil {
-		value = "Disabled"
+		value = disabled
 		if *firmwareConfig.VirtualizationEnabled {
-			value = "Enabled"
+			value = enabled
 		}
 		settings = append(settings,
 			map[string]string{
@@ -137,9 +143,9 @@ func (a *iDracAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (
 	}
 
 	if firmwareConfig.SimultaneousMultithreadingEnabled != nil {
-		value = "Disabled"
+		value = disabled
 		if *firmwareConfig.SimultaneousMultithreadingEnabled {
-			value = "Enabled"
+			value = enabled
 		}
 		settings = append(settings,
 			map[string]string{
@@ -150,9 +156,9 @@ func (a *iDracAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (
 	}
 
 	if firmwareConfig.SriovEnabled != nil {
-		value = "Disabled"
+		value = disabled
 		if *firmwareConfig.SriovEnabled {
-			value = "Enabled"
+			value = enabled
 		}
 		settings = append(settings,
 			map[string]string{

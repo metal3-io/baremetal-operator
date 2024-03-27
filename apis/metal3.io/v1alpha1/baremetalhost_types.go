@@ -35,11 +35,11 @@ const (
 	BareMetalHostFinalizer string = "baremetalhost.metal3.io"
 
 	// PausedAnnotation is the annotation that pauses the reconciliation (triggers
-	// an immediate requeue)
+	// an immediate requeue).
 	PausedAnnotation = "baremetalhost.metal3.io/paused"
 
 	// DetachedAnnotation is the annotation which stops provisioner management of the host
-	// unlike in the paused case, the host status may be updated
+	// unlike in the paused case, the host status may be updated.
 	DetachedAnnotation = "baremetalhost.metal3.io/detached"
 
 	// StatusAnnotation is the annotation that keeps a copy of the Status of BMH
@@ -49,17 +49,22 @@ const (
 	StatusAnnotation = "baremetalhost.metal3.io/status"
 
 	// RebootAnnotationPrefix is the annotation which tells the host which mode to use
-	// when rebooting - hard/soft
+	// when rebooting - hard/soft.
 	RebootAnnotationPrefix = "reboot.metal3.io"
 
 	// InspectAnnotationPrefix is used to specify if automatic introspection carried out
-	// during registration of BMH is enabled or disabled
+	// during registration of BMH is enabled or disabled.
 	InspectAnnotationPrefix = "inspect.metal3.io"
 
 	// HardwareDetailsAnnotation provides the hardware details for the host
 	// in case its not already part of the host status and when introspection
-	// is disabed
+	// is disabled.
 	HardwareDetailsAnnotation = InspectAnnotationPrefix + "/hardwaredetails"
+
+	// InspectAnnotationValueDisabled is a constant string="disabled"
+	// This is particularly useful to check if inspect annotation is disabled
+	// inspect.metal3.io=disabled.
+	InspectAnnotationValueDisabled = "disabled"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
@@ -106,11 +111,11 @@ type RootDeviceHints struct {
 	Rotational *bool `json:"rotational,omitempty"`
 }
 
-// BootMode is the boot mode of the system
+// BootMode is the boot mode of the system.
 // +kubebuilder:validation:Enum=UEFI;UEFISecureBoot;legacy
 type BootMode string
 
-// Allowed boot mode from metal3
+// Allowed boot mode from metal3.
 const (
 	UEFI            BootMode = "UEFI"
 	UEFISecureBoot  BootMode = "UEFISecureBoot"
@@ -118,7 +123,7 @@ const (
 	DefaultBootMode BootMode = UEFI
 )
 
-// OperationalStatus represents the state of the host
+// OperationalStatus represents the state of the host.
 type OperationalStatus string
 
 const (
@@ -136,15 +141,15 @@ const (
 	OperationalStatusError OperationalStatus = "error"
 
 	// OperationalStatusDelayed is the status value for when the host
-	// deployment needs to be delayed to limit simultaneous hosts provisioning
+	// deployment needs to be delayed to limit simultaneous hosts provisioning.
 	OperationalStatusDelayed = "delayed"
 
 	// OperationalStatusDetached is the status value when the host is
-	// marked unmanaged via the detached annotation
+	// marked unmanaged via the detached annotation.
 	OperationalStatusDetached OperationalStatus = "detached"
 )
 
-// OperationalStatusAllowed represents the allowed values of OperationalStatus
+// OperationalStatusAllowed represents the allowed values of OperationalStatus.
 var OperationalStatusAllowed = []string{"", string(OperationalStatusOK), string(OperationalStatusDiscovered), string(OperationalStatusError), string(OperationalStatusDelayed), string(OperationalStatusDetached)}
 
 // ErrorType indicates the class of problem that has caused the Host resource
@@ -172,11 +177,11 @@ const (
 	// controller is unable to modify the power state of the Host.
 	PowerManagementError ErrorType = "power management error"
 	// DetachError is an error condition occurring when the
-	// controller is unable to detatch the host from the provisioner
+	// controller is unable to detatch the host from the provisioner.
 	DetachError ErrorType = "detach error"
 )
 
-// ErrorTypeAllowed represents the allowed values of ErrorType
+// ErrorTypeAllowed represents the allowed values of ErrorType.
 var ErrorTypeAllowed = []string{"", string(ProvisionedRegistrationError), string(RegistrationError), string(InspectionError), string(PreparationError), string(ProvisioningError), string(PowerManagementError)}
 
 // ProvisioningState defines the states the provisioner will report
@@ -184,47 +189,47 @@ var ErrorTypeAllowed = []string{"", string(ProvisionedRegistrationError), string
 type ProvisioningState string
 
 const (
-	// StateNone means the state is unknown
+	// StateNone means the state is unknown.
 	StateNone ProvisioningState = ""
 
 	// StateUnmanaged means there is insufficient information available to
-	// register the host
+	// register the host.
 	StateUnmanaged ProvisioningState = "unmanaged"
 
-	// StateRegistering means we are telling the backend about the host
+	// StateRegistering means we are telling the backend about the host.
 	StateRegistering ProvisioningState = "registering"
 
 	// StateMatchProfile used to mean we are assigning a profile.
-	// It no longer does anything, profile matching is done on registration
+	// It no longer does anything, profile matching is done on registration.
 	StateMatchProfile ProvisioningState = "match profile"
 
-	// StatePreparing means we are removing existing configuration and set new configuration to the host
+	// StatePreparing means we are removing existing configuration and set new configuration to the host.
 	StatePreparing ProvisioningState = "preparing"
 
-	// StateReady is a deprecated name for StateAvailable
+	// StateReady is a deprecated name for StateAvailable.
 	StateReady ProvisioningState = "ready"
 
-	// StateAvailable means the host can be consumed
+	// StateAvailable means the host can be consumed.
 	StateAvailable ProvisioningState = "available"
 
 	// StateProvisioning means we are writing an image to the host's
-	// disk(s)
+	// disk(s).
 	StateProvisioning ProvisioningState = "provisioning"
 
 	// StateProvisioned means we have written an image to the host's
-	// disk(s)
+	// disk(s).
 	StateProvisioned ProvisioningState = "provisioned"
 
 	// StateExternallyProvisioned means something else is managing the
-	// image on the host
+	// image on the host.
 	StateExternallyProvisioned ProvisioningState = "externally provisioned"
 
 	// StateDeprovisioning means we are removing an image from the
-	// host's disk(s)
+	// host's disk(s).
 	StateDeprovisioning ProvisioningState = "deprovisioning"
 
 	// StateInspecting means we are running the agent on the host to
-	// learn about the hardware components available there
+	// learn about the hardware components available there.
 	StateInspecting ProvisioningState = "inspecting"
 
 	// StatePoweringOffBeforeDelete means we are in the process of
@@ -232,7 +237,7 @@ const (
 	StatePoweringOffBeforeDelete ProvisioningState = "powering off before delete"
 
 	// StateDeleting means we are in the process of cleaning up the host
-	// ready for deletion
+	// ready for deletion.
 	StateDeleting ProvisioningState = "deleting"
 )
 
@@ -256,7 +261,7 @@ type BMCDetails struct {
 	DisableCertificateVerification bool `json:"disableCertificateVerification,omitempty"`
 }
 
-// HardwareRAIDVolume defines the desired configuration of volume in hardware RAID
+// HardwareRAIDVolume defines the desired configuration of volume in hardware RAID.
 type HardwareRAIDVolume struct {
 	// Size (Integer) of the logical disk to be created in GiB.
 	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
@@ -287,7 +292,7 @@ type HardwareRAIDVolume struct {
 	PhysicalDisks []string `json:"physicalDisks,omitempty"`
 }
 
-// SoftwareRAIDVolume defines the desired configuration of volume in software RAID
+// SoftwareRAIDVolume defines the desired configuration of volume in software RAID.
 type SoftwareRAIDVolume struct {
 	// Size (Integer) of the logical disk to be created in GiB.
 	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
@@ -303,7 +308,7 @@ type SoftwareRAIDVolume struct {
 	PhysicalDisks []RootDeviceHints `json:"physicalDisks,omitempty"`
 }
 
-// RAIDConfig contains the configuration that are required to config RAID in Bare Metal server
+// RAIDConfig contains the configuration that are required to config RAID in Bare Metal server.
 type RAIDConfig struct {
 	// The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
@@ -325,7 +330,7 @@ type RAIDConfig struct {
 	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
 }
 
-// FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server
+// FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server.
 type FirmwareConfig struct {
 	// Supports the virtualization of platform hardware.
 	// This supports following options: true, false.
@@ -343,7 +348,7 @@ type FirmwareConfig struct {
 	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
 }
 
-// BareMetalHostSpec defines the desired state of BareMetalHost
+// BareMetalHostSpec defines the desired state of BareMetalHost.
 type BareMetalHostSpec struct {
 	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
@@ -443,7 +448,7 @@ type BareMetalHostSpec struct {
 // +kubebuilder:validation:Enum:=metadata;disabled
 type AutomatedCleaningMode string
 
-// Allowed automated cleaning modes
+// Allowed automated cleaning modes.
 const (
 	CleaningModeDisabled AutomatedCleaningMode = "disabled"
 	CleaningModeMetadata AutomatedCleaningMode = "metadata"
@@ -454,16 +459,16 @@ const (
 type ChecksumType string
 
 const (
-	// MD5 checksum type
+	// MD5 checksum type.
 	MD5 ChecksumType = "md5"
 
-	// SHA256 checksum type
+	// SHA256 checksum type.
 	SHA256 ChecksumType = "sha256"
 
-	// SHA512 checksum type
+	// SHA512 checksum type.
 	SHA512 ChecksumType = "sha512"
 
-	// Automatically detect
+	// Automatically detect.
 	AutoChecksum ChecksumType = "auto"
 )
 
@@ -509,16 +514,16 @@ type CustomDeploy struct {
 // +kubebuilder:validation:Format=double
 type ClockSpeed float64
 
-// ClockSpeed multipliers
+// ClockSpeed multipliers.
 const (
 	MegaHertz ClockSpeed = 1.0
 	GigaHertz            = 1000 * MegaHertz
 )
 
-// Capacity is a disk size in Bytes
+// Capacity is a disk size in Bytes.
 type Capacity int64
 
-// Capacity multipliers
+// Capacity multipliers.
 const (
 	Byte     Capacity = 1
 	KibiByte          = Byte * 1024
@@ -604,7 +609,7 @@ type Storage struct {
 // +kubebuilder:validation:Maximum=4094
 type VLANID int32
 
-// VLAN represents the name and ID of a VLAN
+// VLAN represents the name and ID of a VLAN.
 type VLAN struct {
 	ID VLANID `json:"id,omitempty"`
 
@@ -685,17 +690,17 @@ type CredentialsStatus struct {
 	Version   string                  `json:"credentialsVersion,omitempty"`
 }
 
-// RebootMode defines known variations of reboot modes
+// RebootMode defines known variations of reboot modes.
 type RebootMode string
 
 const (
-	// RebootModeHard defined for hard reset of a node
+	// RebootModeHard defined for hard reset of a node.
 	RebootModeHard RebootMode = "hard"
-	// RebootModeSoft defined for soft reset of a node
+	// RebootModeSoft defined for soft reset of a node.
 	RebootModeSoft RebootMode = "soft"
 )
 
-// RebootAnnotationArguments defines the arguments of the RebootAnnotation type
+// RebootAnnotationArguments defines the arguments of the RebootAnnotation type.
 type RebootAnnotationArguments struct {
 	Mode  RebootMode `json:"mode"`
 	Force bool       `json:"force"`
@@ -756,7 +761,7 @@ type OperationHistory struct {
 	Deprovision OperationMetric `json:"deprovision,omitempty"`
 }
 
-// BareMetalHostStatus defines the observed state of BareMetalHost
+// BareMetalHostStatus defines the observed state of BareMetalHost.
 type BareMetalHostStatus struct {
 	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
@@ -856,6 +861,8 @@ type BareMetalHost struct {
 }
 
 // BootMode returns the boot method to use for the host.
+//
+//nolint:stylecheck
 func (host *BareMetalHost) BootMode() BootMode {
 	mode := host.Spec.BootMode
 	if mode == "" {
@@ -864,34 +871,12 @@ func (host *BareMetalHost) BootMode() BootMode {
 	return mode
 }
 
-// setLabel updates the given label when necessary and returns true
-// when a change is made or false when no change is made.
-func (host *BareMetalHost) setLabel(name, value string) bool {
-	if host.Labels == nil {
-		host.Labels = make(map[string]string)
-	}
-	if host.Labels[name] != value {
-		host.Labels[name] = value
-		return true
-	}
-	return false
-}
-
-// getLabel returns the value associated with the given label. If
-// there is no value, an empty string is returned.
-func (host *BareMetalHost) getLabel(name string) string {
-	if host.Labels == nil {
-		return ""
-	}
-	return host.Labels[name]
-}
-
-// HasBMCDetails returns true if the BMC details are set
+// HasBMCDetails returns true if the BMC details are set.
 func (host *BareMetalHost) HasBMCDetails() bool {
 	return host.Spec.BMC.Address != "" || host.Spec.BMC.CredentialsName != ""
 }
 
-// NeedsHardwareProfile returns true if the profile is not set
+// NeedsHardwareProfile returns true if the profile is not set.
 func (host *BareMetalHost) NeedsHardwareProfile() bool {
 	return host.Status.HardwareProfile == ""
 }
@@ -1078,7 +1063,7 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 	return
 }
 
-// GetChecksum method returns the checksum of an image
+// GetChecksum method returns the checksum of an image.
 func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 	if image == nil {
 		return
@@ -1113,7 +1098,7 @@ func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 
 // +kubebuilder:object:root=true
 
-// BareMetalHostList contains a list of BareMetalHost
+// BareMetalHostList contains a list of BareMetalHost.
 type BareMetalHostList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

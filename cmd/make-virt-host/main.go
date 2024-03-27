@@ -156,7 +156,7 @@ func main() {
 	}
 
 	domainResult := Domain{}
-	xml.Unmarshal([]byte(virshOut), &domainResult)
+	xml.Unmarshal(virshOut, &domainResult)
 	if *verbose {
 		fmt.Printf("%v\n", domainResult)
 	}
@@ -192,7 +192,7 @@ func main() {
 	}
 
 	var vbmcResult []VBMC
-	json.Unmarshal([]byte(vbmcOut), &vbmcResult)
+	json.Unmarshal(vbmcOut, &vbmcResult)
 	nameToPort := make(map[string]int)
 	for _, vbmc := range vbmcResult {
 		if *verbose {

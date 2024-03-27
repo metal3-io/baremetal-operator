@@ -506,10 +506,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	if !success {
 		return
 	}
-	// ironicNode, err = nodes.Get(p.client, p.status.ID).Extract()
-	// if err != nil {
-	// 	return result, errors.Wrap(err, "failed to get provisioning state in ironic")
-	// }
+
 	p.log.Info("current provision state",
 		"lastError", ironicNode.LastError,
 		"current", ironicNode.ProvisionState,

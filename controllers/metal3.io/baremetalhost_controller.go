@@ -75,7 +75,6 @@ type reconcileInfo struct {
 	request           ctrl.Request
 	bmcCredsSecret    *corev1.Secret
 	events            []corev1.Event
-	errorMessage      string
 	postSaveCallbacks []func()
 }
 
@@ -438,7 +437,7 @@ func clearRebootAnnotations(host *metal3api.BareMetalHost) (dirty bool) {
 // which means we don't inspect even in Inspecting state.
 func inspectionDisabled(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
-	return annotations[metal3api.InspectAnnotationPrefix] == "disabled"
+	return annotations[metal3api.InspectAnnotationPrefix] == metal3api.InspectAnnotationValueDisabled
 }
 
 // hasInspectAnnotation checks for existence of inspect.metal3.io annotation
@@ -446,7 +445,7 @@ func inspectionDisabled(host *metal3api.BareMetalHost) bool {
 func hasInspectAnnotation(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	if annotations != nil {
-		if expect, ok := annotations[metal3api.InspectAnnotationPrefix]; ok && expect != "disabled" {
+		if expect, ok := annotations[metal3api.InspectAnnotationPrefix]; ok && expect != metal3api.InspectAnnotationValueDisabled {
 			return true
 		}
 	}

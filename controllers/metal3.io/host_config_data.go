@@ -93,7 +93,7 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 	return networkDataRaw, err
 }
 
-// PreprovisioningNetworkData get preprovisioning network configuration
+// PreprovisioningNetworkData get preprovisioning network configuration.
 func (hcd *hostConfigData) PreprovisioningNetworkData() (string, error) {
 	if hcd.host.Spec.PreprovisioningNetworkDataName == "" {
 		return "", nil
@@ -113,7 +113,7 @@ func (hcd *hostConfigData) PreprovisioningNetworkData() (string, error) {
 	return networkDataRaw, err
 }
 
-// MetaData get host metatdata
+// MetaData get host metatdata.
 func (hcd *hostConfigData) MetaData() (string, error) {
 	if hcd.host.Spec.MetaData == nil {
 		hcd.log.Info("MetaData is not set returning empty(nil) data")

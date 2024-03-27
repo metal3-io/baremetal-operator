@@ -8,7 +8,7 @@ import (
 
 func init() {
 	schemes := []string{"http", "https"}
-	RegisterFactory("redfish", newRedfishAccessDetails, schemes)
+	RegisterFactory(redfish, newRedfishAccessDetails, schemes)
 	RegisterFactory("ilo5-redfish", newRedfishAccessDetails, schemes)
 	RegisterFactory("idrac-redfish", newRedfishiDracAccessDetails, schemes)
 }
@@ -58,7 +58,7 @@ func (a *redfishAccessDetails) NeedsMAC() bool {
 }
 
 func (a *redfishAccessDetails) Driver() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishAccessDetails) DisableCertificateVerification() bool {
@@ -102,13 +102,13 @@ func (a *redfishAccessDetails) BIOSInterface() string {
 	return ""
 }
 
-// That can be either pxe or redfish-virtual-media
+// That can be either pxe or redfish-virtual-media.
 func (a *redfishAccessDetails) BootInterface() string {
-	return "ipxe"
+	return ipxe
 }
 
 func (a *redfishAccessDetails) FirmwareInterface() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishAccessDetails) ManagementInterface() string {
@@ -120,7 +120,7 @@ func (a *redfishAccessDetails) PowerInterface() string {
 }
 
 func (a *redfishAccessDetails) RAIDInterface() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishAccessDetails) VendorInterface() string {
@@ -146,38 +146,38 @@ func (a *redfishAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig)
 	return nil, nil
 }
 
-// iDrac Redfish Overrides
+// iDrac Redfish Overrides.
 func (a *redfishiDracAccessDetails) Driver() string {
-	return "idrac"
+	return idrac
 }
 
 func (a *redfishiDracAccessDetails) BIOSInterface() string {
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracAccessDetails) BootInterface() string {
-	return "ipxe"
+	return ipxe
 }
 
 func (a *redfishiDracAccessDetails) FirmwareInterface() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishiDracAccessDetails) ManagementInterface() string {
-	return "idrac-redfish"
+	return ipxe
 }
 
 func (a *redfishiDracAccessDetails) PowerInterface() string {
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracAccessDetails) RAIDInterface() string {
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracAccessDetails) VendorInterface() string {
 	// NOTE(dtantsur): the idrac hardware type defaults to WSMAN vendor, we need to use the Redfish implementation.
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {

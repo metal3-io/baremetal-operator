@@ -6,7 +6,7 @@ type Credentials struct {
 	Password string
 }
 
-// Validate returns an error if the credentials are invalid
+// Validate returns an error if the credentials are invalid.
 func (creds Credentials) Validate() error {
 	if creds.Username == "" {
 		return &CredentialsValidationError{message: "Missing BMC connection detail 'username' in credentials"}

@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HardwareDataSpec defines the desired state of HardwareData
+// HardwareDataSpec defines the desired state of HardwareData.
 type HardwareDataSpec struct {
 
 	// The hardware discovered on the host during its inspection.
@@ -31,7 +31,7 @@ type HardwareDataSpec struct {
 // +kubebuilder:resource:path=hardwaredata,scope=Namespaced,shortName=hd
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HardwareData"
 
-// HardwareData is the Schema for the hardwaredata API
+// HardwareData is the Schema for the hardwaredata API.
 type HardwareData struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -41,7 +41,7 @@ type HardwareData struct {
 
 //+kubebuilder:object:root=true
 
-// HardwareDataList contains a list of HardwareData
+// HardwareDataList contains a list of HardwareData.
 type HardwareDataList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

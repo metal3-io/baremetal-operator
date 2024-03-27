@@ -40,7 +40,7 @@ func (a *redfishVirtualMediaAccessDetails) NeedsMAC() bool {
 }
 
 func (a *redfishVirtualMediaAccessDetails) Driver() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishVirtualMediaAccessDetails) DisableCertificateVerification() bool {
@@ -76,7 +76,7 @@ func (a *redfishVirtualMediaAccessDetails) BootInterface() string {
 }
 
 func (a *redfishVirtualMediaAccessDetails) FirmwareInterface() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishVirtualMediaAccessDetails) ManagementInterface() string {
@@ -88,7 +88,7 @@ func (a *redfishVirtualMediaAccessDetails) PowerInterface() string {
 }
 
 func (a *redfishVirtualMediaAccessDetails) RAIDInterface() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishVirtualMediaAccessDetails) VendorInterface() string {

@@ -36,14 +36,14 @@ type SchemaReference struct {
 type SettingsConditionType string
 
 const (
-	// Indicates that the settings in the Spec are different than Status
+	// Indicates that the settings in the Spec are different than Status.
 	FirmwareSettingsChangeDetected SettingsConditionType = "ChangeDetected"
 
-	// Indicates if the settings are valid and can be configured on the host
+	// Indicates if the settings are valid and can be configured on the host.
 	FirmwareSettingsValid SettingsConditionType = "Valid"
 )
 
-// HostFirmwareSettingsSpec defines the desired state of HostFirmwareSettings
+// HostFirmwareSettingsSpec defines the desired state of HostFirmwareSettings.
 type HostFirmwareSettingsSpec struct {
 
 	// Settings are the desired firmware settings stored as name/value pairs.
@@ -51,7 +51,7 @@ type HostFirmwareSettingsSpec struct {
 	Settings DesiredSettingsMap `json:"settings" required:"true"`
 }
 
-// HostFirmwareSettingsStatus defines the observed state of HostFirmwareSettings
+// HostFirmwareSettingsStatus defines the observed state of HostFirmwareSettings.
 type HostFirmwareSettingsStatus struct {
 	// FirmwareSchema is a reference to the Schema used to describe each
 	// FirmwareSetting. By default, this will be a Schema in the same
@@ -78,7 +78,7 @@ type HostFirmwareSettingsStatus struct {
 //+kubebuilder:resource:shortName=hfs
 //+kubebuilder:subresource:status
 
-// HostFirmwareSettings is the Schema for the hostfirmwaresettings API
+// HostFirmwareSettings is the Schema for the hostfirmwaresettings API.
 type HostFirmwareSettings struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -89,7 +89,7 @@ type HostFirmwareSettings struct {
 
 //+kubebuilder:object:root=true
 
-// HostFirmwareSettingsList contains a list of HostFirmwareSettings
+// HostFirmwareSettingsList contains a list of HostFirmwareSettings.
 type HostFirmwareSettingsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

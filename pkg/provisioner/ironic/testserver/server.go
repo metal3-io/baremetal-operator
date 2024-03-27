@@ -45,14 +45,12 @@ type simpleRequest struct {
 
 // MockServer is a simple http testing server.
 type MockServer struct {
-	t            *testing.T
-	mux          *http.ServeMux
-	name         string
-	Requests     string
-	FullRequests []simpleRequest
-	server       *httptest.Server
-	errorCode    int
-
+	t                 *testing.T
+	mux               *http.ServeMux
+	name              string
+	Requests          string
+	FullRequests      []simpleRequest
+	server            *httptest.Server
 	responsesByMethod map[string]map[string]response
 	defaultResponses  []defaultResponse
 }
@@ -223,23 +221,24 @@ func (m *MockServer) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 
 	for _, response := range m.defaultResponses {
-		if response.method == "" || response.method == method {
-			match := response.re.FindStringSubmatch(url)
-			if match == nil {
-				continue
-			}
-
-			m.t.Logf("%s: found default response for %s: {%d, %s}", m.name, url, response.code, response.payload)
-			payload := response.payload
-			for i, name := range response.re.SubexpNames() {
-				if i != 0 && name != "" {
-					payload = strings.ReplaceAll(payload, "{"+name+"}", match[i])
-				}
-			}
-
-			m.sendData(w, r, response.code, payload)
-			return
+		if response.method != "" && response.method != method {
+			continue
 		}
+		match := response.re.FindStringSubmatch(url)
+		if match == nil {
+			continue
+		}
+
+		m.t.Logf("%s: found default response for %s: {%d, %s}", m.name, url, response.code, response.payload)
+		payload := response.payload
+		for i, name := range response.re.SubexpNames() {
+			if i != 0 && name != "" {
+				payload = strings.ReplaceAll(payload, "{"+name+"}", match[i])
+			}
+		}
+
+		m.sendData(w, r, response.code, payload)
+		return
 	}
 
 	m.t.Logf("%s: Cannot find any default response for [%s] %s", m.name, method, url)

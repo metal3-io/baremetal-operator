@@ -17,7 +17,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: FirmwareSchema is the Schema for the firmwareschemas API
+        description: FirmwareSchema is the Schema for the firmwareschemas API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -32,7 +32,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: FirmwareSchemaSpec defines the desired state of FirmwareSchema
+            description: FirmwareSchemaSpec defines the desired state of FirmwareSchema.
             properties:
               hardwareModel:
                 description: The hardware model associated with this schema
@@ -42,7 +42,7 @@ spec:
                 type: string
               schema:
                 additionalProperties:
-                  description: Additional data describing the firmware setting
+                  description: Additional data describing the firmware setting.
                   properties:
                     allowable_values:
                       description: The allowable value for an Enumeration type setting.

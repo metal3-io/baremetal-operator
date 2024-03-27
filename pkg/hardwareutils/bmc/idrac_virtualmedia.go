@@ -5,6 +5,11 @@ import (
 	"net/url"
 )
 
+const (
+	idracRedfish = "idrac-redfish"
+	redfish      = "redfish"
+)
+
 func init() {
 	schemes := []string{"http", "https"}
 	RegisterFactory("idrac-virtualmedia", newRedfishiDracVirtualMediaAccessDetails, schemes)
@@ -65,11 +70,11 @@ func (a *redfishiDracVirtualMediaAccessDetails) DriverInfo(bmcCreds Credentials)
 // iDrac Virtual Media Overrides
 
 func (a *redfishiDracVirtualMediaAccessDetails) Driver() string {
-	return "idrac"
+	return idrac
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) BIOSInterface() string {
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) BootInterface() string {
@@ -77,24 +82,24 @@ func (a *redfishiDracVirtualMediaAccessDetails) BootInterface() string {
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) FirmwareInterface() string {
-	return "redfish"
+	return redfish
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) ManagementInterface() string {
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) PowerInterface() string {
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) RAIDInterface() string {
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) VendorInterface() string {
 	// NOTE(dtantsur): the idrac hardware type defaults to WSMAN vendor, we need to use the Redfish implementation.
-	return "idrac-redfish"
+	return idracRedfish
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) SupportsSecureBoot() bool {

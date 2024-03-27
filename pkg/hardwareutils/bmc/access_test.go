@@ -1185,7 +1185,7 @@ func TestDriverInfo(t *testing.T) {
 				t.Fatalf("unexpected parse error: %v", err)
 			}
 			di := acc.DriverInfo(Credentials{})
-			//If a key is present when it should not, this will catch it
+			// If a key is present when it should not, this will catch it
 			if len(di) != len(tc.expects) {
 				t.Fatalf("Number of items do not match: %v and %v, %#v", len(di),
 					len(tc.expects), di)

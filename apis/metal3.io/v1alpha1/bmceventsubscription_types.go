@@ -68,7 +68,7 @@ type BMCEventSubscription struct {
 
 // +kubebuilder:object:root=true
 
-// BMCEventSubscriptionList contains a list of BMCEventSubscriptions
+// BMCEventSubscriptionList contains a list of BMCEventSubscriptions.
 type BMCEventSubscriptionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -17,7 +17,7 @@ import (
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -98,7 +98,6 @@ func (c *Config) Defaults() {
 // - Image should have name and loadBehavior be one of [mustload, tryload].
 // - Intervals should be valid ginkgo intervals.
 func (c *Config) Validate() error {
-
 	// Image should have name and loadBehavior be one of [mustload, tryload].
 	for i, containerImage := range c.Images {
 		if containerImage.Name == "" {
@@ -212,7 +211,7 @@ func WaitForBmhDeleted(ctx context.Context, input WaitForBmhDeletedInput, interv
 		err := input.Client.Get(ctx, key, bmh)
 
 		// If BMH is not found, it's considered deleted, which is the desired outcome.
-		if apierrors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return true
 		}
 		g.Expect(err).NotTo(HaveOccurred())
@@ -241,7 +240,7 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 		key := client.ObjectKey{
 			Name: input.Namespace.Name,
 		}
-		return apierrors.IsNotFound(input.Getter.Get(ctx, key, namespace))
+		return k8serrors.IsNotFound(input.Getter.Get(ctx, key, namespace))
 	}, intervals...).Should(BeTrue())
 }
 
@@ -459,7 +458,7 @@ func (input *BuildAndApplyKustomizeInput) validate() error {
 }
 
 // BuildAndApplyKustomize takes input from BuildAndApplyKustomizeInput. It builds the provided kustomization
-// and apply it to the cluster provided by clusterProxy
+// and apply it to the cluster provided by clusterProxy.
 func BuildAndApplyKustomize(ctx context.Context, input *BuildAndApplyKustomizeInput) error {
 	Expect(input.validate()).To(BeNil())
 	var err error

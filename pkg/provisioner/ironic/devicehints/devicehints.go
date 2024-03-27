@@ -49,9 +49,9 @@ func MakeHintMap(source *metal3api.RootDeviceHints) map[string]string {
 	}
 	switch {
 	case source.Rotational == nil:
-	case *source.Rotational == true:
+	case *source.Rotational:
 		hints["rotational"] = "true"
-	case *source.Rotational == false:
+	case !*source.Rotational:
 		hints["rotational"] = "false"
 	}
 

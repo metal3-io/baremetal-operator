@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"golang.org/x/crypto/ssh"
@@ -425,4 +427,26 @@ func BuildAndRemoveKustomization(ctx context.Context, kustomization string, clus
 		return err
 	}
 	return KubectlDelete(ctx, clusterProxy.GetKubeconfigPath(), manifest)
+}
+
+/*
+ExtractReleaseFromKustomization extracts the release name from the kustomization folder path.
+
+example:
+
+	fmt.Println(ExtractReleaseFromKustomization("/path/to/e2e-release-0.4"))
+	fmt.Println(ExtractReleaseFromKustomization("/path/to/e2e"))
+
+output:
+
+	"0.4"
+	"latest"
+*/
+func ExtractReleaseFromKustomization(kustomizationPath string) string {
+	pattern := regexp.MustCompile(`(\w+)-(\w+)-(\d+[0-9.]*)`)
+	name := filepath.Base(kustomizationPath)
+	if pattern.MatchString(name) {
+		return pattern.FindStringSubmatch(name)[3]
+	}
+	return "latest"
 }

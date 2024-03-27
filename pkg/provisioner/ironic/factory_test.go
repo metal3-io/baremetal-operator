@@ -180,7 +180,38 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		}
 	}
 }
+func TestLoadEndpointsFromEnv(t *testing.T) {
+	cases := []struct {
+		name        string
+		env         EnvFixture
+		expectError bool
+	}{
+		{
+			name: "with-ironic",
+			env: EnvFixture{
+				ironicEndpoint: "http://ironic.test",
+			},
+		}, {
+			name:        "without-ironic",
+			env:         EnvFixture{},
+			expectError: true,
+		},
+	}
 
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer tc.env.TearDown()
+			tc.env.SetUp()
+			i, err := loadEndpointsFromEnv()
+			if tc.expectError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				tc.env.VerifyEndpoints(t, i)
+			}
+		})
+	}
+}
 func TestLoadTLSConfigFromEnv(t *testing.T) {
 	const (
 		TLSKeyFilePath  = "/opt/metal3/certs/client/tls.key"

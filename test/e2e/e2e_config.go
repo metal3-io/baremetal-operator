@@ -30,6 +30,15 @@ const (
 	TryLoadImage LoadImageBehavior = "tryLoad"
 )
 
+type BMOIronicUpgradeInput struct {
+	DeployIronic               bool   `yaml:"deployIronic,omitempty"`
+	DeployBMO                  bool   `yaml:"deployBMO,omitempty"`
+	InitBMOKustomization       string `yaml:"initBMOKustomization,omitempty"`
+	InitIronicKustomization    string `yaml:"initIronicKustomization,omitempty"`
+	UpgradeEntityKustomization string `yaml:"upgradeEntityKustomization,omitempty"`
+	UpgradeEntityName          string `yaml:"upgradeEntityName,omitempty"`
+}
+
 // Config defines the configuration of an e2e test environment.
 type Config struct {
 	// Images is a list of container images to load into the Kind cluster.
@@ -41,6 +50,9 @@ type Config struct {
 
 	// Intervals to be used for long operations during tests.
 	Intervals map[string][]string `json:"intervals,omitempty"`
+
+	// BMOIronicUpgradeSpecs
+	BMOIronicUpgradeSpecs []BMOIronicUpgradeInput `yaml:"bmoIronicUpgradeSpecs,omitempty"`
 }
 
 // LoadE2EConfig loads the configuration for the e2e test environment.

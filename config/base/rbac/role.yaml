@@ -112,6 +112,32 @@ rules:
 - apiGroups:
   - metal3.io
   resources:
+  - hostfirmwarecomponents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwarecomponents/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostfirmwarecomponents/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
   - hostfirmwaresettings
   verbs:
   - create

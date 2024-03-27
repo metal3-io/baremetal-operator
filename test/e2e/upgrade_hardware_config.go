@@ -1,5 +1,7 @@
 package e2e
 
+// hardwareDetails of release0.4 is compatible to release0.3 and release0.5 as well
+// This can be changed to the new hardwareDetails once we no longer test release0.4
 const hardwareDetailsRelease04 = `
 {
   "cpu": {

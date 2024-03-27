@@ -45,7 +45,8 @@ type BMOUpgradePlanner struct {
 
 type WaitInterval struct {
 	waitDeployment       []interface{}
-	waitAvailable        []interface{}
+	waitUpgradeAvailable []interface{}
+	waitDefaultAvailable []interface{}
 	waitProvisioned      []interface{}
 	waitNamespaceDeleted []interface{}
 }
@@ -67,7 +68,7 @@ type BMOUpgradeStrategy struct {
 }
 
 type IronicDeployStrategy struct {
-	isDeployIronic          string
+	isIronicUpgrade         string
 	ironicKustomizationPath string
 	ironicNamespace         string
 }
@@ -108,13 +109,13 @@ func (planner *BMOUpgradePlanner) Prepare() {
 		By("Waiting for cert-manager webhook")
 		Eventually(func() error {
 			return checkCertManagerWebhook(planner.ctx, planner.upgradeClusterProxy)
-		}, planner.waitDeployment...).Should(Succeed())
+		}, planner.waitDefaultAvailable...).Should(Succeed())
 		Expect(checkCertManagerAPI(planner.upgradeClusterProxy)).To(Succeed())
 	}
 }
 
 func (planner *BMOUpgradePlanner) Apply(upgradeStrategy *ClusterUpgradeStrategy) {
-	if upgradeStrategy.isDeployIronic != "false" {
+	if upgradeStrategy.isIronicUpgrade != "false" {
 		By("Installing Ironic on the upgrade cluster")
 		planner.applyRollingUpdate(&rollingUpdateSpec{
 			WaitForDeployment:      true,
@@ -122,7 +123,7 @@ func (planner *BMOUpgradePlanner) Apply(upgradeStrategy *ClusterUpgradeStrategy)
 			KustomizationPath:      upgradeStrategy.ironicKustomizationPath,
 			DeploymentName:         bmoIronicDeploymentName,
 			DeploymentNamespace:    upgradeStrategy.ironicNamespace,
-			LogPath:                fmt.Sprintf("%s-%s", upgradeStrategy.ironicNamespace, planner.specName),
+			LogPath:                filepath.Join("logs", fmt.Sprintf("%s-%s", upgradeStrategy.ironicNamespace, planner.specName)),
 			CleanupCallback: func() {
 				By("Removing Ironic on the upgrade cluster")
 				_ = planner.removeDeployment(upgradeStrategy.ironicKustomizationPath)
@@ -186,7 +187,7 @@ func (planner *BMOUpgradePlanner) Apply(upgradeStrategy *ClusterUpgradeStrategy)
 		Client: planner.upgradeClusterProxy.GetClient(),
 		Bmh:    bmh,
 		State:  metal3api.StateAvailable,
-	}, planner.waitAvailable...)
+	}, planner.waitUpgradeAvailable...)
 
 	By("Upgrading BMO deployment")
 	clientSet := planner.upgradeClusterProxy.GetClientSet()

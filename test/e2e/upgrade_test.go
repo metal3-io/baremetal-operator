@@ -16,13 +16,14 @@ import (
 
 var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 	var (
-		specName               = "upgrade"
-		secretName             = "bmc-credentials"
-		clusterName            = "bmo-e2e-upgrade"
-		bmoIronicNamespace     = "baremetal-operator-system"
-		upgradeClusterProvider bootstrap.ClusterProvider
-		upgradePlanner         UpgradePlanner
-		kubeconfigPath         string
+		specName                 = "upgrade"
+		secretName               = "bmc-credentials"
+		clusterName              = "bmo-e2e-upgrade"
+		bmoIronicNamespace       = "baremetal-operator-system"
+		upgradeClusterProvider   bootstrap.ClusterProvider
+		upgradePlanner           UpgradePlanner
+		kubeconfigPath           string
+		clusterUpgradeStrategies []*ClusterUpgradeStrategy
 	)
 
 	BeforeEach(func() {
@@ -41,6 +42,22 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 			kubeconfigPath = upgradeClusterProvider.GetKubeconfigPath()
 		}
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
+
+		// Initialize upgrade strategies
+		clusterUpgradeStrategies = []*ClusterUpgradeStrategy{
+			{
+				BMOUpgradeStrategy: &BMOUpgradeStrategy{
+					isBMOUpgrade:            e2eConfig.GetVariable("UPGRADE_DEPLOY_BMO"),
+					sourceKustomizationPath: e2eConfig.GetVariable("UPGRADE_BMO_KUSTOMIZATION_FROM"),
+					targetKustomizationPath: e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
+				},
+				IronicDeployStrategy: &IronicDeployStrategy{
+					isIronicUpgrade:         e2eConfig.GetVariable("UPGRADE_DEPLOY_IRONIC"),
+					ironicKustomizationPath: e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
+					ironicNamespace:         bmoIronicNamespace,
+				},
+			},
+		}
 	})
 
 	JustBeforeEach(func() {
@@ -58,7 +75,8 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 			},
 			&WaitInterval{
 				waitDeployment:       e2eConfig.GetIntervals("default", "wait-deployment"),
-				waitAvailable:        e2eConfig.GetIntervals(specName, "wait-available"),
+				waitUpgradeAvailable: e2eConfig.GetIntervals(specName, "wait-available"),
+				waitDefaultAvailable: e2eConfig.GetIntervals("default", "wait-available"),
 				waitProvisioned:      e2eConfig.GetIntervals(specName, "wait-provisioned"),
 				waitNamespaceDeleted: e2eConfig.GetIntervals("default", "wait-namespace-deleted"),
 			},
@@ -76,24 +94,14 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 	})
 
 	DescribeTable("Should able to upgrade BMO",
-		func(upgradeStrategy *ClusterUpgradeStrategy) {
-			upgradePlanner.Apply(upgradeStrategy)
+		func(upgradeStrategies []*ClusterUpgradeStrategy, index int) {
+			By(fmt.Sprintf("Start upgrading BMO cluster from release %s to release %s", ExtractReleaseFromKustomization(upgradeStrategies[index].sourceKustomizationPath), ExtractReleaseFromKustomization(upgradeStrategies[index].targetKustomizationPath)))
+			upgradePlanner.Apply(upgradeStrategies[index])
 		},
-		func(upgradeStrategy *ClusterUpgradeStrategy) string {
-			return fmt.Sprintf("Upgrade BMO from release %s to release %s", ExtractReleaseFromKustomization(upgradeStrategy.sourceKustomizationPath), ExtractReleaseFromKustomization(upgradeStrategy.targetKustomizationPath))
+		func(upgradeStrategies []*ClusterUpgradeStrategy, index int) string {
+			return fmt.Sprintf("Upgrade BMO test: %d\n", index+1)
 		},
-		Entry(nil, &ClusterUpgradeStrategy{
-			BMOUpgradeStrategy: &BMOUpgradeStrategy{
-				isBMOUpgrade:            e2eConfig.GetVariable("UPGRADE_DEPLOY_BMO"),
-				sourceKustomizationPath: e2eConfig.GetVariable("UPGRADE_BMO_KUSTOMIZATION_FROM"),
-				targetKustomizationPath: e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
-			},
-			IronicDeployStrategy: &IronicDeployStrategy{
-				isDeployIronic:          e2eConfig.GetVariable("UPGRADE_DEPLOY_IRONIC"),
-				ironicKustomizationPath: e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
-				ironicNamespace:         bmoIronicNamespace,
-			},
-		}),
+		Entry(nil, clusterUpgradeStrategies, 0),
 	)
 
 	AfterEach(func() {

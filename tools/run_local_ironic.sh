@@ -169,10 +169,15 @@ if [[ -r "${IPXE_KEY_FILE}" ]]; then
 fi
 
 BASIC_AUTH_MOUNTS=""
-IRONIC_HTPASSWD=""
+IRONIC_HTPASSWD_USERNAME_FILE="${IRONIC_DATA_DIR}/auth/ironic-username"
+IRONIC_HTPASSWD_PASSWORD_FILE="${IRONIC_DATA_DIR}/auth/ironic-password"
 if [ -n "$IRONIC_USERNAME" ]; then
-     IRONIC_HTPASSWD="$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")"
-     IRONIC_HTPASSWD="--env HTTP_BASIC_HTPASSWD=${IRONIC_HTPASSWD} --env IRONIC_HTPASSWD=${IRONIC_HTPASSWD}"
+     echo "$IRONIC_USERNAME" > "${IRONIC_HTPASSWD_USERNAME_FILE}"
+     IRONIC_HTPASSWD_USERNAME="-v ${IRONIC_HTPASSWD_USERNAME_FILE}:/auth/ironic/username"
+fi
+if [ -n "$IRONIC_PASSWORD" ]; then
+     echo "${IRONIC_PASSWORD}" > "${IRONIC_HTPASSWD_PASSWORD_FILE}"
+     IRONIC_HTPASSWD_PASSWORD="-v ${IRONIC_HTPASSWD_PASSWORD_FILE}:/auth/ironic/password"
 fi
 
 sudo mkdir -p "$IRONIC_DATA_DIR/html/images"
@@ -235,9 +240,10 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/runhttpd
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
-     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD} \
+     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
+     -v "${IRONIC_DATA_DIR}:/shared" ${IRONIC_HTPASSWD_USERNAME} \
+     ${IRONIC_HTPASSWD_PASSWORD} --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
 if [ "$IRONIC_USE_MARIADB" = "true" ]; then
     # https://github.com/metal3-io/mariadb-image/blob/main/runmariadb
@@ -252,10 +258,11 @@ fi
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/runironic
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
-     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD} \
+     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      ${IRONIC_MARIADB_PASSWORD} --entrypoint /bin/runironic \
-     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
+     -v "$IRONIC_DATA_DIR:/shared" ${IRONIC_HTPASSWD_USERNAME} \
+     ${IRONIC_HTPASSWD_PASSWORD} "${IRONIC_IMAGE}"
 
 # Start ironic-endpoint-keepalived
 # shellcheck disable=SC2086

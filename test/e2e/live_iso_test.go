@@ -4,20 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"golang.org/x/crypto/ssh"
-
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-
-	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 )
 
 var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {

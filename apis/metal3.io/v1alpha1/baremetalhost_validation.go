@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 )
 

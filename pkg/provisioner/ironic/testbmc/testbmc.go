@@ -152,5 +152,5 @@ func (a *testAccessDetails) BuildBIOSSettings(firmwareConfig *bmc.FirmwareConfig
 		)
 	}
 
-	return
+	return settings, nil
 }

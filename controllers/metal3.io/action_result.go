@@ -6,10 +6,9 @@ import (
 	"math/rand"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // This is an upper limit for the ErrorCount, so that the max backoff

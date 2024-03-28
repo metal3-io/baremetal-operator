@@ -125,6 +125,8 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 	})
 
 	AfterEach(func() {
-		cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		if !skipCleanup {
+			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		}
 	})
 })

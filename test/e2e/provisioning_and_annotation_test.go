@@ -258,6 +258,8 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 		})
 
 		AfterEach(func() {
-			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			if !skipCleanup {
+				cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			}
 		})
 	})

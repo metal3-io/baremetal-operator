@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/cert-manager/cert-manager v1.10.0
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/metal3-io/cluster-api-provider-metal3/test v1.6.1
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
@@ -79,7 +80,6 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1 // indirect
 	github.com/metal3-io/cluster-api-provider-metal3/api v1.5.1 // indirect
 	github.com/metal3-io/ip-address-manager/api v1.6.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect

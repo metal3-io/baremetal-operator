@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"golang.org/x/crypto/ssh"
 
@@ -16,6 +17,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3bmc "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 
 	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 )
@@ -30,7 +32,17 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 	)
 
 	BeforeEach(func() {
-		imageURL = e2eConfig.GetVariable("IMAGE_URL")
+		// Check what kind of BMC we are dealing with
+		// It may be *possible* to boot a live-ISO over (i)PXE, but there are severe limitations.
+		// Therefore we skip the test if it doesn't support ISO preprovisioning images.
+		// See https://docs.openstack.org/ironic/latest/admin/ramdisk-boot.html
+		accessDetails, err := metal3bmc.NewAccessDetails(bmc.Address, false)
+		Expect(err).NotTo(HaveOccurred())
+		if !accessDetails.SupportsISOPreprovisioningImage() {
+			Skip(fmt.Sprintf("BMC does not support ISO images. It does not make sense to test live-ISO here. BMC address: %s", bmc.Address))
+		}
+
+		imageURL = e2eConfig.GetVariable("ISO_IMAGE_URL")
 
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:   clusterProxy.GetClient(),
@@ -68,8 +80,9 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 					URL:        imageURL,
 					DiskFormat: pointer.String("live-iso"),
 				},
-				BootMode:       metal3api.Legacy,
-				BootMACAddress: bmc.BootMacAddress,
+				BootMode:              metal3api.Legacy,
+				BootMACAddress:        bmc.BootMacAddress,
+				AutomatedCleaningMode: metal3api.CleaningModeDisabled,
 			},
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
@@ -92,8 +105,12 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			By("Verifying the node booted from live ISO image")
-			password := e2eConfig.GetVariable("CIRROS_PASSWORD")
-			auth := ssh.Password(password)
+			keyPath := e2eConfig.GetVariable("SSH_PRIV_KEY")
+			key, err := os.ReadFile(keyPath)
+			Expect(err).NotTo(HaveOccurred(), "unable to read private key")
+			signer, err := ssh.ParsePrivateKey(key)
+			Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
+			auth := ssh.PublicKeys(signer)
 			PerformSSHBootCheck(e2eConfig, "memory", auth, fmt.Sprintf("%s:%s", bmc.IPAddress, bmc.SSHPort))
 		} else {
 			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")

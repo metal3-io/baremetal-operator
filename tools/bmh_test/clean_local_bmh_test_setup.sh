@@ -10,7 +10,7 @@ if [[ -n "${VM_LIST}" ]]; then
     # Loop through the list and delete each virtual machine
     for vm_name in ${VM_LIST}; do
         virsh -c qemu:///system destroy --domain "${vm_name}"
-        virsh -c qemu:///system undefine --domain "${vm_name}" --remove-all-storage
+        virsh -c qemu:///system undefine --domain "${vm_name}" --remove-all-storage --nvram
         kubectl delete baremetalhost "${vm_name}"
     done
 else
@@ -18,7 +18,7 @@ else
 fi
 
 # Clear vbmc
-docker rm -f vbmc 
+docker rm -f vbmc
 
 # Clear network
 virsh -c qemu:///system net-destroy baremetal-e2e

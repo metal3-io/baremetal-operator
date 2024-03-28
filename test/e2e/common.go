@@ -202,8 +202,9 @@ func HasRootOnDisk(output string) bool {
 			continue // Skip malformed lines
 		}
 
-		if fields[5] == "/" && !strings.Contains(fields[0], "tmpfs") {
-			return true // Found a non-tmpfs root filesystem
+		// When booting from memory or live-ISO we can have root on tmpfs or airootfs
+		if fields[5] == "/" && !(strings.Contains(fields[0], "tmpfs") || strings.Contains(fields[0], "airootfs")) {
+			return true
 		}
 	}
 
@@ -257,12 +258,8 @@ func createCirrosInstanceAndHostnameUserdata(ctx context.Context, client client.
 
 	userDataContent := fmt.Sprintf(`#!/bin/sh
 mkdir /root/.ssh
-mkdir /home/cirros/.ssh
 chmod 700 /root/.ssh
-chmod 700 /home/cirros/.ssh
-chown cirros /home/cirros/.ssh
-echo "%s" >> /home/cirros/.ssh/authorized_keys
-echo "%s" >> /root/.ssh/authorized_keys`, sshPubKeyData, sshPubKeyData)
+echo "%s" >> /root/.ssh/authorized_keys`, sshPubKeyData)
 
 	CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
 }
@@ -271,7 +268,7 @@ echo "%s" >> /root/.ssh/authorized_keys`, sshPubKeyData, sshPubKeyData)
 // The `expectedBootMode` parameter should be "disk" or "memory".
 // The `auth` parameter is an ssh.AuthMethod for authentication.
 func PerformSSHBootCheck(e2eConfig *Config, expectedBootMode string, auth ssh.AuthMethod, sshAddress string) {
-	user := e2eConfig.GetVariable("CIRROS_USERNAME")
+	user := e2eConfig.GetVariable("SSH_USERNAME")
 
 	client := EstablishSSHConnection(e2eConfig, auth, user, sshAddress)
 	defer func() {

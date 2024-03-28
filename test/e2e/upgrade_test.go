@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,8 +15,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 const hardwareDetailsRelease04 = `
@@ -200,7 +198,8 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 		scheme := runtime.NewScheme()
 		framework.TryAddDefaultSchemes(scheme)
-		metal3api.AddToScheme(scheme)
+		err := metal3api.AddToScheme(scheme)
+		Expect(err).NotTo(HaveOccurred())
 		upgradeClusterProxy = framework.NewClusterProxy("bmo-e2e-upgrade", kubeconfigPath, scheme)
 
 		if e2eConfig.GetVariable("UPGRADE_DEPLOY_CERT_MANAGER") != "false" {
@@ -235,7 +234,8 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func() {
 				By("Removing Ironic on the upgrade cluster")
-				BuildAndRemoveKustomization(ctx, ironicKustomization, upgradeClusterProxy)
+				err := BuildAndRemoveKustomization(ctx, ironicKustomization, upgradeClusterProxy)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		}
 
@@ -256,7 +256,8 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func() {
 				By(fmt.Sprintf("Removing BMO from %s on the upgrade cluster", bmoFromKustomization))
-				BuildAndRemoveKustomization(ctx, bmoFromKustomization, upgradeClusterProxy)
+				err := BuildAndRemoveKustomization(ctx, bmoFromKustomization, upgradeClusterProxy)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		}
 
@@ -324,7 +325,8 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 		})
 		DeferCleanup(func() {
 			By("Removing BMO main e2e deployment")
-			BuildAndRemoveKustomization(ctx, bmoKustomization, upgradeClusterProxy)
+			err := BuildAndRemoveKustomization(ctx, bmoKustomization, upgradeClusterProxy)
+			Expect(err).NotTo(HaveOccurred())
 		})
 		Expect(err).NotTo(HaveOccurred())
 		By("Waiting for BMO update to rollout")

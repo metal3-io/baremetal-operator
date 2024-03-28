@@ -5,19 +5,17 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestOptionValueEqual(t *testing.T) {

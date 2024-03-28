@@ -161,5 +161,5 @@ func (a *iRMCAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (s
 		)
 	}
 
-	return
+	return settings, nil
 }

@@ -6,7 +6,9 @@ import (
 	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-
+	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -14,10 +16,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
-	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 func testStateMachine(host *metal3api.BareMetalHost) *hostStateMachine {
@@ -1194,7 +1192,7 @@ func (hb *hostBuilder) build() *metal3api.BareMetalHost {
 
 func (hb *hostBuilder) SaveHostProvisioningSettings() *hostBuilder {
 	info := makeDefaultReconcileInfo(&hb.BareMetalHost)
-	saveHostProvisioningSettings(&hb.BareMetalHost, info)
+	_, _ = saveHostProvisioningSettings(&hb.BareMetalHost, info)
 	return hb
 }
 

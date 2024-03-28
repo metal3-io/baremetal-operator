@@ -40,7 +40,7 @@ func TestTLSInsecureCiperSuite(t *testing.T) {
 		klog.SetOutput(bufWriter)
 		klog.LogToStderr(false) // this is important, because klog by default logs to stderr only
 		_, err := GetTLSOptionOverrideFuncs(tlsMockOptions)
-		g.Expect(err).Should(BeNil())
+		g.Expect(err).ShouldNot(HaveOccurred())
 		g.Expect(bufWriter.String()).Should(ContainSubstring("use of insecure cipher 'TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256' detected."))
 	})
 }
@@ -76,7 +76,7 @@ func Test13CipherSuite(t *testing.T) {
 		klog.LogToStderr(false) // this is important, because klog by default logs to stderr only
 		_, err := GetTLSOptionOverrideFuncs(tlsMockOptions)
 		g.Expect(bufWriter.String()).Should(ContainSubstring("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers"))
-		g.Expect(err).Should(BeNil())
+		g.Expect(err).ShouldNot(HaveOccurred())
 	})
 }
 
@@ -93,7 +93,7 @@ func TestGetTLSVersion(t *testing.T) {
 		tlsVersion := "TLS12"
 		version, err := GetTLSVersion(tlsVersion)
 		g.Expect(version).To(Equal(VersionTLS12))
-		g.Expect(err).Should(BeNil())
+		g.Expect(err).ShouldNot(HaveOccurred())
 	})
 }
 
@@ -106,6 +106,6 @@ func TestTLSOptions(t *testing.T) {
 			TLSCipherSuites: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
 		}
 		_, err := GetTLSOptionOverrideFuncs(tlsMockOptions)
-		g.Expect(err).Should(BeNil())
+		g.Expect(err).ShouldNot(HaveOccurred())
 	})
 }

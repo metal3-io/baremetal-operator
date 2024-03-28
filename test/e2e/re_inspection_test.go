@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -13,10 +15,6 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
-
-	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {

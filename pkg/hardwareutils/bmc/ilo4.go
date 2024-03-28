@@ -170,5 +170,5 @@ func (a *iLOAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (se
 		)
 	}
 
-	return
+	return settings, nil
 }

@@ -132,7 +132,7 @@ const (
 	OperationalStatusOK OperationalStatus = "OK"
 
 	// OperationalStatusDiscovered is the status value for when the
-	// host is only partially configured, such as when when the BMC
+	// host is only partially configured, such as when the BMC
 	// address is known but the login credentials are not.
 	OperationalStatusDiscovered OperationalStatus = "discovered"
 

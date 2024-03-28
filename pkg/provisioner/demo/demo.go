@@ -4,14 +4,12 @@ import (
 	"context"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/go-logr/logr"
-	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
-
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var log = logz.New().WithName("provisioner").WithName("demo")
@@ -129,7 +127,7 @@ func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ boo
 		// state in Reconcile()
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
-		return
+		return result, started, nil, nil
 	}
 
 	p.log.Info("continuing inspection by setting details")
@@ -178,7 +176,7 @@ func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ boo
 		}
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 
-	return
+	return result, started, details, nil
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

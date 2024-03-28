@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,8 +16,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	ctrl "sigs.k8s.io/controller-runtime"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 var (
@@ -168,8 +167,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	kubeconfigPath := parts[0]
 	scheme := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(scheme)
-	metal3api.AddToScheme(scheme)
-
+	err := metal3api.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
 	e2eConfig = LoadE2EConfig(configPath)
 	bmcs = LoadBMCConfig(bmcConfigPath)
 	bmc = (*bmcs)[GinkgoParallelProcess()-1]

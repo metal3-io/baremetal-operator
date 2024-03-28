@@ -167,8 +167,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	kubeconfigPath := parts[0]
 	scheme := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(scheme)
-	metal3api.AddToScheme(scheme)
-
+	err := metal3api.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
 	e2eConfig = LoadE2EConfig(configPath)
 	bmcs = LoadBMCConfig(bmcConfigPath)
 	bmc = (*bmcs)[GinkgoParallelProcess()-1]

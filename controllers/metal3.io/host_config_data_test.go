@@ -70,13 +70,15 @@ func TestLabelSecrets(t *testing.T) {
 			}
 
 			secret := newSecret(tc.name, map[string]string{"value": "somedata"})
-			c.Create(context.TODO(), secret)
+			err := c.Create(context.TODO(), secret)
+			assert.NoError(t, err)
 
-			_, err := tc.getter(hcd)
+			_, err = tc.getter(hcd)
 			assert.NoError(t, err)
 
 			actualSecret := &corev1.Secret{}
-			c.Get(context.TODO(), types.NamespacedName{Name: tc.name, Namespace: namespace}, actualSecret)
+			err = c.Get(context.TODO(), types.NamespacedName{Name: tc.name, Namespace: namespace}, actualSecret)
+			assert.NoError(t, err)
 			assert.Equal(t, "baremetal", actualSecret.Labels["environment.metal3.io"])
 		})
 	}
@@ -332,10 +334,10 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			tc.Host.Spec.Online = true
 
 			c := fakeclient.NewClientBuilder().WithObjects(tc.Host).Build()
-			c.Create(context.TODO(), testBMCSecret)
-			c.Create(context.TODO(), tc.UserDataSecret)
-			c.Create(context.TODO(), tc.NetworkDataSecret)
-			c.Create(context.TODO(), tc.PreprovNetworkDataSecret)
+			_ = c.Create(context.TODO(), testBMCSecret)
+			_ = c.Create(context.TODO(), tc.UserDataSecret)
+			_ = c.Create(context.TODO(), tc.NetworkDataSecret)
+			_ = c.Create(context.TODO(), tc.PreprovNetworkDataSecret)
 			baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
 			hcd := &hostConfigData{
 				host:          tc.Host,

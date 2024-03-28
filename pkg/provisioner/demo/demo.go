@@ -127,7 +127,7 @@ func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ boo
 		// state in Reconcile()
 		result.Dirty = true
 		result.RequeueAfter = time.Second * 5
-		return
+		return result, started, nil, nil
 	}
 
 	p.log.Info("continuing inspection by setting details")
@@ -176,7 +176,7 @@ func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ boo
 		}
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 
-	return
+	return result, started, details, nil
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

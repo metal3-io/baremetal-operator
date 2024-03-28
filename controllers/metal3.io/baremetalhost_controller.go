@@ -227,7 +227,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	if err != nil {
 		err = errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
-		return
+		return result, err
 	}
 
 	// Only save status when we're told to, otherwise we
@@ -256,7 +256,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	logResult(info, result)
 
-	return
+	return result, nil
 }
 
 // Consume inspect.metal3.io/hardwaredetails when either
@@ -720,7 +720,11 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 			},
 			Spec: expectedSpec,
 		}
-		controllerutil.SetControllerReference(info.host, &preprovImage, r.Scheme())
+		err = controllerutil.SetControllerReference(info.host, &preprovImage, r.Scheme())
+		if err != nil {
+			return nil, fmt.Errorf("failed to set controller reference for PreprovisioningImage due to %w", err)
+		}
+
 		err = r.Create(info.ctx, &preprovImage)
 		return nil, err
 	}
@@ -1698,7 +1702,7 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 	// Root device hints may change as a result of RAID
 	dirty, err = updateRootDeviceHints(host, info)
 	if err != nil {
-		return
+		return dirty, err
 	}
 
 	// Copy RAID settings
@@ -1733,7 +1737,7 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 		dirty = true
 	}
 
-	return
+	return dirty, nil
 }
 
 func (r *BareMetalHostReconciler) createHostFirmwareComponents(info *reconcileInfo) error {

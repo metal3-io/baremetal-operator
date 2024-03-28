@@ -328,7 +328,7 @@ func (input *BuildAndApplyKustomizationInput) validate() error {
 // BuildAndApplyKustomization takes input from BuildAndApplyKustomizationInput. It builds the provided kustomization
 // and apply it to the cluster provided by clusterProxy.
 func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomizationInput) error {
-	Expect(input.validate()).To(BeNil())
+	Expect(input.validate()).To(Succeed())
 	var err error
 	kustomization := input.Kustomization
 	clusterProxy := input.ClusterProxy
@@ -377,7 +377,7 @@ func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomi
 func DeploymentRolledOut(ctx context.Context, clusterProxy framework.ClusterProxy, name string, namespace string, desiredGeneration int64) bool {
 	clientSet := clusterProxy.GetClientSet()
 	deploy, err := clientSet.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 	if deploy != nil {
 		// When the number of replicas is equal to the number of available and updated
 		// replicas, we know that only "new" pods are running. When we also

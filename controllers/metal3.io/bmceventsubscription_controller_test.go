@@ -25,8 +25,10 @@ func newBMCTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.O
 	c := clientBuilder.Build()
 	// Add a default secret that can be used by most subscriptions.
 	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
-	c.Create(context.TODO(), bmcSecret)
-
+	err := c.Create(context.TODO(), bmcSecret)
+	if err != nil {
+		return nil
+	}
 	return &BMCEventSubscriptionReconciler{
 		Client:             c,
 		ProvisionerFactory: fix,

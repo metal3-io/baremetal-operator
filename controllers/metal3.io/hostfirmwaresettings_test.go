@@ -142,7 +142,7 @@ func createBaremetalHost() *metal3api.BareMetalHost {
 		Log:                ctrl.Log.WithName("bmh_reconciler").WithName("BareMetalHost"),
 	}
 
-	reconciler.Create(context.TODO(), bmh)
+	_ = reconciler.Create(context.TODO(), bmh)
 
 	return bmh
 }
@@ -503,7 +503,8 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				firmwareSchema := getSchema()
 				firmwareSchema.Spec.Schema = getCurrentSchemaSettings()
 
-				r.Client.Create(ctx, firmwareSchema)
+				err := r.Client.Create(ctx, firmwareSchema)
+				assert.NoError(t, err)
 			}
 
 			currentSettings, schema, err := prov.GetFirmwareSettings(true)

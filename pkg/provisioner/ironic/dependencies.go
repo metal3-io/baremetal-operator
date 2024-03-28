@@ -35,7 +35,7 @@ func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {
 	}
 
 	driverCount := 0
-	pager.EachPage(p.ctx, func(_ context.Context, page pagination.Page) (bool, error) {
+	_ = pager.EachPage(p.ctx, func(_ context.Context, page pagination.Page) (bool, error) {
 		actual, driverErr := drivers.ExtractDrivers(page)
 		if driverErr != nil {
 			return false, driverErr
@@ -43,6 +43,7 @@ func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {
 		driverCount += len(actual)
 		return true, nil
 	})
+
 	// If we have any drivers, conductor is up.
 	ready = driverCount > 0
 

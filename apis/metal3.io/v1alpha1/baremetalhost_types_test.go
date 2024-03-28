@@ -510,3 +510,159 @@ func TestBootMode(t *testing.T) {
 		})
 	}
 }
+
+func TestSetOperationalStatus(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario  string
+		Host      BareMetalHost
+		StatusArg OperationalStatus
+		Expected  bool
+	}{
+		{
+			Scenario: "Host is partially configured and operationalStatus is ok",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{
+					OperationalStatus: "OK",
+				},
+			},
+			StatusArg: "discovered",
+			Expected:  true,
+		},
+		{
+			Scenario: "Host is detached and operationalStatus is also detached",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{
+					OperationalStatus: "detached",
+				},
+			},
+			StatusArg: "detached",
+			Expected:  false,
+		},
+		{
+			Scenario: "Host has an error and operationalStatus also has an error",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{
+					OperationalStatus: "error",
+				},
+			},
+			StatusArg: "error",
+			Expected:  false,
+		},
+		{
+			Scenario: "Host is delayed and operationalStatus is not defined",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{},
+			},
+			StatusArg: "delayed",
+			Expected:  true,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Host.SetOperationalStatus(tc.StatusArg)
+			if tc.Expected && !actual {
+				t.Error("Expected a change in operational status")
+			}
+			if !tc.Expected && actual {
+				t.Error("Did not expect a change in operational status")
+			}
+		})
+	}
+}
+
+func TestSetHardwareProfile(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario string
+		Host     BareMetalHost
+		name     string
+		Expected bool
+	}{
+		{
+			Scenario: "Host hardware profile and name is same",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{
+					HardwareProfile: "test",
+				},
+			},
+			name:     "test",
+			Expected: false,
+		},
+		{
+			Scenario: "Host hardware profile and name are different",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{
+					HardwareProfile: "test",
+				},
+			},
+			name:     "newtest",
+			Expected: true,
+		},
+		{
+			Scenario: "Host hardware profile is not defined",
+			Host: BareMetalHost{
+				Status: BareMetalHostStatus{},
+			},
+			name:     "test",
+			Expected: true,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Host.SetHardwareProfile(tc.name)
+			if tc.Expected && !actual {
+				t.Error("Expected a change in hardware profile")
+			}
+			if !tc.Expected && actual {
+				t.Error("Did not expect a change in hardware profile")
+			}
+		})
+	}
+}
+
+func TestHasBMCDetails(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario string
+		Host     BareMetalHost
+		Expected bool
+	}{
+		{
+			Scenario: "Only host bmc address is set",
+			Host: BareMetalHost{
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						Address: "http://127.0.0.1/",
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "Only host credentialsName is set",
+			Host: BareMetalHost{
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{
+						CredentialsName: "test",
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "Neither host credentialsName nor address is set",
+			Host: BareMetalHost{
+				Spec: BareMetalHostSpec{
+					BMC: BMCDetails{},
+				},
+			},
+			Expected: false,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Host.HasBMCDetails()
+			if tc.Expected && !actual {
+				t.Error("Expected BMC details exist")
+			}
+			if !tc.Expected && actual {
+				t.Error("Did not expect that BMC details exist")
+			}
+		})
+	}
+}

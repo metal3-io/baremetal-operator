@@ -13,6 +13,8 @@ import (
 )
 
 // IronicMock is a test server that implements Ironic's semantics.
+const v1node = "/v1/nodes/"
+
 type IronicMock struct {
 	*MockServer
 	CreatedNodes int
@@ -20,6 +22,7 @@ type IronicMock struct {
 
 // NewIronic builds an ironic mock server.
 func NewIronic(t *testing.T) *IronicMock {
+	t.Helper()
 	server := New(t, "ironic").AddDefaultResponse("/v1/?", "", http.StatusOK, versionedRootResult)
 	return &IronicMock{
 		MockServer:   server,
@@ -28,6 +31,7 @@ func NewIronic(t *testing.T) *IronicMock {
 }
 
 const validateResult = `{"boot": {"result": true}, "deploy": {"result": true}, "power": {"result": true}}`
+const maintenance = "/maintenance"
 
 // NOTE(dtantsur): the actual result is much longer, but we only potentially care about versions.
 const versionedRootResult = `
@@ -42,7 +46,7 @@ const versionedRootResult = `
   }
 }`
 
-// WithDefaultResponses sets a valid answer for all the API calls
+// WithDefaultResponses sets a valid answer for all the API calls.
 func (m *IronicMock) WithDefaultResponses() *IronicMock {
 	m.AddDefaultResponseJSON("/v1/nodes/{id}", "", http.StatusOK, nodes.Node{
 		UUID: "{id}",
@@ -64,7 +68,7 @@ func (m *IronicMock) Endpoint() string {
 	return m.MockServer.Endpoint()
 }
 
-// NotReady configures the server with an error response for /v1/ overriding the default response
+// NotReady configures the server with an error response for /v1/ overriding the default response.
 func (m *IronicMock) NotReady(errorCode int) *IronicMock {
 	m.ErrorResponse("/v1/", errorCode)
 	return m
@@ -108,30 +112,30 @@ func (m *IronicMock) buildURL(url string, method string) string {
 // Delete configures the server with a valid response for [DELETE] /v1/nodes/ on the
 // specific node id.
 func (m *IronicMock) Delete(id string) *IronicMock {
-	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id, http.MethodDelete), "", http.StatusAccepted)
+	m.ResponseWithCode(m.buildURL(v1node+id, http.MethodDelete), "", http.StatusAccepted)
 	return m
 }
 
 // DeleteError configures the server with an error response for [DELETE] /v1/nodes/.
 func (m *IronicMock) DeleteError(id string, errorCode int) *IronicMock {
-	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id, http.MethodDelete), "", errorCode)
+	m.ResponseWithCode(m.buildURL(v1node+id, http.MethodDelete), "", errorCode)
 	return m
 }
 
 // Node configures the server with a valid response for /v1/nodes/{name,uuid}.
 func (m *IronicMock) Node(node nodes.Node) *IronicMock {
 	if node.UUID != "" {
-		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.UUID, http.MethodGet), node)
+		m.ResponseJSON(m.buildURL(v1node+node.UUID, http.MethodGet), node)
 	}
 	if node.Name != "" {
-		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.Name, http.MethodGet), node)
+		m.ResponseJSON(m.buildURL(v1node+node.Name, http.MethodGet), node)
 	}
 	return m
 }
 
 // NodeUpdateError configures configures the server with an error response for [PATCH] /v1/nodes/{id}.
 func (m *IronicMock) NodeUpdateError(id string, errorCode int) *IronicMock {
-	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id, http.MethodPatch), "", errorCode)
+	m.ResponseWithCode(m.buildURL(v1node+id, http.MethodPatch), "", errorCode)
 	return m
 }
 
@@ -139,17 +143,17 @@ func (m *IronicMock) NodeUpdateError(id string, errorCode int) *IronicMock {
 // for /v1/nodes/{name,uuid}.
 func (m *IronicMock) NodeUpdate(node nodes.Node) *IronicMock {
 	if node.UUID != "" {
-		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.UUID, http.MethodPatch), node)
+		m.ResponseJSON(m.buildURL(v1node+node.UUID, http.MethodPatch), node)
 	}
 	if node.Name != "" {
-		m.ResponseJSON(m.buildURL("/v1/nodes/"+node.Name, http.MethodPatch), node)
+		m.ResponseJSON(m.buildURL(v1node+node.Name, http.MethodPatch), node)
 	}
 	return m
 }
 
 // GetLastNodeUpdateRequestFor returns the content of the last update request for the specified node.
 func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.UpdateOperation) {
-	if bodyRaw, ok := m.GetLastRequestFor("/v1/nodes/"+id, http.MethodPatch); ok {
+	if bodyRaw, ok := m.GetLastRequestFor(v1node+id, http.MethodPatch); ok {
 		json.Unmarshal([]byte(bodyRaw), &updates)
 	}
 
@@ -158,7 +162,7 @@ func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.Upd
 
 // GetLastNodeStatesProvisionUpdateRequestFor returns the content of the last provisioning request for the specified node.
 func (m *IronicMock) GetLastNodeStatesProvisionUpdateRequestFor(id string) (update nodes.ProvisionStateOpts) {
-	if bodyRaw, ok := m.GetLastRequestFor("/v1/nodes/"+id+"/states/provision", http.MethodPut); ok {
+	if bodyRaw, ok := m.GetLastRequestFor(v1node+id+"/states/provision", http.MethodPut); ok {
 		json.Unmarshal([]byte(bodyRaw), &update)
 	}
 
@@ -167,7 +171,7 @@ func (m *IronicMock) GetLastNodeStatesProvisionUpdateRequestFor(id string) (upda
 
 // NodeMaintenanceError configures configures the server with an error response for [PUT] /v1/nodes/{id}/maintenance.
 func (m *IronicMock) NodeMaintenanceError(id string, errorCode int) *IronicMock {
-	m.ResponseWithCode(m.buildURL("/v1/nodes/"+id+"/maintenance", http.MethodPut), "", errorCode)
+	m.ResponseWithCode(m.buildURL(v1node+id+maintenance, http.MethodPut), "", errorCode)
 	return m
 }
 
@@ -183,9 +187,9 @@ func (m *IronicMock) NodeMaintenance(node nodes.Node, expected bool) *IronicMock
 	}
 
 	if node.Name != "" {
-		url = m.buildURL("/v1/nodes/"+node.Name+"/maintenance", method)
+		url = m.buildURL(v1node+node.Name+maintenance, method)
 	} else {
-		url = m.buildURL("/v1/nodes/"+node.UUID+"/maintenance", method)
+		url = m.buildURL(v1node+node.UUID+maintenance, method)
 	}
 
 	m.ResponseWithCode(url, "{}", http.StatusAccepted)
@@ -193,7 +197,7 @@ func (m *IronicMock) NodeMaintenance(node nodes.Node, expected bool) *IronicMock
 }
 
 func (m *IronicMock) withNodeStatesProvision(nodeUUID string, method string) *IronicMock {
-	m.ResponseWithCode(m.buildURL("/v1/nodes/"+nodeUUID+"/states/provision", method), "{}", http.StatusAccepted)
+	m.ResponseWithCode(m.buildURL(v1node+nodeUUID+"/states/provision", method), "{}", http.StatusAccepted)
 	return m
 }
 
@@ -227,6 +231,7 @@ func (m *IronicMock) CreateNodes(callback NodeCreateCallback) *IronicMock {
 		if r.Method != http.MethodPost {
 			http.Error(w, fmt.Sprintf("%s not handled for %s", r.Method, r.URL),
 				http.StatusNotImplemented)
+			return
 		}
 
 		bodyRaw, err := io.ReadAll(r.Body)
@@ -265,7 +270,7 @@ func (m *IronicMock) CreateNodes(callback NodeCreateCallback) *IronicMock {
 }
 
 func (m *IronicMock) withNodeStatesPower(nodeUUID string, code int, method string) *IronicMock {
-	m.ResponseWithCode(m.buildURL("/v1/nodes/"+nodeUUID+"/states/power", method), "{}", code)
+	m.ResponseWithCode(m.buildURL(v1node+nodeUUID+"/states/power", method), "{}", code)
 	return m
 }
 
@@ -281,7 +286,7 @@ func (m *IronicMock) WithNodeStatesPowerUpdate(nodeUUID string, code int) *Ironi
 
 // WithNodeValidate configures the server with a valid response for /v1/nodes/<node>/validate.
 func (m *IronicMock) WithNodeValidate(nodeUUID string) *IronicMock {
-	m.ResponseWithCode("/v1/nodes/"+nodeUUID+"/validate", validateResult, http.StatusOK)
+	m.ResponseWithCode(v1node+nodeUUID+"/validate", validateResult, http.StatusOK)
 	return m
 }
 
@@ -302,7 +307,7 @@ func (m *IronicMock) Port(port ports.Port) *IronicMock {
 
 	address := url.QueryEscape(port.Address)
 
-	m.ResponseJSON(m.buildURL("/v1/nodes/"+port.NodeUUID+"/ports", http.MethodGet), resp)
+	m.ResponseJSON(m.buildURL(v1node+port.NodeUUID+"/ports", http.MethodGet), resp)
 	m.ResponseJSON(m.buildURL("/v1/ports", http.MethodGet), resp)
 	m.ResponseJSON(m.buildURL("/v1/ports?address="+address, http.MethodGet), resp)
 	m.ResponseJSON(m.buildURL("/v1/ports?address="+address+"&fields=node_uuid", http.MethodGet), resp)
@@ -380,8 +385,8 @@ func (m *IronicMock) BIOSSettings(nodeUUID string) *IronicMock {
 		Settings: settings,
 	}
 
-	m.ResponseJSON(m.buildURL("/v1/nodes/"+nodeUUID+"/bios", http.MethodGet), resp)
-	m.AddDefaultResponseJSON("/v1/nodes/"+nodeUUID, "", http.StatusOK, nodes.Node{
+	m.ResponseJSON(m.buildURL(v1node+nodeUUID+"/bios", http.MethodGet), resp)
+	m.AddDefaultResponseJSON(v1node+nodeUUID, "", http.StatusOK, nodes.Node{
 		UUID: nodeUUID,
 	})
 	return m
@@ -444,8 +449,8 @@ func (m *IronicMock) BIOSDetailSettings(nodeUUID string) *IronicMock {
 		Settings: settings,
 	}
 
-	m.ResponseJSON(m.buildURL("/v1/nodes/"+nodeUUID+"/bios", http.MethodGet), resp)
-	m.AddDefaultResponseJSON("/v1/nodes/"+nodeUUID, "", http.StatusOK, nodes.Node{
+	m.ResponseJSON(m.buildURL(v1node+nodeUUID+"/bios", http.MethodGet), resp)
+	m.AddDefaultResponseJSON(v1node+nodeUUID, "", http.StatusOK, nodes.Node{
 		UUID: nodeUUID,
 	})
 	return m
@@ -458,12 +463,12 @@ func (m *IronicMock) NoBIOS(nodeUUID string) *IronicMock {
 
 // WithInventory configures the server with a valid response for /v1/nodes/<node>/inventory.
 func (m *IronicMock) WithInventory(nodeUUID string, data nodes.InventoryData) *IronicMock {
-	m.ResponseJSON("/v1/nodes/"+nodeUUID+"/inventory", data)
+	m.ResponseJSON(v1node+nodeUUID+"/inventory", data)
 	return m
 }
 
 // WithInventoryFailed configures the server with an error response for /v1/nodes/<node>/inventory.
 func (m *IronicMock) WithInventoryFailed(nodeUUID string, errorCode int) *IronicMock {
-	m.ErrorResponse("/v1/nodes/"+nodeUUID+"/inventory", errorCode)
+	m.ErrorResponse(v1node+nodeUUID+"/inventory", errorCode)
 	return m
 }

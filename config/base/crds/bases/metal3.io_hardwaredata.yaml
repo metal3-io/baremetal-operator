@@ -24,7 +24,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HardwareData is the Schema for the hardwaredata API
+        description: HardwareData is the Schema for the hardwaredata API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -39,7 +39,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HardwareDataSpec defines the desired state of HardwareData
+            description: HardwareDataSpec defines the desired state of HardwareData.
             properties:
               hardware:
                 description: The hardware discovered on the host during its inspection.
@@ -117,7 +117,7 @@ spec:
                         vlans:
                           description: The VLANs available
                           items:
-                            description: VLAN represents the name and ID of a VLAN
+                            description: VLAN represents the name and ID of a VLAN.
                             properties:
                               id:
                                 description: VLANID is a 12-bit 802.1Q VLAN identifier

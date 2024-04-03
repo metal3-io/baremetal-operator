@@ -138,6 +138,8 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 	})
 
 	AfterEach(func() {
-		cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		if !skipCleanup {
+			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		}
 	})
 })

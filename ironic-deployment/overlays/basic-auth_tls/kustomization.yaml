@@ -9,6 +9,13 @@ components:
 - ../../components/basic-auth
 - ../../components/tls
 
+# Example of how to generate config map
+# configMapGenerator:
+# - envs:
+#   - ironic_bmo.env
+#   name: ironic-bmo-configmap
+#   behavior: create
+
 # When using TLS, the ironic-httpd container is acting as a reverse-proxy.
 # This means that we need to add the basic-auth related environment
 # variables on ironic-httpd with this patch.
@@ -20,6 +27,3 @@ patches:
 #   envs:
 #   - ironic-htpasswd
 #   name: ironic-htpasswd
-# - name: ironic-auth-config
-#   files:
-#   - auth-config=ironic-auth-config

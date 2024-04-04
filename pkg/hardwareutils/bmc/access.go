@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+const (
+	noRaid   = "no-raid"
+	ipxe     = "ipxe"
+	enabled  = "Enabled"
+	disabled = "Disabled"
+)
+
 // AccessDetailsFactory describes a callable that returns a new
 // AccessDetails based on the input parameters.
 type AccessDetailsFactory func(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error)

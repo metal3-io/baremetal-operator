@@ -24,9 +24,6 @@ secretGenerator:
   behavior: create
   envs:
   - ironic-htpasswd
-- name: ironic-auth-config
-  files:
-  - auth-config=ironic-auth-config
 
 replacements:
   # Replace IRONIC_HOST_IP in certificates with the PROVISIONING_IP from the configmap

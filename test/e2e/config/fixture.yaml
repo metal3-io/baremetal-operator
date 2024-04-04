@@ -26,6 +26,7 @@ variables:
   UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/fixture-release-0.5"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
+  ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.13.1"
   SSH_CHECK_PROVISIONED: "false"

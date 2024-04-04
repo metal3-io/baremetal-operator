@@ -170,7 +170,7 @@ const hardwareDetailsRelease04 = `
 }
 `
 
-var _ = Describe("BMO Upgrade", func() {
+var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 	var (
 		specName               = "upgrade"
 		secretName             = "bmc-credentials"

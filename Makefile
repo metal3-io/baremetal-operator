@@ -2,7 +2,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
-GO_VERSION ?= 1.21.7
+GO_VERSION ?= 1.21.8
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -59,7 +59,7 @@ SKIP_RESOURCE_CLEANUP ?= false
 GINKGO_NOCOLOR ?= false
 
 GOLANGCI_LINT_BIN := golangci-lint
-GOLANGCI_LINT_VER := v1.55.2
+GOLANGCI_LINT_VER := v1.56.2
 GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/$(GOLANGCI_LINT_BIN))
 GOLANGCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
 
@@ -128,7 +128,7 @@ test-e2e: $(GINKGO) ## Run the end-to-end tests
 ## --------------------------------------
 
 .PHONY: linters
-linters: lint generate-check fmt-check
+linters: lint generate-check
 
 $(GOLANGCI_LINT):
 	GOBIN=$(TOOLS_BIN_DIR) go install $(GOLANGCI_LINT_PKG)@$(GOLANGCI_LINT_VER)
@@ -167,7 +167,7 @@ demo: generate lint manifests ## Run in demo mode
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -demo-mode -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: run-test-mode
-run-test-mode: generate fmt-check lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+run-test-mode: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -test-mode -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: install
@@ -260,14 +260,6 @@ generate-check:
 generate-check-local:
 	IS_CONTAINER=local ./hack/generate.sh
 
-.PHONY: fmt-check
-fmt-check: ## Run gofmt and report an error if any changes are made
-	./hack/gofmt.sh
-
-.PHONY: fmt
-fmt: ## Run gofmt and fix files with formatting issues
-	gofmt -s -w .
-
 ## --------------------------------------
 ## Documentation
 ## --------------------------------------
@@ -335,15 +327,15 @@ vendor:
 ## Release
 ## --------------------------------------
 RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
-PREVIOUS_TAG ?= $(shell git tag -l | grep -B 1 "^$(RELEASE_TAG)" | head -n 1)
 RELEASE_NOTES_DIR := releasenotes
+PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+" | sort -V | grep -B1 $(RELEASE_TAG) | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$$" | head -n 1 2>/dev/null)
 
 $(RELEASE_NOTES_DIR):
 	mkdir -p $(RELEASE_NOTES_DIR)/
 
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR)
-	go run ./hack/tools/release_notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/releasenotes.md
+	go run ./hack/tools/release/notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/$(RELEASE_TAG).md
 
 go-version: ## Print the go version we use to compile our binaries and images
 	@echo $(GO_VERSION)

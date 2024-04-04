@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/httpbasic"
-	"github.com/gophercloud/gophercloud/openstack/baremetal/noauth"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 )
 

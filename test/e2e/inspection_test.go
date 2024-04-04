@@ -15,7 +15,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
-var _ = Describe("Inspection", func() {
+var _ = Describe("Inspection", Label("required", "inspection"), func() {
 	var (
 		specName      = "inspection"
 		secretName    = "bmc-credentials"
@@ -125,6 +125,8 @@ var _ = Describe("Inspection", func() {
 	})
 
 	AfterEach(func() {
-		cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		if !skipCleanup {
+			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		}
 	})
 })

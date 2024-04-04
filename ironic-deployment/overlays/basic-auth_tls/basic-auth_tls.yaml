@@ -12,11 +12,3 @@ spec:
             name: ironic-htpasswd
         - configMapRef:
             name: ironic-bmo-configmap
-        volumeMounts:
-        - mountPath: /auth/ironic
-          name: ironic-auth-config
-          readOnly: true
-      volumes:
-      - name: ironic-auth-config
-        secret:
-          secretName: ironic-auth-config

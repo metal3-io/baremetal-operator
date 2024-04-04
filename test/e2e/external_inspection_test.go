@@ -171,7 +171,7 @@ const hardwareDetails = `
 }
 `
 
-var _ = Describe("External Inspection", func() {
+var _ = Describe("External Inspection", Label("required", "external-inspection"), func() {
 	var (
 		specName      = "external-inspection"
 		secretName    = "bmc-credentials"
@@ -236,6 +236,8 @@ var _ = Describe("External Inspection", func() {
 	})
 
 	AfterEach(func() {
-		cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		if !skipCleanup {
+			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		}
 	})
 })

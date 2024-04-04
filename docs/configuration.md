@@ -57,7 +57,7 @@ configurations, namely:
 3. ironic without operator
 
 A detailed overview of the configuration is presented in [Bare Metal Operator
-and Ironic Configuration](deploying.md).
+and Ironic Configuration](https://book.metal3.io/bmo/install_baremetal_operator)
 
 Notes on external Ironic
 ------------------------

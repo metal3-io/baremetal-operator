@@ -4,6 +4,10 @@
 # Description: This script sets up the environment and runs E2E tests for the
 #              BMO project. It uses either vbmc or sushy-tools based on
 #              the BMO_E2E_EMULATOR environment variable.
+#              With sushy-tools, it is also possible to choose between
+#              redfish-virtualmedia and redfish protocols using the
+#              SUSHY_TOOLS_PROTOCOL environment variable.
+#              By default, sushy-tools and redfish-virtualmedia will be used.
 # Usage:       export BMO_E2E_EMULATOR="vbmc"  # Or "sushy-tools"
 #              ./ci-e2e.sh
 # -----------------------------------------------------------------------------
@@ -16,6 +20,8 @@ cd "${REPO_ROOT}" || exit 1
 
 # BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
 BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
+# We can choose to use redfish-virtualmedia or redfish as the protocol when using sushy-tools
+SUSHY_TOOLS_PROTOCOL=${SUSHY_TOOLS_PROTOCOL:-"redfish-virtualmedia"}
 
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
 
@@ -58,12 +64,18 @@ minikube stop
 minikube start
 
 # Load the BMO e2e image into it
-minikube image load quay.io/metal3-io/baremetal-operator:e2e
+# minikube image load quay.io/metal3-io/baremetal-operator:e2e
+# Temporary workaround for https://github.com/kubernetes/minikube/issues/18021
+docker image save -o /tmp/bmo-e2e.tar quay.io/metal3-io/baremetal-operator:e2e
+minikube image load /tmp/bmo-e2e.tar
+rm /tmp/bmo-e2e.tar
 
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
+  BMC_PROTOCOL="ipmi"
+  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-ipmi.yaml"
   # Start VBMC
   docker run --name vbmc --network host -d \
     -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
@@ -72,6 +84,8 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
 
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
+  BMC_PROTOCOL=${SUSHY_TOOLS_PROTOCOL}
+  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${SUSHY_TOOLS_PROTOCOL}.yaml"
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
 
@@ -87,7 +101,6 @@ else
   exit 1
 fi
 
-export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMO_E2E_EMULATOR}.yaml"
 "${REPO_ROOT}/hack/create_bmcs.sh" "${E2E_BMCS_CONF_FILE}" baremetal-e2e
 
 # Set the number of ginkgo processes to the number of BMCs
@@ -102,15 +115,41 @@ export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
 IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 mkdir -p "${IMAGE_DIR}"
 
-## Download and run image server
-wget --quiet -P "${IMAGE_DIR}"/ https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
+## Download disk images
+wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
+wget --quiet -P "${IMAGE_DIR}/" https://fastly-cdn.system-rescue.org/releases/11.00/systemrescue-11.00-amd64.iso
 
+## Start the image server
 docker run --name image-server-e2e -d \
   -p 80:8080 \
   -v "${IMAGE_DIR}:/usr/share/nginx/html" nginxinc/nginx-unprivileged
 
-# Generate the key pair
+# Generate ssh key pair for verifying provisioned BMHs
 ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
+
+# Build an ISO image with baked ssh key
+# See https://www.system-rescue.org/scripts/sysrescue-customize/
+# We use the systemrescue ISO and their script for customizing it.
+pushd "${IMAGE_DIR}"
+wget -O sysrescue-customize https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false
+chmod +x sysrescue-customize
+
+pub_ssh_key=$(cut -d " " -f "1,2" "ssh_testkey.pub")
+
+mkdir -p recipe/iso_add/sysrescue.d
+# Reference: https://www.system-rescue.org/manual/Configuring_SystemRescue/
+cat << EOF > recipe/iso_add/sysrescue.d/90-config.yaml
+---
+global:
+    nofirewall: true
+sysconfig:
+    authorized_keys:
+        "test@example.com": "${pub_ssh_key}"
+EOF
+
+./sysrescue-customize --auto --recipe-dir recipe --source systemrescue-11.00-amd64.iso --dest=sysrescue-out.iso
+export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
+popd
 
 # Generate credentials
 BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
@@ -136,9 +175,6 @@ for overlay in "${BMO_OVERLAYS[@]}"; do
   fi
 done
 
-envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
-  "${IRONIC_OVERLAY}/ironic-auth-config"
-
 echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
   "${IRONIC_OVERLAY}/ironic-htpasswd"
 
@@ -156,6 +192,6 @@ sudo sh -c "cp -r /var/log/libvirt/qemu/* ${LOGS_DIR}/qemu/"
 sudo chown -R "${USER}:${USER}" "${LOGS_DIR}/qemu"
 
 # Collect all artifacts
-tar --directory test/e2e/ -czf "artifacts-e2e-${BMO_E2E_EMULATOR}.tar.gz" _artifacts
+tar --directory test/e2e/ -czf "artifacts-e2e-${BMO_E2E_EMULATOR}-${BMC_PROTOCOL}.tar.gz" _artifacts
 
 exit "${test_status}"

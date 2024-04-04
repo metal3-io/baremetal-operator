@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gophercloud/gophercloud/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	"github.com/pkg/errors"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -52,6 +52,7 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 
 	// Set target for RAID configuration steps
 	err = nodes.SetRAIDConfig(
+		p.ctx,
 		p.client,
 		ironicNode.UUID,
 		nodes.RAIDConfigOpts{LogicalDisks: logicalDisks},

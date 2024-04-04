@@ -101,7 +101,6 @@ RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"
 export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
-IRONIC_BASIC_AUTH_COMPONENT="${SCRIPTDIR}/ironic-deployment/components/basic-auth"
 
 TEMP_BMO_OVERLAY="${SCRIPTDIR}/config/overlays/temp"
 TEMP_IRONIC_OVERLAY="${SCRIPTDIR}/ironic-deployment/overlays/temp"
@@ -149,9 +148,6 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
-        envsubst < "${IRONIC_BASIC_AUTH_COMPONENT}/ironic-auth-config-tpl" > \
-        "${TEMP_IRONIC_OVERLAY}/ironic-auth-config"
-
         echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
         "${TEMP_IRONIC_OVERLAY}/ironic-htpasswd"
     fi
@@ -169,7 +165,6 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
 
     if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         ${KUSTOMIZE} edit add secret ironic-htpasswd --from-env-file=ironic-htpasswd
-        ${KUSTOMIZE} edit add secret ironic-auth-config --from-file=auth-config=ironic-auth-config
 
         if [[ "${DEPLOY_TLS}" == "true" ]]; then
             # Basic-auth + TLS is special since TLS also means reverse proxy, which affects basic-auth.
@@ -275,9 +270,9 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
-        rm "${TEMP_IRONIC_OVERLAY}/ironic-auth-config"
         rm "${TEMP_IRONIC_OVERLAY}/ironic-htpasswd"
 
+        rm -f "${TEMP_IRONIC_OVERLAY}/ironic-auth-config"
         rm -f "${TEMP_IRONIC_OVERLAY}/ironic-inspector-auth-config"
         rm -f "${TEMP_IRONIC_OVERLAY}/ironic-inspector-htpasswd"
     fi

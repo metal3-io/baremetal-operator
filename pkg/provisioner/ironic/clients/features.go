@@ -1,11 +1,12 @@
 package clients
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/utils"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/utils"
 )
 
 // AvailableFeatures represents features that Ironic API provides.
@@ -21,8 +22,8 @@ type AvailableFeatures struct {
 // Version 1.81 allows retrival of Node inventory.
 const baseline = "1.81"
 
-func GetAvailableFeatures(client *gophercloud.ServiceClient) (features AvailableFeatures, err error) {
-	mvs, err := utils.GetSupportedMicroversions(client)
+func GetAvailableFeatures(ctx context.Context, client *gophercloud.ServiceClient) (features AvailableFeatures, err error) {
+	mvs, err := utils.GetSupportedMicroversions(ctx, client)
 	if err != nil {
 		return
 	}

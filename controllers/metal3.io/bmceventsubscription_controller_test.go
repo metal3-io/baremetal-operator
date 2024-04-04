@@ -88,6 +88,7 @@ func newDefaultSubscription(t *testing.T) *metal3api.BMCEventSubscription {
 }
 
 func HostWithProvisioningID(t *testing.T, host *metal3api.BareMetalHost) *metal3api.BareMetalHost {
+	t.Helper()
 	host.Status.Provisioning.ID = "made-up-id"
 	return host
 }

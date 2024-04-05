@@ -24,7 +24,6 @@ func TestValidateHostFirmwareComponents(t *testing.T) {
 					Component:      "bios",
 					InitialVersion: "1.0",
 					CurrentVersion: "1.0",
-					UpdatedAt:      metav1.NewTime(time.Now()),
 				},
 				{
 					Component:          "bmc",

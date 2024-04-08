@@ -4,6 +4,10 @@ namespace: baremetal-operator-system
 namePrefix: baremetal-operator-
 resources:
 - ../base
+
+generatorOptions:
+  disableNameSuffixHash: true
+
 configMapGenerator:
 - envs:
   - ironic_bmo_configmap.env

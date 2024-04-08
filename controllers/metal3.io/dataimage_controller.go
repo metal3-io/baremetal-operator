@@ -157,21 +157,34 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		reqLogger.Info("adding finalizer")
 		di.Finalizers = append(di.Finalizers, metal3api.DataImageFinalizer)
 
+		// Update dataImage after adding finalizer, requeue in case of failure
 		err := r.Update(ctx, di)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to update resource after add finalizer")
+			return ctrl.Result{RequeueAfter: dataImageUpdateDelay}, fmt.Errorf("failed to update resource after add finalizer, %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Fetch the latest status of DataImage from Node
-	dataImageStatus, err := prov.GetDataImageStatus()
-	if err != nil {
-		reqLogger.Info("Failed to get current dataimage status", "Error", err)
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to get latest status, Error = %w", err)
+	// Initialize empty dataImage status
+	if di.Status.AttachedImage == nil {
+		di.Status.AttachedImage = &metal3api.AttachedImageReference{}
 	}
-	// Copy the fetched status into the resource status
-	dataImageStatus.DeepCopyInto(&di.Status)
+	if di.Status.Error == nil {
+		di.Status.Error = &metal3api.DataImageError{}
+	}
+
+	// Check if any attach/detach action is pending or failed to attach
+	_, nodeLastError := prov.GetDataImageStatus()
+
+	// Is the current dataImage status valid
+	dirty := false
+	// In case the last node error was not nil for dataimage,
+	// upadate message and counter
+	if nodeLastError != "" {
+		di.Status.Error.Message = nodeLastError
+		di.Status.Error.Count++
+		dirty = true
+	}
 
 	// Remove finalizer if DataImage has been requested for deletion and
 	// there is no attached image, else wait for the detachment.
@@ -180,7 +193,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		dataImageAttachedURL := di.Status.AttachedImage.URL
 
-		if dataImageAttachedURL != "" {
+		if dataImageAttachedURL != "" || dirty {
 			reqLogger.Info("Wait for DataImage to detach before removing finalizer, requeueing")
 			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, nil
 		}

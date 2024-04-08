@@ -42,14 +42,23 @@ func (af AvailableFeatures) Log(logger logr.Logger) {
 	logger.Info("supported Ironic API features",
 		"maxVersion", fmt.Sprintf("1.%d", af.MaxVersion),
 		"chosenVersion", af.ChooseMicroversion(),
-		"firmwareUpdates", af.HasFirmwareUpdates())
+		"firmwareUpdates", af.HasFirmwareUpdates(),
+		"dataImage", af.HasDataImage())
 }
 
 func (af AvailableFeatures) HasFirmwareUpdates() bool {
 	return af.MaxVersion >= 86
 }
 
+func (af AvailableFeatures) HasDataImage() bool {
+	return af.MaxVersion >= 89
+}
+
 func (af AvailableFeatures) ChooseMicroversion() string {
+	if af.HasDataImage() {
+		return "1.89"
+	}
+
 	if af.HasFirmwareUpdates() {
 		return "1.86"
 	}

@@ -1462,14 +1462,30 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		// return actionContinue{}
 	}
 
-	// Fetch the latest status of DataImage from Node
-	dataImageStatus, err := prov.GetDataImageStatus()
-	if err != nil {
-		info.log.Info("Failed to get current DataImage status", "Error", err)
-		return actionError{fmt.Errorf("failed to get latest status, Requeuing. Error = %w", err)}
+	// Initialize empty dataImage status
+	if dataImage.Status.AttachedImage == nil {
+		dataImage.Status.AttachedImage = &metal3api.AttachedImageReference{}
 	}
-	// Copy the fetched status into the resource status
-	dataImageStatus.DeepCopyInto(&dataImage.Status)
+	if dataImage.Status.Error == nil {
+		dataImage.Status.Error = &metal3api.DataImageError{}
+	}
+
+	// Check if any attach/detach action is pending or failed to attach
+	nodeReservation, nodeLastError := prov.GetDataImageStatus()
+	if nodeReservation != "" {
+		info.log.Info("Node is already under reservation, requeue", "Reserved by", nodeReservation)
+		return actionContinue{dataImageRetryDelay}
+	}
+
+	// Is the current dataImage status valid
+	dirty := false
+	// In case the last node error was not nil for dataimage,
+	// upadate message and counter
+	if nodeLastError != "" {
+		dataImage.Status.Error.Message = nodeLastError
+		dataImage.Status.Error.Count++
+		dirty = true
+	}
 
 	deleteDataImage := false
 	if !dataImage.DeletionTimestamp.IsZero() {
@@ -1478,12 +1494,12 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 
 	requestedURL := dataImage.Spec.URL
 
-	// We can assume non null value since GetDataImageStatus was successful
+	// We can assume non null value since we initialized the status earlier
 	attachedURL := dataImage.Status.AttachedImage.URL
 
 	if deleteDataImage {
 		info.log.Info("DataImage requested for deletion")
-		if attachedURL != "" {
+		if attachedURL != "" || dirty {
 			info.log.Info("Detaching DataImage as it was deleted")
 			err := r.detachDataImage(prov, info, dataImage)
 			if err != nil {
@@ -1501,7 +1517,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		return nil
 	}
 
-	if requestedURL != attachedURL {
+	if requestedURL != attachedURL || dirty {
 		info.log.Info("DataImage change detected")
 		if attachedURL != "" {
 			info.log.Info("Detaching DataImage")

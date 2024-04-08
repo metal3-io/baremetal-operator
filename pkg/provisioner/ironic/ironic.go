@@ -1165,10 +1165,10 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 	// Get the components from Ironic via Gophercloud
 	componentList, componentListErr := nodes.ListFirmware(p.ctx, p.client, ironicNode.UUID).Extract()
 
-	if componentListErr != nil {
+	if componentListErr != nil || len(componentList) == 0 {
 		bmcAccess, _ := p.bmcAccess()
-		if bmcAccess.FirmwareInterface() == "no-firmware" {
-			return nil, fmt.Errorf("node %s is using firmware interface %s: %w", ironicNode.UUID, bmcAccess.FirmwareInterface(), componentListErr)
+		if ironicNode.FirmwareInterface == "no-firmware" {
+			return nil, fmt.Errorf("driver %s does not support firmware updates", bmcAccess.Driver())
 		}
 
 		return nil, fmt.Errorf("could not get firmware components for node %s: %w", ironicNode.UUID, componentListErr)
@@ -1429,6 +1429,28 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 				Step:      "apply_configuration",
 				Args: map[string]interface{}{
 					"settings": newSettings,
+				},
+			},
+		)
+	}
+
+	// extract to generate the updates that will trigger a clean step
+	newUpdates := make(map[string]string)
+	if data.TargetFirmwareComponents != nil {
+		for _, update := range data.TargetFirmwareComponents {
+			newUpdates[update.Component] = update.URL
+		}
+	}
+
+	if len(newUpdates) != 0 {
+		p.log.Info("Applying Firmware Update clean steps", "settings", newUpdates)
+		cleanSteps = append(
+			cleanSteps,
+			nodes.CleanStep{
+				Interface: nodes.InterfaceFirmware,
+				Step:      "update",
+				Args: map[string]interface{}{
+					"settings": newUpdates,
 				},
 			},
 		)

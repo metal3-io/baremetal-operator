@@ -7,12 +7,6 @@ spec:
     spec:
       containers:
       - name: ironic
-        readinessProbe:
-         exec:
-           command: ["sh", "-c", "curl -sSf http://127.0.0.1:6388"]
-        livenessProbe:
-         exec:
-           command: ["sh", "-c", "curl -sSf http://127.0.0.1:6388"]
         env:
         - name: IRONIC_REVERSE_PROXY_SETUP
           value: "true"

@@ -18,12 +18,37 @@ REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
 cd "${REPO_ROOT}" || exit 1
 
-# BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
-BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
-# We can choose to use redfish-virtualmedia or redfish as the protocol when using sushy-tools
-SUSHY_TOOLS_PROTOCOL=${SUSHY_TOOLS_PROTOCOL:-"redfish-virtualmedia"}
+# CI originally specified BMO_E2E_EMULATOR only. To avoid breaking it,
+# we need to set BMC_PROTOCOL based on this variable.
+# TODO(lentzi90): Change this to just set the BMO_E2E_EMULATOR based on the
+# BMC_PROTOCOL once CI has been adapted to use it.
+if [[ -z "${BMC_PROTOCOL:-}" ]]; then
+  # If no protocol is specified, we set it based on the emulator.
+  BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
+  if [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
+    BMC_PROTOCOL=${BMC_PROTOCOL:-${SUSHY_TOOLS_PROTOCOL:-"redfish-virtualmedia"}}
+  elif [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
+    BMC_PROTOCOL=${BMC_PROTOCOL:-"ipmi"}
+  else
+    echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
+    exit 1
+  fi
+else
+  # The protocol is set. Pick emulator based on it.
+  if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "redfish-virtualmedia" ]]; then
+    BMO_E2E_EMULATOR="sushy-tools"
+  elif [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
+    BMO_E2E_EMULATOR="vbmc"
+  else
+    echo "FATAL: Invalid BMC protocol specified: ${BMC_PROTOCOL}"
+    exit 1
+  fi
+fi
+echo "BMC_PROTOCOL=${BMC_PROTOCOL}"
+echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
+export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
 case "${GINKGO_FOCUS:-}" in
   *upgrade*)
@@ -74,8 +99,6 @@ rm /tmp/bmo-e2e.tar
 IP_ADDRESS="192.168.222.1"
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
-  BMC_PROTOCOL="ipmi"
-  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-ipmi.yaml"
   # Start VBMC
   docker run --name vbmc --network host -d \
     -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
@@ -84,11 +107,8 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
 
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
-  BMC_PROTOCOL=${SUSHY_TOOLS_PROTOCOL}
-  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${SUSHY_TOOLS_PROTOCOL}.yaml"
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
-
   # Start sushy-tools
   docker run --name sushy-tools -d --network host \
     -v "${SUSHY_EMULATOR_FILE}":/etc/sushy/sushy-emulator.conf:Z \
@@ -97,7 +117,7 @@ elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
     quay.io/metal3-io/sushy-tools:latest sushy-emulator
 
 else
-  echo "Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
+  echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1
 fi
 

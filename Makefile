@@ -189,6 +189,10 @@ $(CONTROLLER_GEN): hack/tools/go.mod
 $(KUSTOMIZE): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v4
 
+.PHONY: deploy-cli
+deploy-cli: $(KUSTOMIZE) ## Build deploy-cli binary
+	go build -o tools/deploy-cli tools/deploy-cli.go
+
 .PHONY: build-e2e
 build-e2e:
 	cd test; go build ./...

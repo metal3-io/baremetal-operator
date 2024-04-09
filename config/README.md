@@ -1,8 +1,15 @@
 # Kustomizations for Baremetal Operator
 
 This folder contains kustomizations for the Baremetal Operator. They have
-traditionally been used through the [deploy.sh](../tools/deploy.sh) script,
+been used through the [deploy-cli](../tools/deploy-cli) executable,
 which takes care of generating the necessary config for basic-auth and TLS.
+To ensure this executable is available, you must first build `deploy-cli` by
+running the following command from the project root:
+
+```shell
+make deploy-cli
+```
+
 However, a more GitOps friendly way would be to create your own static overlay.
 Check the `overlays/e2e` for an example that is used in the e2e tests.
 In the CI system we generate the necessary credentials before starting the test

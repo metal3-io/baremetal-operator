@@ -1,8 +1,14 @@
 # Kustomizations for Ironic
 
 This folder contains kustomizations for Ironic. They are mainly used
-through the [deploy.sh](../tools/deploy.sh) script, which takes care of
+through the [deploy-cli](../tools/deploy-cli) executable, which takes care of
 generating the necessary config for basic-auth and TLS.
+However, this executable needs to be built first. To build `deploy-cli`,
+run the following command from the project root:
+
+```shell
+make deploy-cli
+```
 
 - **base** - This is the kustomize base that we start from.
 - **components** - In here you will find re-usable kustomize components

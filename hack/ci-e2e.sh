@@ -3,12 +3,11 @@
 # -----------------------------------------------------------------------------
 # Description: This script sets up the environment and runs E2E tests for the
 #              BMO project. It uses either vbmc or sushy-tools based on
-#              the BMO_E2E_EMULATOR environment variable.
-#              With sushy-tools, it is also possible to choose between
-#              redfish-virtualmedia and redfish protocols using the
-#              SUSHY_TOOLS_PROTOCOL environment variable.
-#              By default, sushy-tools and redfish-virtualmedia will be used.
-# Usage:       export BMO_E2E_EMULATOR="vbmc"  # Or "sushy-tools"
+#              the BMC_PROTOCOL environment variable.
+#              Supported protocols are: ipmi, redfish and redfish-virtualmedia.
+#              VBMC is used for ipmi and sushy-tools for both redfish protocols.
+#              By default, redfish-virtualmedia will be used.
+# Usage:       export BMC_PROTOCOL="redfish"  # Or "ipmi" or "redfish-virtualmedia"
 #              ./ci-e2e.sh
 # -----------------------------------------------------------------------------
 
@@ -18,32 +17,16 @@ REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
 cd "${REPO_ROOT}" || exit 1
 
-# CI originally specified BMO_E2E_EMULATOR only. To avoid breaking it,
-# we need to set BMC_PROTOCOL based on this variable.
-# TODO(lentzi90): Change this to just set the BMO_E2E_EMULATOR based on the
-# BMC_PROTOCOL once CI has been adapted to use it.
-if [[ -z "${BMC_PROTOCOL:-}" ]]; then
-  # If no protocol is specified, we set it based on the emulator.
-  BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
-  if [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
-    BMC_PROTOCOL=${BMC_PROTOCOL:-${SUSHY_TOOLS_PROTOCOL:-"redfish-virtualmedia"}}
-  elif [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
-    BMC_PROTOCOL=${BMC_PROTOCOL:-"ipmi"}
-  else
-    echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
-    exit 1
-  fi
+BMC_PROTOCOL="${BMC_PROTOCOL:-"redfish-virtualmedia"}"
+if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "redfish-virtualmedia" ]]; then
+  BMO_E2E_EMULATOR="sushy-tools"
+elif [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
+  BMO_E2E_EMULATOR="vbmc"
 else
-  # The protocol is set. Pick emulator based on it.
-  if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "redfish-virtualmedia" ]]; then
-    BMO_E2E_EMULATOR="sushy-tools"
-  elif [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
-    BMO_E2E_EMULATOR="vbmc"
-  else
-    echo "FATAL: Invalid BMC protocol specified: ${BMC_PROTOCOL}"
-    exit 1
-  fi
+  echo "FATAL: Invalid BMC protocol specified: ${BMC_PROTOCOL}"
+  exit 1
 fi
+
 echo "BMC_PROTOCOL=${BMC_PROTOCOL}"
 echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 

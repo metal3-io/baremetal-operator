@@ -153,7 +153,7 @@ popd
 
 # Generate credentials
 BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.3" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
-IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
+IRONIC_OVERLAYS=("${REPO_ROOT}/ironic-deployment/overlays/e2e" "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector")
 
 IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
@@ -175,21 +175,20 @@ for overlay in "${BMO_OVERLAYS[@]}"; do
   fi
 done
 
-echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
-  "${IRONIC_OVERLAY}/ironic-htpasswd"
-
-IRONIC_WITH_INSPECTOR_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector"
-envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
-  "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-auth-config"
-
-echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
-  "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-htpasswd"
-IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
-curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl 
-envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
-  "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-inspector-auth-config"
-echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-  "${IRONIC_INSPECTOR_PASSWORD}")" > "${IRONIC_WITH_INSPECTOR_OVERLAY}/ironic-inspector-htpasswd"
+for overlay in "${IRONIC_OVERLAYS[@]}"; do
+  echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+    "${overlay}/ironic-htpasswd"
+  envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
+  "${overlay}/ironic-auth-config"
+  if [[ "${overlay}" =~ -with-inspector ]]; then
+    IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
+    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl 
+    envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
+      "${overlay}/ironic-inspector-auth-config"
+    echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
+      "${IRONIC_INSPECTOR_PASSWORD}")" > "${overlay}/ironic-inspector-htpasswd"
+  fi
+done
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e

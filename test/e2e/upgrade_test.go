@@ -336,7 +336,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	return namespace, cancelWatches
 }
 
-var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
+var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 
 	var (
 		upgradeClusterProxy framework.ClusterProxy
@@ -394,12 +394,20 @@ var _ = Describe("BMO Upgrade", Label("optional", "upgrade"), func() {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	})
-	DescribeTable("Upgrade",
+	DescribeTable("",
 		func(ctx context.Context, input *BMOIronicUpgradeInput) {
 			namespace, cancelWatches = RunUpgradeTest(ctx, input, upgradeClusterProxy)
 		},
 		func(ctx context.Context, input *BMOIronicUpgradeInput) string {
-			return fmt.Sprintf("Should upgrade %s from %s to latest version", input.UpgradeEntityName, input.InitBMOKustomization)
+			var upgradeFromKustomization string
+			upgradeEntityName := input.UpgradeEntityName
+			switch upgradeEntityName {
+			case "bmo":
+				upgradeFromKustomization = input.InitBMOKustomization
+			case "ironic":
+				upgradeFromKustomization = input.InitIronicKustomization
+			}
+			return fmt.Sprintf("Should upgrade %s from %s to latest version", input.UpgradeEntityName, upgradeFromKustomization)
 		},
 		entries,
 	)

@@ -30,6 +30,26 @@ const (
 	TryLoadImage LoadImageBehavior = "tryLoad"
 )
 
+type BMOIronicUpgradeInput struct {
+	// DeployIronic determines if Ironic should be installed at the beginning of the test.
+	// This should be generally set to `true`, but can be `false` in case Ironic is either pre-installed
+	// or not required (for e.g. in `fixture` setup)
+	DeployIronic bool `yaml:"deployIronic,omitempty"`
+	// DeployBMO determines if BMO should be installed at the beginning of the test.
+	// This should be generally set to `true`, but can be `false` in case BMO is pre-installed
+	DeployBMO bool `yaml:"deployBMO,omitempty"`
+	// Path to the Ironic kustomization that should be installed at the beginning of the test.
+	// Not used if DeployIronic is false
+	InitIronicKustomization string `yaml:"initIronicKustomization,omitempty"`
+	// Path to the BMO kustomization that should be installed at the beginning of the test.
+	// Not used if DeployBMO is false
+	InitBMOKustomization string `yaml:"initBMOKustomization,omitempty"`
+	// Name of the entity that should be upgraded and tested. It should be either `bmo` or `ironic`.
+	UpgradeEntityName string `yaml:"upgradeEntityName,omitempty"`
+	// Path to the kustomization of the entity that should be used in upgrading.
+	UpgradeEntityKustomization string `yaml:"upgradeEntityKustomization,omitempty"`
+}
+
 // Config defines the configuration of an e2e test environment.
 type Config struct {
 	// Images is a list of container images to load into the Kind cluster.
@@ -41,6 +61,9 @@ type Config struct {
 
 	// Intervals to be used for long operations during tests.
 	Intervals map[string][]string `json:"intervals,omitempty"`
+
+	// BMOIronicUpgradeSpecs
+	BMOIronicUpgradeSpecs []BMOIronicUpgradeInput `yaml:"bmoIronicUpgradeSpecs,omitempty"`
 }
 
 // LoadE2EConfig loads the configuration for the e2e test environment.

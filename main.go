@@ -131,7 +131,7 @@ func main() {
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
 	// is for multi-tenancy, then the BMO should watch only the provided
-	// namespace.
+	// namespace test.
 	flag.StringVar(&watchNamespace, "namespace", os.Getenv("WATCH_NAMESPACE"),
 		"Namespace that the controller watches to reconcile host resources.")
 	flag.StringVar(&metricsBindAddr, "metrics-addr", "127.0.0.1:8085",

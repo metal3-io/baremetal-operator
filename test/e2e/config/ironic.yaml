@@ -72,3 +72,9 @@ bmoIronicUpgradeSpecs:
   initIronicKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityKustomization: "../../config/overlays/e2e"
   upgradeEntityName: "bmo"
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.5"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-24.0-with-inspector"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"

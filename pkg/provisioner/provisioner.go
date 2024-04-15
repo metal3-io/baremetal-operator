@@ -99,12 +99,13 @@ type InspectData struct {
 // values are vendor specific.
 // TargetFirmwareSettings contains values that the user has changed.
 type PrepareData struct {
-	TargetRAIDConfig       *metal3api.RAIDConfig
-	ActualRAIDConfig       *metal3api.RAIDConfig
-	RootDeviceHints        *metal3api.RootDeviceHints
-	FirmwareConfig         *metal3api.FirmwareConfig
-	TargetFirmwareSettings metal3api.DesiredSettingsMap
-	ActualFirmwareSettings metal3api.SettingsMap
+	TargetRAIDConfig         *metal3api.RAIDConfig
+	ActualRAIDConfig         *metal3api.RAIDConfig
+	RootDeviceHints          *metal3api.RootDeviceHints
+	FirmwareConfig           *metal3api.FirmwareConfig
+	TargetFirmwareSettings   metal3api.DesiredSettingsMap
+	ActualFirmwareSettings   metal3api.SettingsMap
+	TargetFirmwareComponents []metal3api.FirmwareUpdate
 }
 
 type ProvisionData struct {
@@ -200,6 +201,9 @@ type Provisioner interface {
 
 	// RemoveBMCEventSubscriptionForNode delete the subscription
 	RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result Result, err error)
+
+	// GetFirmwareComponents gets all firmware components available from a note
+	GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error)
 }
 
 // Result holds the response from a call in the Provsioner API.

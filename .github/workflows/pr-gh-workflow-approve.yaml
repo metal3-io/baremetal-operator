@@ -1,0 +1,42 @@
+# adapted from github.com/kubernetes-sigs/cluster-api/.github/workflows/pr-gh-workflow-approve.yaml
+# this workflow approves workflows if the PR has /ok-to-test
+# related Prow feature request https://github.com/kubernetes/test-infra/issues/25210
+
+name: Approve GH Workflows
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  approve:
+    name: Approve on ok-to-test
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: write
+
+    if: contains(github.event.pull_request.labels.*.name, 'ok-to-test')
+    steps:
+    - name: Update PR
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      continue-on-error: true
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const result = await github.rest.actions.listWorkflowRunsForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            event: "pull_request",
+            status: "action_required",
+            head_sha: context.payload.pull_request.head.sha,
+            per_page: 100
+          });
+
+          for (var run of result.data.workflow_runs) {
+            await github.rest.actions.approveWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id
+            });
+          }

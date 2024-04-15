@@ -67,7 +67,7 @@ spec:
         - /bin/runironic
         livenessProbe:
           exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
+            command: ["/bin/ironic-liveness"]
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
@@ -75,7 +75,7 @@ spec:
           failureThreshold: 10
         readinessProbe:
           exec:
-            command: ["sh", "-c", "curl -sSf http://127.0.0.1:6385 || curl -sSfk https://127.0.0.1:6385"]
+            command: ["/bin/ironic-readiness"]
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10

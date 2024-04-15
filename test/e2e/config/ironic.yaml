@@ -23,11 +23,8 @@ variables:
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
 
-  # These settings are for the separate cluster that are used for upgrade tests
-  UPGRADE_DEPLOY_IRONIC: "true"
-  UPGRADE_DEPLOY_BMO: "true"
+  # This setting is for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
-  UPGRADE_BMO_KUSTOMIZATION_FROM: "../../config/overlays/e2e-release-0.5"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"
@@ -55,3 +52,29 @@ intervals:
   default/wait-deleted: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]
   default/wait-connect-ssh: ["2m", "10s"]
+
+bmoIronicUpgradeSpecs:
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.3"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-with-inspector"
+  upgradeEntityKustomization: "../../config/overlays/e2e"
+  upgradeEntityName: "bmo"
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.4"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-with-inspector"
+  upgradeEntityKustomization: "../../config/overlays/e2e"
+  upgradeEntityName: "bmo"
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.5"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityKustomization: "../../config/overlays/e2e"
+  upgradeEntityName: "bmo"
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.5"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-24.0-with-inspector"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"

@@ -11,8 +11,6 @@ spec:
     kind: HostFirmwareComponents
     listKind: HostFirmwareComponentsList
     plural: hostfirmwarecomponents
-    shortNames:
-    - hfc
     singular: hostfirmwarecomponents
   scope: Namespaced
   versions:
@@ -77,10 +75,7 @@ spec:
                       type: string
                   required:
                   - component
-                  - currentVersion
                   - initialVersion
-                  - lastVersionFlashed
-                  - updatedAt
                   type: object
                 type: array
               conditions:

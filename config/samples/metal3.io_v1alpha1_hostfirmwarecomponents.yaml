@@ -1,7 +1,13 @@
 apiVersion: metal3.io/v1alpha1
 kind: HostFirmwareComponents
 metadata:
-  namespace: host3firmwarecomponents.metal3.io
+  labels:
+    app.kubernetes.io/name: hostfirmwarecomponents
+    app.kubernetes.io/instance: hostfirmwarecomponents-sample
+    app.kubernetes.io/part-of: baremetal-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: baremetal-operator
+  name: hostfirmwarecomponents-sample
 spec:
   updates:
   - name: bios

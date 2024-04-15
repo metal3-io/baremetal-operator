@@ -144,7 +144,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil || !ready {
 		var msg string
 		if err == nil {
-			msg = "not ready"
+			msg = "Not ready"
 		} else {
 			msg = err.Error()
 		}

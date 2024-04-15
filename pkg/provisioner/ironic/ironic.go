@@ -2195,7 +2195,6 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 	return operationComplete()
 }
 
-// Get DataImage Details
 // Fetches the VirtualMedia details of the BareMetalHost and updates DataImage.
 func (p *ironicProvisioner) GetDataImageStatus() (nodeReservation string, nodeLastError string) {
 	// TODO(hroyrh)
@@ -2213,10 +2212,6 @@ func (p *ironicProvisioner) GetDataImageStatus() (nodeReservation string, nodeLa
 }
 
 func (p *ironicProvisioner) AttachDataImage(url string) (err error) {
-	p.log.Info("Calling the IronicProvisioner.AttachDataImage function")
-
-	// TODO(hroyrh)
-	// How will we know about the device type and source type ?
 	err = nodes.AttachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.AttachVirtualMediaOpts{
 		DeviceType: nodes.VirtualMediaCD,
 		ImageURL:   url,
@@ -2229,10 +2224,6 @@ func (p *ironicProvisioner) AttachDataImage(url string) (err error) {
 }
 
 func (p *ironicProvisioner) DetachDataImage() (err error) {
-	p.log.Info("Calling the IronicProvisioner.DetachDataImage function")
-
-	// TODO(hroyrh)
-	// How will we know about the device type and source type ?
 	err = nodes.DetachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.DetachVirtualMediaOpts{
 		DeviceTypes: []nodes.VirtualMediaDeviceType{nodes.VirtualMediaCD},
 	}).ExtractErr()

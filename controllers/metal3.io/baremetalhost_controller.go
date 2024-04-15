@@ -1458,8 +1458,9 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		if err := r.Update(info.ctx, dataImage); err != nil {
 			return actionError{fmt.Errorf("failure creating dataImage resource, %w", err)}
 		}
-		// Should we requeue at this point
+		// TODO(hroyrh) : Should we requeue at this point
 		// return actionContinue{}
+		return actionContinue{dataImageUpdateDelay}
 	}
 
 	// Initialize empty dataImage status
@@ -1588,15 +1589,13 @@ func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, 
 	// Clear errors if attachment succeeds
 	dataImage.Status.Error.Count = 0
 	dataImage.Status.Error.Message = ""
+	// Update attached.URL here, we will mark it dirty in case any node errors
+	// are encountered
+	dataImage.Status.AttachedImage.URL = dataImage.Spec.URL
 	// Error updating DataImage Status
 	if err := r.Status().Update(info.ctx, dataImage); err != nil {
 		return fmt.Errorf("failed to update DataImage status, %w", err)
 	}
-
-	// Dummy value set
-	// TODO(hroyrh) Setting value directly now, update value depending on success
-	// of prov.AttachDataImage
-	dataImage.Status.AttachedImage.URL = dataImage.Spec.URL
 
 	return nil
 }
@@ -1620,15 +1619,13 @@ func (r *BareMetalHostReconciler) detachDataImage(prov provisioner.Provisioner, 
 	// Clear errors if detachment succeeds
 	dataImage.Status.Error.Count = 0
 	dataImage.Status.Error.Message = ""
+	// Update attached.URL here, we will mark it dirty in case any node errors
+	// are encountered
+	dataImage.Status.AttachedImage.URL = ""
 	// Error updating DataImage Status
 	if err := r.Status().Update(info.ctx, dataImage); err != nil {
 		return fmt.Errorf("failed to update DataImage status, %w", err)
 	}
-
-	// Dummy value set
-	// TODO(hroyrh) Setting value directly, update value depending on success
-	// of prov.DetachDataImage
-	dataImage.Status.AttachedImage.URL = ""
 
 	return nil
 }

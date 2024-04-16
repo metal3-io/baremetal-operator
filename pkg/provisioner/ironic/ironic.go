@@ -1357,6 +1357,42 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 	return sameImage
 }
 
+func (p *ironicProvisioner) getNewFirmwareSettings(actualFirmwareSettings metal3api.SettingsMap, targetFirmwareSettings metal3api.DesiredSettingsMap, fwConfigSettings []map[string]string) (newSettings []map[string]interface{}) {
+	if actualFirmwareSettings != nil {
+		// If we have the current settings from Ironic, update the settings to contain:
+		// 1. settings converted by BMC drivers that are different than current settings
+		for _, fwConfigSetting := range fwConfigSettings {
+			if val, exists := actualFirmwareSettings[fwConfigSetting["name"]]; exists {
+				if fwConfigSetting["value"] != val {
+					newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], intstr.FromString(fwConfigSetting["value"]))
+				}
+			} else {
+				p.log.Info("name converted from bmc driver not found in firmware settings", "name", fwConfigSetting["name"], "node", p.nodeID)
+			}
+		}
+
+		// 2. target settings that are different than current settings
+		for k, v := range targetFirmwareSettings {
+			if actualFirmwareSettings[k] != v.String() {
+				// Skip changing this setting if it was defined in the vendor specific settings
+				for _, fwConfigSetting := range fwConfigSettings {
+					if fwConfigSetting["name"] == k {
+						continue
+					}
+				}
+				newSettings = buildFirmwareSettings(newSettings, k, v)
+			}
+		}
+	} else {
+		// use only the settings converted by bmc driver. Note that these settings are all strings
+		for _, fwConfigSetting := range fwConfigSettings {
+			newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], intstr.FromString(fwConfigSetting["value"]))
+		}
+	}
+
+	return newSettings
+}
+
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
 	raidCleanSteps, err := BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
@@ -1376,41 +1412,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		return nil, err
 	}
 
-	var newSettings []map[string]interface{}
-	if data.ActualFirmwareSettings != nil {
-		// If we have the current settings from Ironic, update the settings to contain:
-		// 1. settings converted by BMC drivers that are different than current settings
-		for _, fwConfigSetting := range fwConfigSettings {
-			if val, exists := data.ActualFirmwareSettings[fwConfigSetting["name"]]; exists {
-				if fwConfigSetting["value"] != val {
-					newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], intstr.FromString(fwConfigSetting["value"]))
-				}
-			} else {
-				p.log.Info("name converted from bmc driver not found in firmware settings", "name", fwConfigSetting["name"], "node", p.nodeID)
-			}
-		}
-
-		// 2. target settings that are different than current settings
-		if data.TargetFirmwareSettings != nil {
-			for k, v := range data.TargetFirmwareSettings {
-				if data.ActualFirmwareSettings[k] != v.String() {
-					// Skip changing this setting if it was defined in the vendor specific settings
-					for _, fwConfigSetting := range fwConfigSettings {
-						if fwConfigSetting["name"] == k {
-							continue
-						}
-					}
-					newSettings = buildFirmwareSettings(newSettings, k, v)
-				}
-			}
-		}
-	} else {
-		// use only the settings converted by bmc driver. Note that these settings are all strings
-		for _, fwConfigSetting := range fwConfigSettings {
-			newSettings = buildFirmwareSettings(newSettings, fwConfigSetting["name"], intstr.FromString(fwConfigSetting["value"]))
-		}
-	}
-
+	newSettings := p.getNewFirmwareSettings(data.ActualFirmwareSettings, data.TargetFirmwareSettings, fwConfigSettings)
 	if len(newSettings) != 0 {
 		p.log.Info("Applying BIOS config clean steps", "settings", newSettings)
 		cleanSteps = append(

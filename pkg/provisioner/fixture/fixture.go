@@ -210,6 +210,13 @@ func (p *fixtureProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool,
 	return
 }
 
+// Service remove existing configuration and set new configuration.
+func (p *fixtureProvisioner) Service(_ provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
+	p.log.Info("servicing host")
+	started = unprepared
+	return
+}
+
 // Adopt notifies the provisioner that the state machine believes the host
 // to be currently provisioned, and that it should be managed as such.
 func (p *fixtureProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {

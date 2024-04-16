@@ -211,6 +211,28 @@ func (p *demoProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ 
 	return
 }
 
+func (p *demoProvisioner) Service(_ provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
+	hostName := p.objectMeta.Name
+
+	switch hostName {
+	case PreparingErrorHost:
+		p.log.Info("servicing error host")
+		result.ErrorMessage = "servicing failed"
+
+	case PreparingHost:
+		p.log.Info("servicing host")
+		started = unprepared
+		result.Dirty = true
+		result.RequeueAfter = time.Second * 5
+
+	default:
+		p.log.Info("finished servicing")
+		started = true
+	}
+
+	return
+}
+
 // Adopt notifies the provisioner that the state machine believes the host
 // to be currently provisioned, and that it should be managed as such.
 func (p *demoProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {

@@ -1,6 +1,6 @@
 module github.com/metal3-io/baremetal-operator/tooling
 
-go 1.21
+go 1.22
 
 require (
 	sigs.k8s.io/controller-tools v0.12.1

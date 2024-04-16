@@ -56,7 +56,7 @@ linters:
   fast: true
 linters-settings:
   gosec:
-    go: "1.21"
+    go: "1.22"
     severity: medium
     confidence: medium
     concurrency: 8
@@ -87,9 +87,9 @@ linters-settings:
     allow-leading-space: false
     require-specific: true
   staticcheck:
-    go: "1.21"
+    go: "1.22"
   stylecheck:
-    go: "1.21"
+    go: "1.22"
   gocritic:
     enabled-tags:
     - experimental
@@ -108,7 +108,7 @@ linters-settings:
     - whyNoLint
     - wrapperFunc
   unused:
-    go: "1.21"
+    go: "1.22"
 issues:
   exclude-rules:
   - path: test/e2e

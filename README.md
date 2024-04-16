@@ -1,7 +1,7 @@
 # Bare Metal Operator
 
-[![Ubuntu daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_daily_main_integration_test_ubuntu&subject=Ubuntu%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3_daily_main_integration_test_ubuntu/)
-[![CentOS daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_daily_main_integration_test_centos&subject=CentOS%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3_daily_main_integration_test_centos/)
+[![Ubuntu E2E Integration 1.4 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_periodic_release-1-4_integration_test_ubuntu&subject=Ubuntu%20e2e%20integration%201.4)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3_periodic_release-1-4_integration_test_ubuntu/)
+[![CentOS E2E Integration 1.4 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_periodic_release-1-4_integration_test_centos&subject=Centos%20e2e%20integration%201.4)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3_periodic_release-1-4_integration_test_centos/)
 
 The Bare Metal Operator implements a Kubernetes API for managing bare metal
 hosts. It maintains an inventory of available hosts as instances of the

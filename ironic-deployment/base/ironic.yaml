@@ -20,7 +20,7 @@ spec:
       hostNetwork: true
       containers:
       - name: ironic-dnsmasq
-        image: quay.io/metal3-io/ironic
+        image: quay.io/metal3-io/ironic:release-24.1
         imagePullPolicy: Always
         securityContext:
           # Must be true so dnsmasq may get the capabilities via file caps

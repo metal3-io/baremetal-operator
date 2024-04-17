@@ -9,6 +9,7 @@ commonAnnotations:
 resources:
 - crds/bases/metal3.io_baremetalhosts.yaml
 - crds/bases/metal3.io_hostfirmwaresettings.yaml
+- crds/bases/metal3.io_hostfirmwarecomponents.yaml
 - crds/bases/metal3.io_firmwareschemas.yaml
 - crds/bases/metal3.io_preprovisioningimages.yaml
 - crds/bases/metal3.io_bmceventsubscriptions.yaml

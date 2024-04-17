@@ -9,6 +9,7 @@ commonAnnotations:
 resources:
 - bases/metal3.io_baremetalhosts.yaml
 - bases/metal3.io_hostfirmwaresettings.yaml
+- bases/metal3.io_hostfirmwarecomponents.yaml
 - bases/metal3.io_firmwareschemas.yaml
 - bases/metal3.io_preprovisioningimages.yaml
 - bases/metal3.io_bmceventsubscriptions.yaml

@@ -20,8 +20,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-
-	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 )
 
 var _ = Describe("Provision, detach, recreate from status and deprovision", Label("required", "provision", "detach", "status", "deprovision"),
@@ -131,7 +129,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 				auth := ssh.PublicKeys(signer)
 				PerformSSHBootCheck(e2eConfig, "disk", auth, fmt.Sprintf("%s:%s", bmc.IPAddress, bmc.SSHPort))
 			} else {
-				capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
+				Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 			}
 
 			By("Retrieving the latest BMH object")

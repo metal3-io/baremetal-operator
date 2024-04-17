@@ -18,8 +18,6 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3bmc "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
-
-	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
 )
 
 var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
@@ -113,7 +111,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 			auth := ssh.PublicKeys(signer)
 			PerformSSHBootCheck(e2eConfig, "memory", auth, fmt.Sprintf("%s:%s", bmc.IPAddress, bmc.SSHPort))
 		} else {
-			capm3_e2e.Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
+			Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}
 
 		By("Triggering the deprovisioning of the BMH")

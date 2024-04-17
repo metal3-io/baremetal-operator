@@ -12,8 +12,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
 
-	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
-
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
@@ -75,7 +73,7 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
 		By("setting the reboot annotation and checking that the BMH was rebooted")
-		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, rebootAnnotation, pointer.String("{\"force\": true}"))
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, rebootAnnotation, pointer.String("{\"force\": true}"))
 
 		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
 			Client: clusterProxy.GetClient(),
@@ -90,7 +88,7 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
 
 		By("setting the power off annotation on the BMH and checking that it worked")
-		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, pointer.String("{\"force\": true}"))
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, pointer.String("{\"force\": true}"))
 
 		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
 			Client: clusterProxy.GetClient(),
@@ -100,7 +98,7 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 
 		// power on
 		By("removing the power off annotation and checking that the BMH powers on")
-		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, nil)
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, nil)
 
 		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
 			Client: clusterProxy.GetClient(),

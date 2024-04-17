@@ -14,8 +14,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
 
-	capm3_e2e "github.com/metal3-io/cluster-api-provider-metal3/test/e2e"
-
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
@@ -82,10 +80,10 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		Expect(bmh.Status.HardwareDetails.Hostname).To(Equal(wrongHostName))
 
 		By("removing HardwareDetailsAnnotation")
-		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.HardwareDetailsAnnotation, nil)
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.HardwareDetailsAnnotation, nil)
 
 		By("adding InspectAnnotation to re-inspect")
-		capm3_e2e.AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.InspectAnnotationPrefix, pointer.String(""))
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.InspectAnnotationPrefix, pointer.String(""))
 
 		By("waiting for the BMH to be in inspecting state after inspection annotaion")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{

@@ -93,10 +93,11 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 
-// Allow for managing hostfirmwaresettings and firmwareschema
+// Allow for managing hostfirmwaresettings, firmwareschema, bmceventsubscriptions and hostfirmwarecomponents
 //+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch
 
 // Reconcile handles changes to BareMetalHost resources.
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
@@ -871,13 +872,18 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	}
 
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
+	// Create the hostFirmwareComponents resource with same host name/namespace if it doesn't exist
 	if info.host.Name != "" {
 		if !info.host.DeletionTimestamp.IsZero() {
-			info.log.Info(fmt.Sprintf("will not attempt to create new hostFirmwareSettings in %s", info.host.Namespace))
+			info.log.Info(fmt.Sprintf("will not attempt to create new hostFirmwareSettings and hostFirmwareComponents in %s", info.host.Namespace))
 		} else {
 			if err = r.createHostFirmwareSettings(info); err != nil {
 				info.log.Info("failed creating hostfirmwaresettings")
 				return actionError{errors.Wrap(err, "failed creating hostFirmwareSettings")}
+			}
+			if err = r.createHostFirmwareComponents(info); err != nil {
+				info.log.Info("failed creating hostfirmwarecomponents")
+				return actionError{errors.Wrap(err, "failed creating hostFirmwareComponents")}
 			}
 		}
 	}
@@ -1124,7 +1130,20 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		prepareData.TargetFirmwareSettings = hfs.Spec.Settings.DeepCopy()
 	}
 
-	provResult, started, err := prov.Prepare(prepareData, bmhDirty || hfsDirty,
+	// The hfcDirty flag is used to push the new versions of components to Ironic as part of the clean steps.
+	// The HFC Status field will be updated in the HostFirmwareComponentsReconciler when it reads the settings from Ironic.
+	// After manual cleaning is complete the HFC Spec should match the Status.
+	hfcDirty, hfc, err := r.getHostFirmwareComponents(info)
+
+	if err != nil {
+		// wait until hostFirmwareComponents are ready
+		return actionContinue{subResourceNotReadyRetryDelay}
+	}
+	if hfcDirty {
+		prepareData.TargetFirmwareComponents = hfc.Spec.Updates
+	}
+
+	provResult, started, err := prov.Prepare(prepareData, bmhDirty || hfsDirty || hfcDirty,
 		info.host.Status.ErrorType == metal3api.PreparationError)
 
 	if err != nil {
@@ -1497,6 +1516,36 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 	return
 }
 
+func (r *BareMetalHostReconciler) createHostFirmwareComponents(info *reconcileInfo) error {
+	// Check if HostFirmwareComponents already exists
+	hfc := &metal3api.HostFirmwareComponents{}
+	if err := r.Get(info.ctx, info.request.NamespacedName, hfc); err != nil {
+		if k8serrors.IsNotFound(err) {
+			// A resource doesn't exist, create one
+			hfc.ObjectMeta = metav1.ObjectMeta{
+				Name:      info.host.Name,
+				Namespace: info.host.Namespace}
+
+			hfc.Spec = metal3api.HostFirmwareComponentsSpec{
+				Updates: []metal3api.FirmwareUpdate{}}
+
+			// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
+			if err = controllerutil.SetControllerReference(info.host, hfc, r.Scheme()); err != nil {
+				return errors.Wrap(err, "could not set bmh as controller")
+			}
+			if err = r.Create(info.ctx, hfc); err != nil {
+				return errors.Wrap(err, "failure creating hostFirmwareComponents resource")
+			}
+
+			info.log.Info("created new hostFirmwareComponents resource")
+		} else {
+			// Error reading the object
+			return errors.Wrap(err, "could not load hostFirmwareComponents resource")
+		}
+	}
+	return nil
+}
+
 func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo) error {
 	// Check if HostFirmwareSettings already exists
 	hfs := &metal3api.HostFirmwareSettings{}
@@ -1558,6 +1607,45 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 	}
 
 	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)
+	return false, nil, nil
+}
+
+// Get the stored firmware settings if there are valid changes.
+
+func (r *BareMetalHostReconciler) getHostFirmwareComponents(info *reconcileInfo) (dirty bool, hfc *metal3api.HostFirmwareComponents, err error) {
+	hfc = &metal3api.HostFirmwareComponents{}
+	if err = r.Get(info.ctx, info.request.NamespacedName, hfc); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			// Error reading the object
+			return false, nil, errors.Wrap(err, "could not load host firmware components")
+		}
+
+		// Could not get settings, log it but don't return error as settings may not have been available at provisioner
+		info.log.Info("could not get hostFirmwareComponents", "namespacename", info.request.NamespacedName)
+		return false, nil, nil
+	}
+
+	// Check if there are Updates in the Spec that are different than the Status
+	if meta.IsStatusConditionTrue(hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsChangeDetected)) {
+		// Check if the status have been populated
+		if len(hfc.Status.Updates) == 0 {
+			return false, nil, errors.New("host firmware status updates not available")
+		}
+
+		if len(hfc.Status.Components) == 0 {
+			return false, nil, errors.New("host firmware status components not available")
+		}
+
+		if meta.IsStatusConditionTrue(hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsValid)) {
+			info.log.Info("hostFirmwareComponents indicating ChangeDetected", "namespacename", info.request.NamespacedName)
+			return true, hfc, nil
+		}
+
+		info.log.Info("hostFirmwareComponents not valid", "namespacename", info.request.NamespacedName)
+		return false, nil, nil
+	}
+
+	info.log.Info("hostFirmwareComponents no updates", "namespacename", info.request.NamespacedName)
 	return false, nil, nil
 }
 

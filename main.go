@@ -292,6 +292,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&metal3iocontroller.HostFirmwareComponentsReconciler{
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("HostFirmwareComponents"),
+		ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr, maxConcurrency); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HostFirmwareComponents")
+		os.Exit(1)
+	}
+
 	setupChecks(mgr)
 
 	if enableWebhook {

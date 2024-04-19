@@ -3,12 +3,11 @@
 # -----------------------------------------------------------------------------
 # Description: This script sets up the environment and runs E2E tests for the
 #              BMO project. It uses either vbmc or sushy-tools based on
-#              the BMO_E2E_EMULATOR environment variable.
-#              With sushy-tools, it is also possible to choose between
-#              redfish-virtualmedia and redfish protocols using the
-#              SUSHY_TOOLS_PROTOCOL environment variable.
-#              By default, sushy-tools and redfish-virtualmedia will be used.
-# Usage:       export BMO_E2E_EMULATOR="vbmc"  # Or "sushy-tools"
+#              the BMC_PROTOCOL environment variable.
+#              Supported protocols are: ipmi, redfish and redfish-virtualmedia.
+#              VBMC is used for ipmi and sushy-tools for both redfish protocols.
+#              By default, redfish-virtualmedia will be used.
+# Usage:       export BMC_PROTOCOL="redfish"  # Or "ipmi" or "redfish-virtualmedia"
 #              ./ci-e2e.sh
 # -----------------------------------------------------------------------------
 
@@ -18,18 +17,28 @@ REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
 cd "${REPO_ROOT}" || exit 1
 
-# BMO_E2E_EMULATOR can be set to either "vbmc" or "sushy-tools"
-BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
-# We can choose to use redfish-virtualmedia or redfish as the protocol when using sushy-tools
-SUSHY_TOOLS_PROTOCOL=${SUSHY_TOOLS_PROTOCOL:-"redfish-virtualmedia"}
+BMC_PROTOCOL="${BMC_PROTOCOL:-"redfish-virtualmedia"}"
+if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "redfish-virtualmedia" ]]; then
+  BMO_E2E_EMULATOR="sushy-tools"
+elif [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
+  BMO_E2E_EMULATOR="vbmc"
+else
+  echo "FATAL: Invalid BMC protocol specified: ${BMC_PROTOCOL}"
+  exit 1
+fi
+
+echo "BMC_PROTOCOL=${BMC_PROTOCOL}"
+echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
+export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
 case "${GINKGO_FOCUS:-}" in
   *upgrade*)
     export DEPLOY_IRONIC="false"
     export DEPLOY_BMO="false"
     export DEPLOY_CERT_MANAGER="false"
+    export GINKGO_NODES=1
     ;;
   *)
     export GINKGO_SKIP="${GINKGO_SKIP:-upgrade}"
@@ -74,8 +83,6 @@ rm /tmp/bmo-e2e.tar
 IP_ADDRESS="192.168.222.1"
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
-  BMC_PROTOCOL="ipmi"
-  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-ipmi.yaml"
   # Start VBMC
   docker run --name vbmc --network host -d \
     -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
@@ -84,11 +91,8 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
 
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
-  BMC_PROTOCOL=${SUSHY_TOOLS_PROTOCOL}
-  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${SUSHY_TOOLS_PROTOCOL}.yaml"
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
-
   # Start sushy-tools
   docker run --name sushy-tools -d --network host \
     -v "${SUSHY_EMULATOR_FILE}":/etc/sushy/sushy-emulator.conf:Z \
@@ -97,15 +101,11 @@ elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
     quay.io/metal3-io/sushy-tools:latest sushy-emulator
 
 else
-  echo "Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
+  echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1
 fi
 
 "${REPO_ROOT}/hack/create_bmcs.sh" "${E2E_BMCS_CONF_FILE}" baremetal-e2e
-
-# Set the number of ginkgo processes to the number of BMCs
-n_vms=$(yq '. | length' "${E2E_BMCS_CONF_FILE}")
-export GINKGO_NODES="${n_vms}"
 
 # Image server variables
 CIRROS_VERSION="0.6.2"
@@ -152,8 +152,8 @@ export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
 popd
 
 # Generate credentials
-BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
-IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
+BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.3" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
+IRONIC_OVERLAYS=("${REPO_ROOT}/ironic-deployment/overlays/e2e" "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector")
 
 IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
@@ -175,9 +175,20 @@ for overlay in "${BMO_OVERLAYS[@]}"; do
   fi
 done
 
-echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
-  "${IRONIC_OVERLAY}/ironic-htpasswd"
-
+for overlay in "${IRONIC_OVERLAYS[@]}"; do
+  echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+    "${overlay}/ironic-htpasswd"
+  envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
+  "${overlay}/ironic-auth-config"
+  if [[ "${overlay}" =~ -with-inspector ]]; then
+    IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
+    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl 
+    envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
+      "${overlay}/ironic-inspector-auth-config"
+    echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
+      "${IRONIC_INSPECTOR_PASSWORD}")" > "${overlay}/ironic-inspector-htpasswd"
+  fi
+done
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e

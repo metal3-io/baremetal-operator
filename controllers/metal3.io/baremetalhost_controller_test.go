@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -780,6 +781,63 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	delete(host.Annotations, annotation)
 	err := r.Update(context.TODO(), host)
 	assert.NoError(t, err)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+
+	// make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+}
+
+// TestRebootWithServicing tests full reboot cycle with suffixless
+// annotation and servicing.
+func TestRebootWithServicing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[metal3api.RebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Spec.Firmware = &metal3api.FirmwareConfig{
+		VirtualizationEnabled: ptr.To(true),
+	}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, exists := host.Annotations[metal3api.RebootAnnotationPrefix]
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !exists
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing && !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !host.Status.PoweredOn
+		},
+	)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {

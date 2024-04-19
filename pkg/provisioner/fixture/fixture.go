@@ -205,15 +205,18 @@ func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.Hardware
 
 // Prepare remove existing configuration and set new configuration.
 func (p *fixtureProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
-	p.log.Info("preparing host")
+	p.log.Info("preparing host", "unprepared", unprepared)
 	started = unprepared
 	return
 }
 
 // Service remove existing configuration and set new configuration.
 func (p *fixtureProvisioner) Service(_ provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
-	p.log.Info("servicing host")
+	p.log.Info("servicing host", "unprepared", unprepared)
 	started = unprepared
+	if started {
+		result.Dirty = true
+	}
 	return
 }
 

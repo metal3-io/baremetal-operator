@@ -58,6 +58,11 @@ type fixtureProvisioner struct {
 	state *Fixture
 }
 
+type HostFirmwareSettingsMock struct {
+	Settings metal3api.SettingsMap
+	Schema   map[string]metal3api.SettingSchema
+}
+
 // Fixture contains persistent state for a particular host.
 type Fixture struct {
 	// counter to set the provisioner as ready
@@ -74,6 +79,8 @@ type Fixture struct {
 	validateError string
 
 	customDeploy *metal3api.CustomDeploy
+
+	HostFirmwareSettings HostFirmwareSettingsMock
 }
 
 // NewProvisioner returns a new Fixture Provisioner.
@@ -339,7 +346,7 @@ func (p *fixtureProvisioner) TryInit() (result bool, err error) {
 
 func (p *fixtureProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	p.log.Info("getting BIOS settings")
-	return
+	return p.state.HostFirmwareSettings.Settings, p.state.HostFirmwareSettings.Schema, nil
 }
 
 func (p *fixtureProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {

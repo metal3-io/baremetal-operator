@@ -325,6 +325,8 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 		metal3api.InspectionError:              "InspectionError",
 		metal3api.ProvisioningError:            "ProvisioningError",
 		metal3api.PowerManagementError:         "PowerManagementError",
+		metal3api.PreparationError:             "PreparationError",
+		metal3api.ServicingError:               "ServicingError",
 	}[errorType]
 
 	counter := actionFailureCounters.WithLabelValues(eventType)
@@ -464,9 +466,9 @@ func hasInspectAnnotation(host *metal3api.BareMetalHost) bool {
 	return false
 }
 
-// clearError removes any existing error message.
-func clearError(host *metal3api.BareMetalHost) (dirty bool) {
-	dirty = host.SetOperationalStatus(metal3api.OperationalStatusOK)
+// clearErrorWithStatus removes any existing error message and sets operational status.
+func clearErrorWithStatus(host *metal3api.BareMetalHost, status metal3api.OperationalStatus) (dirty bool) {
+	dirty = host.SetOperationalStatus(status)
 	var emptyErrType metal3api.ErrorType
 	if host.Status.ErrorType != emptyErrType {
 		host.Status.ErrorType = emptyErrType
@@ -477,6 +479,11 @@ func clearError(host *metal3api.BareMetalHost) (dirty bool) {
 		dirty = true
 	}
 	return dirty
+}
+
+// clearError removes any existing error message.
+func clearError(host *metal3api.BareMetalHost) (dirty bool) {
+	return clearErrorWithStatus(host, metal3api.OperationalStatusOK)
 }
 
 // setErrorMessage updates the ErrorMessage in the host Status struct
@@ -1359,6 +1366,66 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	return actionComplete{}
 }
 
+func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, info *reconcileInfo) (result actionResult, isServicing bool) {
+	servicingData := provisioner.ServicingData{}
+
+	var fwDirty bool
+	if !reflect.DeepEqual(info.host.Status.Provisioning.Firmware, info.host.Spec.Firmware) {
+		servicingData.FirmwareConfig = info.host.Spec.Firmware
+		fwDirty = true
+	}
+
+	hfsDirty, hfs, err := r.getHostFirmwareSettings(info)
+	if err != nil {
+		return actionError{fmt.Errorf("could not determine updated settings: %w", err)}, false
+	}
+	if hfsDirty {
+		servicingData.ActualFirmwareSettings = hfs.Status.Settings
+		servicingData.TargetFirmwareSettings = hfs.Spec.Settings
+	}
+
+	dirty := fwDirty || hfsDirty
+
+	// Even if settings are clean, we need to check the result of the current servicing.
+	if !dirty && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
+		// If nothing is going on, return control to the power management.
+		return nil, false
+	}
+
+	provResult, started, err := prov.Service(servicingData, dirty,
+		info.host.Status.ErrorType == metal3api.ServicingError)
+	if err != nil {
+		return actionError{fmt.Errorf("error servicing host: %w", err)}, false
+	}
+	if provResult.ErrorMessage != "" {
+		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
+		return result, true
+	}
+	if started && clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing) {
+		if fwDirty {
+			info.host.Status.Provisioning.Firmware = info.host.Spec.Firmware.DeepCopy()
+		}
+		dirty = true
+	}
+
+	if provResult.Dirty {
+		result := actionContinue{provResult.RequeueAfter}
+		if dirty {
+			return actionUpdate{result}, true
+		}
+		return result, true
+	}
+
+	// Servicing is finished at this point, clean up operational status
+	if clearErrorWithStatus(info.host, metal3api.OperationalStatusOK) {
+		// We need to give the HostFirmwareSettings controller some time to
+		// catch up with the changes, otherwise we risk starting the same
+		// operation again.
+		return actionUpdate{actionContinue{delay: subResourceNotReadyRetryDelay}}, true
+	}
+	return nil, false
+}
+
 // Check the current power status against the desired power status.
 func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	var provResult provisioner.Result
@@ -1372,11 +1439,19 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	if hwState.PoweredOn != nil && *hwState.PoweredOn != info.host.Status.PoweredOn {
 		info.log.Info("updating power status", "discovered", *hwState.PoweredOn)
 		info.host.Status.PoweredOn = *hwState.PoweredOn
-		clearError(info.host)
+		targetOperationalStatus := metal3api.OperationalStatusOK
+		if info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing {
+			targetOperationalStatus = metal3api.OperationalStatusServicing
+		}
+		clearErrorWithStatus(info.host, targetOperationalStatus)
 		return actionUpdate{}
 	}
 
 	desiredPowerOnState := info.host.Spec.Online
+
+	provState := info.host.Status.Provisioning.State
+	// Normal reboots only work in provisioned states, changing online is also possible for available hosts.
+	isProvisioned := provState == metal3api.StateProvisioned || provState == metal3api.StateExternallyProvisioned
 
 	if !info.host.Status.PoweredOn {
 		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
@@ -1390,9 +1465,13 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		}
 	}
 
-	provState := info.host.Status.Provisioning.State
-	// Normal reboots only work in provisioned states, changing online is also possible for available hosts.
-	isProvisioned := provState == metal3api.StateProvisioned || provState == metal3api.StateExternallyProvisioned
+	servicingAllowed := isProvisioned && !info.host.Status.PoweredOn && desiredPowerOnState
+	if servicingAllowed || info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError {
+		result, isServicing := r.checkServicing(prov, info)
+		if result != nil && (result.Dirty() || isServicing) {
+			return result
+		}
+	}
 
 	desiredReboot, desiredRebootMode := hasRebootAnnotation(info, !isProvisioned)
 

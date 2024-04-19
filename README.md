@@ -2,8 +2,8 @@
 
 [![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/metal3-io/badge)](https://clomonitor.io/projects/cncf/metal3-io)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/metal3-io/baremetal-operator/badge)](https://securityscorecards.dev/viewer/?uri=github.com/metal3-io/baremetal-operator)
-[![Ubuntu daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_daily_main_integration_test_ubuntu&subject=Ubuntu%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3_daily_main_integration_test_ubuntu/)
-[![CentOS daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_daily_main_integration_test_centos&subject=CentOS%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3_daily_main_integration_test_centos/)
+[![Ubuntu periodic main](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3_periodic_main_integration_test_ubuntu/badge/icon?job=metal3_periodic_main_integration_test_ubuntu&subject=Ubuntu%20periodic%20main)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3_periodic_main_integration_test_ubuntu/)
+[![Centos periodic main](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3_periodic_main_integration_test_centos/badge/icon?job=metal3_periodic_main_integration_test_centos&subject=Centos%20periodic%20main)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3_periodic_main_integration_test_centos/)
 [![BMO e2e periodic main](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-bmo-e2e-test-periodic/badge/icon?subject=BMO%20e2e%20periodic%20main)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-bmo-e2e-test-periodic/)
 
 The Bare Metal Operator implements a Kubernetes API for managing bare metal

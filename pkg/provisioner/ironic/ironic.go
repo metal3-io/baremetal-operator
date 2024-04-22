@@ -2195,20 +2195,28 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 	return operationComplete()
 }
 
-// Fetches the VirtualMedia details of the BareMetalHost and updates DataImage.
-func (p *ironicProvisioner) GetDataImageStatus() (nodeReservation string, nodeLastError string) {
+// TODO(hroyrh) : Replace with GetDataImageStatus function once the virtua_media.get
+// api is available.
+// Checks if the last VirtualMedia action(attach/detach) to a BareMetalHost was
+// successful of not.
+func (p *ironicProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
 	// TODO(hroyrh)
 	// Get BareMetalHost VirtualMedia details and handle errors
 
-	node, _ := p.getNode()
+	node, err := p.getNode()
+	if err != nil {
+		return true, err
+	}
+
+	isNodeBusy = node.Reservation != ""
 
 	// In case the error node encountered was related to something else
 	// TODO(hroyrh) : Is this check valid ?
-	if !strings.Contains(node.LastError, "cdrom") {
-		return node.Reservation, ""
+	if !strings.Contains(node.LastError, "attach") && !strings.Contains(node.LastError, "detach") {
+		return isNodeBusy, nil
 	}
 
-	return node.Reservation, node.LastError
+	return isNodeBusy, fmt.Errorf("last dataImage action failed, %s", node.LastError)
 }
 
 func (p *ironicProvisioner) AttachDataImage(url string) (err error) {

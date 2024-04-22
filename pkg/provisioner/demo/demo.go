@@ -307,8 +307,8 @@ func (p *demoProvisioner) GetFirmwareComponents() (components []metal3api.Firmwa
 	return components, nil
 }
 
-func (p *demoProvisioner) GetDataImageStatus() (nodeReservation string, nodeLastError string) {
-	return "", ""
+func (p *demoProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
+	return false, nil
 }
 
 func (p *demoProvisioner) AttachDataImage(_ string) (err error) {

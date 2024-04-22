@@ -205,8 +205,8 @@ type Provisioner interface {
 	// GetFirmwareComponents gets all firmware components available from a note
 	GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error)
 
-	// Get DataImage details
-	GetDataImageStatus() (nodeReservation string, nodeLastError string)
+	// Check if DataImage attach/detach was successful
+	IsDataImageReady() (isNodeBusy bool, nodeError error)
 
 	// Attach DataImage
 	AttachDataImage(URL string) (err error)

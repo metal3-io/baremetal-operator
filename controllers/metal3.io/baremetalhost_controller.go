@@ -1456,34 +1456,35 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			return actionError{fmt.Errorf("could not set bmh as controller, %w", err)}
 		}
 		if err := r.Update(info.ctx, dataImage); err != nil {
-			return actionError{fmt.Errorf("failure creating dataImage resource, %w", err)}
+			return actionError{fmt.Errorf("failure updating dataImage status, %w", err)}
 		}
-		// TODO(hroyrh) : Should we requeue at this point
-		// return actionContinue{}
-		return actionContinue{dataImageUpdateDelay}
+
+		return actionContinue{}
 	}
 
 	// Check if any attach/detach action is pending or failed to attach
-	nodeReservation, nodeLastError := prov.GetDataImageStatus()
-	if nodeReservation != "" {
-		info.log.Info("Node is already under reservation, requeue", "Reserved by", nodeReservation)
+	isNodeBusy, nodeError := prov.IsDataImageReady()
+	if isNodeBusy {
+		info.log.Info("Node is busy, requeuing")
+
+		if nodeError != nil {
+			return actionError{nodeError}
+		}
+
 		return actionContinue{dataImageRetryDelay}
 	}
 
 	// Is the current dataImage status valid
 	dirty := false
 	// In case the last node error was not nil for dataimage,
-	// upadate message and counter
-	if nodeLastError != "" {
-		dataImage.Status.Error.Message = nodeLastError
+	// update message and counter
+	if nodeError != nil {
+		dataImage.Status.Error.Message = nodeError.Error()
 		dataImage.Status.Error.Count++
 		dirty = true
 	}
 
-	deleteDataImage := false
-	if !dataImage.DeletionTimestamp.IsZero() {
-		deleteDataImage = true
-	}
+	deleteDataImage := !dataImage.DeletionTimestamp.IsZero()
 
 	requestedURL := dataImage.Spec.URL
 
@@ -1505,8 +1506,6 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			return actionContinue{dataImageUpdateDelay}
 		}
 
-		// In case there was no DataImage attached we simply exit
-		// Should we use actionContinue or simply return nil ?
 		return nil
 	}
 
@@ -1538,14 +1537,16 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		}
 	}
 
-	// TODO(hroyrh) : Put a check only if dirty
 	if err := r.Status().Update(info.ctx, dataImage); err != nil {
 		return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
 	}
 
 	info.log.Info("Updated DataImage Status after handling attachment/detachment")
 
-	// Should we return actionContinue or nil ?
+	if dirty {
+		return actionContinue{dataImageUpdateDelay}
+	}
+
 	return nil
 }
 

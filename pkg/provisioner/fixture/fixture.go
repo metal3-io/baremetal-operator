@@ -361,8 +361,8 @@ func (p *fixtureProvisioner) GetFirmwareComponents() (components []metal3api.Fir
 	return components, nil
 }
 
-func (p *fixtureProvisioner) GetDataImageStatus() (nodeReservation string, nodeLastError string) {
-	return "", ""
+func (p *fixtureProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
+	return false, nil
 }
 
 func (p *fixtureProvisioner) AttachDataImage(_ string) (err error) {

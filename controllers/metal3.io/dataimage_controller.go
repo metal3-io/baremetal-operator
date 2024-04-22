@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -109,7 +108,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, errors.Wrap(err, "could not load dataImage")
+		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load dataImage, %w", err)
 	}
 
 	bmh := &metal3api.BareMetalHost{}
@@ -121,7 +120,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Error reading the object - requeue the request.
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, errors.Wrap(err, "could not load baremetalhost")
+		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load baremetalhost, %w", err)
 	}
 
 	info := &rdiInfo{ctx: ctx, log: reqLogger, request: req, di: di, bmh: bmh}
@@ -137,7 +136,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
+		return ctrl.Result{}, fmt.Errorf("failed to create provisioner, %w", err)
 	}
 
 	ready, err := prov.TryInit()
@@ -166,14 +165,14 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Check if any attach/detach action is pending or failed to attach
-	_, nodeLastError := prov.GetDataImageStatus()
+	_, nodeError := prov.IsDataImageReady()
 
 	// Is the current dataImage status valid
 	dirty := false
 	// In case the last node error was not nil for dataimage,
 	// upadate message and counter
-	if nodeLastError != "" {
-		di.Status.Error.Message = nodeLastError
+	if nodeError != nil {
+		di.Status.Error.Message = nodeError.Error()
 		di.Status.Error.Count++
 		dirty = true
 	}
@@ -194,14 +193,14 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			di.Finalizers, metal3api.DataImageFinalizer)
 
 		if err := r.Update(ctx, di); err != nil {
-			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, errors.Wrap(err, "failed to update resource after remove finalizer")
+			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// Update the latest status fetched from the Node
 	if err := r.updateStatus(info); err != nil {
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, errors.Wrap(err, "failed to update resource statu")
+		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource statu, %w", err)
 	}
 
 	for _, e := range info.events {
@@ -216,7 +215,7 @@ func (r *DataImageReconciler) updateStatus(info *rdiInfo) (err error) {
 	dataImage := info.di
 
 	if err := r.Status().Update(info.ctx, dataImage); err != nil {
-		return errors.Wrap(err, "Failed to update DataImage status")
+		return fmt.Errorf("failed to update DataImage status, %w", err)
 	}
 	info.log.Info("Updating DataImage Status", "Updated DataImage is", dataImage)
 

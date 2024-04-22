@@ -165,14 +165,6 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Initialize empty dataImage status
-	if di.Status.AttachedImage == nil {
-		di.Status.AttachedImage = &metal3api.AttachedImageReference{}
-	}
-	if di.Status.Error == nil {
-		di.Status.Error = &metal3api.DataImageError{}
-	}
-
 	// Check if any attach/detach action is pending or failed to attach
 	_, nodeLastError := prov.GetDataImageStatus()
 

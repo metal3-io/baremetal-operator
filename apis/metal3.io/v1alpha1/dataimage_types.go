@@ -47,10 +47,10 @@ type DataImageStatus struct {
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
 	// Currently attached DataImage
-	AttachedImage *AttachedImageReference `json:"attachedImage,omitempty"`
+	AttachedImage AttachedImageReference `json:"attachedImage,omitempty"`
 
 	// Error count and message when attaching/detaching
-	Error *DataImageError `json:"error,omitempty"`
+	Error DataImageError `json:"error,omitempty"`
 }
 
 //+kubebuilder:object:root=true

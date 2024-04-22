@@ -1463,14 +1463,6 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		return actionContinue{dataImageUpdateDelay}
 	}
 
-	// Initialize empty dataImage status
-	if dataImage.Status.AttachedImage == nil {
-		dataImage.Status.AttachedImage = &metal3api.AttachedImageReference{}
-	}
-	if dataImage.Status.Error == nil {
-		dataImage.Status.Error = &metal3api.DataImageError{}
-	}
-
 	// Check if any attach/detach action is pending or failed to attach
 	nodeReservation, nodeLastError := prov.GetDataImageStatus()
 	if nodeReservation != "" {

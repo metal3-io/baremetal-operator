@@ -130,10 +130,16 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
 	}
 
-	// TODO(hroyrh) : handle Paused annotation
+	// If the reconciliation is paused, requeue
+	annotations := bmh.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[metal3api.PausedAnnotation]; ok {
+			reqLogger.Info("host is paused, no work to do")
+			return ctrl.Result{Requeue: false}, nil
+		}
+	}
 
 	// Create a provisioner that can access Ironic API
-	// prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner, %w", err)

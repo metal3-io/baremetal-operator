@@ -1463,12 +1463,25 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 	}
 
 	// Check if any attach/detach action is pending or failed to attach
+	// We are assuming that the action will have completed by the time
+	// this reconcile is called ( after the delay specified in the previous
+	// action)
+	// TODO(hroyrh) : update this once vmedia.get api is available
 	isNodeBusy, nodeError := prov.IsDataImageReady()
 	if isNodeBusy {
 		info.log.Info("Node is busy, requeuing")
 
+		// In case the last node error was not nil for dataimage,
+		// update message and counter
 		if nodeError != nil {
-			return actionError{nodeError}
+			info.log.Info("DataImage action failed", "Error", nodeError.Error())
+
+			dataImage.Status.Error.Message = nodeError.Error()
+			dataImage.Status.Error.Count++
+
+			if err := r.Status().Update(info.ctx, dataImage); err != nil {
+				return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
+			}
 		}
 
 		return actionContinue{dataImageRetryDelay}
@@ -1476,9 +1489,12 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 
 	// Is the current dataImage status valid
 	dirty := false
+
 	// In case the last node error was not nil for dataimage,
 	// update message and counter
 	if nodeError != nil {
+		info.log.Info("DataImage not ready", "Error", nodeError.Error())
+
 		dataImage.Status.Error.Message = nodeError.Error()
 		dataImage.Status.Error.Count++
 		dirty = true
@@ -1488,7 +1504,6 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 
 	requestedURL := dataImage.Spec.URL
 
-	// We can assume non null value since we initialized the status earlier
 	attachedURL := dataImage.Status.AttachedImage.URL
 
 	if deleteDataImage {
@@ -1537,6 +1552,12 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		}
 	}
 
+	// Clear dataImage errors if nodeError is nil
+	if !dirty {
+		dataImage.Status.Error.Message = ""
+		dataImage.Status.Error.Count = 0
+	}
+
 	if err := r.Status().Update(info.ctx, dataImage); err != nil {
 		return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
 	}
@@ -1555,7 +1576,7 @@ func ownerReferenceExists(owner metav1.Object, resource metav1.Object) bool {
 
 	for _, ownRef := range ownerReferences {
 		if ownRef.UID == owner.GetUID() {
-			fmt.Println("Owner reference exists")
+			// Owner reference exists
 			return true
 		}
 	}
@@ -1578,10 +1599,8 @@ func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, 
 		return fmt.Errorf("failed to attach dataImage, %w", err)
 	}
 
-	info.log.Info("Attach return no error, clearning DataImage status error", "DataImage", dataImage.Name)
-	// Clear errors if attachment succeeds
-	dataImage.Status.Error.Count = 0
-	dataImage.Status.Error.Message = ""
+	info.log.Info("Attach dataImage initiated", "DataImage", dataImage.Name)
+
 	// Update attached.URL here, we will mark it dirty in case any node errors
 	// are encountered
 	dataImage.Status.AttachedImage.URL = dataImage.Spec.URL
@@ -1608,10 +1627,8 @@ func (r *BareMetalHostReconciler) detachDataImage(prov provisioner.Provisioner, 
 		return fmt.Errorf("failed to detach dataImage, %w", err)
 	}
 
-	info.log.Info("Attach return no error, clearning DataImage status error", "DataImage", dataImage.Name)
-	// Clear errors if detachment succeeds
-	dataImage.Status.Error.Count = 0
-	dataImage.Status.Error.Message = ""
+	info.log.Info("Detach dataImage initiated", "DataImage", dataImage.Name)
+
 	// Update attached.URL here, we will mark it dirty in case any node errors
 	// are encountered
 	dataImage.Status.AttachedImage.URL = ""

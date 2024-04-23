@@ -2,12 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: baremetal-operator-system
 resources:
-- https://github.com/metal3-io/baremetal-operator/config/tls?ref=release-0.3
-components:
-- ../../components/basic-auth
+- https://github.com/metal3-io/baremetal-operator/config/overlays/basic-auth_tls?ref=release-0.6
 configMapGenerator:
 - name: ironic
-  behavior: merge
+  behavior: create
   envs:
   - ironic.env
 patches:
@@ -21,7 +19,7 @@ patches:
     name: controller-manager
 images:
 - name: quay.io/metal3-io/baremetal-operator
-  newTag: release-0.3
+  newTag: release-0.6
 # We cannot use suffix hashes since the kustomizations we build on
 # cannot be aware of what suffixes we add.
 generatorOptions:
@@ -32,7 +30,3 @@ secretGenerator:
   files:
   - username=ironic-username
   - password=ironic-password
-- name: ironic-inspector-credentials
-  files:
-  - username=ironic-inspector-username
-  - password=ironic-inspector-password

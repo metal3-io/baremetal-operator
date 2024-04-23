@@ -152,8 +152,8 @@ export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
 popd
 
 # Generate credentials
-BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.3" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5")
-IRONIC_OVERLAYS=("${REPO_ROOT}/ironic-deployment/overlays/e2e" "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector")
+BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5" "${REPO_ROOT}/config/overlays/e2e-release-0.6")
+IRONIC_OVERLAYS=("${REPO_ROOT}/ironic-deployment/overlays/e2e" "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.1")
 
 IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
 IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"

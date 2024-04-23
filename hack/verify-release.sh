@@ -26,7 +26,7 @@
 # repository, with the release commit/tag in question checked out.
 #
 # Command line arguments:
-# arg1: mandatory: version without leading v, eg. 0.4.0
+# arg1: mandatory: version without leading v, eg. 0.6.0
 #
 # Environment variables:
 # GITHUB_TOKEN: mandatory: your bearer token that has access to the release
@@ -42,7 +42,7 @@ shopt -s globstar
 GLOBIGNORE=./hack/tools/go.mod
 
 # user input
-VERSION="${1:?release version missing, provide without leading v. Example: 0.4.0}"
+VERSION="${1:?release version missing, provide without leading v. Example: 0.6.0}"
 GITHUB_TOKEN="${GITHUB_TOKEN:?export GITHUB_TOKEN with permissions to read unpublished release notes}"
 
 # if CONTAINER_RUNTIME is set, we will use crane and osv-scanner from images
@@ -89,11 +89,11 @@ declare -a release_note_strings=(
 
 # required strings that are postfixed with correct release number
 declare -a release_note_tag_strings=(
-    "The container image for this release is: v${VERSION}"
+    "The image for this release is: v${VERSION}"
 )
 
-# release artefacts
-declare -a release_artefacts=(
+# release artifacts
+declare -a release_artifacts=(
 )
 
 # quay images
@@ -112,6 +112,7 @@ declare -A module_groups=(
         k8s.io/api
         k8s.io/apiextensions-apiserver
         k8s.io/apimachinery
+        k8s.io/apiserver
         k8s.io/client-go
         k8s.io/cluster-bootstrap
         k8s.io/component-base
@@ -140,10 +141,13 @@ if [[ -n "${CONTAINER_RUNTIME}" ]]; then
     )
     declare -a GCRANE_CMD=(
         "${CONTAINER_RUNTIME}" run --rm
+        --pull always
         gcr.io/go-containerregistry/gcrane:latest
     )
     declare -a OSVSCANNER_CMD=(
-        "${CONTAINER_RUNTIME}" run --rm -v "${PWD}":/src -w /src
+        "${CONTAINER_RUNTIME}" run --rm
+        -v "${PWD}":/src -w /src
+        --pull always
         ghcr.io/google/osv-scanner:latest
     )
 else
@@ -178,12 +182,44 @@ trap cleanup EXIT
 #
 # pre-requisites
 #
+_version_check()
+{
+    # check version of the tool, return failure if smaller
+    local min_version version
+
+    min_version="$1"
+    version="$2"
+
+    [[ "${min_version}" == $(echo -e "${min_version}\n${version}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) ]]
+}
+
 check_tools()
 {
+    # check that all tools are present, and pass version check too
+    # TODO: if more tools need versioning, add the version info directly to the
+    # array defining required tools
+    local min_version version
+
     echo "Checking required tools ..."
 
     for tool in "${required_tools[@]}"; do
         type "${tool}" &>/dev/null || { echo "FATAL: need ${tool} to be installed"; exit 1; }
+        case "${tool}" in
+            osv-scanner)
+                version=$("${OSVSCANNER_CMD[@]}" -v | grep version | cut -f3 -d" ")
+                min_version="1.5.0"
+                ;;
+            *)
+                # dummy values here for other tools
+                version="1.0.0"
+                min_version="1.0.0"
+                ;;
+        esac
+
+        # shellcheck disable=SC2310
+        if ! _version_check "${min_version}" "${version}"; then
+            echo "WARNING: tool ${tool} is version ${version}, should be >= ${min_version}"
+        fi
     done
 
     echo -e "Done\n"
@@ -214,7 +250,7 @@ check_input()
     # check version is input without leading v, since we have extra annotated
     # tags in history and it needs manually to be edited out
     if [[ "${VERSION}" =~ ^v\d+ ]]; then
-        echo "FATAL: given version includes a leading v. Example: 0.4.0"
+        echo "FATAL: given version includes a leading v. Example: 0.6.0"
         exit 1
     fi
 
@@ -365,15 +401,15 @@ verify_release_notes()
     echo -e "Done\n"
 }
 
-verify_release_artefacts()
+verify_release_artifacts()
 {
-    # check that the release json lists all artefacts as present
-    echo "Verifying release artefacts ..."
+    # check that the release json lists all artifacts as present
+    echo "Verifying release artifacts ..."
 
-    for artefact in "${release_artefacts[@]}"; do
+    for artifact in "${release_artifacts[@]}"; do
         # shellcheck disable=SC2076
-        if ! [[ "$(jq .assets[].name "${RELEASE_JSON}")" =~ "\"${artefact}\"" ]]; then
-            echo "ERROR: release artefact '${artefact}' not found in release"
+        if ! [[ "$(jq .assets[].name "${RELEASE_JSON}")" =~ "\"${artifact}\"" ]]; then
+            echo "ERROR: release artifact '${artifact}' not found in release"
         fi
     done
 
@@ -386,7 +422,7 @@ verify_container_images()
     # if tag doesn't appear, the build trigger might've been disabled
     local image tag
 
-    echo "Verifying container images ..."
+    echo "Verifying container images are built and tagged ..."
 
     for image_and_tag in "${container_images[@]}"; do
         image="${image_and_tag/:*}"
@@ -406,18 +442,29 @@ verify_container_images()
     echo -e "Done\n"
 }
 
-verify_container_base_image()
+_get_golang_version_from_dockerfile()
 {
-    # check if the golang used for container image build is latest of its minor
-    local image tag
-
-    echo "Verifying container base images ..."
+    # read golang version from Dockerfile and return
+    local image_and_tag image image_and_tag_without_sha tag tag_minor
 
     image_and_tag="$(grep "^ARG BUILD_IMAGE=" Dockerfile | cut -f2 -d=)"
     image="${image_and_tag/:*}"
     image_and_tag_without_sha="${image_and_tag/@sha256:*}"
     tag="${image_and_tag_without_sha/*:}"
     tag_minor="${tag%.*}"
+
+    echo "${image_and_tag} ${image} ${image_and_tag_without_sha} ${tag} ${tag_minor}"
+}
+
+verify_container_base_image()
+{
+    # check if the golang used for container image build is latest of its minor
+    local image_and_tag image image_and_tag_without_sha tag tag_minor
+
+    echo "Verifying container base images are up to date ..."
+
+    read -r image_and_tag image image_and_tag_without_sha tag tag_minor < \
+        <(_get_golang_version_from_dockerfile)
 
     # quay paginates 50 items at a time, so it is simpler to use gcrane
     # to list all the tags, than DIY parse the pagination logic
@@ -503,7 +550,7 @@ verify_module_versions()
 {
     # verify all dependencies are using the same version across all go.mod
     # in the repository. Ignore indirect ones.
-    echo "Verify all go.mod dependencies are the same across go.mods ..."
+    echo "Verify all go.mod direct dependencies are the same across go.mods ..."
 
     # shellcheck disable=SC2119
     _module_direct_dependencies | while read -r module version; do
@@ -582,15 +629,42 @@ verify_module_releases()
     echo -e "Done\n"
 }
 
+_mutate_gomod_files_for_osv_scanner()
+{
+    # mutate go.mod files to include go directive with exact patch version
+    # from main Dockerfile for correct golang stdlib vulnerability information
+    local image_and_tag image image_and_tag_without_sha tag tag_minor
+
+    read -r image_and_tag image image_and_tag_without_sha tag tag_minor < \
+        <(_get_golang_version_from_dockerfile)
+
+    for modfile in **/go.mod; do
+        sed -i.bak -e "s/^go [[:digit:]]\.[[:digit:]]\+/go ${tag}/" "${modfile}"
+    done
+}
+
+_restore_mutated_gomod_files()
+{
+    # restore mutated gomod files to original state
+    for bakfile in **/go.mod.bak; do
+        modfile="${bakfile/.bak}"
+        mv "${bakfile}" "${modfile}"
+    done
+}
+
 verify_vulnerabilities()
 {
     # run osv-scanner to verify if we have open vulnerabilities in deps
     echo "Verifying vulnerabilities ..."
 
-    "${OSVSCANNER_CMD[@]}" -r . > "${SCAN_LOG}" || true
+    _mutate_gomod_files_for_osv_scanner
+
+    "${OSVSCANNER_CMD[@]}" --skip-git -r . > "${SCAN_LOG}" || true
     if ! grep -q "No vulnerabilities found" "${SCAN_LOG}"; then
         cat "${SCAN_LOG}"
     fi
+
+    _restore_mutated_gomod_files
 
     echo -e "Done\n"
 }
@@ -612,7 +686,7 @@ if [[ -n "${TAG_EXISTS}" ]]; then
     verify_git_tag_types
     if [[ -n "${RELEASE_EXISTS}" ]]; then
         verify_release_notes
-        verify_release_artefacts
+        verify_release_artifacts
     fi
     verify_container_images
 fi

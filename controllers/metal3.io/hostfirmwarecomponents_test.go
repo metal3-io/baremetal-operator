@@ -425,12 +425,9 @@ func TestStoreHostFirmwareComponents(t *testing.T) {
 				bmh: bmh,
 			}
 
-			currentStatus, err := r.updateHostFirmware(info)
-			assert.NoError(t, err)
-
 			components, err := prov.GetFirmwareComponents()
 			assert.NoError(t, err)
-			err = r.updateHostFirmwareComponents(currentStatus, components, info)
+			err = r.updateHostFirmware(info, components)
 			assert.NoError(t, err)
 
 			// Check that resources get created or updated

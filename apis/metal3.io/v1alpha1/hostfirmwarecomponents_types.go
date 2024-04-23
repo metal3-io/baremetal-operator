@@ -56,10 +56,11 @@ type HostFirmwareComponentsSpec struct {
 type HostFirmwareComponentsStatus struct {
 	// Updates is the list of all firmware components that should be updated
 	// they are specified via name and url fields.
+	// +optional
 	Updates []FirmwareUpdate `json:"updates"`
 
 	// Components is the list of all available firmware components and their information.
-	Components []FirmwareComponentStatus `json:"components"`
+	Components []FirmwareComponentStatus `json:"components,omitempty"`
 
 	// Time that the status was last updated
 	// +optional

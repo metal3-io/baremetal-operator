@@ -84,7 +84,7 @@ func TestInspectHardware(t *testing.T) {
 				ProvisionState: "manageable",
 			}).WithInventoryFailed(nodeUUID, http.StatusBadRequest),
 
-			expectedError: "failed to retrieve hardware introspection data: Bad request with: \\[GET http://127.0.0.1:.*/v1/nodes/33ce8659-7400-4c68-9535-d10766f07a58/inventory\\], error message: An error\\\n",
+			expectedError: "failed to retrieve hardware introspection data: .*: An error",
 		},
 		{
 			name: "introspection-status-retry-on-wait",

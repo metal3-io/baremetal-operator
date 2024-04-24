@@ -2,8 +2,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: baremetal-operator-system/baremetal-operator-serving-cert
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: baremetalhosts.metal3.io
 spec:
   group: metal3.io
@@ -1148,7 +1150,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: bmceventsubscriptions.metal3.io
 spec:
   group: metal3.io
@@ -1231,7 +1236,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: dataimages.metal3.io
 spec:
   group: metal3.io
@@ -1306,7 +1314,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: firmwareschemas.metal3.io
 spec:
   group: metal3.io
@@ -1394,7 +1405,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: hardwaredata.metal3.io
 spec:
   group: metal3.io
@@ -1603,7 +1617,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: hostfirmwarecomponents.metal3.io
 spec:
   group: metal3.io
@@ -1784,7 +1801,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: hostfirmwaresettings.metal3.io
 spec:
   group: metal3.io
@@ -1946,7 +1966,10 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    capability.openshift.io/name: baremetal
     controller-gen.kubebuilder.io/version: v0.12.1
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   name: preprovisioningimages.metal3.io
 spec:
   group: metal3.io
@@ -2124,347 +2147,6 @@ spec:
       status: {}
 ---
 apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: baremetal-operator-controller-manager
-  namespace: baremetal-operator-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: baremetal-operator-leader-election-role
-  namespace: baremetal-operator-system
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - configmaps/status
-  verbs:
-  - get
-  - update
-  - patch
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: baremetal-operator-manager-role
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - baremetalhosts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - baremetalhosts/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - baremetalhosts/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - bmceventsubscriptions
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - bmceventsubscriptions/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - dataimages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - dataimages/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - dataimages/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - firmwareschemas
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - firmwareschemas/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - hardware/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - hardwaredata
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwarecomponents
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwarecomponents/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwarecomponents/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwaresettings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwaresettings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - preprovisioningimages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - preprovisioningimages/status
-  verbs:
-  - get
-  - patch
-  - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: baremetal-operator-metrics-reader
-rules:
-- nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: baremetal-operator-proxy-role
-rules:
-- apiGroups:
-  - authentication.k8s.io
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - create
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: baremetal-operator-leader-election-rolebinding
-  namespace: baremetal-operator-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: baremetal-operator-leader-election-role
-subjects:
-- kind: ServiceAccount
-  name: baremetal-operator-controller-manager
-  namespace: baremetal-operator-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: baremetal-operator-manager-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: baremetal-operator-manager-role
-subjects:
-- kind: ServiceAccount
-  name: baremetal-operator-controller-manager
-  namespace: baremetal-operator-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: baremetal-operator-proxy-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: baremetal-operator-proxy-role
-subjects:
-- kind: ServiceAccount
-  name: baremetal-operator-controller-manager
-  namespace: baremetal-operator-system
----
-apiVersion: v1
-data:
-  controller_manager_config.yaml: |
-    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
-    kind: ControllerManagerConfig
-    health:
-      healthProbeBindAddress: :9440
-    metrics:
-      bindAddress: 127.0.0.1:8085
-    webhook:
-      port: 9443
-    leaderElection:
-      leaderElect: true
-      resourceName: a9498140.metal3.io
-kind: ConfigMap
-metadata:
-  name: baremetal-operator-manager-config
-  namespace: baremetal-operator-system
----
-apiVersion: v1
 data:
   CACHEURL: http://172.22.0.1/images
   DEPLOY_KERNEL_URL: http://172.22.0.2:6180/images/ironic-python-agent.kernel
@@ -2477,200 +2159,3 @@ kind: ConfigMap
 metadata:
   name: ironic
   namespace: baremetal-operator-system
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    control-plane: controller-manager
-  name: baremetal-operator-controller-manager-metrics-service
-  namespace: baremetal-operator-system
-spec:
-  ports:
-  - name: https
-    port: 8443
-    targetPort: https
-  selector:
-    control-plane: controller-manager
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: baremetal-operator-webhook-service
-  namespace: baremetal-operator-system
-spec:
-  ports:
-  - port: 443
-    targetPort: 9443
-  selector:
-    control-plane: controller-manager
-    webhook: metal3-io-v1alpha1-baremetalhost
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    control-plane: controller-manager
-    webhook: metal3-io-v1alpha1-baremetalhost
-  name: baremetal-operator-controller-manager
-  namespace: baremetal-operator-system
-spec:
-  minReadySeconds: 10
-  replicas: 1
-  selector:
-    matchLabels:
-      control-plane: controller-manager
-  template:
-    metadata:
-      labels:
-        control-plane: controller-manager
-        webhook: metal3-io-v1alpha1-baremetalhost
-    spec:
-      containers:
-      - args:
-        - --metrics-addr=127.0.0.1:8085
-        - --enable-leader-election
-        command:
-        - /baremetal-operator
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        envFrom:
-        - configMapRef:
-            name: ironic
-        image: quay.io/metal3-io/baremetal-operator
-        imagePullPolicy: Always
-        livenessProbe:
-          failureThreshold: 10
-          httpGet:
-            path: /healthz
-            port: 9440
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          successThreshold: 1
-          timeoutSeconds: 2
-        name: manager
-        ports:
-        - containerPort: 9443
-          name: webhook-server
-          protocol: TCP
-        readinessProbe:
-          failureThreshold: 10
-          httpGet:
-            path: /readyz
-            port: 9440
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          successThreshold: 1
-          timeoutSeconds: 2
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          runAsGroup: 65532
-          runAsUser: 65532
-        volumeMounts:
-        - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
-          readOnly: true
-      - args:
-        - --secure-listen-address=0.0.0.0:8443
-        - --upstream=http://127.0.0.1:8085/
-        - --logtostderr=true
-        - --v=10
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
-        name: kube-rbac-proxy
-        ports:
-        - containerPort: 8443
-          name: https
-      securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
-      serviceAccountName: baremetal-operator-controller-manager
-      terminationGracePeriodSeconds: 10
-      volumes:
-      - name: cert
-        secret:
-          defaultMode: 420
-          secretName: bmo-webhook-server-cert
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: baremetal-operator-serving-cert
-  namespace: baremetal-operator-system
-spec:
-  dnsNames:
-  - baremetal-operator-webhook-service.baremetal-operator-system.svc
-  - baremetal-operator-webhook-service.baremetal-operator-system.svc.cluster.local
-  issuerRef:
-    kind: Issuer
-    name: baremetal-operator-selfsigned-issuer
-  secretName: bmo-webhook-server-cert
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: baremetal-operator-selfsigned-issuer
-  namespace: baremetal-operator-system
-spec:
-  selfSigned: {}
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: baremetal-operator-system/baremetal-operator-serving-cert
-  name: baremetal-operator-validating-webhook-configuration
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta
-  clientConfig:
-    service:
-      name: baremetal-operator-webhook-service
-      namespace: baremetal-operator-system
-      path: /validate-metal3-io-v1alpha1-baremetalhost
-  failurePolicy: Fail
-  name: baremetalhost.metal3.io
-  rules:
-  - apiGroups:
-    - metal3.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - baremetalhosts
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta
-  clientConfig:
-    service:
-      name: baremetal-operator-webhook-service
-      namespace: baremetal-operator-system
-      path: /validate-metal3-io-v1alpha1-bmceventsubscription
-  failurePolicy: Fail
-  name: bmceventsubscription.metal3.io
-  rules:
-  - apiGroups:
-    - metal3.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - bmceventsubscriptions
-  sideEffects: None

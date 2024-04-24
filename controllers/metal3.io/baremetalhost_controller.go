@@ -1462,6 +1462,17 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 		return actionContinue{}
 	}
 
+	// Update reconciliation timestamp for dataImage
+	dataImage.Status.LastReconciled = &metav1.Time{Time: time.Now()}
+
+	// dataImageRetryBackoff calculated based on persistent errors while
+	// attaching/detaching dataImage, every requeue when handling
+	// dataImage will use this delay
+	// TODO(hroyrh) : Should we fail after the error count exceeds a
+	// given constant ?
+	dataImageRetryBackoff := max(dataImageUpdateDelay, calculateBackoff(dataImage.Status.Error.Count))
+	info.log.Info("Current dataImage reconcile delay", "dataImageRetryBackoff", dataImageRetryBackoff)
+
 	// Check if any attach/detach action is pending or failed to attach
 	// We are assuming that the action will have completed by the time
 	// this reconcile is called ( after the delay specified in the previous
@@ -1484,7 +1495,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			}
 		}
 
-		return actionContinue{dataImageRetryDelay}
+		return actionContinue{dataImageRetryBackoff}
 	}
 
 	// Is the current dataImage status valid
@@ -1518,7 +1529,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			// Requeue to give time to the DataImage Reconciler to update the
 			// status. In case of failure, we will enter this section and
 			// detachDataImage will be called again -> can this cause issues ?
-			return actionContinue{dataImageUpdateDelay}
+			return actionContinue{dataImageRetryBackoff}
 		}
 
 		return nil
@@ -1536,7 +1547,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			// Requeue to give time to the DataImage Reconciler to update the
 			// status. In case of failure, we will enter this section and
 			// detachDataImage will be called again -> can this cause issues ?
-			return actionContinue{dataImageUpdateDelay}
+			return actionContinue{dataImageRetryBackoff}
 		}
 		if requestedURL != "" {
 			info.log.Info("Attaching DataImage", "URL", requestedURL)
@@ -1548,7 +1559,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 			// Requeue to give time to the DataImage Reconciler to update the
 			// status. In case of failure, we will enter this section and
 			// attachDataImage will be called again -> can this cause issues ?
-			return actionContinue{dataImageUpdateDelay}
+			return actionContinue{dataImageRetryBackoff}
 		}
 	}
 
@@ -1565,7 +1576,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 	info.log.Info("Updated DataImage Status after handling attachment/detachment")
 
 	if dirty {
-		return actionContinue{dataImageUpdateDelay}
+		return actionContinue{dataImageRetryBackoff}
 	}
 
 	return nil

@@ -7,7 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -46,82 +48,16 @@ func getTestHFSReconciler(host *metal3api.HostFirmwareSettings) *HostFirmwareSet
 	return reconciler
 }
 
-func getMockProvisioner(settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema) *hsfMockProvisioner {
-	return &hsfMockProvisioner{
-		Settings: settings,
-		Schema:   schema,
-		Error:    nil,
+func getMockProvisioner(host *metal3api.BareMetalHost, settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema) provisioner.Provisioner {
+	state := fixture.Fixture{
+		HostFirmwareSettings: fixture.HostFirmwareSettingsMock{
+			Settings: settings,
+			Schema:   schema,
+		},
 	}
-}
-
-type hsfMockProvisioner struct {
-	Settings metal3api.SettingsMap
-	Schema   map[string]metal3api.SettingSchema
-	Error    error
-}
-
-func (m *hsfMockProvisioner) HasCapacity() (result bool, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) ValidateManagementAccess(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) InspectHardware(_ provisioner.InspectData, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) Prepare(_ provisioner.PrepareData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) Delete() (result provisioner.Result, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) Detach() (result provisioner.Result, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) IsReady() (result bool, err error) {
-	return
-}
-
-func (m *hsfMockProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
-	return m.Settings, m.Schema, m.Error
-}
-
-func (m *hsfMockProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
-	return result, nil
-}
-
-func (m *hsfMockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
-	return result, nil
+	p, _ := state.NewProvisioner(context.TODO(), provisioner.BuildHostData(*host, bmc.Credentials{}),
+		func(reason, message string) {})
+	return p
 }
 
 func getSchema() *metal3api.FirmwareSchema {
@@ -544,7 +480,6 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			ctx := context.TODO()
-			prov := getMockProvisioner(getCurrentSettings(), getCurrentSchemaSettings())
 
 			tc.ExpectedSettings.TypeMeta = metav1.TypeMeta{
 				Kind:       "HostFirmwareSettings",
@@ -558,6 +493,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 			r := getTestHFSReconciler(hfs)
 			// Create bmh resource needed by hfs reconciler
 			bmh := createBaremetalHost()
+			prov := getMockProvisioner(bmh, getCurrentSettings(), getCurrentSchemaSettings())
 
 			info := &rInfo{
 				log: logf.Log.WithName("controllers").WithName("HostFirmwareSettings"),

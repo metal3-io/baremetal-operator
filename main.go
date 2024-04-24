@@ -298,6 +298,14 @@ func main() {
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HostFirmwareComponents")
+	}
+
+	if err = (&metal3iocontroller.DataImageReconciler{
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("DataImage"),
+		ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr, maxConcurrency); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataImage")
 		os.Exit(1)
 	}
 

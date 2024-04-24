@@ -1401,6 +1401,18 @@ func (p *mockProvisioner) GetFirmwareComponents() (components []metal3api.Firmwa
 	return components, nil
 }
 
+func (m *mockProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
+	return false, nil
+}
+
+func (p *mockProvisioner) AttachDataImage(url string) (err error) {
+	return nil
+}
+
+func (p *mockProvisioner) DetachDataImage() (err error) {
+	return nil
+}
+
 func TestUpdateBootModeStatus(t *testing.T) {
 	testCases := []struct {
 		Scenario       string

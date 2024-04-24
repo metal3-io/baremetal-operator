@@ -2,9 +2,8 @@
 
 [![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/metal3-io/badge)](https://clomonitor.io/projects/cncf/metal3-io)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/metal3-io/baremetal-operator/badge)](https://securityscorecards.dev/viewer/?uri=github.com/metal3-io/baremetal-operator)
-[![Ubuntu daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_daily_main_integration_test_ubuntu&subject=Ubuntu%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3_daily_main_integration_test_ubuntu/)
-[![CentOS daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3_daily_main_integration_test_centos&subject=CentOS%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3_daily_main_integration_test_centos/)
-[![BMO e2e periodic main](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-bmo-e2e-test-periodic/badge/icon?subject=BMO%20e2e%20periodic%20main)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-bmo-e2e-test-periodic/)
+[![Ubuntu E2E Integration 1.7 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-ubuntu-e2e-integration-test-release-1-7&subject=Ubuntu%20e2e%20integration%201.7)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-periodic-ubuntu-e2e-integration-test-release-1-7/)
+[![CentOS E2E Integration 1.7 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-centos-e2e-integration-test-release-1-7&subject=Centos%20e2e%20integration%201.7)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-periodic-centos-e2e-integration-test-release-1-7/)
 
 The Bare Metal Operator implements a Kubernetes API for managing bare metal
 hosts. It maintains an inventory of available hosts as instances of the
@@ -56,6 +55,13 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
 - **/test-ubuntu-integration-main** runs ansible integration tests with CAPM3
   main branch and BMO **main** branch on Ubuntu
 
+**Release-0.6 branch:**
+
+- **/test-centos-e2e-integration-release-1-7** runs CAPM3 e2e integration tests
+  with CAPM3 release-1.7 branch and BMO **release-0.6** branch on Centos
+- **/test-ubuntu-integration-release-1-7** runs ansible integration tests with
+  CAPM3 release-1.7 branch and BMO **release-0.6** branch on Ubuntu
+
 **Release-0.5 branch:**
 
 - **/test-centos-e2e-integration-release-1-6** runs CAPM3 e2e integration tests
@@ -69,13 +75,6 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
   with CAPM3 release-1.5 branch and BMO **release-0.4** branch on Centos
 - **/test-ubuntu-integration-release-1-5** runs ansible integration tests with
   CAPM3 release-1.5 branch and BMO **release-0.4** branch on Ubuntu
-
-**Release-0.3 branch:**
-
-- **/test-centos-e2e-integration-release-1-4** runs CAPM3 e2e integration tests
-  with CAPM3 release-1.4 branch and BMO **release-0.3** branch on Centos
-- **/test-ubuntu-integration-release-1-4** runs ansible integration tests with
-  CAPM3 release-1.4 branch and BMO **release-0.3** branch on Ubuntu
 
 ### Important Notes
 

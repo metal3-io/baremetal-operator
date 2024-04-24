@@ -1471,7 +1471,6 @@ func (r *BareMetalHostReconciler) handleDataImageActions(prov provisioner.Provis
 	// TODO(hroyrh) : Should we fail after the error count exceeds a
 	// given constant ?
 	dataImageRetryBackoff := max(dataImageUpdateDelay, calculateBackoff(dataImage.Status.Error.Count))
-	info.log.Info("Current dataImage reconcile delay", "dataImageRetryBackoff", dataImageRetryBackoff)
 
 	// Check if any attach/detach action is pending or failed to attach
 	// We are assuming that the action will have completed by the time
@@ -1598,7 +1597,7 @@ func ownerReferenceExists(owner metav1.Object, resource metav1.Object) bool {
 // Attach the DataImage to the BareMetalHost.
 func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
 	if err := prov.AttachDataImage(dataImage.Spec.URL); err != nil {
-		info.log.Info("Error while attaching DataImage", "DataImage", dataImage.Name, "Error", err.Error())
+		info.log.Info("Error while attaching DataImage", "URL", dataImage.Spec.URL, "Error", err.Error())
 
 		dataImage.Status.Error.Count++
 		dataImage.Status.Error.Message = err.Error()
@@ -1609,8 +1608,6 @@ func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, 
 
 		return fmt.Errorf("failed to attach dataImage, %w", err)
 	}
-
-	info.log.Info("Attach dataImage initiated", "DataImage", dataImage.Name)
 
 	// Update attached.URL here, we will mark it dirty in case any node errors
 	// are encountered
@@ -1637,8 +1634,6 @@ func (r *BareMetalHostReconciler) detachDataImage(prov provisioner.Provisioner, 
 
 		return fmt.Errorf("failed to detach dataImage, %w", err)
 	}
-
-	info.log.Info("Detach dataImage initiated", "DataImage", dataImage.Name)
 
 	// Update attached.URL here, we will mark it dirty in case any node errors
 	// are encountered

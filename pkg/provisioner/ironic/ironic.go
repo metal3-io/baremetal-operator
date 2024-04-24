@@ -2201,7 +2201,13 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 // successful of not.
 func (p *ironicProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
 	// TODO(hroyrh)
-	// Get BareMetalHost VirtualMedia details and handle errors
+	// Get BareMetalHost VirtualMedia details using a GET api to vmedia
+
+	// Check if Ironic API version supports DataImage API
+	// Needs version >= 1.89
+	if !p.availableFeatures.HasDataImage() {
+		return true, fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
+	}
 
 	node, err := p.getNode()
 	if err != nil {
@@ -2220,6 +2226,12 @@ func (p *ironicProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error
 }
 
 func (p *ironicProvisioner) AttachDataImage(url string) (err error) {
+	// Check if Ironic API version supports DataImage API
+	// Needs version >= 1.89
+	if !p.availableFeatures.HasDataImage() {
+		return fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
+	}
+
 	err = nodes.AttachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.AttachVirtualMediaOpts{
 		DeviceType: nodes.VirtualMediaCD,
 		ImageURL:   url,
@@ -2232,6 +2244,12 @@ func (p *ironicProvisioner) AttachDataImage(url string) (err error) {
 }
 
 func (p *ironicProvisioner) DetachDataImage() (err error) {
+	// Check if Ironic API version supports DataImage API
+	// Needs version >= 1.89
+	if !p.availableFeatures.HasDataImage() {
+		return fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
+	}
+
 	err = nodes.DetachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.DetachVirtualMediaOpts{
 		DeviceTypes: []nodes.VirtualMediaDeviceType{nodes.VirtualMediaCD},
 	}).ExtractErr()

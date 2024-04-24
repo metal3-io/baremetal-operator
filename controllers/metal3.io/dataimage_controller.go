@@ -93,12 +93,9 @@ func (info *rdiInfo) publishEvent(reason, message string) {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.4/pkg/reconcile
 func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("dataimage", req.NamespacedName)
-	reqLogger.Info("start dataImage reconciliation V1")
+	reqLogger.Info("start dataImage reconciliation")
 
 	di := &metal3api.DataImage{}
 	if err := r.Get(ctx, req.NamespacedName, di); err != nil {
@@ -132,11 +129,22 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// If the reconciliation is paused, requeue
 	annotations := bmh.GetAnnotations()
-	if annotations != nil {
-		if _, ok := annotations[metal3api.PausedAnnotation]; ok {
-			reqLogger.Info("host is paused, no work to do")
-			return ctrl.Result{Requeue: false}, nil
+	if _, ok := annotations[metal3api.PausedAnnotation]; ok {
+		reqLogger.Info("host is paused, no work to do")
+		return ctrl.Result{Requeue: false}, nil
+	}
+
+	// Add finalizer for newly created DataImage
+	if di.DeletionTimestamp.IsZero() && !utils.StringInList(di.Finalizers, metal3api.DataImageFinalizer) {
+		reqLogger.Info("adding finalizer")
+		di.Finalizers = append(di.Finalizers, metal3api.DataImageFinalizer)
+
+		// Update dataImage after adding finalizer, requeue in case of failure
+		err := r.Update(ctx, di)
+		if err != nil {
+			return ctrl.Result{RequeueAfter: dataImageUpdateDelay}, fmt.Errorf("failed to update resource after add finalizer, %w", err)
 		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Create a provisioner that can access Ironic API
@@ -155,19 +163,6 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
-	}
-
-	// Add finalizer for newly created DataImage
-	if di.DeletionTimestamp.IsZero() && !utils.StringInList(di.Finalizers, metal3api.DataImageFinalizer) {
-		reqLogger.Info("adding finalizer")
-		di.Finalizers = append(di.Finalizers, metal3api.DataImageFinalizer)
-
-		// Update dataImage after adding finalizer, requeue in case of failure
-		err := r.Update(ctx, di)
-		if err != nil {
-			return ctrl.Result{RequeueAfter: dataImageUpdateDelay}, fmt.Errorf("failed to update resource after add finalizer, %w", err)
-		}
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Check if any attach/detach action is pending or failed to attach

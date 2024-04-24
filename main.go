@@ -177,7 +177,7 @@ func main() {
 		logOpts.Development = true
 		logOpts.TimeEncoder = zapcore.ISO8601TimeEncoder
 	} else {
-		logOpts.TimeEncoder = zapcore.ISO8601TimeEncoder // zapcore.EpochTimeEncoder
+		logOpts.TimeEncoder = zapcore.EpochTimeEncoder
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 

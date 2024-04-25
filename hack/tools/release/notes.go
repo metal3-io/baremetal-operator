@@ -45,6 +45,10 @@ const (
 	superseded    = ":recycle: Superseded or Reverted"
 )
 
+const (
+	warningTemplate = ":rotating_light: This is a %s. Use it only for testing purposes. If you find any bugs, file an [issue](https://github.com/metal3-io/baremetal-operator/issues/new/).\n\n"
+)
+
 var (
 	outputOrder = []string{
 		warning,
@@ -85,6 +89,14 @@ func lastTag() string {
 	return string(bytes.TrimSpace(out))
 }
 
+func isBeta(tag string) bool {
+	return strings.Contains(tag, "-beta.")
+}
+
+func isRC(tag string) bool {
+	return strings.Contains(tag, "-rc.")
+}
+
 func firstCommit() string {
 	cmd := exec.Command("git", "rev-list", "--max-parents=0", "HEAD")
 	out, err := cmd.Output()
@@ -97,7 +109,7 @@ func firstCommit() string {
 func run() int {
 	lastTag := lastTag()
 	latestTag := latestTag()
-	cmd := exec.Command("git", "rev-list", lastTag+"..HEAD", "--merges", "--pretty=format:%B")
+	cmd := exec.Command("git", "rev-list", lastTag+"..HEAD", "--merges", "--pretty=format:%B") // #nosec G204:gosec
 
 	merges := map[string][]string{
 		features:      {},
@@ -174,12 +186,15 @@ func run() int {
 		merges[key] = append(merges[key], formatMerge(body, prNumber))
 	}
 
-	// Add empty superseded section
-	merges[superseded] = append(merges[superseded], "- `<insert superseded bumps and reverts here>`")
+	// Add empty superseded section, if not beta/rc, we don't cleanup those notes
+	if !isBeta(latestTag) && !isRC(latestTag) {
+		merges[superseded] = append(merges[superseded], "- `<insert superseded bumps and reverts here>`")
+	}
 
 	// TODO Turn this into a link (requires knowing the project name + organization)
 	fmt.Printf("Changes since %v\n---\n", lastTag)
 
+	// print the changes by category
 	for _, key := range outputOrder {
 		mergeslice := merges[key]
 		if len(mergeslice) > 0 {
@@ -189,10 +204,29 @@ func run() int {
 			}
 			fmt.Println()
 		}
+
+		// if we're doing beta/rc, print breaking changes and hide the rest of the changes
+		if key == warning {
+			if isBeta(latestTag) {
+				fmt.Printf(warningTemplate, "BETA RELEASE")
+			}
+			if isRC(latestTag) {
+				fmt.Printf(warningTemplate, "RELEASE CANDIDATE")
+			}
+			if isBeta(latestTag) || isRC(latestTag) {
+				fmt.Printf("<details>\n")
+				fmt.Printf("<summary>More details about the release</summary>\n\n")
+			}
+		}
 	}
 
-	fmt.Printf("The container image for this release is: %v\n", latestTag)
-	fmt.Println("\nThanks to all our contributors! 😊")
+	// then close the details if we had it open
+	if isBeta(latestTag) || isRC(latestTag) {
+		fmt.Printf("</details>\n\n")
+	}
+
+	fmt.Printf("The image for this release is: %v\n", latestTag)
+	fmt.Println("\n_Thanks to all our contributors!_ 😊")
 
 	return 0
 }

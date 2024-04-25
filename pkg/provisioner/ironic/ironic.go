@@ -176,18 +176,18 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 	}
 
 	ironicNode, err := nodes.Get(p.ctx, p.client, p.nodeID).Extract()
-	switch err.(type) {
-	case nil:
+	if err == nil {
 		p.debugLog.Info("found existing node by ID")
 		return ironicNode, nil
-	case gophercloud.ErrDefault404:
+	}
+
+	if gophercloud.ResponseCodeIs(err, 404) {
 		// Look by ID failed, trying to lookup by hostname in case it was
 		// previously created
 		return nil, provisioner.ErrNeedsRegistration
-	default:
-		return nil, errors.Wrap(err,
-			fmt.Sprintf("failed to find node by ID %s", p.nodeID))
 	}
+
+	return nil, fmt.Errorf("failed to find node by ID %s: %w", p.nodeID, err)
 }
 
 // Verifies that node has port assigned by Ironic.
@@ -251,16 +251,15 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 	for _, nodeName := range nodeSearchList {
 		p.debugLog.Info("looking for existing node by name", "name", nodeName)
 		ironicNode, err = nodes.Get(p.ctx, p.client, nodeName).Extract()
-		switch err.(type) {
-		case nil:
+		if err == nil {
 			p.debugLog.Info("found existing node by name", "name", nodeName, "node", ironicNode.UUID)
 			return ironicNode, nil
-		case gophercloud.ErrDefault404:
-			p.log.Info(
-				fmt.Sprintf("node with name %s doesn't exist", nodeName))
-		default:
-			return nil, errors.Wrap(err,
-				fmt.Sprintf("failed to find node by name %s", nodeName))
+		}
+
+		if gophercloud.ResponseCodeIs(err, 404) {
+			p.log.Info(fmt.Sprintf("node with name %s doesn't exist", nodeName))
+		} else {
+			return nil, fmt.Errorf("failed to find node by name %s: %w", nodeName, err)
 		}
 	}
 
@@ -276,8 +275,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 	if len(allPorts) > 0 {
 		nodeUUID := allPorts[0].NodeUUID
 		ironicNode, err = nodes.Get(p.ctx, p.client, nodeUUID).Extract()
-		switch err.(type) {
-		case nil:
+		if err == nil {
 			p.debugLog.Info("found existing node by MAC", "MAC", bootMACAddress, "node", ironicNode.UUID, "name", ironicNode.Name)
 
 			// If the node has a name, this means we didn't find it above.
@@ -286,17 +284,14 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 			}
 
 			return ironicNode, nil
-		case gophercloud.ErrDefault404:
-			return nil, errors.Wrap(err,
-				fmt.Sprintf("port %s exists but linked node doesn't %s", bootMACAddress, nodeUUID))
-		default:
-			return nil, errors.Wrap(err,
-				fmt.Sprintf("port %s exists but failed to find linked node by ID %s", bootMACAddress, nodeUUID))
 		}
-	} else {
-		p.log.Info("port with address doesn't exist", "MAC", bootMACAddress)
+		if gophercloud.ResponseCodeIs(err, 404) {
+			return nil, fmt.Errorf("port %s exists but linked node %s doesn't: %w", bootMACAddress, nodeUUID, err)
+		}
+		return nil, fmt.Errorf("port %s exists but failed to find linked node %s by ID: %w", bootMACAddress, nodeUUID, err)
 	}
 
+	p.log.Info("port with address doesn't exist", "MAC", bootMACAddress)
 	// Either the node was never created or the Ironic database has
 	// been dropped.
 	return nil, nil
@@ -415,14 +410,13 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 		}
 
 		ironicNode, err = nodes.Create(p.ctx, p.client, nodeCreateOpts).Extract()
-		switch err.(type) {
-		case nil:
+		if err == nil {
 			p.publisher("Registered", "Registered new host")
-		case gophercloud.ErrDefault409:
+		} else if gophercloud.ResponseCodeIs(err, 409) {
 			p.log.Info("could not register host in ironic, busy")
 			result, err = retryAfterDelay(provisionRequeueDelay)
 			return
-		default:
+		} else {
 			result, err = transientError(errors.Wrap(err, "failed to register host in ironic"))
 			return
 		}
@@ -764,14 +758,13 @@ func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeU
 
 	p.log.Info("updating node settings in ironic", "updateCount", len(updater.Updates))
 	updatedNode, err = nodes.Update(p.ctx, p.client, ironicNode.UUID, updater.Updates).Extract()
-	switch err.(type) {
-	case nil:
+	if err == nil {
 		success = true
-	case gophercloud.ErrDefault409:
+	} else if gophercloud.ResponseCodeIs(err, 409) {
 		p.log.Info("could not update node settings in ironic, busy or update cannot be applied in the current state")
 		result, err = retryAfterDelay(provisionRequeueDelay)
-	default:
-		result, err = transientError(errors.Wrap(err, "failed to update host settings in ironic"))
+	} else {
+		result, err = transientError(fmt.Errorf("failed to update host settings in ironic: %w", err))
 	}
 
 	return
@@ -797,16 +790,14 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 	}
 
 	changeResult := nodes.ChangeProvisionState(p.ctx, p.client, ironicNode.UUID, opts)
-	switch changeResult.Err.(type) {
-	case nil:
+	if changeResult.Err == nil {
 		success = true
-	case gophercloud.ErrDefault409:
+	} else if gophercloud.ResponseCodeIs(changeResult.Err, 409) {
 		p.log.Info("could not change state of host, busy")
 		result, err = retryAfterDelay(provisionRequeueDelay)
 		return
-	default:
-		result, err = transientError(errors.Wrap(changeResult.Err,
-			fmt.Sprintf("failed to change provisioning state to %q", opts.Target)))
+	} else {
+		result, err = transientError(fmt.Errorf("failed to change provisioning state to %q: %w", opts.Target, changeResult.Err))
 		return
 	}
 
@@ -916,12 +907,12 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 	response := nodes.GetInventory(p.ctx, p.client, ironicNode.UUID)
 	introData, err := response.Extract()
 	if err != nil {
-		if _, isNotFound := err.(gophercloud.ErrDefault404); isNotFound {
+		if gophercloud.ResponseCodeIs(err, 404) {
 			// The node has just been enrolled, inspection hasn't been started yet.
 			result, started, err = p.startInspection(data, ironicNode)
 			return
 		}
-		result, err = transientError(errors.Wrap(err, "failed to retrieve hardware introspection data"))
+		result, err = transientError(fmt.Errorf("failed to retrieve hardware introspection data: %w", err))
 		return
 	}
 
@@ -1242,13 +1233,11 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 	p.log.Info("validating host settings")
 
 	errorMessage, err := p.validateNode(ironicNode)
-	switch err.(type) {
-	case nil:
-	case gophercloud.ErrDefault409:
+	if gophercloud.ResponseCodeIs(err, 409) {
 		p.log.Info("could not validate host during registration, busy")
 		return retryAfterDelay(provisionRequeueDelay)
-	default:
-		return transientError(errors.Wrap(err, "failed to validate host during registration"))
+	} else if err != nil {
+		return transientError(fmt.Errorf("failed to validate host during registration: %w", err))
 	}
 	if errorMessage != "" {
 		return operationFailed(errorMessage)
@@ -1779,13 +1768,12 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 		err = nodes.UnsetMaintenance(p.ctx, p.client, ironicNode.UUID).ExtractErr()
 	}
 
-	switch err.(type) {
-	case nil:
+	if err == nil {
 		result, err = operationContinuing(0)
-	case gophercloud.ErrDefault409:
+	} else if gophercloud.ResponseCodeIs(err, 409) {
 		p.log.Info("could not update maintenance in ironic, busy")
 		result, err = retryAfterDelay(provisionRequeueDelay)
-	default:
+	} else {
 		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
 		result, err = transientError(err)
 	}
@@ -1944,16 +1932,15 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 
 	p.log.Info("host ready to be removed")
 	err = nodes.Delete(p.ctx, p.client, ironicNode.UUID).ExtractErr()
-	switch err.(type) {
-	case nil:
+	if err == nil {
 		p.log.Info("removed")
-	case gophercloud.ErrDefault409:
+	} else if gophercloud.ResponseCodeIs(err, 409) {
 		p.log.Info("could not remove host, busy")
 		return retryAfterDelay(provisionRequeueDelay)
-	case gophercloud.ErrDefault404:
+	} else if gophercloud.ResponseCodeIs(err, 404) {
 		p.log.Info("did not find host to delete, OK")
-	default:
-		return transientError(errors.Wrap(err, "failed to remove host"))
+	} else {
+		return transientError(fmt.Errorf("failed to remove host: %w", err))
 	}
 
 	return operationContinuing(0)
@@ -2007,8 +1994,7 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		ironicNode.UUID,
 		powerStateOpts)
 
-	switch changeResult.Err.(type) {
-	case nil:
+	if changeResult.Err == nil {
 		p.log.Info("power change OK")
 		event := map[nodes.TargetPowerState]struct{ Event, Reason string }{
 			nodes.PowerOn:      {Event: "PowerOn", Reason: "Host powered on"},
@@ -2017,18 +2003,17 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		}[target]
 		p.publisher(event.Event, event.Reason)
 		return operationContinuing(0)
-	case gophercloud.ErrDefault409:
+	} else if gophercloud.ResponseCodeIs(changeResult.Err, 409) {
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
 		return retryAfterDelay(powerRequeueDelay)
-	case gophercloud.ErrDefault400:
+	} else if gophercloud.ResponseCodeIs(changeResult.Err, 400) {
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		if target == nodes.SoftPowerOff {
 			changeResult.Err = softPowerOffUnsupportedError{changeResult.Err}
 		}
 	}
 	p.log.Info("power change error", "message", changeResult.Err)
-	return transientError(errors.Wrap(changeResult.Err,
-		fmt.Sprintf("failed to %s node", target)))
+	return transientError(fmt.Errorf("failed to %s node: %w", target, changeResult.Err))
 }
 
 // PowerOn ensures the server is powered on independently of any image

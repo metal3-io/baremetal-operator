@@ -322,5 +322,5 @@ func TestSoftPowerOffFallback(t *testing.T) {
 
 	_, err = prov.changePower(&node, nodes.SoftPowerOff)
 	assert.Error(t, err)
-	assert.True(t, errors.As(err, &softPowerOffUnsupportedError{}))
+	assert.ErrorAs(t, err, &softPowerOffUnsupportedError{})
 }

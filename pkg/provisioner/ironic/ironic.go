@@ -2194,3 +2194,68 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 	}
 	return operationComplete()
 }
+
+// TODO(hroyrh) : Replace with GetDataImageStatus function once the virtua_media.get
+// api is available.
+// Checks if the last VirtualMedia action(attach/detach) to a BareMetalHost was
+// successful of not.
+func (p *ironicProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
+	// TODO(hroyrh)
+	// Get BareMetalHost VirtualMedia details using a GET api to vmedia
+
+	// Check if Ironic API version supports DataImage API
+	// Needs version >= 1.89
+	if !p.availableFeatures.HasDataImage() {
+		return true, fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
+	}
+
+	node, err := p.getNode()
+	if err != nil {
+		return true, err
+	}
+
+	isNodeBusy = node.Reservation != ""
+
+	// In case the error node encountered was related to something else
+	// TODO(hroyrh) : Is this check valid ?
+	if !strings.Contains(node.LastError, "attach") && !strings.Contains(node.LastError, "detach") {
+		return isNodeBusy, nil
+	}
+
+	return isNodeBusy, fmt.Errorf("last dataImage action failed, %s", node.LastError)
+}
+
+func (p *ironicProvisioner) AttachDataImage(url string) (err error) {
+	// Check if Ironic API version supports DataImage API
+	// Needs version >= 1.89
+	if !p.availableFeatures.HasDataImage() {
+		return fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
+	}
+
+	err = nodes.AttachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.AttachVirtualMediaOpts{
+		DeviceType: nodes.VirtualMediaCD,
+		ImageURL:   url,
+	}).ExtractErr()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *ironicProvisioner) DetachDataImage() (err error) {
+	// Check if Ironic API version supports DataImage API
+	// Needs version >= 1.89
+	if !p.availableFeatures.HasDataImage() {
+		return fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
+	}
+
+	err = nodes.DetachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.DetachVirtualMediaOpts{
+		DeviceTypes: []nodes.VirtualMediaDeviceType{nodes.VirtualMediaCD},
+	}).ExtractErr()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

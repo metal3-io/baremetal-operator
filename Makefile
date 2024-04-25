@@ -24,7 +24,7 @@ CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
 GINKGO = tools/bin/ginkgo
-GINKGO_VER = v2.13.2
+GINKGO_VER = v2.17.1
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)

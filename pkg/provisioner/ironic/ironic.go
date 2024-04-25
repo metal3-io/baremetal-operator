@@ -797,7 +797,7 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 		result, err = retryAfterDelay(provisionRequeueDelay)
 		return
 	} else {
-		result, err = transientError(fmt.Errorf("failed to change provisioning state to %q: %w", opts.Target, err))
+		result, err = transientError(fmt.Errorf("failed to change provisioning state to %q: %w", opts.Target, changeResult.Err))
 		return
 	}
 

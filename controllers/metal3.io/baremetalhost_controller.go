@@ -786,7 +786,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return actionError{err}
 	}
 	switch info.host.Status.Provisioning.State {
-	case metal3api.StateRegistering, metal3api.StateExternallyProvisioned, metal3api.StateDeleting:
+	case metal3api.StateRegistering, metal3api.StateExternallyProvisioned, metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
 		// No need to create PreprovisioningImage if host is not yet registered
 		// or is externally provisioned
 		preprovImgFormats = nil

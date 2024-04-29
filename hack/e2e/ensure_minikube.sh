@@ -5,7 +5,7 @@ set -eux
 USR_LOCAL_BIN="/usr/local/bin"
 OS=$(go env GOOS)
 ARCH=$(go env GOARCH)
-MINIMUM_MINIKUBE_VERSION=v1.31.2
+MINIMUM_MINIKUBE_VERSION=v1.33.0
 
 verify_minikube_version() {
   if ! [ -x "$(command -v minikube)" ]; then

@@ -24,6 +24,15 @@ import (
 	"strconv"
 	"strings"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
+	"github.com/metal3-io/baremetal-operator/pkg/version"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -36,17 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
-	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	"github.com/metal3-io/baremetal-operator/pkg/version"
-	// +kubebuilder:scaffold:imports
 )
 
 // Constants for TLS versions.

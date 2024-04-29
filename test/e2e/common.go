@@ -7,24 +7,18 @@ import (
 	"os"
 	"strings"
 
-	"golang.org/x/crypto/ssh"
-
-	"github.com/pkg/errors"
-
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
-
+	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/krusty"

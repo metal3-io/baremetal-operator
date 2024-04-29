@@ -6,9 +6,8 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/inventory"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetalintrospection/v1/introspection"
-	"github.com/stretchr/testify/assert"
-
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetVLANs(t *testing.T) {

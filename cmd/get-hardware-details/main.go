@@ -12,10 +12,9 @@ import (
 	"strings"
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
-	"k8s.io/klog/v2"
-
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
+	"k8s.io/klog/v2"
 )
 
 type options struct {

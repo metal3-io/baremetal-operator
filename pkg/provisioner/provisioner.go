@@ -240,3 +240,6 @@ var ErrNeedsRegistration = errors.New("host not registered")
 // ErrNeedsPreprovisioningImage is returned if a preprovisioning image is
 // required.
 var ErrNeedsPreprovisioningImage = errors.New("no suitable Preprovisioning image available")
+
+// ErrFirmwareUpdateUnsupported is returned if the host can't execute firmware updates.
+var ErrFirmwareUpdateUnsupported = errors.New("host does not support Firmware Updates")

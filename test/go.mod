@@ -9,14 +9,14 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.30.0
 	github.com/pkg/errors v0.9.1
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.22.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.27.7
 	k8s.io/apimachinery v0.27.7
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
-	sigs.k8s.io/cluster-api v1.5.7
-	sigs.k8s.io/cluster-api/test v1.5.7
+	sigs.k8s.io/cluster-api v1.5.8
+	sigs.k8s.io/cluster-api/test v1.5.8
 	sigs.k8s.io/controller-runtime v0.15.3
 	sigs.k8s.io/kustomize/api v0.13.2
 	sigs.k8s.io/kustomize/kyaml v0.14.1
@@ -41,7 +41,7 @@ require (
 	github.com/coredns/corefile-migration v1.0.21 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v24.0.7+incompatible // indirect
+	github.com/docker/docker v24.0.9+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/drone/envsubst/v2 v2.0.0-20210730161058-179042472c46 // indirect
@@ -111,10 +111,10 @@ require (
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/term v0.15.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect

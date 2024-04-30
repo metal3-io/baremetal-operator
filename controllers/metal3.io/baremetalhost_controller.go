@@ -761,13 +761,13 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		},
 		Format: preprovImage.Status.Format,
 	}
-	info.log.Info("using PreprovisioningImage")
+	info.log.Info("using PreprovisioningImage", "Image", image)
 	return &image, nil
 }
 
 // Test the credentials by connecting to the management controller.
 func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	info.log.Info("registering and validating access to management controller",
+	info.log.V(1).Info("registering and validating access to management controller",
 		"credentials", info.host.Status.TriedCredentials)
 	dirty := false
 
@@ -900,7 +900,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
 		dirty = true
 	} else {
-		info.log.Info("verified access to the BMC")
+		info.log.V(1).Info("verified access to the BMC")
 	}
 
 	if info.host.Status.ErrorType == metal3api.RegistrationError || registeredNewCreds {
@@ -1074,7 +1074,7 @@ func getHardwareProfileName(host *metal3api.BareMetalHost) string {
 
 func (r *BareMetalHostReconciler) matchProfile(info *reconcileInfo) (dirty bool, err error) {
 	hardwareProfile := getHardwareProfileName(info.host)
-	info.log.Info("using hardware profile", "profile", hardwareProfile)
+	info.log.V(1).Info("using hardware profile", "profile", hardwareProfile)
 
 	_, err = profile.GetProfile(hardwareProfile)
 	if err != nil {

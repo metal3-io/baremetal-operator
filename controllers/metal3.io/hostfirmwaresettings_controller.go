@@ -160,7 +160,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
-	info.log.Info("retrieving firmware settings and saving to resource", "node", bmh.Status.Provisioning.ID)
+	info.log.V(1).Info("retrieving firmware settings and saving to resource", "Node", bmh.Status.Provisioning.ID)
 
 	// Get the current settings and schema, retry if provisioner returns error
 	currentSettings, schema, err := prov.GetFirmwareSettings(true)
@@ -291,7 +291,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 
 // Get a firmware schema that matches the host vendor or create one if it doesn't exist.
 func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, schema map[string]metal3api.SettingSchema) (fSchema *metal3api.FirmwareSchema, err error) {
-	info.log.Info("getting firmwareSchema")
+	info.log.V(1).Info("getting firmwareSchema")
 
 	schemaName := GetSchemaName(schema)
 	firmwareSchema := &metal3api.FirmwareSchema{}
@@ -299,7 +299,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	// If a schema exists that matches, use that, otherwise create a new one
 	if err = r.Get(info.ctx, client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
 		firmwareSchema); err == nil {
-		info.log.Info("found existing firmwareSchema resource")
+		info.log.V(1).Info("found existing firmwareSchema resource")
 
 		// Add hfs as owner so can be garbage collected on delete, if already an owner it will just be overwritten
 		if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {

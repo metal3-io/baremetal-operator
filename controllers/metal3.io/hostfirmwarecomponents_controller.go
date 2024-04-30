@@ -151,7 +151,7 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
-	info.log.Info("retrieving firmware components and saving to resource", "Node", bmh.Status.Provisioning.ID)
+	info.log.V(1).Info("retrieving firmware components and saving to resource", "Node", bmh.Status.Provisioning.ID)
 	// Check ironic for the components information if possible
 	components, err := prov.GetFirmwareComponents()
 

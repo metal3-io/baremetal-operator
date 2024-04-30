@@ -61,7 +61,7 @@ spec:
         - configMapRef:
             name: ironic-bmo-configmap
       - name: ironic
-        image: quay.io/metal3-io/ironic
+        image: quay.io/metal3-io/ironic:release-24.1
         imagePullPolicy: Always
         command:
         - /bin/runironic
@@ -96,7 +96,7 @@ spec:
           runAsUser: 997 # ironic
           runAsGroup: 994 # ironic
       - name: ironic-log-watch
-        image: quay.io/metal3-io/ironic
+        image: quay.io/metal3-io/ironic:release-24.1
         imagePullPolicy: Always
         command:
         - /bin/runlogwatch.sh
@@ -112,7 +112,7 @@ spec:
           runAsUser: 997 # ironic
           runAsGroup: 994 # ironic
       - name: ironic-httpd
-        image: quay.io/metal3-io/ironic
+        image: quay.io/metal3-io/ironic:release-24.1
         imagePullPolicy: Always
         command:
         - /bin/runhttpd

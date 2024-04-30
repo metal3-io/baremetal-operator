@@ -51,12 +51,6 @@ const (
 	kernelParamsKey  = "kernel_append_params"
 )
 
-var bootModeCapabilities = map[metal3api.BootMode]string{
-	metal3api.UEFI:           "boot_mode:uefi",
-	metal3api.UEFISecureBoot: "boot_mode:uefi,secure_boot:true",
-	metal3api.Legacy:         "boot_mode:bios",
-}
-
 type macAddressConflictError struct {
 	Address      string
 	ExistingNode string
@@ -398,7 +392,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 			RAIDInterface:       bmcAccess.RAIDInterface(),
 			VendorInterface:     bmcAccess.VendorInterface(),
 			Properties: map[string]interface{}{
-				"capabilities": bootModeCapabilities[data.BootMode],
+				"capabilities": buildCapabilitiesValue(nil, data.BootMode),
 			},
 		}
 
@@ -1050,19 +1044,9 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	// instance_uuid
 	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
-	// Secure boot is a normal capability that goes into instance_info (we
-	// also put it to properties for consistency, although it's not
-	// strictly required in our case).
-
-	// Instance info capabilities were invented later and
-	// use a normal JSON mapping instead of a custom
-	// string value.
-	capabilitiesII := map[string]string{}
-	if bootMode == metal3api.UEFISecureBoot {
-		capabilitiesII["secure_boot"] = "true"
-	}
-
-	updater.SetInstanceInfoOpts(optionsData{"capabilities": capabilitiesII}, ironicNode)
+	updater.SetInstanceInfoOpts(optionsData{
+		"capabilities": buildInstanceInfoCapabilities(bootMode),
+	}, ironicNode)
 
 	if hasCustomDeploy {
 		// Custom deploy process
@@ -1187,37 +1171,6 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 	}
 
 	return componentsInfo, componentListErr
-}
-
-// We can't just replace the capabilities because we need to keep the
-// values provided by inspection. We can't replace only the boot_mode
-// because the API isn't fine-grained enough for that. So we have to
-// look at the existing value and modify it. This function
-// encapsulates the logic for building the value and knowing which
-// update operation to use with the results.
-func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3api.BootMode) string {
-	capabilities, ok := ironicNode.Properties["capabilities"]
-	if !ok {
-		// There is no existing capabilities value
-		return bootModeCapabilities[bootMode]
-	}
-	existingCapabilities := capabilities.(string)
-
-	if existingCapabilities == "" {
-		// The existing value is empty so we can replace the whole
-		// thing.
-		return bootModeCapabilities[bootMode]
-	}
-
-	var filteredCapabilities []string
-	for _, item := range strings.Split(existingCapabilities, ",") {
-		if !strings.HasPrefix(item, "boot_mode:") && !strings.HasPrefix(item, "secure_boot:") {
-			filteredCapabilities = append(filteredCapabilities, item)
-		}
-	}
-	filteredCapabilities = append(filteredCapabilities, bootModeCapabilities[bootMode])
-
-	return strings.Join(filteredCapabilities, ",")
 }
 
 func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {

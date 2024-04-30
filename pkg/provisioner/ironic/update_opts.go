@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 )
 

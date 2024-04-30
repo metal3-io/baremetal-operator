@@ -2,19 +2,15 @@ package e2e
 
 import (
 	"fmt"
-
-	. "github.com/onsi/gomega"
-
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
-
 	"os"
 	"runtime"
-
-	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
-
 	"strings"
 	"time"
+
+	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 )
 
 // LoadImageBehavior indicates the behavior when loading an image.

@@ -5,7 +5,6 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/v2/pagination"
-
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 

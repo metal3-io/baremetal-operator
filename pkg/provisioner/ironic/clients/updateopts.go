@@ -1,4 +1,4 @@
-package ironic
+package clients
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 )
 
-type optionsData map[string]interface{}
+type UpdateOptsData map[string]interface{}
 
 func optionValueEqual(current, value interface{}) bool {
 	if reflect.DeepEqual(current, value) {
@@ -125,18 +125,18 @@ func getUpdateOperation(name string, currentData map[string]interface{}, desired
 	return nil
 }
 
-type nodeUpdater struct {
+type NodeUpdater struct {
 	Updates nodes.UpdateOpts
 	log     logr.Logger
 }
 
-func updateOptsBuilder(logger logr.Logger) *nodeUpdater {
-	return &nodeUpdater{
+func UpdateOptsBuilder(logger logr.Logger) *NodeUpdater {
+	return &NodeUpdater{
 		log: logger,
 	}
 }
 
-func (nu *nodeUpdater) logger(basepath, option string) logr.Logger {
+func (nu *NodeUpdater) logger(basepath, option string) logr.Logger {
 	log := nu.log.WithValues("option", option)
 	if basepath != "" {
 		log = log.WithValues("section", basepath[1:])
@@ -144,11 +144,11 @@ func (nu *nodeUpdater) logger(basepath, option string) logr.Logger {
 	return log
 }
 
-func (nu *nodeUpdater) path(basepath, option string) string {
+func (nu *NodeUpdater) path(basepath, option string) string {
 	return fmt.Sprintf("%s/%s", basepath, option)
 }
 
-func (nu *nodeUpdater) setSectionUpdateOpts(currentData map[string]interface{}, settings optionsData, basepath string) {
+func (nu *NodeUpdater) setSectionUpdateOpts(currentData map[string]interface{}, settings UpdateOptsData, basepath string) {
 	for name, desiredValue := range settings {
 		updateOp := getUpdateOperation(name, currentData, desiredValue,
 			nu.path(basepath, name), nu.logger(basepath, name))
@@ -158,25 +158,25 @@ func (nu *nodeUpdater) setSectionUpdateOpts(currentData map[string]interface{}, 
 	}
 }
 
-func (nu *nodeUpdater) SetTopLevelOpt(name string, desiredValue, currentValue interface{}) *nodeUpdater {
+func (nu *NodeUpdater) SetTopLevelOpt(name string, desiredValue, currentValue interface{}) *NodeUpdater {
 	currentData := map[string]interface{}{name: currentValue}
-	desiredData := optionsData{name: desiredValue}
+	desiredData := UpdateOptsData{name: desiredValue}
 
 	nu.setSectionUpdateOpts(currentData, desiredData, "")
 	return nu
 }
 
-func (nu *nodeUpdater) SetPropertiesOpts(settings optionsData, node *nodes.Node) *nodeUpdater {
+func (nu *NodeUpdater) SetPropertiesOpts(settings UpdateOptsData, node *nodes.Node) *NodeUpdater {
 	nu.setSectionUpdateOpts(node.Properties, settings, "/properties")
 	return nu
 }
 
-func (nu *nodeUpdater) SetInstanceInfoOpts(settings optionsData, node *nodes.Node) *nodeUpdater {
+func (nu *NodeUpdater) SetInstanceInfoOpts(settings UpdateOptsData, node *nodes.Node) *NodeUpdater {
 	nu.setSectionUpdateOpts(node.InstanceInfo, settings, "/instance_info")
 	return nu
 }
 
-func (nu *nodeUpdater) SetDriverInfoOpts(settings optionsData, node *nodes.Node) *nodeUpdater {
+func (nu *NodeUpdater) SetDriverInfoOpts(settings UpdateOptsData, node *nodes.Node) *NodeUpdater {
 	nu.setSectionUpdateOpts(node.DriverInfo, settings, "/driver_info")
 	return nu
 }

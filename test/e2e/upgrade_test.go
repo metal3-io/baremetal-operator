@@ -373,11 +373,13 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 		scheme := runtime.NewScheme()
 		framework.TryAddDefaultSchemes(scheme)
-		metal3api.AddToScheme(scheme)
-		upgradeClusterProxy = framework.NewClusterProxy(upgradeClusterName, kubeconfigPath, scheme)
+		err := metal3api.AddToScheme(scheme)
+		Expect(err).NotTo(HaveOccurred())
+		upgradeClusterProxy = framework.NewClusterProxy("bmo-e2e-upgrade", kubeconfigPath, scheme)
 		DeferCleanup(func() {
 			upgradeClusterProxy.Dispose(ctx)
 		})
+
 		if e2eConfig.GetVariable("UPGRADE_DEPLOY_CERT_MANAGER") != "false" {
 			By("Installing cert-manager on the upgrade cluster")
 			cmVersion := e2eConfig.GetVariable("CERT_MANAGER_VERSION")

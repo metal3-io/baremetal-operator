@@ -138,7 +138,7 @@ func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Obje
 	c := clientBuilder.Build()
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
-	c.Create(context.TODO(), bmcSecret)
+	_ = c.Create(context.TODO(), bmcSecret)
 
 	return &BareMetalHostReconciler{
 		Client:             c,
@@ -547,7 +547,8 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	// The fake client will immediately remove the host
 	// from its cache, so let's keep the latest updated
 	// host
-	r.Get(context.TODO(), request.NamespacedName, host)
+	err = r.Get(context.TODO(), request.NamespacedName, host)
+	assert.NoError(t, err)
 	_, err = r.Reconcile(context.Background(), request)
 	assert.NoError(t, err)
 
@@ -555,7 +556,8 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	// secret update (and a slow host deletion), let's push
 	// back the host in the client cache.
 	host.ResourceVersion = ""
-	r.Client.Create(context.TODO(), host)
+	err = r.Client.Create(context.TODO(), host)
+	assert.NoError(t, err)
 	previousSecret := getHostSecret(t, r, host)
 	_, err = r.Reconcile(context.Background(), request)
 	assert.NoError(t, err)
@@ -772,7 +774,8 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	)
 
 	delete(host.Annotations, annotation)
-	r.Update(context.TODO(), host)
+	err := r.Update(context.TODO(), host)
+	assert.NoError(t, err)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -2679,7 +2682,8 @@ func TestHostFirmwareSettings(t *testing.T) {
 			i.request = newRequest(host)
 
 			hfs := newHostFirmwareSettings(host, tc.Conditions)
-			r.Create(context.TODO(), hfs)
+			err := r.Create(context.TODO(), hfs)
+			assert.NoError(t, err)
 
 			dirty, _, err := r.getHostFirmwareSettings(i)
 			if err != nil {
@@ -2747,7 +2751,8 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 		},
 	}
 
-	r.Update(context.TODO(), hfs)
+	err := r.Update(context.TODO(), hfs)
+	assert.NoError(t, err)
 
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 }
@@ -2779,7 +2784,8 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 		},
 	}
 
-	r.Update(context.TODO(), hfs)
+	err := r.Update(context.TODO(), hfs)
+	assert.NoError(t, err)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -2795,7 +2801,8 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 		},
 	}
 
-	r.Update(context.TODO(), hfs)
+	err = r.Update(context.TODO(), hfs)
+	assert.NoError(t, err)
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			return host.Status.Provisioning.State == metal3api.StateAvailable

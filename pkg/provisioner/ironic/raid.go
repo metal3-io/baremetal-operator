@@ -94,7 +94,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 	)
 
 	if len(volumes) == 0 {
-		return
+		return nil, nil
 	}
 
 	for index, volume := range volumes {
@@ -148,7 +148,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 		logicalDisks = append(logicalDisks, logicalDisk)
 	}
 
-	return
+	return logicalDisks, nil
 }
 
 // A private method to build software RAID disks.
@@ -198,10 +198,10 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, act
 			actual.HardwareRAIDVolumes = nil
 		}
 		if reflect.DeepEqual(target, actual) {
-			return
+			return cleanSteps, nil
 		}
 		if len(target.SoftwareRAIDVolumes) == 0 && (actual == nil || len(actual.SoftwareRAIDVolumes) == 0) {
-			return
+			return cleanSteps, nil
 		}
 
 		cleanSteps = append(
@@ -220,7 +220,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, act
 
 		// If software raid configuration is empty, only need to clear old configuration
 		if len(target.SoftwareRAIDVolumes) == 0 {
-			return
+			return cleanSteps, nil
 		}
 
 		cleanSteps = append(
@@ -230,14 +230,14 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, act
 				Step:      "create_configuration",
 			},
 		)
-		return
+		return cleanSteps, nil
 	}
 
 	// Hardware RAID
 	// If hardware RAID configuration is nil,
 	// keep old hardware RAID configuration
 	if raidInterface == noRAIDInterface || target == nil || target.HardwareRAIDVolumes == nil {
-		return
+		return cleanSteps, nil
 	}
 
 	// Ignore SoftwareRAIDVolumes
@@ -246,7 +246,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, act
 		actual.SoftwareRAIDVolumes = nil
 	}
 	if reflect.DeepEqual(target, actual) {
-		return
+		return cleanSteps, nil
 	}
 
 	// Add ‘delete_configuration’ before ‘create_configuration’ to make sure
@@ -261,7 +261,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, act
 
 	// If hardware raid configuration is empty, only need to clear old configuration
 	if len(target.HardwareRAIDVolumes) == 0 {
-		return
+		return cleanSteps, nil
 	}
 
 	// ‘create_configuration’ doesn’t remove existing disks. It is recommended
@@ -273,7 +273,7 @@ func BuildRAIDCleanSteps(raidInterface string, target *metal3api.RAIDConfig, act
 			Step:      "create_configuration",
 		},
 	)
-	return
+	return cleanSteps, nil
 }
 
 // CheckRAIDInterface checks the current RAID interface against the requested configuration.

@@ -133,7 +133,7 @@ func (m *IronicMock) Node(node nodes.Node) *IronicMock {
 	return m
 }
 
-// NodeUpdateError configures configures the server with an error response for [PATCH] /v1/nodes/{id}.
+// NodeUpdateError configures the server with an error response for [PATCH] /v1/nodes/{id}.
 func (m *IronicMock) NodeUpdateError(id string, errorCode int) *IronicMock {
 	m.ResponseWithCode(m.buildURL(v1node+id, http.MethodPatch), "", errorCode)
 	return m
@@ -154,7 +154,7 @@ func (m *IronicMock) NodeUpdate(node nodes.Node) *IronicMock {
 // GetLastNodeUpdateRequestFor returns the content of the last update request for the specified node.
 func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.UpdateOperation) {
 	if bodyRaw, ok := m.GetLastRequestFor(v1node+id, http.MethodPatch); ok {
-		json.Unmarshal([]byte(bodyRaw), &updates)
+		_ = json.Unmarshal([]byte(bodyRaw), &updates)
 	}
 
 	return
@@ -163,13 +163,13 @@ func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.Upd
 // GetLastNodeStatesProvisionUpdateRequestFor returns the content of the last provisioning request for the specified node.
 func (m *IronicMock) GetLastNodeStatesProvisionUpdateRequestFor(id string) (update nodes.ProvisionStateOpts) {
 	if bodyRaw, ok := m.GetLastRequestFor(v1node+id+"/states/provision", http.MethodPut); ok {
-		json.Unmarshal([]byte(bodyRaw), &update)
+		_ = json.Unmarshal([]byte(bodyRaw), &update)
 	}
 
 	return
 }
 
-// NodeMaintenanceError configures configures the server with an error response for [PUT] /v1/nodes/{id}/maintenance.
+// NodeMaintenanceError configures the server with an error response for [PUT] /v1/nodes/{id}/maintenance.
 func (m *IronicMock) NodeMaintenanceError(id string, errorCode int) *IronicMock {
 	m.ResponseWithCode(m.buildURL(v1node+id+maintenance, http.MethodPut), "", errorCode)
 	return m

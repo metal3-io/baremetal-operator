@@ -1192,7 +1192,7 @@ func (hb *hostBuilder) build() *metal3api.BareMetalHost {
 
 func (hb *hostBuilder) SaveHostProvisioningSettings() *hostBuilder {
 	info := makeDefaultReconcileInfo(&hb.BareMetalHost)
-	saveHostProvisioningSettings(&hb.BareMetalHost, info)
+	_, _ = saveHostProvisioningSettings(&hb.BareMetalHost, info)
 	return hb
 }
 

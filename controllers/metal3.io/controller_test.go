@@ -10,5 +10,8 @@ import (
 func init() {
 	logf.SetLogger(logz.New(logz.UseDevMode(true)))
 	// Register our package types with the global scheme
-	metal3api.AddToScheme(scheme.Scheme)
+	err := metal3api.AddToScheme(scheme.Scheme)
+	if err != nil {
+		logf.Log.Error(err, "Cannot Add scheme into metal3api")
+	}
 }

@@ -22,7 +22,7 @@ func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
-	c.Create(goctx.TODO(), bmcSecret)
+	_ = c.Create(goctx.TODO(), bmcSecret)
 
 	return &BareMetalHostReconciler{
 		Client:             c,

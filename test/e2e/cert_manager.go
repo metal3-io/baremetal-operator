@@ -22,7 +22,7 @@ func checkCertManagerAPI(clusterProxy framework.ClusterProxy) error {
 }
 
 func installCertManager(ctx context.Context, clusterProxy framework.ClusterProxy, cmVersion string) error {
-	response, err := http.Get(fmt.Sprintf("https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml", cmVersion))
+	response, err := http.Get(fmt.Sprintf("https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml", cmVersion)) //nolint: noctx
 	if err != nil {
 		return errors.Wrapf(err, "Error downloading cert-manager manifest")
 	}
@@ -44,7 +44,11 @@ func installCertManager(ctx context.Context, clusterProxy framework.ClusterProxy
 func checkCertManagerWebhook(ctx context.Context, clusterProxy framework.ClusterProxy) error {
 	scheme := clusterProxy.GetScheme()
 	const ns = "cert-manager"
-	cmapi.AddToScheme(scheme)
+	err := cmapi.AddToScheme(scheme)
+	if err != nil {
+		return err
+	}
+
 	cl, err := client.New(clusterProxy.GetRESTConfig(), client.Options{
 		Scheme: scheme,
 	})

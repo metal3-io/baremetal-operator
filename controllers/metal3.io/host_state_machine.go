@@ -324,20 +324,20 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		// If we are in the process of deletion (which may start with
 		// deprovisioning) and we have been unable to obtain any credentials,
 		// don't attempt to re-register the Host as this will always fail.
-		return
+		return nil
 	}
 
 	switch hsm.NextState {
 	case metal3api.StateNone, metal3api.StateUnmanaged:
 		// We haven't yet reached the Registration state, so don't attempt
 		// to register the Host.
-		return
+		return result
 	case metal3api.StateMatchProfile:
 		// Backward compatibility, remove eventually
-		return
+		return result
 	case metal3api.StateDeleting:
 		// In the deleting state the whole idea is to de-register the host
-		return
+		return result
 	case metal3api.StateRegistering:
 	default:
 		if hsm.Host.Status.ErrorType == metal3api.RegistrationError ||
@@ -358,7 +358,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	if complete {
 		result = actionUpdate{}
 	}
-	return
+	return result
 }
 
 func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {

@@ -123,7 +123,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 		return ctrl.Result{}, nil
 	}
 
-	return
+	return result, nil
 }
 
 func (r *BMCEventSubscriptionReconciler) handleError(ctx context.Context, subscription *metal3api.BMCEventSubscription, e error, message string, requeue bool) (ctrl.Result, error) {

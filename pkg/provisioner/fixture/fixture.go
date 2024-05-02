@@ -184,7 +184,7 @@ func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ 
 		}
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 
-	return
+	return result, started, details, nil
 }
 
 // UpdateHardwareState fetches the latest hardware state of the server

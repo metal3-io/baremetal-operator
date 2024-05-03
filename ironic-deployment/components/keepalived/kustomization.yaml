@@ -7,4 +7,5 @@ patches:
 configMapGenerator:
 - envs:
   - ironic_bmo_configmap.env
+  behavior: merge
   name: ironic-bmo-configmap

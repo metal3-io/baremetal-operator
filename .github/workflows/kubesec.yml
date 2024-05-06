@@ -20,7 +20,7 @@ jobs:
     if: github.repository == 'metal3-io/baremetal-operator'
     steps:
     - name: Checkout code
-      uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
 
     - name: Collect all yaml
       id: list_yaml
@@ -43,7 +43,7 @@ jobs:
         value: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
 
     - name: Run kubesec scanner
       uses: controlplaneio/kubesec-action@43d0ddff5ffee89a6bb9f29b64cd865411137b14 # v0.0.2

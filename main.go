@@ -146,8 +146,7 @@ func main() {
 		"use the demo provisioner to set host states")
 	flag.StringVar(&healthAddr, "health-addr", ":9440",
 		"The address the health endpoint binds to.")
-	// NOTE (honza): Downstream only: disabling webhooks until CBO supports them
-	flag.IntVar(&webhookPort, "webhook-port", 0,
+	flag.IntVar(&webhookPort, "webhook-port", 9443,
 		"Webhook Server port (set to 0 to disable)")
 	flag.Float64Var(&restConfigQPS, "kube-api-qps", 20,
 		"Maximum queries per second from the controller client to the Kubernetes API server. Default 20")

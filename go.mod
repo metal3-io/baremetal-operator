@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/go-logr/logr v1.4.1
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
-	github.com/gophercloud/gophercloud/v2 v2.0.0-beta.4.0.20240422125343-8b1eebe1fa46
+	github.com/gophercloud/gophercloud/v2 v2.0.0-beta.5
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/onsi/gomega v1.33.0

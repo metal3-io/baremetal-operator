@@ -214,7 +214,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 
 		DeferCleanup(func() {
 			By(fmt.Sprintf("Removing Ironic kustomization %s from the upgrade cluster", initIronicKustomization))
-			BuildAndRemoveKustomization(ctx, initIronicKustomization, upgradeClusterProxy)
+			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, initIronicKustomization)
 		})
 	}
 	if input.DeployBMO {
@@ -233,7 +233,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			By(fmt.Sprintf("Removing BMO kustomization %s from the upgrade cluster", initBMOKustomization))
-			BuildAndRemoveKustomization(ctx, initBMOKustomization, upgradeClusterProxy)
+			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, initBMOKustomization)
 		})
 	}
 
@@ -302,7 +302,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() {
 		By(fmt.Sprintf("Removing %s kustomization %s from the upgrade cluster", input.UpgradeEntityName, upgradeKustomization))
-		BuildAndRemoveKustomization(ctx, upgradeKustomization, upgradeClusterProxy)
+		cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, upgradeKustomization)
 	})
 
 	By(fmt.Sprintf("Waiting for %s update to rollout", input.UpgradeEntityName))
@@ -415,3 +415,14 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 	})
 })
+
+// cleanupBaremetalOperatorSystem removes the kustomization from the cluster and waits for the
+// baremetal-operator-system namespace to be deleted.
+func cleanupBaremetalOperatorSystem(ctx context.Context, clusterProxy framework.ClusterProxy, kustomization string) {
+	BuildAndRemoveKustomization(ctx, kustomization, clusterProxy)
+	// We need to ensure that the namespace actually gets deleted.
+	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
+		Getter:    clusterProxy.GetClient(),
+		Namespace: corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "baremetal-operator-system"}},
+	}, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+}

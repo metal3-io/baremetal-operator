@@ -19,7 +19,7 @@ BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR:-"sushy-tools"}
 
 # Ensure requirements are installed
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
-export PATH="${PATH}:/usr/local/go/bin"
+export PATH="/usr/local/go/bin:${PATH}"
 "${REPO_ROOT}/hack/e2e/ensure_minikube.sh"
 "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
@@ -136,10 +136,10 @@ ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
 BMO_OVERLAY="${REPO_ROOT}/config/overlays/e2e"
 IRONIC_OVERLAY="${REPO_ROOT}/ironic-deployment/overlays/e2e"
 
-IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_USERNAME="$(uuidgen)"
+IRONIC_PASSWORD="$(uuidgen)"
+IRONIC_INSPECTOR_USERNAME="$(uuidgen)"
+IRONIC_INSPECTOR_PASSWORD="$(uuidgen)"
 
 echo "${IRONIC_USERNAME}" > "${BMO_OVERLAY}/ironic-username"
 echo "${IRONIC_PASSWORD}" > "${BMO_OVERLAY}/ironic-password"

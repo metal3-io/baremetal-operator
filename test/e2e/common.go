@@ -438,3 +438,16 @@ func AnnotateBmh(ctx context.Context, client client.Client, host metal3api.BareM
 func Logf(format string, a ...interface{}) {
 	fmt.Fprintf(GinkgoWriter, "INFO: "+format+"\n", a...)
 }
+
+// FlakeAttempt retries the given function up to attempts times.
+func FlakeAttempt(attempts int, f func() error) error {
+	var err error
+	for i := 0; i < attempts; i++ {
+		err = f()
+		if err == nil {
+			return nil
+		}
+		Logf("Attempt %d failed: %v", i+1, err)
+	}
+	return err
+}

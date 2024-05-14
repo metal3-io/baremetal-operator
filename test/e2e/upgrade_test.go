@@ -200,15 +200,17 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	if input.DeployIronic {
 		// Install Ironic
 		By(fmt.Sprintf("Installing Ironic from kustomization %s on the upgrade cluster", initIronicKustomization))
-		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-			Kustomization:       initIronicKustomization,
-			ClusterProxy:        upgradeClusterProxy,
-			WaitForDeployment:   true,
-			WatchDeploymentLogs: true,
-			DeploymentName:      "ironic",
-			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
-			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		err := FlakeAttempt(2, func() error {
+			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       initIronicKustomization,
+				ClusterProxy:        upgradeClusterProxy,
+				WaitForDeployment:   true,
+				WatchDeploymentLogs: true,
+				DeploymentName:      "ironic",
+				DeploymentNamespace: bmoIronicNamespace,
+				LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
+				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -220,15 +222,17 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	if input.DeployBMO {
 		// Install BMO
 		By(fmt.Sprintf("Installing BMO from %s on the upgrade cluster", initBMOKustomization))
-		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-			Kustomization:       initBMOKustomization,
-			ClusterProxy:        upgradeClusterProxy,
-			WaitForDeployment:   true,
-			WatchDeploymentLogs: true,
-			DeploymentName:      "baremetal-operator-controller-manager",
-			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-bmo"),
-			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		err := FlakeAttempt(2, func() error {
+			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       initBMOKustomization,
+				ClusterProxy:        upgradeClusterProxy,
+				WaitForDeployment:   true,
+				WatchDeploymentLogs: true,
+				DeploymentName:      "baremetal-operator-controller-manager",
+				DeploymentNamespace: bmoIronicNamespace,
+				LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-bmo"),
+				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
 		})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -289,15 +293,17 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	deploy, err := clientSet.AppsV1().Deployments(bmoIronicNamespace).Get(ctx, upgradeDeploymentName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	upgradeKustomization := input.UpgradeEntityKustomization
-	err = BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-		Kustomization:       upgradeKustomization,
-		ClusterProxy:        upgradeClusterProxy,
-		WaitForDeployment:   false,
-		WatchDeploymentLogs: true,
-		DeploymentName:      upgradeDeploymentName,
-		DeploymentNamespace: bmoIronicNamespace,
-		LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "bmo-upgrade-main"),
-		WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+	err = FlakeAttempt(2, func() error {
+		return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       upgradeKustomization,
+			ClusterProxy:        upgradeClusterProxy,
+			WaitForDeployment:   false,
+			WatchDeploymentLogs: true,
+			DeploymentName:      upgradeDeploymentName,
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "bmo-upgrade-main"),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		})
 	})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() {

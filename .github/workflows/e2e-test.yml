@@ -1,0 +1,47 @@
+name: E2E Test
+
+on:
+  workflow_call:
+    inputs:
+      bmc-protocol:
+        required: true
+        type: string
+      runner:
+        type: string
+        default: "ubuntu-latest-4-cores"
+
+permissions: {}
+
+jobs:
+  test:
+    name: e2e test
+    runs-on: ${{ inputs.runner }}
+
+    permissions:
+      contents: read
+
+    steps:
+    - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+
+    - name: Install libvirt
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager
+
+    - name: Run BMO e2e Tests
+      env:
+        BMC_PROTOCOL: ${{ inputs.bmc-protocol }}
+      # We need a new shell to pick up the new group. That is why we do the sudo -s -u $USER ...
+      # Remove the pre-installed go version. We install the exact version we need.
+      run: |
+        sudo usermod -a -G libvirt $USER
+        sudo rm /usr/bin/go
+        sudo -s -u $USER bash ${{ github.workspace }}/hack/ci-e2e.sh
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      with:
+        name: artifacts-${{ inputs.bmc-protocol }}.tar.gz
+        path: test/e2e/_artifacts
+        if-no-files-found: error
+        overwrite: false

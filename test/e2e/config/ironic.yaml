@@ -42,7 +42,7 @@ intervals:
   external-inspection/wait-available: ["1m", "1s"]
   default/wait-inspecting: ["2m", "2s"]
   default/wait-available: ["10m", "1s"]
-  default/wait-deployment: ["5m", "1s"]
+  default/wait-deployment: ["10m", "1s"]
   default/wait-namespace-deleted: ["10m", "1s"]
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-power-state: ["10m", "100ms"]

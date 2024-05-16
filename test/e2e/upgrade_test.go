@@ -5,21 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"strings"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
-
-	"sigs.k8s.io/cluster-api/test/framework"
 )
 
 const hardwareDetailsRelease04 = `
@@ -203,40 +200,44 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	if input.DeployIronic {
 		// Install Ironic
 		By(fmt.Sprintf("Installing Ironic from kustomization %s on the upgrade cluster", initIronicKustomization))
-		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-			Kustomization:       initIronicKustomization,
-			ClusterProxy:        upgradeClusterProxy,
-			WaitForDeployment:   true,
-			WatchDeploymentLogs: true,
-			DeploymentName:      "ironic",
-			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
-			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		err := FlakeAttempt(2, func() error {
+			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       initIronicKustomization,
+				ClusterProxy:        upgradeClusterProxy,
+				WaitForDeployment:   true,
+				WatchDeploymentLogs: true,
+				DeploymentName:      "ironic",
+				DeploymentNamespace: bmoIronicNamespace,
+				LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
+				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		DeferCleanup(func() {
 			By(fmt.Sprintf("Removing Ironic kustomization %s from the upgrade cluster", initIronicKustomization))
-			BuildAndRemoveKustomization(ctx, initIronicKustomization, upgradeClusterProxy)
+			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, initIronicKustomization)
 		})
 	}
 	if input.DeployBMO {
 		// Install BMO
 		By(fmt.Sprintf("Installing BMO from %s on the upgrade cluster", initBMOKustomization))
-		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-			Kustomization:       initBMOKustomization,
-			ClusterProxy:        upgradeClusterProxy,
-			WaitForDeployment:   true,
-			WatchDeploymentLogs: true,
-			DeploymentName:      "baremetal-operator-controller-manager",
-			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-bmo"),
-			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		err := FlakeAttempt(2, func() error {
+			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       initBMOKustomization,
+				ClusterProxy:        upgradeClusterProxy,
+				WaitForDeployment:   true,
+				WatchDeploymentLogs: true,
+				DeploymentName:      "baremetal-operator-controller-manager",
+				DeploymentNamespace: bmoIronicNamespace,
+				LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-bmo"),
+				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
 		})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			By(fmt.Sprintf("Removing BMO kustomization %s from the upgrade cluster", initBMOKustomization))
-			BuildAndRemoveKustomization(ctx, initBMOKustomization, upgradeClusterProxy)
+			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, initBMOKustomization)
 		})
 	}
 
@@ -292,20 +293,22 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	deploy, err := clientSet.AppsV1().Deployments(bmoIronicNamespace).Get(ctx, upgradeDeploymentName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	upgradeKustomization := input.UpgradeEntityKustomization
-	err = BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-		Kustomization:       upgradeKustomization,
-		ClusterProxy:        upgradeClusterProxy,
-		WaitForDeployment:   false,
-		WatchDeploymentLogs: true,
-		DeploymentName:      upgradeDeploymentName,
-		DeploymentNamespace: bmoIronicNamespace,
-		LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "bmo-upgrade-main"),
-		WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+	err = FlakeAttempt(2, func() error {
+		return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       upgradeKustomization,
+			ClusterProxy:        upgradeClusterProxy,
+			WaitForDeployment:   false,
+			WatchDeploymentLogs: true,
+			DeploymentName:      upgradeDeploymentName,
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "bmo-upgrade-main"),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		})
 	})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() {
 		By(fmt.Sprintf("Removing %s kustomization %s from the upgrade cluster", input.UpgradeEntityName, upgradeKustomization))
-		BuildAndRemoveKustomization(ctx, upgradeKustomization, upgradeClusterProxy)
+		cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, upgradeKustomization)
 	})
 
 	By(fmt.Sprintf("Waiting for %s update to rollout", input.UpgradeEntityName))
@@ -376,11 +379,13 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 		scheme := runtime.NewScheme()
 		framework.TryAddDefaultSchemes(scheme)
-		metal3api.AddToScheme(scheme)
-		upgradeClusterProxy = framework.NewClusterProxy(upgradeClusterName, kubeconfigPath, scheme)
+		err := metal3api.AddToScheme(scheme)
+		Expect(err).NotTo(HaveOccurred())
+		upgradeClusterProxy = framework.NewClusterProxy("bmo-e2e-upgrade", kubeconfigPath, scheme)
 		DeferCleanup(func() {
 			upgradeClusterProxy.Dispose(ctx)
 		})
+
 		if e2eConfig.GetVariable("UPGRADE_DEPLOY_CERT_MANAGER") != "false" {
 			By("Installing cert-manager on the upgrade cluster")
 			cmVersion := e2eConfig.GetVariable("CERT_MANAGER_VERSION")
@@ -416,3 +421,14 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 	})
 })
+
+// cleanupBaremetalOperatorSystem removes the kustomization from the cluster and waits for the
+// baremetal-operator-system namespace to be deleted.
+func cleanupBaremetalOperatorSystem(ctx context.Context, clusterProxy framework.ClusterProxy, kustomization string) {
+	BuildAndRemoveKustomization(ctx, kustomization, clusterProxy)
+	// We need to ensure that the namespace actually gets deleted.
+	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
+		Getter:    clusterProxy.GetClient(),
+		Namespace: corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "baremetal-operator-system"}},
+	}, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+}

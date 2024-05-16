@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/go-logr/logr"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,10 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	"github.com/go-logr/logr"
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
 // HostFirmwareComponentsReconciler reconciles a HostFirmwareComponents object.
@@ -152,7 +151,7 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
-	info.log.Info("retrieving firmware components and saving to resource", "Node", bmh.Status.Provisioning.ID)
+	info.log.V(1).Info("retrieving firmware components and saving to resource", "Node", bmh.Status.Provisioning.ID)
 	// Check ironic for the components information if possible
 	components, err := prov.GetFirmwareComponents()
 

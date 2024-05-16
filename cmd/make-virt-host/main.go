@@ -156,7 +156,14 @@ func main() {
 	}
 
 	domainResult := Domain{}
-	xml.Unmarshal(virshOut, &domainResult)
+	err = xml.Unmarshal(virshOut, &domainResult)
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"ERROR: Could not unmarshal details of domain %s: %s\n",
+			virshDomain, err)
+		os.Exit(1)
+	}
+
 	if *verbose {
 		fmt.Printf("%v\n", domainResult)
 	}
@@ -192,7 +199,12 @@ func main() {
 	}
 
 	var vbmcResult []VBMC
-	json.Unmarshal(vbmcOut, &vbmcResult)
+	err = json.Unmarshal(vbmcOut, &vbmcResult)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Could not unmarshal details of vbmc: %s\n", err)
+		os.Exit(1)
+	}
+
 	nameToPort := make(map[string]int)
 	for _, vbmc := range vbmcResult {
 		if *verbose {

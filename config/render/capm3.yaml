@@ -2156,3 +2156,200 @@ kind: ConfigMap
 metadata:
   name: ironic
   namespace: baremetal-operator-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: baremetal-operator-controller-manager-metrics-service
+  namespace: baremetal-operator-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: baremetal-operator-webhook-service
+  namespace: baremetal-operator-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+    webhook: metal3-io-v1alpha1-baremetalhost
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+    webhook: metal3-io-v1alpha1-baremetalhost
+  name: baremetal-operator-controller-manager
+  namespace: baremetal-operator-system
+spec:
+  minReadySeconds: 10
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+        webhook: metal3-io-v1alpha1-baremetalhost
+    spec:
+      containers:
+      - args:
+        - --metrics-addr=127.0.0.1:8085
+        - --enable-leader-election
+        command:
+        - /baremetal-operator
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        envFrom:
+        - configMapRef:
+            name: ironic
+        image: quay.io/metal3-io/baremetal-operator
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /healthz
+            port: 9440
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /readyz
+            port: 9440
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          runAsGroup: 65532
+          runAsUser: 65532
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8085/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: baremetal-operator-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: bmo-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: baremetal-operator-serving-cert
+  namespace: baremetal-operator-system
+spec:
+  dnsNames:
+  - baremetal-operator-webhook-service.baremetal-operator-system.svc
+  - baremetal-operator-webhook-service.baremetal-operator-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: baremetal-operator-selfsigned-issuer
+  secretName: bmo-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: baremetal-operator-selfsigned-issuer
+  namespace: baremetal-operator-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: baremetal-operator-system/baremetal-operator-serving-cert
+  name: baremetal-operator-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta
+  clientConfig:
+    service:
+      name: baremetal-operator-webhook-service
+      namespace: baremetal-operator-system
+      path: /validate-metal3-io-v1alpha1-baremetalhost
+  failurePolicy: Fail
+  name: baremetalhost.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - baremetalhosts
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta
+  clientConfig:
+    service:
+      name: baremetal-operator-webhook-service
+      namespace: baremetal-operator-system
+      path: /validate-metal3-io-v1alpha1-bmceventsubscription
+  failurePolicy: Fail
+  name: bmceventsubscription.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - bmceventsubscriptions
+  sideEffects: None

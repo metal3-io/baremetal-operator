@@ -23,7 +23,17 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
+	"github.com/metal3-io/baremetal-operator/pkg/version"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -36,17 +46,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
-	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	"github.com/metal3-io/baremetal-operator/pkg/version"
-	// +kubebuilder:scaffold:imports
 )
 
 // Constants for TLS versions.
@@ -127,6 +126,9 @@ func main() {
 	var restConfigQPS float64
 	var restConfigBurst int
 	var controllerConcurrency int
+	var leaseDurationSeconds string
+	var renewDeadlineSeconds string
+	var retryPeriodSeconds string
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -152,7 +154,7 @@ func main() {
 		"Maximum queries per second from the controller client to the Kubernetes API server. Default 20")
 	flag.IntVar(&restConfigBurst, "kube-api-burst", 30,
 		"Maximum number of queries that should be allowed in one burst from the controller client to the Kubernetes API server. Default 30")
-	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", TLSVersion12,
+	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", TLSVersion13,
 		"The minimum TLS version in use by the webhook server.\n"+
 			fmt.Sprintf("Possible values are %s.", strings.Join(tlsSupportedVersions, ", ")),
 	)
@@ -170,6 +172,11 @@ func main() {
 			"Insecure values: "+strings.Join(tlsCipherInsecureValues, ", ")+".")
 	flag.IntVar(&controllerConcurrency, "controller-concurrency", 0,
 		"Number of CRs of each type to process simultaneously")
+
+	flag.StringVar(&leaseDurationSeconds, "lease-duration-seconds", os.Getenv("LEASE_DURATION_SECONDS"), "Leader election duration in seconds.")
+	flag.StringVar(&renewDeadlineSeconds, "renew-deadline-seconds", os.Getenv("RENEW_DEADLINE_SECONDS"), "Leader election renew deadline duration in seconds.")
+	flag.StringVar(&retryPeriodSeconds, "retry-period-seconds", os.Getenv("RETRY_PERIOD_SECONDS"), "Leader election retry period in seconds.")
+
 	flag.Parse()
 
 	logOpts := zap.Options{}
@@ -212,14 +219,47 @@ func main() {
 			Port:    webhookPort,
 			TLSOpts: tlsOptionOverrides,
 		}),
-		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        leaderElectionID,
-		LeaderElectionNamespace: leaderElectionNamespace,
-		HealthProbeBindAddress:  healthAddr,
+		LeaderElection:                enableLeaderElection,
+		LeaderElectionID:              leaderElectionID,
+		LeaderElectionNamespace:       leaderElectionNamespace,
+		LeaderElectionReleaseOnCancel: true,
+		HealthProbeBindAddress:        healthAddr,
 		Cache: cache.Options{
 			ByObject:          secretutils.AddSecretSelector(nil),
 			DefaultNamespaces: watchNamespaces,
 		},
+	}
+
+	if leaseDurationSeconds != "" {
+		seconds, err := strconv.ParseInt(leaseDurationSeconds, 10, 16)
+		if err != nil {
+			setupLog.Error(err, "failed to parse duration")
+			os.Exit(1)
+		}
+
+		duration := time.Second * time.Duration(seconds)
+		ctrlOpts.LeaseDuration = &duration
+	}
+
+	if renewDeadlineSeconds != "" {
+		seconds, err := strconv.ParseInt(renewDeadlineSeconds, 10, 16)
+		if err != nil {
+			setupLog.Error(err, "failed to parse renew deadline")
+			os.Exit(1)
+		}
+
+		duration := time.Second * time.Duration(seconds)
+		ctrlOpts.RenewDeadline = &duration
+	}
+
+	if retryPeriodSeconds != "" {
+		seconds, err := strconv.ParseInt(retryPeriodSeconds, 10, 16)
+		if err != nil {
+			setupLog.Error(err, "failed to parse retry period")
+			os.Exit(1)
+		}
+		duration := time.Second * time.Duration(seconds)
+		ctrlOpts.RetryPeriod = &duration
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, ctrlOpts)

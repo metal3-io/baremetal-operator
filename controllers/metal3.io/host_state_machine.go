@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -325,20 +324,20 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		// If we are in the process of deletion (which may start with
 		// deprovisioning) and we have been unable to obtain any credentials,
 		// don't attempt to re-register the Host as this will always fail.
-		return
+		return nil
 	}
 
 	switch hsm.NextState {
 	case metal3api.StateNone, metal3api.StateUnmanaged:
 		// We haven't yet reached the Registration state, so don't attempt
 		// to register the Host.
-		return
+		return result
 	case metal3api.StateMatchProfile:
 		// Backward compatibility, remove eventually
-		return
+		return result
 	case metal3api.StateDeleting:
 		// In the deleting state the whole idea is to de-register the host
-		return
+		return result
 	case metal3api.StateRegistering:
 	case metal3api.StateInspecting, metal3api.StatePreparing:
 		// The Infrastructure operator in RHACM <=2.4 does not supply a
@@ -374,7 +373,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	if complete {
 		result = actionUpdate{}
 	}
-	return
+	return result
 }
 
 func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {

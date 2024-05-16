@@ -77,7 +77,7 @@ github.com/google/safetext/yamltemplate
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gophercloud/gophercloud/v2 v2.0.0-beta.4.0.20240422125343-8b1eebe1fa46
+# github.com/gophercloud/gophercloud/v2 v2.0.0-beta.5
 ## explicit; go 1.21
 github.com/gophercloud/gophercloud/v2
 github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic
@@ -122,7 +122,7 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/onsi/gomega v1.33.0
+# github.com/onsi/gomega v1.33.1
 ## explicit; go 1.20
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -193,7 +193,7 @@ go.uber.org/zap/zapcore
 # golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 ## explicit; go 1.20
 golang.org/x/exp/maps
-# golang.org/x/net v0.23.0
+# golang.org/x/net v0.24.0
 ## explicit; go 1.18
 golang.org/x/net/context
 golang.org/x/net/html
@@ -212,7 +212,7 @@ golang.org/x/oauth2/internal
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.18.0
+# golang.org/x/term v0.19.0
 ## explicit; go 1.18
 golang.org/x/term
 # golang.org/x/text v0.14.0

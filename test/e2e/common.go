@@ -7,24 +7,18 @@ import (
 	"os"
 	"strings"
 
-	"golang.org/x/crypto/ssh"
-
-	"github.com/pkg/errors"
-
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
-
+	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/krusty"
@@ -334,7 +328,7 @@ func (input *BuildAndApplyKustomizationInput) validate() error {
 // BuildAndApplyKustomization takes input from BuildAndApplyKustomizationInput. It builds the provided kustomization
 // and apply it to the cluster provided by clusterProxy.
 func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomizationInput) error {
-	Expect(input.validate()).To(BeNil())
+	Expect(input.validate()).To(Succeed())
 	var err error
 	kustomization := input.Kustomization
 	clusterProxy := input.ClusterProxy
@@ -383,7 +377,7 @@ func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomi
 func DeploymentRolledOut(ctx context.Context, clusterProxy framework.ClusterProxy, name string, namespace string, desiredGeneration int64) bool {
 	clientSet := clusterProxy.GetClientSet()
 	deploy, err := clientSet.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 	if deploy != nil {
 		// When the number of replicas is equal to the number of available and updated
 		// replicas, we know that only "new" pods are running. When we also
@@ -443,4 +437,17 @@ func AnnotateBmh(ctx context.Context, client client.Client, host metal3api.BareM
 
 func Logf(format string, a ...interface{}) {
 	fmt.Fprintf(GinkgoWriter, "INFO: "+format+"\n", a...)
+}
+
+// FlakeAttempt retries the given function up to attempts times.
+func FlakeAttempt(attempts int, f func() error) error {
+	var err error
+	for i := 0; i < attempts; i++ {
+		err = f()
+		if err == nil {
+			return nil
+		}
+		Logf("Attempt %d failed: %v", i+1, err)
+	}
+	return err
 }

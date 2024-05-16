@@ -24,9 +24,15 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
+	"github.com/metal3-io/baremetal-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,14 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
-	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
 )
 
 const (
@@ -229,7 +227,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	if err != nil {
 		err = errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
-		return
+		return result, err
 	}
 
 	// Only save status when we're told to, otherwise we
@@ -258,7 +256,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	logResult(info, result)
 
-	return
+	return result, nil
 }
 
 // Consume inspect.metal3.io/hardwaredetails when either
@@ -722,7 +720,11 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 			},
 			Spec: expectedSpec,
 		}
-		controllerutil.SetControllerReference(info.host, &preprovImage, r.Scheme())
+		err = controllerutil.SetControllerReference(info.host, &preprovImage, r.Scheme())
+		if err != nil {
+			return nil, fmt.Errorf("failed to set controller reference for PreprovisioningImage due to %w", err)
+		}
+
 		err = r.Create(info.ctx, &preprovImage)
 		return nil, err
 	}
@@ -763,13 +765,13 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		},
 		Format: preprovImage.Status.Format,
 	}
-	info.log.Info("using PreprovisioningImage")
+	info.log.Info("using PreprovisioningImage", "Image", image)
 	return &image, nil
 }
 
 // Test the credentials by connecting to the management controller.
 func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	info.log.Info("registering and validating access to management controller",
+	info.log.V(1).Info("registering and validating access to management controller",
 		"credentials", info.host.Status.TriedCredentials)
 	dirty := false
 
@@ -902,7 +904,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		info.publishEvent("BMCAccessValidated", "Verified access to BMC")
 		dirty = true
 	} else {
-		info.log.Info("verified access to the BMC")
+		info.log.V(1).Info("verified access to the BMC")
 	}
 
 	if info.host.Status.ErrorType == metal3api.RegistrationError || registeredNewCreds {
@@ -1076,7 +1078,7 @@ func getHardwareProfileName(host *metal3api.BareMetalHost) string {
 
 func (r *BareMetalHostReconciler) matchProfile(info *reconcileInfo) (dirty bool, err error) {
 	hardwareProfile := getHardwareProfileName(info.host)
-	info.log.Info("using hardware profile", "profile", hardwareProfile)
+	info.log.V(1).Info("using hardware profile", "profile", hardwareProfile)
 
 	_, err = profile.GetProfile(hardwareProfile)
 	if err != nil {
@@ -1700,7 +1702,7 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 	// Root device hints may change as a result of RAID
 	dirty, err = updateRootDeviceHints(host, info)
 	if err != nil {
-		return
+		return dirty, err
 	}
 
 	// Copy RAID settings
@@ -1735,7 +1737,7 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 		dirty = true
 	}
 
-	return
+	return dirty, nil
 }
 
 func (r *BareMetalHostReconciler) createHostFirmwareComponents(info *reconcileInfo) error {

@@ -8,27 +8,37 @@ run:
 linters:
   disable-all: true
   enable:
+  - asasalint
   - asciicheck
+  - bidichk
   - bodyclose
+  #- containedctx
   - dogsled
-  # - errcheck
-  # - errorlint
+  - dupword
+  - durationcheck
+  - errcheck
+  - errchkjson
   - exportloopref
+  - gci
+  - ginkgolinter
   - goconst
   - gocritic
   - godot
   - gofmt
   - goimports
+  - goprintffuncname
+  - gosec
   - gosimple
   - govet
   - importas
-  - gosec
   - ineffassign
+  - loggercheck
   - misspell
-  # - nakedret
-  # - nilerr
-  # - noctx
+  - nakedret
+  - nilerr
+  - noctx
   - nolintlint
+  - nosprintfhostport
   - prealloc
   - predeclared
   - revive
@@ -38,11 +48,12 @@ linters:
   - thelper
   - typecheck
   - unconvert
+  - unparam
   - unused
+  - usestdlibvars
   - whitespace
   # Run with --fast=false for more extensive checks
   fast: true
-
 linters-settings:
   gosec:
     go: "1.21"
@@ -108,12 +119,17 @@ issues:
     - goconst
   - path: _test\.go
     linters:
+    - gci
     - goconst
   - path: _test\.go
     linters:
-    - unused
+    - errcheck
+    - gci
+    - noctx
     - revive
     - stylecheck
+    - unparam
+    - unused
   # Specific exclude rules for deprecated fields that are still part of the codebase.
   # These should be removed as the referenced deprecated item is removed from the project.
   - linters:

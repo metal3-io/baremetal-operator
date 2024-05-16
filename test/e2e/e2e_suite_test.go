@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,8 +16,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	ctrl "sigs.k8s.io/controller-runtime"
-
-	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 var (
@@ -129,32 +128,35 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
 		// Install Ironic
 		By("Installing Ironic")
-		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-			Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
-			ClusterProxy:        clusterProxy,
-			WaitForDeployment:   true,
-			WatchDeploymentLogs: true,
-			DeploymentName:      "ironic",
-			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
-			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		err := FlakeAttempt(2, func() error {
+			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
+				ClusterProxy:        clusterProxy,
+				WaitForDeployment:   true,
+				WatchDeploymentLogs: true,
+				DeploymentName:      "ironic",
+				DeploymentNamespace: bmoIronicNamespace,
+				LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
 		})
 		Expect(err).NotTo(HaveOccurred())
-
 	}
 
 	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {
 		// Install BMO
 		By("Installing BMO")
-		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-			Kustomization:       e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
-			ClusterProxy:        clusterProxy,
-			WaitForDeployment:   true,
-			WatchDeploymentLogs: true,
-			DeploymentName:      "baremetal-operator-controller-manager",
-			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
-			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		err := FlakeAttempt(2, func() error {
+			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
+				ClusterProxy:        clusterProxy,
+				WaitForDeployment:   true,
+				WatchDeploymentLogs: true,
+				DeploymentName:      "baremetal-operator-controller-manager",
+				DeploymentNamespace: bmoIronicNamespace,
+				LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
 		})
 		Expect(err).NotTo(HaveOccurred())
 	}
@@ -168,8 +170,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	kubeconfigPath := parts[0]
 	scheme := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(scheme)
-	metal3api.AddToScheme(scheme)
-
+	err := metal3api.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
 	e2eConfig = LoadE2EConfig(configPath)
 	bmcs = LoadBMCConfig(bmcConfigPath)
 	bmc = (*bmcs)[GinkgoParallelProcess()-1]

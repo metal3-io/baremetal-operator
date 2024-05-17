@@ -1,28 +1,20 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
 approvers:
- - dtantsur
- - honza
- - kashifest
- - lentzi90
- - zaneb
+- baremetal-operator-maintainers
 
 reviewers:
- - elfosardo
- - mquhuy
- - Rozzii
- - s3rj1k
- - tuminoid
- - zhouhao3
+- baremetal-operator-maintainers
+- baremetal-operator-reviewers
 
 emeritus_approvers:
- - andfasano
- - fmuyassarov
- - hardys
- - maelk
+- andfasano
+- fmuyassarov
+- hardys
+- maelk
 
 emeritus_reviewers:
- - ardaguclu
- - bfournie
- - dukov
- - furkatgofurov7
+- ardaguclu
+- bfournie
+- dukov
+- furkatgofurov7

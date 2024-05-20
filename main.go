@@ -366,14 +366,19 @@ func main() {
 func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) {
 	var tlsOptions []func(config *tls.Config)
 
-	tlsMinVersion, err := GetTLSVersion(options.TLSMinVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsMaxVersion, err := GetTLSVersion(options.TLSMaxVersion)
-	if err != nil {
-		return nil, err
+	// To make a static analyzer happy, this block ensures there is no code
+	// path that sets a TLS version outside the acceptable values, even in
+	// case of unexpected user input.
+	var tlsMinVersion, tlsMaxVersion uint16
+	for version, option := range map[*uint16]string{&tlsMinVersion: options.TLSMinVersion, &tlsMaxVersion: options.TLSMaxVersion} {
+		switch option {
+		case TLSVersion12:
+			*version = tls.VersionTLS12
+		case TLSVersion13:
+			*version = tls.VersionTLS13
+		default:
+			return nil, fmt.Errorf("unexpected TLS version %q (must be one of: %s)", option, strings.Join(tlsSupportedVersions, ", "))
+		}
 	}
 
 	if tlsMaxVersion != 0 && tlsMinVersion > tlsMaxVersion {
@@ -416,21 +421,6 @@ func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) 
 	}
 
 	return tlsOptions, nil
-}
-
-// GetTLSVersion returns the corresponding tls.Version or error.
-func GetTLSVersion(version string) (uint16, error) {
-	var v uint16
-
-	switch version {
-	case TLSVersion12:
-		v = tls.VersionTLS12
-	case TLSVersion13:
-		v = tls.VersionTLS13
-	default:
-		return 0, fmt.Errorf("unexpected TLS version %q (must be one of: %s)", version, strings.Join(tlsSupportedVersions, ", "))
-	}
-	return v, nil
 }
 
 func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {

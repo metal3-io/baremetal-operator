@@ -80,10 +80,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	var kubeconfigPath string
 
 	if useExistingCluster {
-		kubeconfigPath = os.Getenv("KUBECONFIG")
-		if kubeconfigPath == "" {
-			kubeconfigPath = os.Getenv("HOME") + "/.kube/config"
-		}
+		kubeconfigPath = GetKubeconfigPath()
 	} else {
 		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 			Name:   "bmo-e2e",

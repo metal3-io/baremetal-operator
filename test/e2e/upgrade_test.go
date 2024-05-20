@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -358,10 +357,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		upgradeClusterName := "bmo-e2e-upgrade"
 
 		if useExistingCluster {
-			kubeconfigPath = os.Getenv("KUBECONFIG")
-			if kubeconfigPath == "" {
-				kubeconfigPath = os.Getenv("HOME") + "/.kube/config"
-			}
+			kubeconfigPath = GetKubeconfigPath()
 		} else {
 			By("Creating a separate cluster for upgrade tests")
 			upgradeClusterName = fmt.Sprintf("bmo-e2e-upgrade-%d", GinkgoParallelProcess())

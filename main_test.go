@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -75,25 +76,59 @@ func Test13CipherSuite(t *testing.T) {
 		klog.SetOutput(bufWriter)
 		klog.LogToStderr(false) // this is important, because klog by default logs to stderr only
 		_, err := GetTLSOptionOverrideFuncs(tlsMockOptions)
-		g.Expect(bufWriter.String()).Should(ContainSubstring("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers"))
 		g.Expect(err).ShouldNot(HaveOccurred())
+		g.Expect(bufWriter.String()).Should(ContainSubstring("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers"))
 	})
 }
 
-func TestGetTLSVersion(t *testing.T) {
-	t.Run("should error out when incorrect tls version passed", func(t *testing.T) {
+func TestGetTLSOverrideFuncs(t *testing.T) {
+	t.Run("should error out when incorrect min tls version passed", func(t *testing.T) {
 		g := NewWithT(t)
-		tlsVersion := "TLS11"
-		_, err := GetTLSVersion(tlsVersion)
+		_, err := GetTLSOptionOverrideFuncs(TLSOptions{
+			TLSMinVersion: "TLS11",
+			TLSMaxVersion: "TLS12",
+		})
 		g.Expect(err.Error()).Should(Equal("unexpected TLS version \"TLS11\" (must be one of: TLS12, TLS13)"))
 	})
-	t.Run("should pass and output correct tls version", func(t *testing.T) {
-		const VersionTLS12 uint16 = 771
+	t.Run("should error out when incorrect max tls version passed", func(t *testing.T) {
 		g := NewWithT(t)
-		tlsVersion := "TLS12"
-		version, err := GetTLSVersion(tlsVersion)
-		g.Expect(version).To(Equal(VersionTLS12))
+		_, err := GetTLSOptionOverrideFuncs(TLSOptions{
+			TLSMinVersion: "TLS12",
+			TLSMaxVersion: "TLS11",
+		})
+		g.Expect(err.Error()).Should(Equal("unexpected TLS version \"TLS11\" (must be one of: TLS12, TLS13)"))
+	})
+	t.Run("should apply the requested TLS versions", func(t *testing.T) {
+		g := NewWithT(t)
+		tlsOptionOverrides, err := GetTLSOptionOverrideFuncs(TLSOptions{
+			TLSMinVersion: "TLS12",
+			TLSMaxVersion: "TLS13",
+		})
+
+		var tlsConfig tls.Config
+		for _, apply := range tlsOptionOverrides {
+			apply(&tlsConfig)
+		}
+
 		g.Expect(err).ShouldNot(HaveOccurred())
+		g.Expect(tlsConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
+		g.Expect(tlsConfig.MaxVersion).To(Equal(uint16(tls.VersionTLS13)))
+	})
+	t.Run("should apply the requested non-default TLS versions", func(t *testing.T) {
+		g := NewWithT(t)
+		tlsOptionOverrides, err := GetTLSOptionOverrideFuncs(TLSOptions{
+			TLSMinVersion: "TLS13",
+			TLSMaxVersion: "TLS13",
+		})
+
+		var tlsConfig tls.Config
+		for _, apply := range tlsOptionOverrides {
+			apply(&tlsConfig)
+		}
+
+		g.Expect(err).ShouldNot(HaveOccurred())
+		g.Expect(tlsConfig.MinVersion).To(Equal(uint16(tls.VersionTLS13)))
+		g.Expect(tlsConfig.MaxVersion).To(Equal(uint16(tls.VersionTLS13)))
 	})
 }
 

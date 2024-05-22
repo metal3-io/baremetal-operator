@@ -44,3 +44,13 @@ jobs:
             "BUILD_CONTAINER_IMAGE_GIT_REFERENCE": "${{ github.ref }}"
           }
         job_timeout: "1000"
+    - name: Slack Notification on Failure
+      if: ${{ failure() }}
+      uses: rtCamp/action-slack-notify@4e5fb42d249be6a45a298f3c9543b111b02f7907 # 2.3.0
+      env:
+        SLACK_TITLE: 'GitHub Action Failed in ${{ github.repository }}'
+        SLACK_COLOR: '#FF0000'
+        SLACK_MESSAGE: 'The GitHub Action workflow failed for baremetal operator image build.'
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_CHANNEL: metal3-github-actions-notify
+        SLACK_USERNAME: metal3-github-actions-notify

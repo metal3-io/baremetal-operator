@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.21-openshift-4.16 AS builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.21-openshift-4.17 AS builder
 WORKDIR /go/src/github.com/metal3-io/baremetal-operator
 COPY . .
 RUN make manager
@@ -10,7 +10,7 @@ RUN cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/ocp/ocp_kustom
     mkdir /go/src/github.com/metal3-io/baremetal-operator/manifests &&\
     cp /go/src/github.com/metal3-io/baremetal-operator/config/crd/baremetalhost.crd.yaml /go/src/github.com/metal3-io/baremetal-operator/manifests/0000_31_cluster-baremetal-operator_00_baremetalhost.crd.yaml
 
-FROM registry.ci.openshift.org/ocp/4.16:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.17:base-rhel9
 COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/baremetal-operator /
 COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/get-hardware-details /
 COPY --from=builder /go/src/github.com/metal3-io/baremetal-operator/bin/make-bm-worker /

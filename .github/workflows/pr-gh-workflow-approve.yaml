@@ -8,6 +8,8 @@ on:
   pull_request_target:
     types: [opened, edited, reopened, synchronize]
 
+permissions: {}
+
 jobs:
   approve:
     name: Approve on ok-to-test

@@ -170,9 +170,6 @@ spec:
                   - url
                   type: object
                 type: array
-            required:
-            - components
-            - updates
             type: object
         type: object
     served: true

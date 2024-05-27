@@ -1162,20 +1162,19 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 	if !p.availableFeatures.HasFirmwareUpdates() {
 		return nil, fmt.Errorf("current ironic version does not support firmware updates")
 	}
-	// Get the components from Ironic via Gophercloud
-	componentList, componentListErr := nodes.ListFirmware(p.ctx, p.client, ironicNode.UUID).Extract()
-
-	if componentListErr != nil || len(componentList) == 0 {
-		bmcAccess, _ := p.bmcAccess()
-		if ironicNode.FirmwareInterface == "no-firmware" {
-			return nil, fmt.Errorf("driver %s does not support firmware updates", bmcAccess.Driver())
-		}
-
-		return nil, fmt.Errorf("could not get firmware components for node %s: %w", ironicNode.UUID, componentListErr)
-	}
 
 	// Setting to 2 since we only support bmc and bios
 	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 2)
+
+	if ironicNode.FirmwareInterface == "no-firmware" {
+		return componentsInfo, provisioner.ErrFirmwareUpdateUnsupported
+	}
+	// Get the components from Ironic via Gophercloud
+	componentList, componentListErr := nodes.ListFirmware(p.ctx, p.client, ironicNode.UUID).Extract()
+
+	if componentListErr != nil {
+		return nil, fmt.Errorf("could not get firmware components for node %s: %w", ironicNode.UUID, componentListErr)
+	}
 
 	// Iterate over the list of components to extract their information and update the list.
 	for _, fwc := range componentList {
@@ -1188,9 +1187,12 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 			InitialVersion:     fwc.InitialVersion,
 			CurrentVersion:     fwc.CurrentVersion,
 			LastVersionFlashed: fwc.LastVersionFlashed,
-			UpdatedAt: metav1.Time{
+		}
+		// Check if UpdatedAt is nil before adding it.
+		if fwc.UpdatedAt != nil {
+			component.UpdatedAt = metav1.Time{
 				Time: *fwc.UpdatedAt,
-			},
+			}
 		}
 		componentsInfo = append(componentsInfo, component)
 		p.log.Info("firmware component added for node", "component", fwc.Component, "node", ironicNode.UUID)

@@ -39,3 +39,11 @@ jobs:
         USE_EXISTING_CLUSTER: "false"
         GINKGO_NODES: 1
       run: make test-e2e
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      with:
+        name: artifacts.tar.gz
+        path: test/e2e/_artifacts
+        if-no-files-found: error
+        overwrite: false

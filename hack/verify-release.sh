@@ -37,9 +37,8 @@ set -eu
 # we are using plenty of subshell pipes, and catch errors elsewhere
 set +o pipefail
 
-# enable support for **/go.mod, and make it ignore hack/tools/go.mod
+# enable support for **/go.mod
 shopt -s globstar
-GLOBIGNORE=./hack/tools/go.mod
 
 # user input
 VERSION="${1:?release version missing, provide without leading v. Example: 0.6.0}"
@@ -490,7 +489,7 @@ verify_container_base_image()
 #
 _module_direct_dependencies()
 {
-    # get all required, direct dependencies, exclude hack/tools/go.mod
+    # get all required, direct dependencies
     sed -n '/^require (/,/^)/{/^require (/!{/^)/!p;};}' ./**/go.mod \
         | grep -v "//\s*indirect" | grep -v "^\s*$" \
         | awk '{print $1, $2;}' | sort | uniq

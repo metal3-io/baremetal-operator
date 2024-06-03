@@ -16,13 +16,16 @@ ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 #       instead of storing it
 #
 #
-BIN_DIR := bin
-TOOLS_DIR := hack/tools
-TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/$(BIN_DIR))
+TOOLS_BIN_DIR := $(abspath tools/bin)
 
 CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
+KUSTOMIZE_PKG=sigs.k8s.io/kustomize/kustomize/v4
+KUSTOMIZE_VER = v4.5.7
+
 CONTROLLER_GEN = tools/bin/controller-gen
+CONTROLLER_GEN_PKG = sigs.k8s.io/controller-tools/cmd/controller-gen
+CONTROLLER_GEN_VER = v0.12.1
 GINKGO = tools/bin/ginkgo
 GINKGO_VER = v2.17.1
 
@@ -187,11 +190,11 @@ deploy: $(KUSTOMIZE) manifests  ## Deploy controller in the configured Kubernete
 	make set-manifest-image-bmo MANIFEST_IMG=$(IMG_NAME) MANIFEST_TAG=$(IMG_TAG)
 	$< build config/default | kubectl apply -f -
 
-$(CONTROLLER_GEN): hack/tools/go.mod
-	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen
+$(CONTROLLER_GEN):
+	GOBIN=$(TOOLS_BIN_DIR) go install $(CONTROLLER_GEN_PKG)@$(CONTROLLER_GEN_VER)
 
-$(KUSTOMIZE): hack/tools/go.mod
-	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v4
+$(KUSTOMIZE):
+	GOBIN=$(TOOLS_BIN_DIR) go install $(KUSTOMIZE_PKG)@$(KUSTOMIZE_VER)
 
 .PHONY: build-e2e
 build-e2e:
@@ -315,8 +318,6 @@ mod: ## Clean up go module settings
 	cd apis; go mod verify
 	cd pkg/hardwareutils; go mod tidy
 	cd pkg/hardwareutils; go mod verify
-	cd hack/tools; go mod tidy
-	cd hack/tools; go mod verify
 	cd test; go mod tidy
 	cd test; go mod verify
 

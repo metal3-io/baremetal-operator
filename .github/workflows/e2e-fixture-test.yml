@@ -28,6 +28,15 @@ jobs:
     steps:
     - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
 
+    - name: Calculate go version
+      id: vars
+      run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT
+
+    - name: Set up Go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version: ${{ steps.vars.outputs.go_version }}
+
     - name: Build BMO e2e Docker Image
       env:
         IMG: quay.io/metal3-io/baremetal-operator:e2e

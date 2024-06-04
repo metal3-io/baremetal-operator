@@ -48,7 +48,7 @@ export USE_EXISTING_CLUSTER="true"
 
 # Ensure requirements are installed
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
-export PATH="${PATH}:/usr/local/go/bin"
+export PATH="/usr/local/go/bin:${PATH}"
 "${REPO_ROOT}/hack/e2e/ensure_minikube.sh"
 "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
@@ -155,10 +155,10 @@ popd
 BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5" "${REPO_ROOT}/config/overlays/e2e-release-0.6")
 IRONIC_OVERLAYS=("${REPO_ROOT}/ironic-deployment/overlays/e2e" "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.1")
 
-IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-IRONIC_INSPECTOR_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
-IRONIC_INSPECTOR_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+IRONIC_USERNAME="$(uuidgen)"
+IRONIC_PASSWORD="$(uuidgen)"
+IRONIC_INSPECTOR_USERNAME="$(uuidgen)"
+IRONIC_INSPECTOR_PASSWORD="$(uuidgen)"
 
 # These must be exported so that envsubst can pick them up below
 export IRONIC_USERNAME
@@ -182,7 +182,7 @@ for overlay in "${IRONIC_OVERLAYS[@]}"; do
   "${overlay}/ironic-auth-config"
   if [[ "${overlay}" =~ -with-inspector ]]; then
     IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
-    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl 
+    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl
     envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
       "${overlay}/ironic-inspector-auth-config"
     echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \

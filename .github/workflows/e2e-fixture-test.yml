@@ -1,24 +1,11 @@
 name: E2E Fixture Test
 
 on:
-  pull_request:
-    branches:
-      - 'release-0.5'
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.gitignore'
-      - 'hack/*.sh'
-      - 'LICENSE'
-      - 'SECURITY_CONTACTS'
-      - 'DCO'
-      - 'OWNERS'
-
-permissions:
-  contents: read
+  workflow_call:
 
 jobs:
   test:
+    name: E2E fixture test
     runs-on: ubuntu-latest
 
     steps:
@@ -34,3 +21,11 @@ jobs:
         E2E_CONF_FILE: ${GITHUB_WORKSPACE}/test/e2e/config/fixture.yaml
         USE_EXISTING_CLUSTER: "false"
       run: make test-e2e
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      with:
+        name: artifacts-fixture.tar.gz
+        path: test/e2e/_artifacts
+        if-no-files-found: error
+        overwrite: false

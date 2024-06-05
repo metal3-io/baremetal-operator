@@ -9,19 +9,24 @@ on:
       runner:
         type: string
         default: "ubuntu-latest-4-cores"
+      ginkgo-focus:
+        type: string
+        default: ""
+      ref:
+        type: string
+        default: ${{ github.ref }}
 
 permissions: {}
 
 jobs:
   test:
-    name: e2e test
+    name: E2E test
     runs-on: ${{ inputs.runner }}
-
-    permissions:
-      contents: read
 
     steps:
     - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+      with:
+        ref: ${{ inputs.ref }}
 
     - name: Install libvirt
       run: |
@@ -31,12 +36,13 @@ jobs:
     - name: Run BMO e2e Tests
       env:
         BMC_PROTOCOL: ${{ inputs.bmc-protocol }}
+        GINKGO_FOCUS: "${{ inputs.ginkgo-focus }}"
       # We need a new shell to pick up the new group. That is why we do the sudo -s -u $USER ...
       # Remove the pre-installed go version. We install the exact version we need.
       run: |
         sudo usermod -a -G libvirt $USER
         sudo rm /usr/bin/go
-        sudo -s -u $USER bash ${{ github.workspace }}/hack/ci-e2e.sh
+        sudo -s -u $USER --preserve-env bash ${{ github.workspace }}/hack/ci-e2e.sh
 
     - name: Upload artifacts
       uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3

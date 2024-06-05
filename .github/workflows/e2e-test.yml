@@ -20,11 +20,8 @@ permissions: {}
 
 jobs:
   test:
-    name: e2e test
+    name: E2E test
     runs-on: ${{ inputs.runner }}
-
-    permissions:
-      contents: read
 
     steps:
     - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4

@@ -1,29 +1,14 @@
 name: E2E Fixture Test
 
 on:
-  pull_request:
-    branches:
-    - 'main'
-    - 'release-*'
-    paths-ignore:
-    - '**/*.md'
-    - 'docs/**'
-    - '.gitignore'
-    - 'hack/*.sh'
-    - 'LICENSE'
-    - 'SECURITY_CONTACTS'
-    - 'DCO'
-    - 'OWNERS'
+  workflow_call:
 
 permissions: {}
 
 jobs:
   test:
-    name: e2e test
+    name: E2E fixture test
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
 
     steps:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -39,3 +24,11 @@ jobs:
         USE_EXISTING_CLUSTER: "false"
         GINKGO_NODES: 1
       run: make test-e2e
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      with:
+        name: artifacts-fixture.tar.gz
+        path: test/e2e/_artifacts
+        if-no-files-found: error
+        overwrite: false

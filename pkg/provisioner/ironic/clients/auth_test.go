@@ -1,6 +1,9 @@
 package clients
 
 import (
+	"os"
+	"path"
+	"path/filepath"
 	"testing"
 )
 
@@ -96,4 +99,117 @@ func TestConfigFromEndpointURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLoadAuth(t *testing.T) {
+	// Helper function to set up the environment
+	setup := func(authRoot string, createFiles bool) (cleanup func(), err error) {
+		originalAuthRoot := os.Getenv("METAL3_AUTH_ROOT_DIR")
+		cleanup = func() {
+			_ = os.Setenv("METAL3_AUTH_ROOT_DIR", originalAuthRoot)
+			_ = os.RemoveAll(authRoot)
+		}
+
+		_ = os.Setenv("METAL3_AUTH_ROOT_DIR", authRoot)
+
+		if createFiles {
+			authPath := path.Join(authRoot, "ironic")
+			err = os.MkdirAll(authPath, 0755)
+			if err != nil {
+				return cleanup, err
+			}
+
+			err = os.WriteFile(path.Join(authPath, "username"), []byte("testuser"), 0600)
+			if err != nil {
+				return cleanup, err
+			}
+
+			err = os.WriteFile(path.Join(authPath, "password"), []byte("testpassword"), 0600)
+			if err != nil {
+				return cleanup, err
+			}
+		}
+
+		return cleanup, nil
+	}
+
+	t.Run("NoAuthDirectory", func(t *testing.T) {
+		authRoot := filepath.Join(os.TempDir(), "auth_test_no_dir")
+		cleanup, err := setup(authRoot, false)
+		if err != nil {
+			t.Fatalf("Failed to set up test: %v", err)
+		}
+		defer cleanup()
+
+		auth, err := LoadAuth()
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if auth.Type != NoAuth {
+			t.Fatalf("Expected NoAuth, got %v", auth.Type)
+		}
+	})
+
+	t.Run("ValidAuth", func(t *testing.T) {
+		authRoot := filepath.Join(os.TempDir(), "auth_test_valid")
+		cleanup, err := setup(authRoot, true)
+		if err != nil {
+			t.Fatalf("Failed to set up test: %v", err)
+		}
+		defer cleanup()
+
+		auth, err := LoadAuth()
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if auth.Type != HTTPBasicAuth {
+			t.Fatalf("Expected HTTPBasicAuth, got %v", auth.Type)
+		}
+		if auth.Username != "testuser" {
+			t.Fatalf("Expected username 'testuser', got %v", auth.Username)
+		}
+		if auth.Password != "testpassword" {
+			t.Fatalf("Expected password 'testpassword', got %v", auth.Password)
+		}
+	})
+
+	t.Run("EmptyUsername", func(t *testing.T) {
+		authRoot := filepath.Join(os.TempDir(), "auth_test_empty_username")
+		cleanup, err := setup(authRoot, true)
+		if err != nil {
+			t.Fatalf("Failed to set up test: %v", err)
+		}
+		defer cleanup()
+
+		// Overwrite username file with empty content
+		err = os.WriteFile(path.Join(authRoot, "ironic", "username"), []byte(""), 0600)
+		if err != nil {
+			t.Fatalf("Failed to overwrite username file: %v", err)
+		}
+
+		_, err = LoadAuth()
+		if err == nil || err.Error() != "empty HTTP Basic Auth username" {
+			t.Fatalf("Expected 'empty HTTP Basic Auth username' error, got %v", err)
+		}
+	})
+
+	t.Run("EmptyPassword", func(t *testing.T) {
+		authRoot := filepath.Join(os.TempDir(), "auth_test_empty_password")
+		cleanup, err := setup(authRoot, true)
+		if err != nil {
+			t.Fatalf("Failed to set up test: %v", err)
+		}
+		defer cleanup()
+
+		// Overwrite password file with empty content
+		err = os.WriteFile(path.Join(authRoot, "ironic", "password"), []byte(""), 0600)
+		if err != nil {
+			t.Fatalf("Failed to overwrite password file: %v", err)
+		}
+
+		_, err = LoadAuth()
+		if err == nil || err.Error() != "empty HTTP Basic Auth password" {
+			t.Fatalf("Expected 'empty HTTP Basic Auth password' error, got %v", err)
+		}
+	})
 }

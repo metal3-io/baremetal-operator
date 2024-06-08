@@ -57,7 +57,10 @@ or if using existing repository, verify your intended remote is set to
   `git push origin release-0.x` to create it
 - If creating a new patch release, use existing branch `release-0.x`:
   `git checkout origin/release-0.x`
-
+- Before creating the release tag, update the image tag in the manifests to match the release version. Run the following command, replacing `<RELEASE_TAG>` with the appropriate tag.
+```bash
+make set-manifest-image-bmo TAG=<RELEASE_TAG> 
+```
 ### Tags
 
 First we create a primary release tag, that triggers release note creation and

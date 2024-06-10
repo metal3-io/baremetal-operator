@@ -28,7 +28,7 @@ jobs:
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
     - name: golangci-lint-${{matrix.working-directory}}
-      uses: golangci/golangci-lint-action@9d1e0624a798bb64f6c3cea93db47765312263dc # v5.1.0
+      uses: golangci/golangci-lint-action@a4f60bb28d35aeee14e6880718e0c85ff1882e64 # v6.0.1
       with:
         version: v1.56.2
         working-directory: ${{matrix.working-directory}}

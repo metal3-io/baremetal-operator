@@ -2,7 +2,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
-GO_VERSION ?= 1.21.9
+GO_VERSION ?= 1.22.2
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -138,10 +138,14 @@ $(GOLANGCI_LINT_BIN): $(GOLANGCI_LINT) ## Build a local copy of golangci-lint.
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run -v ./...
-	cd apis; $(GOLANGCI_LINT) run -v ./...
-	cd test; $(GOLANGCI_LINT) run -v ./...
-	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v ./...
+	$(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./...
+	cd apis; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./...
+	cd test; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./...
+	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./...
+
+.PHONY: lint-fix
+lint-fix: $(GOLANGCI_LINT) ## Lint the codebase and run auto-fixers if supported by the linter
+	GOLANGCI_LINT_EXTRA_ARGS=--fix $(MAKE) lint
 
 .PHONY: manifest-lint
 manifest-lint: ## Run manifest validation

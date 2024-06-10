@@ -164,7 +164,7 @@ func (a *redfishiDracAccessDetails) FirmwareInterface() string {
 }
 
 func (a *redfishiDracAccessDetails) ManagementInterface() string {
-	return ipxe
+	return idracRedfish
 }
 
 func (a *redfishiDracAccessDetails) PowerInterface() string {

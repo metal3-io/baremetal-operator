@@ -5,14 +5,14 @@ go 1.22
 require (
 	github.com/go-logr/logr v1.4.1
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
-	github.com/gophercloud/gophercloud/v2 v2.0.0-beta.5
+	github.com/gophercloud/gophercloud/v2 v2.0.0-rc.2
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/onsi/gomega v1.33.1
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
-	go.etcd.io/etcd/client/pkg/v3 v3.5.13
+	go.etcd.io/etcd/client/pkg/v3 v3.5.14
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3
@@ -61,7 +61,7 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect

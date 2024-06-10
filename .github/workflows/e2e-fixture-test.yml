@@ -1,32 +1,26 @@
 name: E2E Fixture Test
 
 on:
-  pull_request:
-    branches:
-    - 'main'
-    - 'release-*'
-    paths-ignore:
-    - '**/*.md'
-    - 'docs/**'
-    - '.gitignore'
-    - 'hack/*.sh'
-    - 'LICENSE'
-    - 'SECURITY_CONTACTS'
-    - 'DCO'
-    - 'OWNERS'
+  workflow_call:
 
 permissions: {}
 
 jobs:
   test:
-    name: e2e test
+    name: E2E fixture test
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-
     steps:
-    - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+
+    - name: Calculate go version
+      id: vars
+      run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT
+
+    - name: Set up Go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version: ${{ steps.vars.outputs.go_version }}
 
     - name: Build BMO e2e Docker Image
       env:
@@ -39,3 +33,11 @@ jobs:
         USE_EXISTING_CLUSTER: "false"
         GINKGO_NODES: 1
       run: make test-e2e
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      with:
+        name: artifacts-fixture.tar.gz
+        path: test/e2e/_artifacts
+        if-no-files-found: error
+        overwrite: false

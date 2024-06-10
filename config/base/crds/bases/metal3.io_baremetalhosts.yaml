@@ -36,11 +36,6 @@ spec:
       name: BMC
       priority: 1
       type: string
-    - description: The type of hardware detected
-      jsonPath: .status.hardwareProfile
-      name: Hardware_Profile
-      priority: 1
-      type: string
     - description: Whether the host is online or not
       jsonPath: .spec.online
       name: Online

@@ -2,7 +2,7 @@
 
 set -eux
 
-MINIMUM_GO_VERSION=go1.21.9
+MINIMUM_GO_VERSION=go1.22.2
 
 # Ensure the go tool exists and is a viable version, or installs it
 verify_go_version()
@@ -13,7 +13,7 @@ verify_go_version()
             echo 'go not found, installing'
             curl -sLo "/tmp/${MINIMUM_GO_VERSION}.linux-amd64.tar.gz" "https://go.dev/dl/${MINIMUM_GO_VERSION}.linux-amd64.tar.gz"
             sudo tar -C /usr/local -xzf "/tmp/${MINIMUM_GO_VERSION}.linux-amd64.tar.gz"
-            export PATH=$PATH:/usr/local/go/bin
+            export PATH=/usr/local/go/bin:$PATH
         else
             echo "Missing required binary in path: go"
             return 2

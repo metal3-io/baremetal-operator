@@ -20,37 +20,15 @@ The `bmc` fields contain the connection information for the BMC
 The sub-fields are
 
 * *address* -- The URL for communicating with the BMC controller, based
-  on the provider being used. See below for more details.
+  on the provider being used.
 * *credentialsName* -- A reference to a *secret* containing the
   username and password for the BMC.
 * *disableCertificateVerification* -- A boolean to skip certificate
     validation when true.
 
 BMC URLs vary based on the type of BMC and the protocol used to
-communicate with them.
-
-<!-- markdownlint-disable MD013 -->
-
-| Technology      | Protocol | Boot method   | Format                                            | Notes                                                                   |
-|-----------------|----------|---------------|---------------------------------------------------|-------------------------------------------------------------------------|
-| Generic IPMI    | IPMI     | iPXE          | `ipmi://<host>:<port>` or just `<host>:<port>`    | Port is optional, defaults to 623                                       |
-| Generic Redfish | Redfish  | iPXE          | `redfish://<host>:<port>/<systemID>`              | System ID is a path like `/redfish/v1/Systems/System.Embedded.1`        |
-|                 |          | Virtual media | `redfish-virtualmedia://<host>:<port>/<systemID>` | Virtual media support is vendor-dependent. Should not be used for Dell. |
-| Dell iDRAC      | Redfish  | iPXE          | `idrac-redfish://<host>:<port>/<systemID>`        | See above about system ID.                                              |
-|                 | Redfish  | Virtual media | `idrac-virtualmedia://<host>:<port>/<systemID>`   | See above about system ID.                                              |
-| Fujitsu iRMC    | iRMC     | iPXE          | `irmc://<host>:<port>`                            | Port is optional, the default is 443.                                   |
-| HPE iLO 4       | iLO      | iPXE          | `ilo4://<host>:<port>`                            | Port is optional, the default is 443.                                   |
-|                 | iLO      | Virtual media | `ilo4-virtualmedia://<host>:<port>`               |                                                                         |
-| HPE iLO 5       | iLO      | iPXE          | `ilo5://<host>:<port>`                            |                                                                         |
-|                 | Redfish  | iPXE          | `ilo5-redfish://<host>:<port>/<systemID>`         |                                                                         |
-|                 | Redfish  | Virtual media | `ilo5-virtualmedia://<host>:<port>/<systemID>`    |                                                                         |
-
-<!-- markdownlint-enable MD013 -->
-
-All protocols based on HTTPS (i.e. not IPMI) with an exception of iRMC allow
-optionally specifying the carrier protocol in the form of `+http` or `+https`,
-for example: `redfish+http://...` or `idrac-virtualmedia+https`. iLO (both
-versions) only support HTTPS. When not specified, HTTPS is used by default.
+communicate with them. See [supported hardware
+guide](https://book.metal3.io/bmo/supported_hardware) for details.
 
 #### online
 

@@ -1,4 +1,4 @@
-name: golangci-lint
+name: unit
 
 on:
   workflow_call:
@@ -8,16 +8,8 @@ permissions: {}
 
 jobs:
   golangci:
-    name: lint
+    name: unit
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        working-directory:
-        - ""
-        - test
-        - apis
-        - pkg/hardwareutils
     steps:
     - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
     - name: Calculate go version
@@ -27,8 +19,7 @@ jobs:
       uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
-    - name: golangci-lint-${{matrix.working-directory}}
-      uses: golangci/golangci-lint-action@a4f60bb28d35aeee14e6880718e0c85ff1882e64 # v6.0.1
-      with:
-        version: v1.56.2
-        working-directory: ${{matrix.working-directory}}
+    - name: Run unit tests
+      run: make -e unit-cover
+      env:
+        TEST_FLAGS: "-v"

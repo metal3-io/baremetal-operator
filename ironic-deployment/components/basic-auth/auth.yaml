@@ -8,8 +8,13 @@ spec:
       containers:
       - name: ironic
         envFrom:
-        # This is the htpassword matching the ironic password
-        - secretRef:
-            name: ironic-htpasswd
         - configMapRef:
             name: ironic-bmo-configmap
+        volumeMounts:
+        - name: ironic-htpasswd
+          mountPath: "/auth/ironic"
+          readOnly: true
+      volumes:
+      - name: ironic-htpasswd
+        secret:
+          secretName: ironic-htpasswd

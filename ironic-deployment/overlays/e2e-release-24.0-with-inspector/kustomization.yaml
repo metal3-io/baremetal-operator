@@ -26,12 +26,12 @@ images:
 secretGenerator:
 - name: ironic-htpasswd
   behavior: create
-  envs:
-  - ironic-htpasswd
+  files:
+  - htpasswd=ironic-htpasswd
 - name: ironic-inspector-htpasswd
   behavior: create
-  envs:
-  - ironic-inspector-htpasswd
+  files:
+  - htpasswd=ironic-inspector-htpasswd
 - name: ironic-auth-config
   files:
   - auth-config=ironic-auth-config

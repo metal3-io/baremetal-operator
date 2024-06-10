@@ -24,6 +24,7 @@ patches:
 # Example for how to generate the necessary secrets:
 # secretGenerator:
 # - behavior: create
-#   envs:
-#   - ironic-htpasswd
+#   files:
+#   - htpasswd=ironic-htpasswd
 #   name: ironic-htpasswd
+#   type: Opaque

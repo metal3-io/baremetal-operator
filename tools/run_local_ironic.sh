@@ -173,7 +173,7 @@ IRONIC_HTPASSWD_FILE="${IRONIC_DATA_DIR}/auth/ironic-htpasswd"
 IRONIC_HTPASSWD_MOUNT=""
 set +x
 if [ -n "$IRONIC_USERNAME" ]; then
-     "$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > "${IRONIC_HTPASSWD_FILE}"
+     htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}" > "${IRONIC_HTPASSWD_FILE}"
      IRONIC_HTPASSWD_MOUNT="-v ${IRONIC_HTPASSWD_FILE}:/auth/ironic/htpasswd"
 fi
 set -x

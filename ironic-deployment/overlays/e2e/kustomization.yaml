@@ -22,8 +22,9 @@ patches:
 secretGenerator:
 - name: ironic-htpasswd
   behavior: create
-  envs:
-  - ironic-htpasswd
+  files:
+  - htpasswd=ironic-htpasswd
+  type: Opaque
 
 replacements:
   # Replace IRONIC_HOST_IP in certificates with the PROVISIONING_IP from the configmap

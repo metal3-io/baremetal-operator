@@ -65,7 +65,7 @@ github.com/mailru/easyjson/jwriter
 ## explicit; go 1.19
 github.com/matttproud/golang_protobuf_extensions/v2/pbutil
 # github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1 => ./../pkg/hardwareutils
-## explicit; go 1.21
+## explicit; go 1.22
 github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit

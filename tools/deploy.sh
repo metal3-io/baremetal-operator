@@ -148,7 +148,7 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     fi
 
     if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
-        echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
+        htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}" > \
         "${TEMP_IRONIC_OVERLAY}/ironic-htpasswd"
     fi
 fi

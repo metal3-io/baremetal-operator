@@ -2,13 +2,14 @@ name: Periodic E2E Test release-0.6
 
 on:
   schedule:
-    # Run every day at 02:50 UTC (it is recommended to avoid running at the start of the hour)
-    - cron: '50 2 * * *'
+  # Run every day at 02:50 UTC (it is recommended to avoid running at the start of the hour)
+  - cron: '50 2 * * *'
 
 permissions: {}
 
 jobs:
   periodic-e2e-test:
+    if: github.repository == 'metal3-io/baremetal-operator'
     strategy:
       fail-fast: false
       matrix:

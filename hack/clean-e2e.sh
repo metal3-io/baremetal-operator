@@ -13,3 +13,15 @@ docker rm -f sushy-tools
 rm -rf "${REPO_ROOT}/test/e2e/_artifacts"
 rm -rf "${REPO_ROOT}"/artifacts-*
 rm -rf "${REPO_ROOT}/test/e2e/images"
+
+# Clear network
+virsh -c qemu:///system net-destroy baremetal-e2e
+virsh -c qemu:///system net-undefine baremetal-e2e
+
+# Clean volume pool directory
+rm -rf /tmp/pool_oo/*
+
+# Clean volume pool
+virsh pool-destroy default || true
+virsh pool-delete default || true
+virsh pool-undefine default || true

@@ -22,6 +22,11 @@ jobs:
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
 
+    - name: Install libvirt
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-dev
+
     - name: Build BMO e2e Docker Image
       env:
         IMG: quay.io/metal3-io/baremetal-operator:e2e

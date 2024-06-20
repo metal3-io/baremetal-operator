@@ -3,7 +3,6 @@ package e2e
 import (
 	"os"
 
-	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,10 +27,14 @@ type BMC struct {
 	SSHPort string `yaml:"sshPort,omitempty"`
 }
 
-func LoadBMCConfig(configPath string) *[]BMC {
+func LoadBMCConfig(configPath string) (*[]BMC, error) {
 	configData, err := os.ReadFile(configPath) //#nosec
-	Expect(err).ToNot(HaveOccurred(), "Failed to read the bmcs config file")
 	var bmcs []BMC
-	Expect(yaml.Unmarshal(configData, &bmcs)).To(Succeed())
-	return &bmcs
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(configData, &bmcs); err != nil {
+		return nil, err
+	}
+	return &bmcs, nil
 }

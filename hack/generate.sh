@@ -24,13 +24,15 @@ if [ "${IS_CONTAINER}" != "false" ]; then
 
 else
   "${CONTAINER_RUNTIME}" run --rm \
+    -u $(id -u):$(id -g) \
     --env IS_CONTAINER=TRUE \
     --env DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel \
     --env DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs \
     --env IRONIC_ENDPOINT=http://localhost:6385/v1/ \
+    --env GIT_ALLOW_DUBIOUS_OWNERSHIP=1 \
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:rw,z" \
     --entrypoint sh \
     --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    docker.io/golang:1.22 \
+    e44ae10366fa \
     /go/src/github.com/metal3-io/baremetal-operator/hack/generate.sh "${@}"
 fi;

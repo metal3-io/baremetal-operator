@@ -31,7 +31,7 @@ jobs:
     - name: Install libvirt
       run: |
           sudo apt-get update
-          sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager
+          sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager libvirt-dev
 
     - name: Run BMO e2e Tests
       env:

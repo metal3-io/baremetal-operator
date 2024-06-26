@@ -82,6 +82,10 @@ rm /tmp/bmo-e2e.tar
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 
+pushd "${REPO_ROOT}/test/createVM" || exit 1
+go run main.go --yaml-source-file "${E2E_BMCS_CONF_FILE}"
+popd
+
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   # Start VBMC
   docker run --name vbmc --network host -d \
@@ -89,6 +93,13 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
     -v /var/run/libvirt/libvirt-sock-ro:/var/run/libvirt/libvirt-sock-ro \
     quay.io/metal3-io/vbmc
 
+  readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
+  for bmc in "${BMCS[@]}"; do
+    address=$(echo "${bmc}" | jq -r '.address')
+    hostName=$(echo "${bmc}" | jq -r '.hostName')
+    vbmc_port="${address##*:}"
+    "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}"
+  done
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
   # Sushy-tools variables
@@ -105,8 +116,6 @@ else
   exit 1
 fi
 
-"${REPO_ROOT}/hack/create_bmcs.sh" "${E2E_BMCS_CONF_FILE}" baremetal-e2e
-
 # Image server variables
 CIRROS_VERSION="0.6.2"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
@@ -118,6 +127,7 @@ mkdir -p "${IMAGE_DIR}"
 ## Download disk images
 wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
 wget --quiet -P "${IMAGE_DIR}/" https://fastly-cdn.system-rescue.org/releases/11.00/systemrescue-11.00-amd64.iso
+wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/minimal_linux_live-v2.iso
 
 ## Start the image server
 docker run --name image-server-e2e -d \

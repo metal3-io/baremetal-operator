@@ -319,7 +319,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 	}
 
 	var ironicNode *nodes.Node
-	updater := updateOptsBuilder(p.log)
+	updater := clients.UpdateOptsBuilder(p.log)
 
 	p.debugLog.Info("validating management access")
 
@@ -561,7 +561,7 @@ func (p *ironicProvisioner) ValidateManagementAccess(data provisioner.Management
 }
 
 func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
-	updater := updateOptsBuilder(p.log)
+	updater := clients.UpdateOptsBuilder(p.log)
 
 	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
@@ -678,8 +678,8 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map
 	return driverInfo
 }
 
-func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) optionsData {
-	deployImageInfo := optionsData{
+func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) clients.UpdateOptsData {
+	deployImageInfo := clients.UpdateOptsData{
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
 		deployISOKey:     nil,
@@ -727,7 +727,7 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 	return nil
 }
 
-func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *nodeUpdater) (updatedNode *nodes.Node, success bool, result provisioner.Result, err error) {
+func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *clients.NodeUpdater) (updatedNode *nodes.Node, success bool, result provisioner.Result, err error) {
 	if len(updater.Updates) == 0 {
 		updatedNode = ironicNode
 		success = true
@@ -812,8 +812,8 @@ func (p *ironicProvisioner) UpdateHardwareState() (hwState provisioner.HardwareS
 	return
 }
 
-func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *nodeUpdater) {
-	optValues := optionsData{
+func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *clients.NodeUpdater) {
+	optValues := clients.UpdateOptsData{
 		"boot_iso": imageData.URL,
 
 		// remove any image_source or checksum options
@@ -826,23 +826,23 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 		SetInstanceInfoOpts(optValues, ironicNode).
 		SetTopLevelOpt("deploy_interface", "ramdisk", ironicNode.DeployInterface)
 
-	driverOptValues := optionsData{"force_persistent_boot_device": "Default"}
+	driverOptValues := clients.UpdateOptsData{"force_persistent_boot_device": "Default"}
 	if p.config.liveISOForcePersistentBootDevice != "" {
-		driverOptValues = optionsData{
+		driverOptValues = clients.UpdateOptsData{
 			"force_persistent_boot_device": p.config.liveISOForcePersistentBootDevice,
 		}
 	}
 	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
-func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *nodeUpdater) {
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *clients.NodeUpdater) {
 	checksum, checksumType, ok := imageData.GetChecksum()
 	if !ok {
 		p.log.Info("image/checksum not found for host")
 		return
 	}
 
-	optValues := optionsData{
+	optValues := clients.UpdateOptsData{
 		// Remove any boot_iso field
 		"boot_iso":          nil,
 		"image_source":      imageData.URL,
@@ -865,19 +865,19 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		updater.SetTopLevelOpt("deploy_interface", nil, ironicNode.DeployInterface)
 	}
 
-	driverOptValues := optionsData{
+	driverOptValues := clients.UpdateOptsData{
 		"force_persistent_boot_device": "Default",
 	}
 	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
-func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *nodeUpdater) {
-	var optValues optionsData
+func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *clients.NodeUpdater) {
+	var optValues clients.UpdateOptsData
 	if imageData != nil && imageData.URL != "" {
 		checksum, checksumType, ok := imageData.GetChecksum()
 		// NOTE(dtantsur): all fields are optional for custom deploy
 		if ok {
-			optValues = optionsData{
+			optValues = clients.UpdateOptsData{
 				"boot_iso":            nil,
 				"image_checksum":      nil,
 				"image_source":        imageData.URL,
@@ -886,7 +886,7 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 				"image_disk_format":   imageData.DiskFormat,
 			}
 		} else {
-			optValues = optionsData{
+			optValues = clients.UpdateOptsData{
 				"boot_iso":            nil,
 				"image_checksum":      nil,
 				"image_source":        imageData.URL,
@@ -897,7 +897,7 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 		}
 	} else {
 		// Clean up everything
-		optValues = optionsData{
+		optValues = clients.UpdateOptsData{
 			"boot_iso":            nil,
 			"image_checksum":      nil,
 			"image_source":        nil,
@@ -912,11 +912,11 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 		SetTopLevelOpt("deploy_interface", "custom-agent", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, bootMode metal3api.BootMode, hasCustomDeploy bool, updater *nodeUpdater) {
+func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, bootMode metal3api.BootMode, hasCustomDeploy bool, updater *clients.NodeUpdater) {
 	// instance_uuid
 	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
-	updater.SetInstanceInfoOpts(optionsData{
+	updater.SetInstanceInfoOpts(clients.UpdateOptsData{
 		"capabilities": buildInstanceInfoCapabilities(bootMode),
 	}, ironicNode)
 
@@ -932,13 +932,13 @@ func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, im
 	}
 }
 
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *nodeUpdater {
-	updater := updateOptsBuilder(p.log)
+func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *clients.NodeUpdater {
+	updater := clients.UpdateOptsBuilder(p.log)
 
 	hasCustomDeploy := data.CustomDeploy != nil && data.CustomDeploy.Method != ""
 	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, hasCustomDeploy, updater)
 
-	opts := optionsData{
+	opts := clients.UpdateOptsData{
 		"root_device":  devicehints.MakeHintMap(data.RootDeviceHints),
 		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 	}
@@ -1731,7 +1731,7 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 		// Make sure we don't have a stale instance UUID
 		if ironicNode.InstanceUUID != "" {
 			p.log.Info("removing stale instance UUID before deletion", "instanceUUID", ironicNode.InstanceUUID)
-			updater := updateOptsBuilder(p.log)
+			updater := clients.UpdateOptsBuilder(p.log)
 			updater.SetTopLevelOpt("instance_uuid", nil, ironicNode.InstanceUUID)
 			_, success, result, err := p.tryUpdateNode(ironicNode, updater)
 			if !success {

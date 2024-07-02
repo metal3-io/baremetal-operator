@@ -41,6 +41,7 @@ else
         --volume "${PWD}:{WORKDIR}:ro,z" \
         --entrypoint sh \
         --workdir "${WORKDIR}" \
-        docker.io/golang:1.22 \
+        quay.io/metal3-io/basic-checks:golang-1.22 \
+        --pull=always \
         "${WORKDIR}"/hack/gomod.sh "$@"
 fi

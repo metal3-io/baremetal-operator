@@ -193,6 +193,34 @@ _version_check()
     [[ "${min_version}" == $(echo -e "${min_version}\n${version}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) ]]
 }
 
+check_image_tag() {
+    if [ -z "$1" ]; then
+        echo "Error: No image tag provided"
+        exit 1
+    fi
+    TAG=$1
+    MANIFEST_FILES=$(find template -type f -name '*.yaml')
+    ERROR=0
+
+    echo "Checking the image tag :TAG"
+
+    for FILE in $MANIFEST_FILES; do
+        if ! grep -q "image: .*/baremetal-operator:$TAG" "$FILE"; then
+            echo "Error: Image tag in $FILE is not set to $TAG"
+            ERROR=1
+        fi
+    done
+
+    if [ $ERROR -ne 0 ]; then
+        echo "Image tag verification failed!"
+        exit 1
+    else
+        echo "Image tag verification passed."
+    fi
+
+    echo -e "Done\n"
+}
+
 check_tools()
 {
     # check that all tools are present, and pass version check too
@@ -677,6 +705,7 @@ check_tools
 detect_remote
 check_input
 check_tag
+check_image_tag
 
 # post-tag verifications
 if [[ -n "${TAG_EXISTS}" ]]; then

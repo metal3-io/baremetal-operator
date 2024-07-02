@@ -62,6 +62,10 @@ type HostFirmwareSettingsMock struct {
 	Schema   map[string]metal3api.SettingSchema
 }
 
+type HostFirmwareComponentsMock struct {
+	Components []metal3api.FirmwareComponentStatus
+}
+
 // Fixture contains persistent state for a particular host.
 type Fixture struct {
 	// counter to set the provisioner as ready
@@ -80,6 +84,8 @@ type Fixture struct {
 	customDeploy *metal3api.CustomDeploy
 
 	HostFirmwareSettings HostFirmwareSettingsMock
+
+	HostFirmwareComponents HostFirmwareComponentsMock
 }
 
 // NewProvisioner returns a new Fixture Provisioner.
@@ -357,7 +363,8 @@ func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEv
 }
 
 func (p *fixtureProvisioner) GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error) {
-	return components, nil
+	p.log.Info("getting Firmware components")
+	return p.state.HostFirmwareComponents.Components, nil
 }
 
 func (p *fixtureProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {

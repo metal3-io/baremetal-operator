@@ -465,6 +465,14 @@ func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
+	// Check if hostFirmwareComponents have changed
+	if dirty, _, err := hsm.Reconciler.getHostFirmwareComponents(info); err != nil {
+		return actionError{err}
+	} else if dirty {
+		hsm.NextState = metal3api.StatePreparing
+		return actionComplete{}
+	}
+
 	// ErrorCount is cleared when appropriate inside actionManageAvailable
 	actResult := hsm.Reconciler.actionManageAvailable(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {

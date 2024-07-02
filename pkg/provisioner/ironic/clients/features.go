@@ -50,6 +50,10 @@ func (af AvailableFeatures) HasFirmwareUpdates() bool {
 	return af.MaxVersion >= 86
 }
 
+func (af AvailableFeatures) HasServicing() bool {
+	return af.MaxVersion >= 87
+}
+
 func (af AvailableFeatures) HasDataImage() bool {
 	return af.MaxVersion >= 89
 }
@@ -57,6 +61,10 @@ func (af AvailableFeatures) HasDataImage() bool {
 func (af AvailableFeatures) ChooseMicroversion() string {
 	if af.HasDataImage() {
 		return "1.89"
+	}
+
+	if af.HasServicing() {
+		return "1.87"
 	}
 
 	if af.HasFirmwareUpdates() {

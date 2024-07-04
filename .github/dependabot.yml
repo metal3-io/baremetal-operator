@@ -8,10 +8,13 @@ updates:
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
+    day: "saturday"
   target-branch: main
   commit-message:
     prefix: ":seedling:"
-    # Go
+  labels:
+  - "ok-to-test"
+  # Go
 - package-ecosystem: "gomod"
   directories:
   - "/"
@@ -21,6 +24,7 @@ updates:
   - "/test"
   schedule:
     interval: "weekly"
+    day: "sunday"
   target-branch: main
   groups:
     kubernetes:
@@ -36,19 +40,25 @@ updates:
     update-types: ["version-update:semver-major", "version-update:semver-minor"]
   commit-message:
     prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
 ## Main branch config ends here
 ## release-0.6  branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
+    day: "saturday"
   target-branch: release-0.6
-  commit-message:
-    prefix: ":seedling:"
   ignore:
   # Ignore major and minor bumps for release branch
   - dependency-name: "*"
     update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+  # Go
 - package-ecosystem: "gomod"
   directories:
   - "/"
@@ -58,6 +68,7 @@ updates:
   - "/test"
   schedule:
     interval: "weekly"
+    day: "sunday"
   target-branch: release-0.6
   groups:
     kubernetes:
@@ -70,19 +81,25 @@ updates:
     update-types: ["version-update:semver-major", "version-update:semver-minor"]
   commit-message:
     prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
 ## release-0.6 branch config ends here
 ## release-0.5  branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
+    day: "saturday"
   target-branch: release-0.5
-  commit-message:
-    prefix: ":seedling:"
   ignore:
   # Ignore major and minor bumps for release branch
   - dependency-name: "*"
     update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+  # Go
 - package-ecosystem: "gomod"
   directories:
   - "/"
@@ -92,6 +109,7 @@ updates:
   - "/test"
   schedule:
     interval: "weekly"
+    day: "sunday"
   target-branch: release-0.5
   groups:
     kubernetes:
@@ -104,4 +122,6 @@ updates:
     update-types: ["version-update:semver-major", "version-update:semver-minor"]
   commit-message:
     prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
 ## release-0.5 branch config ends here

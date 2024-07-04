@@ -3,50 +3,105 @@
 
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/" # Location of package manifests
-    schedule:
-      interval: "monthly"
-    commit-message:
-      prefix: ":seedling:"
+## Main branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+  target-branch: main
+  commit-message:
+    prefix: ":seedling:"
     # Go
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    ignore:
-      # Ignore controller-runtime as its upgraded manually.
-      - dependency-name: "sigs.k8s.io/controller-runtime"
-      # Ignore k8s and its transitives modules as they are upgraded manually
-      # together with controller-runtime.
-      - dependency-name: "k8s.io/*"
-    commit-message:
-      prefix: ":seedling:"
-  - package-ecosystem: "gomod"
-    directory: "/apis"
-    schedule:
-      interval: "weekly"
-    ignore:
-      # Ignore controller-runtime as its upgraded manually.
-      - dependency-name: "sigs.k8s.io/controller-runtime"
-      # Ignore k8s and its transitives modules as they are upgraded manually
-      # together with controller-runtime.
-      - dependency-name: "k8s.io/*"
-    commit-message:
-      prefix: ":seedling:"
-  - package-ecosystem: "gomod"
-    directory: "/pkg/hardwareutils"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: ":seedling:"
-  - package-ecosystem: "gomod"
-    directory: "/hack/tools"
-    schedule:
-      interval: "weekly"
-    ignore:
-      # Ignore k8s and its transitives modules as they are upgraded manually
-      # together with controller-runtime.
-      - dependency-name: "sigs.k8s.io/controller-tools"
-    commit-message:
-      prefix: ":seedling:"
+- package-ecosystem: "gomod"
+  directories:
+  - "/"
+  - "/api"
+  - "/hack/tools"
+  - "/pkg/hardwareutils"
+  - "/test"
+  schedule:
+    interval: "weekly"
+  target-branch: main
+  groups:
+    kubernetes:
+      patterns: ["k8s.io/*"]
+  ignore:
+  # Ignore controller-runtime major and minor bumps as its upgraded manually.
+  - dependency-name: "sigs.k8s.io/controller-runtime"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  # Ignore k8s major and minor bumps and its transitives modules
+  - dependency-name: "k8s.io/*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  - dependency-name: "sigs.k8s.io/controller-tools"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+## Main branch config ends here
+## release-0.6  branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+  target-branch: release-0.6
+  commit-message:
+    prefix: ":seedling:"
+  ignore:
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+- package-ecosystem: "gomod"
+  directories:
+  - "/"
+  - "/api"
+  - "/hack/tools"
+  - "/pkg/hardwareutils"
+  - "/test"
+  schedule:
+    interval: "weekly"
+  target-branch: release-0.6
+  groups:
+    kubernetes:
+      patterns: ["k8s.io/*"]
+  ignore:
+  # golang.org/x/* only releases minors no patches, so minors have to be allowed
+  - dependency-name: "golang.org/x/*"
+    update-types: ["version-update:semver-major"]
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+## release-0.6 branch config ends here
+## release-0.5  branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+  target-branch: release-0.5
+  commit-message:
+    prefix: ":seedling:"
+  ignore:
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+- package-ecosystem: "gomod"
+  directories:
+  - "/"
+  - "/api"
+  - "/hack/tools"
+  - "/pkg/hardwareutils"
+  - "/test"
+  schedule:
+    interval: "weekly"
+  target-branch: release-0.5
+  groups:
+    kubernetes:
+      patterns: ["k8s.io/*"]
+  ignore:
+  # golang.org/x/* only releases minors no patches, so minors have to be allowed
+  - dependency-name: "golang.org/x/*"
+    update-types: ["version-update:semver-major"]
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+## release-0.5 branch config ends here

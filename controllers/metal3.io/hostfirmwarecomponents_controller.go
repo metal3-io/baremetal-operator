@@ -122,7 +122,6 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 
 	// Fetch the HostFirmwareComponents
 	hfc := &metal3api.HostFirmwareComponents{}
-	info := &rhfcInfo{ctx: ctx, log: reqLogger, hfc: hfc, bmh: bmh}
 	if err = r.Get(ctx, req.NamespacedName, hfc); err != nil {
 		// The HFC resource may have been deleted
 		if k8serrors.IsNotFound(err) {
@@ -134,6 +133,7 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	// Create a provisioner to access Ironic API
+	info := &rhfcInfo{ctx: ctx, log: reqLogger, hfc: hfc, bmh: bmh}
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
@@ -181,11 +181,6 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 // Update the HostFirmwareComponents resource using the components from provisioner.
 func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, components []metal3api.FirmwareComponentStatus) (err error) {
 	dirty := false
-	var newStatus metal3api.HostFirmwareComponentsStatus
-	// change the Updates in Status
-	newStatus.Updates = info.hfc.Spec.Updates
-	// change the Components in Status
-	newStatus.Components = components
 
 	// Check if the updates in the Spec are different than Status
 	updatesMismatch := !reflect.DeepEqual(info.hfc.Status.Updates, info.hfc.Spec.Updates)
@@ -196,8 +191,11 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 	reason := reasonValidComponent
 	generation := info.hfc.GetGeneration()
 
+	newStatus := info.hfc.Status.DeepCopy()
+	newStatus.Components = components
+
 	if updatesMismatch {
-		if setUpdatesCondition(generation, &newStatus, info, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionTrue, reason, "") {
+		if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
 
@@ -205,17 +203,17 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 		if err != nil {
 			info.publishEvent("ValidationFailed", fmt.Sprintf("Invalid Firmware Components: %s", err))
 			reason = reasonInvalidComponent
-			if setUpdatesCondition(generation, &newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionFalse, reason, fmt.Sprintf("Invalid Firmware Components: %s", err)) {
+			if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionFalse, reason, fmt.Sprintf("Invalid Firmware Components: %s", err)) {
 				dirty = true
 			}
-		} else if setUpdatesCondition(generation, &newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
+		} else if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
 	} else {
-		if setUpdatesCondition(generation, &newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
+		if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
-		if setUpdatesCondition(generation, &newStatus, info, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionFalse, reason, "") {
+		if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionFalse, reason, "") {
 			dirty = true
 		}
 	}
@@ -258,18 +256,6 @@ func (r *HostFirmwareComponentsReconciler) validateHostFirmwareComponents(info *
 		if _, ok := allowedNames[componentName]; !ok {
 			errors = append(errors, fmt.Errorf("component %s is invalid, only 'bmc' or 'bios' are allowed as update names", componentName))
 		}
-		if len(errors) == 0 {
-			componentInStatus := false
-			for _, componentStatus := range info.hfc.Status.Components {
-				if componentName == componentStatus.Component {
-					componentInStatus = true
-					break
-				}
-			}
-			if !componentInStatus {
-				errors = append(errors, fmt.Errorf("component %s is invalid because is not present in status", componentName))
-			}
-		}
 	}
 
 	return errors
@@ -295,8 +281,9 @@ func setUpdatesCondition(generation int64, status *metal3api.HostFirmwareCompone
 		Reason:             string(reason),
 		Message:            message,
 	}
-	currCond := meta.FindStatusCondition(info.hfc.Status.Conditions, string(cond))
+
 	meta.SetStatusCondition(&status.Conditions, newCondition)
+	currCond := meta.FindStatusCondition(info.hfc.Status.Conditions, string(cond))
 
 	if currCond == nil || currCond.Status != newStatus {
 		return true

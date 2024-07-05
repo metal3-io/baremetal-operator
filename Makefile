@@ -2,7 +2,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
-GO_VERSION ?= 1.22.2
+GO_VERSION ?= 1.22.5
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -176,11 +176,11 @@ run-test-mode: generate lint manifests ## Run against the configured Kubernetes 
 
 .PHONY: install
 install: $(KUSTOMIZE) manifests ## Install CRDs into a cluster
-	$< build config/crd | kubectl apply -f -
+	$< build config/base/crds | kubectl apply -f -
 
 .PHONY: uninstall
 uninstall: $(KUSTOMIZE) manifests ## Uninstall CRDs from a cluster
-	$< build config/crd | kubectl delete -f -
+	$< build config/base/crds | kubectl delete -f -
 
 .PHONY: deploy
 deploy: $(KUSTOMIZE) manifests  ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config

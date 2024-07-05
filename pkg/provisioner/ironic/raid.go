@@ -7,6 +7,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
 	"github.com/pkg/errors"
 )
@@ -42,7 +43,7 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 		p.log.Info("rootDeviceHints is used, the first volume of raid will not be set to root")
 	}
 
-	updater := updateOptsBuilder(p.log)
+	updater := clients.UpdateOptsBuilder(p.log)
 	updater.SetTopLevelOpt("raid_interface", targetRaidInterface, ironicNode.RAIDInterface)
 	ironicNode, success, result, err := p.tryUpdateNode(ironicNode, updater)
 	if !success {

@@ -1,5 +1,5 @@
 # Support FROM override
-ARG BUILD_IMAGE=docker.io/golang:1.22.2@sha256:450e3822c7a135e1463cd83e51c8e2eb03b86a02113c89424e6f0f8344bb4168
+ARG BUILD_IMAGE=docker.io/golang:1.22.5@sha256:f47a7952d08277f9816459d851319c9041637022f04517388d9f32e384fc2dab
 ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:9ecc53c269509f63c69a266168e4a687c7eb8c0cfd753bd8bfcaa4f58a90876f
 
 # Build the manager binary

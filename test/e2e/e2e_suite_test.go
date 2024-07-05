@@ -170,7 +170,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	err := metal3api.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 	e2eConfig = LoadE2EConfig(configPath)
-	bmcs = LoadBMCConfig(bmcConfigPath)
+	bmcs, err := LoadBMCConfig(bmcConfigPath)
+	Expect(err).ToNot(HaveOccurred(), "Failed to read the bmcs config file")
 	bmc = (*bmcs)[GinkgoParallelProcess()-1]
 	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
 })

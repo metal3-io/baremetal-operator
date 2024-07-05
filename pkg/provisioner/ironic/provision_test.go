@@ -1444,3 +1444,121 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildCleanStepsForUpdateFirmware(t *testing.T) {
+	nodeUUID := "eec38659-4c68-7431-9535-d10766f07a58"
+	cases := []struct {
+		name                     string
+		ironic                   *testserver.IronicMock
+		targetFirmwareComponents []metal3api.FirmwareUpdate
+		expectedFirmwareUpdates  []map[string]string
+	}{
+		{
+			name: "no updates",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+			}),
+			targetFirmwareComponents: nil,
+			expectedFirmwareUpdates:  nil,
+		},
+		{
+			name: "bmc update",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+			}),
+			targetFirmwareComponents: []metal3api.FirmwareUpdate{
+				{
+					Component: "bmc",
+					URL:       "https://mybmc.newfirmware",
+				},
+			},
+			expectedFirmwareUpdates: []map[string]string{
+				{
+					"component": "bmc",
+					"url":       "https://mybmc.newfirmware",
+				},
+			},
+		},
+		{
+			name: "bios update",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+			}),
+			targetFirmwareComponents: []metal3api.FirmwareUpdate{
+				{
+					Component: "bios",
+					URL:       "https://mybios.newfirmware",
+				},
+			},
+			expectedFirmwareUpdates: []map[string]string{
+				{
+					"component": "bios",
+					"url":       "https://mybios.newfirmware",
+				},
+			},
+		},
+		{
+			name: "bmc and bios update",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+			}),
+			targetFirmwareComponents: []metal3api.FirmwareUpdate{
+				{
+					Component: "bmc",
+					URL:       "https://mybmc.newfirmware",
+				},
+				{
+					Component: "bios",
+					URL:       "https://mybios.newfirmware",
+				},
+			},
+			expectedFirmwareUpdates: []map[string]string{
+				{
+					"component": "bmc",
+					"url":       "https://mybmc.newfirmware",
+				},
+				{
+					"component": "bios",
+					"url":       "https://mybios.newfirmware",
+				},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.ironic != nil {
+				tc.ironic.Start()
+				defer tc.ironic.Stop()
+			}
+
+			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
+			publisher := func(reason, message string) {}
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, tc.ironic.Endpoint(), auth)
+			if err != nil {
+				t.Fatalf("could not create provisioner: %s", err)
+			}
+
+			parsedURL := &url.URL{Scheme: "redfish", Host: "10.1.1.1"}
+
+			testBMC, _ := testbmc.NewTestBMCAccessDetails(parsedURL, false)
+
+			cleanSteps, err := prov.buildManualCleaningSteps(testBMC, provisioner.PrepareData{
+				TargetFirmwareComponents: tc.targetFirmwareComponents,
+			})
+
+			assert.Equal(t, nil, err)
+			if tc.targetFirmwareComponents == nil {
+				assert.Equal(t, tc.expectedFirmwareUpdates, []map[string]string(nil))
+			} else {
+				settings := cleanSteps[0].Args["settings"]
+				assert.ElementsMatch(t, tc.expectedFirmwareUpdates, settings)
+			}
+		})
+	}
+}

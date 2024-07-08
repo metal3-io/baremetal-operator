@@ -11,6 +11,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
@@ -40,8 +41,8 @@ func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result prov
 func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
 	_, started, result, err = p.tryUpdateNode(
 		ironicNode,
-		updateOptsBuilder(p.log).
-			SetPropertiesOpts(optionsData{
+		clients.UpdateOptsBuilder(p.log).
+			SetPropertiesOpts(clients.UpdateOptsData{
 				"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
 			}, ironicNode),
 	)

@@ -1,9 +1,11 @@
 #!/bin/sh
+# shellcheck disable=SC2292
 
 set -eux
 
-IS_CONTAINER=${IS_CONTAINER:-false}
+IS_CONTAINER="${IS_CONTAINER:-false}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
+WORKDIR="${WORKDIR:-/workdir}"
 K8S_VERSION="${K8S_VERSION:-master}"
 
 # --strict: Disallow additional properties not in schema.
@@ -24,19 +26,19 @@ if [ "${IS_CONTAINER}" != "false" ]; then
     { set +x; } 2>/dev/null
     echo "<-------------------------STARTING MANIFESTS VALIDATION CHECKS------------------------->"
     "${KUBECONFORM_PATH:-}"kubeconform --strict --ignore-missing-schemas \
-    --kubernetes-version "${K8S_VERSION}" \
-    --ignore-filename-pattern kustom --ignore-filename-pattern patch \
-    --ignore-filename-pattern controller_manager_config \
-    --output tap \
-    config/ examples/
+        --kubernetes-version "${K8S_VERSION}" \
+        --ignore-filename-pattern kustom --ignore-filename-pattern patch \
+        --ignore-filename-pattern controller_manager_config \
+        --output tap \
+        config/ examples/
     echo "<-------------------------COMPLETED MANIFESTS VALIDATION CHECKS------------------------>"
 else
-  "${CONTAINER_RUNTIME}" run --rm \
-    --env IS_CONTAINER=TRUE \
-    --env KUBECONFORM_PATH="/" \
-    --volume "${PWD}:/workdir:ro,z" \
-    --entrypoint sh \
-    --workdir /workdir \
-    ghcr.io/yannh/kubeconform:v0.6.2-alpine@sha256:49b5f6b320d30c1b8b72a7abdf02740ac9dc36a3ba23b934d1c02f7b37e6e740 \
-    /workdir/hack/manifestlint.sh "${@}"
-fi;
+    "${CONTAINER_RUNTIME}" run --rm \
+        --env IS_CONTAINER=TRUE \
+        --env KUBECONFORM_PATH="/" \
+        --volume "${PWD}:${WORKDIR}:ro,z" \
+        --entrypoint sh \
+        --workdir "${WORKDIR}" \
+        ghcr.io/yannh/kubeconform:v0.6.2-alpine@sha256:49b5f6b320d30c1b8b72a7abdf02740ac9dc36a3ba23b934d1c02f7b37e6e740 \
+        "${WORKDIR}"/hack/manifestlint.sh "$@"
+fi

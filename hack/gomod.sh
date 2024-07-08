@@ -4,11 +4,13 @@
 # 2.  Verify that running the above doesn't change go.mod and go.sum
 #
 # NOTE: This won't work unless the build environment has internet access
+# shellcheck disable=SC2292
 
 set -eux
 
 IS_CONTAINER=${IS_CONTAINER:-false}
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
+WORKDIR="${WORKDIR:-/workdir}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
     export XDG_CACHE_HOME=/tmp/.cache
@@ -36,9 +38,10 @@ if [ "${IS_CONTAINER}" != "false" ]; then
 else
     "${CONTAINER_RUNTIME}" run --rm \
         --env IS_CONTAINER=TRUE \
-        --volume "${PWD}:/workdir:ro,z" \
+        --volume "${PWD}:{WORKDIR}:ro,z" \
         --entrypoint sh \
-        --workdir /workdir \
-        docker.io/golang:1.22 \
-        /workdir/hack/gomod.sh "$@"
+        --workdir "${WORKDIR}" \
+        quay.io/metal3-io/basic-checks:golang-1.22 \
+        --pull=always \
+        "${WORKDIR}"/hack/gomod.sh "$@"
 fi

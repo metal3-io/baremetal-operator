@@ -780,7 +780,8 @@ type BareMetalHostStatus struct {
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
 	// The name of the profile matching the hardware details.
-	HardwareProfile string `json:"hardwareProfile"`
+	// Hardware profiles are deprecated and should not be relied on.
+	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
 	// The hardware discovered to exist on the host.
 	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`

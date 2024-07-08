@@ -20,6 +20,12 @@ jobs:
         - pkg/hardwareutils
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    - name: Install libvirt
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-dev
+
     - name: Calculate go version
       id: vars
       run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT

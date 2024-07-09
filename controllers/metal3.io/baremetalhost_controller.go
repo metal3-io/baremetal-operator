@@ -1794,8 +1794,8 @@ func (r *BareMetalHostReconciler) createHostFirmwareComponents(info *reconcileIn
 				Updates: []metal3api.FirmwareUpdate{}}
 
 			// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
-			if err = controllerutil.SetControllerReference(info.host, hfc, r.Scheme()); err != nil {
-				return errors.Wrap(err, "could not set bmh as controller for hostFirmwareComponents")
+			if err = controllerutil.SetOwnerReference(info.host, hfc, r.Scheme()); err != nil {
+				return errors.Wrap(err, "could not set bmh as owner for hostFirmwareComponents")
 			}
 			if err = r.Create(info.ctx, hfc); err != nil {
 				return errors.Wrap(err, "failure creating hostFirmwareComponents resource")
@@ -1810,8 +1810,8 @@ func (r *BareMetalHostReconciler) createHostFirmwareComponents(info *reconcileIn
 	// Necessary in case the CRD is created manually.
 
 	if !ownerReferenceExists(info.host, hfc) {
-		if err := controllerutil.SetControllerReference(info.host, hfc, r.Scheme()); err != nil {
-			return errors.Wrap(err, "could not set bmh as controller for hostFirmwareComponents")
+		if err := controllerutil.SetOwnerReference(info.host, hfc, r.Scheme()); err != nil {
+			return errors.Wrap(err, "could not set bmh as owner for hostFirmwareComponents")
 		}
 		if err := r.Update(info.ctx, hfc); err != nil {
 			return errors.Wrap(err, "failure updating hostFirmwareComponents resource")

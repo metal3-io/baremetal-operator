@@ -23,3 +23,7 @@ docker rm -f vbmc
 # Clear network
 virsh -c qemu:///system net-destroy baremetal-e2e
 virsh -c qemu:///system net-undefine baremetal-e2e
+
+# Cleanup VM and volume qcow2
+rm -rf /tmp/bmo-e2e-*.qcow2
+rm -rf /tmp/pool_oo/bmo-e2e-*.qcow2

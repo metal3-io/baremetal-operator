@@ -5,6 +5,7 @@
 **Metal³** introduces the concept of **BareMetalHost** resource, which
 defines a physical host and its properties. See [BareMetalHost
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/BareMetalHost/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/baremetalhost_types.go`
 for a detailed API description. See the [user
 guide](https://book.metal3.io/bmo/introduction) for information on how to
 manage hosts.
@@ -52,6 +53,7 @@ the **BareMetalHosts** `firmware` field.
 
 See [HostFirmwareSettings
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/HostFirmwareSettings/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/hostfirmwaresettings_types.go`
 for a detailed API description. See the [firmware settings
 guide](https://book.metal3.io/bmo/firmware_settings) for information on how to
 change firmware settings.
@@ -69,6 +71,7 @@ hardware of the same vendor and model are used.
 
 See [FirmwareSchema
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/FirmwareSchema/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/firmwareschema_types.go`
 for a detailed API description.
 
 ## HardwareData
@@ -89,6 +92,7 @@ HardwareData doesn't have *Status* subresource but only the *Spec*.
 
 See [HardwareData
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/HardwareData/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/hardwaredata_types.go`
 for a detailed API description.
 
 ## PreprovisioningImage
@@ -109,4 +113,5 @@ controllers may be written downstream (for example, the OpenShift
 
 See [PreprovisioningImage
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/PreprovisioningImage/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/preprovisioningimage_types.go`
 for a detailed API description.

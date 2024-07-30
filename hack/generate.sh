@@ -31,6 +31,6 @@ else
     --volume "${PWD}:/go/src/github.com/metal3-io/baremetal-operator:rw,z" \
     --entrypoint sh \
     --workdir /go/src/github.com/metal3-io/baremetal-operator \
-    docker.io/golang:1.20 \
+    docker.io/golang:1.22 \
     /go/src/github.com/metal3-io/baremetal-operator/hack/generate.sh "${@}"
 fi;

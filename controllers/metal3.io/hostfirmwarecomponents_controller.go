@@ -192,6 +192,8 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 	generation := info.hfc.GetGeneration()
 
 	newStatus := info.hfc.Status.DeepCopy()
+	// Check if there is mismatch between ironic information for components and Status.
+	componentInfoMismatch := !reflect.DeepEqual(info.hfc.Status.Components, components)
 	newStatus.Components = components
 
 	if updatesMismatch {
@@ -216,6 +218,10 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 		if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionFalse, reason, "") {
 			dirty = true
 		}
+	}
+
+	if componentInfoMismatch {
+		dirty = true
 	}
 
 	// Update Status if has changed

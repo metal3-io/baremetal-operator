@@ -18,7 +18,7 @@ updates:
 - package-ecosystem: "gomod"
   directories:
   - "/"
-  - "/api"
+  - "/apis"
   - "/hack/tools"
   - "/pkg/hardwareutils"
   - "/test"
@@ -62,7 +62,7 @@ updates:
 - package-ecosystem: "gomod"
   directories:
   - "/"
-  - "/api"
+  - "/apis"
   - "/hack/tools"
   - "/pkg/hardwareutils"
   - "/test"
@@ -103,7 +103,7 @@ updates:
 - package-ecosystem: "gomod"
   directories:
   - "/"
-  - "/api"
+  - "/apis"
   - "/hack/tools"
   - "/pkg/hardwareutils"
   - "/test"

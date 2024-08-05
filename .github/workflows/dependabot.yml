@@ -38,6 +38,10 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: Install libvirt
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-dev
     - name: Update all modules
       run: make mod
     - name: Update generated code

@@ -15,10 +15,10 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.11
 	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	k8s.io/api v0.27.7
-	k8s.io/apimachinery v0.27.7
-	k8s.io/client-go v0.27.7
-	k8s.io/component-base v0.27.7
+	k8s.io/api v0.27.16
+	k8s.io/apimachinery v0.27.16
+	k8s.io/client-go v0.27.16
+	k8s.io/component-base v0.27.16
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	sigs.k8s.io/controller-runtime v0.15.3
@@ -39,7 +39,7 @@ require (
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect

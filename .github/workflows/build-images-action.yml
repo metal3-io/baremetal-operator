@@ -1,56 +1,34 @@
 name: build-images-action
 
 on:
-  push:
-    branches:
-    - 'main'
-    - 'release-*'
-    tags:
-    - 'v*'
-
-permissions: {}
+  pull_request
+  # push:
+  #   branches:
+  #   - 'main'
+  #   - 'release-*'
+  #   tags:
+  #   - 'v*'
 
 jobs:
-  build:
-    name: Build container images
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    if: github.repository == 'metal3-io/baremetal-operator'
-    steps:
-    - name: build bmo image
-      uses: toptal/jenkins-job-trigger-action@137fff703dd260b52b53d3ba1960396415abc568 # 1.0.2
-      with:
-        jenkins_url: "https://jenkins.nordix.org/"
-        jenkins_user: "metal3.bot@gmail.com"
-        jenkins_token: ${{ secrets.JENKINS_TOKEN }}
-        job_name: "metal3_baremetal-operator_container_image_building"
-        job_params: |
-          {
-            "BUILD_CONTAINER_IMAGE_GIT_REFERENCE": "${{ github.ref }}"
-          }
-        job_timeout: "1000"
-    - name: build keepalived image
-      uses: toptal/jenkins-job-trigger-action@137fff703dd260b52b53d3ba1960396415abc568 # 1.0.2
-      with:
-        jenkins_url: "https://jenkins.nordix.org/"
-        jenkins_user: "metal3.bot@gmail.com"
-        jenkins_token: ${{ secrets.JENKINS_TOKEN }}
-        job_name: "metal3_keepalived_container_image_building"
-        job_params: |
-          {
-            "BUILD_CONTAINER_IMAGE_GIT_REFERENCE": "${{ github.ref }}"
-          }
-        job_timeout: "1000"
-    - name: Slack Notification on Failure
-      if: ${{ failure() }}
-      uses: rtCamp/action-slack-notify@4e5fb42d249be6a45a298f3c9543b111b02f7907 # 2.3.0
-      env:
-        SLACK_TITLE: 'GitHub Action Failed in ${{ github.repository }}'
-        SLACK_COLOR: '#FF0000'
-        SLACK_MESSAGE: 'The GitHub Action workflow failed for baremetal operator image build.'
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        SLACK_CHANNEL: metal3-github-actions-notify
-        SLACK_USERNAME: metal3-github-actions-notify
+  build_bmo:
+    name: Build BMO container image
+    # uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
+    uses: Nordix/metal3-project-infra/.github/workflows/container-image-build.yml@mquhuy/add-container-image-build-wf-template
+    with:
+      image-name: "baremetal-operator"
+      pushImage: true
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  build_keepalived:
+    name: Build keepalived container image
+    # uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
+    uses: Nordix/metal3-project-infra/.github/workflows/container-image-build.yml@mquhuy/add-container-image-build-wf-template
+    with:
+      image-name: "keepalived"
+      dockerfile-directory: resources/keepalived-docker
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

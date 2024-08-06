@@ -1,11 +1,12 @@
 module github.com/metal3-io/baremetal-operator
 
 go 1.21
+toolchain go1.22.5
 
 require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
-	github.com/gophercloud/gophercloud/v2 v2.0.0-beta.3.0.20240416104816-9aef3836d310
+	github.com/gophercloud/gophercloud/v2 v2.0.0
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/onsi/gomega v1.32.0
@@ -61,7 +62,7 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect

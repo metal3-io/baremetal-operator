@@ -74,6 +74,11 @@ type PreprovisioningImage struct {
 }
 
 type ManagementAccessData struct {
+	// NOTE(dtantsur): this is an OpenShift-only extension. Remove it with
+	// a graceful period once we have real NC-SI support and don't need to
+	// work around it with fakefish.
+	OpenShiftNoAgentPowerOff bool
+	// End of OpenShift-only extensions.
 	BootMode                   metal3api.BootMode
 	AutomatedCleaningMode      metal3api.AutomatedCleaningMode
 	State                      metal3api.ProvisioningState

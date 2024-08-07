@@ -191,7 +191,7 @@ $(CONTROLLER_GEN): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen
 
 $(KUSTOMIZE): hack/tools/go.mod
-	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v4
+	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v5
 
 .PHONY: build-e2e
 build-e2e:

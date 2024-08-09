@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: metal3
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -2167,9 +2172,10 @@ rules:
   - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: baremetal-operator-manager-role
+  namespace: metal3
 rules:
 - apiGroups:
   - ""
@@ -2412,12 +2418,13 @@ subjects:
   namespace: baremetal-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: baremetal-operator-manager-rolebinding
+  namespace: metal3
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: baremetal-operator-manager-role
 subjects:
 - kind: ServiceAccount
@@ -2525,6 +2532,8 @@ spec:
         command:
         - /baremetal-operator
         env:
+        - name: WATCH_NAMESPACE
+          value: metal3
         - name: POD_NAME
           valueFrom:
             fieldRef:

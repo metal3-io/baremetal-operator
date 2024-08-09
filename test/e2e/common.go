@@ -22,14 +22,16 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/krusty"
+	kustomizeTypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
 type PowerState string
 
 const (
-	PoweredOn  PowerState = "on"
-	PoweredOff PowerState = "off"
+	PoweredOn    PowerState = "on"
+	PoweredOff   PowerState = "off"
+	TruthyString string     = "true"
 )
 
 func isUndesiredState(currentState metal3api.ProvisioningState, undesiredStates []metal3api.ProvisioningState) bool {
@@ -118,15 +120,17 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 	}, intervals...).Should(BeTrue())
 }
 
-func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, intervals ...interface{}) {
-	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
-		Deleter: clusterProxy.GetClient(),
-		Name:    namespace.Name,
-	})
-	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
-		Getter:    clusterProxy.GetClient(),
-		Namespace: *namespace,
-	}, intervals...)
+func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, namespaced string, intervals ...interface{}) {
+	if namespaced != TruthyString {
+		framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+			Deleter: clusterProxy.GetClient(),
+			Name:    namespace.Name,
+		})
+		WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
+			Getter:    clusterProxy.GetClient(),
+			Namespace: *namespace,
+		}, intervals...)
+	}
 	cancelWatches()
 }
 
@@ -146,7 +150,11 @@ func WaitForBmhInPowerState(ctx context.Context, input WaitForBmhInPowerStateInp
 }
 
 func BuildKustomizeManifest(source string) ([]byte, error) {
-	kustomizer := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
+	options := krusty.MakeDefaultOptions()
+	options.PluginConfig = kustomizeTypes.EnabledPluginConfig(kustomizeTypes.BploUseStaticallyLinked)
+
+	kustomizer := krusty.MakeKustomizer(options)
+
 	fSys := filesys.MakeFsOnDisk()
 	resources, err := kustomizer.Run(fSys, source)
 	if err != nil {

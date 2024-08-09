@@ -20,7 +20,7 @@ variables:
   DEPLOY_IRONIC: "true"
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
-  BMO_KUSTOMIZATION: "../../config/overlays/e2e"
+  BMO_KUSTOMIZATION: "../../config/overlays/namespaced-e2e"
   IRONIC_KUSTOMIZATION: "../../ironic-deployment/overlays/e2e"
 
   # This setting is for the separate cluster that are used for upgrade tests
@@ -34,6 +34,7 @@ variables:
   SSH_USERNAME: "root"
   SSH_PRIV_KEY: "./images/ssh_testkey"
   SSH_PUB_KEY: "./images/ssh_testkey.pub"
+  NAMESPACE_SCOPED: "true"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]

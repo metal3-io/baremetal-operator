@@ -49,8 +49,8 @@ type BMCEventSubscriptionReconciler struct {
 	APIReader          client.Reader
 }
 
-//+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=bmceventsubscriptions/status,verbs=get;update;patch
 
 func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
 	reqLogger := r.Log.WithValues("bmceventsubscription", request.NamespacedName)

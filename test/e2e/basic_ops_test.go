@@ -26,12 +26,23 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 		poweroffAnnotation = "reboot.metal3.io/poweroff"
 	)
 	BeforeEach(func() {
-		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
+
+		namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+
+		namespaceInput := framework.CreateNamespaceAndWatchEventsInput{
 			Creator:   clusterProxy.GetClient(),
 			ClientSet: clusterProxy.GetClientSet(),
-			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
 			LogFolder: artifactFolder,
-		})
+		}
+
+		if namespaced == TruthyString {
+			namespaceInput.Name = fmt.Sprintf("%s-%s", specName, "test")
+			namespaceInput.IgnoreAlreadyExists = true
+		} else {
+			namespaceInput.Name = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
+		}
+
+		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, namespaceInput)
 	})
 
 	It("should control power cycle of BMH though annotations", func() {
@@ -108,7 +119,8 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 
 	AfterEach(func() {
 		if !skipCleanup {
-			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, namespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}
 	})
 })

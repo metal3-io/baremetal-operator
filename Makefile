@@ -209,6 +209,14 @@ manifests-generate: $(CONTROLLER_GEN)
 manifests-kustomize: $(KUSTOMIZE)
 	$< build config/default > config/render/capm3.yaml
 
+.PHONY: update-rbac-markers
+update-rbac-markers:
+	python update_kubebuilder_rbac.py controllers/ single-ns-bmh
+
+.PHONY: manifests-kustomize-namespaced
+manifests-kustomize-namespaced: update-rbac-markers manifests-generate $(KUSTOMIZE)
+	$(KUSTOMIZE) build config/overlays/namespaced > config/render/capm3.yaml
+
 .PHONY: set-manifest-image-bmo
 set-manifest-image-bmo: $(KUSTOMIZE) manifests
 	$(info Updating container image for BMO to use ${MANIFEST_IMG}:${MANIFEST_TAG})

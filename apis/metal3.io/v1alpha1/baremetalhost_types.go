@@ -245,8 +245,8 @@ const (
 // the bare metal controller module on host.
 type BMCDetails struct {
 
-	// Address holds the URL for accessing the controller on the
-	// network.
+	// Address holds the URL for accessing the controller on the network.
+	// The scheme part designates the driver to use with the host.
 	Address string `json:"address"`
 
 	// The name of the secret containing the BMC credentials (requires
@@ -263,43 +263,49 @@ type BMCDetails struct {
 
 // HardwareRAIDVolume defines the desired configuration of volume in hardware RAID.
 type HardwareRAIDVolume struct {
-	// Size (Integer) of the logical disk to be created in GiB.
-	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+	// Size of the logical disk to be created in GiB. If unspecified or
+	// set be 0, the maximum capacity of disk will be used for logical
+	// disk.
 	// +kubebuilder:validation:Minimum=0
 	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
 
-	// RAID level for the logical disk. The following levels are supported: 0;1;2;5;6;1+0;5+0;6+0.
+	// RAID level for the logical disk. The following levels are supported:
+	// 0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers may support only some of them).
 	// +kubebuilder:validation:Enum="0";"1";"2";"5";"6";"1+0";"5+0";"6+0"
 	Level string `json:"level" required:"true"`
 
-	// Name of the volume. Should be unique within the Node. If not specified, volume name will be auto-generated.
+	// Name of the volume. Should be unique within the Node. If not
+	// specified, the name will be auto-generated.
 	// +kubebuilder:validation:MaxLength=64
 	Name string `json:"name,omitempty"`
 
-	// Select disks with only rotational or solid-state storage
+	// Select disks with only rotational (if set to true) or solid-state
+	// (if set to false) storage. By default, any disks can be picked.
 	Rotational *bool `json:"rotational,omitempty"`
 
-	// Integer, number of physical disks to use for the logical disk. Defaults to minimum number of disks required
-	// for the particular RAID level.
+	// Integer, number of physical disks to use for the logical disk.
+	// Defaults to minimum number of disks required for the particular RAID
+	// level.
 	// +kubebuilder:validation:Minimum=1
 	NumberOfPhysicalDisks *int `json:"numberOfPhysicalDisks,omitempty"`
 
-	// The name of the RAID controller to use
+	// The name of the RAID controller to use.
 	Controller string `json:"controller,omitempty"`
 
-	// Optional list of physical disk names to be used for the Hardware RAID volumes. The disk names are interpreted
-	// by the Hardware RAID controller, and the format is hardware specific.
+	// Optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
+	// by the hardware RAID controller, and the format is hardware specific.
 	PhysicalDisks []string `json:"physicalDisks,omitempty"`
 }
 
 // SoftwareRAIDVolume defines the desired configuration of volume in software RAID.
 type SoftwareRAIDVolume struct {
-	// Size (Integer) of the logical disk to be created in GiB.
+	// Size of the logical disk to be created in GiB.
 	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
 	// +kubebuilder:validation:Minimum=0
 	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
 
-	// RAID level for the logical disk. The following levels are supported: 0;1;1+0.
+	// RAID level for the logical disk. The following levels are supported:
+	// 0, 1 and 1+0.
 	// +kubebuilder:validation:Enum="0";"1";"1+0"
 	Level string `json:"level" required:"true"`
 
@@ -333,17 +339,14 @@ type RAIDConfig struct {
 // FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server.
 type FirmwareConfig struct {
 	// Supports the virtualization of platform hardware.
-	// This supports following options: true, false.
 	// +kubebuilder:validation:Enum=true;false
 	VirtualizationEnabled *bool `json:"virtualizationEnabled,omitempty"`
 
 	// Allows a single physical processor core to appear as several logical processors.
-	// This supports following options: true, false.
 	// +kubebuilder:validation:Enum=true;false
 	SimultaneousMultithreadingEnabled *bool `json:"simultaneousMultithreadingEnabled,omitempty"`
 
 	// SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance.
-	// This supports following options: true, false.
 	// +kubebuilder:validation:Enum=true;false
 	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
 }
@@ -359,13 +362,22 @@ type BareMetalHostSpec struct {
 	// +optional
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
-	// How do we connect to the BMC?
+	// How do we connect to the BMC (Baseboard Management Controller) on
+	// the host?
 	BMC BMCDetails `json:"bmc,omitempty"`
 
-	// RAID configuration for bare metal server
+	// RAID configuration for bare metal server. If set, the RAID settings
+	// will be applied before the host is provisioned. If not, the current
+	// settings will not be modified. Only one of the sub-fields
+	// hardwareRAIDVolumes and softwareRAIDVolumes can be set at the same
+	// time.
 	RAID *RAIDConfig `json:"raid,omitempty"`
 
-	// BIOS configuration for bare metal server
+	// Firmware (BIOS) configuration for bare metal server. If set, the
+	// requested settings will be applied before the host is provisioned.
+	// Only some vendor drivers support this field. An alternative is to
+	// use HostFirmwareSettings resources that allow changing arbitrary
+	// values and support the generic Redfish-based drivers.
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// What is the name of the hardware profile for this host?
@@ -376,70 +388,86 @@ type BareMetalHostSpec struct {
 	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
 	// Provide guidance about how to choose the device for the image
-	// being provisioned.
+	// being provisioned. The default is currently to use /dev/sda as
+	// the root device.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// Select the method of initializing the hardware during
-	// boot. Defaults to UEFI.
+	// Select the method of initializing the hardware during boot.
+	// Defaults to UEFI. Legacy boot should only be used for hardware that
+	// does not support UEFI correctly. Set to UEFISecureBoot to turn
+	// secure boot on automatically after provisioning.
 	// +optional
 	BootMode BootMode `json:"bootMode,omitempty"`
 
-	// Which MAC address will PXE boot? This is optional for some
-	// types, but required for libvirt VMs driven by vbmc.
+	// The MAC address of the NIC used for provisioning the host. In case
+	// of network boot, this is the MAC address of the PXE booting
+	// interface. The MAC address of the BMC must never be used here!
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	BootMACAddress string `json:"bootMACAddress,omitempty"`
 
-	// Should the server be online?
+	// Should the host be powered on? Changing this value will trigger
+	// a change in power state of the host.
 	Online bool `json:"online"`
 
 	// ConsumerRef can be used to store information about something
 	// that is using a host. When it is not empty, the host is
-	// considered "in use".
+	// considered "in use". The common use case is a link to a Machine
+	// resource when the host is used by Cluster API.
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
-	// Image holds the details of the image to be provisioned.
+	// Image holds the details of the image to be provisioned. Populating
+	// the image will cause the host to start provisioning.
 	Image *Image `json:"image,omitempty"`
 
-	// UserData holds the reference to the Secret containing the user
-	// data to be passed to the host before it boots.
+	// UserData holds the reference to the Secret containing the user data
+	// which is passed to the Config Drive and interpreted by the
+	// first-boot software such as cloud-init. The format of user data is
+	// specific to the first-boot software.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
 	// PreprovisioningNetworkDataName is the name of the Secret in the
-	// local namespace containing network configuration (e.g content of
-	// network_data.json) which is passed to the preprovisioning image, and to
-	// the Config Drive if not overridden by specifying NetworkData.
+	// local namespace containing network configuration which is passed to
+	// the preprovisioning image, and to the Config Drive if not overridden
+	// by specifying NetworkData.
 	PreprovisioningNetworkDataName string `json:"preprovisioningNetworkDataName,omitempty"`
 
 	// NetworkData holds the reference to the Secret containing network
-	// configuration (e.g content of network_data.json) which is passed
-	// to the Config Drive.
+	// configuration which is passed to the Config Drive and interpreted
+	// by the first boot software such as cloud-init.
 	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
 
 	// MetaData holds the reference to the Secret containing host metadata
-	// (e.g. meta_data.json) which is passed to the Config Drive.
+	// which is passed to the Config Drive. By default, the operater will
+	// generate metadata for the host, so most users do not need to set
+	// this field.
 	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
 
-	// Description is a human-entered text used to help identify the host
+	// Description is a human-entered text used to help identify the host.
 	Description string `json:"description,omitempty"`
 
-	// ExternallyProvisioned means something else is managing the
-	// image running on the host and the operator should only manage
-	// the power status and hardware inventory inspection. If the
-	// Image field is filled in, this field is ignored.
+	// ExternallyProvisioned means something else has provisioned the
+	// image running on the host, and the operator should only manage
+	// the power status. This field is used for integration with already
+	// provisioned hosts and when pivoting hosts between clusters. If
+	// unsure, leave this field as false.
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 
-	// When set to disabled, automated cleaning will be avoided
+	// When set to disabled, automated cleaning will be skipped
 	// during provisioning and deprovisioning.
 	// +optional
 	// +kubebuilder:default:=metadata
 	// +kubebuilder:validation:Optional
 	AutomatedCleaningMode AutomatedCleaningMode `json:"automatedCleaningMode,omitempty"`
 
-	// A custom deploy procedure.
+	// A custom deploy procedure. This is an advanced feature that allows
+	// using a custom deploy step provided by a site-specific deployment
+	// ramdisk. Most users will want to use "image" instead. Settings this
+	// field triggers provisioning.
 	// +optional
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
 
-	// CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset, eventually populated by inspection.
+	// CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
+	// eventually populated by inspection.
 	// +optional
 	Architecture string `json:"architecture,omitempty"`
 }
@@ -478,7 +506,8 @@ type Image struct {
 	// URL is a location of an image to deploy.
 	URL string `json:"url"`
 
-	// Checksum is the checksum for the image.
+	// Checksum is the checksum for the image. Required for all formats
+	// except for "live-iso".
 	Checksum string `json:"checksum,omitempty"`
 
 	// ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
@@ -486,11 +515,9 @@ type Image struct {
 	// If missing, MD5 is used. If in doubt, use "auto".
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 
-	// DiskFormat contains the format of the image (raw, qcow2, ...).
-	// Needs to be set to raw for raw images streaming.
-	// Note live-iso means an iso referenced by the url will be live-booted
-	// and not deployed to disk, and in this case the checksum options
-	// are not required and if specified will be ignored.
+	// Format contains the format of the image (raw, qcow2, ...).
+	// When set to "live-iso", an ISO 9660 image referenced by the url will
+	// be live-booted and not deployed to disk.
 	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
 	DiskFormat *string `json:"format,omitempty"`
 }
@@ -667,13 +694,19 @@ type BIOS struct {
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
+	// System vendor information.
 	SystemVendor HardwareSystemVendor `json:"systemVendor,omitempty"`
-	Firmware     Firmware             `json:"firmware,omitempty"`
-	RAMMebibytes int                  `json:"ramMebibytes,omitempty"`
-	NIC          []NIC                `json:"nics,omitempty"`
-	Storage      []Storage            `json:"storage,omitempty"`
-	CPU          CPU                  `json:"cpu,omitempty"`
-	Hostname     string               `json:"hostname,omitempty"`
+	// System firmware information.
+	Firmware Firmware `json:"firmware,omitempty"`
+	// The host's amount of memory in Mebibytes.
+	RAMMebibytes int `json:"ramMebibytes,omitempty"`
+	// List of network interfaces for the host.
+	NIC []NIC `json:"nics,omitempty"`
+	// List of storage (disk, SSD, etc.) available to the host.
+	Storage []Storage `json:"storage,omitempty"`
+	// Details of the CPU(s) in the system.
+	CPU      CPU    `json:"cpu,omitempty"`
+	Hostname string `json:"hostname,omitempty"`
 }
 
 // HardwareSystemVendor stores details about the whole hardware system.
@@ -784,21 +817,25 @@ type BareMetalHostStatus struct {
 	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
 	// The hardware discovered to exist on the host.
+	// This field will be removed in the next API version in favour of the
+	// separate HardwareData resource.
 	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 
 	// Information tracked by the provisioner.
 	Provisioning ProvisionStatus `json:"provisioning"`
 
-	// the last credentials we were able to validate as working
+	// The last credentials we were able to validate as working.
 	GoodCredentials CredentialsStatus `json:"goodCredentials,omitempty"`
 
-	// the last credentials we sent to the provisioning backend
+	// The last credentials we sent to the provisioning backend.
 	TriedCredentials CredentialsStatus `json:"triedCredentials,omitempty"`
 
-	// the last error message reported by the provisioning subsystem
+	// The last error message reported by the provisioning subsystem.
 	ErrorMessage string `json:"errorMessage"`
 
-	// indicator for whether or not the host is powered on
+	// Whether or not the host is currently powered on. This field may get
+	// briefly out of sync with the actual state of the hardware while
+	// provisioning processes are running.
 	PoweredOn bool `json:"poweredOn"`
 
 	// OperationHistory holds information about operations performed
@@ -812,26 +849,27 @@ type BareMetalHostStatus struct {
 
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
-	// An indiciator for what the provisioner is doing with the host.
+	// An indicator for what the provisioner is doing with the host.
 	State ProvisioningState `json:"state"`
 
-	// The machine's UUID from the underlying provisioning tool
+	// The hosts's ID from the underlying provisioning tool (e.g. the
+	// Ironic node UUID).
 	ID string `json:"ID"`
 
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
 
-	// The RootDevicehints set by the user
+	// The root device hints set by the user.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
 	// BootMode indicates the boot mode used to provision the node
 	BootMode BootMode `json:"bootMode,omitempty"`
 
-	// The Raid set by the user
+	// The RAID configuration that has been applied.
 	RAID *RAIDConfig `json:"raid,omitempty"`
 
-	// The Bios set by the user
+	// The firmware settings that have been applied.
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// Custom deploy procedure applied to the host.

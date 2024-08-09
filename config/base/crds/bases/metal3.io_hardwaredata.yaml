@@ -45,7 +45,7 @@ spec:
                 description: The hardware discovered on the host during its inspection.
                 properties:
                   cpu:
-                    description: CPU describes one processor on the host.
+                    description: Details of the CPU(s) in the system.
                     properties:
                       arch:
                         type: string
@@ -63,7 +63,7 @@ spec:
                         type: string
                     type: object
                   firmware:
-                    description: Firmware describes the firmware on the host.
+                    description: System firmware information.
                     properties:
                       bios:
                         description: The BIOS for this firmware
@@ -82,6 +82,7 @@ spec:
                   hostname:
                     type: string
                   nics:
+                    description: List of network interfaces for the host.
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
@@ -132,8 +133,11 @@ spec:
                       type: object
                     type: array
                   ramMebibytes:
+                    description: The host's amount of memory in Mebibytes.
                     type: integer
                   storage:
+                    description: List of storage (disk, SSD, etc.) available to the
+                      host.
                     items:
                       description: Storage describes one storage device (disk, SSD,
                         etc.) on the host.
@@ -191,8 +195,7 @@ spec:
                       type: object
                     type: array
                   systemVendor:
-                    description: HardwareSystemVendor stores details about the whole
-                      hardware system.
+                    description: System vendor information.
                     properties:
                       manufacturer:
                         type: string

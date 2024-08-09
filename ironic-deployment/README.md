@@ -1,9 +1,35 @@
 # Kustomizations for Ironic
 
 This folder contains kustomizations for Ironic. They are mainly used
-through the [deploy.sh](../tools/deploy.sh) script, which takes care of
-generating the necessary config for basic-auth and TLS.
+traditionally been used through the [deploy.sh](../tools/deploy.sh) script,
+which takes care of generating the necessary config for basic-auth and TLS.
 
+Experimentally, in `deploy.sh` stead, you can use the new golang-based 
+[deploy-cli](../hack/tools/deploy-cli) library,
+which, at the moment, handles everything `deploy.sh` does. You can either:
+- Run the package with `go run`:
+
+```shell
+cd $BMO_ROOT/hack/tools/deploy-cli
+go run *.go
+```
+
+- Otherwise, build the package to a static binary:
+
+```shell
+cd $BMO_ROOT
+make deploy-cli
+```
+
+And run the binary with:
+
+```shell
+./tools/bin/deploy-cli -h
+```
+
+To check which options are available, run the script/binary with `-h`.
+
+Here is a basic introduction of the kustomize structure:
 - **base** - This is the kustomize base that we start from.
 - **components** - In here you will find re-usable kustomize components
   for running Ironic with TLS, basic-auth, keepalived or mariadb.

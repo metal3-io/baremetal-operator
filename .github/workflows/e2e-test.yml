@@ -8,7 +8,7 @@ on:
         type: string
       runner:
         type: string
-        default: "ubuntu-latest-4-cores"
+        default: "equinix-4cpu-16gb"
       ginkgo-focus:
         type: string
         default: ""
@@ -21,7 +21,7 @@ permissions: {}
 jobs:
   test:
     name: E2E test
-    runs-on: ${{ inputs.runner }}
+    runs-on: [self-hosted, "${{ inputs.runner }}"]
 
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7

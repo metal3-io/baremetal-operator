@@ -1,0 +1,14 @@
+apiVersion: transformers.example.co/v1
+kind: ValueAnnotator
+metadata:
+  annotations:
+    config.kubernetes.io/function: "container:\n  image: bmo/roleannotator:1.0.0\
+      \      \n"
+  name: notImportantHere
+values:
+- basic-ops-test
+- external-inspection-test
+- inspection-test
+- live-iso-ops-test
+- provisioning-ops-test
+- re-inspection-test

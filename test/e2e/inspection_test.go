@@ -26,12 +26,23 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 		cancelWatches context.CancelFunc
 	)
 	BeforeEach(func() {
-		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
+
+		namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+
+		namespaceInput := framework.CreateNamespaceAndWatchEventsInput{
 			Creator:   clusterProxy.GetClient(),
 			ClientSet: clusterProxy.GetClientSet(),
-			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
 			LogFolder: artifactFolder,
-		})
+		}
+
+		if namespaced == TruthyString {
+			namespaceInput.Name = fmt.Sprintf("%s-%s", specName, "test")
+			namespaceInput.IgnoreAlreadyExists = true
+		} else {
+			namespaceInput.Name = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
+		}
+
+		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, namespaceInput)
 	})
 
 	It("should put BMH without BMC credentials in unmanaged state", func() {
@@ -130,7 +141,8 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, namespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}
 	})
 })

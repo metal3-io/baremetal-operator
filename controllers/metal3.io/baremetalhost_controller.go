@@ -83,24 +83,24 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, info.host.NewEvent(reason, message))
 }
 
-// +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts/finalizers,verbs=update
-// +kubebuilder:rbac:groups=metal3.io,resources=preprovisioningimages,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=metal3.io,resources=hardwaredata,verbs=get;list;watch;create;delete;patch;update
-// +kubebuilder:rbac:groups=metal3.io,resources=hardware/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;delete
-// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=baremetalhosts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=baremetalhosts/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=baremetalhosts/finalizers,verbs=update
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=preprovisioningimages,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=hardwaredata,verbs=get;list;watch;create;delete;patch;update
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=hardware/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",namespace="",resources=secrets,verbs=get;list;watch;update;delete
+// +kubebuilder:rbac:groups="",namespace="",resources=events,verbs=get;list;watch;create;update;patch
 
 // Allow for managing hostfirmwaresettings, firmwareschema, bmceventsubscriptions and hostfirmwarecomponents
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=firmwareschemas,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch
 
 // Allow for updating dataimage
-// +kubebuilder:rbac:groups=metal3.io,resources=dataimages,verbs=get;list;watch;create;update;patch
-// +kubebuilder:rbac:groups=metal3.io,resources=dataimages/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=dataimages,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=dataimages/status,verbs=get;update;patch
 
 // Allow for updating hostupdatepolicies
 //+kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch;update

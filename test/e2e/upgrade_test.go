@@ -243,12 +243,22 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		})
 	}
 
-	namespace, cancelWatches := framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
-		Creator:   upgradeClusterProxy.GetClient(),
-		ClientSet: upgradeClusterProxy.GetClientSet(),
-		Name:      fmt.Sprintf("upgrade-%s-%s", input.UpgradeEntityName, util.RandomString(6)),
-		LogFolder: testCaseArtifactFolder,
-	})
+	namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+
+	namespaceInput := framework.CreateNamespaceAndWatchEventsInput{
+		Creator:   clusterProxy.GetClient(),
+		ClientSet: clusterProxy.GetClientSet(),
+		LogFolder: artifactFolder,
+	}
+
+	if namespaced == "true" {
+		namespaceInput.Name = fmt.Sprintf("%s-%s", specName, "test")
+		namespaceInput.IgnoreAlreadyExists = true
+	} else {
+		namespaceInput.Name = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
+	}
+
+	namespace, cancelWatches := framework.CreateNamespaceAndWatchEvents(ctx, namespaceInput)
 
 	By("Creating a secret with BMH credentials")
 	bmcCredentialsData := map[string]string{
@@ -420,7 +430,10 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 	)
 
 	AfterEach(func() {
-		cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		if !skipCleanup {
+			namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, namespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		}
 	})
 })
 

@@ -223,6 +223,14 @@ manifests-generate: $(CONTROLLER_GEN)
 manifests-kustomize: $(KUSTOMIZE)
 	$< build config/default > config/render/capm3.yaml
 
+.PHONY: manifests-namespaced
+manifests-namespaced: manifests-generate $(KUSTOMIZE)
+	$(KUSTOMIZE) build config/overlays/namespaced --enable-alpha-plugins > config/render/capm3.yaml
+
+.PHONY: manifests-namespaced-e2e
+manifests-namespaced: manifests-generate $(KUSTOMIZE)
+	$(KUSTOMIZE) build config/overlays/namespaced-e2e --enable-alpha-plugins > config/render/capm3.yaml
+
 .PHONY: set-manifest-image-bmo
 set-manifest-image-bmo: $(KUSTOMIZE) manifests
 	$(info Updating container image for BMO to use ${MANIFEST_IMG}:${MANIFEST_TAG})

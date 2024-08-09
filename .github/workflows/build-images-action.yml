@@ -4,19 +4,21 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches:
-    - 'main'
-    - 'release-*'
-    tags:
-    - 'v*'
+  pull_request
+  # push:
+  #   branches:
+  #   - 'main'
+  #   - 'release-*'
+  #   tags:
+  #   - 'v*'
 
 jobs:
   build_bmo:
     name: Build BMO container image
+    if: github.repository == 'metal3-io/baremetal-operator'
     uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
     with:
-      image-name: "baremetal-operator"
+      image-name: 'baremetal-operator'
       pushImage: true
     secrets:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
@@ -24,9 +26,10 @@ jobs:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
   build_keepalived:
     name: Build keepalived container image
+    if: github.repository == 'metal3-io/baremetal-operator'
     uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
     with:
-      image-name: "keepalived"
+      image-name: 'keepalived'
       dockerfile-directory: resources/keepalived-docker
       pushImage: true
     secrets:

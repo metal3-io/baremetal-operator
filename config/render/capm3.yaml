@@ -2167,9 +2167,10 @@ rules:
   - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: baremetal-operator-manager-role
+  namespace: baremetal-operator-system
 rules:
 - apiGroups:
   - ""
@@ -2412,17 +2413,18 @@ subjects:
   namespace: baremetal-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: baremetal-operator-manager-rolebinding
+  namespace: single-ns-bmh
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: baremetal-operator-manager-role
+  kind: Role
+  name: manager-role
 subjects:
 - kind: ServiceAccount
-  name: baremetal-operator-controller-manager
-  namespace: baremetal-operator-system
+  name: controller-manager
+  namespace: system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -2525,6 +2527,8 @@ spec:
         command:
         - /baremetal-operator
         env:
+        - name: WATCH_NAMESPACE
+          value: single-ns-bmh
         - name: POD_NAME
           valueFrom:
             fieldRef:

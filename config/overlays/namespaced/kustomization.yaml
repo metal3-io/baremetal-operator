@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - ../../default
+
+
+patches:
+- patch: |
+    # Add a namespace to watch
+    - op: replace
+      path: /kind
+      value: RoleBinding
+    - op: replace
+      path: /roleRef/kind
+      value: Role
+    - op: add
+      path: /metadata/namespace
+      value: single-ns-bmh
+  target:
+    group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: manager-rolebinding
+
+patchesStrategicMerge:
+  - namespaced-manager-patch.yaml

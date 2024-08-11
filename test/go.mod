@@ -20,8 +20,8 @@ require (
 	sigs.k8s.io/cluster-api v1.7.3
 	sigs.k8s.io/cluster-api/test v1.7.3
 	sigs.k8s.io/controller-runtime v0.17.5
-	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3
-	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3
+	sigs.k8s.io/kustomize/api v0.17.3
+	sigs.k8s.io/kustomize/kyaml v0.17.2
 )
 
 require (
@@ -57,7 +57,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
-	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/go-openapi/swag v0.22.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gobuffalo/flect v1.0.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -132,6 +132,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
+	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

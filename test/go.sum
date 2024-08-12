@@ -493,8 +493,8 @@ libvirt.org/go/libvirt v1.10003.0 h1:LEoawzuggD6IL5R/XtnBE8wWJx49i7UZ1HcB7p9glwE
 libvirt.org/go/libvirt v1.10003.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 h1:TgtAeesdhpm2SGwkQasmbeqDo8th5wOBA5h/AjTKA4I=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0/go.mod h1:VHVDI/KrK4fjnV61bE2g3sA7tiETLn8sooImelsCx3Y=
-sigs.k8s.io/cluster-api v1.7.3 h1:DsSRxsA+18jxLqPAo29abZ9kOPK1/xwhSuQb/MROzSs=
-sigs.k8s.io/cluster-api v1.7.3/go.mod h1:V9ZhKLvQtsDODwjXOKgbitjyCmC71yMBwDcMyNNIov0=
+sigs.k8s.io/cluster-api v1.7.4 h1:gT9WGbLXKE19pNR6s/cTLRqK2G0EbwxxQrUrw7/w5P4=
+sigs.k8s.io/cluster-api v1.7.4/go.mod h1:V9ZhKLvQtsDODwjXOKgbitjyCmC71yMBwDcMyNNIov0=
 sigs.k8s.io/cluster-api/test v1.7.3 h1:Nl1IOF03MZzjr6x45IJOFWlV4cNHpJ45qsn3A+1Tf98=
 sigs.k8s.io/cluster-api/test v1.7.3/go.mod h1:KbK8+zZEmSopCm6IGd9Vk+573sQ+HL6hnPvqelJEYi4=
 sigs.k8s.io/controller-runtime v0.17.5 h1:1FI9Lm7NiOOmBsgTV36/s2XrEFXnO2C4sbg/Zme72Rw=

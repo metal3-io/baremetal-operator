@@ -2,8 +2,6 @@ module github.com/metal3-io/baremetal-operator
 
 go 1.22
 
-toolchain go1.22.5
-
 require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523

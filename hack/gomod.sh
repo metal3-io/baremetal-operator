@@ -37,11 +37,11 @@ if [ "${IS_CONTAINER}" != "false" ]; then
 
 else
     "${CONTAINER_RUNTIME}" run --rm \
+        --pull=always \
         --env IS_CONTAINER=TRUE \
-        --volume "${PWD}:{WORKDIR}:ro,z" \
+        --volume "${PWD}:${WORKDIR}:ro,z" \
         --entrypoint sh \
         --workdir "${WORKDIR}" \
         quay.io/metal3-io/basic-checks:golang-1.22 \
-        --pull=always \
         "${WORKDIR}"/hack/gomod.sh "$@"
 fi

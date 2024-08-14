@@ -59,9 +59,6 @@ func getMockProvisioner(host *metal3api.BareMetalHost, settings metal3api.Settin
 
 func getSchema() *metal3api.FirmwareSchema {
 	schema := &metal3api.FirmwareSchema{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "FirmwareSchema",
-			APIVersion: "metal3.io/v1alpha1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      schemaName,
 			Namespace: hostNamespace,

@@ -53,6 +53,7 @@ const (
 	preprovImageRetryDelay        = time.Minute * 5
 	provisionerNotReadyRetryDelay = time.Second * 30
 	subResourceNotReadyRetryDelay = time.Second * 60
+	configurationErrRetryDelay    = time.Second * 90
 	clarifySoftPoweroffFailure    = "Continuing with hard poweroff after soft poweroff fails. More details: "
 	hardwareDataFinalizer         = metal3api.BareMetalHostFinalizer + "/hardwareData"
 )
@@ -1128,8 +1129,14 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	hfsDirty, hfs, err := r.getHostFirmwareSettings(info)
 
 	if err != nil {
-		// wait until hostFirmwareSettings are ready
-		return actionContinue{subResourceNotReadyRetryDelay}
+		switch {
+		case errors.As(err, &ConfigurationError{}):
+			// wait for the user to correct the error
+			return actionContinue{configurationErrRetryDelay}
+		default:
+			// wait until hostFirmwareSettings are ready
+			return actionContinue{subResourceNotReadyRetryDelay}
+		}
 	}
 	if hfsDirty {
 		prepareData.ActualFirmwareSettings = hfs.Status.Settings.DeepCopy()
@@ -1882,7 +1889,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 		}
 
 		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
-		return false, nil, nil
+		return false, nil, &ConfigurationError{message: "hostFirmwareSettings not valid"}
 	}
 
 	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)

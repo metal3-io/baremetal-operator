@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -2668,7 +2669,7 @@ func TestHostFirmwareSettings(t *testing.T) {
 			Scenario: "spec invalid",
 			Conditions: []metav1.Condition{
 				{Type: "ChangeDetected", Status: "True", Reason: "Success"},
-				{Type: "Valid", Status: "False", Reason: "Success"},
+				{Type: "Valid", Status: "False", Reason: "ConfigurationError"},
 			},
 			Dirty: false,
 		},
@@ -2687,7 +2688,11 @@ func TestHostFirmwareSettings(t *testing.T) {
 
 			dirty, _, err := r.getHostFirmwareSettings(i)
 			if err != nil {
-				t.Fatal(err)
+				if meta.IsStatusConditionFalse(tc.Conditions, string(metal3api.FirmwareSettingsValid)) {
+					assert.EqualError(t, err, "User configuration error: hostFirmwareSettings not valid")
+				} else {
+					t.Fatal(err)
+				}
 			}
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
 		})
@@ -2794,6 +2799,58 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 	)
 
 	// Clear the change, it will no longer be blocked
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "False", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	}
+
+	err = r.Update(context.TODO(), hfs)
+	assert.NoError(t, err)
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.Provisioning.State == metal3api.StateAvailable
+		},
+	)
+}
+
+// TestHFSInvalidSetting ensures that BMH does not move to the next state
+// when a user provides an invalid BIOS settings.
+func TestHFSInvalidSetting(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	host.Spec.ExternallyProvisioned = false
+	r := newTestReconciler(host)
+
+	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
+
+	// Update HFS so host will go through cleaning
+	hfs := &metal3api.HostFirmwareSettings{}
+	key := client.ObjectKey{
+		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
+	if err := r.Get(context.TODO(), key, hfs); err != nil {
+		t.Fatal(err)
+	}
+
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "False", Reason: "ConfigurationError"},
+		},
+	}
+
+	err := r.Update(context.TODO(), hfs)
+	assert.NoError(t, err)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.Provisioning.State == metal3api.StatePreparing
+		},
+	)
+
+	// Correct the setting, it will no longer be blocked
 	hfs.Status = metal3api.HostFirmwareSettingsStatus{
 		Conditions: []metav1.Condition{
 			{Type: "ChangeDetected", Status: "False", Reason: "Success"},

@@ -37,6 +37,15 @@ func (e ResolveBMCSecretRefError) Error() string {
 		e.message)
 }
 
+type ConfigurationError struct {
+	message string
+}
+
+func (e ConfigurationError) Error() string {
+	return fmt.Sprintf("User configuration error: %s",
+		e.message)
+}
+
 // NoDataInSecretError is returned when host configuration
 // data were not found in referenced secret.
 type NoDataInSecretError struct {

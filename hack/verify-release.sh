@@ -639,7 +639,7 @@ _mutate_gomod_files_for_osv_scanner()
         <(_get_golang_version_from_dockerfile)
 
     for modfile in **/go.mod; do
-        sed -i.bak -e "s/^go [[:digit:]]\.[[:digit:]]\+/go ${tag}/" "${modfile}"
+        sed -i.bak -e "s/^go .*$/go ${tag}/" "${modfile}"
     done
 }
 

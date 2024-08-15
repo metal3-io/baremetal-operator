@@ -3,7 +3,7 @@ module github.com/metal3-io/baremetal-operator/test
 go 1.20
 
 require (
-	github.com/cert-manager/cert-manager v1.10.0
+	github.com/cert-manager/cert-manager v1.10.2
 	github.com/metal3-io/baremetal-operator/apis v0.4.2
 	github.com/metal3-io/cluster-api-provider-metal3/test v1.5.3
 	github.com/onsi/ginkgo/v2 v2.13.0

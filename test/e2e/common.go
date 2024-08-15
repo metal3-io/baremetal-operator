@@ -328,8 +328,10 @@ func (input *BuildAndApplyKustomizationInput) validate() error {
 // BuildAndApplyKustomization takes input from BuildAndApplyKustomizationInput. It builds the provided kustomization
 // and apply it to the cluster provided by clusterProxy.
 func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomizationInput) error {
-	Expect(input.validate()).To(Succeed())
 	var err error
+	if err = input.validate(); err != nil {
+		return err
+	}
 	kustomization := input.Kustomization
 	clusterProxy := input.ClusterProxy
 	manifest, err := BuildKustomizeManifest(kustomization)

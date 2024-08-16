@@ -245,13 +245,7 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     fi
     sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/tls/certificate.yaml"
     sed -i "s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/mariadb/certificate.yaml"
-    # The keepalived component has its own configmap,
-    # but we are overriding depending on environment here so we must replace it.
-    if [[ "${DEPLOY_KEEPALIVED}" == "true" ]]; then
-        ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=replace --from-env-file=ironic_bmo_configmap.env
-    else
-        ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=create --from-env-file=ironic_bmo_configmap.env
-    fi
+    ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=create --from-env-file=ironic_bmo_configmap.env
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${TEMP_IRONIC_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
     popd

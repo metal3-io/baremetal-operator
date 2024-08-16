@@ -654,7 +654,7 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map
 	ip := net.ParseIP(parsedURL.Hostname())
 	if ip == nil {
 		// Maybe it's a hostname?
-		ips, err := net.LookupIP(p.bmcAddress)
+		ips, err := net.LookupIP(parsedURL.Hostname())
 		if err != nil {
 			p.log.Info("Failed to look up the IP address for BMC hostname", "hostname", p.bmcAddress)
 			return driverInfo

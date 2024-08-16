@@ -2,7 +2,7 @@ RUN_NAMESPACE = metal3
 GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
-GO_VERSION ?= 1.22.5
+GO_VERSION ?= 1.22.6
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -191,7 +191,7 @@ $(CONTROLLER_GEN): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen
 
 $(KUSTOMIZE): hack/tools/go.mod
-	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v4
+	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v5
 
 .PHONY: build-e2e
 build-e2e:

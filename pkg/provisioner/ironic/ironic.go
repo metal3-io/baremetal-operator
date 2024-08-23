@@ -564,6 +564,13 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 	updater := clients.UpdateOptsBuilder(p.log)
 
 	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
+	// NOTE(dtantsur): this is an OpenShift-only extension. Remove it with
+	// a graceful period once we have real NC-SI support and don't need to
+	// work around it with fakefish.
+	if data.OpenShiftNoAgentPowerOff && deployImageInfo != nil {
+		deployImageInfo["deploy_forces_oob_reboot"] = true
+	}
+	// End of OpenShift-only extensions.
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 
 	// NOTE(dtantsur): It is risky to update image information for active nodes since it may affect the ability to clean up.

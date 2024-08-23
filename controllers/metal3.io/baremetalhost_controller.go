@@ -817,6 +817,8 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return recordActionFailure(info, metal3api.RegistrationError, "failed to read preprovisioningNetworkData")
 	}
 
+	openShiftNoAgentPowerOff := info.host.Annotations["baremetal.openshift.io/disable-agent-power-off"] == "true"
+
 	provResult, provID, err := prov.ValidateManagementAccess(
 		provisioner.ManagementAccessData{
 			BootMode:                   info.host.Status.Provisioning.BootMode,
@@ -826,6 +828,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			PreprovisioningImage:       preprovImg,
 			PreprovisioningNetworkData: preprovisioningNetworkData,
 			HasCustomDeploy:            hasCustomDeploy(info.host),
+			OpenShiftNoAgentPowerOff:   openShiftNoAgentPowerOff,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)

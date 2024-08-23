@@ -2,11 +2,11 @@ package controllers
 
 import (
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // hostConfigData is an implementation of host configuration data interface.
@@ -21,6 +21,10 @@ type hostConfigData struct {
 // parameter to detirmine which data to return in case secret contins multiple
 // keys.
 func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (string, error) {
+	if namespace != hcd.host.Namespace {
+		return "", errors.Errorf("%s secret must be in same namespace as host %s/%s", dataKey, hcd.host.Namespace, hcd.host.Name)
+	}
+
 	key := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,

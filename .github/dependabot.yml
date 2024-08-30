@@ -43,7 +43,47 @@ updates:
   labels:
   - "ok-to-test"
 ## Main branch config ends here
-## release-0.6  branch config starts here
+## release-0.8 branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+    day: "saturday"
+  target-branch: release-0.8
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+  # Go
+- package-ecosystem: "gomod"
+  directories:
+  - "/"
+  - "/apis"
+  - "/hack/tools"
+  - "/pkg/hardwareutils"
+  - "/test"
+  schedule:
+    interval: "weekly"
+    day: "sunday"
+  target-branch: release-0.8
+  groups:
+    kubernetes:
+      patterns: ["k8s.io/*"]
+  ignore:
+  # Ignore controller-runtime major and minor bumps as its upgraded manually.
+  - dependency-name: "sigs.k8s.io/controller-runtime"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  # Ignore k8s major and minor bumps and its transitives modules
+  - dependency-name: "k8s.io/*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  - dependency-name: "sigs.k8s.io/controller-tools"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+## release-0.8 branch config ends here
+## release-0.6 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
@@ -84,7 +124,7 @@ updates:
   labels:
   - "ok-to-test"
 ## release-0.6 branch config ends here
-## release-0.5  branch config starts here
+## release-0.5 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:

@@ -50,6 +50,10 @@ updates:
     interval: "monthly"
     day: "saturday"
   target-branch: release-0.8
+  ignore:
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
   commit-message:
     prefix: ":seedling:"
   labels:
@@ -70,13 +74,10 @@ updates:
     kubernetes:
       patterns: ["k8s.io/*"]
   ignore:
-  # Ignore controller-runtime major and minor bumps as its upgraded manually.
-  - dependency-name: "sigs.k8s.io/controller-runtime"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
-  # Ignore k8s major and minor bumps and its transitives modules
-  - dependency-name: "k8s.io/*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
-  - dependency-name: "sigs.k8s.io/controller-tools"
+  # golang.org/x/* only releases minors no patches, so minors have to be allowed
+  - dependency-name: "golang.org/x/*"
+    update-types: ["version-update:semver-major"]
+  - dependency-name: "*"
     update-types: ["version-update:semver-major", "version-update:semver-minor"]
   commit-message:
     prefix: ":seedling:"

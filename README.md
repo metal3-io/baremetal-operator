@@ -3,8 +3,8 @@
 [![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/metal3-io/badge)](https://clomonitor.io/projects/cncf/metal3-io)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9160/badge)](https://www.bestpractices.dev/projects/9160)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/metal3-io/baremetal-operator/badge)](https://securityscorecards.dev/viewer/?uri=github.com/metal3-io/baremetal-operator)
-[![Ubuntu daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-ubuntu-e2e-integration-test-main&subject=Ubuntu%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-ubuntu-e2e-integration-test-main/)
-[![CentOS daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-centos-e2e-integration-test-main&subject=CentOS%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-centos-e2e-integration-test-main/)
+[![Ubuntu daily release-1.8 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-ubuntu-e2e-integration-test-release-1-8&subject=Ubuntu%20daily%20release-1.8)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-ubuntu-e2e-integration-test-release-1-8/)
+[![CentOS daily release-1.8 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-centos-e2e-integration-test-release-1-8&subject=CentOS%20daily%20release-1.8)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-centos-e2e-integration-test-release-1-8/)
 
 The Bare Metal Operator implements a Kubernetes API for managing bare metal
 hosts. It maintains an inventory of available hosts as instances of the
@@ -43,7 +43,6 @@ development. Here are the tests which run on different branches in BMO:
 **E2E tests:**
 
 - **/test metal3-bmo-e2e-test-pull** runs required BMO e2e tests on your PR.
-  Works for main and release-0.5 branches.
 - **/test metal3-bmo-e2e-test-optional-pull** runs optional BMO e2e tests on
   your PR. These are under active development currently.
 
@@ -55,6 +54,15 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
   tests with CAPM3 main branch and BMO **main** branch on Centos
 - **/test metal3-ubuntu-e2e-integration-test-main** runs ansible integration
   tests with CAPM3 main branch and BMO **main** branch on Ubuntu
+
+**Release-0.8 branch:**
+
+- **/test metal3-centos-e2e-integration-test-release-1-8** runs CAPM3 e2e
+  integration tests with CAPM3 release-1.8 branch and BMO **release-0.8**
+  branch on Centos
+- **/test metal3-ubuntu-e2e-integration-test-release-1-8** runs ansible
+  integration tests with CAPM3 release-1.7 branch and BMO **release-0.8**
+  branch on Ubuntu
 
 **Release-0.6 branch:**
 
@@ -72,15 +80,6 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
   branch on Centos
 - **/test metal3-ubuntu-e2e-integration-test-release-1-6** runs ansible
   integration tests with CAPM3 release-1.6 branch and BMO **release-0.5**
-  branch on Ubuntu
-
-**Release-0.4 branch:**
-
-- **/test metal3-centos-e2e-integration-test-release-1-5** runs CAPM3 e2e
-  integration tests with CAPM3 release-1.5 branch and BMO **release-0.4**
-  branch on Centos
-- **/test metal3-ubuntu-e2e-integration-test-release-1-5** runs ansible
-  integration tests with CAPM3 release-1.5 branch and BMO **release-0.4**
   branch on Ubuntu
 
 ### Important Notes

@@ -37,6 +37,10 @@ const (
 )
 
 func newSecret(name string, data map[string]string) *corev1.Secret {
+	return newSecretInNamespace(name, namespace, data)
+}
+
+func newSecretInNamespace(name, namespace string, data map[string]string) *corev1.Secret {
 	secretData := make(map[string][]byte)
 	for k, v := range data {
 		secretData[k] = []byte(base64.StdEncoding.EncodeToString([]byte(v)))

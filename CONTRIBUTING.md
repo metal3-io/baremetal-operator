@@ -84,10 +84,35 @@ Types and functions not in public APIs are not considered part of the guarantee.
 
 #### Backporting
 
-We only accept backports of critical bugs, security issues, or bugs without
-easy workarounds, any
-backport MUST not be breaking for either API or behavioral changes.
-We generally do not accept PRs against older release branches.
+We generally do not accept PRs directly against release branches, while we might
+accept backports of fixes/changes already merged into the main branch.
+
+We generally allow backports of the following kinds of changes to all maintained
+branches:
+
+- Critical bug fixes, security issue fixes, or fixes for bugs without easy
+workarounds.
+- Dependency bumps for CVE (usually limited to CVE resolution; backports of
+non-CVE related version bumps are considered exceptions to be evaluated case by
+case)
+- Changes required to support new Kubernetes patch versions, when possible.
+- Changes to use the latest Go patch version to build controller images.
+- Changes to bump the Go minor version used to build controller images, if the
+Go minor version of a supported branch goes out of support (e.g. to pick up
+bug and CVE fixes). This has no impact on users importing Baremetal Operator
+as we won't modify the version in go.mod and the version in the Makefile
+does not affect them.
+- Improvements to existing docs
+- Improvements to the test framework
+
+Like any other activity in the project, backporting a fix/change is a
+community-driven effort and requires that someone volunteers to own the task.
+In most cases, the cherry-pick bot can (and should) be used to automate
+opening a cherry-pick PR.
+
+We generally do not accept backports to BMO release branches that are EOL (End
+of life). Check the [Version support](https://github.com/metal3-io/metal3-docs/blob/main/docs/user-guide/src/version_support.md#baremetal-operator)
+guide for reference.
 
 ## Branches
 

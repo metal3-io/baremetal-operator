@@ -76,18 +76,20 @@ spec:
                 type: string
               automatedCleaningMode:
                 default: metadata
-                description: When set to disabled, automated cleaning will be avoided
+                description: When set to disabled, automated cleaning will be skipped
                   during provisioning and deprovisioning.
                 enum:
                 - metadata
                 - disabled
                 type: string
               bmc:
-                description: How do we connect to the BMC?
+                description: How do we connect to the BMC (Baseboard Management Controller)
+                  on the host?
                 properties:
                   address:
                     description: Address holds the URL for accessing the controller
-                      on the network.
+                      on the network. The scheme part designates the driver to use
+                      with the host.
                     type: string
                   credentialsName:
                     description: The name of the secret containing the BMC credentials
@@ -105,13 +107,17 @@ spec:
                 - credentialsName
                 type: object
               bootMACAddress:
-                description: Which MAC address will PXE boot? This is optional for
-                  some types, but required for libvirt VMs driven by vbmc.
+                description: The MAC address of the NIC used for provisioning the
+                  host. In case of network boot, this is the MAC address of the PXE
+                  booting interface. The MAC address of the BMC must never be used
+                  here!
                 pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                 type: string
               bootMode:
                 description: Select the method of initializing the hardware during
-                  boot. Defaults to UEFI.
+                  boot. Defaults to UEFI. Legacy boot should only be used for hardware
+                  that does not support UEFI correctly. Set to UEFISecureBoot to turn
+                  secure boot on automatically after provisioning.
                 enum:
                 - UEFI
                 - UEFISecureBoot
@@ -120,7 +126,8 @@ spec:
               consumerRef:
                 description: ConsumerRef can be used to store information about something
                   that is using a host. When it is not empty, the host is considered
-                  "in use".
+                  "in use". The common use case is a link to a Machine resource when
+                  the host is used by Cluster API.
                 properties:
                   apiVersion:
                     description: API version of the referent.
@@ -157,7 +164,10 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               customDeploy:
-                description: A custom deploy procedure.
+                description: A custom deploy procedure. This is an advanced feature
+                  that allows using a custom deploy step provided by a site-specific
+                  deployment ramdisk. Most users will want to use "image" instead.
+                  Settings this field triggers provisioning.
                 properties:
                   method:
                     description: Custom deploy method name. This name is specific
@@ -169,36 +179,38 @@ spec:
                 type: object
               description:
                 description: Description is a human-entered text used to help identify
-                  the host
+                  the host.
                 type: string
               externallyProvisioned:
-                description: ExternallyProvisioned means something else is managing
-                  the image running on the host and the operator should only manage
-                  the power status and hardware inventory inspection. If the Image
-                  field is filled in, this field is ignored.
+                description: ExternallyProvisioned means something else has provisioned
+                  the image running on the host, and the operator should only manage
+                  the power status. This field is used for integration with already
+                  provisioned hosts and when pivoting hosts between clusters. If unsure,
+                  leave this field as false.
                 type: boolean
               firmware:
-                description: BIOS configuration for bare metal server
+                description: Firmware (BIOS) configuration for bare metal server.
+                  If set, the requested settings will be applied before the host is
+                  provisioned. Only some vendor drivers support this field. An alternative
+                  is to use HostFirmwareSettings resources that allow changing arbitrary
+                  values and support the generic Redfish-based drivers.
                 properties:
                   simultaneousMultithreadingEnabled:
-                    description: 'Allows a single physical processor core to appear
-                      as several logical processors. This supports following options:
-                      true, false.'
+                    description: Allows a single physical processor core to appear
+                      as several logical processors.
                     enum:
                     - true
                     - false
                     type: boolean
                   sriovEnabled:
-                    description: 'SR-IOV support enables a hypervisor to create virtual
+                    description: SR-IOV support enables a hypervisor to create virtual
                       instances of a PCI-express device, potentially increasing performance.
-                      This supports following options: true, false.'
                     enum:
                     - true
                     - false
                     type: boolean
                   virtualizationEnabled:
-                    description: 'Supports the virtualization of platform hardware.
-                      This supports following options: true, false.'
+                    description: Supports the virtualization of platform hardware.
                     enum:
                     - true
                     - false
@@ -213,9 +225,11 @@ spec:
                 type: string
               image:
                 description: Image holds the details of the image to be provisioned.
+                  Populating the image will cause the host to start provisioning.
                 properties:
                   checksum:
-                    description: Checksum is the checksum for the image.
+                    description: Checksum is the checksum for the image. Required
+                      for all formats except for "live-iso".
                     type: string
                   checksumType:
                     description: ChecksumType is the checksum algorithm for the image,
@@ -229,11 +243,9 @@ spec:
                     - auto
                     type: string
                   format:
-                    description: DiskFormat contains the format of the image (raw,
-                      qcow2, ...). Needs to be set to raw for raw images streaming.
-                      Note live-iso means an iso referenced by the url will be live-booted
-                      and not deployed to disk, and in this case the checksum options
-                      are not required and if specified will be ignored.
+                    description: Format contains the format of the image (raw, qcow2,
+                      ...). When set to "live-iso", an ISO 9660 image referenced by
+                      the url will be live-booted and not deployed to disk.
                     enum:
                     - raw
                     - qcow2
@@ -249,8 +261,9 @@ spec:
                 type: object
               metaData:
                 description: MetaData holds the reference to the Secret containing
-                  host metadata (e.g. meta_data.json) which is passed to the Config
-                  Drive.
+                  host metadata which is passed to the Config Drive. By default, the
+                  operater will generate metadata for the host, so most users do not
+                  need to set this field.
                 properties:
                   name:
                     description: name is unique within a namespace to reference a
@@ -264,8 +277,8 @@ spec:
                 x-kubernetes-map-type: atomic
               networkData:
                 description: NetworkData holds the reference to the Secret containing
-                  network configuration (e.g content of network_data.json) which is
-                  passed to the Config Drive.
+                  network configuration which is passed to the Config Drive and interpreted
+                  by the first boot software such as cloud-init.
                 properties:
                   name:
                     description: name is unique within a namespace to reference a
@@ -278,16 +291,21 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               online:
-                description: Should the server be online?
+                description: Should the host be powered on? Changing this value will
+                  trigger a change in power state of the host.
                 type: boolean
               preprovisioningNetworkDataName:
                 description: PreprovisioningNetworkDataName is the name of the Secret
-                  in the local namespace containing network configuration (e.g content
-                  of network_data.json) which is passed to the preprovisioning image,
-                  and to the Config Drive if not overridden by specifying NetworkData.
+                  in the local namespace containing network configuration which is
+                  passed to the preprovisioning image, and to the Config Drive if
+                  not overridden by specifying NetworkData.
                 type: string
               raid:
-                description: RAID configuration for bare metal server
+                description: RAID configuration for bare metal server. If set, the
+                  RAID settings will be applied before the host is provisioned. If
+                  not, the current settings will not be modified. Only one of the
+                  sub-fields hardwareRAIDVolumes and softwareRAIDVolumes can be set
+                  at the same time.
                 properties:
                   hardwareRAIDVolumes:
                     description: The list of logical disks for hardware RAID, if rootDeviceHints
@@ -298,11 +316,12 @@ spec:
                         of volume in hardware RAID.
                       properties:
                         controller:
-                          description: The name of the RAID controller to use
+                          description: The name of the RAID controller to use.
                           type: string
                         level:
                           description: 'RAID level for the logical disk. The following
-                            levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
+                            levels are supported: 0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers
+                            may support only some of them).'
                           enum:
                           - "0"
                           - "1"
@@ -315,7 +334,7 @@ spec:
                           type: string
                         name:
                           description: Name of the volume. Should be unique within
-                            the Node. If not specified, volume name will be auto-generated.
+                            the Node. If not specified, the name will be auto-generated.
                           maxLength: 64
                           type: string
                         numberOfPhysicalDisks:
@@ -326,20 +345,21 @@ spec:
                           type: integer
                         physicalDisks:
                           description: Optional list of physical disk names to be
-                            used for the Hardware RAID volumes. The disk names are
-                            interpreted by the Hardware RAID controller, and the format
+                            used for the hardware RAID volumes. The disk names are
+                            interpreted by the hardware RAID controller, and the format
                             is hardware specific.
                           items:
                             type: string
                           type: array
                         rotational:
-                          description: Select disks with only rotational or solid-state
-                            storage
+                          description: Select disks with only rotational (if set to
+                            true) or solid-state (if set to false) storage. By default,
+                            any disks can be picked.
                           type: boolean
                         sizeGibibytes:
-                          description: Size (Integer) of the logical disk to be created
-                            in GiB. If unspecified or set be 0, the maximum capacity
-                            of disk will be used for logical disk.
+                          description: Size of the logical disk to be created in GiB.
+                            If unspecified or set be 0, the maximum capacity of disk
+                            will be used for logical disk.
                           minimum: 0
                           type: integer
                       required:
@@ -364,7 +384,7 @@ spec:
                       properties:
                         level:
                           description: 'RAID level for the logical disk. The following
-                            levels are supported: 0;1;1+0.'
+                            levels are supported: 0, 1 and 1+0.'
                           enum:
                           - "0"
                           - "1"
@@ -425,9 +445,9 @@ spec:
                           minItems: 2
                           type: array
                         sizeGibibytes:
-                          description: Size (Integer) of the logical disk to be created
-                            in GiB. If unspecified or set be 0, the maximum capacity
-                            of disk will be used for logical disk.
+                          description: Size of the logical disk to be created in GiB.
+                            If unspecified or set be 0, the maximum capacity of disk
+                            will be used for logical disk.
                           minimum: 0
                           type: integer
                       required:
@@ -439,7 +459,8 @@ spec:
                 type: object
               rootDeviceHints:
                 description: Provide guidance about how to choose the device for the
-                  image being provisioned.
+                  image being provisioned. The default is currently to use /dev/sda
+                  as the root device.
                 properties:
                   deviceName:
                     description: A Linux device name like "/dev/vda", or a by-path
@@ -514,7 +535,9 @@ spec:
                 type: array
               userData:
                 description: UserData holds the reference to the Secret containing
-                  the user data to be passed to the host before it boots.
+                  the user data which is passed to the Config Drive and interpreted
+                  by the first-boot software such as cloud-init. The format of user
+                  data is specific to the first-boot software.
                 properties:
                   name:
                     description: name is unique within a namespace to reference a
@@ -538,7 +561,7 @@ spec:
                   an error since the last successful operation
                 type: integer
               errorMessage:
-                description: the last error message reported by the provisioning subsystem
+                description: The last error message reported by the provisioning subsystem.
                 type: string
               errorType:
                 description: ErrorType indicates the type of failure encountered when
@@ -552,7 +575,7 @@ spec:
                 - power management error
                 type: string
               goodCredentials:
-                description: the last credentials we were able to validate as working
+                description: The last credentials we were able to validate as working.
                 properties:
                   credentials:
                     description: SecretReference represents a Secret Reference. It
@@ -572,10 +595,12 @@ spec:
                     type: string
                 type: object
               hardware:
-                description: The hardware discovered to exist on the host.
+                description: The hardware discovered to exist on the host. This field
+                  will be removed in the next API version in favour of the separate
+                  HardwareData resource.
                 properties:
                   cpu:
-                    description: CPU describes one processor on the host.
+                    description: Details of the CPU(s) in the system.
                     properties:
                       arch:
                         type: string
@@ -593,7 +618,7 @@ spec:
                         type: string
                     type: object
                   firmware:
-                    description: Firmware describes the firmware on the host.
+                    description: System firmware information.
                     properties:
                       bios:
                         description: The BIOS for this firmware
@@ -612,6 +637,7 @@ spec:
                   hostname:
                     type: string
                   nics:
+                    description: List of network interfaces for the host.
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
@@ -662,8 +688,11 @@ spec:
                       type: object
                     type: array
                   ramMebibytes:
+                    description: The host's amount of memory in Mebibytes.
                     type: integer
                   storage:
+                    description: List of storage (disk, SSD, etc.) available to the
+                      host.
                     items:
                       description: Storage describes one storage device (disk, SSD,
                         etc.) on the host.
@@ -721,8 +750,7 @@ spec:
                       type: object
                     type: array
                   systemVendor:
-                    description: HardwareSystemVendor stores details about the whole
-                      hardware system.
+                    description: System vendor information.
                     properties:
                       manufacturer:
                         type: string
@@ -808,14 +836,16 @@ spec:
                 - detached
                 type: string
               poweredOn:
-                description: indicator for whether or not the host is powered on
+                description: Whether or not the host is currently powered on. This
+                  field may get briefly out of sync with the actual state of the hardware
+                  while provisioning processes are running.
                 type: boolean
               provisioning:
                 description: Information tracked by the provisioner.
                 properties:
                   ID:
-                    description: The machine's UUID from the underlying provisioning
-                      tool
+                    description: The hosts's ID from the underlying provisioning tool
+                      (e.g. the Ironic node UUID).
                     type: string
                   bootMode:
                     description: BootMode indicates the boot mode used to provision
@@ -837,27 +867,25 @@ spec:
                     - method
                     type: object
                   firmware:
-                    description: The Bios set by the user
+                    description: The firmware settings that have been applied.
                     properties:
                       simultaneousMultithreadingEnabled:
-                        description: 'Allows a single physical processor core to appear
-                          as several logical processors. This supports following options:
-                          true, false.'
+                        description: Allows a single physical processor core to appear
+                          as several logical processors.
                         enum:
                         - true
                         - false
                         type: boolean
                       sriovEnabled:
-                        description: 'SR-IOV support enables a hypervisor to create
+                        description: SR-IOV support enables a hypervisor to create
                           virtual instances of a PCI-express device, potentially increasing
-                          performance. This supports following options: true, false.'
+                          performance.
                         enum:
                         - true
                         - false
                         type: boolean
                       virtualizationEnabled:
-                        description: 'Supports the virtualization of platform hardware.
-                          This supports following options: true, false.'
+                        description: Supports the virtualization of platform hardware.
                         enum:
                         - true
                         - false
@@ -868,7 +896,8 @@ spec:
                       provisioned to the host.
                     properties:
                       checksum:
-                        description: Checksum is the checksum for the image.
+                        description: Checksum is the checksum for the image. Required
+                          for all formats except for "live-iso".
                         type: string
                       checksumType:
                         description: ChecksumType is the checksum algorithm for the
@@ -882,12 +911,9 @@ spec:
                         - auto
                         type: string
                       format:
-                        description: DiskFormat contains the format of the image (raw,
-                          qcow2, ...). Needs to be set to raw for raw images streaming.
-                          Note live-iso means an iso referenced by the url will be
-                          live-booted and not deployed to disk, and in this case the
-                          checksum options are not required and if specified will
-                          be ignored.
+                        description: Format contains the format of the image (raw,
+                          qcow2, ...). When set to "live-iso", an ISO 9660 image referenced
+                          by the url will be live-booted and not deployed to disk.
                         enum:
                         - raw
                         - qcow2
@@ -902,7 +928,7 @@ spec:
                     - url
                     type: object
                   raid:
-                    description: The Raid set by the user
+                    description: The RAID configuration that has been applied.
                     properties:
                       hardwareRAIDVolumes:
                         description: The list of logical disks for hardware RAID,
@@ -914,11 +940,12 @@ spec:
                             of volume in hardware RAID.
                           properties:
                             controller:
-                              description: The name of the RAID controller to use
+                              description: The name of the RAID controller to use.
                               type: string
                             level:
                               description: 'RAID level for the logical disk. The following
-                                levels are supported: 0;1;2;5;6;1+0;5+0;6+0.'
+                                levels are supported: 0, 1, 2, 5, 6, 1+0, 5+0, 6+0
+                                (drivers may support only some of them).'
                               enum:
                               - "0"
                               - "1"
@@ -931,7 +958,7 @@ spec:
                               type: string
                             name:
                               description: Name of the volume. Should be unique within
-                                the Node. If not specified, volume name will be auto-generated.
+                                the Node. If not specified, the name will be auto-generated.
                               maxLength: 64
                               type: string
                             numberOfPhysicalDisks:
@@ -942,20 +969,21 @@ spec:
                               type: integer
                             physicalDisks:
                               description: Optional list of physical disk names to
-                                be used for the Hardware RAID volumes. The disk names
-                                are interpreted by the Hardware RAID controller, and
+                                be used for the hardware RAID volumes. The disk names
+                                are interpreted by the hardware RAID controller, and
                                 the format is hardware specific.
                               items:
                                 type: string
                               type: array
                             rotational:
-                              description: Select disks with only rotational or solid-state
-                                storage
+                              description: Select disks with only rotational (if set
+                                to true) or solid-state (if set to false) storage.
+                                By default, any disks can be picked.
                               type: boolean
                             sizeGibibytes:
-                              description: Size (Integer) of the logical disk to be
-                                created in GiB. If unspecified or set be 0, the maximum
-                                capacity of disk will be used for logical disk.
+                              description: Size of the logical disk to be created
+                                in GiB. If unspecified or set be 0, the maximum capacity
+                                of disk will be used for logical disk.
                               minimum: 0
                               type: integer
                           required:
@@ -981,7 +1009,7 @@ spec:
                           properties:
                             level:
                               description: 'RAID level for the logical disk. The following
-                                levels are supported: 0;1;1+0.'
+                                levels are supported: 0, 1 and 1+0.'
                               enum:
                               - "0"
                               - "1"
@@ -1043,9 +1071,9 @@ spec:
                               minItems: 2
                               type: array
                             sizeGibibytes:
-                              description: Size (Integer) of the logical disk to be
-                                created in GiB. If unspecified or set be 0, the maximum
-                                capacity of disk will be used for logical disk.
+                              description: Size of the logical disk to be created
+                                in GiB. If unspecified or set be 0, the maximum capacity
+                                of disk will be used for logical disk.
                               minimum: 0
                               type: integer
                           required:
@@ -1056,7 +1084,7 @@ spec:
                         type: array
                     type: object
                   rootDeviceHints:
-                    description: The RootDevicehints set by the user
+                    description: The root device hints set by the user.
                     properties:
                       deviceName:
                         description: A Linux device name like "/dev/vda", or a by-path
@@ -1101,7 +1129,7 @@ spec:
                         type: string
                     type: object
                   state:
-                    description: An indiciator for what the provisioner is doing with
+                    description: An indicator for what the provisioner is doing with
                       the host.
                     type: string
                 required:
@@ -1109,7 +1137,7 @@ spec:
                 - state
                 type: object
               triedCredentials:
-                description: the last credentials we sent to the provisioning backend
+                description: The last credentials we sent to the provisioning backend.
                 properties:
                   credentials:
                     description: SecretReference represents a Secret Reference. It
@@ -1445,7 +1473,7 @@ spec:
                 description: The hardware discovered on the host during its inspection.
                 properties:
                   cpu:
-                    description: CPU describes one processor on the host.
+                    description: Details of the CPU(s) in the system.
                     properties:
                       arch:
                         type: string
@@ -1463,7 +1491,7 @@ spec:
                         type: string
                     type: object
                   firmware:
-                    description: Firmware describes the firmware on the host.
+                    description: System firmware information.
                     properties:
                       bios:
                         description: The BIOS for this firmware
@@ -1482,6 +1510,7 @@ spec:
                   hostname:
                     type: string
                   nics:
+                    description: List of network interfaces for the host.
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
@@ -1532,8 +1561,11 @@ spec:
                       type: object
                     type: array
                   ramMebibytes:
+                    description: The host's amount of memory in Mebibytes.
                     type: integer
                   storage:
+                    description: List of storage (disk, SSD, etc.) available to the
+                      host.
                     items:
                       description: Storage describes one storage device (disk, SSD,
                         etc.) on the host.
@@ -1591,8 +1623,7 @@ spec:
                       type: object
                     type: array
                   systemVendor:
-                    description: HardwareSystemVendor stores details about the whole
-                      hardware system.
+                    description: System vendor information.
                     properties:
                       manufacturer:
                         type: string

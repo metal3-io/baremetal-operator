@@ -183,7 +183,7 @@ spec:
                 description: |-
                   A custom deploy procedure. This is an advanced feature that allows
                   using a custom deploy step provided by a site-specific deployment
-                  ramdisk. Most users will want to use "image" instead. Settings this
+                  ramdisk. Most users will want to use "image" instead. Setting this
                   field triggers provisioning.
                 properties:
                   method:
@@ -286,9 +286,8 @@ spec:
               metaData:
                 description: |-
                   MetaData holds the reference to the Secret containing host metadata
-                  which is passed to the Config Drive. By default, the operater will
-                  generate metadata for the host, so most users do not need to set
-                  this field.
+                  which is passed to the Config Drive. By default, metadata will be
+                  generated for the host, so most users do not need to set this field.
                 properties:
                   name:
                     description: name is unique within a namespace to reference a
@@ -318,8 +317,9 @@ spec:
                 x-kubernetes-map-type: atomic
               online:
                 description: |-
-                  Should the host be powered on? Changing this value will trigger
-                  a change in power state of the host.
+                  Should the host be powered on? If the host is currently in a stable
+                  state (e.g. provisioned), its power state will be forced to match
+                  this value.
                 type: boolean
               preprovisioningNetworkDataName:
                 description: |-
@@ -406,7 +406,7 @@ spec:
                       If there is only one Software RAID device, it has to be a RAID-1.
                       If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0.
                       As the first RAID device will be the deployment device,
-                      enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                      enforcing a RAID-1 reduces the risk of ending up with a non-booting host in case of a disk failure.
                       Software RAID will always be deleted.
                     items:
                       description: SoftwareRAIDVolume defines the desired configuration
@@ -900,7 +900,7 @@ spec:
                 type: string
               poweredOn:
                 description: |-
-                  Whether or not the host is currently powered on. This field may get
+                  The currently detected power state of the host. This field may get
                   briefly out of sync with the actual state of the hardware while
                   provisioning processes are running.
                 type: boolean
@@ -914,7 +914,7 @@ spec:
                     type: string
                   bootMode:
                     description: BootMode indicates the boot mode used to provision
-                      the node
+                      the host.
                     enum:
                     - UEFI
                     - UEFISecureBoot
@@ -1069,7 +1069,7 @@ spec:
                           If there is only one Software RAID device, it has to be a RAID-1.
                           If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0.
                           As the first RAID device will be the deployment device,
-                          enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                          enforcing a RAID-1 reduces the risk of ending up with a non-booting host in case of a disk failure.
                           Software RAID will always be deleted.
                         items:
                           description: SoftwareRAIDVolume defines the desired configuration
@@ -1159,7 +1159,7 @@ spec:
                         type: array
                     type: object
                   rootDeviceHints:
-                    description: The root device hints set by the user.
+                    description: The root device hints used to provision the host.
                     properties:
                       deviceName:
                         description: |-

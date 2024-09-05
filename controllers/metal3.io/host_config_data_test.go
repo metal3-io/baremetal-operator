@@ -57,6 +57,54 @@ func TestLabelSecrets(t *testing.T) {
 				},
 			},
 		},
+		{
+			Scenario: "user-data secret in different namespace",
+			Host: newHost("host-user-data",
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					UserData: &corev1.SecretReference{
+						Name:      "user-data",
+						Namespace: "other-namespace",
+					},
+				}),
+			UserDataSecret: newSecretInNamespace("user-data", "other-namespace", map[string]string{"userData": "somedata"}),
+			ErrUserData:    true,
+		},
+		{
+			Scenario: "meta-data secret in different namespace",
+			Host: newHost("host-user-data",
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "meta-data",
+						Namespace: "other-namespace",
+					},
+				}),
+			NetworkDataSecret: newSecretInNamespace("meta-data", "other-namespace", map[string]string{"metaData": "key: value"}),
+			ErrMetaData:       true,
+		},
+		{
+			Scenario: "network-data secret in different namespace",
+			Host: newHost("host-user-data",
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "net-data",
+						Namespace: "other-namespace",
+					},
+				}),
+			NetworkDataSecret: newSecretInNamespace("net-data", "other-namespace", map[string]string{"networkData": "key: value"}),
+			ErrNetworkData:    true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -378,7 +426,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			}
 
 			if actualMetaData != tc.ExpectedMetaData {
-				t.Fatal(fmt.Errorf("Failed to assert MetaData. Expected '%s' got '%s'", actualMetaData, tc.ExpectedMetaData))
+				t.Fatal(fmt.Errorf("Failed to assert MetaData. Expected '%s' got '%s'", tc.ExpectedMetaData, actualMetaData))
 			}
 		})
 	}

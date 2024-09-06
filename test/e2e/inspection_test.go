@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"path"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -124,6 +125,7 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 	})
 
 	AfterEach(func() {
+		DumpResources(ctx, clusterProxy, namespace.Name, path.Join(artifactFolder, specName))
 		if !skipCleanup {
 			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}

@@ -162,8 +162,20 @@ export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
 popd
 
 # Generate credentials
-BMO_OVERLAYS=("${REPO_ROOT}/config/overlays/e2e" "${REPO_ROOT}/config/overlays/e2e-release-0.4" "${REPO_ROOT}/config/overlays/e2e-release-0.5" "${REPO_ROOT}/config/overlays/e2e-release-0.6")
-IRONIC_OVERLAYS=("${REPO_ROOT}/ironic-deployment/overlays/e2e" "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector" "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.1")
+BMO_OVERLAYS=(
+  "${REPO_ROOT}/config/overlays/e2e"
+  "${REPO_ROOT}/config/overlays/e2e-release-0.5"
+  "${REPO_ROOT}/config/overlays/e2e-release-0.6"
+  "${REPO_ROOT}/config/overlays/e2e-release-0.8"
+)
+IRONIC_OVERLAYS=(
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.1"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-25.0"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-26.0"
+)
 
 IRONIC_USERNAME="$(uuidgen)"
 IRONIC_PASSWORD="$(uuidgen)"

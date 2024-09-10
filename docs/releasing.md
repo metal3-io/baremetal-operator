@@ -147,6 +147,14 @@ release!
 
 Some post-release actions are needed if new minor or major branch was created.
 
+### Add BMO e2e test configs
+
+[Prior art](https://github.com/metal3-io/baremetal-operator/pull/1945)
+
+BMO e2e is running as GitHub Actions. We need to add released branch and remove
+the non-maintained branches there, along with the suitable configurations with
+recently released Ironic-image releases as well in the fixtures.
+
 ### Branch protection rules
 
 Branch protection rules need to be applied to the new release branch. Copy the

@@ -10,7 +10,7 @@ require (
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/onsi/gomega v1.34.2
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.20.2
+	github.com/prometheus/client_golang v1.20.3
 	github.com/stretchr/testify v1.9.0
 	go.etcd.io/etcd/client/pkg/v3 v3.5.15
 	go.uber.org/zap v1.27.0

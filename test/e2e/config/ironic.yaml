@@ -5,7 +5,7 @@ images:
 - name: quay.io/metal3-io/ironic:e2e
   loadBehavior: tryLoad
 # Save some time and network by using cached images if available
-- name: quay.io/metal3-io/baremetal-operator:release-0.4
+- name: quay.io/metal3-io/baremetal-operator:release-0.8
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.13.1
   loadBehavior: tryLoad
@@ -56,12 +56,6 @@ intervals:
 bmoIronicUpgradeSpecs:
 - deployIronic: true
   deployBMO: true
-  initBMOKustomization: "../../config/overlays/e2e-release-0.4"
-  initIronicKustomization: "../../ironic-deployment/overlays/e2e-with-inspector"
-  upgradeEntityKustomization: "../../config/overlays/e2e"
-  upgradeEntityName: "bmo"
-- deployIronic: true
-  deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.5"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityKustomization: "../../config/overlays/e2e"
@@ -74,13 +68,31 @@ bmoIronicUpgradeSpecs:
   upgradeEntityName: "bmo"
 - deployIronic: true
   deployBMO: true
-  initBMOKustomization: "../../config/overlays/e2e-release-0.6"
+  initBMOKustomization: "../../config/overlays/e2e-release-0.8"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityKustomization: "../../config/overlays/e2e"
+  upgradeEntityName: "bmo"
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.8"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-24.0-with-inspector"
   upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityName: "ironic"
 - deployIronic: true
   deployBMO: true
-  initBMOKustomization: "../../config/overlays/e2e-release-0.6"
+  initBMOKustomization: "../../config/overlays/e2e-release-0.8"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-24.1"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.8"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-25.0"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.8"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-26.0"
   upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityName: "ironic"

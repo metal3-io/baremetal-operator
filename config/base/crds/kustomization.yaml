@@ -10,6 +10,7 @@ resources:
 - bases/metal3.io_bmceventsubscriptions.yaml
 - bases/metal3.io_hardwaredata.yaml
 - bases/metal3.io_dataimages.yaml
+- bases/metal3.io_hostupdatepolicies.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

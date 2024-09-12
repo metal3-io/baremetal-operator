@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3bmc "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -134,6 +135,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 	})
 
 	AfterEach(func() {
+		DumpResources(ctx, clusterProxy, namespace.Name, path.Join(artifactFolder, specName))
 		if !skipCleanup {
 			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}

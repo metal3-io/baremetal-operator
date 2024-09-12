@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -254,6 +255,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 		})
 
 		AfterEach(func() {
+			DumpResources(ctx, clusterProxy, namespace.Name, path.Join(artifactFolder, specName))
 			if !skipCleanup {
 				cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 			}

@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -12,10 +14,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
 	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
@@ -461,4 +467,44 @@ func GetKubeconfigPath() string {
 		kubeconfigPath = os.Getenv("HOME") + "/.kube/config"
 	}
 	return kubeconfigPath
+}
+
+// DumpObj tries to dump the given object into a file in YAML format.
+func dumpObj[T any](obj T, name string, path string) {
+	objYaml, err := yaml.Marshal(obj)
+	Expect(err).ToNot(HaveOccurred(), "Failed to marshal %s", name)
+	fullpath := filepath.Join(path, name)
+	filepath.Clean(fullpath)
+	Expect(os.MkdirAll(filepath.Dir(fullpath), 0750)).To(Succeed(), "Failed to create folders on path %s", filepath.Dir(fullpath))
+	f, err := os.OpenFile(fullpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	Expect(err).ToNot(HaveOccurred(), "Failed to open file with path %s", fullpath)
+	defer f.Close()
+	Expect(os.WriteFile(f.Name(), objYaml, 0600)).To(Succeed())
+}
+
+// DumpCRDs fetches all CRDs and filedumps them.
+func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
+	crds := apiextensionsv1.CustomResourceDefinitionList{}
+	Expect(cli.List(ctx, &crds)).To(Succeed())
+	for _, crd := range crds.Items {
+		dumpObj(crd, crd.ObjectMeta.Name, artifactFolder)
+		crGVK, _ := schema.ParseKindArg(crd.Status.AcceptedNames.ListKind + "." + crd.Status.StoredVersions[0] + "." + crd.Spec.Group)
+		crs := &unstructured.UnstructuredList{}
+		crs.SetGroupVersionKind(*crGVK)
+		Expect(cli.List(ctx, crs)).To(Succeed())
+		for _, cr := range crs.Items {
+			dumpObj(cr, cr.GetName(), path.Join(artifactFolder, crd.Spec.Names.Plural))
+		}
+	}
+}
+
+// DumpResources dumps resources related to BMO e2e tests as YAML.
+func DumpResources(ctx context.Context, clusterProxy framework.ClusterProxy, namespace string, artifactFolder string) {
+	// CAPI resources.
+	framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
+		Lister:    clusterProxy.GetClient(),
+		Namespace: namespace,
+		LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
+	})
+	dumpCRDS(ctx, clusterProxy.GetClient(), filepath.Join(artifactFolder, "crd"))
 }

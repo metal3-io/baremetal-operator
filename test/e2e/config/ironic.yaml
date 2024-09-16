@@ -2,8 +2,6 @@ images:
 # Use locally built e2e images
 - name: quay.io/metal3-io/baremetal-operator:e2e
   loadBehavior: tryLoad
-- name: quay.io/metal3-io/ironic:e2e
-  loadBehavior: tryLoad
 # Save some time and network by using cached images if available
 - name: quay.io/metal3-io/baremetal-operator:release-0.8
   loadBehavior: tryLoad

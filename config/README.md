@@ -3,6 +3,32 @@
 This folder contains kustomizations for the Baremetal Operator. They have
 traditionally been used through the [deploy.sh](../tools/deploy.sh) script,
 which takes care of generating the necessary config for basic-auth and TLS.
+
+Experimentally, instead of `deploy.sh`, you can use the new golang-based
+[deploy-cli](../hack/tools/deploy-cli) library,
+which, at the moment, handles everything `deploy.sh` does. You can either:
+
+- Run the package with `go run`. From the root of BMO repository:
+
+```shell
+cd hack/tools/deploy-cli
+go run *.go
+```
+
+- Otherwise, build the package to a static binary:
+
+```shell
+make deploy-cli
+```
+
+And run the binary with:
+
+```shell
+./tools/bin/deploy-cli -h
+```
+
+To check which options are available, run the script/binary with `-h`.
+
 However, a more GitOps friendly way would be to create your own static overlay.
 Check the `overlays/e2e` for an example that is used in the e2e tests.
 In the CI system we generate the necessary credentials before starting the test

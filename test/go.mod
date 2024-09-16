@@ -1,7 +1,8 @@
 module github.com/metal3-io/baremetal-operator/test
 
-go 1.22
-toolchain go1.22.5
+go 1.22.0
+
+toolchain go1.22.7
 
 require (
 	github.com/cert-manager/cert-manager v1.15.3

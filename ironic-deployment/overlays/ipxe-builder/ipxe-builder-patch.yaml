@@ -1,0 +1,22 @@
+- op: add
+  path: /spec/template/spec/initContainers/0
+  value:
+    name: ipxe-builder
+    image: quay.io/metal3-io/ipxe-builder
+    command:
+      - /bin/buildipxe.sh
+    envFrom:
+    - configMapRef:
+        name: ipxe-configmap
+    volumeMounts:
+    - mountPath: /shared
+      name: ironic-data-volume
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsUser: 997 # ironic
+      runAsGroup: 994 # ironic
+

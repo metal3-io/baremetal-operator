@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ironic
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: ipxe-builder
+        image: quay.io/metal3-io/ipxe-builder
+        command:
+          - /bin/buildipxe.sh
+        envFrom:
+        - configMapRef:
+            name: ipxe-configmap
+        volumeMounts:
+        - mountPath: /shared
+          name: ironic-data-volume
+        - name: cert-ipxe
+          mountPath: "/certs/ipxe"
+          readOnly: true
+        - name: cert-ipxe-ca
+          mountPath: "/certs/ca/ipxe"
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          runAsUser: 997 # ironic
+          runAsGroup: 994 # ironic
+      volumes:
+      - name: cert-ipxe-ca
+        secret:
+          secretName: ipxe-cacert
+      - name: cert-ipxe
+        secret:
+          secretName: ipxe-cert
+

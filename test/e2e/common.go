@@ -345,7 +345,7 @@ func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomi
 		return err
 	}
 
-	err = clusterProxy.Apply(ctx, manifest)
+	err = clusterProxy.CreateOrUpdate(ctx, manifest)
 	if err != nil {
 		return err
 	}

@@ -304,7 +304,7 @@ func setImage(generation int64, status *metal3api.PreprovisioningImageStatus, im
 		metal3api.ConditionImageError, metav1.ConditionFalse,
 		time, reason, "")
 
-	changed := !apiequality.Semantic.DeepEqual(status, &newStatus)
+	changed := !apiequality.Semantic.DeepEqual(status, newStatus)
 	*status = *newStatus
 	return changed
 }

@@ -101,6 +101,9 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups=metal3.io,resources=dataimages,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=metal3.io,resources=dataimages/status,verbs=get;update;patch
 
+// Allow for updating hostupdatepolicies
+//+kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch
+
 // Reconcile handles changes to BareMetalHost resources.
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
 	reconcileCounters.With(hostMetricLabels(request)).Inc()
@@ -879,6 +882,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	// Create the hostFirmwareComponents resource with same host name/namespace if it doesn't exist
+	// Set owner reference on hostUpdatePolicy resource if not set
 	if info.host.Name != "" {
 		if !info.host.DeletionTimestamp.IsZero() {
 			info.log.Info(fmt.Sprintf("will not attempt to create new hostFirmwareSettings and hostFirmwareComponents in %s", info.host.Namespace))
@@ -891,9 +895,12 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 				info.log.Info("failed creating hostfirmwarecomponents")
 				return actionError{errors.Wrap(err, "failed creating hostFirmwareComponents")}
 			}
+			if err = r.hostUpdatePolicySetOwnerReference(info); err != nil {
+				info.log.Info("failed setting owner reference on hostupdatepolicy")
+				return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
+			}
 		}
 	}
-
 	// Reaching this point means the credentials are valid and worked,
 	// so clear any previous error and record the success in the
 	// status block.
@@ -1850,6 +1857,35 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 			// Error reading the object
 			return errors.Wrap(err, "could not load hostFirmwareSettings resource")
 		}
+	}
+
+	return nil
+}
+
+func (r *BareMetalHostReconciler) hostUpdatePolicySetOwnerReference(info *reconcileInfo) error {
+	// NOTE(janders) the goal here is to ensure that the controller reads the hup resource and adds OwnerReference to it
+	hup := &metal3api.HostUpdatePolicy{}
+	if err := r.Get(info.ctx, info.request.NamespacedName, hup); err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Request object not found, could have been deleted after
+			// reconcile request.  Owned objects are automatically
+			// garbage collected. For additional cleanup logic use
+			// finalizers.  Return and don't requeue
+
+			return nil
+		}
+		// Error reading the object
+		return fmt.Errorf("could not load hostUpdatePolicy resource due to %w", err)
+	}
+	if !ownerReferenceExists(info.host, hup) {
+		if err := controllerutil.SetOwnerReference(info.host, hup, r.Scheme()); err != nil {
+			return fmt.Errorf("could not set bmh as owner for hostUpdatePolicy due to %w", err)
+		}
+		if err := r.Update(info.ctx, hup); err != nil {
+			return fmt.Errorf("failure updating hostUpdatePolicy resource due to %w", err)
+		}
+
+		return nil
 	}
 
 	return nil

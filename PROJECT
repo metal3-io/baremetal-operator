@@ -88,4 +88,12 @@ resources:
   kind: DataImage
   path: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: metal3.io
+  group: metal3.io
+  kind: HostUpdatePolicy
+  path: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
+  version: v1alpha1
 version: "3"

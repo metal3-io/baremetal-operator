@@ -1369,19 +1369,40 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, info *reconcileInfo) (result actionResult, isServicing bool) {
 	servicingData := provisioner.ServicingData{}
 
+	// (NOTE)janders: since Servicing is an opt-in feature that requires HostUpdatePolicy to be created and set to onReboot
+	// set below booleans to false by default and change to true based on policy settings
+
 	var fwDirty bool
-	if !reflect.DeepEqual(info.host.Status.Provisioning.Firmware, info.host.Spec.Firmware) {
-		servicingData.FirmwareConfig = info.host.Spec.Firmware
-		fwDirty = true
+	var hfsDirty bool
+	var liveFirmwareSettingsAllowed bool
+
+	hup := &metal3api.HostUpdatePolicy{}
+	err := r.Get(info.ctx, info.request.NamespacedName, hup)
+	if err != nil {
+		return actionError{fmt.Errorf("unable to fetch HostUpdatePolicy, aborting servicing. Error: %w", err)}, false
 	}
 
-	hfsDirty, hfs, err := r.getHostFirmwareSettings(info)
-	if err != nil {
-		return actionError{fmt.Errorf("could not determine updated settings: %w", err)}, false
+	if hup != nil {
+		liveFirmwareSettingsAllowed = (hup.Spec.FirmwareSettings == metal3api.HostUpdatePolicyOnReboot)
 	}
-	if hfsDirty {
-		servicingData.ActualFirmwareSettings = hfs.Status.Settings
-		servicingData.TargetFirmwareSettings = hfs.Spec.Settings
+
+	if liveFirmwareSettingsAllowed {
+		// handling pre-HFS FirmwareSettings here
+		if !reflect.DeepEqual(info.host.Status.Provisioning.Firmware, info.host.Spec.Firmware) {
+			servicingData.FirmwareConfig = info.host.Spec.Firmware
+			fwDirty = true
+		}
+		// handling HFS based FirmwareSettings here
+		var hfs *metal3api.HostFirmwareSettings
+		var err error
+		hfsDirty, hfs, err = r.getHostFirmwareSettings(info)
+		if err != nil {
+			return actionError{fmt.Errorf("could not determine updated settings: %w", err)}, false
+		}
+		if hfsDirty {
+			servicingData.ActualFirmwareSettings = hfs.Status.Settings
+			servicingData.TargetFirmwareSettings = hfs.Spec.Settings
+		}
 	}
 
 	dirty := fwDirty || hfsDirty

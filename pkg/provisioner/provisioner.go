@@ -108,9 +108,11 @@ type PrepareData struct {
 }
 
 type ServicingData struct {
-	FirmwareConfig         *metal3api.FirmwareConfig
-	TargetFirmwareSettings metal3api.DesiredSettingsMap
-	ActualFirmwareSettings metal3api.SettingsMap
+	FirmwareConfig              *metal3api.FirmwareConfig
+	TargetFirmwareSettings      metal3api.DesiredSettingsMap
+	ActualFirmwareSettings      metal3api.SettingsMap
+	LiveFirmwareUpdateAllowed   bool
+	LiveFirmwareSettingsAllowed bool
 	// TargetFirmwareComponents []metal3api.FirmwareUpdate
 }
 

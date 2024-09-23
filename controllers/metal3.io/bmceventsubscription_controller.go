@@ -103,7 +103,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 	if err != nil || !ready {
 		var msg string
 		if err == nil {
-			msg = "Not ready"
+			msg = NotReady
 		} else {
 			msg = err.Error()
 		}
@@ -225,7 +225,7 @@ func (r *BMCEventSubscriptionReconciler) getProvisioner(ctx context.Context, req
 	if err != nil || !ready {
 		var msg string
 		if err == nil {
-			msg = "Not ready"
+			msg = NotReady
 		} else {
 			msg = err.Error()
 		}

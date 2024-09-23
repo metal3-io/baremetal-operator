@@ -55,6 +55,7 @@ const (
 	subResourceNotReadyRetryDelay = time.Second * 60
 	clarifySoftPoweroffFailure    = "Continuing with hard poweroff after soft poweroff fails. More details: "
 	hardwareDataFinalizer         = metal3api.BareMetalHostFinalizer + "/hardwareData"
+	NotReady                      = "Not ready"
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object.
@@ -215,7 +216,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	if err != nil || !ready {
 		var msg string
 		if err == nil {
-			msg = "Not ready"
+			msg = NotReady
 		} else {
 			msg = err.Error()
 		}
@@ -235,7 +236,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	// Only save status when we're told to, otherwise we
 	// introduce an infinite loop reconciling the same object over and
-	// over when there is an unrecoverable error (tracked through the
+	// over when there is an unrecoveràble error (tracked through the
 	// error state of the host).
 	if actResult.Dirty() {
 		// Save Host

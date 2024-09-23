@@ -236,7 +236,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	// Only save status when we're told to, otherwise we
 	// introduce an infinite loop reconciling the same object over and
-	// over when there is an unrecoveràble error (tracked through the
+	// over when there is an unrecoverable error (tracked through the
 	// error state of the host).
 	if actResult.Dirty() {
 		// Save Host

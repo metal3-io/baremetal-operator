@@ -889,7 +889,6 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	// Create the hostFirmwareComponents resource with same host name/namespace if it doesn't exist
-	// Set owner reference on hostUpdatePolicy resource if not set
 	if info.host.Name != "" {
 		if !info.host.DeletionTimestamp.IsZero() {
 			info.log.Info(fmt.Sprintf("will not attempt to create new hostFirmwareSettings and hostFirmwareComponents in %s", info.host.Namespace))
@@ -901,10 +900,6 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			if err = r.createHostFirmwareComponents(info); err != nil {
 				info.log.Info("failed creating hostfirmwarecomponents")
 				return actionError{errors.Wrap(err, "failed creating hostFirmwareComponents")}
-			}
-			if err = r.hostUpdatePolicySetOwnerReference(info); err != nil {
-				info.log.Info("failed setting owner reference on hostupdatepolicy")
-				return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
 			}
 		}
 	}
@@ -1362,7 +1357,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	return actionComplete{}
 }
 
-func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, info *reconcileInfo) (result actionResult, isServicing bool) {
+func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) (result actionResult, isServicing bool) {
 	servicingData := provisioner.ServicingData{}
 
 	// (NOTE)janders: since Servicing is an opt-in feature that requires HostUpdatePolicy to be created and set to onReboot
@@ -1371,12 +1366,6 @@ func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, i
 	var fwDirty bool
 	var hfsDirty bool
 	var liveFirmwareSettingsAllowed bool
-
-	hup := &metal3api.HostUpdatePolicy{}
-	err := r.Get(info.ctx, info.request.NamespacedName, hup)
-	if err != nil {
-		return actionError{fmt.Errorf("unable to fetch HostUpdatePolicy, aborting servicing. Error: %w", err)}, false
-	}
 
 	if hup != nil {
 		liveFirmwareSettingsAllowed = (hup.Spec.FirmwareSettings == metal3api.HostUpdatePolicyOnReboot)
@@ -1456,11 +1445,9 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	if hwState.PoweredOn != nil && *hwState.PoweredOn != info.host.Status.PoweredOn {
 		info.log.Info("updating power status", "discovered", *hwState.PoweredOn)
 		info.host.Status.PoweredOn = *hwState.PoweredOn
-		targetOperationalStatus := metal3api.OperationalStatusOK
-		if info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing {
-			targetOperationalStatus = metal3api.OperationalStatusServicing
+		if info.host.Status.OperationalStatus == metal3api.OperationalStatusError || info.host.Status.ErrorType == metal3api.PowerManagementError {
+			clearError(info.host)
 		}
-		clearErrorWithStatus(info.host, targetOperationalStatus)
 		return actionUpdate{}
 	}
 
@@ -1481,11 +1468,16 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 			return actionContinue{}
 		}
 	}
+	hup, err := r.hostUpdatePolicySetOwnerReference(info)
+	if err != nil {
+		info.log.Info("failed setting owner reference on hostupdatepolicy")
+		return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
+	}
 
 	servicingAllowed := isProvisioned && !info.host.Status.PoweredOn && desiredPowerOnState
 	if servicingAllowed || info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError {
-		result, isServicing := r.checkServicing(prov, info)
-		if result != nil && (result.Dirty() || isServicing) {
+		result, _ := r.doServiceIfNeeded(prov, info, hup)
+		if result != nil {
 			return result
 		}
 	}
@@ -1962,7 +1954,7 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 	return nil
 }
 
-func (r *BareMetalHostReconciler) hostUpdatePolicySetOwnerReference(info *reconcileInfo) error {
+func (r *BareMetalHostReconciler) hostUpdatePolicySetOwnerReference(info *reconcileInfo) (policy *metal3api.HostUpdatePolicy, err error) {
 	// NOTE(janders) the goal here is to ensure that the controller reads the hup resource and adds OwnerReference to it
 	hup := &metal3api.HostUpdatePolicy{}
 	if err := r.Get(info.ctx, info.request.NamespacedName, hup); err != nil {
@@ -1972,23 +1964,23 @@ func (r *BareMetalHostReconciler) hostUpdatePolicySetOwnerReference(info *reconc
 			// garbage collected. For additional cleanup logic use
 			// finalizers.  Return and don't requeue
 
-			return nil
+			return nil, nil
 		}
 		// Error reading the object
-		return fmt.Errorf("could not load hostUpdatePolicy resource due to %w", err)
+		return nil, fmt.Errorf("could not load hostUpdatePolicy resource due to %w", err)
 	}
 	if !ownerReferenceExists(info.host, hup) {
 		if err := controllerutil.SetOwnerReference(info.host, hup, r.Scheme()); err != nil {
-			return fmt.Errorf("could not set bmh as owner for hostUpdatePolicy due to %w", err)
+			return hup, fmt.Errorf("could not set bmh as owner for hostUpdatePolicy due to %w", err)
 		}
 		if err := r.Update(info.ctx, hup); err != nil {
-			return fmt.Errorf("failure updating hostUpdatePolicy resource due to %w", err)
+			return hup, fmt.Errorf("failure updating hostUpdatePolicy resource due to %w", err)
 		}
 
-		return nil
+		return hup, nil
 	}
 
-	return nil
+	return hup, nil
 }
 
 // Get the stored firmware settings if there are valid changes.

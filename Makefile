@@ -24,7 +24,6 @@ CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
 GINKGO = tools/bin/ginkgo
-GINKGO_VER = v2.17.1
 DEPLOY_CLI = tools/bin/deploy-cli
 
 # See pkg/version.go for details
@@ -288,8 +287,8 @@ tools:
 	go build -o bin/make-bm-worker cmd/make-bm-worker/main.go
 	go build -o bin/make-virt-host cmd/make-virt-host/main.go
 
-$(GINKGO): ## Install ginkgo in tools/bin
-	GOBIN=$(abspath tools/bin) go install github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VER)
+$(GINKGO): ## Install ginkgo in tools/bin. Take ginkgo version from `test/go.mod`.
+	cd test; GOBIN=$(abspath tools/bin) go install github.com/onsi/ginkgo/v2/ginkgo
 
 ## --------------------------------------
 ## Tilt / Kind

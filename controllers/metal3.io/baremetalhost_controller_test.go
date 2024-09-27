@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -1668,6 +1669,8 @@ func TestProvisionerIsReady(t *testing.T) {
 }
 
 func TestUpdateEventHandler(t *testing.T) {
+	now := metav1.Now()
+	later := metav1.Now().Add(time.Second * 20)
 	cases := []struct {
 		name            string
 		event           event.UpdateEvent
@@ -1769,6 +1772,30 @@ func TestUpdateEventHandler(t *testing.T) {
 			},
 
 			expectedProcess: true,
+		},
+		{
+			name: "do-not-requeue-when-only-status-lastupdated-are-different",
+			event: event.UpdateEvent{
+				ObjectOld: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+					Generation:  0,
+					Finalizers:  []string{},
+					Annotations: map[string]string{},
+				},
+					Status: metal3api.BareMetalHostStatus{
+						LastUpdated: &metav1.Time{Time: now.Time},
+					},
+				},
+				ObjectNew: &metal3api.BareMetalHost{ObjectMeta: metav1.ObjectMeta{
+					Generation:  0,
+					Finalizers:  []string{},
+					Annotations: map[string]string{},
+				},
+					Status: metal3api.BareMetalHostStatus{
+						LastUpdated: &metav1.Time{Time: later},
+					}},
+			},
+
+			expectedProcess: false,
 		},
 	}
 

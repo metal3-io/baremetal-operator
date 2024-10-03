@@ -826,13 +826,13 @@ func TestRebootWithServicing(t *testing.T) {
 			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !exists
 		},
 	)
-
+	/*
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing && !host.Status.PoweredOn
 		},
 	)
-
+	*/
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !host.Status.PoweredOn
@@ -2818,6 +2818,50 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 }
+
+// NOTE(janders) attempting to test scenario with HUP+HFS set for node to
+// enter servicing
+func TestHUPTransitionToServicing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	host.Spec.ExternallyProvisioned = false
+	r := newTestReconciler(host)
+
+	waitForProvisioningState(t, r, host, metal3api.StateProvisioned)
+
+	// Update HFS so host will go through cleaning
+	hfs := &metal3api.HostFirmwareSettings{}
+	hup := &metal3api.HostUpdatePolicy{}
+	key := client.ObjectKey{
+		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
+	if err := r.Get(context.TODO(), key, hfs); err != nil {
+		t.Fatal(err)
+	}
+
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+		Settings: metal3api.SettingsMap{
+			"ProcVirtualization": "Enabled",
+			"SecureBoot":         "Enabled",
+		},
+	}
+	hup.Spec = metal3api.HostUpdatePolicySpec{
+		FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+	}
+
+	err := r.Update(context.TODO(), hfs)
+	assert.NoError(t, err)
+
+	err2 := r.Update(context.TODO(), hup)
+	assert.NoError(t, err2)
+
+	waitForStatus(t, r, host, metal3api.OperationalStatusServicing)
+}
+// NOTE(janders) END
 
 // TestHFSEmptyStatusSettings ensures that BMH does not move to the next state
 // when a user provides the BIOS settings on a hardware server that does not

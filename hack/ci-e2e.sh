@@ -70,7 +70,9 @@ virsh -c qemu:///system attach-interface --domain minikube --mac="52:54:00:6c:3c
 
 # Restart minikube to apply the changes
 minikube stop
-minikube start
+## Following loop is to avoid minikube restart issue
+## https://github.com/kubernetes/minikube/issues/14456
+while ! minikube start; do sleep 30; done
 
 # Load the BMO e2e image into it
 # minikube image load quay.io/metal3-io/baremetal-operator:e2e

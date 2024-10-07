@@ -31,7 +31,7 @@ func installCertManager(ctx context.Context, clusterProxy framework.ClusterProxy
 	if err != nil {
 		return errors.Wrapf(err, "Error reading downloaded cert-manager manifest")
 	}
-	err = clusterProxy.Apply(ctx, manifests)
+	err = clusterProxy.CreateOrUpdate(ctx, manifests)
 	if err != nil {
 		return errors.Wrapf(err, "Error installing cert-manager from downloaded manifest")
 	}

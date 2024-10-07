@@ -1,6 +1,7 @@
 module github.com/metal3-io/baremetal-operator/test
 
 go 1.22.4
+toolchain go1.22.8
 
 require (
 	github.com/cert-manager/cert-manager v1.10.0
@@ -22,7 +23,7 @@ require (
 	sigs.k8s.io/cluster-api/test v1.8.3
 	sigs.k8s.io/controller-runtime v0.18.5
 	sigs.k8s.io/kustomize/api v0.17.3
-	sigs.k8s.io/kustomize/kyaml v0.17.2
+	sigs.k8s.io/kustomize/kyaml v0.18.0
 )
 
 require (
@@ -122,7 +123,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.22.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
-	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.20.0 // indirect

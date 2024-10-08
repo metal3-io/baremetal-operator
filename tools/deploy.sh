@@ -110,7 +110,8 @@ mkdir -p "${TEMP_BMO_OVERLAY}"
 mkdir -p "${TEMP_IRONIC_OVERLAY}"
 
 KUSTOMIZE="${SCRIPTDIR}/tools/bin/kustomize"
-make -C "$(dirname "$0")/.." "${KUSTOMIZE}"
+KUSTOMIZE_BUILD="tools/bin/kustomize"
+make -C "$(dirname "$0")/.." "${KUSTOMIZE_BUILD}"
 
 #
 # Generate credentials as needed

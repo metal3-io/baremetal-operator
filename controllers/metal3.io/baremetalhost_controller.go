@@ -1359,7 +1359,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 
 func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) (result actionResult, isServicing bool) {
 	servicingData := provisioner.ServicingData{}
-
+	// start janders mods
 	var fwDirty bool
 	var hfsDirty bool
 
@@ -1369,7 +1369,12 @@ func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, i
 	servicingData.LiveFirmwareUpdateAllowed = false
 	servicingData.LiveFirmwareSettingsAllowed = false
 
+	info.log.Info(fmt.Sprintf("janders-debug: in checkServicing(). Defaults: LiveFirmwareUpdateAllowed: %+v LiveFirmwareSettingsAllowed:  %+v. (end of message)", servicingData.LiveFirmwareUpdateAllowed, servicingData.LiveFirmwareSettingsAllowed))
+	if hup == nil {
+		info.log.Info(fmt.Sprintf("janders-debug: in checkServicing(). HostUpdatePolicy is nil"))
+	}
 	if hup != nil {
+		info.log.Info(fmt.Sprintf("janders-debug: in checkServicing(). HostUpdatePolicy value:  %+v", hup))
 		if hup.Spec.FirmwareSettings == metal3api.HostUpdatePolicyOnReboot {
 			servicingData.LiveFirmwareSettingsAllowed = true
 		}
@@ -1388,6 +1393,7 @@ func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, i
 	if servicingData.LiveFirmwareSettingsAllowed {
 		hfsDirty, hfs, err := r.getHostFirmwareSettings(info)
 		if err != nil {
+			info.log.Info(fmt.Sprintf("janders-debug: r.getHostFirmwareSettings failed: %q", err))
 			return actionError{fmt.Errorf("could not determine updated settings: %w", err)}, false
 		}
 		if hfsDirty {
@@ -1401,16 +1407,19 @@ func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, i
 	// Even if settings are clean, we need to check the result of the current servicing.
 	if !dirty && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
 		// If nothing is going on, return control to the power management.
+		info.log.Info("janders-debug: nothing happening, return control to the power management (return nil, false)")
 		return nil, false
 	}
 
 	provResult, started, err := prov.Service(servicingData, dirty,
 		info.host.Status.ErrorType == metal3api.ServicingError)
 	if err != nil {
+		info.log.Info(fmt.Sprintf("janders-debug: error getting provResult: %q, false", err))
 		return actionError{fmt.Errorf("error servicing host: %w", err)}, false
 	}
 	if provResult.ErrorMessage != "" {
 		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
+		info.log.Info(fmt.Sprintf("janders-debug: error getting provResult: %+v, false", result))
 		return result, true
 	}
 	if started && clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing) {
@@ -1423,8 +1432,10 @@ func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, i
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
 		if dirty {
+			info.log.Info("janders-debug: provResult is dirty. Result: %+v, actionUpdate: %+v, true", result, actionUpdate{result})
 			return actionUpdate{result}, true
 		}
+		info.log.Info(fmt.Sprintf("janders-debug: dirty is false. Result: %+v, true", result))
 		return result, true
 	}
 
@@ -1433,9 +1444,13 @@ func (r *BareMetalHostReconciler) checkServicing(prov provisioner.Provisioner, i
 		// We need to give the HostFirmwareSettings controller some time to
 		// catch up with the changes, otherwise we risk starting the same
 		// operation again.
-		return actionUpdate{actionContinue{delay: subResourceNotReadyRetryDelay}}, true
+		result = actionUpdate{actionContinue{delay: subResourceNotReadyRetryDelay}}
+		info.log.Info(fmt.Sprintf("janders-debug: returning actionUpdate with subResourceNotReadyRetryDelay: %+v, true", result))
+		return result, true
 	}
+	info.log.Info("janders-debug: reached last line of checkServicing(), returning nil, false")
 	return nil, false
+	// end janders mods
 }
 
 // Check the current power status against the desired power status.
@@ -1486,8 +1501,10 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	if servicingAllowed || info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError {
 		result, isServicing := r.checkServicing(prov, info, hup)
 		if result != nil && (result.Dirty() || isServicing) {
+			info.log.Info(fmt.Sprintf("janders-debug: in manageHostPower, called checkServicing. Returning result = %+v. Also isServicing = %+v", result, isServicing))
 			return result
 		}
+		info.log.Info(fmt.Sprintf("janders-debug: in manageHostPower, called checkServicing. Not returning yet. Result = %+v. Also isServicing = %+v", result, isServicing))
 	}
 
 	desiredReboot, desiredRebootMode := hasRebootAnnotation(info, !isProvisioned)

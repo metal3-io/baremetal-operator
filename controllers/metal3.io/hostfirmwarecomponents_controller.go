@@ -138,6 +138,9 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
+	// NOTE(janders) this is where we likely need to log the HFC to compare mockups between HUP and HFC in test
+	info.log.Info(fmt.Sprintf("janders-hfc-debug: in HFC Reconcile(). HostFirmwareComponents value:  %+v", hfc))
+	// NOTE(janders) END
 
 	ready, err := prov.TryInit()
 	if err != nil || !ready {

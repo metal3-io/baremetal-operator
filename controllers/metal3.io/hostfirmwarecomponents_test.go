@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"testing"
+	"fmt"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -508,6 +509,7 @@ func TestValidadeHostFirmwareComponents(t *testing.T) {
 				log: logf.Log.WithName("controllers").WithName("HostFirmwareComponents"),
 				hfc: hfc,
 			}
+			fmt.Printf("janders-hfc-debug: HostFirmwareComponents object: %+v", hfc)
 			errors := r.validateHostFirmwareComponents(&info)
 			if len(errors) == 0 {
 				assert.Equal(t, tc.ExpectedErrors[0], "")
@@ -518,4 +520,5 @@ func TestValidadeHostFirmwareComponents(t *testing.T) {
 			}
 		})
 	}
+	//t.Fail()
 }

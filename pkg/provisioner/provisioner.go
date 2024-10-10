@@ -107,6 +107,15 @@ type PrepareData struct {
 	TargetFirmwareComponents []metal3api.FirmwareUpdate
 }
 
+type ServicingData struct {
+	FirmwareConfig              *metal3api.FirmwareConfig
+	TargetFirmwareSettings      metal3api.DesiredSettingsMap
+	ActualFirmwareSettings      metal3api.SettingsMap
+	LiveFirmwareUpdateAllowed   bool
+	LiveFirmwareSettingsAllowed bool
+	// TargetFirmwareComponents []metal3api.FirmwareUpdate
+}
+
 type ProvisionData struct {
 	Image           metal3api.Image
 	HostConfig      HostConfigData
@@ -153,6 +162,9 @@ type Provisioner interface {
 
 	// Prepare remove existing configuration and set new configuration
 	Prepare(data PrepareData, unprepared bool, restartOnFailure bool) (result Result, started bool, err error)
+
+	// Servicing updates configuration for a provisioned host.
+	Service(data ServicingData, unprepared, restartOnFailure bool) (result Result, started bool, err error)
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its

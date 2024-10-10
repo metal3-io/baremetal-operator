@@ -22,12 +22,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -781,6 +783,63 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	delete(host.Annotations, annotation)
 	err := r.Update(context.TODO(), host)
 	assert.NoError(t, err)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+
+	// make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+}
+
+// TestRebootWithServicing tests full reboot cycle with suffixless
+// annotation and servicing.
+func TestRebootWithServicing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[metal3api.RebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Spec.Firmware = &metal3api.FirmwareConfig{
+		VirtualizationEnabled: ptr.To(true),
+	}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, exists := host.Annotations[metal3api.RebootAnnotationPrefix]
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !exists
+		},
+	)
+	/*
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing && !host.Status.PoweredOn
+		},
+	)
+	*/
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !host.Status.PoweredOn
+		},
+	)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -2788,6 +2847,158 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 }
 
+// NOTE(janders) attempting to test scenario with HUP+HFS set for node to
+// enter servicing
+
+// NOTE(janders) lets break out actual HUP creation to a helper method
+// coarsly following https://github.com/metal3-io/baremetal-operator/
+// blob/main/controllers/metal3.io/hostfirmwarecomponents_test.go#L111
+// func getHUP(spec metal3api.HostUpdatePolicySpec) *metal3api.HostUpdatePolicy {
+
+func getHUP() *metal3api.HostUpdatePolicy {
+	// Create the HUP
+	hup := &metal3api.HostUpdatePolicy{}
+
+	hup.Spec = metal3api.HostUpdatePolicySpec{
+			FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+			FirmwareUpdates: metal3api.HostUpdatePolicyOnPreparing,
+	}
+
+	hup.TypeMeta = metav1.TypeMeta{
+        Kind:           "HostUpdatePolicy",
+        APIVersion:     "metal3.io/v1alpha1"}
+
+	hup.ObjectMeta = metav1.ObjectMeta{
+        Name:           hostName,
+        Namespace:      hostNamespace}
+
+	return hup
+}
+// end helper method
+
+// NOTE(janders) attempting to test scenario with HUP+HFS set for node to
+// enter servicing
+func TestHUPTransitionToServicing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[metal3api.RebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Spec.Firmware = &metal3api.FirmwareConfig{
+		VirtualizationEnabled: ptr.To(true),
+	}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	waitForProvisioningState(t, r, host, metal3api.StateProvisioned)
+
+	// Create the HUP
+	hup := &metal3api.HostUpdatePolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.ObjectMeta.Name,
+			Namespace: host.ObjectMeta.Namespace,
+		},
+	}
+	err := r.Create(context.TODO(), hup)
+	require.NoError(t, err)
+	fmt.Printf("janders-hup-debug: HostUpdatePolicy object (no helper used): %+v", hup)
+	hup.Spec.FirmwareSettings = metal3api.HostUpdatePolicyOnReboot
+	errUpdateHUP := r.Update(context.TODO(), hup)
+	assert.NoError(t, errUpdateHUP)
+
+	// Create a HFS
+	hfs := &metal3api.HostFirmwareSettings{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.ObjectMeta.Name,
+			Namespace: host.ObjectMeta.Namespace,
+		},
+	}
+	err2 := r.Create(context.TODO(), hfs)
+	require.NoError(t, err2)
+
+	key := client.ObjectKey{
+		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
+	if err := r.Get(context.TODO(), key, hfs); err != nil {
+		t.Fatal(err)
+	}
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+		Settings: metal3api.SettingsMap{
+			"ProcVirtualization": "Enabled",
+			"SecureBoot":         "Enabled",
+		},
+	}
+
+	errUpdateHFS := r.Update(context.TODO(), hfs)
+	assert.NoError(t, errUpdateHFS)
+
+	waitForStatus(t, r, host, metal3api.OperationalStatusServicing)
+}
+
+// Use a helper to get a HUP
+func TestHUPTransitionToServicingUsingHelper(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[metal3api.RebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.ConsumerRef = &corev1.ObjectReference{}
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Spec.Firmware = &metal3api.FirmwareConfig{
+		VirtualizationEnabled: ptr.To(true),
+	}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	r := newTestReconciler(host)
+
+	waitForProvisioningState(t, r, host, metal3api.StateProvisioned)
+	hup := getHUP()
+	err := r.Create(context.TODO(), hup)
+	require.NoError(t, err)
+	fmt.Printf("janders-hup-debug: HostUpdatePolicy object (using helper): %+v", hup)
+
+	// Create a HFS
+	hfs := &metal3api.HostFirmwareSettings{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.ObjectMeta.Name,
+			Namespace: host.ObjectMeta.Namespace,
+		},
+	}
+	err2 := r.Create(context.TODO(), hfs)
+	require.NoError(t, err2)
+
+	key := client.ObjectKey{
+		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
+	if err := r.Get(context.TODO(), key, hfs); err != nil {
+		t.Fatal(err)
+	}
+	hfs.Status = metal3api.HostFirmwareSettingsStatus{
+		Conditions: []metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+		Settings: metal3api.SettingsMap{
+			"ProcVirtualization": "Enabled",
+			"SecureBoot":         "Enabled",
+		},
+	}
+
+	errUpdateHFS := r.Update(context.TODO(), hfs)
+	assert.NoError(t, errUpdateHFS)
+
+	waitForStatus(t, r, host, metal3api.OperationalStatusServicing)
+}
+
 // TestHFSEmptyStatusSettings ensures that BMH does not move to the next state
 // when a user provides the BIOS settings on a hardware server that does not
 // have the required license to configure BIOS.
@@ -2814,16 +3025,13 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 			{Type: "Valid", Status: "True", Reason: "Success"},
 		},
 	}
-
 	err := r.Update(context.TODO(), hfs)
 	assert.NoError(t, err)
-
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			return host.Status.Provisioning.State == metal3api.StatePreparing
 		},
 	)
-
 	// Clear the change, it will no longer be blocked
 	hfs.Status = metal3api.HostFirmwareSettingsStatus{
 		Conditions: []metav1.Condition{

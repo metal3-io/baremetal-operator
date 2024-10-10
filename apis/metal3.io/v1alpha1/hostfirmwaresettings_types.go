@@ -48,7 +48,7 @@ type HostFirmwareSettingsSpec struct {
 
 	// Settings are the desired firmware settings stored as name/value pairs.
 	// +patchStrategy=merge
-	Settings DesiredSettingsMap `json:"settings" required:"true"`
+	Settings DesiredSettingsMap `json:"settings" patchStrategy:"merge" required:"true"`
 }
 
 // HostFirmwareSettingsStatus defines the observed state of HostFirmwareSettings.

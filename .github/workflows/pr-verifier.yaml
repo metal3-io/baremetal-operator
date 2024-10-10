@@ -1,22 +1,12 @@
 name: PR Verifier
 
+permissions: {}
+
 on:
   pull_request_target:
     types: [opened, edited, reopened, synchronize]
 
-permissions: {}
-
 jobs:
   verify:
     name: verify PR contents
-    runs-on: ubuntu-latest
-
-    permissions:
-      checks: write
-
-    steps:
-    - name: Verifier action
-      id: verifier
-      uses: kubernetes-sigs/kubebuilder-release-tools@012269a88fa4c034a0acf1ba84c26b195c0dbab4 # v0.4.3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+    uses: metal3-io/project-infra/.github/workflows/pr-verifier.yaml@main

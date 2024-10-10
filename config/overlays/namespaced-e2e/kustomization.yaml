@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../e2e
+
+# The subjects and roleRef needs to be update here otherwise we lose name-prefix
+# This is of course not ideal if the name-prefix changes
+patchesStrategicMerge:
+  - namespaced-manager-patch.yaml
+  - |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: baremetal-operator-manager-rolebinding
+    roleRef:
+      kind: Role
+      name: baremetal-operator-manager-role
+    subjects:
+    - kind: ServiceAccount
+      name: baremetal-operator-controller-manager
+      namespace: baremetal-operator-system
+
+patches:
+- patch: |
+    # Add a namespace to watch
+    - op: replace
+      path: /kind
+      value: RoleBinding
+
+  target:
+    group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: baremetal-operator-manager-rolebinding
+
+- patch: |
+    # Add a namespace to watch
+    - op: replace
+      path: /kind
+      value: Role
+  target:
+    group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: baremetal-operator-manager-role
+
+transformers:
+- roles-ns-annotator.yaml

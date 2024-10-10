@@ -15,5 +15,6 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the metal3.io v1alpha1 API group
 // +kubebuilder:object:generate=true
+// +k8s:openapi-gen=true
 // +groupName=metal3.io
 package v1alpha1

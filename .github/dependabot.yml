@@ -29,6 +29,8 @@ updates:
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
+    capi:
+      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
   ignore:
   # Ignore controller-runtime major and minor bumps as its upgraded manually.
   - dependency-name: "sigs.k8s.io/controller-runtime"
@@ -73,6 +75,8 @@ updates:
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
+    capi:
+      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
   ignore:
   # golang.org/x/* only releases minors no patches, so minors have to be allowed
   - dependency-name: "golang.org/x/*"
@@ -114,6 +118,8 @@ updates:
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
+    capi:
+      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
   ignore:
   # golang.org/x/* only releases minors no patches, so minors have to be allowed
   - dependency-name: "golang.org/x/*"

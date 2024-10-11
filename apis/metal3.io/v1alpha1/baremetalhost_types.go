@@ -233,7 +233,7 @@ const (
 	StateInspecting ProvisioningState = "inspecting"
 
 	// StatePoweringOffBeforeDelete means we are in the process of
-	// powering off the node before it's deleted.
+	// powering off the host before it's deleted.
 	StatePoweringOffBeforeDelete ProvisioningState = "powering off before delete"
 
 	// StateDeleting means we are in the process of cleaning up the host
@@ -328,7 +328,7 @@ type RAIDConfig struct {
 	// If there is only one Software RAID device, it has to be a RAID-1.
 	// If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0.
 	// As the first RAID device will be the deployment device,
-	// enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+	// enforcing a RAID-1 reduces the risk of ending up with a non-booting host in case of a disk failure.
 	// Software RAID will always be deleted.
 	// +kubebuilder:validation:MaxItems=2
 	// +optional
@@ -405,8 +405,9 @@ type BareMetalHostSpec struct {
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	BootMACAddress string `json:"bootMACAddress,omitempty"`
 
-	// Should the host be powered on? Changing this value will trigger
-	// a change in power state of the host.
+	// Should the host be powered on? If the host is currently in a stable
+	// state (e.g. provisioned), its power state will be forced to match
+	// this value.
 	Online bool `json:"online"`
 
 	// ConsumerRef can be used to store information about something
@@ -437,9 +438,8 @@ type BareMetalHostSpec struct {
 	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
 
 	// MetaData holds the reference to the Secret containing host metadata
-	// which is passed to the Config Drive. By default, the operater will
-	// generate metadata for the host, so most users do not need to set
-	// this field.
+	// which is passed to the Config Drive. By default, metadata will be
+	// generated for the host, so most users do not need to set this field.
 	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
 
 	// Description is a human-entered text used to help identify the host.
@@ -461,7 +461,7 @@ type BareMetalHostSpec struct {
 
 	// A custom deploy procedure. This is an advanced feature that allows
 	// using a custom deploy step provided by a site-specific deployment
-	// ramdisk. Most users will want to use "image" instead. Settings this
+	// ramdisk. Most users will want to use "image" instead. Setting this
 	// field triggers provisioning.
 	// +optional
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
@@ -727,9 +727,9 @@ type CredentialsStatus struct {
 type RebootMode string
 
 const (
-	// RebootModeHard defined for hard reset of a node.
+	// RebootModeHard defined for hard reset of a host.
 	RebootModeHard RebootMode = "hard"
-	// RebootModeSoft defined for soft reset of a node.
+	// RebootModeSoft defined for soft reset of a host.
 	RebootModeSoft RebootMode = "soft"
 )
 
@@ -833,7 +833,7 @@ type BareMetalHostStatus struct {
 	// The last error message reported by the provisioning subsystem.
 	ErrorMessage string `json:"errorMessage"`
 
-	// Whether or not the host is currently powered on. This field may get
+	// The currently detected power state of the host. This field may get
 	// briefly out of sync with the actual state of the hardware while
 	// provisioning processes are running.
 	PoweredOn bool `json:"poweredOn"`
@@ -860,10 +860,10 @@ type ProvisionStatus struct {
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
 
-	// The root device hints set by the user.
+	// The root device hints used to provision the host.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// BootMode indicates the boot mode used to provision the node
+	// BootMode indicates the boot mode used to provision the host.
 	BootMode BootMode `json:"bootMode,omitempty"`
 
 	// The RAID configuration that has been applied.

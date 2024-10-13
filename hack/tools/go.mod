@@ -1,6 +1,7 @@
 module github.com/metal3-io/baremetal-operator/tooling
 
 go 1.22
+toolchain go1.22.8
 
 require (
 	golang.org/x/crypto v0.26.0
@@ -8,7 +9,7 @@ require (
 	sigs.k8s.io/controller-tools v0.12.1
 	sigs.k8s.io/kustomize/api v0.17.3
 	sigs.k8s.io/kustomize/kustomize/v5 v5.4.3
-	sigs.k8s.io/kustomize/kyaml v0.17.2
+	sigs.k8s.io/kustomize/kyaml v0.18.1
 )
 
 require (
@@ -40,7 +41,6 @@ require (
 	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
-	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect

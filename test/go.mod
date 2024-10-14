@@ -1,6 +1,7 @@
 module github.com/metal3-io/baremetal-operator/test
 
-go 1.22.4
+go 1.22.7
+
 toolchain go1.22.8
 
 require (

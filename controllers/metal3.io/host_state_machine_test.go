@@ -1350,6 +1350,10 @@ func (m *mockProvisioner) Prepare(_ provisioner.PrepareData, _ bool, _ bool) (re
 	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 
+func (m *mockProvisioner) Service(_ provisioner.ServicingData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
+	return m.getNextResultByMethod("Service"), m.nextResults["Service"].Dirty, err
+}
+
 func (m *mockProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Adopt"), err
 }

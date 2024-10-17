@@ -32,6 +32,11 @@ variables:
   SSH_USERNAME: "root"
   SSH_PRIV_KEY: "./images/ssh_testkey"
   SSH_PUB_KEY: "./images/ssh_testkey.pub"
+  FETCH_IRONIC_NODES: "true"
+  IRONIC_USERNAME: "changeme"
+  IRONIC_PASSWORD: "changeme"
+  IRONIC_PROVISIONING_IP: "localhost"
+  IRONIC_PROVISIONING_PORT: "6385"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]

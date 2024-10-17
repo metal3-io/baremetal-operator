@@ -102,7 +102,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	os.Setenv("KUBECONFIG", clusterProxy.GetKubeconfigPath())
 
-	if e2eConfig.GetVariable("DEPLOY_CERT_MANAGER") != "false" {
+	if e2eConfig.GetBoolVariable("DEPLOY_CERT_MANAGER") {
 		// Install cert-manager
 		By("Installing cert-manager")
 		err := checkCertManagerAPI(clusterProxy)
@@ -122,7 +122,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	bmoIronicNamespace := "baremetal-operator-system"
 
-	if e2eConfig.GetVariable("DEPLOY_IRONIC") != "false" {
+	if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
 		// Install Ironic
 		By("Installing Ironic")
 		err := FlakeAttempt(2, func() error {
@@ -140,7 +140,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	if e2eConfig.GetVariable("DEPLOY_BMO") != "false" {
+	if e2eConfig.GetBoolVariable("DEPLOY_BMO") {
 		// Install BMO
 		By("Installing BMO")
 		err := FlakeAttempt(2, func() error {

@@ -84,6 +84,10 @@ rm /tmp/bmo-e2e.tar
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 
+# This IP is also defined by the network above, and is used consistently in all of
+# our e2e overlays
+export IRONIC_PROVISIONING_IP="192.168.222.199"
+
 pushd "${REPO_ROOT}/test/createVM" || exit 1
 go run main.go --yaml-source-file "${E2E_BMCS_CONF_FILE}"
 popd

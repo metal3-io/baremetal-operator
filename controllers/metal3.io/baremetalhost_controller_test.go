@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -781,6 +782,122 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	delete(host.Annotations, annotation)
 	err := r.Update(context.TODO(), host)
 	assert.NoError(t, err)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+
+	// make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+}
+
+// TestRebootWithServicing tests full reboot cycle with suffixless
+// annotation and servicing.
+func TestRebootWithServicing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[metal3api.RebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Spec.Firmware = &metal3api.FirmwareConfig{
+		VirtualizationEnabled: ptr.To(true),
+	}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	// HUP creation
+	hup := &metal3api.HostUpdatePolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: namespace,
+		},
+		Spec: metal3api.HostUpdatePolicySpec{
+			FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+			FirmwareUpdates:  metal3api.HostUpdatePolicyOnReboot,
+		},
+	}
+
+	r := newTestReconciler(host, hup)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, exists := host.Annotations[metal3api.RebootAnnotationPrefix]
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !exists
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing && !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+
+	// make sure we don't go into another reboot
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+}
+
+// TestRebootWithoutServicing ensures Servicing is not triggered if HostUpdatePolicy doesn't exist.
+func TestRebootWithoutServicing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = make(map[string]string)
+	host.Annotations[metal3api.RebootAnnotationPrefix] = ""
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
+	host.Spec.Firmware = &metal3api.FirmwareConfig{
+		VirtualizationEnabled: ptr.To(true),
+	}
+
+	r := newTestReconciler(host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			if _, exists := host.Annotations[metal3api.RebootAnnotationPrefix]; exists {
+				return false
+			}
+
+			return true
+		},
+	)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {

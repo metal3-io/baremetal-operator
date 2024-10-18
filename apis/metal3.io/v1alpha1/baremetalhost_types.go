@@ -147,6 +147,10 @@ const (
 	// OperationalStatusDetached is the status value when the host is
 	// marked unmanaged via the detached annotation.
 	OperationalStatusDetached OperationalStatus = "detached"
+
+	// OperationalStatusServicing is the status value when the host is
+	// undergoing servicing (e.g. checking firmware settings).
+	OperationalStatusServicing OperationalStatus = "servicing"
 )
 
 // OperationalStatusAllowed represents the allowed values of OperationalStatus.
@@ -179,6 +183,9 @@ const (
 	// DetachError is an error condition occurring when the
 	// controller is unable to detatch the host from the provisioner.
 	DetachError ErrorType = "detach error"
+	// ServicingError is an error condition occurring when
+	// service steps failed.
+	ServicingError ErrorType = "servicing error"
 )
 
 // ErrorTypeAllowed represents the allowed values of ErrorType.
@@ -800,12 +807,12 @@ type BareMetalHostStatus struct {
 	// after modifying this file
 
 	// OperationalStatus holds the status of the host
-	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached
+	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached;servicing
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
-	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error
+	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error;servicing error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// LastUpdated identifies when this status was last observed.

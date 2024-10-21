@@ -147,23 +147,12 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 	}, intervals...).Should(BeTrue())
 }
 
-<<<<<<< HEAD
-func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, intervals ...interface{}) {
-	// Trigger deletion of BMHs before deleting the namespace.
-	// This way there should be no risk of BMO getting stuck trying to progress
-	// and create HardwareDetails or similar, while the namespace is terminating.
-	DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
-	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
-		Deleter: clusterProxy.GetClient(),
-		Name:    namespace.Name,
-	})
-	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
-		Getter:    clusterProxy.GetClient(),
-		Namespace: *namespace,
-	}, intervals...)
-=======
 func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, namespaced string, intervals ...interface{}) {
 	if namespaced != TruthyString {
+		// Trigger deletion of BMHs before deleting the namespace.
+		// This way there should be no risk of BMO getting stuck trying to progress
+		// and create HardwareDetails or similar, while the namespace is terminating.
+		DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
 		framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
 			Deleter: clusterProxy.GetClient(),
 			Name:    namespace.Name,
@@ -173,7 +162,6 @@ func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace
 			Namespace: *namespace,
 		}, intervals...)
 	}
->>>>>>> 11dbdad3 (draft: add namespace scoped operator mode)
 	cancelWatches()
 }
 

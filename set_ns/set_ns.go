@@ -46,7 +46,7 @@ func updateAnnotatorFile(namespacesToSet string) error {
 		return err
 	}
 
-	return os.WriteFile(annotatorPath, out, 0644)
+	return os.WriteFile(annotatorPath, out, 0600)
 }
 
 func setWatchNamespaceEnvVar(namespacesToSet string) error {
@@ -72,7 +72,7 @@ func setWatchNamespaceEnvVar(namespacesToSet string) error {
 		return err
 	}
 
-	return os.WriteFile(managerPatchPath, out, 0644)
+	return os.WriteFile(managerPatchPath, out, 0600)
 }
 
 func main() {

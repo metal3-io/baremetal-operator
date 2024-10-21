@@ -228,7 +228,7 @@ manifests-namespaced: manifests-generate $(KUSTOMIZE)
 	$(KUSTOMIZE) build config/overlays/namespaced --enable-alpha-plugins > config/render/capm3.yaml
 
 .PHONY: manifests-namespaced-e2e
-manifests-namespaced: manifests-generate $(KUSTOMIZE)
+manifests-namespaced-e2e: manifests-generate $(KUSTOMIZE)
 	$(KUSTOMIZE) build config/overlays/namespaced-e2e --enable-alpha-plugins > config/render/capm3.yaml
 
 .PHONY: set-manifest-image-bmo

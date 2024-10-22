@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: hardwaredata.metal3.io
 spec:
   group: metal3.io
@@ -27,14 +27,19 @@ spec:
         description: HardwareData is the Schema for the hardwaredata API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -87,10 +92,10 @@ spec:
                       description: NIC describes one network interface on the host.
                       properties:
                         ip:
-                          description: The IP address of the interface. This will
-                            be an IPv4 or IPv6 address if one is present.  If both
-                            IPv4 and IPv6 addresses are present in a dual-stack environment,
-                            two nics will be output, one with each IP.
+                          description: |-
+                            The IP address of the interface. This will be an IPv4 or IPv6 address
+                            if one is present.  If both IPv4 and IPv6 addresses are present in a
+                            dual-stack environment, two nics will be output, one with each IP.
                           type: string
                         mac:
                           description: The device MAC address
@@ -143,9 +148,10 @@ spec:
                         etc.) on the host.
                       properties:
                         alternateNames:
-                          description: A list of alternate Linux device names of the
-                            disk, e.g. "/dev/sda". Note that this list is not exhaustive,
-                            and names may not be stable across reboots.
+                          description: |-
+                            A list of alternate Linux device names of the disk, e.g. "/dev/sda".
+                            Note that this list is not exhaustive, and names may not be stable
+                            across reboots.
                           items:
                             type: string
                           type: array
@@ -156,15 +162,17 @@ spec:
                           description: Hardware model
                           type: string
                         name:
-                          description: A Linux device name of the disk, e.g. "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
-                            This will be a name that is stable across reboots if one
-                            is available.
+                          description: |-
+                            A Linux device name of the disk, e.g.
+                            "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
+                            that is stable across reboots if one is available.
                           type: string
                         rotational:
-                          description: Whether this disk represents rotational storage.
-                            This field is not recommended for usage, please prefer
-                            using 'Type' field instead, this field will be deprecated
-                            eventually.
+                          description: |-
+                            Whether this disk represents rotational storage.
+                            This field is not recommended for usage, please
+                            prefer using 'Type' field instead, this field
+                            will be deprecated eventually.
                           type: boolean
                         serialNumber:
                           description: The serial number of the device

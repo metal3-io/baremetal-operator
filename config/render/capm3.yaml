@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: baremetal-operator-system/baremetal-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: baremetalhosts.metal3.io
 spec:
   group: metal3.io
@@ -54,14 +54,19 @@ spec:
         description: BareMetalHost is the Schema for the baremetalhosts API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -69,52 +74,58 @@ spec:
             description: BareMetalHostSpec defines the desired state of BareMetalHost.
             properties:
               architecture:
-                description: CPU architecture of the host, e.g. "x86_64" or "aarch64".
-                  If unset, eventually populated by inspection.
+                description: |-
+                  CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
+                  eventually populated by inspection.
                 type: string
               automatedCleaningMode:
                 default: metadata
-                description: When set to disabled, automated cleaning will be skipped
+                description: |-
+                  When set to disabled, automated cleaning will be skipped
                   during provisioning and deprovisioning.
                 enum:
                 - metadata
                 - disabled
                 type: string
               bmc:
-                description: How do we connect to the BMC (Baseboard Management Controller)
-                  on the host?
+                description: |-
+                  How do we connect to the BMC (Baseboard Management Controller) on
+                  the host?
                 properties:
                   address:
-                    description: Address holds the URL for accessing the controller
-                      on the network. The scheme part designates the driver to use
-                      with the host.
+                    description: |-
+                      Address holds the URL for accessing the controller on the network.
+                      The scheme part designates the driver to use with the host.
                     type: string
                   credentialsName:
-                    description: The name of the secret containing the BMC credentials
-                      (requires keys "username" and "password").
+                    description: |-
+                      The name of the secret containing the BMC credentials (requires
+                      keys "username" and "password").
                     type: string
                   disableCertificateVerification:
-                    description: DisableCertificateVerification disables verification
-                      of server certificates when using HTTPS to connect to the BMC.
-                      This is required when the server certificate is self-signed,
-                      but is insecure because it allows a man-in-the-middle to intercept
-                      the connection.
+                    description: |-
+                      DisableCertificateVerification disables verification of server
+                      certificates when using HTTPS to connect to the BMC. This is
+                      required when the server certificate is self-signed, but is
+                      insecure because it allows a man-in-the-middle to intercept the
+                      connection.
                     type: boolean
                 required:
                 - address
                 - credentialsName
                 type: object
               bootMACAddress:
-                description: The MAC address of the NIC used for provisioning the
-                  host. In case of network boot, this is the MAC address of the PXE
-                  booting interface. The MAC address of the BMC must never be used
-                  here!
+                description: |-
+                  The MAC address of the NIC used for provisioning the host. In case
+                  of network boot, this is the MAC address of the PXE booting
+                  interface. The MAC address of the BMC must never be used here!
                 pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                 type: string
               bootMode:
-                description: Select the method of initializing the hardware during
-                  boot. Defaults to UEFI. Legacy boot should only be used for hardware
-                  that does not support UEFI correctly. Set to UEFISecureBoot to turn
+                description: |-
+                  Select the method of initializing the hardware during boot.
+                  Defaults to UEFI. Legacy boot should only be used for hardware that
+                  does not support UEFI correctly. Set to UEFISecureBoot to turn
                   secure boot on automatically after provisioning.
                 enum:
                 - UEFI
@@ -122,55 +133,64 @@ spec:
                 - legacy
                 type: string
               consumerRef:
-                description: ConsumerRef can be used to store information about something
-                  that is using a host. When it is not empty, the host is considered
-                  "in use". The common use case is a link to a Machine resource when
-                  the host is used by Cluster API.
+                description: |-
+                  ConsumerRef can be used to store information about something
+                  that is using a host. When it is not empty, the host is
+                  considered "in use". The common use case is a link to a Machine
+                  resource when the host is used by Cluster API.
                 properties:
                   apiVersion:
                     description: API version of the referent.
                     type: string
                   fieldPath:
-                    description: 'If referring to a piece of an object instead of
-                      an entire object, this string should contain a valid JSON/Go
-                      field access statement, such as desiredState.manifest.containers[2].
-                      For example, if the object reference is to a container within
-                      a pod, this would take on a value like: "spec.containers{name}"
-                      (where "name" refers to the name of the container that triggered
-                      the event) or if no container name is specified "spec.containers[2]"
-                      (container with index 2 in this pod). This syntax is chosen
-                      only to have some well-defined way of referencing a part of
-                      an object. TODO: this design is not final and this field is
-                      subject to change in the future.'
+                    description: |-
+                      If referring to a piece of an object instead of an entire object, this string
+                      should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within a pod, this would take on a value like:
+                      "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]" (container with
+                      index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                      referencing a part of an object.
                     type: string
                   kind:
-                    description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    description: |-
+                      Kind of the referent.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                     type: string
                   name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                     type: string
                   namespace:
-                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    description: |-
+                      Namespace of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                     type: string
                   resourceVersion:
-                    description: 'Specific resourceVersion to which this reference
-                      is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                    description: |-
+                      Specific resourceVersion to which this reference is made, if any.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
                     type: string
                   uid:
-                    description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                    description: |-
+                      UID of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
               customDeploy:
-                description: A custom deploy procedure. This is an advanced feature
-                  that allows using a custom deploy step provided by a site-specific
-                  deployment ramdisk. Most users will want to use "image" instead.
-                  Settings this field triggers provisioning.
+                description: |-
+                  A custom deploy procedure. This is an advanced feature that allows
+                  using a custom deploy step provided by a site-specific deployment
+                  ramdisk. Most users will want to use "image" instead. Settings this
+                  field triggers provisioning.
                 properties:
                   method:
-                    description: Custom deploy method name. This name is specific
-                      to the deploy ramdisk used. If you don't have a custom deploy
-                      ramdisk, you shouldn't use CustomDeploy.
+                    description: |-
+                      Custom deploy method name.
+                      This name is specific to the deploy ramdisk used. If you don't have
+                      a custom deploy ramdisk, you shouldn't use CustomDeploy.
                     type: string
                 required:
                 - method
@@ -180,17 +200,19 @@ spec:
                   the host.
                 type: string
               externallyProvisioned:
-                description: ExternallyProvisioned means something else has provisioned
-                  the image running on the host, and the operator should only manage
+                description: |-
+                  ExternallyProvisioned means something else has provisioned the
+                  image running on the host, and the operator should only manage
                   the power status. This field is used for integration with already
-                  provisioned hosts and when pivoting hosts between clusters. If unsure,
-                  leave this field as false.
+                  provisioned hosts and when pivoting hosts between clusters. If
+                  unsure, leave this field as false.
                 type: boolean
               firmware:
-                description: Firmware (BIOS) configuration for bare metal server.
-                  If set, the requested settings will be applied before the host is
-                  provisioned. Only some vendor drivers support this field. An alternative
-                  is to use HostFirmwareSettings resources that allow changing arbitrary
+                description: |-
+                  Firmware (BIOS) configuration for bare metal server. If set, the
+                  requested settings will be applied before the host is provisioned.
+                  Only some vendor drivers support this field. An alternative is to
+                  use HostFirmwareSettings resources that allow changing arbitrary
                   values and support the generic Redfish-based drivers.
                 properties:
                   simultaneousMultithreadingEnabled:
@@ -215,25 +237,28 @@ spec:
                     type: boolean
                 type: object
               hardwareProfile:
-                description: What is the name of the hardware profile for this host?
-                  Hardware profiles are deprecated and should not be used. Use the
-                  separate fields Architecture and RootDeviceHints instead. Set to
-                  "empty" to prepare for the future version of the API without hardware
-                  profiles.
+                description: |-
+                  What is the name of the hardware profile for this host?
+                  Hardware profiles are deprecated and should not be used.
+                  Use the separate fields Architecture and RootDeviceHints instead.
+                  Set to "empty" to prepare for the future version of the API
+                  without hardware profiles.
                 type: string
               image:
-                description: Image holds the details of the image to be provisioned.
-                  Populating the image will cause the host to start provisioning.
+                description: |-
+                  Image holds the details of the image to be provisioned. Populating
+                  the image will cause the host to start provisioning.
                 properties:
                   checksum:
-                    description: Checksum is the checksum for the image. Required
-                      for all formats except for "live-iso".
+                    description: |-
+                      Checksum is the checksum for the image. Required for all formats
+                      except for "live-iso".
                     type: string
                   checksumType:
-                    description: ChecksumType is the checksum algorithm for the image,
-                      e.g md5, sha256 or sha512. The special value "auto" can be used
-                      to detect the algorithm from the checksum. If missing, MD5 is
-                      used. If in doubt, use "auto".
+                    description: |-
+                      ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+                      The special value "auto" can be used to detect the algorithm from the checksum.
+                      If missing, MD5 is used. If in doubt, use "auto".
                     enum:
                     - md5
                     - sha256
@@ -241,9 +266,10 @@ spec:
                     - auto
                     type: string
                   format:
-                    description: Format contains the format of the image (raw, qcow2,
-                      ...). When set to "live-iso", an ISO 9660 image referenced by
-                      the url will be live-booted and not deployed to disk.
+                    description: |-
+                      Format contains the format of the image (raw, qcow2, ...).
+                      When set to "live-iso", an ISO 9660 image referenced by the url will
+                      be live-booted and not deployed to disk.
                     enum:
                     - raw
                     - qcow2
@@ -258,10 +284,11 @@ spec:
                 - url
                 type: object
               metaData:
-                description: MetaData holds the reference to the Secret containing
-                  host metadata which is passed to the Config Drive. By default, the
-                  operater will generate metadata for the host, so most users do not
-                  need to set this field.
+                description: |-
+                  MetaData holds the reference to the Secret containing host metadata
+                  which is passed to the Config Drive. By default, the operater will
+                  generate metadata for the host, so most users do not need to set
+                  this field.
                 properties:
                   name:
                     description: name is unique within a namespace to reference a
@@ -274,8 +301,9 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               networkData:
-                description: NetworkData holds the reference to the Secret containing
-                  network configuration which is passed to the Config Drive and interpreted
+                description: |-
+                  NetworkData holds the reference to the Secret containing network
+                  configuration which is passed to the Config Drive and interpreted
                   by the first boot software such as cloud-init.
                 properties:
                   name:
@@ -289,26 +317,29 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               online:
-                description: Should the host be powered on? Changing this value will
-                  trigger a change in power state of the host.
+                description: |-
+                  Should the host be powered on? Changing this value will trigger
+                  a change in power state of the host.
                 type: boolean
               preprovisioningNetworkDataName:
-                description: PreprovisioningNetworkDataName is the name of the Secret
-                  in the local namespace containing network configuration which is
-                  passed to the preprovisioning image, and to the Config Drive if
-                  not overridden by specifying NetworkData.
+                description: |-
+                  PreprovisioningNetworkDataName is the name of the Secret in the
+                  local namespace containing network configuration which is passed to
+                  the preprovisioning image, and to the Config Drive if not overridden
+                  by specifying NetworkData.
                 type: string
               raid:
-                description: RAID configuration for bare metal server. If set, the
-                  RAID settings will be applied before the host is provisioned. If
-                  not, the current settings will not be modified. Only one of the
-                  sub-fields hardwareRAIDVolumes and softwareRAIDVolumes can be set
-                  at the same time.
+                description: |-
+                  RAID configuration for bare metal server. If set, the RAID settings
+                  will be applied before the host is provisioned. If not, the current
+                  settings will not be modified. Only one of the sub-fields
+                  hardwareRAIDVolumes and softwareRAIDVolumes can be set at the same
+                  time.
                 properties:
                   hardwareRAIDVolumes:
-                    description: The list of logical disks for hardware RAID, if rootDeviceHints
-                      isn't used, first volume is root volume. You can set the value
-                      of this field to `[]` to clear all the hardware RAID configurations.
+                    description: |-
+                      The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+                      You can set the value of this field to `[]` to clear all the hardware RAID configurations.
                     items:
                       description: HardwareRAIDVolume defines the desired configuration
                         of volume in hardware RAID.
@@ -317,9 +348,9 @@ spec:
                           description: The name of the RAID controller to use.
                           type: string
                         level:
-                          description: 'RAID level for the logical disk. The following
-                            levels are supported: 0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers
-                            may support only some of them).'
+                          description: |-
+                            RAID level for the logical disk. The following levels are supported:
+                            0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers may support only some of them).
                           enum:
                           - "0"
                           - "1"
@@ -331,33 +362,35 @@ spec:
                           - 6+0
                           type: string
                         name:
-                          description: Name of the volume. Should be unique within
-                            the Node. If not specified, the name will be auto-generated.
+                          description: |-
+                            Name of the volume. Should be unique within the Node. If not
+                            specified, the name will be auto-generated.
                           maxLength: 64
                           type: string
                         numberOfPhysicalDisks:
-                          description: Integer, number of physical disks to use for
-                            the logical disk. Defaults to minimum number of disks
-                            required for the particular RAID level.
+                          description: |-
+                            Integer, number of physical disks to use for the logical disk.
+                            Defaults to minimum number of disks required for the particular RAID
+                            level.
                           minimum: 1
                           type: integer
                         physicalDisks:
-                          description: Optional list of physical disk names to be
-                            used for the hardware RAID volumes. The disk names are
-                            interpreted by the hardware RAID controller, and the format
-                            is hardware specific.
+                          description: |-
+                            Optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
+                            by the hardware RAID controller, and the format is hardware specific.
                           items:
                             type: string
                           type: array
                         rotational:
-                          description: Select disks with only rotational (if set to
-                            true) or solid-state (if set to false) storage. By default,
-                            any disks can be picked.
+                          description: |-
+                            Select disks with only rotational (if set to true) or solid-state
+                            (if set to false) storage. By default, any disks can be picked.
                           type: boolean
                         sizeGibibytes:
-                          description: Size of the logical disk to be created in GiB.
-                            If unspecified or set be 0, the maximum capacity of disk
-                            will be used for logical disk.
+                          description: |-
+                            Size of the logical disk to be created in GiB. If unspecified or
+                            set be 0, the maximum capacity of disk will be used for logical
+                            disk.
                           minimum: 0
                           type: integer
                       required:
@@ -366,23 +399,23 @@ spec:
                     nullable: true
                     type: array
                   softwareRAIDVolumes:
-                    description: The list of logical disks for software RAID, if rootDeviceHints
-                      isn't used, first volume is root volume. If HardwareRAIDVolumes
-                      is set this item will be invalid. The number of created Software
-                      RAID devices must be 1 or 2. If there is only one Software RAID
-                      device, it has to be a RAID-1. If there are two, the first one
-                      has to be a RAID-1, while the RAID level for the second one
-                      can be 0, 1, or 1+0. As the first RAID device will be the deployment
-                      device, enforcing a RAID-1 reduces the risk of ending up with
-                      a non-booting node in case of a disk failure. Software RAID
-                      will always be deleted.
+                    description: |-
+                      The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
+                      If HardwareRAIDVolumes is set this item will be invalid.
+                      The number of created Software RAID devices must be 1 or 2.
+                      If there is only one Software RAID device, it has to be a RAID-1.
+                      If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0.
+                      As the first RAID device will be the deployment device,
+                      enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                      Software RAID will always be deleted.
                     items:
                       description: SoftwareRAIDVolume defines the desired configuration
                         of volume in software RAID.
                       properties:
                         level:
-                          description: 'RAID level for the logical disk. The following
-                            levels are supported: 0, 1 and 1+0.'
+                          description: |-
+                            RAID level for the logical disk. The following levels are supported:
+                            0, 1 and 1+0.
                           enum:
                           - "0"
                           - "1"
@@ -392,60 +425,66 @@ spec:
                           description: A list of device hints, the number of items
                             should be greater than or equal to 2.
                           items:
-                            description: RootDeviceHints holds the hints for specifying
-                              the storage location for the root filesystem for the
-                              image.
+                            description: |-
+                              RootDeviceHints holds the hints for specifying the storage location
+                              for the root filesystem for the image.
                             properties:
                               deviceName:
-                                description: A Linux device name like "/dev/vda",
-                                  or a by-path link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
-                                  The hint must match the actual value exactly.
+                                description: |-
+                                  A Linux device name like "/dev/vda", or a by-path link to it like
+                                  "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
+                                  the actual value exactly.
                                 type: string
                               hctl:
-                                description: A SCSI bus address like 0:0:0:0. The
-                                  hint must match the actual value exactly.
+                                description: |-
+                                  A SCSI bus address like 0:0:0:0. The hint must match the actual
+                                  value exactly.
                                 type: string
                               minSizeGigabytes:
                                 description: The minimum size of the device in Gigabytes.
                                 minimum: 0
                                 type: integer
                               model:
-                                description: A vendor-specific device identifier.
-                                  The hint can be a substring of the actual value.
+                                description: |-
+                                  A vendor-specific device identifier. The hint can be a
+                                  substring of the actual value.
                                 type: string
                               rotational:
                                 description: True if the device should use spinning
                                   media, false otherwise.
                                 type: boolean
                               serialNumber:
-                                description: Device serial number. The hint must match
-                                  the actual value exactly.
+                                description: |-
+                                  Device serial number. The hint must match the actual value
+                                  exactly.
                                 type: string
                               vendor:
-                                description: The name of the vendor or manufacturer
-                                  of the device. The hint can be a substring of the
-                                  actual value.
+                                description: |-
+                                  The name of the vendor or manufacturer of the device. The hint
+                                  can be a substring of the actual value.
                                 type: string
                               wwn:
-                                description: Unique storage identifier. The hint must
-                                  match the actual value exactly.
+                                description: |-
+                                  Unique storage identifier. The hint must match the actual value
+                                  exactly.
                                 type: string
                               wwnVendorExtension:
-                                description: Unique vendor storage identifier. The
-                                  hint must match the actual value exactly.
+                                description: |-
+                                  Unique vendor storage identifier. The hint must match the
+                                  actual value exactly.
                                 type: string
                               wwnWithExtension:
-                                description: Unique storage identifier with the vendor
-                                  extension appended. The hint must match the actual
-                                  value exactly.
+                                description: |-
+                                  Unique storage identifier with the vendor extension
+                                  appended. The hint must match the actual value exactly.
                                 type: string
                             type: object
                           minItems: 2
                           type: array
                         sizeGibibytes:
-                          description: Size of the logical disk to be created in GiB.
-                            If unspecified or set be 0, the maximum capacity of disk
-                            will be used for logical disk.
+                          description: |-
+                            Size of the logical disk to be created in GiB.
+                            If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
                           minimum: 0
                           type: integer
                       required:
@@ -456,71 +495,84 @@ spec:
                     type: array
                 type: object
               rootDeviceHints:
-                description: Provide guidance about how to choose the device for the
-                  image being provisioned. The default is currently to use /dev/sda
-                  as the root device.
+                description: |-
+                  Provide guidance about how to choose the device for the image
+                  being provisioned. The default is currently to use /dev/sda as
+                  the root device.
                 properties:
                   deviceName:
-                    description: A Linux device name like "/dev/vda", or a by-path
-                      link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
-                      The hint must match the actual value exactly.
+                    description: |-
+                      A Linux device name like "/dev/vda", or a by-path link to it like
+                      "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
+                      the actual value exactly.
                     type: string
                   hctl:
-                    description: A SCSI bus address like 0:0:0:0. The hint must match
-                      the actual value exactly.
+                    description: |-
+                      A SCSI bus address like 0:0:0:0. The hint must match the actual
+                      value exactly.
                     type: string
                   minSizeGigabytes:
                     description: The minimum size of the device in Gigabytes.
                     minimum: 0
                     type: integer
                   model:
-                    description: A vendor-specific device identifier. The hint can
-                      be a substring of the actual value.
+                    description: |-
+                      A vendor-specific device identifier. The hint can be a
+                      substring of the actual value.
                     type: string
                   rotational:
                     description: True if the device should use spinning media, false
                       otherwise.
                     type: boolean
                   serialNumber:
-                    description: Device serial number. The hint must match the actual
-                      value exactly.
+                    description: |-
+                      Device serial number. The hint must match the actual value
+                      exactly.
                     type: string
                   vendor:
-                    description: The name of the vendor or manufacturer of the device.
-                      The hint can be a substring of the actual value.
+                    description: |-
+                      The name of the vendor or manufacturer of the device. The hint
+                      can be a substring of the actual value.
                     type: string
                   wwn:
-                    description: Unique storage identifier. The hint must match the
-                      actual value exactly.
+                    description: |-
+                      Unique storage identifier. The hint must match the actual value
+                      exactly.
                     type: string
                   wwnVendorExtension:
-                    description: Unique vendor storage identifier. The hint must match
-                      the actual value exactly.
+                    description: |-
+                      Unique vendor storage identifier. The hint must match the
+                      actual value exactly.
                     type: string
                   wwnWithExtension:
-                    description: Unique storage identifier with the vendor extension
+                    description: |-
+                      Unique storage identifier with the vendor extension
                       appended. The hint must match the actual value exactly.
                     type: string
                 type: object
               taints:
-                description: Taints is the full, authoritative list of taints to apply
-                  to the corresponding Machine. This list will overwrite any modifications
-                  made to the Machine on an ongoing basis.
+                description: |-
+                  Taints is the full, authoritative list of taints to apply to
+                  the corresponding Machine. This list will overwrite any
+                  modifications made to the Machine on an ongoing basis.
                 items:
-                  description: The node this Taint is attached to has the "effect"
-                    on any pod that does not tolerate the Taint.
+                  description: |-
+                    The node this Taint is attached to has the "effect" on
+                    any pod that does not tolerate the Taint.
                   properties:
                     effect:
-                      description: Required. The effect of the taint on pods that
-                        do not tolerate the taint. Valid effects are NoSchedule, PreferNoSchedule
-                        and NoExecute.
+                      description: |-
+                        Required. The effect of the taint on pods
+                        that do not tolerate the taint.
+                        Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
                       type: string
                     key:
                       description: Required. The taint key to be applied to a node.
                       type: string
                     timeAdded:
-                      description: TimeAdded represents the time at which the taint
-                        was added. It is only written for NoExecute taints.
+                      description: |-
+                        TimeAdded represents the time at which the taint was added.
+                        It is only written for NoExecute taints.
                       format: date-time
                       type: string
                     value:
@@ -532,10 +584,11 @@ spec:
                   type: object
                 type: array
               userData:
-                description: UserData holds the reference to the Secret containing
-                  the user data which is passed to the Config Drive and interpreted
-                  by the first-boot software such as cloud-init. The format of user
-                  data is specific to the first-boot software.
+                description: |-
+                  UserData holds the reference to the Secret containing the user data
+                  which is passed to the Config Drive and interpreted by the
+                  first-boot software such as cloud-init. The format of user data is
+                  specific to the first-boot software.
                 properties:
                   name:
                     description: name is unique within a namespace to reference a
@@ -562,8 +615,9 @@ spec:
                 description: The last error message reported by the provisioning subsystem.
                 type: string
               errorType:
-                description: ErrorType indicates the type of failure encountered when
-                  the OperationalStatus is OperationalStatusError
+                description: |-
+                  ErrorType indicates the type of failure encountered when the
+                  OperationalStatus is OperationalStatusError
                 enum:
                 - provisioned registration error
                 - registration error
@@ -576,8 +630,9 @@ spec:
                 description: The last credentials we were able to validate as working.
                 properties:
                   credentials:
-                    description: SecretReference represents a Secret Reference. It
-                      has enough information to retrieve secret in any namespace
+                    description: |-
+                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
+                      in any namespace
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -593,9 +648,10 @@ spec:
                     type: string
                 type: object
               hardware:
-                description: The hardware discovered to exist on the host. This field
-                  will be removed in the next API version in favour of the separate
-                  HardwareData resource.
+                description: |-
+                  The hardware discovered to exist on the host.
+                  This field will be removed in the next API version in favour of the
+                  separate HardwareData resource.
                 properties:
                   cpu:
                     description: Details of the CPU(s) in the system.
@@ -640,10 +696,10 @@ spec:
                       description: NIC describes one network interface on the host.
                       properties:
                         ip:
-                          description: The IP address of the interface. This will
-                            be an IPv4 or IPv6 address if one is present.  If both
-                            IPv4 and IPv6 addresses are present in a dual-stack environment,
-                            two nics will be output, one with each IP.
+                          description: |-
+                            The IP address of the interface. This will be an IPv4 or IPv6 address
+                            if one is present.  If both IPv4 and IPv6 addresses are present in a
+                            dual-stack environment, two nics will be output, one with each IP.
                           type: string
                         mac:
                           description: The device MAC address
@@ -696,9 +752,10 @@ spec:
                         etc.) on the host.
                       properties:
                         alternateNames:
-                          description: A list of alternate Linux device names of the
-                            disk, e.g. "/dev/sda". Note that this list is not exhaustive,
-                            and names may not be stable across reboots.
+                          description: |-
+                            A list of alternate Linux device names of the disk, e.g. "/dev/sda".
+                            Note that this list is not exhaustive, and names may not be stable
+                            across reboots.
                           items:
                             type: string
                           type: array
@@ -709,15 +766,17 @@ spec:
                           description: Hardware model
                           type: string
                         name:
-                          description: A Linux device name of the disk, e.g. "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
-                            This will be a name that is stable across reboots if one
-                            is available.
+                          description: |-
+                            A Linux device name of the disk, e.g.
+                            "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
+                            that is stable across reboots if one is available.
                           type: string
                         rotational:
-                          description: Whether this disk represents rotational storage.
-                            This field is not recommended for usage, please prefer
-                            using 'Type' field instead, this field will be deprecated
-                            eventually.
+                          description: |-
+                            Whether this disk represents rotational storage.
+                            This field is not recommended for usage, please
+                            prefer using 'Type' field instead, this field
+                            will be deprecated eventually.
                           type: boolean
                         serialNumber:
                           description: The serial number of the device
@@ -759,7 +818,8 @@ spec:
                     type: object
                 type: object
               hardwareProfile:
-                description: The name of the profile matching the hardware details.
+                description: |-
+                  The name of the profile matching the hardware details.
                   Hardware profiles are deprecated and should not be relied on.
                 type: string
               lastUpdated:
@@ -767,12 +827,14 @@ spec:
                 format: date-time
                 type: string
               operationHistory:
-                description: OperationHistory holds information about operations performed
+                description: |-
+                  OperationHistory holds information about operations performed
                   on this host.
                 properties:
                   deprovision:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
+                    description: |-
+                      OperationMetric contains metadata about an operation (inspection,
+                      provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -784,8 +846,9 @@ spec:
                         type: string
                     type: object
                   inspect:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
+                    description: |-
+                      OperationMetric contains metadata about an operation (inspection,
+                      provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -797,8 +860,9 @@ spec:
                         type: string
                     type: object
                   provision:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
+                    description: |-
+                      OperationMetric contains metadata about an operation (inspection,
+                      provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -810,8 +874,9 @@ spec:
                         type: string
                     type: object
                   register:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
+                    description: |-
+                      OperationMetric contains metadata about an operation (inspection,
+                      provisioning, etc.) used for tracking metrics.
                     properties:
                       end:
                         format: date-time
@@ -834,16 +899,18 @@ spec:
                 - detached
                 type: string
               poweredOn:
-                description: Whether or not the host is currently powered on. This
-                  field may get briefly out of sync with the actual state of the hardware
-                  while provisioning processes are running.
+                description: |-
+                  Whether or not the host is currently powered on. This field may get
+                  briefly out of sync with the actual state of the hardware while
+                  provisioning processes are running.
                 type: boolean
               provisioning:
                 description: Information tracked by the provisioner.
                 properties:
                   ID:
-                    description: The hosts's ID from the underlying provisioning tool
-                      (e.g. the Ironic node UUID).
+                    description: |-
+                      The hosts's ID from the underlying provisioning tool (e.g. the
+                      Ironic node UUID).
                     type: string
                   bootMode:
                     description: BootMode indicates the boot mode used to provision
@@ -857,9 +924,10 @@ spec:
                     description: Custom deploy procedure applied to the host.
                     properties:
                       method:
-                        description: Custom deploy method name. This name is specific
-                          to the deploy ramdisk used. If you don't have a custom deploy
-                          ramdisk, you shouldn't use CustomDeploy.
+                        description: |-
+                          Custom deploy method name.
+                          This name is specific to the deploy ramdisk used. If you don't have
+                          a custom deploy ramdisk, you shouldn't use CustomDeploy.
                         type: string
                     required:
                     - method
@@ -890,18 +958,20 @@ spec:
                         type: boolean
                     type: object
                   image:
-                    description: Image holds the details of the last image successfully
+                    description: |-
+                      Image holds the details of the last image successfully
                       provisioned to the host.
                     properties:
                       checksum:
-                        description: Checksum is the checksum for the image. Required
-                          for all formats except for "live-iso".
+                        description: |-
+                          Checksum is the checksum for the image. Required for all formats
+                          except for "live-iso".
                         type: string
                       checksumType:
-                        description: ChecksumType is the checksum algorithm for the
-                          image, e.g md5, sha256 or sha512. The special value "auto"
-                          can be used to detect the algorithm from the checksum. If
-                          missing, MD5 is used. If in doubt, use "auto".
+                        description: |-
+                          ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+                          The special value "auto" can be used to detect the algorithm from the checksum.
+                          If missing, MD5 is used. If in doubt, use "auto".
                         enum:
                         - md5
                         - sha256
@@ -909,9 +979,10 @@ spec:
                         - auto
                         type: string
                       format:
-                        description: Format contains the format of the image (raw,
-                          qcow2, ...). When set to "live-iso", an ISO 9660 image referenced
-                          by the url will be live-booted and not deployed to disk.
+                        description: |-
+                          Format contains the format of the image (raw, qcow2, ...).
+                          When set to "live-iso", an ISO 9660 image referenced by the url will
+                          be live-booted and not deployed to disk.
                         enum:
                         - raw
                         - qcow2
@@ -929,10 +1000,9 @@ spec:
                     description: The RAID configuration that has been applied.
                     properties:
                       hardwareRAIDVolumes:
-                        description: The list of logical disks for hardware RAID,
-                          if rootDeviceHints isn't used, first volume is root volume.
-                          You can set the value of this field to `[]` to clear all
-                          the hardware RAID configurations.
+                        description: |-
+                          The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+                          You can set the value of this field to `[]` to clear all the hardware RAID configurations.
                         items:
                           description: HardwareRAIDVolume defines the desired configuration
                             of volume in hardware RAID.
@@ -941,9 +1011,9 @@ spec:
                               description: The name of the RAID controller to use.
                               type: string
                             level:
-                              description: 'RAID level for the logical disk. The following
-                                levels are supported: 0, 1, 2, 5, 6, 1+0, 5+0, 6+0
-                                (drivers may support only some of them).'
+                              description: |-
+                                RAID level for the logical disk. The following levels are supported:
+                                0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers may support only some of them).
                               enum:
                               - "0"
                               - "1"
@@ -955,33 +1025,35 @@ spec:
                               - 6+0
                               type: string
                             name:
-                              description: Name of the volume. Should be unique within
-                                the Node. If not specified, the name will be auto-generated.
+                              description: |-
+                                Name of the volume. Should be unique within the Node. If not
+                                specified, the name will be auto-generated.
                               maxLength: 64
                               type: string
                             numberOfPhysicalDisks:
-                              description: Integer, number of physical disks to use
-                                for the logical disk. Defaults to minimum number of
-                                disks required for the particular RAID level.
+                              description: |-
+                                Integer, number of physical disks to use for the logical disk.
+                                Defaults to minimum number of disks required for the particular RAID
+                                level.
                               minimum: 1
                               type: integer
                             physicalDisks:
-                              description: Optional list of physical disk names to
-                                be used for the hardware RAID volumes. The disk names
-                                are interpreted by the hardware RAID controller, and
-                                the format is hardware specific.
+                              description: |-
+                                Optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
+                                by the hardware RAID controller, and the format is hardware specific.
                               items:
                                 type: string
                               type: array
                             rotational:
-                              description: Select disks with only rotational (if set
-                                to true) or solid-state (if set to false) storage.
-                                By default, any disks can be picked.
+                              description: |-
+                                Select disks with only rotational (if set to true) or solid-state
+                                (if set to false) storage. By default, any disks can be picked.
                               type: boolean
                             sizeGibibytes:
-                              description: Size of the logical disk to be created
-                                in GiB. If unspecified or set be 0, the maximum capacity
-                                of disk will be used for logical disk.
+                              description: |-
+                                Size of the logical disk to be created in GiB. If unspecified or
+                                set be 0, the maximum capacity of disk will be used for logical
+                                disk.
                               minimum: 0
                               type: integer
                           required:
@@ -990,24 +1062,23 @@ spec:
                         nullable: true
                         type: array
                       softwareRAIDVolumes:
-                        description: The list of logical disks for software RAID,
-                          if rootDeviceHints isn't used, first volume is root volume.
+                        description: |-
+                          The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
                           If HardwareRAIDVolumes is set this item will be invalid.
-                          The number of created Software RAID devices must be 1 or
-                          2. If there is only one Software RAID device, it has to
-                          be a RAID-1. If there are two, the first one has to be a
-                          RAID-1, while the RAID level for the second one can be 0,
-                          1, or 1+0. As the first RAID device will be the deployment
-                          device, enforcing a RAID-1 reduces the risk of ending up
-                          with a non-booting node in case of a disk failure. Software
-                          RAID will always be deleted.
+                          The number of created Software RAID devices must be 1 or 2.
+                          If there is only one Software RAID device, it has to be a RAID-1.
+                          If there are two, the first one has to be a RAID-1, while the RAID level for the second one can be 0, 1, or 1+0.
+                          As the first RAID device will be the deployment device,
+                          enforcing a RAID-1 reduces the risk of ending up with a non-booting node in case of a disk failure.
+                          Software RAID will always be deleted.
                         items:
                           description: SoftwareRAIDVolume defines the desired configuration
                             of volume in software RAID.
                           properties:
                             level:
-                              description: 'RAID level for the logical disk. The following
-                                levels are supported: 0, 1 and 1+0.'
+                              description: |-
+                                RAID level for the logical disk. The following levels are supported:
+                                0, 1 and 1+0.
                               enum:
                               - "0"
                               - "1"
@@ -1017,18 +1088,20 @@ spec:
                               description: A list of device hints, the number of items
                                 should be greater than or equal to 2.
                               items:
-                                description: RootDeviceHints holds the hints for specifying
-                                  the storage location for the root filesystem for
-                                  the image.
+                                description: |-
+                                  RootDeviceHints holds the hints for specifying the storage location
+                                  for the root filesystem for the image.
                                 properties:
                                   deviceName:
-                                    description: A Linux device name like "/dev/vda",
-                                      or a by-path link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
-                                      The hint must match the actual value exactly.
+                                    description: |-
+                                      A Linux device name like "/dev/vda", or a by-path link to it like
+                                      "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
+                                      the actual value exactly.
                                     type: string
                                   hctl:
-                                    description: A SCSI bus address like 0:0:0:0.
-                                      The hint must match the actual value exactly.
+                                    description: |-
+                                      A SCSI bus address like 0:0:0:0. The hint must match the actual
+                                      value exactly.
                                     type: string
                                   minSizeGigabytes:
                                     description: The minimum size of the device in
@@ -1036,42 +1109,46 @@ spec:
                                     minimum: 0
                                     type: integer
                                   model:
-                                    description: A vendor-specific device identifier.
-                                      The hint can be a substring of the actual value.
+                                    description: |-
+                                      A vendor-specific device identifier. The hint can be a
+                                      substring of the actual value.
                                     type: string
                                   rotational:
                                     description: True if the device should use spinning
                                       media, false otherwise.
                                     type: boolean
                                   serialNumber:
-                                    description: Device serial number. The hint must
-                                      match the actual value exactly.
+                                    description: |-
+                                      Device serial number. The hint must match the actual value
+                                      exactly.
                                     type: string
                                   vendor:
-                                    description: The name of the vendor or manufacturer
-                                      of the device. The hint can be a substring of
-                                      the actual value.
+                                    description: |-
+                                      The name of the vendor or manufacturer of the device. The hint
+                                      can be a substring of the actual value.
                                     type: string
                                   wwn:
-                                    description: Unique storage identifier. The hint
-                                      must match the actual value exactly.
+                                    description: |-
+                                      Unique storage identifier. The hint must match the actual value
+                                      exactly.
                                     type: string
                                   wwnVendorExtension:
-                                    description: Unique vendor storage identifier.
-                                      The hint must match the actual value exactly.
+                                    description: |-
+                                      Unique vendor storage identifier. The hint must match the
+                                      actual value exactly.
                                     type: string
                                   wwnWithExtension:
-                                    description: Unique storage identifier with the
-                                      vendor extension appended. The hint must match
-                                      the actual value exactly.
+                                    description: |-
+                                      Unique storage identifier with the vendor extension
+                                      appended. The hint must match the actual value exactly.
                                     type: string
                                 type: object
                               minItems: 2
                               type: array
                             sizeGibibytes:
-                              description: Size of the logical disk to be created
-                                in GiB. If unspecified or set be 0, the maximum capacity
-                                of disk will be used for logical disk.
+                              description: |-
+                                Size of the logical disk to be created in GiB.
+                                If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
                               minimum: 0
                               type: integer
                           required:
@@ -1085,44 +1162,52 @@ spec:
                     description: The root device hints set by the user.
                     properties:
                       deviceName:
-                        description: A Linux device name like "/dev/vda", or a by-path
-                          link to it like "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
-                          The hint must match the actual value exactly.
+                        description: |-
+                          A Linux device name like "/dev/vda", or a by-path link to it like
+                          "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
+                          the actual value exactly.
                         type: string
                       hctl:
-                        description: A SCSI bus address like 0:0:0:0. The hint must
-                          match the actual value exactly.
+                        description: |-
+                          A SCSI bus address like 0:0:0:0. The hint must match the actual
+                          value exactly.
                         type: string
                       minSizeGigabytes:
                         description: The minimum size of the device in Gigabytes.
                         minimum: 0
                         type: integer
                       model:
-                        description: A vendor-specific device identifier. The hint
-                          can be a substring of the actual value.
+                        description: |-
+                          A vendor-specific device identifier. The hint can be a
+                          substring of the actual value.
                         type: string
                       rotational:
                         description: True if the device should use spinning media,
                           false otherwise.
                         type: boolean
                       serialNumber:
-                        description: Device serial number. The hint must match the
-                          actual value exactly.
+                        description: |-
+                          Device serial number. The hint must match the actual value
+                          exactly.
                         type: string
                       vendor:
-                        description: The name of the vendor or manufacturer of the
-                          device. The hint can be a substring of the actual value.
+                        description: |-
+                          The name of the vendor or manufacturer of the device. The hint
+                          can be a substring of the actual value.
                         type: string
                       wwn:
-                        description: Unique storage identifier. The hint must match
-                          the actual value exactly.
+                        description: |-
+                          Unique storage identifier. The hint must match the actual value
+                          exactly.
                         type: string
                       wwnVendorExtension:
-                        description: Unique vendor storage identifier. The hint must
-                          match the actual value exactly.
+                        description: |-
+                          Unique vendor storage identifier. The hint must match the
+                          actual value exactly.
                         type: string
                       wwnWithExtension:
-                        description: Unique storage identifier with the vendor extension
+                        description: |-
+                          Unique storage identifier with the vendor extension
                           appended. The hint must match the actual value exactly.
                         type: string
                     type: object
@@ -1138,8 +1223,9 @@ spec:
                 description: The last credentials we sent to the provisioning backend.
                 properties:
                   credentials:
-                    description: SecretReference represents a Secret Reference. It
-                      has enough information to retrieve secret in any namespace
+                    description: |-
+                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
+                      in any namespace
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -1171,7 +1257,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: bmceventsubscriptions.metal3.io
 spec:
   group: metal3.io
@@ -1200,14 +1286,19 @@ spec:
         description: BMCEventSubscription is the Schema for the fast eventing API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1223,8 +1314,9 @@ spec:
                 description: A reference to a BareMetalHost
                 type: string
               httpHeadersRef:
-                description: A secret containing HTTP headers which should be passed
-                  along to the Destination when making a request
+                description: |-
+                  A secret containing HTTP headers which should be passed along to the Destination
+                  when making a request
                 properties:
                   name:
                     description: name is unique within a namespace to reference a
@@ -1254,7 +1346,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: dataimages.metal3.io
 spec:
   group: metal3.io
@@ -1271,14 +1363,19 @@ spec:
         description: DataImage is the Schema for the dataimages API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1286,7 +1383,8 @@ spec:
             description: DataImageSpec defines the desired state of DataImage.
             properties:
               url:
-                description: Url is the address of the dataImage that we want to attach
+                description: |-
+                  Url is the address of the dataImage that we want to attach
                   to a BareMetalHost
                 type: string
             required:
@@ -1329,7 +1427,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: firmwareschemas.metal3.io
 spec:
   group: metal3.io
@@ -1346,14 +1444,19 @@ spec:
         description: FirmwareSchema is the Schema for the firmwareschemas API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1397,8 +1500,9 @@ spec:
                       description: Whether or not this setting is read only.
                       type: boolean
                     unique:
-                      description: Whether or not this setting's value is unique to
-                        this node, e.g. a serial number.
+                      description: |-
+                        Whether or not this setting's value is unique to this node, e.g.
+                        a serial number.
                       type: boolean
                     upper_bound:
                       description: The highest value for an Integer type setting.
@@ -1417,7 +1521,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: hardwaredata.metal3.io
 spec:
   group: metal3.io
@@ -1441,14 +1545,19 @@ spec:
         description: HardwareData is the Schema for the hardwaredata API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1501,10 +1610,10 @@ spec:
                       description: NIC describes one network interface on the host.
                       properties:
                         ip:
-                          description: The IP address of the interface. This will
-                            be an IPv4 or IPv6 address if one is present.  If both
-                            IPv4 and IPv6 addresses are present in a dual-stack environment,
-                            two nics will be output, one with each IP.
+                          description: |-
+                            The IP address of the interface. This will be an IPv4 or IPv6 address
+                            if one is present.  If both IPv4 and IPv6 addresses are present in a
+                            dual-stack environment, two nics will be output, one with each IP.
                           type: string
                         mac:
                           description: The device MAC address
@@ -1557,9 +1666,10 @@ spec:
                         etc.) on the host.
                       properties:
                         alternateNames:
-                          description: A list of alternate Linux device names of the
-                            disk, e.g. "/dev/sda". Note that this list is not exhaustive,
-                            and names may not be stable across reboots.
+                          description: |-
+                            A list of alternate Linux device names of the disk, e.g. "/dev/sda".
+                            Note that this list is not exhaustive, and names may not be stable
+                            across reboots.
                           items:
                             type: string
                           type: array
@@ -1570,15 +1680,17 @@ spec:
                           description: Hardware model
                           type: string
                         name:
-                          description: A Linux device name of the disk, e.g. "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0".
-                            This will be a name that is stable across reboots if one
-                            is available.
+                          description: |-
+                            A Linux device name of the disk, e.g.
+                            "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
+                            that is stable across reboots if one is available.
                           type: string
                         rotational:
-                          description: Whether this disk represents rotational storage.
-                            This field is not recommended for usage, please prefer
-                            using 'Type' field instead, this field will be deprecated
-                            eventually.
+                          description: |-
+                            Whether this disk represents rotational storage.
+                            This field is not recommended for usage, please
+                            prefer using 'Type' field instead, this field
+                            will be deprecated eventually.
                           type: boolean
                         serialNumber:
                           description: The serial number of the device
@@ -1629,7 +1741,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: hostfirmwarecomponents.metal3.io
 spec:
   group: metal3.io
@@ -1647,14 +1759,19 @@ spec:
           API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1708,43 +1825,35 @@ spec:
                 description: Track whether updates stored in the spec are valid based
                   on the schema
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    \n type FooStatus struct{ // Represents the observations of a
-                    foo's current state. // Known .status.conditions.type are: \"Available\",
-                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
-                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
-                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
-                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
                       maxLength: 32768
                       type: string
                     observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
                         This field may not be empty.
                       maxLength: 1024
                       minLength: 1
@@ -1759,10 +1868,6 @@ spec:
                       type: string
                     type:
                       description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -1782,8 +1887,9 @@ spec:
                 format: date-time
                 type: string
               updates:
-                description: Updates is the list of all firmware components that should
-                  be updated they are specified via name and url fields.
+                description: |-
+                  Updates is the list of all firmware components that should be updated
+                  they are specified via name and url fields.
                 items:
                   description: FirmwareUpdate defines a firmware update specification.
                   properties:
@@ -1807,7 +1913,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: hostfirmwaresettings.metal3.io
 spec:
   group: metal3.io
@@ -1827,14 +1933,19 @@ spec:
           API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1861,43 +1972,35 @@ spec:
                 description: Track whether settings stored in the spec are valid based
                   on the schema
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    \n type FooStatus struct{ // Represents the observations of a
-                    foo's current state. // Known .status.conditions.type are: \"Available\",
-                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
-                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
-                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
-                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
                       maxLength: 32768
                       type: string
                     observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
                         This field may not be empty.
                       maxLength: 1024
                       minLength: 1
@@ -1912,10 +2015,6 @@ spec:
                       type: string
                     type:
                       description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -1935,8 +2034,9 @@ spec:
                 format: date-time
                 type: string
               schema:
-                description: FirmwareSchema is a reference to the Schema used to describe
-                  each FirmwareSetting. By default, this will be a Schema in the same
+                description: |-
+                  FirmwareSchema is a reference to the Schema used to describe each
+                  FirmwareSetting. By default, this will be a Schema in the same
                   Namespace as the settings but it can be overwritten in the Spec
                 properties:
                   name:
@@ -1969,7 +2069,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: hostupdatepolicies.metal3.io
 spec:
   group: metal3.io
@@ -1986,14 +2086,19 @@ spec:
         description: HostUpdatePolicy is the Schema for the hostupdatepolicy API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -2024,7 +2129,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: preprovisioningimages.metal3.io
 spec:
   group: metal3.io
@@ -2053,14 +2158,19 @@ spec:
           API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -2081,8 +2191,9 @@ spec:
                   to build the image.
                 type: string
               networkDataName:
-                description: networkDataName is the name of a Secret in the local
-                  namespace that contains network data to build in to the image.
+                description: |-
+                  networkDataName is the name of a Secret in the local namespace that
+                  contains network data to build in to the image.
                 type: string
             type: object
           status:
@@ -2096,43 +2207,35 @@ spec:
               conditions:
                 description: conditions describe the state of the built image
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    \n type FooStatus struct{ // Represents the observations of a
-                    foo's current state. // Known .status.conditions.type are: \"Available\",
-                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
-                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
-                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
-                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
                       maxLength: 32768
                       type: string
                     observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
                         This field may not be empty.
                       maxLength: 1024
                       minLength: 1
@@ -2147,10 +2250,6 @@ spec:
                       type: string
                     type:
                       description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -2166,13 +2265,14 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               extraKernelParams:
-                description: extraKernelParams is a string with extra parameters to
-                  pass to the kernel when booting the image over network. Only makes
-                  sense for initrd images.
+                description: |-
+                  extraKernelParams is a string with extra parameters to pass to the
+                  kernel when booting the image over network. Only makes sense for initrd images.
                 type: string
               format:
-                description: 'format is the type of image that is available at the
-                  download url: either iso or initrd.'
+                description: |-
+                  format is the type of image that is available at the download url:
+                  either iso or initrd.
                 enum:
                 - iso
                 - initrd
@@ -2182,12 +2282,14 @@ spec:
                   downloaded.
                 type: string
               kernelUrl:
-                description: kernelUrl is the URL from which the kernel of the image
-                  can be downloaded. Only makes sense for initrd images.
+                description: |-
+                  kernelUrl is the URL from which the kernel of the image can be downloaded.
+                  Only makes sense for initrd images.
                 type: string
               networkData:
-                description: networkData is a reference to the version of the Secret
-                  containing the network data used to build the image.
+                description: |-
+                  networkData is a reference to the version of the Secret containing the
+                  network data used to build the image.
                 properties:
                   name:
                     type: string
@@ -2282,169 +2384,12 @@ rules:
   - metal3.io
   resources:
   - baremetalhosts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - baremetalhosts/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - baremetalhosts/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
   - bmceventsubscriptions
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - bmceventsubscriptions/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
   - dataimages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - dataimages/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - dataimages/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
   - firmwareschemas
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - firmwareschemas/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - hardware/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
   - hardwaredata
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
   - hostfirmwarecomponents
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwarecomponents/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwarecomponents/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
   - hostfirmwaresettings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostfirmwaresettings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - metal3.io
-  resources:
-  - hostupdatepolicies
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - metal3.io
-  resources:
   - preprovisioningimages
   verbs:
   - create
@@ -2457,11 +2402,34 @@ rules:
 - apiGroups:
   - metal3.io
   resources:
+  - baremetalhosts/finalizers
+  - dataimages/finalizers
+  - hardware/finalizers
+  - hostfirmwarecomponents/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts/status
+  - bmceventsubscriptions/status
+  - dataimages/status
+  - firmwareschemas/status
+  - hostfirmwarecomponents/status
+  - hostfirmwaresettings/status
   - preprovisioningimages/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostupdatepolicies
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

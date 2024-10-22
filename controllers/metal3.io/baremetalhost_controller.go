@@ -1361,7 +1361,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	return actionComplete{}
 }
 
-func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) (result actionResult, isServicing bool) {
+func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) (result actionResult) {
 	servicingData := provisioner.ServicingData{}
 
 	// (NOTE)janders: since Servicing is an opt-in feature that requires HostUpdatePolicy to be created and set to onReboot
@@ -1386,7 +1386,7 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 		var err error
 		hfsDirty, hfs, err = r.getHostFirmwareSettings(info)
 		if err != nil {
-			return actionError{fmt.Errorf("could not determine updated settings: %w", err)}, false
+			return actionError{fmt.Errorf("could not determine updated settings: %w", err)}
 		}
 		if hfsDirty {
 			servicingData.ActualFirmwareSettings = hfs.Status.Settings
@@ -1399,41 +1399,47 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 	// Even if settings are clean, we need to check the result of the current servicing.
 	if !dirty && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
 		// If nothing is going on, return control to the power management.
-		return nil, false
+		return nil
 	}
 
+	// FIXME(janders/dtantsur): this implementation may lead to a scenario where if we never actually
+	// succeed before leaving this state (e.g. by deprovisioning) we lose the signal that the
+	// update didn't actually happen. This is deemed an acceptable risk for the moment since it is only
+	// going to impact a small subset of Firmware Settings implementations.
+	currentError := info.host.Status.ErrorType
 	provResult, started, err := prov.Service(servicingData, dirty,
-		info.host.Status.ErrorType == metal3api.ServicingError)
+		currentError == metal3api.ServicingError)
 	if err != nil {
-		return actionError{fmt.Errorf("error servicing host: %w", err)}, false
+		return actionError{fmt.Errorf("error servicing host: %w", err)}
 	}
 	if provResult.ErrorMessage != "" {
 		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
-		return result, true
+		return result
 	}
-	if started && clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing) {
-		if fwDirty {
-			info.host.Status.Provisioning.Firmware = info.host.Spec.Firmware.DeepCopy()
-		}
+
+	if clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing) {
 		dirty = true
+	}
+
+	if started && fwDirty {
+		info.host.Status.Provisioning.Firmware = info.host.Spec.Firmware.DeepCopy()
 	}
 
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
 		if dirty {
-			return actionUpdate{result}, true
+			return actionUpdate{result}
 		}
-		return result, true
+		return result
 	}
 
 	// Servicing is finished at this point, clean up operational status
 	if clearErrorWithStatus(info.host, metal3api.OperationalStatusOK) {
-		// We need to give the HostFirmwareSettings controller some time to
-		// catch up with the changes, otherwise we risk starting the same
-		// operation again.
-		return actionUpdate{actionContinue{delay: subResourceNotReadyRetryDelay}}, true
+		// FIXME(janders/dtantsur): this can be racy. We should consider
+		// using a generation number to decide if we start servicing or not.
+		return actionUpdate{actionContinue{delay: subResourceNotReadyRetryDelay}}
 	}
-	return nil, false
+	return nil
 }
 
 // Check the current power status against the desired power status.
@@ -1449,7 +1455,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	if hwState.PoweredOn != nil && *hwState.PoweredOn != info.host.Status.PoweredOn {
 		info.log.Info("updating power status", "discovered", *hwState.PoweredOn)
 		info.host.Status.PoweredOn = *hwState.PoweredOn
-		if info.host.Status.OperationalStatus == metal3api.OperationalStatusError || info.host.Status.ErrorType == metal3api.PowerManagementError {
+		if info.host.Status.OperationalStatus == metal3api.OperationalStatusError && info.host.Status.ErrorType == metal3api.PowerManagementError {
 			clearError(info.host)
 		}
 		return actionUpdate{}
@@ -1460,6 +1466,8 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	provState := info.host.Status.Provisioning.State
 	// Normal reboots only work in provisioned states, changing online is also possible for available hosts.
 	isProvisioned := provState == metal3api.StateProvisioned || provState == metal3api.StateExternallyProvisioned
+	// FIXME(janders/dtantsur) it would be preferrable to pass in state as an argument
+	// however this falls outside the scope of this specific change.
 
 	if !info.host.Status.PoweredOn {
 		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
@@ -1472,7 +1480,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 			return actionContinue{}
 		}
 	}
-	hup, err := r.hostUpdatePolicySetOwnerReference(info)
+	hup, err := r.acquireHostUpdatePolicy(info)
 	if err != nil {
 		info.log.Info("failed setting owner reference on hostupdatepolicy")
 		return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
@@ -1480,7 +1488,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 
 	servicingAllowed := isProvisioned && !info.host.Status.PoweredOn && desiredPowerOnState
 	if servicingAllowed || info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError {
-		result, _ := r.doServiceIfNeeded(prov, info, hup)
+		result := r.doServiceIfNeeded(prov, info, hup)
 		if result != nil {
 			return result
 		}
@@ -1958,7 +1966,7 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 	return nil
 }
 
-func (r *BareMetalHostReconciler) hostUpdatePolicySetOwnerReference(info *reconcileInfo) (policy *metal3api.HostUpdatePolicy, err error) {
+func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(info *reconcileInfo) (policy *metal3api.HostUpdatePolicy, err error) {
 	// NOTE(janders) the goal here is to ensure that the controller reads the hup resource and adds OwnerReference to it
 	hup := &metal3api.HostUpdatePolicy{}
 	if err := r.Get(info.ctx, info.request.NamespacedName, hup); err != nil {

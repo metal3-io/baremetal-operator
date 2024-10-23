@@ -32,6 +32,8 @@ jobs:
       run: |
           sudo apt-get update
           sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager libvirt-dev
+          sudo systemctl enable libvirtd
+          sudo systemctl start libvirtd
 
     - name: Run BMO e2e Tests
       env:
@@ -40,9 +42,11 @@ jobs:
       # We need a new shell to pick up the new group. That is why we do the sudo -s -u $USER ...
       # Remove the pre-installed go version. We install the exact version we need.
       run: |
-        sudo usermod -a -G libvirt $USER
-        sudo rm /usr/bin/go
-        sudo -s -u $USER --preserve-env bash ${{ github.workspace }}/hack/ci-e2e.sh
+        echo $USER
+        env
+        cat /etc/os-release
+        sudo usermod -a -G libvirt $(whoami)
+        sudo -s -u $(whoami) --preserve-env bash ${{ github.workspace }}/hack/ci-e2e.sh
 
     - name: Upload artifacts
       if: ${{ !cancelled() }}

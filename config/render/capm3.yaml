@@ -625,6 +625,7 @@ spec:
                 - preparation error
                 - provisioning error
                 - power management error
+                - servicing error
                 type: string
               goodCredentials:
                 description: The last credentials we were able to validate as working.
@@ -897,6 +898,7 @@ spec:
                 - error
                 - delayed
                 - detached
+                - servicing
                 type: string
               poweredOn:
                 description: |-

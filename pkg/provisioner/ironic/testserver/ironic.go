@@ -42,7 +42,7 @@ const versionedRootResult = `
     "links": [ { "href": "/v1/", "rel": "self" } ],
     "status": "CURRENT",
     "min_version": "1.1",
-    "version": "1.86"
+    "version": "1.87"
   }
 }`
 

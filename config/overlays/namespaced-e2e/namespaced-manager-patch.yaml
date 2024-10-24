@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - env:
+        - name: WATCH_NAMESPACE
+          value: basic-ops-test,external-inspection-test,inspection-test,live-iso-ops-test,provisioning-ops-test,re-inspection-test
+        name: manager

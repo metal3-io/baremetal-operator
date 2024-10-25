@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,6 +14,11 @@ type EnvFixture struct {
 	ramdiskURL                       string
 	isoURL                           string
 	liveISOForcePersistentBootDevice string
+	ironicCACertFile                 string
+	ironicClientCertFile             string
+	ironicClientPrivateKeyFile       string
+	ironicInsecure                   string
+	ironicSkipClientSANVerify        string
 
 	origEnv map[string]string
 }
@@ -43,8 +49,12 @@ func (f *EnvFixture) SetUp() {
 	f.replace("DEPLOY_RAMDISK_URL", f.ramdiskURL)
 	f.replace("DEPLOY_ISO_URL", f.isoURL)
 	f.replace("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE", f.liveISOForcePersistentBootDevice)
+	f.replace("IRONIC_CACERT_FILE", f.ironicCACertFile)
+	f.replace("IRONIC_CLIENT_CERT_FILE", f.ironicClientCertFile)
+	f.replace("IRONIC_CLIENT_PRIVATE_KEY_FILE", f.ironicClientPrivateKeyFile)
+	f.replace("IRONIC_INSECURE", f.ironicInsecure)
+	f.replace("IRONIC_SKIP_CLIENT_SAN_VERIFY", f.ironicSkipClientSANVerify)
 }
-
 func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
 	t.Helper()
 	assert.Equal(t, f.kernelURL, c.deployKernelURL)
@@ -210,6 +220,89 @@ func TestLoadEndpointsFromEnv(t *testing.T) {
 				assert.Nil(t, err)
 				tc.env.VerifyEndpoints(t, i)
 			}
+		})
+	}
+}
+func TestLoadTLSConfigFromEnv(t *testing.T) {
+	cases := []struct {
+		name              string
+		env               EnvFixture
+		expectedTLSConfig clients.TLSConfig
+	}{
+		{
+			name: "default values",
+			env:  EnvFixture{},
+			expectedTLSConfig: clients.TLSConfig{
+				TrustedCAFile:         "/opt/metal3/certs/ca/tls.crt",
+				ClientCertificateFile: "/opt/metal3/certs/client/tls.crt",
+				ClientPrivateKeyFile:  "/opt/metal3/certs/client/tls.key",
+				InsecureSkipVerify:    false,
+				SkipClientSANVerify:   false,
+			},
+		},
+		{
+			name: "custom file paths",
+			env: EnvFixture{
+				ironicCACertFile:           "/custom/ca.crt",
+				ironicClientCertFile:       "/custom/client.crt",
+				ironicClientPrivateKeyFile: "/custom/client.key",
+			},
+			expectedTLSConfig: clients.TLSConfig{
+				TrustedCAFile:         "/custom/ca.crt",
+				ClientCertificateFile: "/custom/client.crt",
+				ClientPrivateKeyFile:  "/custom/client.key",
+				InsecureSkipVerify:    false,
+				SkipClientSANVerify:   false,
+			},
+		},
+		{
+			name: "insecure true",
+			env: EnvFixture{
+				ironicInsecure: "true",
+			},
+			expectedTLSConfig: clients.TLSConfig{
+				TrustedCAFile:         "/opt/metal3/certs/ca/tls.crt",
+				ClientCertificateFile: "/opt/metal3/certs/client/tls.crt",
+				ClientPrivateKeyFile:  "/opt/metal3/certs/client/tls.key",
+				InsecureSkipVerify:    true,
+				SkipClientSANVerify:   false,
+			},
+		},
+		{
+			name: "skip client SAN verify true",
+			env: EnvFixture{
+				ironicSkipClientSANVerify: "true",
+			},
+			expectedTLSConfig: clients.TLSConfig{
+				TrustedCAFile:         "/opt/metal3/certs/ca/tls.crt",
+				ClientCertificateFile: "/opt/metal3/certs/client/tls.crt",
+				ClientPrivateKeyFile:  "/opt/metal3/certs/client/tls.key",
+				InsecureSkipVerify:    false,
+				SkipClientSANVerify:   true,
+			},
+		},
+		{
+			name: "case insensitive boolean values",
+			env: EnvFixture{
+				ironicInsecure:            "TRUE",
+				ironicSkipClientSANVerify: "True",
+			}, expectedTLSConfig: clients.TLSConfig{
+				TrustedCAFile:         "/opt/metal3/certs/ca/tls.crt",
+				ClientCertificateFile: "/opt/metal3/certs/client/tls.crt",
+				ClientPrivateKeyFile:  "/opt/metal3/certs/client/tls.key",
+				InsecureSkipVerify:    true,
+				SkipClientSANVerify:   true,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer tc.env.TearDown()
+			tc.env.SetUp()
+
+			result := loadTLSConfigFromEnv()
+			assert.Equal(t, tc.expectedTLSConfig, result)
 		})
 	}
 }

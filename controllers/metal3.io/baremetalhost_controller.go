@@ -1403,6 +1403,11 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 	// update didn't actually happen. This is deemed an acceptable risk for the moment since it is only
 	// going to impact a small subset of Firmware Settings implementations.
 	currentError := info.host.Status.ErrorType
+	if info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing {
+		info.host.Status.OperationalStatus = metal3api.OperationalStatusServicing
+		return actionUpdate{}
+	}
+
 	provResult, started, err := prov.Service(servicingData, dirty,
 		currentError == metal3api.ServicingError)
 	if err != nil {

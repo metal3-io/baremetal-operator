@@ -36,8 +36,9 @@ import (
 )
 
 const (
-	dataImageRetryDelay  = time.Second * 60
-	dataImageUpdateDelay = time.Second * 30
+	dataImageRetryDelay          = time.Second * 60
+	dataImageUpdateDelay         = time.Second * 30
+	dataImageUnmanagedRetryDelay = time.Second * 20
 )
 
 // DataImageReconciler reconciles a DataImage object.
@@ -129,7 +130,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if hasDetachedAnnotation(bmh) {
 		reqLogger.Info("the host is detached, not running reconciler")
-		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: dataImageUnmanagedRetryDelay}, nil
 	}
 
 	// If the reconciliation is paused, requeue

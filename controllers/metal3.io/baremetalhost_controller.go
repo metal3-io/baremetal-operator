@@ -140,7 +140,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		}
 	}
 
-	hostData, err := r.reconciletHostData(ctx, host, request)
+	hostData, err := r.reconcileHostData(ctx, host, request)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "Could not reconcile host data")
 	} else if hostData.Requeue {
@@ -2143,7 +2143,7 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 	return controller.Complete(r)
 }
 
-func (r *BareMetalHostReconciler) reconciletHostData(ctx context.Context, host *metal3api.BareMetalHost, request ctrl.Request) (result ctrl.Result, err error) {
+func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *metal3api.BareMetalHost, request ctrl.Request) (result ctrl.Result, err error) {
 	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
 
 	// Fetch the HardwareData

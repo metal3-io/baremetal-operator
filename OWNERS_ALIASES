@@ -3,15 +3,15 @@
 aliases:
   baremetal-operator-maintainers:
   - dtantsur
+  - elfosardo
   - honza
   - kashifest
   - lentzi90
+  - Rozzii
   - zaneb
 
   baremetal-operator-reviewers:
-  - elfosardo
   - mquhuy
-  - Rozzii
   - s3rj1k
   - tuminoid
   - zhouhao3

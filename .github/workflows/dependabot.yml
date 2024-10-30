@@ -45,7 +45,7 @@ jobs:
     - name: Update all modules
       run: make mod
     - name: Update generated code
-      run: make generate
+      run: make generate manifests
     - uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5 # v9.1.4
       name: Commit changes
       with:

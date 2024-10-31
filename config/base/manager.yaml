@@ -23,6 +23,7 @@ spec:
             - /baremetal-operator
           args:
             - --enable-leader-election
+            - --tls-min-version=TLS13
           image: quay.io/metal3-io/baremetal-operator
           imagePullPolicy: Always
           env:

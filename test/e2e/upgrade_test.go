@@ -382,7 +382,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			upgradeClusterProxy.Dispose(ctx)
 		})
 
-		if e2eConfig.GetVariable("UPGRADE_DEPLOY_CERT_MANAGER") != "false" {
+		if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_CERT_MANAGER") {
 			By("Installing cert-manager on the upgrade cluster")
 			cmVersion := e2eConfig.GetVariable("CERT_MANAGER_VERSION")
 			err := installCertManager(ctx, upgradeClusterProxy, cmVersion)

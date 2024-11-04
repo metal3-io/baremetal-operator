@@ -3,7 +3,13 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -499,7 +505,7 @@ func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
 }
 
 // DumpResources dumps resources related to BMO e2e tests as YAML.
-func DumpResources(ctx context.Context, clusterProxy framework.ClusterProxy, namespace string, artifactFolder string) {
+func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framework.ClusterProxy, namespace string, artifactFolder string) {
 	// CAPI resources.
 	framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
 		Lister:    clusterProxy.GetClient(),
@@ -507,4 +513,56 @@ func DumpResources(ctx context.Context, clusterProxy framework.ClusterProxy, nam
 		LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
 	})
 	dumpCRDS(ctx, clusterProxy.GetClient(), filepath.Join(artifactFolder, "crd"))
+	if e2eConfig.GetBoolVariable("FETCH_IRONIC_NODES") {
+		dumpIronicNodes(ctx, e2eConfig, artifactFolder)
+	}
+}
+
+// dumpIronicNodes dumps the nodes in ironic's view into json file inside the provided artifactFolder.
+func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder string) {
+	ironicProvisioningIP := e2eConfig.GetVariable("IRONIC_PROVISIONING_IP")
+	ironicProvisioningPort := e2eConfig.GetVariable("IRONIC_PROVISIONING_PORT")
+	ironicURL := fmt.Sprintf("https://%s/v1/nodes", net.JoinHostPort(ironicProvisioningIP, ironicProvisioningPort))
+	username := e2eConfig.GetVariable("IRONIC_USERNAME")
+	password := e2eConfig.GetVariable("IRONIC_PASSWORD")
+
+	// Create HTTP client with TLS settings
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true, // #nosec G402 Skip verification as we are using self-signed certificates
+	}
+	client := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: tlsConfig},
+	}
+
+	// Create the request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ironicURL, http.NoBody)
+	Expect(err).ToNot(HaveOccurred(), "Failed to create request")
+
+	// Set basic auth header
+	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+	req.Header.Add("Authorization", "Basic "+auth)
+
+	// Make the request
+	resp, err := client.Do(req)
+	Expect(err).ToNot(HaveOccurred(), "Failed to send request")
+	Expect(resp.StatusCode).To(Equal(http.StatusOK), fmt.Sprintf("Unexpected Status Code: %d", resp.StatusCode))
+
+	defer resp.Body.Close()
+	// Read and output the response
+	body, err := io.ReadAll(resp.Body)
+	Expect(err).ToNot(HaveOccurred(), "Failed to read response body")
+
+	var logOutput bytes.Buffer
+
+	// Format the JSON with indentation
+	err = json.Indent(&logOutput, body, "", "    ")
+	Expect(err).ToNot(HaveOccurred(), "Error formatting JSON")
+
+	file, err := os.Create(path.Join(artifactFolder, "ironic-nodes.json"))
+	Expect(err).ToNot(HaveOccurred(), "Error creating file")
+	defer file.Close()
+
+	// Write indented JSON to file
+	_, err = file.Write(logOutput.Bytes())
+	Expect(err).ToNot(HaveOccurred(), "Error writing JSON to file")
 }

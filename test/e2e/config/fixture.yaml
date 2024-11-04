@@ -22,6 +22,8 @@ variables:
   # This setting is for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
 
+  NAMESPACE_SCOPED: "true"
+
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"

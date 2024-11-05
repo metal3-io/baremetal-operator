@@ -88,9 +88,10 @@ IP_ADDRESS="192.168.222.1"
 # our e2e overlays
 export IRONIC_PROVISIONING_IP="192.168.222.199"
 
-pushd "${REPO_ROOT}/test/createVM" || exit 1
-go run main.go --yaml-source-file "${E2E_BMCS_CONF_FILE}"
-popd
+# Build vbmctl
+make build-vbmctl
+# Create VMs to act as BMHs in the tests.
+./bin/vbmctl --yaml-source-file "${E2E_BMCS_CONF_FILE}"
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   # Start VBMC

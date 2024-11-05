@@ -905,6 +905,10 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 				info.log.Info("failed creating hostfirmwarecomponents")
 				return actionError{errors.Wrap(err, "failed creating hostFirmwareComponents")}
 			}
+			if _, err = r.acquireHostUpdatePolicy(info); err != nil {
+				info.log.Info("failed setting owner reference on hostupdatepolicy")
+				return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
+			}
 		}
 	}
 	// Reaching this point means the credentials are valid and worked,
@@ -1394,10 +1398,10 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 		}
 	}
 
-	dirty := fwDirty || hfsDirty
+	hasChanges := fwDirty || hfsDirty
 
 	// Even if settings are clean, we need to check the result of the current servicing.
-	if !dirty && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
+	if !hasChanges && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
 		// If nothing is going on, return control to the power management.
 		return nil
 	}
@@ -1406,36 +1410,34 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 	// succeed before leaving this state (e.g. by deprovisioning) we lose the signal that the
 	// update didn't actually happen. This is deemed an acceptable risk for the moment since it is only
 	// going to impact a small subset of Firmware Settings implementations.
-	currentError := info.host.Status.ErrorType
 	if info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing {
 		info.host.Status.OperationalStatus = metal3api.OperationalStatusServicing
 		return actionUpdate{}
 	}
 
-	provResult, started, err := prov.Service(servicingData, dirty,
-		currentError == metal3api.ServicingError)
+	provResult, started, err := prov.Service(servicingData, hasChanges,
+		info.host.Status.ErrorType == metal3api.ServicingError)
 	if err != nil {
 		return actionError{fmt.Errorf("error servicing host: %w", err)}
 	}
 	if provResult.ErrorMessage != "" {
+		info.host.Status.Provisioning.Firmware = nil
 		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
 		return result
 	}
 
-	if clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing) {
-		dirty = true
-	}
+	dirty := clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing)
 
 	if started && fwDirty {
 		info.host.Status.Provisioning.Firmware = info.host.Spec.Firmware.DeepCopy()
+		dirty = true
 	}
 
-	if provResult.Dirty {
-		result := actionContinue{provResult.RequeueAfter}
-		if dirty {
-			return actionUpdate{result}
-		}
-		return result
+	resultAction := actionContinue{delay: provResult.RequeueAfter}
+	if dirty {
+		return actionUpdate{resultAction}
+	} else if provResult.Dirty {
+		return resultAction
 	}
 
 	// Servicing is finished at this point, clean up operational status
@@ -1485,14 +1487,15 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 			return actionContinue{}
 		}
 	}
-	hup, err := r.acquireHostUpdatePolicy(info)
-	if err != nil {
-		info.log.Info("failed setting owner reference on hostupdatepolicy")
-		return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
-	}
 
 	servicingAllowed := isProvisioned && !info.host.Status.PoweredOn && desiredPowerOnState
 	if servicingAllowed || info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError {
+		hup, err := r.acquireHostUpdatePolicy(info)
+		if err != nil {
+			info.log.Info("failed setting owner reference on hostupdatepolicy")
+			return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
+		}
+
 		result := r.doServiceIfNeeded(prov, info, hup)
 		if result != nil {
 			return result

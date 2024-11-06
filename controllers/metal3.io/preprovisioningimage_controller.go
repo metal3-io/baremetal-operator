@@ -129,12 +129,20 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	return result, err
 }
 
+// configChanged checks if the image configuration has changed since the last update.
+// It compares the current format, architecture, and network data status with the
+// values stored in the image status.
 func configChanged(img *metal3api.PreprovisioningImage, format metal3api.ImageFormat, networkDataStatus metal3api.SecretStatus) bool {
 	return !(img.Status.Format == format &&
 		img.Status.Architecture == img.Spec.Architecture &&
 		img.Status.NetworkData == networkDataStatus)
 }
 
+// update updates the PreprovisioningImage resource with the latest image information.
+// It checks if the image configuration has changed since the last update, and if so,
+// it discards the existing image, sets up the new image data, and triggers a new
+// image build. If the image configuration has not changed, it simply updates the
+// image status with the latest information.
 func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3api.PreprovisioningImage, log logr.Logger) (bool, error) {
 	generation := img.GetGeneration()
 

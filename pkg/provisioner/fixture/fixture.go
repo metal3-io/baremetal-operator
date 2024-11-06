@@ -14,6 +14,7 @@ import (
 var log = logz.New().WithName("provisioner").WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
+var inspectionRequeueDelay = time.Second * 5
 
 type fixtureHostConfigData struct {
 	userData    string
@@ -78,6 +79,8 @@ type Fixture struct {
 	image metal3api.Image
 	// state to manage power
 	poweredOn bool
+	// state to manage inspection
+	inspectionStarted bool
 
 	validateError string
 
@@ -143,52 +146,62 @@ func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ 
 	// status for the server here until it is ready for us to get the
 	// inspection details. Simulate that for now by creating the
 	// hardware details struct as part of a second pass.
-	p.log.Info("continuing inspection by setting details")
-	started = true
-	details =
-		&metal3api.HardwareDetails{
-			RAMMebibytes: 128 * 1024,
-			NIC: []metal3api.NIC{
-				{
-					Name:      "nic-1",
-					Model:     "virt-io",
-					MAC:       "ab:cd:12:34:56:78",
-					IP:        "192.168.100.1",
-					SpeedGbps: 1,
-					PXE:       true,
+	if p.state.inspectionStarted {
+		p.log.Info("continuing inspection by setting details")
+		details =
+			&metal3api.HardwareDetails{
+				RAMMebibytes: 128 * 1024,
+				NIC: []metal3api.NIC{
+					{
+						Name:      "nic-1",
+						Model:     "virt-io",
+						MAC:       "ab:cd:12:34:56:78",
+						IP:        "192.168.100.1",
+						SpeedGbps: 1,
+						PXE:       true,
+					},
+					{
+						Name:      "nic-2",
+						Model:     "e1000",
+						MAC:       "12:34:56:78:ab:cd",
+						IP:        "192.168.100.2",
+						SpeedGbps: 1,
+						PXE:       false,
+					},
 				},
-				{
-					Name:      "nic-2",
-					Model:     "e1000",
-					MAC:       "12:34:56:78:ab:cd",
-					IP:        "192.168.100.2",
-					SpeedGbps: 1,
-					PXE:       false,
+				Storage: []metal3api.Storage{
+					{
+						Name:       "disk-1 (boot)",
+						Rotational: false,
+						SizeBytes:  metal3api.TebiByte * 93,
+						Model:      "Dell CFJ61",
+					},
+					{
+						Name:       "disk-2",
+						Rotational: false,
+						SizeBytes:  metal3api.TebiByte * 93,
+						Model:      "Dell CFJ61",
+					},
 				},
-			},
-			Storage: []metal3api.Storage{
-				{
-					Name:       "disk-1 (boot)",
-					Rotational: false,
-					SizeBytes:  metal3api.TebiByte * 93,
-					Model:      "Dell CFJ61",
+				CPU: metal3api.CPU{
+					Arch:           "x86_64",
+					Model:          "FancyPants CPU",
+					ClockMegahertz: 3.0 * metal3api.GigaHertz,
+					Flags:          []string{"fpu", "hypervisor", "sse", "vmx"},
+					Count:          1,
 				},
-				{
-					Name:       "disk-2",
-					Rotational: false,
-					SizeBytes:  metal3api.TebiByte * 93,
-					Model:      "Dell CFJ61",
-				},
-			},
-			CPU: metal3api.CPU{
-				Arch:           "x86_64",
-				Model:          "FancyPants CPU",
-				ClockMegahertz: 3.0 * metal3api.GigaHertz,
-				Flags:          []string{"fpu", "hypervisor", "sse", "vmx"},
-				Count:          1,
-			},
-		}
-	p.publisher("InspectionComplete", "Hardware inspection completed")
+			}
+		p.publisher("InspectionComplete", "Hardware inspection completed")
+	} else {
+		// First pass
+		p.log.Info("starting inspection of hardware")
+		p.state.inspectionStarted = true
+		started = true
+
+		// Introduce a delay to make the inspection more realistic
+		result.RequeueAfter = inspectionRequeueDelay
+		result.Dirty = true
+	}
 
 	return result, started, details, nil
 }

@@ -1,0 +1,41 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ipxe-cacert
+spec:
+  commonName: ipxe-ca
+  isCA: true
+  ipAddresses:
+  - IRONIC_HOST_IP
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: ipxe-cacert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ca-issuer
+spec:
+  ca:
+    secretName: ipxe-cacert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ipxe-cert
+spec:
+  commonName: ipxe-cert
+  ipAddresses:
+  - IRONIC_HOST_IP
+  issuerRef:
+    kind: Issuer
+    name: ca-issuer
+  secretName: ipxe-cert

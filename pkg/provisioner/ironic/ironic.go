@@ -1215,6 +1215,18 @@ func (p *ironicProvisioner) getNewFirmwareSettings(actualFirmwareSettings metal3
 	return newSettings
 }
 
+// getFirmwareComponentsUpdates extract the updates in a format that ironic accepts  [{"component":"...", "url":"..."}, {"component":"...","url":".."}].
+func (p *ironicProvisioner) getFirmwareComponentsUpdates(targetFirmwareComponents []metal3api.FirmwareUpdate) (newUpdates []map[string]string) {
+	for _, update := range targetFirmwareComponents {
+		newComponentUpdate := map[string]string{
+			"component": update.Component,
+			"url":       update.URL,
+		}
+		newUpdates = append(newUpdates, newComponentUpdate)
+	}
+	return newUpdates
+}
+
 func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails, data provisioner.PrepareData) (cleanSteps []nodes.CleanStep, err error) {
 	// Build raid clean steps
 	raidCleanSteps, err := BuildRAIDCleanSteps(bmcAccess.RAIDInterface(), data.TargetRAIDConfig, data.ActualRAIDConfig)
@@ -1249,19 +1261,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		)
 	}
 
-	// extract to generate the updates that will trigger a clean step
-	// the format we send to ironic is:
-	// [{"component":"...", "url":"..."}, {"component":"...","url":".."}]
-	var newUpdates []map[string]string
-	if data.TargetFirmwareComponents != nil {
-		for _, update := range data.TargetFirmwareComponents {
-			newComponentUpdate := map[string]string{
-				"component": update.Component,
-				"url":       update.URL,
-			}
-			newUpdates = append(newUpdates, newComponentUpdate)
-		}
-	}
+	newUpdates := p.getFirmwareComponentsUpdates(data.TargetFirmwareComponents)
 
 	if len(newUpdates) != 0 {
 		p.log.Info("Applying Firmware Update clean steps", "settings", newUpdates)

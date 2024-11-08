@@ -35,9 +35,22 @@ func (p *ironicProvisioner) buildServiceSteps(bmcAccess bmc.AccessDetails, data 
 		)
 	}
 
-	// TODO: Add service steps for firmware updates
+	newUpdates := p.getFirmwareComponentsUpdates(data.TargetFirmwareComponents)
+	if len(newUpdates) != 0 {
+		p.log.Info("Applying Firmware Update clean steps", "settings", newUpdates)
+		serviceSteps = append(
+			serviceSteps,
+			nodes.ServiceStep{
+				Interface: nodes.InterfaceFirmware,
+				Step:      "update",
+				Args: map[string]interface{}{
+					"settings": newUpdates,
+				},
+			},
+		)
+	}
 
-	return
+	return serviceSteps, nil
 }
 
 func (p *ironicProvisioner) startServicing(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.ServicingData) (success bool, result provisioner.Result, err error) {

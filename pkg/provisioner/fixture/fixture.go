@@ -14,7 +14,7 @@ import (
 var log = logz.New().WithName("provisioner").WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
-var inspectionRequeueDelay = time.Second * 5
+var inspectionRequeueDelay = time.Second * 2
 
 type fixtureHostConfigData struct {
 	userData    string

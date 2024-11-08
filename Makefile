@@ -115,7 +115,7 @@ ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
 .PHONY: test-e2e
 test-e2e: $(GINKGO) ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \
-		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e --focus="$(GINKGO_FOCUS)" \
+		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e,vbmctl --focus="$(GINKGO_FOCUS)" \
 		$(_SKIP_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
 		--output-dir="$(ARTIFACTS)" --junit-report="junit.e2e_suite.1.xml" $(GINKGO_ARGS) test/e2e -- \
 		-e2e.config="$(E2E_CONF_FILE)" -e2e.bmcsConfig="$(E2E_BMCS_CONF_FILE)" \
@@ -198,7 +198,11 @@ deploy-cli:
 
 .PHONY: build-e2e
 build-e2e:
-	cd test; go build ./...
+	cd test; go build --tags=e2e ./...
+
+.PHONY: build-vbmctl
+build-vbmctl:
+	cd test; go build --tags=e2e,vbmctl -ldflags $(LDFLAGS) -o $(abspath $(BIN_DIR)/vbmctl) ./vbmctl/main.go
 
 .PHONY: manifests
 manifests: manifests-generate manifests-kustomize ## Generate manifests e.g. CRD, RBAC etc.

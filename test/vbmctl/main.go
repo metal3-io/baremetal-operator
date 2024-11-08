@@ -1,3 +1,6 @@
+//go:build vbmctl
+// +build vbmctl
+
 package main
 
 import (
@@ -143,6 +146,13 @@ func CreateVolume(volumeName, poolName, poolPath string, capacityInGB int) error
 	return nil
 }
 
+// CreateLibvirtVM creates a new virtual machine with the given hostname,
+// network name, and MAC address. It first creates a qcow2 file with a size
+// of 3GB and defines it in the default storage pool. The function then connects
+// to the libvirt daemon and uses a template to generate the VM's XML configuration.
+// If the domain is successfully defined and created, the virtual machine is
+// started. Errors during qcow2 file creation, volume creation, libvirt connection,
+// template rendering, or domain creation are returned.
 func CreateLibvirtVM(hostName, networkName, macAddress string) error {
 	poolName := "default"
 	poolPath := "/tmp/pool_oo"
@@ -206,6 +216,11 @@ func CreateLibvirtVM(hostName, networkName, macAddress string) error {
 	return nil
 }
 
+// CreateLibvirtBMC creates a VM with the given MAC address, hostname, IP address
+// and adds a DHCP host entry on the given network.
+//
+// It will return an error if the network does not exist, or if creating the VM
+// or adding the DHCP host entry fails.
 func CreateLibvirtBMC(macAddress, hostName, ipAddress, networkName string) error {
 	var err error
 	conn, err := libvirt.NewConnect("qemu:///system")

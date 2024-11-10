@@ -1036,6 +1036,10 @@ func (host *BareMetalHost) WasProvisioned() bool {
 		// We have an image provisioned.
 		return true
 	}
+	if host.Status.Provisioning.CustomDeploy != nil {
+		// We have a custom deploy provisioned.
+		return true
+	}
 	return false
 }
 

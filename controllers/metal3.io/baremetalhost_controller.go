@@ -1373,10 +1373,13 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 
 	var fwDirty bool
 	var hfsDirty bool
-	var liveFirmwareSettingsAllowed bool
+	var hfcDirty bool
+	var hfc *metal3api.HostFirmwareComponents
+	var liveFirmwareSettingsAllowed, liveFirmwareUpdatesAllowed bool
 
 	if hup != nil {
 		liveFirmwareSettingsAllowed = (hup.Spec.FirmwareSettings == metal3api.HostUpdatePolicyOnReboot)
+		liveFirmwareUpdatesAllowed = (hup.Spec.FirmwareUpdates == metal3api.HostUpdatePolicyOnReboot)
 	}
 
 	if liveFirmwareSettingsAllowed {
@@ -1398,7 +1401,18 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 		}
 	}
 
-	hasChanges := fwDirty || hfsDirty
+	if liveFirmwareUpdatesAllowed {
+		var err error
+		hfcDirty, hfc, err = r.getHostFirmwareComponents(info)
+		if err != nil {
+			return actionError{fmt.Errorf("could not determine firmware components: %w", err)}
+		}
+		if hfcDirty {
+			servicingData.TargetFirmwareComponents = hfc.Spec.Updates
+		}
+	}
+
+	hasChanges := fwDirty || hfsDirty || hfcDirty
 
 	// Even if settings are clean, we need to check the result of the current servicing.
 	if !hasChanges && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
@@ -1422,6 +1436,12 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 	}
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.Firmware = nil
+		if hfcDirty && hfc.Status.Updates != nil {
+			hfc.Status.Updates = nil
+			if err := r.Status().Update(info.ctx, hfc); err != nil {
+				return actionError{errors.Wrap(err, "failed to update hostfirmwarecomponents status")}
+			}
+		}
 		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
 		return result
 	}
@@ -1431,6 +1451,19 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 	if started && fwDirty {
 		info.host.Status.Provisioning.Firmware = info.host.Spec.Firmware.DeepCopy()
 		dirty = true
+	}
+
+	if hfcDirty && started {
+		hfcDirty, err = r.saveHostFirmwareComponents(prov, info, hfc)
+		if err != nil {
+			return actionError{errors.Wrap(err, "could not save the host firmware components")}
+		}
+
+		if hfcDirty {
+			if err := r.Status().Update(info.ctx, hfc); err != nil {
+				return actionError{errors.Wrap(err, "failed to update hostfirmwarecomponents status")}
+			}
+		}
 	}
 
 	resultAction := actionContinue{delay: provResult.RequeueAfter}

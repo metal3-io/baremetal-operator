@@ -442,29 +442,15 @@ verify_container_images()
     echo -e "Done\n"
 }
 
-_get_golang_version_from_dockerfile()
-{
-    # read golang version from Dockerfile and return
-    local image_and_tag image image_and_tag_without_sha tag tag_minor
-
-    image_and_tag="$(grep "^ARG BUILD_IMAGE=" Dockerfile | cut -f2 -d=)"
-    image="${image_and_tag/:*}"
-    image_and_tag_without_sha="${image_and_tag/@sha256:*}"
-    tag="${image_and_tag_without_sha/*:}"
-    tag_minor="${tag%.*}"
-
-    echo "${image_and_tag} ${image} ${image_and_tag_without_sha} ${tag} ${tag_minor}"
-}
-
 verify_container_base_image()
 {
     # check if the golang used for container image build is latest of its minor
-    local image_and_tag image image_and_tag_without_sha tag tag_minor
+    local image tag tag_minor
 
     echo "Verifying container base images are up to date ..."
-
-    read -r image_and_tag image image_and_tag_without_sha tag tag_minor < \
-        <(_get_golang_version_from_dockerfile)
+    image="docker.io/golang"
+    tag="$(make go-version)"
+    tag_minor="${tag%.*}"
 
     # quay paginates 50 items at a time, so it is simpler to use gcrane
     # to list all the tags, than DIY parse the pagination logic
@@ -475,9 +461,9 @@ verify_container_base_image()
     latest_minor="$(sort -rV < "${TAG_LOG}" | cut -f2 -d: | grep -E "^v?${tag_minor/./\\.}\.[[:digit:]]+$" | head -1)"
 
     if [[ -z "${latest_minor}" ]]; then
-        echo "WARNING: could not find any minor releases of ${image_and_tag_without_sha}"
+        echo "WARNING: could not find any minor releases of ${image}:${tag}"
     elif [[ "${latest_minor}" != "${tag}" ]]; then
-        echo "WARNING: container base image ${image_and_tag_without_sha} is not the latest minor"
+        echo "WARNING: container base image ${image}:${tag} is not the latest minor"
         echo "WARNING: latest minor ${latest_minor} != ${tag}, needs a bump"
     fi
 
@@ -629,42 +615,24 @@ verify_module_releases()
     echo -e "Done\n"
 }
 
-_mutate_gomod_files_for_osv_scanner()
-{
-    # mutate go.mod files to include go directive with exact patch version
-    # from main Dockerfile for correct golang stdlib vulnerability information
-    local image_and_tag image image_and_tag_without_sha tag tag_minor
-
-    read -r image_and_tag image image_and_tag_without_sha tag tag_minor < \
-        <(_get_golang_version_from_dockerfile)
-
-    for modfile in **/go.mod; do
-        sed -i.bak -e "s/^go .*$/go ${tag}/" "${modfile}"
-    done
-}
-
-_restore_mutated_gomod_files()
-{
-    # restore mutated gomod files to original state
-    for bakfile in **/go.mod.bak; do
-        modfile="${bakfile/.bak}"
-        mv "${bakfile}" "${modfile}"
-    done
-}
-
 verify_vulnerabilities()
 {
     # run osv-scanner to verify if we have open vulnerabilities in deps
+    local go_version config_file=".osv-scanner.toml"
+
     echo "Verifying vulnerabilities ..."
 
-    _mutate_gomod_files_for_osv_scanner
+    go_version="$(make go-version)"
+    echo "GoVersionOverride = \"${go_version}\"" > "${config_file}"
+    "${OSVSCANNER_CMD[@]}" scan \
+        --skip-git --recursive \
+        --config="${config_file}" \
+        ./ > "${SCAN_LOG}" || true
 
-    "${OSVSCANNER_CMD[@]}" --skip-git -r . > "${SCAN_LOG}" || true
     if ! grep -q "No vulnerabilities found" "${SCAN_LOG}"; then
         cat "${SCAN_LOG}"
     fi
-
-    _restore_mutated_gomod_files
+    rm -f "${config_file}"
 
     echo -e "Done\n"
 }

@@ -5,6 +5,8 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/metal3-io/baremetal-operator/badge)](https://securityscorecards.dev/viewer/?uri=github.com/metal3-io/baremetal-operator)
 [![Ubuntu daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-ubuntu-e2e-integration-test-main&subject=Ubuntu%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-ubuntu-e2e-integration-test-main/)
 [![CentOS daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-centos-e2e-integration-test-main&subject=CentOS%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-centos-e2e-integration-test-main/)
+[![Periodic E2E Test](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-periodic-main.yml/badge.svg)](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-periodic-main.yml)
+[![Periodic E2E Test Optional](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-optional-periodic.yml/badge.svg)](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-optional-periodic.yml)
 
 The Bare Metal Operator implements a Kubernetes API for managing bare metal
 hosts. It maintains an inventory of available hosts as instances of the

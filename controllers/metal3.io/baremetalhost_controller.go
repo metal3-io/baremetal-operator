@@ -1309,7 +1309,7 @@ func clearHostProvisioningSettings(host *metal3api.BareMetalHost) {
 }
 
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	if info.host.Status.Provisioning.Image.URL != "" {
+	if info.host.Status.Provisioning.Image.URL != "" || info.host.Status.Provisioning.CustomDeploy != nil {
 		// Adopt the host in case it has been re-registered during the
 		// deprovisioning process before it completed
 		provResult, err := prov.Adopt(

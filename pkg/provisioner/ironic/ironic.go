@@ -1103,17 +1103,13 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure b
 		return transientError(fmt.Errorf("invalid state for adopt: %s",
 			ironicNode.ProvisionState))
 	case nodes.Manageable:
-		_, hasImageSource := ironicNode.InstanceInfo["image_source"]
-		_, hasBootISO := ironicNode.InstanceInfo["boot_iso"]
-		if data.State == metal3api.StateDeprovisioning &&
-			!(hasImageSource || hasBootISO) {
-			// If we got here after a fresh registration and image data is
-			// available, it should have been added to the node during
-			// registration. If it isn't present then we got here due to a
-			// failed cleaning on deprovision. The node will be cleaned again
-			// before the next provisioning, so just allow the controller to
-			// continue without adopting.
-			p.log.Info("no image info; not adopting", "state", ironicNode.ProvisionState)
+		if data.State == metal3api.StateDeprovisioning {
+			// During deprovisioning we may get here because of either a fresh
+			// registration or a failure during cleaning. Either way, the
+			// Deprovision() function will change move the state to Available,
+			// which will retry automated cleaning.
+			p.log.Info("deprovisioning in progress; not adopting",
+				"state", ironicNode.ProvisionState)
 			return operationComplete()
 		}
 		return p.changeNodeProvisionState(
@@ -1670,6 +1666,8 @@ func (p *ironicProvisioner) Deprovision(restartOnFailure bool) (result provision
 		// We end up here after CleanFail, retry cleaning. If a user
 		// wants to delete a host without cleaning, they can always set
 		// automatedCleaningMode: disabled.
+		// We also end up here if the node has to be re-registered, because we
+		// don't attempt to adopt once deprovisioning has started.
 		p.log.Info("deprovisioning node is in manageable state", "automatedClean", ironicNode.AutomatedClean)
 		return p.changeNodeProvisionState(
 			ironicNode,

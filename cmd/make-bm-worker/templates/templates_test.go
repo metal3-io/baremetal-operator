@@ -14,12 +14,12 @@ func compareStrings(t *testing.T, s1, s2 string) bool {
 	s1Lines := strings.Split(s1, "\n")
 	s2Lines := strings.Split(s2, "\n")
 
-	max := len(s1Lines)
-	if len(s2Lines) < max {
-		max = len(s2Lines)
+	maxLines := len(s1Lines)
+	if len(s2Lines) < maxLines {
+		maxLines = len(s2Lines)
 	}
 
-	for i := 0; i < max; i++ {
+	for i := 0; i < maxLines; i++ {
 		if s1Lines[i] != s2Lines[i] {
 			t.Logf("line %d differ: %q != %q", i, s1Lines[i], s2Lines[i])
 		}

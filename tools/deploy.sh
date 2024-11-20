@@ -128,7 +128,7 @@ mkdir -p "${IRONIC_AUTH_DIR}"
 if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     if [ -z "${IRONIC_USERNAME:-}" ]; then
         if [ ! -f "${IRONIC_AUTH_DIR}ironic-username" ]; then
-            IRONIC_USERNAME="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+            IRONIC_USERNAME="$(uuidgen)"
             echo "$IRONIC_USERNAME" > "${IRONIC_AUTH_DIR}ironic-username"
         else
             IRONIC_USERNAME="$(cat "${IRONIC_AUTH_DIR}ironic-username")"
@@ -136,7 +136,7 @@ if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
     fi
     if [ -z "${IRONIC_PASSWORD:-}" ]; then
         if [ ! -f "${IRONIC_AUTH_DIR}ironic-password" ]; then
-            IRONIC_PASSWORD="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)"
+            IRONIC_PASSWORD="$(uuidgen)"
             echo "$IRONIC_PASSWORD" > "${IRONIC_AUTH_DIR}ironic-password"
         else
             IRONIC_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-password")"

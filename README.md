@@ -4,6 +4,8 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/metal3-io/baremetal-operator/badge)](https://securityscorecards.dev/viewer/?uri=github.com/metal3-io/baremetal-operator)
 [![Ubuntu E2E Integration 1.7 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-ubuntu-e2e-integration-test-release-1-7&subject=Ubuntu%20e2e%20integration%201.7)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-periodic-ubuntu-e2e-integration-test-release-1-7/)
 [![CentOS E2E Integration 1.7 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-centos-e2e-integration-test-release-1-7&subject=Centos%20e2e%20integration%201.7)](https://jenkins.nordix.org/view/Metal3%20Periodic/job/metal3-periodic-centos-e2e-integration-test-release-1-7/)
+[![Periodic E2E Test release-0.6](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-periodic-release-0.6.yml/badge.svg)](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-periodic-release-0.6.yml)
+[![Periodic E2E Test Optional release-0.6](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-optional-periodic-release-0.6.yml/badge.svg)](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-optional-periodic-release-0.6.yml)
 
 The Bare Metal Operator implements a Kubernetes API for managing bare metal
 hosts. It maintains an inventory of available hosts as instances of the

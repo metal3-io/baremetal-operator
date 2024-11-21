@@ -42,14 +42,14 @@ func getVLANs(lldp map[string]interface{}) (vlans []metal3api.VLAN, vlanid metal
 				vid, _ := vlan["id"].(int)
 				name, _ := vlan["name"].(string)
 				vlans[i] = metal3api.VLAN{
-					ID:   metal3api.VLANID(vid),
+					ID:   metal3api.VLANID(vid), //#nosec G115:gosec
 					Name: name,
 				}
 			}
 		}
 	}
 	if vid, ok := lldp["switch_port_untagged_vlan_id"].(int); ok {
-		vlanid = metal3api.VLANID(vid)
+		vlanid = metal3api.VLANID(vid) //#nosec G115:gosec
 	}
 	return
 }
@@ -151,8 +151,8 @@ func getSystemVendorDetails(vendor inventory.SystemVendorType) metal3api.Hardwar
 
 func getCPUDetails(cpudata *inventory.CPUType) metal3api.CPU {
 	var freq float64
-	fmt.Sscanf(cpudata.Frequency, "%f", &freq)
-	freq = math.Round(freq) // Ensure freq has no fractional part
+	fmt.Sscanf(cpudata.Frequency, "%f", &freq) //nolint:errcheck
+	freq = math.Round(freq)                    // Ensure freq has no fractional part
 	sort.Strings(cpudata.Flags)
 	cpu := metal3api.CPU{
 		Arch:           cpudata.Architecture,

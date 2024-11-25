@@ -224,7 +224,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 			msg = err.Error()
 		}
 		provisionerNotReady.Inc()
-		reqLogger.Info("provisioner is not ready", "Error:", msg, "RequeueAfter:", provisionerNotReadyRetryDelay)
+		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerNotReadyRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
 	}
 

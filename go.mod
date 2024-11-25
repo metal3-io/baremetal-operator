@@ -1,8 +1,6 @@
 module github.com/metal3-io/baremetal-operator
 
-go 1.22
-
-toolchain go1.22.8
+go 1.22.8
 
 require (
 	github.com/go-logr/logr v1.4.2

@@ -103,7 +103,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups=metal3.io,resources=dataimages/status,verbs=get;update;patch
 
 // Allow for updating hostupdatepolicies
-//+kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch
+//+kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch;update
 
 // Reconcile handles changes to BareMetalHost resources.
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {

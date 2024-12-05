@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -213,8 +214,11 @@ func main() {
 	}
 
 	ctrlOpts := ctrl.Options{
-		Scheme:  scheme,
-		Metrics: metricsserver.Options{BindAddress: metricsBindAddr},
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress:    metricsBindAddr,
+			FilterProvider: filters.WithAuthenticationAndAuthorization,
+		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    webhookPort,
 			TLSOpts: tlsOptionOverrides,

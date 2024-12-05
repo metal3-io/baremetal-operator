@@ -28,11 +28,6 @@ generatorOptions:
   disableNameSuffixHash: true
 
 patches:
-# Protect the /metrics endpoint by putting it behind auth.
-# If you want your controller-manager to expose the /metrics
-# endpoint w/o any authn/z, please comment the following line.
-- path: manager_auth_proxy_patch.yaml
-
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 - path: manager_webhook_patch.yaml
@@ -53,7 +48,7 @@ replacements:
   - select:
       kind: ValidatingWebhookConfiguration
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 0
@@ -61,7 +56,7 @@ replacements:
       kind: CustomResourceDefinition
       name: baremetalhosts.metal3.io
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 0
@@ -75,7 +70,7 @@ replacements:
   - select:
       kind: ValidatingWebhookConfiguration
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 1
@@ -83,7 +78,7 @@ replacements:
       kind: CustomResourceDefinition
       name: baremetalhosts.metal3.io
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 1

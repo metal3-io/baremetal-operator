@@ -79,6 +79,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 				Image: &metal3api.Image{
 					URL:        imageURL,
 					DiskFormat: pointer.String("live-iso"),
+					Checksum:   e2eConfig.GetVariable("ISO_IMAGE_CHECKSUM"),
 				},
 				BootMode:              metal3api.Legacy,
 				BootMACAddress:        bmc.BootMacAddress,

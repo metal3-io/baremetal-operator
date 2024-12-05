@@ -25,8 +25,9 @@ variables:
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
-  ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
+  ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"
+  ISO_IMAGE_CHECKSUM: "f7600f7a274d974a236c4da5161265859c32da93a7c8de6a77d560378a1384ef"
   CERT_MANAGER_VERSION: "v1.13.1"
   SSH_CHECK_PROVISIONED: "true"
   SSH_USERNAME: "root"

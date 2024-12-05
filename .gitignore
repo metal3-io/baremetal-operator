@@ -56,6 +56,9 @@ config/overlays/temp
 .devcontainer
 # Python venv
 .venv
+# Zed editor
+.zed
+.zed_server
 
 # release-notes
 /releasenotes

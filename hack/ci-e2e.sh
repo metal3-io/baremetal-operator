@@ -166,6 +166,8 @@ EOF
 
 ./sysrescue-customize --auto --recipe-dir recipe --source systemrescue-11.00-amd64.iso --dest=sysrescue-out.iso
 export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
+ISO_IMAGE_CHECKSUM="$(sha256sum sysrescue-out.iso | cut -d ' ' -f 1)"
+export ISO_IMAGE_CHECKSUM
 popd
 
 # Generate credentials

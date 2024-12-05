@@ -77,8 +77,10 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 					CredentialsName: secretName,
 				},
 				Image: &metal3api.Image{
-					URL:        imageURL,
-					DiskFormat: pointer.String("live-iso"),
+					URL:          imageURL,
+					DiskFormat:   pointer.String("live-iso"),
+					Checksum:     e2eConfig.GetVariable("ISO_IMAGE_CHECKSUM"),
+					ChecksumType: metal3api.SHA256,
 				},
 				BootMode:              metal3api.Legacy,
 				BootMACAddress:        bmc.BootMacAddress,

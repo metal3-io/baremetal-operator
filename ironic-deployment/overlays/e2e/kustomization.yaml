@@ -28,12 +28,6 @@ patches:
     kind: Certificate
     name: ironic-cert
 
-# TODO(lentzi90): Remove once issue resolved:
-# https://github.com/metal3-io/baremetal-operator/issues/2110
-images:
-- name: quay.io/metal3-io/ironic
-  newTag: release-26.0
-
 # NOTE: These credentials are generated automatically in hack/ci-e2e.sh
 secretGenerator:
 - name: ironic-htpasswd

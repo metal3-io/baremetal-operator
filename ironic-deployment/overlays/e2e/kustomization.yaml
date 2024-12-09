@@ -16,7 +16,13 @@ configMapGenerator:
   behavior: create
 
 patches:
-  - path: ironic-patch.yaml
+- path: ironic-patch.yaml
+
+# TODO(lentzi90): Remove once issue resolved:
+# https://github.com/metal3-io/baremetal-operator/issues/2110
+images:
+- name: quay.io/metal3-io/ironic
+  newTag: release-26.0
 
 # NOTE: These credentials are generated automatically in hack/ci-e2e.sh
 secretGenerator:
@@ -27,16 +33,16 @@ secretGenerator:
   type: Opaque
 
 replacements:
-  # Replace IRONIC_HOST_IP in certificates with the PROVISIONING_IP from the configmap
-  - source:
-      kind: ConfigMap
-      name: ironic-bmo-configmap
-      fieldPath: .data.PROVISIONING_IP
-    targets:
-      - select:
-          version: v1
-          group: cert-manager.io
-          kind: Certificate
-          name:
-        fieldPaths:
-          - .spec.ipAddresses.0
+# Replace IRONIC_HOST_IP in certificates with the PROVISIONING_IP from the configmap
+- source:
+    kind: ConfigMap
+    name: ironic-bmo-configmap
+    fieldPath: .data.PROVISIONING_IP
+  targets:
+  - select:
+      version: v1
+      group: cert-manager.io
+      kind: Certificate
+      name:
+    fieldPaths:
+    - .spec.ipAddresses.0

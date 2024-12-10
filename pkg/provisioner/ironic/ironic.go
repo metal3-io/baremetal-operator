@@ -139,14 +139,15 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage s
 func (p *ironicProvisioner) listAllPorts(address string) ([]ports.Port, error) {
 	var allPorts []ports.Port
 
+	// Don't call the ironic api when the port mac address is empty.
+	if address == "" {
+		return allPorts, nil
+	}
+
 	opts := ports.ListOpts{
-		Fields: []string{"node_uuid"},
+		Fields:  []string{"node_uuid"},
+		Address: address,
 	}
-
-	if address != "" {
-		opts.Address = address
-	}
-
 	pager := ports.List(p.client, opts)
 
 	allPages, err := pager.AllPages(p.ctx)

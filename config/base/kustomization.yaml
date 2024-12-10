@@ -33,11 +33,6 @@ configMapGenerator:
   - controller_manager_config.yaml
 
 patches:
-# Protect the /metrics endpoint by putting it behind auth.
-# If you want your controller-manager to expose the /metrics
-# endpoint w/o any authn/z, please comment the following line.
-- path: manager_auth_proxy_patch.yaml
-
 # Mount the controller config file for loading manager configurations
 # through a ComponentConfig type
 #- manager_config_patch.yaml
@@ -62,7 +57,7 @@ replacements:
   - select:
       kind: ValidatingWebhookConfiguration
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 0
@@ -70,7 +65,7 @@ replacements:
       kind: CustomResourceDefinition
       name: baremetalhosts.metal3.io
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 0
@@ -84,7 +79,7 @@ replacements:
   - select:
       kind: ValidatingWebhookConfiguration
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 1
@@ -92,7 +87,7 @@ replacements:
       kind: CustomResourceDefinition
       name: baremetalhosts.metal3.io
     fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
       index: 1

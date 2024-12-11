@@ -31,7 +31,7 @@ generatorOptions:
 
 # NOTE: These credentials are generated automatically in hack/ci-e2e.sh
 secretGenerator:
-  - name: ironic-credentials
-    files:
-    - username=ironic-username
-    - password=ironic-password
+- name: ironic-credentials
+  files:
+  - username=ironic-username
+  - password=ironic-password

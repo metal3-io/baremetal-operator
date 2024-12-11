@@ -395,10 +395,10 @@ libvirt.org/go/libvirt v1.10009.0 h1:Lf3jktPJwrOF/lIb6fZN/TNUPhNVyS70wAk8lI2dGj8
 libvirt.org/go/libvirt v1.10009.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3 h1:2770sDpzrjjsAtVhSeUFseziht227YAWYHLGNM8QPwY=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
-sigs.k8s.io/cluster-api v1.9.0-rc.1 h1:fWrcw3p3nvzUjbQpB/GsTP+LeAVN4wjXV8LFkIZmN7A=
-sigs.k8s.io/cluster-api v1.9.0-rc.1/go.mod h1:8rjpkMxLFcA87Y3P6NOi6E9RMZv2uRnN9ppOPAxrTAY=
-sigs.k8s.io/cluster-api/test v1.9.0-rc.1 h1:GgNeQ2UhcrvlNMt7maXVEgd6iEpRJIEOmbKMLCwMTU8=
-sigs.k8s.io/cluster-api/test v1.9.0-rc.1/go.mod h1:w09AhrOiWTjN9ToL4xaMZLnutMFe78x03POGZ3Fsbeg=
+sigs.k8s.io/cluster-api v1.9.0 h1:Iud4Zj8R/t7QX5Rvs9/V+R8HDLbf7QPVemrWfZi4g54=
+sigs.k8s.io/cluster-api v1.9.0/go.mod h1:8rjpkMxLFcA87Y3P6NOi6E9RMZv2uRnN9ppOPAxrTAY=
+sigs.k8s.io/cluster-api/test v1.9.0 h1:0MWp8u+ihR0wFsBy/4JWVsZCcDu178B43kdP1ca6d00=
+sigs.k8s.io/cluster-api/test v1.9.0/go.mod h1:w09AhrOiWTjN9ToL4xaMZLnutMFe78x03POGZ3Fsbeg=
 sigs.k8s.io/controller-runtime v0.19.3 h1:XO2GvC9OPftRst6xWCpTgBZO04S2cbp0Qqkj8bX1sPw=
 sigs.k8s.io/controller-runtime v0.19.3/go.mod h1:j4j87DqtsThvwTv5/Tc5NFRyyF/RF0ip4+62tbTSIUM=
 sigs.k8s.io/gateway-api v1.1.0 h1:DsLDXCi6jR+Xz8/xd0Z1PYl2Pn0TyaFMOPPZIj4inDM=

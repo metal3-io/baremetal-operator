@@ -1,26 +1,27 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"embed"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-
-	"embed"
-	"golang.org/x/crypto/bcrypt"
 	"regexp"
+	"strings"
+	"text/template"
+
+	"golang.org/x/crypto/bcrypt"
 	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
-	"strings"
-	"text/template"
 )
 
-// DeployContext defines the context of the deploy run
+// DeployContext defines the context of the deploy run.
 type DeployContext struct {
 	Context context.Context
 	// OPTIONAL: Path to BMO repository.
@@ -61,7 +62,7 @@ type DeployContext struct {
 // authentication, following the order:
 // - `IRONIC_USERNAME` and `IRONIC_PASSWORD` env var
 // - `ironic-username` and `ironic-password` files content
-// - Random string
+// - Random string.
 func (d *DeployContext) determineIronicAuth() error {
 	if !d.DeployTLS {
 		log.Println("WARNING: Deploying without authentication is not recommended")
@@ -111,7 +112,7 @@ func (d *DeployContext) determineIronicAuth() error {
 }
 
 // deployIronic configures the kustomize overlay for ironic
-// based on the configuration, then install ironic with that overlay
+// based on the configuration, then install ironic with that overlay.
 func (d *DeployContext) deployIronic() error {
 	var err error
 	ironicDataDir, err := d.GetEnvOrDefault("IRONIC_DATA_DIR")
@@ -249,25 +250,9 @@ func (d *DeployContext) deployBMO() error {
 	return BuildAndApplyKustomization(d.Context, d.KubeconfigPath, d.BMOOverlay)
 }
 
-// cleanup removes temporary files created for basic auth credentials during deployment.
-func (d *DeployContext) cleanup() error {
-	tempFiles := []string{
-		filepath.Join(d.BMOOverlay, "ironic-username"),
-		filepath.Join(d.BMOOverlay, "ironic-password"),
-		filepath.Join(d.IronicOverlay, "ironic-auth-config"),
-		filepath.Join(d.IronicOverlay, "ironic-htpasswd"),
-	}
-	for _, tempFile := range tempFiles {
-		if err := os.Remove(tempFile); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	return nil
-}
-
 // GetEnvOrDefault returns the value of the environment variable key if it exists
 // and is non-empty. Otherwise it returns the provided value of the same key
-// in the DeployContext DefaultMap
+// in the DeployContext DefaultMap.
 func (d *DeployContext) GetEnvOrDefault(key string) (string, error) {
 	value, exists := os.LookupEnv(key)
 	if exists && value != "" {
@@ -329,7 +314,7 @@ func GenerateRandomString(length int) (string, error) {
 }
 
 // getEnvOrFileContent checks for an environment variable;
-// if the env var is not present, reads the content of a file and return
+// if the env var is not present, reads the content of a file and return.
 func getEnvOrFileContent(varName, filePath string) (string, error) {
 	val, exists := os.LookupEnv(varName)
 	if exists && val != "" {
@@ -345,7 +330,7 @@ func getEnvOrFileContent(varName, filePath string) (string, error) {
 }
 
 // EnsureCleanDirectory makes sure that the specified directory is created
-// with provided permission and is empty
+// with provided permission and is empty.
 func EnsureCleanDirectory(name string, perm os.FileMode) error {
 	if err := os.RemoveAll(name); err != nil {
 		return err
@@ -357,7 +342,7 @@ func EnsureCleanDirectory(name string, perm os.FileMode) error {
 }
 
 // MakeRandomDirectory generates a new directory whose name starts with the
-// provided prefix and ends with a random string
+// provided prefix and ends with a random string.
 func MakeRandomDirectory(prefix string, perm os.FileMode) (string, error) {
 	randomStr, err := GenerateRandomString(6)
 	if err != nil {
@@ -369,7 +354,7 @@ func MakeRandomDirectory(prefix string, perm os.FileMode) (string, error) {
 }
 
 // RenderEmbedTemplateToFile reads in a go-template, renders it with supporting data
-// and then write the result to an output file
+// and then write the result to an output file.
 func RenderEmbedTemplateToFile(templateFiles embed.FS, inputFile, outputFile string, data interface{}) error {
 	tmpl, err := template.ParseFS(templateFiles, inputFile)
 	if err != nil {
@@ -433,7 +418,7 @@ func getBMOPath() string {
 }
 
 // NOTE: The following functions are almost identical to the same functions in BMO e2e
-// They can be removed and imported from BMO E2E after the next BMO release
+// They can be removed and imported from BMO E2E after the next BMO release.
 func BuildKustomizeManifest(source string) ([]byte, error) {
 	kustomizer := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
 	fSys := filesys.MakeFsOnDisk()
@@ -442,6 +427,23 @@ func BuildKustomizeManifest(source string) ([]byte, error) {
 		return nil, err
 	}
 	return resources.AsYaml()
+}
+
+// kubectlApply shells out to kubectl delete.
+func kubectlApply(ctx context.Context, kubeconfigPath string, resources []byte, args ...string) error {
+	aargs := append([]string{"apply", "--kubeconfig", kubeconfigPath, "-f", "-"}, args...)
+	rbytes := bytes.NewReader(resources)
+	applyCmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(aargs...),
+		testexec.WithStdin(rbytes),
+	)
+
+	fmt.Printf("Running kubectl %s\n", strings.Join(aargs, " "))
+	stdout, stderr, err := applyCmd.Run(ctx)
+	fmt.Printf("stderr:\n%s\n", string(stderr))
+	fmt.Printf("stdout:\n%s\n", string(stdout))
+	return err
 }
 
 // BuildAndApplyKustomization builds the provided kustomization
@@ -453,7 +455,7 @@ func BuildAndApplyKustomization(ctx context.Context, kubeconfigPath string, kust
 		return err
 	}
 
-	if err = testexec.KubectlApply(ctx, kubeconfigPath, manifest); err != nil {
+	if err = kubectlApply(ctx, kubeconfigPath, manifest); err != nil {
 		return err
 	}
 	return nil

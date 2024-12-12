@@ -2551,6 +2551,9 @@ spec:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        - containerPort: 8443
+          name: https
+          protocol: TCP
         readinessProbe:
           failureThreshold: 10
           httpGet:

@@ -120,6 +120,7 @@ issues:
     linters:
     - gci
     - goconst
+    - gosec
   - path: _test\.go
     linters:
     - errcheck

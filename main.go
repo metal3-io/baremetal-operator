@@ -137,7 +137,7 @@ func main() {
 	// namespace.
 	flag.StringVar(&watchNamespace, "namespace", os.Getenv("WATCH_NAMESPACE"),
 		"Namespace that the controller watches to reconcile host resources.")
-	flag.StringVar(&metricsBindAddr, "metrics-addr", "127.0.0.1:8085",
+	flag.StringVar(&metricsBindAddr, "metrics-addr", ":8443",
 		"The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
@@ -217,7 +217,9 @@ func main() {
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress:    metricsBindAddr,
+			SecureServing:  true,
 			FilterProvider: filters.WithAuthenticationAndAuthorization,
+			TLSOpts:        tlsOptionOverrides,
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    webhookPort,

@@ -6,8 +6,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/stretchr/testify v1.9.0
-	k8s.io/api v0.29.11
-	k8s.io/apimachinery v0.29.11
+	k8s.io/api v0.29.12
+	k8s.io/apimachinery v0.29.12
 	sigs.k8s.io/controller-runtime v0.16.6
 )
 
@@ -48,7 +48,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/client-go v0.29.11 // indirect
+	k8s.io/client-go v0.29.12 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect

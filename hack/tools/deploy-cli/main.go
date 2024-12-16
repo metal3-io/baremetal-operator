@@ -12,7 +12,6 @@ import (
 var (
 	deployBMOFlag         bool
 	bmoOverlay            string
-	bmoPath               string
 	deployIronicFlag      bool
 	ironicOverlay         string
 	deployTLSFlag         bool
@@ -68,7 +67,6 @@ AVAILABLE ENVIRONMENT VARIABLES:
 			fmt.Fprintf(os.Stderr, "- %s, Default: %s\n", key, val)
 		}
 	}
-
 }
 
 func main() {

@@ -3,7 +3,7 @@ module github.com/metal3-io/baremetal-operator/tooling
 go 1.22.8
 
 require (
-	golang.org/x/crypto v0.30.0
+	golang.org/x/crypto v0.31.0
 	sigs.k8s.io/cluster-api/test v1.9.0
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/kustomize/api v0.18.0

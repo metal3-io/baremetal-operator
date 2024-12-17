@@ -2435,6 +2435,34 @@ rules:
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: baremetal-operator-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: baremetal-operator-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: baremetal-operator-leader-election-rolebinding
@@ -2461,6 +2489,19 @@ subjects:
   name: baremetal-operator-controller-manager
   namespace: baremetal-operator-system
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: baremetal-operator-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: baremetal-operator-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: baremetal-operator-controller-manager
+  namespace: baremetal-operator-system
+---
 apiVersion: v1
 data:
   CACHEURL: http://172.22.0.1/images
@@ -2474,6 +2515,21 @@ kind: ConfigMap
 metadata:
   name: ironic
   namespace: baremetal-operator-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: baremetal-operator-controller-manager-metrics-service
+  namespace: baremetal-operator-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
 ---
 apiVersion: v1
 kind: Service
@@ -2541,6 +2597,9 @@ spec:
         ports:
         - containerPort: 9443
           name: webhook-server
+          protocol: TCP
+        - containerPort: 8443
+          name: https
           protocol: TCP
         readinessProbe:
           failureThreshold: 10

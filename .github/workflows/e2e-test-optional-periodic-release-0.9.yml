@@ -1,4 +1,4 @@
-name: Periodic E2E Test Optional release-0.5
+name: Periodic E2E Test Optional release-0.9
 
 on:
   schedule:
@@ -21,6 +21,6 @@ jobs:
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}
       ginkgo-focus: upgrade
-      ref: release-0.5
+      ref: release-0.9
     permissions:
       contents: read

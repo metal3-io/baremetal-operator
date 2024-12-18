@@ -171,9 +171,9 @@ popd
 # Generate credentials
 BMO_OVERLAYS=(
   "${REPO_ROOT}/config/overlays/e2e"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.5"
   "${REPO_ROOT}/config/overlays/e2e-release-0.6"
   "${REPO_ROOT}/config/overlays/e2e-release-0.8"
+  "${REPO_ROOT}/config/overlays/e2e-release-0.9"
 )
 IRONIC_OVERLAYS=(
   "${REPO_ROOT}/ironic-deployment/overlays/e2e"

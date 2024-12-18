@@ -18,8 +18,8 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	libvirt.org/go/libvirt v1.10009.0
-	sigs.k8s.io/cluster-api v1.9.0
-	sigs.k8s.io/cluster-api/test v1.9.0
+	sigs.k8s.io/cluster-api v1.9.1
+	sigs.k8s.io/cluster-api/test v1.9.1
 	sigs.k8s.io/controller-runtime v0.19.3
 	sigs.k8s.io/kustomize/api v0.18.0
 	sigs.k8s.io/kustomize/kyaml v0.18.1
@@ -127,7 +127,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.21.0 // indirect
-	golang.org/x/net v0.31.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect

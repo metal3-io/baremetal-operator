@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateManagementAccessNoMAC(t *testing.T) {
+func TestRegisterNoMAC(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// requires one.
 	host := makeHost()
@@ -33,14 +33,14 @@ func TestValidateManagementAccessNoMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Contains(t, result.ErrorMessage, "requires a BootMACAddress")
 }
 
-func TestValidateManagementAccessMACOptional(t *testing.T) {
+func TestRegisterMACOptional(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -64,14 +64,14 @@ func TestValidateManagementAccessMACOptional(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 }
 
-func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
+func TestRegisterCreateNodeNoImage(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -96,9 +96,9 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", createdNode.UUID)
@@ -107,7 +107,7 @@ func TestValidateManagementAccessCreateNodeNoImage(t *testing.T) {
 	assert.Equal(t, "agent", createdNode.InspectInterface)
 }
 
-func TestValidateManagementAccessCreateNodeOldInspection(t *testing.T) {
+func TestRegisterCreateNodeOldInspection(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -135,9 +135,9 @@ func TestValidateManagementAccessCreateNodeOldInspection(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", createdNode.UUID)
@@ -145,7 +145,7 @@ func TestValidateManagementAccessCreateNodeOldInspection(t *testing.T) {
 	assert.Equal(t, "inspector", createdNode.InspectInterface)
 }
 
-func TestValidateManagementAccessCreateWithImage(t *testing.T) {
+func TestRegisterCreateWithImage(t *testing.T) {
 	// Create a host with Image specified in the Spec
 	host := makeHost()
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
@@ -170,9 +170,9 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, createdNode.UUID, provID)
@@ -184,7 +184,7 @@ func TestValidateManagementAccessCreateWithImage(t *testing.T) {
 	assert.Contains(t, updates, host.Spec.Image.Checksum)
 }
 
-func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
+func TestRegisterCreateWithLiveIso(t *testing.T) {
 	// Create a host with Image specified in the Spec
 	host := makeHostLiveIso()
 	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
@@ -206,9 +206,9 @@ func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, createdNode.UUID, provID)
@@ -218,7 +218,7 @@ func TestValidateManagementAccessCreateWithLiveIso(t *testing.T) {
 	assert.Contains(t, updates, host.Spec.Image.URL)
 }
 
-func TestValidateManagementAccessExistingNode(t *testing.T) {
+func TestRegisterExistingNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -245,15 +245,15 @@ func TestValidateManagementAccessExistingNode(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
 }
 
-func TestValidateManagementAccessExistingNodeNameUpdate(t *testing.T) {
+func TestRegisterExistingNodeNameUpdate(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -280,15 +280,15 @@ func TestValidateManagementAccessExistingNodeNameUpdate(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, false, result.Dirty)
 }
 
-func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
+func TestRegisterExistingNodeContinue(t *testing.T) {
 	statuses := []nodes.ProvisionState{
 		nodes.Manageable,
 		nodes.Available,
@@ -353,9 +353,9 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+			result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 			if err != nil {
-				t.Fatalf("error from ValidateManagementAccess: %s", err)
+				t.Fatalf("error from Register: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 			assert.Equal(t, false, result.Dirty)
@@ -364,7 +364,7 @@ func TestValidateManagementAccessExistingNodeContinue(t *testing.T) {
 	}
 }
 
-func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
+func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 	liveFormat := "live-iso"
 	imageTypes := []struct {
 		DeployInterface string
@@ -533,9 +533,9 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 			}
 
 			data := provisioner.ManagementAccessData{CurrentImage: imageType.Image, HasCustomDeploy: imageType.HasCustomDeploy}
-			result, _, err := prov.ValidateManagementAccess(data, false, false)
+			result, _, err := prov.Register(data, false, false)
 			if err != nil {
-				t.Fatalf("error from ValidateManagementAccess: %s", err)
+				t.Fatalf("error from Register: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 			assert.Equal(t, false, result.Dirty)
@@ -544,7 +544,7 @@ func TestValidateManagementAccessExistingSteadyStateNoUpdate(t *testing.T) {
 	}
 }
 
-func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
+func TestRegisterExistingNodeWaiting(t *testing.T) {
 	statuses := []nodes.ProvisionState{
 		nodes.Enroll,
 		nodes.Verifying,
@@ -589,9 +589,9 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+			result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 			if err != nil {
-				t.Fatalf("error from ValidateManagementAccess: %s", err)
+				t.Fatalf("error from Register: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
 
@@ -613,7 +613,7 @@ func TestValidateManagementAccessExistingNodeWaiting(t *testing.T) {
 	}
 }
 
-func TestValidateManagementAccessNewCredentials(t *testing.T) {
+func TestRegisterNewCredentials(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -645,9 +645,9 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, true, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, true, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
@@ -658,7 +658,7 @@ func TestValidateManagementAccessNewCredentials(t *testing.T) {
 	assert.Equal(t, "test.bmc", newValues["test_address"])
 }
 
-func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
+func TestRegisterLinkExistingIronicNodeByMAC(t *testing.T) {
 	// Create an Ironic node, and then create a host with a matching MAC
 	// Test to see if the node was found, and if the link is made
 
@@ -692,17 +692,17 @@ func TestValidateManagementAccessLinkExistingIronicNodeByMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", provID)
 }
 
-func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
+func TestRegisterExistingPortWithWrongUUID(t *testing.T) {
 	// Create a node, and a port.  The port has a node uuid that doesn't match the node.
-	// ValidateManagementAccess should return an error.
+	// Register should return an error.
 
 	existingNode := nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
@@ -734,17 +734,17 @@ func TestValidateManagementAccessExistingPortWithWrongUUID(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, _, err = prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	_, _, err = prov.Register(provisioner.ManagementAccessData{}, false, false)
 	expected := "failed to find existing host: port 11:11:11:11:11:11 exists but linked node random-wrong-id doesn't:"
 	assert.ErrorContains(t, err, expected)
 }
 
-func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
+func TestRegisterExistingPortButHasName(t *testing.T) {
 	// Create a node, and a port.
 	// The port is linked to the node.
 	// The port address matches the BMH BootMACAddress.
 	// The node has a name, and the name doesn't match the BMH.
-	// ValidateManagementAccess should return an error.
+	// Register should return an error.
 
 	existingNode := nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
@@ -776,12 +776,12 @@ func TestValidateManagementAccessExistingPortButHasName(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	res, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	res, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	assert.Nil(t, err)
 	assert.Equal(t, res.ErrorMessage, "MAC address 11:11:11:11:11:11 conflicts with existing node wrong-name")
 }
 
-func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
+func TestRegisterAddTwoHostsWithSameMAC(t *testing.T) {
 	existingNode := nodes.Node{
 		UUID: "33ce8659-7400-4c68-9535-d10766f07a58",
 		Name: "myns" + nameSeparator + "myhost",
@@ -814,15 +814,15 @@ func TestValidateManagementAccessAddTwoHostsWithSameMAC(t *testing.T) {
 	}
 
 	// MAC address value is different than the port that actually exists
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", provID)
 }
 
-func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
+func TestRegisterUnsupportedSecureBoot(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// requires one.
 	host := makeHost()
@@ -838,14 +838,14 @@ func TestValidateManagementAccessUnsupportedSecureBoot(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{BootMode: metal3api.UEFISecureBoot}, false, false)
+	result, _, err := prov.Register(provisioner.ManagementAccessData{BootMode: metal3api.UEFISecureBoot}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Contains(t, result.ErrorMessage, "does not support secure boot")
 }
 
-func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
+func TestRegisterNoBMCDetails(t *testing.T) {
 	ironic := testserver.NewIronic(t)
 	ironic.Start()
 	defer ironic.Stop()
@@ -859,14 +859,14 @@ func TestValidateManagementAccessNoBMCDetails(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "failed to parse BMC address information: missing BMC address", result.ErrorMessage)
 }
 
-func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
+func TestRegisterMalformedBMCAddress(t *testing.T) {
 	ironic := testserver.NewIronic(t)
 	ironic.Start()
 	defer ironic.Stop()
@@ -882,14 +882,14 @@ func TestValidateManagementAccessMalformedBMCAddress(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "failed to parse BMC address information: failed to parse BMC address information: parse \"<ipmi://192.168.122.1:6233>\": first path segment in URL cannot contain colon", result.ErrorMessage)
 }
 
-func TestValidateManagementAccessUpdateBMCAddressIP(t *testing.T) {
+func TestRegisterUpdateBMCAddressIP(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC.Address = "ipmi://192.168.122.10:623"
 	host.Status.Provisioning.ID = "uuid"
@@ -930,9 +930,9 @@ func TestValidateManagementAccessUpdateBMCAddressIP(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
@@ -943,7 +943,7 @@ func TestValidateManagementAccessUpdateBMCAddressIP(t *testing.T) {
 	assert.Equal(t, "192.168.122.10", newValues["ipmi_address"])
 }
 
-func TestValidateManagementAccessUpdateBMCAddressProtocol(t *testing.T) {
+func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC.Address = "redfish://192.168.122.1:623"
 	host.Spec.BootMACAddress = "11:11:11:11:11:11"
@@ -991,9 +991,9 @@ func TestValidateManagementAccessUpdateBMCAddressProtocol(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.ValidateManagementAccess(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
-		t.Fatalf("error from ValidateManagementAccess: %s", err)
+		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)

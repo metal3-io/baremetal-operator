@@ -239,8 +239,14 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	By("validating that the metrics service is available")
 	cmd = exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
-	_, err = cmd.CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), "Metrics service should exist")
+	Eventually(func() error {
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("Command output: %s\n", string(output))
+			return err
+		}
+		return nil
+	}, "30s", "5s").Should(Succeed())
 
 	By("getting the service account token")
 	token, err := serviceAccountToken()

@@ -36,7 +36,7 @@ jobs:
           ./
       continue-on-error: true
     - name: "Run OSV Scanner Reporter"
-      uses: google/osv-scanner/actions/reporter@b13f37e1a1e4cb98556c1d34cd3256a876929be1 # v1.9.1
+      uses: google/osv-scanner/actions/reporter@1e295ee11c5e107886e58bacb04228325082146f # v1.9.2
       with:
         scan-args: |-
           --output=results.sarif

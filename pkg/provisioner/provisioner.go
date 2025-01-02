@@ -129,13 +129,14 @@ type HTTPHeaders []map[string]string
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
-	// ValidateManagementAccess tests the connection information for
-	// the host to verify that the location and credentials work. The
-	// boolean argument tells the provisioner whether the current set
-	// of credentials it has are different from the credentials it has
-	// previously been using, without implying that either set of
+	// Register registers the host in the internal database if it does not
+	// exist, updates the existing host if needed, and tests the connection
+	// information for the host to verify that the credentials work.
+	// The credentialsChanged argument tells the provisioner whether the
+	// current set of credentials it has are different from the credentials
+	// it has previously been using, without implying that either set of
 	// credentials is correct.
-	ValidateManagementAccess(data ManagementAccessData, credentialsChanged, restartOnFailure bool) (result Result, provID string, err error)
+	Register(data ManagementAccessData, credentialsChanged, restartOnFailure bool) (result Result, provID string, err error)
 
 	// PreprovisioningImageFormats returns a list of acceptable formats for a
 	// pre-provisioning image to be built by a PreprovisioningImage object. The

@@ -80,9 +80,9 @@ func (p *demoProvisioner) HasCapacity() (result bool, err error) {
 	return true, nil
 }
 
-// ValidateManagementAccess tests the connection information for the
+// Register tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) ValidateManagementAccess(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
+func (p *demoProvisioner) Register(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.objectMeta.Name

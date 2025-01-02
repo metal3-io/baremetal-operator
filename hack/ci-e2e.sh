@@ -33,6 +33,8 @@ echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
 export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
+LOAD_LOCAL_IRONIC="${LOAD_LOCAL_IRONIC:-false}"
+
 case "${GINKGO_FOCUS:-}" in
   *upgrade*)
     export DEPLOY_IRONIC="false"
@@ -80,6 +82,13 @@ while ! minikube start; do sleep 30; done
 docker image save -o /tmp/bmo-e2e.tar quay.io/metal3-io/baremetal-operator:e2e
 minikube image load /tmp/bmo-e2e.tar
 rm /tmp/bmo-e2e.tar
+if [[ "${LOAD_LOCAL_IRONIC}" == "true" ]]; then
+    echo "Saving local ironic image!"
+    docker image save -o \
+        "/tmp/ironic-e2e.tar" "quay.io/metal3-io/ironic:local"
+    minikube image load /tmp/ironic-e2e.tar
+    rm /tmp/ironic-e2e.tar
+fi
 
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"

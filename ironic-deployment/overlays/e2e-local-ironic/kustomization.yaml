@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: baremetal-operator-system
+resources:
+- ../e2e
+
+patches:
+- path: ironic-patch.yaml
+- patch: |
+    # Don't try to pull again the pre-loaded image
+    - op: replace
+      path: /spec/template/spec/containers/0/imagePullPolicy
+      value: IfNotPresent
+    - op: replace
+      path: /spec/template/spec/containers/1/imagePullPolicy
+      value: IfNotPresent
+    - op: replace
+      path: /spec/template/spec/containers/2/imagePullPolicy
+      value: IfNotPresent
+  target:
+    kind: Deployment
+    name: ironic
+
+images:
+- name: quay.io/metal3-io/ironic
+  newTag: local
+

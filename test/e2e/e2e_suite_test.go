@@ -238,15 +238,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred(), "Failed to create ClusterRoleBinding")
 
 	By("validating that the metrics service is available")
-	cmd = exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
 	Eventually(func() error {
+		cmd := exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			fmt.Printf("Command output: %s\n", string(output))
+			fmt.Printf("Service check output: %s\n", string(output))
 			return err
 		}
 		return nil
-	}, "30s", "5s").Should(Succeed())
+	}, "30s", "5s").Should(Succeed(), "Metrics service is not available")
 
 	By("getting the service account token")
 	token, err := serviceAccountToken()

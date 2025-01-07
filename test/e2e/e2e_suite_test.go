@@ -226,69 +226,70 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			})
 		})
 		Expect(err).NotTo(HaveOccurred())
-	}
 
-	// Metrics test start
-	By("creating a ClusterRoleBinding for the service account to allow access to metrics")
-	cmd := exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
-		"--clusterrole=baremetal-operator-metrics-reader",
-		fmt.Sprintf("--serviceaccount=%s:%s", namespace, serviceAccountName),
-	)
-	_, err := cmd.CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), "Failed to create ClusterRoleBinding")
+		// Metrics test start
+		By("creating a ClusterRoleBinding for the service account to allow access to metrics")
+		cmd := exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
+			"--clusterrole=baremetal-operator-metrics-reader",
+			fmt.Sprintf("--serviceaccount=%s:%s", namespace, serviceAccountName),
+		)
+		_, err = cmd.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "Failed to create ClusterRoleBinding")
 
-	By("validating that the metrics service is available")
-	Eventually(func() error {
-		cmd := exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("Service check output: %s\n", string(output))
-			return err
+		By("validating that the metrics service is available")
+		Eventually(func() error {
+			cmd := exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				fmt.Printf("Service check output: %s\n", string(output))
+				return err
+			}
+			return nil
+		}, "30s", "5s").Should(Succeed(), "Metrics service is not available")
+
+		By("getting the service account token")
+		token, err := serviceAccountToken()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(token).NotTo(BeEmpty())
+
+		By("waiting for the metrics endpoint to be ready")
+		verifyMetricsEndpointReady := func(g Gomega) {
+			cmd := exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
+			output, err := cmd.CombinedOutput()
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(output).To(ContainSubstring("8443"), "Metrics endpoint is not ready")
 		}
-		return nil
-	}, "30s", "5s").Should(Succeed(), "Metrics service is not available")
+		Eventually(verifyMetricsEndpointReady).Should(Succeed())
 
-	By("getting the service account token")
-	token, err := serviceAccountToken()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(token).NotTo(BeEmpty())
+		By("creating the curl-metrics pod to access the metrics endpoint")
+		cmd = exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
+			"--namespace", namespace,
+			"--image=curlimages/curl:7.87.0",
+			"--command",
+			"--", "curl", "-v", "--tlsv1.3", "-k", "-H", fmt.Sprintf("Authorization:Bearer %s", token),
+			fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/metrics", metricsServiceName, namespace))
+		_, err = cmd.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "Failed to create curl-metrics pod")
 
-	By("waiting for the metrics endpoint to be ready")
-	verifyMetricsEndpointReady := func(g Gomega) {
-		cmd := exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
-		output, err := cmd.CombinedOutput()
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(output).To(ContainSubstring("8443"), "Metrics endpoint is not ready")
+		By("waiting for the curl-metrics pod to complete.")
+		verifyCurlUp := func(g Gomega) {
+			cmd := exec.Command("kubectl", "get", "pods", "curl-metrics",
+				"-o", "jsonpath={.status.phase}",
+				"-n", namespace)
+			output, err := cmd.CombinedOutput()
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(string(output)).To(Equal("Succeeded"), "curl pod in wrong status")
+		}
+		Eventually(verifyCurlUp, 5*time.Minute).Should(Succeed())
+
+		By("getting the metrics by checking curl-metrics logs")
+		metricsOutput := getMetricsOutput()
+		Expect(metricsOutput).To(ContainSubstring(
+			"controller_runtime_reconcile_total",
+		))
+		// Metrics test end
+
 	}
-	Eventually(verifyMetricsEndpointReady).Should(Succeed())
-
-	By("creating the curl-metrics pod to access the metrics endpoint")
-	cmd = exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
-		"--namespace", namespace,
-		"--image=curlimages/curl:7.87.0",
-		"--command",
-		"--", "curl", "-v", "--tlsv1.3", "-k", "-H", fmt.Sprintf("Authorization:Bearer %s", token),
-		fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/metrics", metricsServiceName, namespace))
-	_, err = cmd.CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), "Failed to create curl-metrics pod")
-
-	By("waiting for the curl-metrics pod to complete.")
-	verifyCurlUp := func(g Gomega) {
-		cmd := exec.Command("kubectl", "get", "pods", "curl-metrics",
-			"-o", "jsonpath={.status.phase}",
-			"-n", namespace)
-		output, err := cmd.CombinedOutput()
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(string(output)).To(Equal("Succeeded"), "curl pod in wrong status")
-	}
-	Eventually(verifyCurlUp, 5*time.Minute).Should(Succeed())
-
-	By("getting the metrics by checking curl-metrics logs")
-	metricsOutput := getMetricsOutput()
-	Expect(metricsOutput).To(ContainSubstring(
-		"controller_runtime_reconcile_total",
-	))
-	// Metrics test end
 
 	return []byte(strings.Join([]string{clusterProxy.GetKubeconfigPath()}, ","))
 }, func(data []byte) {

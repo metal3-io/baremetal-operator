@@ -338,7 +338,7 @@ func TestGetImageChecksum(t *testing.T) {
 			ExpectedType: "md5",
 		},
 		{
-			Scenario: "checksum value specified but not type",
+			Scenario: "checksum value specified but not type and checksum is md5",
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
@@ -346,12 +346,44 @@ func TestGetImageChecksum(t *testing.T) {
 				},
 				Spec: BareMetalHostSpec{
 					Image: &Image{
-						Checksum: "md5hash",
+						Checksum: "d41d8cd98f00b204e9800998ecf8427e",
 					},
 				},
 			},
 			Expected:     true,
 			ExpectedType: "md5",
+		},
+		{
+			Scenario: "checksum value specified but not type and checksum is sha256",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						Checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+					},
+				},
+			},
+			Expected:     true,
+			ExpectedType: "sha256",
+		},
+		{
+			Scenario: "checksum value specified but not type and checksum is sha512",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						Checksum: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e", // 128-char SHA512 checksum
+					},
+				},
+			},
+			Expected:     true,
+			ExpectedType: "sha512",
 		},
 		{
 			Scenario: "checksum value specified, auto type",

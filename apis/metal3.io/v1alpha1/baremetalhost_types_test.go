@@ -338,7 +338,7 @@ func TestGetImageChecksum(t *testing.T) {
 			ExpectedType: "md5",
 		},
 		{
-			Scenario: "checksum value specified but not type",
+			Scenario: "checksum value specified and type not specified, default to auto type",
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
@@ -351,7 +351,7 @@ func TestGetImageChecksum(t *testing.T) {
 				},
 			},
 			Expected:     true,
-			ExpectedType: "md5",
+			ExpectedType: "",
 		},
 		{
 			Scenario: "checksum value specified, auto type",

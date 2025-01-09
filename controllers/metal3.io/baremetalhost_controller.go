@@ -831,7 +831,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return recordActionFailure(info, metal3api.RegistrationError, "failed to read preprovisioningNetworkData")
 	}
 
-	provResult, provID, err := prov.ValidateManagementAccess(
+	provResult, provID, err := prov.Register(
 		provisioner.ManagementAccessData{
 			BootMode:                   info.host.Status.Provisioning.BootMode,
 			AutomatedCleaningMode:      info.host.Spec.AutomatedCleaningMode,

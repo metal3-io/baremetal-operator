@@ -351,7 +351,7 @@ func TestGetImageChecksum(t *testing.T) {
 				},
 			},
 			Expected:     true,
-			ExpectedType: "md5",
+			ExpectedType: "",
 		},
 		{
 			Scenario: "checksum value specified, auto type",

@@ -56,6 +56,3 @@ config/overlays/temp
 .devcontainer
 # Python venv
 .venv
-
-# release-notes
-/releasenotes

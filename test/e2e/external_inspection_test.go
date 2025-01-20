@@ -213,7 +213,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 					CredentialsName:                "bmc-credentials",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
-				BootMode:       metal3api.Legacy,
+				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress: bmc.BootMacAddress,
 			},
 		}
@@ -284,7 +284,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 					CredentialsName:                "bmc-credentials",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
-				BootMode:       metal3api.Legacy,
+				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress: bmc.BootMacAddress,
 				InspectionMode: metal3api.InspectionModeDisabled,
 			},

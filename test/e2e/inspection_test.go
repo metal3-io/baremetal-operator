@@ -105,7 +105,7 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 					Address:         bmc.Address,
 					CredentialsName: "bmc-credentials",
 				},
-				BootMode:       metal3api.Legacy,
+				BootMode:       metal3api.UEFISecureBoot,
 				BootMACAddress: bmc.BootMacAddress,
 			},
 		}

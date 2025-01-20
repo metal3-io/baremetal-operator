@@ -6,6 +6,7 @@
   <os>
     <type arch='x86_64' machine='pc-q35-6.2'>hvm</type>
     <boot dev='hd'/>
+    <loader readonly='yes' type='pflash'>/usr/share/OVMF/OVMF_CODE_4M.secboot.fd</loader>
   </os>
   <features>
     <acpi/>

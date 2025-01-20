@@ -5,6 +5,7 @@
   <vcpu placement='static'>2</vcpu>
   <os>
     <type arch='x86_64' machine='pc-q35-6.2'>hvm</type>
+    <loader readonly='yes' type='pflash'>/usr/share/OVMF/OVMF_CODE_4M.secboot.fd</loader>
     <boot dev='network'/>
     <bootmenu enable='no'/>
     <bios useserial='yes' rebootTimeout='10000'/>
@@ -102,4 +103,3 @@
     </memballoon>
   </devices>
 </domain>
-

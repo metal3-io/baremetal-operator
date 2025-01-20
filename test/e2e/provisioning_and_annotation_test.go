@@ -64,7 +64,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 						Address:         bmc.Address,
 						CredentialsName: "bmc-credentials",
 					},
-					BootMode:              metal3api.Legacy,
+					BootMode:              metal3api.UEFISecureBoot,
 					BootMACAddress:        bmc.BootMacAddress,
 					AutomatedCleaningMode: "disabled",
 				},
@@ -196,7 +196,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 						Address:         bmc.Address,
 						CredentialsName: "bmc-credentials",
 					},
-					BootMode:              metal3api.Legacy,
+					BootMode:              metal3api.UEFISecureBoot,
 					BootMACAddress:        bmc.BootMacAddress,
 					AutomatedCleaningMode: "disabled",
 					Image: &metal3api.Image{

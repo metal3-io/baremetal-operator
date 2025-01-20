@@ -49,6 +49,8 @@ variables:
   IRONIC_PASSWORD: "changeme"
   IRONIC_PROVISIONING_IP: "localhost"
   IRONIC_PROVISIONING_PORT: "6385"
+  # Boot mode can be legacy, UEFI or UEFISecureBoot
+  BOOT_MODE: "UEFI"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]

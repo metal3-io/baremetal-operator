@@ -21,6 +21,12 @@ var (
 	templateFiles embed.FS
 )
 
+type Host struct {
+	HostName string
+	Networks bmoe2e.Networks
+	PoolPath string
+}
+
 func RenderTemplate(inputFile string, data interface{}) (string, error) {
 	tmpl, err := template.ParseFS(templateFiles, inputFile)
 	if err != nil {
@@ -153,7 +159,7 @@ func CreateVolume(volumeName, poolName, poolPath string, capacityInGB int) error
 // If the domain is successfully defined and created, the virtual machine is
 // started. Errors during qcow2 file creation, volume creation, libvirt connection,
 // template rendering, or domain creation are returned.
-func CreateLibvirtVM(hostName, networkName, macAddress string) error {
+func CreateLibvirtVM(hostName string, networks *bmoe2e.Networks) error {
 	poolName := "default"
 	poolPath := "/tmp/pool_oo"
 	opts := make(map[string]any)
@@ -181,15 +187,13 @@ func CreateLibvirtVM(hostName, networkName, macAddress string) error {
 	defer conn.Close()
 
 	data := struct {
-		HostName   string
-		Network    string
-		MacAddress string
-		PoolPath   string
+		HostName string
+		Networks bmoe2e.Networks
+		PoolPath string
 	}{
-		HostName:   hostName,
-		Network:    networkName,
-		MacAddress: macAddress,
-		PoolPath:   poolPath,
+		HostName: hostName,
+		Networks: *networks,
+		PoolPath: poolPath,
 	}
 
 	vmCfg, err := RenderTemplate("templates/VM.xml.tpl", data)
@@ -221,7 +225,7 @@ func CreateLibvirtVM(hostName, networkName, macAddress string) error {
 //
 // It will return an error if the network does not exist, or if creating the VM
 // or adding the DHCP host entry fails.
-func CreateLibvirtBMC(macAddress, hostName, ipAddress, networkName string) error {
+func CreateLibvirtBMC(hostName string, networks *bmoe2e.Networks) error {
 	var err error
 	conn, err := libvirt.NewConnect("qemu:///system")
 	if err != nil {
@@ -229,48 +233,49 @@ func CreateLibvirtBMC(macAddress, hostName, ipAddress, networkName string) error
 	}
 	defer conn.Close()
 
-	network, err := conn.LookupNetworkByName(networkName)
-	if err != nil {
-		return err
+	for _, net := range *networks {
+		network, err := conn.LookupNetworkByName(net.NetworkName)
+		if err != nil {
+			return err
+		}
+		xmlTpl, err := template.New("xml").Parse("<host mac='{{ .MacAddress }}' name='{{ .HostName }}' ip='{{ .IPAddress }}' />")
+
+		if err != nil {
+			return err
+		}
+
+		data := struct {
+			MacAddress string
+			HostName   string
+			IPAddress  string
+		}{
+			MacAddress: net.MacAddress,
+			HostName:   hostName,
+			IPAddress:  net.IPAddress,
+		}
+
+		var buf bytes.Buffer
+
+		err = xmlTpl.Execute(&buf, data)
+		if err != nil {
+			fmt.Println("Failed to create BMC")
+			fmt.Printf("Error occurred: %v\n", err)
+			return err
+		}
+
+		if err = network.Update(
+			libvirt.NETWORK_UPDATE_COMMAND_ADD_LAST,
+			libvirt.NETWORK_SECTION_IP_DHCP_HOST,
+			-1,
+			buf.String(),
+			libvirt.NETWORK_UPDATE_AFFECT_LIVE|libvirt.NETWORK_UPDATE_AFFECT_CONFIG,
+		); err != nil {
+			fmt.Printf("Error occurred: %v\n", err)
+			return err
+		}
 	}
 
-	xmlTpl, err := template.New("xml").Parse("<host mac='{{ .MacAddress }}' name='{{ .HostName }}' ip='{{ .IPAddress }}' />")
-
-	if err != nil {
-		return err
-	}
-
-	data := struct {
-		MacAddress string
-		HostName   string
-		IPAddress  string
-	}{
-		MacAddress: macAddress,
-		HostName:   hostName,
-		IPAddress:  ipAddress,
-	}
-
-	var buf bytes.Buffer
-
-	err = xmlTpl.Execute(&buf, data)
-
-	if err != nil {
-		fmt.Println("Failed to create BMC")
-		fmt.Printf("Error occurred: %v\n", err)
-		return err
-	}
-
-	if err = network.Update(
-		libvirt.NETWORK_UPDATE_COMMAND_ADD_LAST,
-		libvirt.NETWORK_SECTION_IP_DHCP_HOST,
-		-1,
-		buf.String(),
-		libvirt.NETWORK_UPDATE_AFFECT_LIVE|libvirt.NETWORK_UPDATE_AFFECT_CONFIG,
-	); err != nil {
-		fmt.Printf("Error occurred: %v\n", err)
-		return err
-	}
-	if err = CreateLibvirtVM(hostName, networkName, macAddress); err != nil {
+	if err = CreateLibvirtVM(hostName, networks); err != nil {
 		fmt.Printf("Error occurred: %v\n", err)
 		return err
 	}
@@ -278,33 +283,21 @@ func CreateLibvirtBMC(macAddress, hostName, ipAddress, networkName string) error
 }
 
 func main() {
-	var vmName = flag.String(
-		"vm-name", "VM-1", "The name of the VM to create")
-	var networkName = flag.String(
-		"network-name", "baremetal-e2e", "The name of the network that the new VM should be attached to")
-	var macAddress = flag.String(
-		"mac-address", "00:60:2f:31:81:01", "Mac address of the VM on the network")
-	var ipAddress = flag.String(
-		"ip-address", "192.168.222.122", "IP address of the VM on the network")
 	var configFile = flag.String(
 		"yaml-source-file", "", "yaml file where BMCS are defined. If this is set, ignore all other options")
 	flag.Parse()
-	var err error
 	if *configFile == "" {
-		if err = CreateLibvirtBMC(*macAddress, *vmName, *ipAddress, *networkName); err != nil {
+		fmt.Fprintln(os.Stderr, "Error: YAML source file path is required")
+		os.Exit(1)
+	}
+	bmcs, err := bmoe2e.LoadBMCConfig(*configFile)
+	if err != nil {
+		os.Exit(1)
+	}
+	for _, bmc := range *bmcs {
+		if err = CreateLibvirtBMC(bmc.HostName, &bmc.Networks); err != nil {
 			fmt.Printf("Error occurred: %v\n", err)
 			os.Exit(1)
-		}
-	} else {
-		bmcs, err := bmoe2e.LoadBMCConfig(*configFile)
-		if err != nil {
-			os.Exit(1)
-		}
-		for _, bmc := range *bmcs {
-			if err = CreateLibvirtBMC(bmc.BootMacAddress, bmc.HostName, bmc.IPAddress, "baremetal-e2e"); err != nil {
-				fmt.Printf("Error occurred: %v\n", err)
-				os.Exit(1)
-			}
 		}
 	}
 }

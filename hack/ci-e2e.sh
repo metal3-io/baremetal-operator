@@ -33,8 +33,6 @@ echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
 export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
-LOAD_LOCAL_IRONIC="${LOAD_LOCAL_IRONIC:-false}"
-
 case "${GINKGO_FOCUS:-}" in
   *upgrade*)
     export DEPLOY_IRONIC="false"
@@ -46,12 +44,11 @@ case "${GINKGO_FOCUS:-}" in
     export GINKGO_SKIP="${GINKGO_SKIP:-upgrade}"
     ;;
 esac
-export USE_EXISTING_CLUSTER="true"
 
 # Ensure requirements are installed
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="/usr/local/go/bin:${PATH}"
-"${REPO_ROOT}/hack/e2e/ensure_minikube.sh"
+"${REPO_ROOT}/hack/e2e/ensure_kind.sh"
 "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
@@ -60,42 +57,15 @@ export PATH="/usr/local/go/bin:${PATH}"
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
 
-# Set up minikube
-minikube start --driver=kvm2
-
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e
-# Attach baremetal-e2e interface to minikube with specific mac.
-# This will give minikube a known reserved IP address that we can use for Ironic
-virsh -c qemu:///system attach-interface --domain minikube --mac="52:54:00:6c:3c:01" \
-  --model virtio --source baremetal-e2e --type network --config
-
-# Restart minikube to apply the changes
-minikube stop
-## Following loop is to avoid minikube restart issue
-## https://github.com/kubernetes/minikube/issues/14456
-while ! minikube start; do sleep 30; done
-
-# Load the BMO e2e image into it
-# minikube image load quay.io/metal3-io/baremetal-operator:e2e
-# Temporary workaround for https://github.com/kubernetes/minikube/issues/18021
-docker image save -o /tmp/bmo-e2e.tar quay.io/metal3-io/baremetal-operator:e2e
-minikube image load /tmp/bmo-e2e.tar
-rm /tmp/bmo-e2e.tar
-if [[ "${LOAD_LOCAL_IRONIC}" == "true" ]]; then
-    echo "Saving local ironic image!"
-    docker image save -o \
-        "/tmp/ironic-e2e.tar" "quay.io/metal3-io/ironic:local"
-    minikube image load /tmp/ironic-e2e.tar
-    rm /tmp/ironic-e2e.tar
-fi
 
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 
 # This IP is also defined by the network above, and is used consistently in all of
 # our e2e overlays
-export IRONIC_PROVISIONING_IP="192.168.222.199"
+export IRONIC_PROVISIONING_IP="${IP_ADDRESS}"
 
 # Build vbmctl
 make build-vbmctl
@@ -114,7 +84,7 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
     address=$(echo "${bmc}" | jq -r '.address')
     hostName=$(echo "${bmc}" | jq -r '.hostName')
     vbmc_port="${address##*:}"
-    "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}"
+    "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}" "${IP_ADDRESS}"
   done
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then

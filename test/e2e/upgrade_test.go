@@ -173,14 +173,14 @@ const hardwareDetailsRelease04 = `
 `
 
 // RunUpgradeTest tests upgrade from an older version of BMO or Ironic --> main branch version with the following steps:
-//	- Initiate the cluster with an the older version of either BMO or Ironic, and the latest Ironic/BMO version that is suitable with it
-//	- Create a new namespace, and in it a BMH object with "disabled" annotation.
-//	- Wait until the BMH gets to "available" state. Because of the "disabled" annotation, it won't get further provisioned.
-//	- Upgrade BMO/Ironic to latest version.
-//	- Patch the BMH object with proper specs, so that it could be provisioned.
-//	- If the BMH is successfully provisioned, it means the upgraded BMO/Ironic recognized that BMH, hence the upgrade succeeded.
+//   - Initiate the cluster with an the older version of either BMO or Ironic, and the latest Ironic/BMO version that is suitable with it
+//   - Create a new namespace, and in it a BMH object with "disabled" annotation.
+//   - Wait until the BMH gets to "available" state. Because of the "disabled" annotation, it won't get further provisioned.
+//   - Upgrade BMO/Ironic to latest version.
+//   - Patch the BMH object with proper specs, so that it could be provisioned.
+//   - If the BMH is successfully provisioned, it means the upgraded BMO/Ironic recognized that BMH, hence the upgrade succeeded.
+//
 // The function returns the namespace object, with its cancelFunc. These can be used to clean up the created resources.
-
 func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeClusterProxy framework.ClusterProxy) (*corev1.Namespace, context.CancelFunc) {
 	bmoIronicNamespace := "baremetal-operator-system"
 	initBMOKustomization := input.InitBMOKustomization
@@ -359,14 +359,15 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		var kubeconfigPath string
 		upgradeClusterName := "bmo-e2e-upgrade"
 
-		if useExistingCluster {
+		if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
 			kubeconfigPath = GetKubeconfigPath()
 		} else {
 			By("Creating a separate cluster for upgrade tests")
 			upgradeClusterName = fmt.Sprintf("bmo-e2e-upgrade-%d", GinkgoParallelProcess())
 			upgradeClusterProvider := bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
-				Name:   upgradeClusterName,
-				Images: e2eConfig.Images,
+				Name:              upgradeClusterName,
+				Images:            e2eConfig.Images,
+				ExtraPortMappings: e2eConfig.KindExtraPortMappings,
 			})
 			Expect(upgradeClusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 			kubeconfigPath = upgradeClusterProvider.GetKubeconfigPath()
@@ -399,9 +400,11 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		}
 	})
 	DescribeTable("",
+		// Test function that runs for each table entry
 		func(ctx context.Context, input *BMOIronicUpgradeInput) {
 			namespace, cancelWatches = RunUpgradeTest(ctx, input, upgradeClusterProxy)
 		},
+		// Description function that generates test descriptions
 		func(ctx context.Context, input *BMOIronicUpgradeInput) string {
 			var upgradeFromKustomization string
 			upgradeEntityName := input.UpgradeEntityName

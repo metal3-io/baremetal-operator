@@ -17,6 +17,23 @@ configMapGenerator:
 
 patches:
 - path: ironic-patch.yaml
+# The TLS component adds certificates but it cannot know the exact IPs of our environment.
+# Here we patch the certificates to have the correct IPs.
+# - 192.168.222.1: management computer IP, forwarded to ironic inside kind
+- patch: |-
+    - op: replace
+      path: /spec/ipAddresses/0
+      value: 192.168.222.1
+  target:
+    kind: Certificate
+    name: ironic-cert
+- patch: |-
+    - op: replace
+      path: /spec/ipAddresses/0
+      value: 192.168.222.1
+  target:
+    kind: Certificate
+    name: ironic-cacert
 
 images:
 - name: quay.io/metal3-io/ironic
@@ -28,18 +45,3 @@ secretGenerator:
   behavior: create
   envs:
   - ironic-htpasswd
-
-replacements:
-# Replace IRONIC_HOST_IP in certificates with the PROVISIONING_IP from the configmap
-- source:
-    kind: ConfigMap
-    name: ironic-bmo-configmap
-    fieldPath: .data.PROVISIONING_IP
-  targets:
-  - select:
-      version: v1
-      group: cert-manager.io
-      kind: Certificate
-      name:
-    fieldPaths:
-    - .spec.ipAddresses.0

@@ -10,6 +10,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type Network struct {
+	// Name of the libvirt network.
+	NetworkName string `yaml:"name,omitempty"`
+	// MacAddress of the interface connected to the network.
+	MacAddress string `yaml:"macAddress,omitempty"`
+	// IPAddress to reserve for the MAC address in the network.
+	IPAddress string `yaml:"ipAddress,omitempty"`
+}
+
 // BMC defines connection details for a baseboard management controller
 // and other details needed for creating a virtual machine related to it.
 type BMC struct {
@@ -27,12 +36,10 @@ type BMC struct {
 	BootMode metal3api.BootMode `yaml:"bootMode,omitempty"`
 	// Name of the machine associated with this BMC.
 	Name string `yaml:"name,omitempty"`
-	// IPAddress is a reserved IP address for the BMH managed through this BMC.
-	// This is used in tests that make ssh connections to the BMH.
-	// Example: 192.168.222.122
-	IPAddress string `yaml:"ipAddress,omitempty"`
 	// RootDeviceHints provides guidance for where to write the disk image.
 	RootDeviceHints metal3api.RootDeviceHints `yaml:"rootDeviceHints,omitempty"`
+	// Networks describes the network interfaces that should be added to the VM representing this BMH.
+	Networks []Network
 }
 
 func LoadBMCConfig(configPath string) ([]BMC, error) {

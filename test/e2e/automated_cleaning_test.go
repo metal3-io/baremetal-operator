@@ -107,7 +107,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
 
 		By("Connecting via SSH to check disk state")
-		client := EstablishSSHConnection(e2eConfig, bmc.IPAddress)
+		client := EstablishSSHConnection(e2eConfig, bmc.Networks[0].IPAddress)
 
 		By("Check that the mount point exists")
 		output, err := executeSSHCommand(client, "lsblk -o NAME,MOUNTPOINT | grep vdb")
@@ -146,7 +146,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		By("Patching the BMH again to trigger re-provisioning")
 		userDataSecretName = "user-data-ssh-setup"
 		// Create new userdata secret for only SSH setup
-		createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+		createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.Networks[0].IPAddress)
 		userDataSecret = &corev1.SecretReference{
 			Name:      userDataSecretName,
 			Namespace: namespace.Name,
@@ -176,7 +176,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
 
 		By("Connecting via SSH to check disk state after cleaning")
-		client = EstablishSSHConnection(e2eConfig, bmc.IPAddress)
+		client = EstablishSSHConnection(e2eConfig, bmc.Networks[0].IPAddress)
 		defer client.Close()
 
 		By("Checking that the first disk has been cleaned")

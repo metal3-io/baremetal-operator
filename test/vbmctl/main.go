@@ -140,28 +140,38 @@ func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, 
 // If the domain is successfully defined and created, the virtual machine is
 // started. Errors during qcow2 file creation, volume creation, libvirt connection,
 // template rendering, or domain creation are returned.
-func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string) error {
+func CreateLibvirtVM(conn *libvirt.Connect, bmc *bmoe2e.BMC, networkName string) error {
+	if err := ReserveIPAddresses(conn, bmc.Name, bmc.Networks); err != nil {
+		log.Printf("Error occurred: %v\n", err)
+		return err
+	}
 	poolName := "baremetal-e2e"
 	poolPath := "/tmp/pool_oo"
-
-	if err := CreateVolume(conn, name+"-1", poolName, poolPath, 20); err != nil { //nolint: mnd
+	if err := CreateVolume(conn, bmc.Name+"-1", poolName, poolPath, 20); err != nil { //nolint: mnd
 		return err
 	}
 
-	if err := CreateVolume(conn, name+"-2", poolName, poolPath, 20); err != nil { //nolint: mnd
+	if err := CreateVolume(conn, bmc.Name+"-2", poolName, poolPath, 20); err != nil { //nolint: mnd
 		return err
 	}
 
 	data := struct {
 		Name       string
+		Networks   []bmoe2e.Network
 		Network    string
 		MacAddress string
 		PoolPath   string
-	}{
-		Name:       name,
-		Network:    networkName,
-		MacAddress: macAddress,
-		PoolPath:   poolPath,
+	}{}
+
+	if len(bmc.Networks) == 0 {
+		data.Name = bmc.Name
+		data.Network = networkName
+		data.MacAddress = bmc.BootMacAddress
+		data.PoolPath = poolPath
+	} else {
+		data.Name = bmc.Name
+		data.Networks = bmc.Networks
+		data.PoolPath = poolPath
 	}
 
 	vmCfg, err := RenderTemplate("templates/VM.xml.tpl", data)
@@ -182,17 +192,9 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 	return nil
 }
 
-// CreateLibvirtVMWithReservedIPAddress creates a VM with the given MAC address, name, IP address
-// and adds a DHCP host entry on the given network.
-//
-// It will return an error if the network does not exist, or if creating the VM
-// or adding the DHCP host entry fails.
-func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, name, ipAddress, networkName string) error {
-	network, err := conn.LookupNetworkByName(networkName)
-	if err != nil {
-		return err
-	}
-
+// updateNetwork is a helper function for CreateLibvirtVMWithReservedIPAddress.
+// It updates the network with a DHCP host entry.
+func updateNetwork(network *libvirt.Network, macAddress, name, ipAddress string) error {
 	xmlTpl, err := template.New("xml").Parse("<host mac='{{ .MacAddress }}' name='{{ .Name }}' ip='{{ .IPAddress }}' />")
 
 	if err != nil {
@@ -229,9 +231,24 @@ func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, nam
 		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
-	if err = CreateLibvirtVM(conn, name, networkName, macAddress); err != nil {
-		log.Printf("Error occurred: %v\n", err)
-		return err
+	return nil
+}
+
+// ReserveIPAddresses adds a DHCP host entry for all networks that
+// specify an IP address.
+func ReserveIPAddresses(conn *libvirt.Connect, networkName string, networks []bmoe2e.Network) error {
+	for _, net := range networks {
+		// Checking if this network has IP specified.
+		if net.IPAddress != "" {
+			network, err := conn.LookupNetworkByName(net.NetworkName)
+			if err != nil {
+				return err
+			}
+			err = updateNetwork(network, net.MacAddress, networkName, net.IPAddress)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -252,9 +269,15 @@ func main() {
 	bmcs := []bmoe2e.BMC{}
 	if *configFile == "" {
 		bmc := bmoe2e.BMC{
-			IPAddress:      *ipAddress,
 			BootMacAddress: *macAddress,
 			Name:           *name,
+			Networks: []bmoe2e.Network{
+				{
+					NetworkName: *networkName,
+					MacAddress:  *macAddress,
+					IPAddress:   *ipAddress,
+				},
+			},
 		}
 		bmcs = append(bmcs, bmc)
 	} else {
@@ -272,16 +295,9 @@ func main() {
 	defer conn.Close()
 
 	for _, bmc := range bmcs {
-		if bmc.IPAddress != "" {
-			if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, *networkName); err != nil {
-				log.Printf("Error occurred: %v\n", err)
-				break
-			}
-		} else {
-			if err = CreateLibvirtVM(conn, bmc.Name, *networkName, bmc.BootMacAddress); err != nil {
-				log.Printf("Error occurred: %v\n", err)
-				break
-			}
+		if err = CreateLibvirtVM(conn, &bmc, *networkName); err != nil {
+			log.Printf("Error occurred: %v\n", err)
+			break
 		}
 	}
 }

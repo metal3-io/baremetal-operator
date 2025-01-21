@@ -86,7 +86,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			userDataSecretName := "user-data"
 			sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-			createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+			createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.Networks[0].IPAddress)
 			bmh.Spec.UserData = &corev1.SecretReference{
 				Name:      userDataSecretName,
 				Namespace: namespace.Name,
@@ -112,7 +112,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			By("Verifying the node booted from live ISO image")
-			PerformSSHBootCheck(e2eConfig, "memory", bmc.IPAddress)
+			PerformSSHBootCheck(e2eConfig, "memory", bmc.Networks[0].IPAddress)
 		} else {
 			Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}

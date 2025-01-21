@@ -12,8 +12,6 @@ metadata:
 spec:
   commonName: ironic-ca
   isCA: true
-  ipAddresses:
-  - IRONIC_HOST_IP
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer

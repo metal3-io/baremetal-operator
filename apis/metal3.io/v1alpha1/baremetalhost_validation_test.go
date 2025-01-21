@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -677,6 +678,97 @@ func TestValidateCreate(t *testing.T) {
 			},
 			oldBMH:    nil,
 			wantedErr: "invalid value for the inspect.metal3.io annotation, allowed are \"disabled\" or \"\"",
+		},
+		{
+			name: "crossNamespaceUserData",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					UserData: &corev1.SecretReference{
+						Name:      "test-secret",
+						Namespace: "different-namespace", // Different from host's namespace
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "baremetalhosts.metal3.io \"test\" is forbidden: userData: cross-namespace Secret references are not allowed",
+		},
+		{
+			name: "crossNamespaceNetworkData",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					NetworkData: &corev1.SecretReference{
+						Name:      "test-secret",
+						Namespace: "different-namespace", // Different from host's namespace
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "baremetalhosts.metal3.io \"test\" is forbidden: networkData: cross-namespace Secret references are not allowed",
+		},
+		{
+			name: "crossNamespaceMetaData",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					MetaData: &corev1.SecretReference{
+						Name:      "test-secret",
+						Namespace: "different-namespace", // Different from host's namespace
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "baremetalhosts.metal3.io \"test\" is forbidden: metaData: cross-namespace Secret references are not allowed",
+		},
+		{
+			name: "multipleSecretsCrossNamespace",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BareMetalHostSpec{
+					UserData: &corev1.SecretReference{
+						Name:      "test-secret1",
+						Namespace: "different-namespace1",
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "test-secret2",
+						Namespace: "different-namespace2",
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "test-secret3",
+						Namespace: "different-namespace3",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "baremetalhosts.metal3.io \"test\" is forbidden: userData: cross-namespace Secret references are not allowed", // Should catch at least one error
+		},
+		{
+			name: "sameNamespaceSecrets",
+			newBMH: &BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om, // namespace is "test-namespace"
+				Spec: BareMetalHostSpec{
+					UserData: &corev1.SecretReference{
+						Name:      "test-secret1",
+						Namespace: "test-namespace", // Same as host's namespace
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "test-secret2",
+						Namespace: "test-namespace", // Same as host's namespace
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "test-secret3",
+						Namespace: "test-namespace", // Same as host's namespace
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "", // Should be valid
 		},
 	}
 

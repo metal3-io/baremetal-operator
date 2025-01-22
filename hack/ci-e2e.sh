@@ -186,8 +186,6 @@ BMO_OVERLAYS=(
 )
 IRONIC_OVERLAYS=(
   "${REPO_ROOT}/ironic-deployment/overlays/e2e"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector"
   "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.1"
   "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-25.0"
   "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-26.0"
@@ -195,22 +193,14 @@ IRONIC_OVERLAYS=(
 
 IRONIC_USERNAME="$(uuidgen)"
 IRONIC_PASSWORD="$(uuidgen)"
-IRONIC_INSPECTOR_USERNAME="$(uuidgen)"
-IRONIC_INSPECTOR_PASSWORD="$(uuidgen)"
 
 # These must be exported so that envsubst can pick them up below
 export IRONIC_USERNAME
 export IRONIC_PASSWORD
-export IRONIC_INSPECTOR_USERNAME
-export IRONIC_INSPECTOR_PASSWORD
 
 for overlay in "${BMO_OVERLAYS[@]}"; do
   echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
   echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
-  if [[ "${overlay}" =~ release-0\.[1-5]$ ]]; then
-    echo "${IRONIC_INSPECTOR_USERNAME}" > "${overlay}/ironic-inspector-username"
-    echo "${IRONIC_INSPECTOR_PASSWORD}" > "${overlay}/ironic-inspector-password"
-  fi
 done
 
 for overlay in "${IRONIC_OVERLAYS[@]}"; do
@@ -218,15 +208,6 @@ for overlay in "${IRONIC_OVERLAYS[@]}"; do
     "${overlay}/ironic-htpasswd"
   envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${overlay}/ironic-auth-config"
-
-  if [[ "${overlay}" =~ -with-inspector ]]; then
-    IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
-    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl
-    envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
-      "${overlay}/ironic-inspector-auth-config"
-    echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-      "${IRONIC_INSPECTOR_PASSWORD}")" > "${overlay}/ironic-inspector-htpasswd"
-  fi
 done
 
 # We need to gather artifacts/logs before exiting also if there are errors

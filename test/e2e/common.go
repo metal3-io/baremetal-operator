@@ -84,6 +84,18 @@ func WaitForBmhInProvisioningState(ctx context.Context, input WaitForBmhInProvis
 	}, intervals...).Should(Succeed())
 }
 
+// DeleteBmhsInNamespace deletes all BMHs in the given namespace.
+func DeleteBmhsInNamespace(ctx context.Context, deleter client.Client, namespace string) {
+	bmh := metal3api.BareMetalHost{}
+	opts := client.DeleteAllOfOptions{
+		ListOptions: client.ListOptions{
+			Namespace: namespace,
+		},
+	}
+	err := deleter.DeleteAllOf(ctx, &bmh, &opts)
+	Expect(err).NotTo(HaveOccurred(), "Unable to delete BMHs")
+}
+
 // WaitForBmhDeletedInput is the input for WaitForBmhDeleted.
 type WaitForBmhDeletedInput struct {
 	Client          client.Client
@@ -134,6 +146,10 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 }
 
 func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, intervals ...interface{}) {
+	// Trigger deletion of BMHs before deleting the namespace.
+	// This way there should be no risk of BMO getting stuck trying to progress
+	// and create HardwareDetails or similar, while the namespace is terminating.
+	DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
 	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
 		Deleter: clusterProxy.GetClient(),
 		Name:    namespace.Name,

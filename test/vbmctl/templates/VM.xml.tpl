@@ -1,5 +1,5 @@
 <domain type='kvm'>
-  <name>{{ .HostName }}</name>
+  <name>{{ .Name }}</name>
   <memory unit='KiB'>4194304</memory>
   <currentMemory unit='KiB'>4194304</currentMemory>
   <vcpu placement='static'>2</vcpu>
@@ -29,7 +29,7 @@
     </disk>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='{{ .PoolPath }}/{{ .HostName }}.qcow2'/>
+      <source file='{{ .PoolPath }}/{{ .Name }}.qcow2'/>
       <target dev='vda' bus='virtio'/>
     </disk>
     <controller type='scsi' index='0' model='virtio-scsi'>
@@ -78,13 +78,13 @@
         <model type='virtio' />
     </interface>
     <serial type='pty'>
-      <log file='/var/log/libvirt/qemu/{{ .HostName }}-serial0.log' append='on'/>
+      <log file='/var/log/libvirt/qemu/{{ .Name }}-serial0.log' append='on'/>
       <target type='isa-serial' port='0'>
         <model name='isa-serial'/>
       </target>
     </serial>
     <console type='pty'>
-      <log file='/var/log/libvirt/qemu/{{ .HostName }}-serial0.log' append='on'/>
+      <log file='/var/log/libvirt/qemu/{{ .Name }}-serial0.log' append='on'/>
       <target type='serial' port='0'/>
     </console>
     <input type='mouse' bus='ps2'/>

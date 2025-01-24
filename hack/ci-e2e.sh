@@ -82,7 +82,7 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
   for bmc in "${BMCS[@]}"; do
     address=$(echo "${bmc}" | jq -r '.address')
-    hostName=$(echo "${bmc}" | jq -r '.hostName')
+    hostName=$(echo "${bmc}" | jq -r '.name')
     vbmc_port="${address##*:}"
     "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}" "${IP_ADDRESS}"
   done

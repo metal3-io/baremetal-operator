@@ -24,8 +24,8 @@ jobs:
 
     - name: Install libvirt
       run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev
+        sudo apt-get update
+        sudo apt-get install -y libvirt-dev
 
     - name: Build BMO e2e Docker Image
       env:
@@ -40,6 +40,7 @@ jobs:
       run: make test-e2e
 
     - name: Upload artifacts
+      if: ${{ !cancelled() }}
       uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
       with:
         name: artifacts-fixture.tar.gz

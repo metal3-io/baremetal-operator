@@ -25,6 +25,9 @@ variables:
 
   # This setting is for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
+  # We can create separate clusters for each upgrade test with fixture.
+  # Since there is no ironic involved, we do not risk having any port collisions.
+  UPGRADE_USE_EXISTING_CLUSTER: "false"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"
@@ -41,7 +44,7 @@ intervals:
   inspection/wait-available: ["1m", "1s"]
   external-inspection/wait-available: ["5s", "1ms"]
   default/wait-deployment: ["5m", "1s"]
-  default/wait-namespace-deleted: ["1m", "1s"]
+  default/wait-namespace-deleted: ["2m", "1s"]
   ironic/wait-deployment: ["10m", "2s"]
   default/wait-registration: ["5s", "5ms"]
   default/wait-provisioning: ["1m", "10ms"]

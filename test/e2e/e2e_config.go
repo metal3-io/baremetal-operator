@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
+	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 )
 
 // LoadImageBehavior indicates the behavior when loading an image.
@@ -63,6 +64,9 @@ type Config struct {
 
 	// BMOIronicUpgradeSpecs
 	BMOIronicUpgradeSpecs []BMOIronicUpgradeInput `yaml:"bmoIronicUpgradeSpecs,omitempty"`
+
+	// Extra port mappings for the kind cluster
+	KindExtraPortMappings []v1alpha4.PortMapping `yaml:"kindExtraPortMappings,omitempty"`
 }
 
 // LoadE2EConfig loads the configuration for the e2e test environment.

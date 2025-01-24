@@ -153,8 +153,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		kubeconfigPath = GetKubeconfigPath()
 	} else {
 		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
-			Name:   "bmo-e2e",
-			Images: e2eConfig.Images,
+			Name:              "bmo-e2e",
+			Images:            e2eConfig.Images,
+			ExtraPortMappings: e2eConfig.KindExtraPortMappings,
 		})
 		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 		kubeconfigPath = clusterProvider.GetKubeconfigPath()

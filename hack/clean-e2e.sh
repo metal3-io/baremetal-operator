@@ -3,7 +3,7 @@
 REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 cd "${REPO_ROOT}" || exit 1
 
-minikube delete
+kind delete cluster
 docker rm -f vbmc
 docker rm -f image-server-e2e
 docker rm -f sushy-tools

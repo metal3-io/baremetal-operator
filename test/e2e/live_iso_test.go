@@ -6,14 +6,12 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3bmc "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -105,13 +103,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			By("Verifying the node booted from live ISO image")
-			keyPath := e2eConfig.GetVariable("SSH_PRIV_KEY")
-			key, err := os.ReadFile(keyPath)
-			Expect(err).NotTo(HaveOccurred(), "unable to read private key")
-			signer, err := ssh.ParsePrivateKey(key)
-			Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
-			auth := ssh.PublicKeys(signer)
-			PerformSSHBootCheck(e2eConfig, "memory", auth, fmt.Sprintf("%s:%s", bmc.IPAddress, bmc.SSHPort))
+			PerformSSHBootCheck(e2eConfig, "memory", bmc.IPAddress)
 		} else {
 			Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}

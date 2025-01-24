@@ -21,9 +21,15 @@ var (
 	templateFiles embed.FS
 )
 
+const (
+	poolName = "default"
+	poolPath = "/tmp/pool_oo"
+)
+
 type Host struct {
 	HostName string
 	Networks bmoe2e.Networks
+	PoolName string
 	PoolPath string
 }
 
@@ -42,9 +48,36 @@ func RenderTemplate(inputFile string, data interface{}) (string, error) {
 	return buf.String(), nil
 }
 
+func startVolumePool(pool *libvirt.StoragePool) error {
+	if err := pool.SetAutostart(true); err != nil {
+		fmt.Println("Failed to Set the pool autostart")
+		fmt.Printf("Error occurred: %v\n", err)
+		return err
+	}
+
+	active, err := pool.IsActive()
+	if err != nil {
+		return err
+	}
+
+	if active {
+		return nil
+	}
+
+	if err := pool.Create(0); err != nil {
+		fmt.Println("Failed to Start the pool")
+		fmt.Printf("Error occurred: %v\n", err)
+		return err
+	}
+	return nil
+}
+
 // CreateVolumePool creates a volume pool with specified name if a pool with
 // that name does not exist yet.
 func CreateVolumePool(poolName, poolPath string) (*libvirt.StoragePool, error) {
+	if err := os.MkdirAll(poolPath, 0777); err != nil && !os.IsExist(err) {
+		return nil, err
+	}
 	// Connect to libvirt daemon
 	conn, err := libvirt.NewConnect("qemu:///system")
 	if err != nil {
@@ -57,6 +90,9 @@ func CreateVolumePool(poolName, poolPath string) (*libvirt.StoragePool, error) {
 
 	if err == nil {
 		fmt.Println("Pool already exists")
+		if err := startVolumePool(pool); err != nil {
+			return nil, err
+		}
 		return pool, nil
 	}
 
@@ -90,15 +126,7 @@ func CreateVolumePool(poolName, poolPath string) (*libvirt.StoragePool, error) {
 		return nil, err
 	}
 
-	if err = pool.SetAutostart(true); err != nil {
-		fmt.Println("Failed to Set the pool autostart")
-		fmt.Printf("Error occurred: %v\n", err)
-		return nil, err
-	}
-
-	if err = pool.Create(0); err != nil {
-		fmt.Println("Failed to Start the pool")
-		fmt.Printf("Error occurred: %v\n", err)
+	if err := startVolumePool(pool); err != nil {
 		return nil, err
 	}
 
@@ -160,8 +188,6 @@ func CreateVolume(volumeName, poolName, poolPath string, capacityInGB int) error
 // started. Errors during qcow2 file creation, volume creation, libvirt connection,
 // template rendering, or domain creation are returned.
 func CreateLibvirtVM(hostName string, networks *bmoe2e.Networks) error {
-	poolName := "default"
-	poolPath := "/tmp/pool_oo"
 	opts := make(map[string]any)
 	opts[qcow2.OPT_SIZE] = 3 * (1 << 30) // qcow2 file's size is 3g
 	opts[qcow2.OPT_FMT] = "qcow2"        // qcow2 format
@@ -186,13 +212,10 @@ func CreateLibvirtVM(hostName string, networks *bmoe2e.Networks) error {
 	}
 	defer conn.Close()
 
-	data := struct {
-		HostName string
-		Networks bmoe2e.Networks
-		PoolPath string
-	}{
+	data := Host{
 		HostName: hostName,
 		Networks: *networks,
+		PoolName: poolName,
 		PoolPath: poolPath,
 	}
 

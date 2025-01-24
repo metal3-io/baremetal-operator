@@ -30,7 +30,8 @@
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
       <source file='{{ .PoolPath }}/{{ .HostName }}.qcow2'/>
-      <target dev='vda' bus='virtio'/>
+      <target dev='sda' bus='scsi'/>
+      <address type='drive' controller='0' bus='0' target='0' unit='0'/>
     </disk>
     <controller type='scsi' index='0' model='virtio-scsi'>
       <address type='pci' domain='0x0000' bus='0x03' slot='0x00' function='0x0'/>
@@ -80,13 +81,11 @@
     </interface>
     {{ end }}
     <serial type='pty'>
-      <log file='/var/log/libvirt/qemu/{{ .HostName }}-serial0.log' append='on'/>
       <target type='isa-serial' port='0'>
         <model name='isa-serial'/>
       </target>
     </serial>
     <console type='pty'>
-      <log file='/var/log/libvirt/qemu/{{ .HostName }}-serial0.log' append='on'/>
       <target type='serial' port='0'/>
     </console>
     <input type='mouse' bus='ps2'/>

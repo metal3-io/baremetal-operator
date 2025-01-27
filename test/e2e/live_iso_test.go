@@ -78,7 +78,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 					URL:        imageURL,
 					DiskFormat: pointer.String("live-iso"),
 				},
-				BootMode:              metal3api.UEFISecureBoot,
+				BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress:        bmc.BootMacAddress,
 				AutomatedCleaningMode: metal3api.CleaningModeDisabled,
 			},

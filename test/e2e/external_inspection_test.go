@@ -213,7 +213,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 					Address:         bmc.Address,
 					CredentialsName: "bmc-credentials",
 				},
-				BootMode:       metal3api.UEFISecureBoot,
+				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress: bmc.BootMacAddress,
 			},
 		}

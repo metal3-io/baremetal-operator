@@ -28,6 +28,10 @@ type BMC struct {
 	// This will be paired with the MAC address in the DHCP configuration.
 	// Example: 192.168.222.122
 	IPAddress string `yaml:"ipAddress,omitempty"`
+	// OSLoader is the <loader /> field in the VM XML.
+	// This can be used to support UEFI and/or secure boot.
+	// Example: <loader readonly='yes' type='pflash'>/usr/share/OVMF/OVMF_CODE_4M.secboot.fd</loader>
+	OSLoader string `yaml:"osLoader,omitempty"`
 }
 
 func LoadBMCConfig(configPath string) ([]BMC, error) {

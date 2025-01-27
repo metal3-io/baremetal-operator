@@ -1,4 +1,4 @@
-<network>
+<network xmlns:dnsmasq='http://libvirt.org/schemas/network/dnsmasq/1.0'>
   <name>baremetal-e2e</name>
   <forward mode='nat'>
     <nat>
@@ -7,9 +7,14 @@
   </forward>
   <bridge name='metal3'/>
   <ip address='192.168.222.1' netmask='255.255.255.0'>
+    <tftp root="/tmp/tftpboot"/>
     <dhcp>
       <range start='192.168.222.2' end='192.168.222.199'/>
-      <bootp file='http://192.168.222.1:6180/boot.ipxe'/>
     </dhcp>
   </ip>
+  <dnsmasq:options>
+    <dnsmasq:option value="dhcp-boot=/undionly.kpxe,http://192.168.222.1"/>
+    <dnsmasq:option value="dhcp-boot=tag:efi,tag:!ipxe,http://192.168.222.1/snponly.efi"/>
+    <dnsmasq:option value="dhcp-boot=tag:ipxe,http://192.168.222.1:6180/boot.ipxe"/>
+  </dnsmasq:options>
 </network>

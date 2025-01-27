@@ -61,7 +61,7 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 					Address:         bmc.Address,
 					CredentialsName: "bmc-credentials",
 				},
-				BootMode:       metal3api.UEFISecureBoot,
+				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress: bmc.BootMacAddress,
 			},
 		}

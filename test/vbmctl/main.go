@@ -38,15 +38,7 @@ func RenderTemplate(inputFile string, data interface{}) (string, error) {
 
 // CreateVolumePool creates a volume pool with specified name if a pool with
 // that name does not exist yet.
-func CreateVolumePool(poolName, poolPath string) (*libvirt.StoragePool, error) {
-	// Connect to libvirt daemon
-	conn, err := libvirt.NewConnect("qemu:///system")
-	if err != nil {
-		fmt.Println("Failed to connect to qemu:///system")
-		return nil, err
-	}
-	defer conn.Close()
-
+func CreateVolumePool(conn *libvirt.Connect, poolName, poolPath string) (*libvirt.StoragePool, error) {
 	pool, err := conn.LookupStoragePoolByName(poolName)
 
 	if err == nil {
@@ -100,16 +92,8 @@ func CreateVolumePool(poolName, poolPath string) (*libvirt.StoragePool, error) {
 	return pool, nil
 }
 
-func CreateVolume(volumeName, poolName, poolPath string, capacityInGB int) error {
-	// Connect to libvirt daemon
-	conn, err := libvirt.NewConnect("qemu:///system")
-	if err != nil {
-		fmt.Println("Failed to connect to qemu:///system")
-		return err
-	}
-	defer conn.Close()
-
-	pool, err := CreateVolumePool(poolName, poolPath)
+func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, capacityInGB int) error {
+	pool, err := CreateVolumePool(conn, poolName, poolPath)
 
 	if err != nil {
 		fmt.Println("Failed to create storage pool")
@@ -153,7 +137,7 @@ func CreateVolume(volumeName, poolName, poolPath string, capacityInGB int) error
 // If the domain is successfully defined and created, the virtual machine is
 // started. Errors during qcow2 file creation, volume creation, libvirt connection,
 // template rendering, or domain creation are returned.
-func CreateLibvirtVM(name, networkName, macAddress string) error {
+func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string) error {
 	poolName := "default"
 	poolPath := "/tmp/pool_oo"
 	opts := make(map[string]any)
@@ -169,16 +153,9 @@ func CreateLibvirtVM(name, networkName, macAddress string) error {
 		return err
 	}
 
-	if err = CreateVolume(name, poolName, poolPath, 20); err != nil {
+	if err = CreateVolume(conn, name, poolName, poolPath, 20); err != nil {
 		return err
 	}
-
-	conn, err := libvirt.NewConnect("qemu:///system")
-	if err != nil {
-		fmt.Println("Failed to connect to qemu:///system")
-		return err
-	}
-	defer conn.Close()
 
 	data := struct {
 		Name       string
@@ -216,19 +193,12 @@ func CreateLibvirtVM(name, networkName, macAddress string) error {
 	return nil
 }
 
-// CreateLibvirtBMC creates a VM with the given MAC address, name, IP address
+// CreateLibvirtVMWithReservedIPAddress creates a VM with the given MAC address, name, IP address
 // and adds a DHCP host entry on the given network.
 //
 // It will return an error if the network does not exist, or if creating the VM
 // or adding the DHCP host entry fails.
-func CreateLibvirtBMC(macAddress, name, ipAddress, networkName string) error {
-	var err error
-	conn, err := libvirt.NewConnect("qemu:///system")
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
+func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, name, ipAddress, networkName string) error {
 	network, err := conn.LookupNetworkByName(networkName)
 	if err != nil {
 		return err
@@ -270,7 +240,7 @@ func CreateLibvirtBMC(macAddress, name, ipAddress, networkName string) error {
 		fmt.Printf("Error occurred: %v\n", err)
 		return err
 	}
-	if err = CreateLibvirtVM(name, networkName, macAddress); err != nil {
+	if err = CreateLibvirtVM(conn, name, networkName, macAddress); err != nil {
 		fmt.Printf("Error occurred: %v\n", err)
 		return err
 	}
@@ -306,10 +276,20 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	// Connect to Libvirt
+	conn, err := libvirt.NewConnect("qemu:///system")
+	if err != nil {
+		fmt.Printf("Error occurred: %v\n", err)
+		os.Exit(1)
+	}
+	defer conn.Close()
+
 	for _, bmc := range bmcs {
-		if err = CreateLibvirtBMC(bmc.BootMacAddress, bmc.Name, bmc.IPAddress, "baremetal-e2e"); err != nil {
+		if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, "baremetal-e2e"); err != nil {
 			fmt.Printf("Error occurred: %v\n", err)
-			os.Exit(1)
+			// Not using os.Exit here so that we still close the connection
+			break
 		}
 	}
 }

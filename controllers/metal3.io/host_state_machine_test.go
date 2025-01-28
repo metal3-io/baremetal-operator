@@ -1329,7 +1329,7 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 	return m.callsNoError[methodName]
 }
 
-func (m *mockProvisioner) ValidateManagementAccess(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
+func (m *mockProvisioner) Register(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 

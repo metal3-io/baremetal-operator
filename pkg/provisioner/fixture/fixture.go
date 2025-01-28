@@ -111,9 +111,9 @@ func (p *fixtureProvisioner) HasCapacity() (result bool, err error) {
 	return true, nil
 }
 
-// ValidateManagementAccess tests the connection information for the
+// Register tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *fixtureProvisioner) ValidateManagementAccess(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
+func (p *fixtureProvisioner) Register(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	if p.state.validateError != "" {

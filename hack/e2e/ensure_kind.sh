@@ -13,7 +13,7 @@ verify_kind_version()
         if [[ "${OSTYPE}" == "linux-gnu" ]]; then
             echo "kind not found, installing"
             curl -LO "https://kind.sigs.k8s.io/dl/${MINIMUM_KIND_VERSION}/kind-linux-amd64"
-            sudo install kind "${USR_LOCAL_BIN}/kind"
+            sudo install kind-linux-amd64 "${USR_LOCAL_BIN}/kind"
         else
             echo "Missing required binary in path: kind"
             return 2

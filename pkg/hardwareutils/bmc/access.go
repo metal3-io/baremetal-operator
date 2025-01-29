@@ -68,7 +68,7 @@ type AccessDetails interface {
 	// pre-populated with the access information, and the caller is
 	// expected to add any other information that might be needed
 	// (such as the kernel and ramdisk locations).
-	DriverInfo(bmcCreds Credentials) map[string]interface{}
+	DriverInfo(bmcCreds Credentials, preProvExtraKernParams string) map[string]interface{}
 
 	BIOSInterface() string
 

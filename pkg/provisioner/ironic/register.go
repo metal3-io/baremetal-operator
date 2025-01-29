@@ -101,7 +101,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		return result, "", err
 	}
 
-	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
+	driverInfo := bmcAccess.DriverInfo(p.bmcCreds, fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams))
 	driverInfo = setExternalURL(p, driverInfo)
 
 	// If we have not found a node yet, we need to create one

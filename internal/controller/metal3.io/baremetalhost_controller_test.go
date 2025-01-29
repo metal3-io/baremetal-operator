@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -210,6 +212,412 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3api.Bare
 		if !result.Requeue && result.RequeueAfter == 0 {
 			t.Fatalf("Ended reconcile at iteration %d without test condition being true", i)
 		}
+	}
+}
+
+// Test fixture for PreprovisioningImageFormats support
+// This extends the base fixture.Fixture to support custom PPI format configuration
+// for testing different PreprovisioningImage scenarios. Fixture provisioner
+// is used instead a mock provisioner as it is technically a fake provisioner
+// implementation.
+type testPPIFixture struct {
+	fixture.Fixture
+	ppiFormats []metal3api.ImageFormat
+	ppiError   error
+}
+
+func (f *testPPIFixture) NewTestProvisioner(ctx context.Context, hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+	p, err := f.Fixture.NewProvisioner(ctx, hostData, publisher)
+	if err != nil {
+		return nil, err
+	}
+
+	return &testPPIProvisioner{
+		Provisioner: p,
+		ppiFormats:  f.ppiFormats,
+		ppiError:    f.ppiError,
+	}, nil
+}
+
+// Test provisioner that wraps the base fixture provisioner and adds
+// PreprovisioningImageFormats support for testing.
+type testPPIProvisioner struct {
+	provisioner.Provisioner
+	ppiFormats []metal3api.ImageFormat
+	ppiError   error
+}
+
+func (p *testPPIProvisioner) PreprovisioningImageFormats(ctx context.Context) ([]metal3api.ImageFormat, error) {
+	return p.ppiFormats, p.ppiError
+}
+
+func TestRetrievePreprovisioningExtraKernelParamsSpecIntegration(t *testing.T) {
+	tests := []struct {
+		name             string
+		bmhKernelParams  string
+		ppiKernelParams  string
+		ppiFormat        metal3api.ImageFormat
+		ppiFormats       []metal3api.ImageFormat
+		ppiFormatsError  error
+		createPPI        bool
+		defaultPPI       bool
+		expectedResult   string
+		expectWarningLog bool
+	}{
+		{
+			name:           "nil reconcile info returns empty string",
+			expectedResult: "",
+		},
+		{
+			name:            "provisioner no PPI support - use BMH params only",
+			bmhKernelParams: "console=ttyS0",
+			ppiFormatsError: errors.New("PPI is not supported"),
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:            "PPI controller disabled - getPreprovImage fails",
+			bmhKernelParams: "console=ttyS0",
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       false, // No PPI created, so getPreprovImage will fail
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:            "initrd format - combine BMH and PPI params",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      false,
+			expectedResult:  "console=ttyS0 debug=1",
+		},
+		{
+			name:            "initrd format - only PPI params",
+			bmhKernelParams: "",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      false,
+			expectedResult:  " debug=1",
+		},
+		{
+			name:            "initrd format - only BMH params",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      false,
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:             "ISO format - ignore BMH params with warning",
+			bmhKernelParams:  "console=ttyS0",
+			ppiKernelParams:  "debug=1",
+			ppiFormat:        metal3api.ImageFormatISO,
+			ppiFormats:       []metal3api.ImageFormat{metal3api.ImageFormatISO},
+			createPPI:        true,
+			defaultPPI:       false,
+			expectedResult:   "",
+			expectWarningLog: true,
+		},
+		{
+			name:             "ISO format - no BMH params, no warning",
+			bmhKernelParams:  "",
+			ppiKernelParams:  "debug=1",
+			ppiFormat:        metal3api.ImageFormatISO,
+			ppiFormats:       []metal3api.ImageFormat{metal3api.ImageFormatISO},
+			createPPI:        true,
+			defaultPPI:       false,
+			expectedResult:   "",
+			expectWarningLog: false,
+		},
+		{
+			name:            "complex kernel params combination",
+			bmhKernelParams: "console=ttyS0,115200 intel_iommu=on",
+			ppiKernelParams: "debug=1 systemd.log_level=debug",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      false,
+			expectedResult:  "console=ttyS0,115200 intel_iommu=on debug=1 systemd.log_level=debug",
+		},
+		{
+			name:            "empty BMH params with whitespace",
+			bmhKernelParams: "   ",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      false,
+			expectedResult:  "    debug=1",
+		},
+		{
+			name:            "BMO-managed PPI (default case) - use BMH params only",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      true, // This makes it BMO-managed, format becomes defaultPPImgFormat
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:            "BMO-managed PPI with empty BMH params",
+			bmhKernelParams: "",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatISO, // Original format in PPI status
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatISO},
+			createPPI:       true,
+			defaultPPI:      true, // BMO-managed, so format becomes defaultPPImgFormat
+			expectedResult:  "",
+		},
+		{
+			name:            "unknown external format - use BMH params only",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       "unknown-format", // Unknown format should hit default case
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      false,
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:            "initrd format - whitespace-only PPI params trimmed",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "   \t  ", // Whitespace-only PPI params should be trimmed out
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			ppiFormats:      []metal3api.ImageFormat{metal3api.ImageFormatInitRD},
+			createPPI:       true,
+			defaultPPI:      false,
+			expectedResult:  "console=ttyS0", // No trailing space because PPI params are empty after trim
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This test will be running with test reconciler using
+			// fixtrue and fixture provisioner instead of local mocks.
+			host := newDefaultHost(t)
+			host.Spec.PreprovisioningExtraKernelParams = tt.bmhKernelParams
+
+			initObjs := []runtime.Object{host}
+
+			// Create PreprovisioningImage if needed
+			if tt.createPPI {
+				ppi := &metal3api.PreprovisioningImage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      host.Name,
+						Namespace: host.Namespace,
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "metal3.io/v1alpha1",
+								Kind:       "BareMetalHost",
+								Name:       host.Name,
+								UID:        host.UID,
+								Controller: ptr.To(tt.defaultPPI),
+							},
+						},
+					},
+					Spec: metal3api.PreprovisioningImageSpec{
+						Architecture:  "x86_64",
+						AcceptFormats: tt.ppiFormats,
+					},
+					Status: metal3api.PreprovisioningImageStatus{
+						Architecture:      "x86_64",
+						ImageUrl:          "http://example.com/image.iso",
+						Format:            tt.ppiFormat,
+						ExtraKernelParams: tt.ppiKernelParams,
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(metal3api.ConditionImageReady),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(metal3api.ConditionImageError),
+								Status: metav1.ConditionFalse,
+							},
+						},
+					},
+				}
+				initObjs = append(initObjs, ppi)
+			}
+
+			// Setup custom fixture with PPI support
+			fix := &testPPIFixture{
+				Fixture:    fixture.Fixture{},
+				ppiFormats: tt.ppiFormats,
+				ppiError:   tt.ppiFormatsError,
+			}
+
+			// Create reconciler with custom fixture
+			r := newTestReconcilerWithFixture(t, &fix.Fixture, initObjs...)
+			r.ProvisionerFactory = fix
+
+			var info *reconcileInfo
+			if tt.name != "nil reconcile info returns empty string" {
+				info = makeReconcileInfo(host)
+			}
+
+			prov, err := fix.NewTestProvisioner(context.TODO(), provisioner.HostData{
+				ObjectMeta: host.ObjectMeta,
+			}, nil)
+			require.NoError(t, err)
+			preprovImgFormats, err := prov.PreprovisioningImageFormats(context.TODO())
+			if tt.ppiFormatsError != nil {
+				// In current BMO implementation it is mandatory that the provisioner's
+				// PPI related calls return without error during host registration,
+				// but retrievePreprovisioningExtraKernelParamsSpec could
+				// work in an implementation where the faulty PPI calls would be handled
+				// differently and wouldn't cause immediate registration failure.
+				// This path is an example of a handled format error that originates from
+				// the provisioner.
+				require.Error(t, err, "Expected PPI formats error")
+			} else {
+				require.NoError(t, err)
+			}
+			preprovImg, err := r.getPreprovImage(context.TODO(), info, preprovImgFormats)
+			require.NoError(t, err)
+
+			// Execute the function under test
+			result := r.retrievePreprovisioningExtraKernelParamsSpec(info, preprovImg)
+			assert.Equal(t, tt.expectedResult, result, "Unexpected kernel params result")
+		})
+	}
+}
+
+func TestRetrievePreprovisioningExtraKernelParamsSpec(t *testing.T) {
+	tests := []struct {
+		name             string
+		bmhKernelParams  string
+		ppiKernelParams  string
+		ppiFormat        metal3api.ImageFormat
+		expectedResult   string
+		expectWarningLog bool
+		preprovImg       *provisioner.PreprovisioningImage
+	}{
+		{
+			name:           "nil reconcile info returns empty string",
+			expectedResult: "",
+		},
+		{
+			name:            "no PPI - use BMH params only",
+			bmhKernelParams: "console=ttyS0",
+			expectedResult:  "console=ttyS0",
+			preprovImg:      nil,
+		},
+		{
+			name:            "initrd format - combine BMH and PPI params",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			expectedResult:  "console=ttyS0 debug=1",
+		},
+		{
+			name:            "initrd format - only PPI params",
+			bmhKernelParams: "",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			expectedResult:  " debug=1",
+		},
+		{
+			name:            "initrd format - only BMH params",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:             "ISO format - ignore BMH params with warning",
+			bmhKernelParams:  "console=ttyS0",
+			ppiKernelParams:  "debug=1",
+			ppiFormat:        metal3api.ImageFormatISO,
+			expectedResult:   "",
+			expectWarningLog: true,
+		},
+		{
+			name:             "ISO format - no BMH params, no warning",
+			bmhKernelParams:  "",
+			ppiKernelParams:  "debug=1",
+			ppiFormat:        metal3api.ImageFormatISO,
+			expectedResult:   "",
+			expectWarningLog: false,
+		},
+		{
+			name:            "complex kernel params combination",
+			bmhKernelParams: "console=ttyS0,115200 intel_iommu=on",
+			ppiKernelParams: "debug=1 systemd.log_level=debug",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			expectedResult:  "console=ttyS0,115200 intel_iommu=on debug=1 systemd.log_level=debug",
+		},
+		{
+			name:            "empty BMH params with whitespace",
+			bmhKernelParams: "   ",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			expectedResult:  "    debug=1",
+		},
+		{
+			name:            "BMO-managed PPI - use only BMH params",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       "defaultPPImgFormat",
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:            "BMO-managed PPI with empty BMH params",
+			bmhKernelParams: "",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       "defaultPPImgFormat",
+			expectedResult:  "",
+		},
+		{
+			name:            "unknown external format - use BMH params only",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "debug=1",
+			ppiFormat:       "unknown-format",
+			expectedResult:  "console=ttyS0",
+		},
+		{
+			name:            "initrd format - whitespace-only PPI params trimmed",
+			bmhKernelParams: "console=ttyS0",
+			ppiKernelParams: "   \t  ", // Whitespace-only PPI params should be trimmed out
+			ppiFormat:       metal3api.ImageFormatInitRD,
+			expectedResult:  "console=ttyS0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host := newDefaultHost(t)
+			host.Spec.PreprovisioningExtraKernelParams = tt.bmhKernelParams
+
+			var info *reconcileInfo
+			if tt.name != "nil reconcile info returns empty string" {
+				info = makeReconcileInfo(host)
+			}
+
+			var preprovImg *provisioner.PreprovisioningImage
+			if tt.preprovImg != nil {
+				preprovImg = tt.preprovImg
+			} else if tt.ppiFormat != "" {
+				preprovImg = &provisioner.PreprovisioningImage{
+					GeneratedImage: imageprovider.GeneratedImage{
+						ImageURL:          "http://example.com/image.iso",
+						KernelURL:         "",
+						ExtraKernelParams: tt.ppiKernelParams,
+					},
+					Format: tt.ppiFormat,
+				}
+			}
+
+			r := &BareMetalHostReconciler{}
+
+			// Execute the function under test
+			result := r.retrievePreprovisioningExtraKernelParamsSpec(info, preprovImg)
+			assert.Equal(t, tt.expectedResult, result, "Unexpected kernel params result")
+		})
 	}
 }
 
@@ -2580,10 +2988,22 @@ func TestGetPreprovImage(t *testing.T) {
 	imageURL := "http://example.test/image.iso"
 	acceptFormats := []metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD}
 	arch := getControllerArchitecture()
+	// In order to mock externally managed PPI the controller reference will,
+	// set to false even though this PPI is created by the test reconciler. This way
+	// the externally managed PPI can be mocked with just one reconciler.
 	image := &metal3api.PreprovisioningImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "metal3.io/v1alpha1",
+					Kind:       "BareMetalHost",
+					Name:       host.Name,
+					UID:        host.UID,
+					Controller: ptr.To(false),
+				},
+			},
 		},
 		Spec: metal3api.PreprovisioningImageSpec{
 			Architecture:  arch,

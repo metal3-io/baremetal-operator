@@ -39,6 +39,7 @@ func (p *ironicProvisioner) startInspection(ctx context.Context, data provisione
 			SetPropertiesOpts(opts, ironicNode),
 	)
 	if !started {
+		p.log.Info("node update not started", "node", ironicNode.UUID)
 		return
 	}
 

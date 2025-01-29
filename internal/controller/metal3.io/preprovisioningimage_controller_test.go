@@ -1,13 +1,18 @@
 package controllers
 
 import (
+	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 type mockImageProvider struct {
@@ -199,6 +204,106 @@ func TestConfigChanged(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := configChanged(tc.img, tc.format, tc.networkDataStatus)
 			assert.Equal(t, tc.expectedHasChanged, result)
+		})
+	}
+}
+
+func TestPreprovisioningImageReconciler_FindOwnerBMH(t *testing.T) {
+	tests := []struct {
+		name          string
+		ownerRefs     []metav1.OwnerReference
+		expectedError string
+		setupBMH      bool
+	}{
+		{
+			name:          "no owner reference",
+			ownerRefs:     []metav1.OwnerReference{},
+			expectedError: "no controller owner found",
+		},
+		{
+			name: "wrong owner kind",
+			ownerRefs: []metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					Name:       "test-secret",
+					Controller: &[]bool{true}[0],
+				},
+			},
+			expectedError: "controller owner is not a BareMetalHost",
+		},
+		{
+			name: "valid BMH owner",
+			ownerRefs: []metav1.OwnerReference{
+				{
+					Kind:       "BareMetalHost",
+					Name:       "test-bmh",
+					Controller: &[]bool{true}[0],
+				},
+			},
+			setupBMH: true,
+		},
+		{
+			name: "BMH not found",
+			ownerRefs: []metav1.OwnerReference{
+				{
+					Kind:       "BareMetalHost",
+					Name:       "missing-bmh",
+					Controller: &[]bool{true}[0],
+				},
+			},
+			expectedError: "not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			_ = metal3api.AddToScheme(scheme)
+
+			clientBuilder := fakeclient.NewClientBuilder().WithScheme(scheme)
+
+			if tt.setupBMH {
+				bmh := &metal3api.BareMetalHost{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-bmh",
+						Namespace: "test-namespace",
+					},
+				}
+				clientBuilder = clientBuilder.WithObjects(bmh)
+			}
+
+			c := clientBuilder.Build()
+
+			ppi := &metal3api.PreprovisioningImage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-ppi",
+					Namespace:       "test-namespace",
+					OwnerReferences: tt.ownerRefs,
+				},
+			}
+
+			r := &PreprovisioningImageReconciler{
+				Client: c,
+			}
+
+			// Execute the test.
+			bmh, err := r.findOwnerBMH(context.Background(), ppi)
+
+			if tt.expectedError != "" {
+				assert.Contains(t, err.Error(), tt.expectedError)
+				if tt.expectedError == "not found" {
+					// Function returns empty BMH object when Get() fails.
+					assert.NotNil(t, bmh)
+					assert.Empty(t, bmh.Name)
+				} else {
+					assert.Nil(t, bmh)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, bmh)
+				assert.Equal(t, "test-bmh", bmh.Name)
+				assert.Equal(t, "test-namespace", bmh.Namespace)
+			}
 		})
 	}
 }

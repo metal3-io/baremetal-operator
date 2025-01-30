@@ -891,6 +891,13 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return actionUpdate{}
 	}
 
+	// Check if the host can support firmware components before creating the resrouce
+	_, errGetFirmwareComponents := prov.GetFirmwareComponents()
+	supportsFirmwareComponents := true
+	if errGetFirmwareComponents != nil && errors.Is(errGetFirmwareComponents, provisioner.ErrFirmwareUpdateUnsupported) {
+		supportsFirmwareComponents = false
+	}
+
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	// Create the hostFirmwareComponents resource with same host name/namespace if it doesn't exist
 	if info.host.Name != "" {
@@ -901,9 +908,11 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 				info.log.Info("failed creating hostfirmwaresettings")
 				return actionError{errors.Wrap(err, "failed creating hostFirmwareSettings")}
 			}
-			if err = r.createHostFirmwareComponents(info); err != nil {
-				info.log.Info("failed creating hostfirmwarecomponents")
-				return actionError{errors.Wrap(err, "failed creating hostFirmwareComponents")}
+			if supportsFirmwareComponents {
+				if err = r.createHostFirmwareComponents(info); err != nil {
+					info.log.Info("failed creating hostfirmwarecomponents")
+					return actionError{errors.Wrap(err, "failed creating hostFirmwareComponents")}
+				}
 			}
 			if _, err = r.acquireHostUpdatePolicy(info); err != nil {
 				info.log.Info("failed setting owner reference on hostupdatepolicy")

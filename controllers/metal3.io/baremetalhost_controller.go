@@ -496,6 +496,11 @@ func setErrorMessage(host *metal3api.BareMetalHost, errType metal3api.ErrorType,
 }
 
 func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	if info.host.Spec.DisablePowerOff {
+		info.log.Info("Skipping host powered off as Power Off has been disabled")
+		return actionComplete{}
+	}
+
 	info.log.Info("host ready to be powered off")
 	provResult, err := prov.PowerOff(
 		metal3api.RebootModeHard,

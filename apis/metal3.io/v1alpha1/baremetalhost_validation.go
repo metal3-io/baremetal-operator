@@ -67,6 +67,10 @@ func (host *BareMetalHost) validateHost() []error {
 		errs = append(errs, annotationErrors...)
 	}
 
+	if err := validatePowerStatus(host); err != nil {
+		errs = append(errs, err)
+	}
+
 	return errs
 }
 
@@ -349,4 +353,11 @@ func (host *BareMetalHost) validateCrossNamespaceSecretReferences() []error {
 		}
 	}
 	return errs
+}
+
+func validatePowerStatus(host *BareMetalHost) error {
+	if host.Spec.DisablePowerOff && !host.Spec.Online {
+		return fmt.Errorf("node can't simultaneously have online set to false and have power off disabled")
+	}
+	return nil
 }

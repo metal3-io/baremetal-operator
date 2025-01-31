@@ -1642,13 +1642,21 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 		}
 
 		if rebootMode == metal3api.RebootModeSoft && !force {
-			result, err = p.changePower(ironicNode, nodes.SoftPowerOff)
+			powerTarget := nodes.SoftPowerOff
+			if ironicNode.DisablePowerOff {
+				powerTarget = nodes.SoftRebooting
+			}
+			result, err = p.changePower(ironicNode, powerTarget)
 			if !errors.As(err, &softPowerOffUnsupportedError{}) {
 				return result, err
 			}
 		}
 		// Reboot mode is hard, force flag is set, or soft power off is not supported
-		return p.changePower(ironicNode, nodes.PowerOff)
+		powerTarget := nodes.PowerOff
+		if ironicNode.DisablePowerOff {
+			powerTarget = nodes.Rebooting
+		}
+		return p.changePower(ironicNode, powerTarget)
 	}
 
 	return operationComplete()

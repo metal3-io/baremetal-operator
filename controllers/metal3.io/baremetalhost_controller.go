@@ -1594,6 +1594,18 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		return actionError{errors.Wrap(err, "failed to manage power state of host")}
 	}
 
+	// If DisablePowerOff was enabled then prov.PowerOff above will have rebooted instead of powering off, in this case
+	// the operation is complete (no need to power on) and any reboot annotation can be removed
+	if info.host.Spec.DisablePowerOff {
+		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
+			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
+			if err = r.Update(info.ctx, info.host); err != nil {
+				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+			}
+			return actionContinue{}
+		}
+	}
+
 	if provResult.ErrorMessage != "" {
 		if !desiredPowerOnState && desiredRebootMode == metal3api.RebootModeSoft &&
 			info.host.Status.ErrorType != metal3api.PowerManagementError {

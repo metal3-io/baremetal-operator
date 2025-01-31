@@ -797,6 +797,48 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	)
 }
 
+// TestRebootWithSuffixedAnnotation tests a full reboot cycle, with suffixed annotation
+// to verify that controller holds power off until annotation removal.
+func TestRebootWithSuffixedAnnotationPowerOffDisabled(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Spec.Image.URL = "foo"
+	host.Status.Provisioning.Image.URL = "foo"
+	host.Spec.DisablePowerOff = true
+
+	fix := fixture.Fixture{DisablePowerOff: true, PoweredOn: true}
+	r := newTestReconcilerWithFixture(&fix, host)
+
+	// bmh reconcils until credentials are verified as valid
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.GoodCredentials.Reference != nil
+		},
+	)
+
+	assert.True(t, host.Status.PoweredOn)
+	assert.Equal(t, fix.RebootCalled, false)
+
+	// Add the reboot annotation
+	host.Annotations = make(map[string]string)
+	host.Annotations[metal3api.RebootAnnotationPrefix] = "{\"mode\":\"soft\"}"
+	err := r.Update(context.TODO(), host)
+	assert.NoError(t, err)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, ok := host.Annotations[metal3api.RebootAnnotationPrefix]
+			return !ok
+		},
+	)
+
+	assert.True(t, host.Status.PoweredOn)
+	assert.Equal(t, fix.RebootCalled, true)
+}
+
 // TestRebootWithServicing tests full reboot cycle with suffixless
 // annotation and servicing.
 func TestRebootWithServicing(t *testing.T) {

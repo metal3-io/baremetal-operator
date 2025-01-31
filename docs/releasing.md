@@ -101,11 +101,10 @@ Once PR is merged following GitHub actions are triggered:
      or a new patch release from the latest release branch, uncheck the box for
      latest release. If it is a release candidate (RC) or a beta release,
      tick pre-release box.
-   - GitHub jobs `build_bmo` and `build_keepalived` build release images with the
+   - GitHub job `build_bmo` build release images with the
      release tag, and push them to Quay. Make sure the release tags are visible in
      Quay tags pages:
       - [BMO](https://quay.io/repository/metal3-io/baremetal-operator?tab=tags)
-      - [keepalived](https://quay.io/repository/metal3-io/keepalived?tab=tags)
      If the new release tag is not available for any of the images, check if the
      action has failed and retrigger as necessary.
 
@@ -125,7 +124,6 @@ Git tags pushed:
 Container images built and tagged at Quay registry:
 
 - [baremetal-operator:v0.x.y](https://quay.io/repository/metal3-io/baremetal-operator?tab=tags)
-- [keepalived:v0.x.y](https://quay.io/repository/metal3-io/keepalived?tab=tags)
 
 Files included in the release page:
 

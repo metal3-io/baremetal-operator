@@ -23,7 +23,7 @@ type IronicMock struct {
 // NewIronic builds an ironic mock server.
 func NewIronic(t *testing.T) *IronicMock {
 	t.Helper()
-	server := New(t, "ironic").AddDefaultResponse("/v1/?", "", http.StatusOK, versionedRootResult)
+	server := New(t, "ironic").AddDefaultResponse("/v1/?", "", http.StatusOK, fmt.Sprintf(versionedRootResult, "1.95"))
 	return &IronicMock{
 		MockServer:   server,
 		CreatedNodes: 0,
@@ -42,9 +42,16 @@ const versionedRootResult = `
     "links": [ { "href": "/v1/", "rel": "self" } ],
     "status": "CURRENT",
     "min_version": "1.1",
-    "version": "1.87"
+    "version": "%s"
   }
 }`
+
+// If your calling this, call it before you add any other Responses.
+func (m *IronicMock) WithVersion(v string) *IronicMock {
+	m.ClearDatabase()
+	m.AddDefaultResponse("/v1/?", "", http.StatusOK, fmt.Sprintf(versionedRootResult, v))
+	return m
+}
 
 // WithDefaultResponses sets a valid answer for all the API calls.
 func (m *IronicMock) WithDefaultResponses() *IronicMock {

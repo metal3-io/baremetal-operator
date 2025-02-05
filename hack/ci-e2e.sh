@@ -44,12 +44,11 @@ case "${GINKGO_FOCUS:-}" in
     export GINKGO_SKIP="${GINKGO_SKIP:-upgrade}"
     ;;
 esac
-export USE_EXISTING_CLUSTER="true"
 
 # Ensure requirements are installed
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="/usr/local/go/bin:${PATH}"
-"${REPO_ROOT}/hack/e2e/ensure_minikube.sh"
+"${REPO_ROOT}/hack/e2e/ensure_kind.sh"
 "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
@@ -58,35 +57,15 @@ export PATH="/usr/local/go/bin:${PATH}"
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
 
-# Set up minikube
-minikube start --driver=kvm2
-
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e
-# Attach baremetal-e2e interface to minikube with specific mac.
-# This will give minikube a known reserved IP address that we can use for Ironic
-virsh -c qemu:///system attach-interface --domain minikube --mac="52:54:00:6c:3c:01" \
-  --model virtio --source baremetal-e2e --type network --config
-
-# Restart minikube to apply the changes
-minikube stop
-## Following loop is to avoid minikube restart issue
-## https://github.com/kubernetes/minikube/issues/14456
-while ! minikube start; do sleep 30; done
-
-# Load the BMO e2e image into it
-# minikube image load quay.io/metal3-io/baremetal-operator:e2e
-# Temporary workaround for https://github.com/kubernetes/minikube/issues/18021
-docker image save -o /tmp/bmo-e2e.tar quay.io/metal3-io/baremetal-operator:e2e
-minikube image load /tmp/bmo-e2e.tar
-rm /tmp/bmo-e2e.tar
 
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 
 # This IP is also defined by the network above, and is used consistently in all of
 # our e2e overlays
-export IRONIC_PROVISIONING_IP="192.168.222.199"
+export IRONIC_PROVISIONING_IP="${IP_ADDRESS}"
 
 # Build vbmctl
 make build-vbmctl
@@ -105,7 +84,7 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
     address=$(echo "${bmc}" | jq -r '.address')
     hostName=$(echo "${bmc}" | jq -r '.hostName')
     vbmc_port="${address##*:}"
-    "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}"
+    "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}" "${IP_ADDRESS}"
   done
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
@@ -171,14 +150,11 @@ popd
 # Generate credentials
 BMO_OVERLAYS=(
   "${REPO_ROOT}/config/overlays/e2e"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.5"
   "${REPO_ROOT}/config/overlays/e2e-release-0.6"
   "${REPO_ROOT}/config/overlays/e2e-release-0.8"
 )
 IRONIC_OVERLAYS=(
   "${REPO_ROOT}/ironic-deployment/overlays/e2e"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-with-inspector"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.0-with-inspector"
   "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.1"
   "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-25.0"
   "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-26.0"
@@ -186,22 +162,14 @@ IRONIC_OVERLAYS=(
 
 IRONIC_USERNAME="$(uuidgen)"
 IRONIC_PASSWORD="$(uuidgen)"
-IRONIC_INSPECTOR_USERNAME="$(uuidgen)"
-IRONIC_INSPECTOR_PASSWORD="$(uuidgen)"
 
 # These must be exported so that envsubst can pick them up below
 export IRONIC_USERNAME
 export IRONIC_PASSWORD
-export IRONIC_INSPECTOR_USERNAME
-export IRONIC_INSPECTOR_PASSWORD
 
 for overlay in "${BMO_OVERLAYS[@]}"; do
   echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
   echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
-  if [[ "${overlay}" =~ release-0\.[1-5]$ ]]; then
-    echo "${IRONIC_INSPECTOR_USERNAME}" > "${overlay}/ironic-inspector-username"
-    echo "${IRONIC_INSPECTOR_PASSWORD}" > "${overlay}/ironic-inspector-password"
-  fi
 done
 
 for overlay in "${IRONIC_OVERLAYS[@]}"; do
@@ -209,15 +177,6 @@ for overlay in "${IRONIC_OVERLAYS[@]}"; do
     "${overlay}/ironic-htpasswd"
   envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
   "${overlay}/ironic-auth-config"
-
-  if [[ "${overlay}" =~ -with-inspector ]]; then
-    IRONIC_INSPECTOR_AUTH_CONFIG_TPL="/tmp/ironic-inspector-auth-config-tpl"
-    curl -o "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" https://raw.githubusercontent.com/metal3-io/baremetal-operator/release-0.5/ironic-deployment/components/basic-auth/ironic-inspector-auth-config-tpl
-    envsubst < "${IRONIC_INSPECTOR_AUTH_CONFIG_TPL}" > \
-      "${overlay}/ironic-inspector-auth-config"
-    echo "INSPECTOR_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_INSPECTOR_USERNAME}" \
-      "${IRONIC_INSPECTOR_PASSWORD}")" > "${overlay}/ironic-inspector-htpasswd"
-  fi
 done
 
 # We need to gather artifacts/logs before exiting also if there are errors

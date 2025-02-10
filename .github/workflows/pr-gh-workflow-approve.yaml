@@ -6,7 +6,8 @@ name: Approve GH Workflows
 
 on:
   pull_request_target:
-    types: [opened, edited, reopened, synchronize]
+    # edited is needed here as this workflow checks for PR meta content
+    types: [opened, edited, reopened, synchronize, ready_for_review]
 
 permissions: {}
 

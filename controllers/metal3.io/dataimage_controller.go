@@ -31,6 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
@@ -108,6 +109,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load dataImage, %w", err)
 	}
 
+	// If a corresponding BareMetalHost is missing, keep retrying
 	bmh := &metal3api.BareMetalHost{}
 	if err := r.Get(ctx, req.NamespacedName, bmh); err != nil {
 		// There might not be any BareMetalHost for the DataImage
@@ -128,16 +130,23 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	info := &rdiInfo{ctx: ctx, log: reqLogger, request: req, di: di, bmh: bmh}
 
-	if hasDetachedAnnotation(bmh) {
-		reqLogger.Info("the host is detached, not running reconciler")
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageUnmanagedRetryDelay}, nil
-	}
-
 	// If the reconciliation is paused, requeue
 	annotations := bmh.GetAnnotations()
 	if _, ok := annotations[metal3api.PausedAnnotation]; ok {
-		reqLogger.Info("host is paused, no work to do")
+		reqLogger.Info("host associated with dataImage is paused, no work to do")
 		return ctrl.Result{Requeue: false}, nil
+	}
+
+	// If DataImage exists, add its ownerReference
+	if !ownerReferenceExists(bmh, di) {
+		if err := controllerutil.SetOwnerReference(bmh, di, r.Scheme()); err != nil {
+			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not set bmh as controller, %w", err)
+		}
+		if err := r.Update(ctx, di); err != nil {
+			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failure updating dataImage status, %w", err)
+		}
+
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Add finalizer for newly created DataImage
@@ -151,6 +160,12 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{RequeueAfter: dataImageUpdateDelay}, fmt.Errorf("failed to update resource after add finalizer, %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// If the associated BMH is detached, keep requeuing till the annotation is removed
+	if hasDetachedAnnotation(bmh) {
+		reqLogger.Info("the host is detached, not running reconciler")
+		return ctrl.Result{Requeue: true, RequeueAfter: dataImageUnmanagedRetryDelay}, nil
 	}
 
 	// Create a provisioner that can access Ironic API

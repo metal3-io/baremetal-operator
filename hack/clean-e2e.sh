@@ -19,7 +19,7 @@ virsh -c qemu:///system net-destroy baremetal-e2e
 virsh -c qemu:///system net-undefine baremetal-e2e
 
 # Clean volume pool directory
-rm -rf /tmp/pool_oo/*
+rm -rf /tmp/pool_oo
 
 # Clean volume pool
 virsh pool-destroy default || true

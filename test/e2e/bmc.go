@@ -9,6 +9,17 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type Network struct {
+	// Name of the network
+	NetworkName string `yaml:"name,omitempty"`
+	// MacAddress of the network
+	MacAddress string `yaml:"macAddress,omitempty"`
+	// IPAddress of the network
+	IPAddress string `yaml:"ipAddress,omitempty"`
+}
+
+type Networks []Network
+
 // BMC defines a BMH to use in the tests.
 type BMC struct {
 	// BMC initial username
@@ -28,6 +39,8 @@ type BMC struct {
 	// Optional. Only needed if e2eConfig variable
 	// SSH_CHECK_PROVISIONED is true
 	SSHPort string `yaml:"sshPort,omitempty"`
+	// Optional. Not needed for E2E tests
+	Networks Networks
 }
 
 func LoadBMCConfig(configPath string) (*[]BMC, error) {

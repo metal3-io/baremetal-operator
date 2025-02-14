@@ -7,14 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path"
 	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,15 +119,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 				By("Verifying the node booting from disk")
-				keyPath := e2eConfig.GetVariable("SSH_PRIV_KEY")
-				key, err := os.ReadFile(keyPath)
-				Expect(err).NotTo(HaveOccurred(), "unable to read private key")
-
-				signer, err := ssh.ParsePrivateKey(key)
-				Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
-
-				auth := ssh.PublicKeys(signer)
-				PerformSSHBootCheck(e2eConfig, "disk", auth, fmt.Sprintf("%s:%s", bmc.IPAddress, bmc.SSHPort))
+				PerformSSHBootCheck(e2eConfig, "disk", bmc.IPAddress)
 			} else {
 				Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 			}

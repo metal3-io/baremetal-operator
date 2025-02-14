@@ -41,6 +41,7 @@ variables:
   CERT_MANAGER_VERSION: "v1.13.1"
   SSH_CHECK_PROVISIONED: "true"
   SSH_USERNAME: "root"
+  SSH_PORT: "22"
   SSH_PRIV_KEY: "./images/ssh_testkey"
   SSH_PUB_KEY: "./images/ssh_testkey.pub"
   FETCH_IRONIC_NODES: "true"

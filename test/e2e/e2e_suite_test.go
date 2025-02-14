@@ -306,7 +306,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	e2eConfig = LoadE2EConfig(configPath)
 	bmcs, err := LoadBMCConfig(bmcConfigPath)
 	Expect(err).ToNot(HaveOccurred(), "Failed to read the bmcs config file")
-	bmc = (*bmcs)[GinkgoParallelProcess()-1]
+	bmc = (bmcs)[GinkgoParallelProcess()-1]
 	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
 })
 

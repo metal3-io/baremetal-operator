@@ -496,6 +496,11 @@ func setErrorMessage(host *metal3api.BareMetalHost, errType metal3api.ErrorType,
 }
 
 func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	if info.host.Spec.DisablePowerOff {
+		info.log.Info("Skipping host powered off as Power Off has been disabled")
+		return actionComplete{}
+	}
+
 	info.log.Info("host ready to be powered off")
 	provResult, err := prov.PowerOff(
 		metal3api.RebootModeHard,
@@ -840,6 +845,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			PreprovisioningImage:       preprovImg,
 			PreprovisioningNetworkData: preprovisioningNetworkData,
 			HasCustomDeploy:            hasCustomDeploy(info.host),
+			DisablePowerOff:            info.host.Spec.DisablePowerOff,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)
@@ -1586,6 +1592,18 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	}
 	if err != nil {
 		return actionError{errors.Wrap(err, "failed to manage power state of host")}
+	}
+
+	// If DisablePowerOff was enabled then prov.PowerOff above will have rebooted instead of powering off, in this case
+	// the operation is complete (no need to power on) and any reboot annotation can be removed
+	if info.host.Spec.DisablePowerOff {
+		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
+			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
+			if err = r.Update(info.ctx, info.host); err != nil {
+				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+			}
+			return actionContinue{}
+		}
 	}
 
 	if provResult.ErrorMessage != "" {

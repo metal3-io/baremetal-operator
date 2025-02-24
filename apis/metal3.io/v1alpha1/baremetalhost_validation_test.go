@@ -770,6 +770,26 @@ func TestValidateCreate(t *testing.T) {
 			oldBMH:    nil,
 			wantedErr: "", // Should be valid
 		},
+		{
+			name: "disablePowerOff",
+			newBMH: &BareMetalHost{
+				Spec: BareMetalHostSpec{
+					DisablePowerOff: true,
+					Online:          true,
+				},
+			},
+			wantedErr: "",
+		},
+		{
+			name: "disablePowerOffErr",
+			newBMH: &BareMetalHost{
+				Spec: BareMetalHostSpec{
+					DisablePowerOff: true,
+					Online:          false,
+				},
+			},
+			wantedErr: "node can't simultaneously have online set to false and have power off disabled",
+		},
 	}
 
 	for _, tt := range tests {

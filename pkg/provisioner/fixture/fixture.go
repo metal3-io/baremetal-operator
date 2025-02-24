@@ -73,12 +73,16 @@ type Fixture struct {
 	BecomeReadyCounter int
 	// state to manage deletion
 	Deleted bool
+	// state to manage DisablePowerOff
+	DisablePowerOff bool
+	// state to manage power
+	PoweredOn bool
+	// Has reboot been called
+	RebootCalled bool
 	// state to manage the two-step adopt process
 	adopted bool
 	// state to manage provisioning
 	image metal3api.Image
-	// state to manage power
-	poweredOn bool
 	// state to manage inspection
 	inspectionStarted bool
 
@@ -211,7 +215,7 @@ func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ 
 // is expected to do this in the least expensive way possible, such as
 // reading from a cache.
 func (p *fixtureProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
-	hwState.PoweredOn = &p.state.poweredOn
+	hwState.PoweredOn = &p.state.PoweredOn
 	p.log.Info("updating hardware state")
 	return
 }
@@ -334,10 +338,10 @@ func (p *fixtureProvisioner) Detach() (result provisioner.Result, err error) {
 func (p *fixtureProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
 
-	if !p.state.poweredOn {
+	if !p.state.PoweredOn {
 		p.publisher("PowerOn", "Host powered on")
 		p.log.Info("changing status")
-		p.state.poweredOn = true
+		p.state.PoweredOn = true
 		result.Dirty = true
 		return result, nil
 	}
@@ -350,10 +354,16 @@ func (p *fixtureProvisioner) PowerOn(_ bool) (result provisioner.Result, err err
 func (p *fixtureProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
-	if p.state.poweredOn {
+	if p.state.DisablePowerOff {
+		p.state.RebootCalled = true
+		result.Dirty = true
+		return result, nil
+	}
+
+	if p.state.PoweredOn {
 		p.publisher("PowerOff", "Host powered off")
 		p.log.Info("changing status")
-		p.state.poweredOn = false
+		p.state.PoweredOn = false
 		result.Dirty = true
 		return result, nil
 	}

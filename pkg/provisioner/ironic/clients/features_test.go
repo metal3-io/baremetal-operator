@@ -6,7 +6,7 @@ import (
 )
 
 func TestAvailableFeatures_ChooseMicroversion(t *testing.T) {
-	microVersion := "1.89"
+	microVersion := "1.95"
 	type fields struct {
 		MaxVersion int
 	}
@@ -25,7 +25,7 @@ func TestAvailableFeatures_ChooseMicroversion(t *testing.T) {
 		{
 			name: fmt.Sprintf("MaxVersion = %d return %s", 89, microVersion),
 			feature: fields{
-				MaxVersion: 89,
+				MaxVersion: 95,
 			},
 			want: microVersion,
 		},

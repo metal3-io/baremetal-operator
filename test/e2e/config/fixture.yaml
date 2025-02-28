@@ -9,11 +9,11 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.9
   loadBehavior: tryLoad
-- name: quay.io/jetstack/cert-manager-cainjector:v1.13.1
+- name: quay.io/jetstack/cert-manager-cainjector:v1.17.1
   loadBehavior: tryLoad
-- name: quay.io/jetstack/cert-manager-webhook:v1.13.1
+- name: quay.io/jetstack/cert-manager-webhook:v1.17.1
   loadBehavior: tryLoad
-- name: quay.io/jetstack/cert-manager-controller:v1.13.1
+- name: quay.io/jetstack/cert-manager-controller:v1.17.1
   loadBehavior: tryLoad
 
 variables:
@@ -32,7 +32,7 @@ variables:
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
-  CERT_MANAGER_VERSION: "v1.13.1"
+  CERT_MANAGER_VERSION: "v1.17.1"
   SSH_CHECK_PROVISIONED: "false"
   FETCH_IRONIC_NODES: "false"
 

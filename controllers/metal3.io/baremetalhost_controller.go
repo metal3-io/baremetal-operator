@@ -2003,6 +2003,18 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 			return errors.Wrap(err, "could not load hostFirmwareSettings resource")
 		}
 	}
+	// Necessary in case the CRD is created manually.
+
+	if !ownerReferenceExists(info.host, hfs) {
+		if err := controllerutil.SetOwnerReference(info.host, hfs, r.Scheme()); err != nil {
+			return errors.Wrap(err, "could not set bmh as owner for hostFirmwareSettings")
+		}
+		if err := r.Update(info.ctx, hfs); err != nil {
+			return errors.Wrap(err, "failure updating hostFirmwareSettings resource")
+		}
+
+		return nil
+	}
 
 	return nil
 }

@@ -5,9 +5,7 @@
   <vcpu placement='static'>2</vcpu>
   <os>
     <type arch='x86_64' machine='pc-q35-6.2'>hvm</type>
-    <boot dev='network'/>
-    <bootmenu enable='no'/>
-    <bios useserial='yes' rebootTimeout='10000'/>
+    <boot dev='hd'/>
   </os>
   <features>
     <acpi/>
@@ -16,9 +14,6 @@
   </features>
   <cpu mode='host-passthrough' check='none' migratable='on'/>
   <clock offset='utc'/>
-  <on_poweroff>destroy</on_poweroff>
-  <on_reboot>restart</on_reboot>
-  <on_crash>restart</on_crash>
   <devices>
     <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='cdrom'>
@@ -102,4 +97,3 @@
     </memballoon>
   </devices>
 </domain>
-

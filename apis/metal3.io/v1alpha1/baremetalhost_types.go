@@ -477,6 +477,11 @@ type BareMetalHostSpec struct {
 	// eventually populated by inspection.
 	// +optional
 	Architecture string `json:"architecture,omitempty"`
+
+	// When set to true, power off of the node will be disabled,
+	// instead, a reboot will be used in place of power on/off
+	// +optional
+	DisablePowerOff bool `json:"disablePowerOff,omitempty"`
 }
 
 // AutomatedCleaningMode is the interface to enable/disable automated cleaning

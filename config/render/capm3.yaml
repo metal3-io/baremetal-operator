@@ -199,6 +199,11 @@ spec:
                 description: Description is a human-entered text used to help identify
                   the host.
                 type: string
+              disablePowerOff:
+                description: |-
+                  When set to true, power off of the node will be disabled,
+                  instead, a reboot will be used in place of power on/off
+                type: boolean
               externallyProvisioned:
                 description: |-
                   ExternallyProvisioned means something else has provisioned the

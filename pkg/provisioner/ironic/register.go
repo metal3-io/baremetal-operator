@@ -55,6 +55,15 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		return result, "", err
 	}
 
+	// Refuse to manage a node that has Disabled Power off if not supported by ironic,
+	// accidentally powering it off would require a arctic expedition to the data center
+	if data.DisablePowerOff && !p.availableFeatures.HasDisablePowerOff() {
+		msg := "current ironic version does not support DisablePowerOff, refusing to manage node"
+		p.log.Info(msg)
+		result, err = operationFailed(msg)
+		return result, "", err
+	}
+
 	var ironicNode *nodes.Node
 	updater := clients.UpdateOptsBuilder(p.log)
 
@@ -128,6 +137,9 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 			p.log.Info("Updating driver info because the credentials and/or the BMC address changed")
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
 		}
+
+		// The updater only updates disable_power_off if it has changed
+		updater.SetTopLevelOpt("disable_power_off", data.DisablePowerOff, ironicNode.DisablePowerOff)
 
 		// We don't return here because we also have to set the
 		// target provision state to manageable, which happens
@@ -232,6 +244,7 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 		PowerInterface:      bmcAccess.PowerInterface(),
 		RAIDInterface:       bmcAccess.RAIDInterface(),
 		VendorInterface:     bmcAccess.VendorInterface(),
+		DisablePowerOff:     &data.DisablePowerOff,
 		Properties: map[string]interface{}{
 			"capabilities": buildCapabilitiesValue(nil, data.BootMode),
 		},

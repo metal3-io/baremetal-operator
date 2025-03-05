@@ -58,7 +58,15 @@ func (af AvailableFeatures) HasDataImage() bool {
 	return af.MaxVersion >= 89
 }
 
+func (af AvailableFeatures) HasDisablePowerOff() bool {
+	return af.MaxVersion >= 95
+}
+
 func (af AvailableFeatures) ChooseMicroversion() string {
+	if af.HasDisablePowerOff() {
+		return "1.95"
+	}
+
 	if af.HasDataImage() {
 		return "1.89"
 	}

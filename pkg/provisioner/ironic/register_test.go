@@ -1417,3 +1417,60 @@ func TestSetExternalURLRemoving(t *testing.T) {
 
 	assert.Equal(t, nil, updatedDriverInfo["external_http_url"])
 }
+
+func TestRegisterDisablePowerOff(t *testing.T) {
+	// Create a host with disable power off enabled
+	host := makeHost()
+	host.Spec.DisablePowerOff = true
+
+	// Set up ironic server to return the node
+	ironic := testserver.NewIronic(t).
+		Node(nodes.Node{
+			UUID: host.Status.Provisioning.ID,
+		}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	prov.TryInit()
+	result, _, err := prov.Register(provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Equal(t, "", result.ErrorMessage)
+}
+
+func TestRegisterDisablePowerOffNotAvail(t *testing.T) {
+	// Create a host with disable power off enabled
+	host := makeHost()
+
+	// Set up ironic server to return the node
+	ironic := testserver.NewIronic(t).WithVersion("1.87").
+		Node(nodes.Node{
+			UUID: host.Status.Provisioning.ID,
+		}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	prov.TryInit()
+	result, _, err := prov.Register(provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Equal(t, "current ironic version does not support DisablePowerOff, refusing to manage node", result.ErrorMessage)
+}

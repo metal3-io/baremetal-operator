@@ -21,6 +21,9 @@ variables:
 
   # This setting is for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
+  # We can create separate clusters for each upgrade test with fixture.
+  # Since there is no ironic involved, we do not risk having any port collisions.
+  UPGRADE_USE_EXISTING_CLUSTER: "false"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"

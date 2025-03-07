@@ -29,6 +29,7 @@ go.work.sum
 *.tmp
 .DS_Store
 .zed*
+*.swp
 
 # Tilt files.
 .tiltbuild

@@ -29,6 +29,12 @@ func (s *BMCEventSubscription) validateSubscription() []error {
 		errs = append(errs, errors.New("hostName cannot be empty"))
 	}
 
+	if s.Spec.HTTPHeadersRef != nil {
+		if s.Spec.HTTPHeadersRef.Namespace != s.Namespace {
+			errs = append(errs, errors.New("httpHeadersRef secret must be in the same namespace as the BMCEventSubscription"))
+		}
+	}
+
 	if s.Spec.Destination == "" {
 		errs = append(errs, errors.New("destination cannot be empty"))
 	} else {

@@ -27,13 +27,6 @@ patches:
   target:
     kind: Certificate
     name: ironic-cert
-- patch: |-
-    - op: replace
-      path: /spec/ipAddresses/0
-      value: 192.168.222.1
-  target:
-    kind: Certificate
-    name: ironic-cacert
 
 images:
 - name: quay.io/metal3-io/ironic

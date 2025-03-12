@@ -3,7 +3,7 @@ name: unit
 on:
   workflow_call:
 
-# Remove all permissions from GITHUB_TOKEN except metadata.
+
 permissions: {}
 
 jobs:

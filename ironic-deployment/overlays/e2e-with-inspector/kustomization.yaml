@@ -34,6 +34,13 @@ patches:
   target:
     kind: Certificate
     name: ironic-cacert
+- patch: |-
+    - op: replace
+      path: /spec/ipAddresses/0
+      value: 192.168.222.1
+  target:
+    kind: Certificate
+    name: ironic-inspector-cert
 
 # NOTE: These credentials are generated automatically in hack/ci-e2e.sh
 secretGenerator:

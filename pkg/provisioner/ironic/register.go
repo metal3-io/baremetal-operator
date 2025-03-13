@@ -11,7 +11,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
-	"github.com/pkg/errors"
 	"sigs.k8s.io/yaml"
 )
 
@@ -75,7 +74,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		case macAddressConflictError:
 			result, err = operationFailed(err.Error())
 		default:
-			result, err = transientError(errors.Wrap(err, "failed to find existing host"))
+			result, err = transientError(fmt.Errorf("failed to find existing host: %w", err))
 		}
 		return result, "", err
 	}

@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
@@ -104,7 +104,7 @@ type ironicProvisioner struct {
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {
 	bmcAccess, err := bmc.NewAccessDetails(p.bmcAddress, p.disableCertVerification)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse BMC address information")
+		return nil, fmt.Errorf("failed to parse BMC address information: %w", err)
 	}
 	return bmcAccess, nil
 }
@@ -187,12 +187,12 @@ func (p *ironicProvisioner) nodeHasAssignedPort(ironicNode *nodes.Node) (bool, e
 
 	allPages, err := pager.AllPages(p.ctx)
 	if err != nil {
-		return false, errors.Wrap(err, "failed to page over list of ports")
+		return false, fmt.Errorf("failed to page over list of ports: %w", err)
 	}
 
 	empty, err := allPages.IsEmpty()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to check port list status")
+		return false, fmt.Errorf("failed to check port list status: %w", err)
 	}
 
 	if empty {
@@ -208,7 +208,7 @@ func (p *ironicProvisioner) nodeHasAssignedPort(ironicNode *nodes.Node) (bool, e
 func (p *ironicProvisioner) isAddressAllocatedToPort(address string) (bool, error) {
 	allPorts, err := p.listAllPorts(address)
 	if err != nil {
-		return false, errors.Wrap(err, fmt.Sprintf("failed to list ports for %s", address))
+		return false, fmt.Errorf("failed to list ports for %s: %w", address, err)
 	}
 
 	if len(allPorts) == 0 {
@@ -297,7 +297,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 			PXEEnabled: &enable,
 		}).Extract()
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to create ironic port for node: %s, MAC: %s", uuid, macAddress))
+		return fmt.Errorf("failed to create ironic port for node %s, MAC: %s: %w", uuid, macAddress, err)
 	}
 
 	return nil
@@ -697,7 +697,7 @@ func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data pr
 func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get node for BIOS settings")
+		return nil, nil, fmt.Errorf("could not get node for BIOS settings: %w", err)
 	}
 
 	// Get the settings from Ironic via Gophercloud
@@ -710,8 +710,7 @@ func (p *ironicProvisioner) GetFirmwareSettings(includeSchema bool) (settings me
 		settingsList, biosListErr = nodes.ListBIOSSettings(p.ctx, p.client, ironicNode.UUID, nil).Extract()
 	}
 	if biosListErr != nil {
-		return nil, nil, errors.Wrap(biosListErr,
-			fmt.Sprintf("could not get BIOS settings for node %s", ironicNode.UUID))
+		return nil, nil, fmt.Errorf("could not get BIOS settings for node %s: %w", ironicNode.UUID, biosListErr)
 	}
 	p.log.Info("retrieved BIOS settings for node", "node", ironicNode.UUID, "size", len(settingsList))
 
@@ -1161,7 +1160,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	// Retrieve instance specific user data (cloud-init, ignition, etc).
 	userData, err := data.HostConfig.UserData()
 	if err != nil {
-		return configDrive, errors.Wrap(err, "could not retrieve user data")
+		return configDrive, fmt.Errorf("could not retrieve user data: %w", err)
 	}
 	if userData != "" {
 		configDrive.UserData = userData
@@ -1170,12 +1169,12 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	// Retrieve OpenStack network_data. Default value is empty.
 	networkDataRaw, err := data.HostConfig.NetworkData()
 	if err != nil {
-		return configDrive, errors.Wrap(err, "could not retrieve network data")
+		return configDrive, fmt.Errorf("could not retrieve network data: %w", err)
 	}
 	if networkDataRaw != "" {
 		var networkData map[string]interface{}
 		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
-			return configDrive, errors.Wrap(err, "failed to unmarshal network_data.json from secret")
+			return configDrive, fmt.Errorf("failed to unmarshal network_data.json from secret: %w", err)
 		}
 		configDrive.NetworkData = networkData
 	}
@@ -1191,11 +1190,11 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	}
 	metaDataRaw, err := data.HostConfig.MetaData()
 	if err != nil {
-		return configDrive, errors.Wrap(err, "could not retrieve metadata")
+		return configDrive, fmt.Errorf("could not retrieve metadata: %w", err)
 	}
 	if metaDataRaw != "" {
 		if err = yaml.Unmarshal([]byte(metaDataRaw), &configDrive.MetaData); err != nil {
-			return configDrive, errors.Wrap(err, "failed to unmarshal metadata from secret")
+			return configDrive, fmt.Errorf("failed to unmarshal metadata from secret: %w", err)
 		}
 	}
 

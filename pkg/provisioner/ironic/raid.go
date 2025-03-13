@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -103,7 +103,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 		if volume.Name != "" {
 			i, exist := nameCheckFlags[volume.Name]
 			if exist {
-				return nil, errors.Errorf("the names(%s) of volume[%d] and volume[%d] are repeated", volume.Name, index, i)
+				return nil, fmt.Errorf("the names(%s) of volume[%d] and volume[%d] are repeated", volume.Name, index, i)
 			}
 			nameCheckFlags[volume.Name] = index
 		}
@@ -111,14 +111,14 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 		// Check that controller field is specified if PhysicalDisks are used
 		if len(volume.PhysicalDisks) != 0 {
 			if volume.Controller == "" {
-				return nil, errors.Errorf("'controller' must be specified if 'physicalDisks' are used")
+				return nil, errors.New("'controller' must be specified if 'physicalDisks' are used")
 			}
 		}
 
 		// Check numberOfPhysicalDisks is same as len(physicalDisks)
 		if volume.NumberOfPhysicalDisks != nil && len(volume.PhysicalDisks) != 0 {
 			if *volume.NumberOfPhysicalDisks != len(volume.PhysicalDisks) {
-				return nil, errors.Errorf("the numberOfPhysicalDisks[%d] is not same as number of items in physicalDisks[%d]", *volume.NumberOfPhysicalDisks, len(volume.PhysicalDisks))
+				return nil, fmt.Errorf("the numberOfPhysicalDisks[%d] is not same as number of items in physicalDisks[%d]", *volume.NumberOfPhysicalDisks, len(volume.PhysicalDisks))
 			}
 		}
 		// Create the physicalDisks slice for logicalDisk struct
@@ -163,7 +163,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 	}
 
 	if nodes.RAIDLevel(volumes[0].Level) != nodes.RAID1 {
-		return nil, errors.Errorf("the level in first volume of software raid must be RAID1")
+		return nil, errors.New("the level in first volume of software raid must be RAID1")
 	}
 
 	for _, volume := range volumes {

@@ -139,3 +139,84 @@ func TestBMCGetProvisioner(t *testing.T) {
 		})
 	}
 }
+
+func TestGetHTTPHeaders(t *testing.T) {
+	// NOTE: This subscription references the defaultSecretName for http headers.
+	// The secret is automatically created by newBMCTestReconciler.
+	host := newDefaultHost(t)
+	subscription := newDefaultSubscription(t)
+	r := newBMCTestReconciler(subscription, host)
+
+	for _, tc := range []struct {
+		Scenario      string
+		Subscription  *metal3api.BMCEventSubscription
+		Secret        *corev1.Secret
+		ExpectedError bool
+	}{
+		{
+			Scenario:     "Secret exists and has some content",
+			Subscription: subscription,
+			// Already created by newBMCTestReconciler.
+			Secret:        nil,
+			ExpectedError: false,
+		},
+		{
+			Scenario: "Secret does not exist",
+			Subscription: &metal3api.BMCEventSubscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-subscription",
+					Namespace: namespace,
+				},
+				Spec: metal3api.BMCEventSubscriptionSpec{
+					HostName: host.Name,
+					HTTPHeadersRef: &corev1.SecretReference{
+						Name:      "non-existent-secret",
+						Namespace: namespace,
+					},
+				},
+			},
+			Secret:        nil,
+			ExpectedError: true,
+		},
+		{
+			Scenario: "Secret in wrong namespace",
+			Subscription: &metal3api.BMCEventSubscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-subscription",
+					Namespace: namespace,
+				},
+				Spec: metal3api.BMCEventSubscriptionSpec{
+					HostName: host.Name,
+					HTTPHeadersRef: &corev1.SecretReference{
+						Name:      "test",
+						Namespace: "separate-namespace",
+					},
+				},
+			},
+			Secret:        nil,
+			ExpectedError: true,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			if tc.Secret != nil {
+				err := r.Create(context.Background(), tc.Secret)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			headers, err := r.getHTTPHeaders(context.Background(), *tc.Subscription)
+			if tc.ExpectedError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tc.ExpectedError {
+				if err != nil {
+					t.Errorf("Expected no error but got: %v", err)
+				}
+				if len(headers) == 0 {
+					t.Error("Expected headers but got none")
+				}
+			}
+		})
+	}
+}

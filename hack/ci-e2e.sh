@@ -111,7 +111,7 @@ mkdir -p "${IMAGE_DIR}"
 
 ## Download disk images
 wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
-wget --quiet -P "${IMAGE_DIR}/" https://fastly-cdn.system-rescue.org/releases/11.00/systemrescue-11.00-amd64.iso
+wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/systemrescue-11.00-amd64.iso
 wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/minimal_linux_live-v2.iso
 
 ## Start the image server

@@ -1,13 +1,13 @@
 module github.com/metal3-io/baremetal-operator/tooling
 
-go 1.22
+go 1.23.0
 
 require (
 	sigs.k8s.io/controller-tools v0.12.1
 	sigs.k8s.io/kustomize/kustomize/v5 v5.4.3
 )
 
-require golang.org/x/sync v0.10.0 // indirect
+require golang.org/x/sync v0.11.0 // indirect
 
 require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -41,9 +41,9 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect

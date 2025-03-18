@@ -10,6 +10,10 @@ updates:
     interval: "monthly"
     day: "saturday"
   target-branch: main
+  ## group all action bumps into single PR
+  groups:
+    all-github-actions:
+      patterns: ["*"]
   commit-message:
     prefix: ":seedling:"
   labels:
@@ -53,6 +57,10 @@ updates:
     interval: "monthly"
     day: "saturday"
   target-branch: release-0.9
+  ## group all action bumps into single PR
+  groups:
+    all-github-actions:
+      patterns: ["*"]
   ignore:
   # Ignore major and minor bumps for release branch
   - dependency-name: "*"
@@ -97,6 +105,10 @@ updates:
     interval: "monthly"
     day: "saturday"
   target-branch: release-0.8
+  ## group all action bumps into single PR
+  groups:
+    all-github-actions:
+      patterns: ["*"]
   ignore:
   # Ignore major and minor bumps for release branch
   - dependency-name: "*"
@@ -132,4 +144,5 @@ updates:
     prefix: ":seedling:"
   labels:
   - "ok-to-test"
+
 ## release-0.8 branch config ends here

@@ -36,7 +36,7 @@ jobs:
           ./
       continue-on-error: true
     - name: "Run OSV Scanner Reporter"
-      uses: google/osv-scanner/actions/reporter@1e295ee11c5e107886e58bacb04228325082146f # v1.9.2
+      uses: google/osv-scanner/actions/reporter@0e986b49c4e7ee5aa545531c4a8908455f8a9e82 # v2.0.0
       with:
         scan-args: |-
           --output=results.sarif
@@ -44,6 +44,6 @@ jobs:
           --gh-annotations=false
       continue-on-error: true
     - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
+      uses: github/codeql-action/upload-sarif@6bb031afdd8eb862ea3fc1848194185e076637e5 # v3.28.11
       with:
         sarif_file: results.sarif

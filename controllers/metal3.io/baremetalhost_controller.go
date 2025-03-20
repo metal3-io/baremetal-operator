@@ -2335,10 +2335,10 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 	// Check if Status is empty and status annotation is present
 	// Manually restore data.
 	if !r.hostHasStatus(host) {
-		reqLogger.Info("Reconstructing Status from hardwareData and annotation")
 		objStatus, err := r.getHostStatusFromAnnotation(host)
 
 		if err == nil && objStatus != nil {
+			reqLogger.Info("reconstructing Status from hardwareData and annotation")
 			// hardwareData takes predence over statusAnnotation data
 			if hardwareData.Spec.HardwareDetails != nil && objStatus.HardwareDetails != hardwareData.Spec.HardwareDetails {
 				objStatus.HardwareDetails = hardwareData.Spec.HardwareDetails
@@ -2358,7 +2358,7 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 			}
 			return ctrl.Result{Requeue: true}, nil
 		}
-		reqLogger.Info("No status cache found")
+		reqLogger.V(1).Info("no status cache found")
 	}
 	// The status annotation is unneeded, as the status subresource is
 	// already present. The annotation data will get outdated, so remove it.

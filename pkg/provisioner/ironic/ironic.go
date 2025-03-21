@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -1760,18 +1761,16 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(subscription metal
 	return operationComplete()
 }
 
-// TODO(hroyrh) : Replace with GetDataImageStatus function once the virtua_media.get
-// api is available.
-// Checks if the last VirtualMedia action(attach/detach) to a BareMetalHost was
-// successful of not.
-func (p *ironicProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
-	// TODO(hroyrh)
-	// Get BareMetalHost VirtualMedia details using a GET api to vmedia
-
-	// Check if Ironic API version supports DataImage API
-	// Needs version >= 1.89
-	if !p.availableFeatures.HasDataImage() {
-		return true, fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
+// Uses the Ironic Virtual Media Get API which synchronously fetches the
+// virtual media details for the given node.
+// We return only the bool isImageAttached because the url in the response
+// body is always the same - based on the node uuid, so it is not useful
+// for any comparison purpose.
+func (p *ironicProvisioner) GetDataImageStatus() (isImageAttached bool, err error) {
+	// Check if Ironic API version supports Virtual Media Get API
+	// Needs version >= 1.93
+	if !p.availableFeatures.HasVirtualMediaGetAPI() {
+		return false, fmt.Errorf("ironic version=%d doesn't support Virtual Media Get API, needs version>=1.93", p.availableFeatures.MaxVersion)
 	}
 
 	node, err := p.getNode()
@@ -1779,15 +1778,45 @@ func (p *ironicProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error
 		return true, err
 	}
 
-	isNodeBusy = node.Reservation != ""
-
-	// In case the error node encountered was related to something else
-	// TODO(hroyrh) : Is this check valid ?
-	if !strings.Contains(node.LastError, "attach") && !strings.Contains(node.LastError, "detach") {
-		return isNodeBusy, nil
+	// If the node is busy, return error, since the get request will anyways
+	// fail
+	// TODO(hroyrh): is there a better way to do this ?
+	isNodeBusy := node.Reservation != ""
+	if isNodeBusy {
+		p.log.Info("node is busy, retry GetVirtualMedia request in some time", "nodeid", node.UUID)
+		return false, fmt.Errorf("node is busy")
 	}
 
-	return isNodeBusy, fmt.Errorf("last dataImage action failed, %s", node.LastError)
+	result := nodes.GetVirtualMedia(p.ctx, p.client, p.nodeID)
+	err = result.Err
+	if err != nil {
+		return false, err
+	}
+
+	body := result.Body
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		p.log.Info("GetDataImage, failed to marshal response body", "Error", err)
+		return false, err
+	}
+
+	var jsonData []map[string]interface{}
+	err = json.Unmarshal(data, &jsonData)
+	if err != nil {
+		p.log.Info("GetDataImage, failed to unmarshal response body", "Error", err)
+		return false, err
+	}
+
+	for _, vmedia := range jsonData {
+		if vmedia["inserted"] != false {
+			p.log.Info("GetDataImage, vmedia attached", "URL", vmedia["image"])
+			return true, nil
+		}
+	}
+
+	p.log.Info("GetDataImage, no vmedia is attached")
+	return false, nil
 }
 
 func (p *ironicProvisioner) AttachDataImage(url string) (err error) {

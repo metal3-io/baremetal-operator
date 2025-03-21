@@ -1527,6 +1527,17 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// FIXME(janders/dtantsur) it would be preferrable to pass in state as an argument
 	// however this falls outside the scope of this specific change.
 
+	// If DataImage exists, handle attachment/detachment
+	handleDataImage := isProvisioned && desiredPowerOnState && !info.host.Status.PoweredOn
+	if handleDataImage {
+		info.log.Info("provisioned host power on requested, handle dataImage if it exists")
+		dataImageResult := r.handleDataImageActions(prov, info)
+		if dataImageResult != nil {
+			// attaching/detaching DataImage failed, so we will requeue
+			return dataImageResult
+		}
+	}
+
 	if !info.host.Status.PoweredOn {
 		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
 			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
@@ -1574,15 +1585,6 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		"reboot process", desiredPowerOnState != info.host.Spec.Online)
 
 	if desiredPowerOnState {
-		if isProvisioned {
-			// If DataImage exists, handle attachment/detachment
-			dataImageResult := r.handleDataImageActions(prov, info)
-			if dataImageResult != nil {
-				// attaching/detaching DataImage failed, so we will requeue
-				return dataImageResult
-			}
-		}
-
 		provResult, err = prov.PowerOn(info.host.Status.ErrorType == metal3api.PowerManagementError)
 	} else {
 		if info.host.Status.ErrorCount > 0 {

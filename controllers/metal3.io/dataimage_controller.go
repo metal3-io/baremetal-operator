@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -187,26 +188,34 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Check if any attach/detach action is pending or failed to attach
-	_, nodeError := prov.IsDataImageReady()
+	isImageAttached, vmediaGetError := prov.GetDataImageStatus()
 
-	// Is the current dataImage status valid
-	dirty := false
-	// In case the last node error was not nil for dataimage,
+	// In case there was an error fetching vmedia details
 	// upadate message and counter
-	if nodeError != nil {
-		di.Status.Error.Message = nodeError.Error()
-		di.Status.Error.Count++
-		dirty = true
+	if vmediaGetError != nil {
+		reqLogger.Error(vmediaGetError, "failed to fetch Virtual Media details")
+
+		if !errors.Is(vmediaGetError, provisioner.ErrNodeIsBusy) {
+			di.Status.Error.Message = vmediaGetError.Error()
+			di.Status.Error.Count++
+
+			// Update dataImage status and requeue
+			if err := r.updateStatus(info); err != nil {
+				return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource status, %w", err)
+			}
+		}
+
+		return ctrl.Result{Requeue: true, RequeueAfter: dataImageUpdateDelay}, nil
 	}
+	di.Status.Error.Message = ""
+	di.Status.Error.Count = 0
 
 	// Remove finalizer if DataImage has been requested for deletion and
 	// there is no attached image, else wait for the detachment.
 	if !di.DeletionTimestamp.IsZero() {
 		reqLogger.Info("cleaning up deleted dataImage resource")
 
-		dataImageAttachedURL := di.Status.AttachedImage.URL
-
-		if dataImageAttachedURL != "" || dirty {
+		if isImageAttached {
 			reqLogger.Info("Wait for DataImage to detach before removing finalizer, requeueing")
 			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, nil
 		}

@@ -400,7 +400,7 @@ func (p *fixtureProvisioner) GetFirmwareComponents() (components []metal3api.Fir
 	return p.state.HostFirmwareComponents.Components, nil
 }
 
-func (p *fixtureProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
+func (p *fixtureProvisioner) GetDataImageStatus() (isImageAttached bool, err error) {
 	return false, nil
 }
 

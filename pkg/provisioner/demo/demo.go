@@ -327,7 +327,7 @@ func (p *demoProvisioner) GetFirmwareComponents() (components []metal3api.Firmwa
 	return components, nil
 }
 
-func (p *demoProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
+func (p *demoProvisioner) GetDataImageStatus() (isImageAttached bool, err error) {
 	return false, nil
 }
 

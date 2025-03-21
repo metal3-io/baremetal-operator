@@ -58,6 +58,10 @@ func (af AvailableFeatures) HasDataImage() bool {
 	return af.MaxVersion >= 89
 }
 
+func (af AvailableFeatures) HasVirtualMediaGetAPI() bool {
+	return af.MaxVersion >= 93
+}
+
 func (af AvailableFeatures) HasDisablePowerOff() bool {
 	return af.MaxVersion >= 95
 }
@@ -65,6 +69,10 @@ func (af AvailableFeatures) HasDisablePowerOff() bool {
 func (af AvailableFeatures) ChooseMicroversion() string {
 	if af.HasDisablePowerOff() {
 		return "1.95"
+	}
+
+	if af.HasVirtualMediaGetAPI() {
+		return "1.93"
 	}
 
 	if af.HasDataImage() {

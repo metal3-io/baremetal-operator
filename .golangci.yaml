@@ -1,5 +1,5 @@
 run:
-  deadline: 10m
+  go: "1.23"
   build-tags:
   - e2e
   - vbmctl
@@ -54,7 +54,6 @@ linters:
   fast: true
 linters-settings:
   gosec:
-    go: "1.23"
     severity: medium
     confidence: medium
     concurrency: 8
@@ -82,7 +81,6 @@ linters-settings:
       alias: metal3api
   nolintlint:
     allow-unused: false
-    allow-leading-space: false
     require-specific: true
   gocritic:
     enabled-tags:
@@ -101,12 +99,10 @@ linters-settings:
     - unnecessaryDefer
     - whyNoLint
     - wrapperFunc
-  unused:
-    go: "1.23"
 issues:
-  skip-dirs:
+  exclude-dirs:
   - mock*
-  skip-files:
+  exclude-files:
   - "zz_generated.*\\.go$"
   - ".*conversion.*\\.go$"
   exclude-rules:

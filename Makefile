@@ -61,7 +61,7 @@ SKIP_RESOURCE_CLEANUP ?= false
 GINKGO_NOCOLOR ?= false
 
 GOLANGCI_LINT_BIN := golangci-lint
-GOLANGCI_LINT_VER := v1.60.3
+GOLANGCI_LINT_VER := v1.64.7
 GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/$(GOLANGCI_LINT_BIN))
 GOLANGCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
 

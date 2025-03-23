@@ -8,7 +8,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	golang.org/x/crypto v0.36.0
 	golang.org/x/oauth2 v0.27.0
-	sigs.k8s.io/cluster-api/test v1.9.5
+	sigs.k8s.io/cluster-api/test v1.9.6
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/kustomize/api v0.19.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.6.0

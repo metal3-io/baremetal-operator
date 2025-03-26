@@ -45,9 +45,7 @@ GLOBIGNORE=./hack/tools/go.mod
 VERSION="${1:?release version missing, provide without leading v. Example: 0.6.0}"
 GITHUB_TOKEN="${GITHUB_TOKEN:?export GITHUB_TOKEN with permissions to read unpublished release notes}"
 
-# if CONTAINER_RUNTIME is set, we will use crane and osv-scanner from images
-# otherwise, we will expect them to be installed binaries. This allows some
-# flexibility for the Mac users, where Docker Desktop is a bit problematic.
+# if CONTAINER_RUNTIME is set, we will use crane and osv-scanner from images.
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-}"
 # correct remote will be autodetected, if empty
 REMOTE="${REMOTE:-}"
@@ -135,6 +133,7 @@ declare -a required_tools=(
 )
 
 # we also require a container runtime, or pre-installed binaries
+# for osv-scanner we have also version check implemented during tool check
 if [[ -n "${CONTAINER_RUNTIME}" ]]; then
     required_tools+=(
         "${CONTAINER_RUNTIME}"
@@ -146,13 +145,13 @@ if [[ -n "${CONTAINER_RUNTIME}" ]]; then
     )
     declare -a OSVSCANNER_CMD=(
         "${CONTAINER_RUNTIME}" run --rm
-        -v "${PWD}":/src -w /src
-        --pull always
-        ghcr.io/google/osv-scanner:v1.9.2@sha256:239d47ec1a70af430c3cd57524d18e8b2d2dc2f28869384217b64f409ab6650a
+        -v "${PWD}":"/src:ro,z"
+        -w /src
+        ghcr.io/google/osv-scanner:v2.0.0@sha256:ceea4d7c57dcb4ab65453445f7a3155d0cc9ccef66a098a516ac264677d4b61f
     )
 else
     # go install github.com/google/go-containerregistry/cmd/gcrane@latest
-    # go install github.com/google/osv-scanner/cmd/osv-scanner@v1
+    # go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.0.0
     required_tools+=(
         gcrane
         osv-scanner
@@ -203,11 +202,18 @@ check_tools()
     echo "Checking required tools ..."
 
     for tool in "${required_tools[@]}"; do
-        type "${tool}" &>/dev/null || { echo "FATAL: need ${tool} to be installed"; exit 1; }
+        if ! type "${tool}" &>/dev/null; then
+            echo "FATAL: need ${tool} to be installed"
+            if [[ "${tool}" = "osv-scanner" ]] || [[ "${tool}" = "gcrane" ]]; then
+                echo "HINT: 'export CONTAINER_RUNTIME=<docker|podman>' to use containerized tools"
+            fi
+            exit 1
+        fi
+
         case "${tool}" in
             osv-scanner)
                 version=$("${OSVSCANNER_CMD[@]}" -v | grep version | cut -f3 -d" ")
-                min_version="1.5.0"
+                min_version="2.0.0"
                 ;;
             *)
                 # dummy values here for other tools
@@ -625,7 +631,7 @@ verify_vulnerabilities()
     go_version="$(make go-version)"
     echo "GoVersionOverride = \"${go_version}\"" > "${config_file}"
     "${OSVSCANNER_CMD[@]}" scan \
-        --skip-git --recursive \
+        --recursive \
         --config="${config_file}" \
         ./ > "${SCAN_LOG}" || true
 

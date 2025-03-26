@@ -135,8 +135,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-go.etcd.io/etcd/client/pkg/v3 v3.5.19 h1:9VsyGhg0WQGjDWWlDI4VuaS9PZJGNbPkaHEIuLwtixk=
-go.etcd.io/etcd/client/pkg/v3 v3.5.19/go.mod h1:qaOi1k4ZA9lVLejXNvyPABrVEe7VymMF2433yyRQ7O0=
+go.etcd.io/etcd/client/pkg/v3 v3.5.20 h1:sZIAtra+xCo56gdf6BR62to/hiie5Bwl7hQIqMzVTEM=
+go.etcd.io/etcd/client/pkg/v3 v3.5.20/go.mod h1:qaOi1k4ZA9lVLejXNvyPABrVEe7VymMF2433yyRQ7O0=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.44.0 h1:KfYpVmrjI7JuToy5k8XV3nkapjWx48k4E4JOtVstzQI=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.44.0/go.mod h1:SeQhzAEccGVZVEy7aH87Nh0km+utSpo1pTv6eMMop48=
 go.opentelemetry.io/otel v1.19.0 h1:MuS/TNf4/j4IXsZuJegVzI1cwut7Qc00344rgH7p8bs=

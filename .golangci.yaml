@@ -12,13 +12,24 @@ linters:
   - bodyclose
   #- containedctx
   - copyloopvar
+  - decorder
   - dogsled
+  #- dupl
   - dupword
   - durationcheck
   - errcheck
   - errchkjson
+  #- errname
+  #- errorlint
+  #- exhaustive
+  - exptostd
+  - fatcontext
+  #- forbidigo
+  #- forcetypeassert
   - gci
   - ginkgolinter
+  - gocheckcompilerdirectives
+  - gochecksumtype
   - goconst
   - gocritic
   - godot
@@ -27,28 +38,42 @@ linters:
   - goprintffuncname
   - gosec
   - gosimple
+  - gosmopolitan
   - govet
+  - iface
   - importas
   - ineffassign
+  #- intrange
   - loggercheck
+  - makezero
+  - mirror
   - misspell
+  #- mnd
   - nakedret
   - nilerr
+  - nilnesserr
+  #- nilnil
   - noctx
   - nolintlint
   - nosprintfhostport
+  #- perfsprint
   - prealloc
   - predeclared
+  - reassign
   - revive
   - rowserrcheck
   - staticcheck
   - stylecheck
+  #- tagliatelle
+  #- testifylint
   - thelper
+  - tparallel
   - typecheck
   - unconvert
   - unparam
   - unused
   - usestdlibvars
+  #- usetesting
   - whitespace
   # Run with --fast=false for more extensive checks
   fast: true

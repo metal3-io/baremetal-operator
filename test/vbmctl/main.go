@@ -175,16 +175,10 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 		return err
 	}
 
-	dom, err := conn.DomainDefineXML(vmCfg)
+	_, err = conn.DomainDefineXML(vmCfg)
 
 	if err != nil {
 		fmt.Println("Failed to define domain")
-		fmt.Printf("Error occurred: %v\n", err)
-		return err
-	}
-
-	if err := dom.Create(); err != nil {
-		fmt.Println("Failed to create domain")
 		fmt.Printf("Error occurred: %v\n", err)
 		return err
 	}

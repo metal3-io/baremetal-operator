@@ -61,9 +61,9 @@ const (
 	reasonImageBuildInvalid       imageConditionReason = "ImageBuildInvalid"
 )
 
-// +kubebuilder:rbac:groups=metal3.io,resources=preprovisioningimages,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=metal3.io,resources=preprovisioningimages/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=preprovisioningimages,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=metal3.io,namespace="",resources=preprovisioningimages/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",namespace="",resources=secrets,verbs=get;list;watch;update
 
 func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("preprovisioningimage", req.NamespacedName)

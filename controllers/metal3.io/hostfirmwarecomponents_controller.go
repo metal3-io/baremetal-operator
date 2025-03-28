@@ -88,9 +88,9 @@ func (info *rhfcInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, hfcEvent)
 }
 
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents/finalizers,verbs=update
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=hostfirmwarecomponents/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=hostfirmwarecomponents/finalizers,verbs=update
 
 // Reconcile handles changes to HostFirmwareComponents resources.
 func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {

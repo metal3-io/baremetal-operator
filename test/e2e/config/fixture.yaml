@@ -29,6 +29,8 @@ variables:
   # Since there is no ironic involved, we do not risk having any port collisions.
   UPGRADE_USE_EXISTING_CLUSTER: "false"
 
+  NAMESPACE_SCOPED: "true"
+
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"

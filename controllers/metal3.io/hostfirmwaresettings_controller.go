@@ -100,10 +100,10 @@ func (info *rInfo) publishEvent(reason, message string) {
 	info.events = append(info.events, hfsEvent)
 }
 
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=hostfirmwaresettings/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=firmwareschemas,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=metal3.io,namespace="",resources=firmwareschemas/status,verbs=get;update;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

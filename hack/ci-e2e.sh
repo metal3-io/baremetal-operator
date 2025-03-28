@@ -56,6 +56,12 @@ export PATH="/usr/local/go/bin:${PATH}"
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
 
+# TODO: Put this behind a flag most likely
+docker build -t bmo/roleannotator:1.0.0 \
+    -f "${REPO_ROOT}/hack/tools/kustomize-namespace-annotator/Dockerfile" \
+    "${REPO_ROOT}/hack/tools/kustomize-namespace-annotator/"
+make manifests-namespaced-e2e
+
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e
 

@@ -796,7 +796,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 
 	credsChanged := !info.host.Status.TriedCredentials.Match(*info.bmcCredsSecret)
 	if credsChanged {
-		info.log.Info("new credentials")
+		info.log.Info("new credentials", "newVersion", info.bmcCredsSecret.ResourceVersion)
 		info.host.UpdateTriedCredentials(*info.bmcCredsSecret)
 		info.postSaveCallbacks = append(info.postSaveCallbacks, updatedCredentials.Inc)
 		dirty = true

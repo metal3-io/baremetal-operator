@@ -342,7 +342,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	default:
 		if hsm.Host.Status.ErrorType == metal3api.RegistrationError ||
 			!hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
-			info.log.Info("Retrying registration")
+			info.log.Info("retrying registration", "LastError", hsm.Host.Status.ErrorMessage)
 			recordStateBegin(hsm.Host, metal3api.StateRegistering, metav1.Now())
 		}
 	}

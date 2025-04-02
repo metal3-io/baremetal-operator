@@ -12,8 +12,12 @@ updates:
   target-branch: main
   ## group all action bumps into single PR
   groups:
-    all-github-actions:
+    github-actions:
       patterns: ["*"]
+  ignore:
+  # Ignore major bumps in main, as it breaks the group bump process
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major"]
   commit-message:
     prefix: ":seedling:"
   labels:
@@ -59,7 +63,7 @@ updates:
   target-branch: release-0.9
   ## group all action bumps into single PR
   groups:
-    all-github-actions:
+    github-actions:
       patterns: ["*"]
   ignore:
   # Ignore major and minor bumps for release branch
@@ -107,7 +111,7 @@ updates:
   target-branch: release-0.8
   ## group all action bumps into single PR
   groups:
-    all-github-actions:
+    github-actions:
       patterns: ["*"]
   ignore:
   # Ignore major and minor bumps for release branch

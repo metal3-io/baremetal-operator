@@ -1,6 +1,7 @@
 module github.com/metal3-io/baremetal-operator/hack/tools
 
 go 1.23.7
+
 toolchain go1.24.1
 
 require (

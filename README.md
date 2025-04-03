@@ -31,7 +31,6 @@ components, see the [Metal³ docs](https://github.com/metal3-io/metal3-docs).
 - [Setup Development Environment](docs/dev-setup.md)
 - [Configuration](docs/configuration.md)
 - [Testing](docs/testing.md)
-- [Publishing Images](docs/publishing-images.md)
 
 ## Integration tests
 

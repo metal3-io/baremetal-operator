@@ -106,11 +106,11 @@ func TestLoadAuth(t *testing.T) {
 	setup := func(authRoot string, createFiles bool) (cleanup func(), err error) {
 		originalAuthRoot := os.Getenv("METAL3_AUTH_ROOT_DIR")
 		cleanup = func() {
-			_ = os.Setenv("METAL3_AUTH_ROOT_DIR", originalAuthRoot)
+			t.Setenv("METAL3_AUTH_ROOT_DIR", originalAuthRoot)
 			_ = os.RemoveAll(authRoot)
 		}
 
-		_ = os.Setenv("METAL3_AUTH_ROOT_DIR", authRoot)
+		t.Setenv("METAL3_AUTH_ROOT_DIR", authRoot)
 
 		if createFiles {
 			authPath := path.Join(authRoot, "ironic")

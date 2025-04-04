@@ -6,6 +6,7 @@ import (
 
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type EnvFixture struct {
@@ -183,7 +184,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 				if expectedError != "" {
 					assert.Regexp(t, expectedError, err)
 				} else {
-					assert.Nil(t, err)
+					require.NoError(t, err)
 					tc.env.VerifyConfig(t, config, tc.forcePersistent)
 				}
 			})
@@ -215,9 +216,9 @@ func TestLoadEndpointsFromEnv(t *testing.T) {
 			tc.env.SetUp()
 			i, err := loadEndpointsFromEnv()
 			if tc.expectError {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
-				assert.Nil(t, err)
+				require.NoError(t, err)
 				tc.env.VerifyEndpoints(t, i)
 			}
 		})

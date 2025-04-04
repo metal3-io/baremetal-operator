@@ -9,6 +9,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -501,21 +502,21 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				firmwareSchema.Spec.Schema = getCurrentSchemaSettings()
 
 				err := r.Client.Create(ctx, firmwareSchema)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			currentSettings, schema, err := prov.GetFirmwareSettings(true)
-			assert.Equal(t, nil, err)
+			require.NoError(t, err)
 
 			err = r.updateHostFirmwareSettings(currentSettings, schema, info)
-			assert.Equal(t, nil, err)
+			require.NoError(t, err)
 
 			// Check that resources get created or updated
 			key := client.ObjectKey{
 				Namespace: hfs.ObjectMeta.Namespace, Name: hfs.ObjectMeta.Name}
 			actualSettings := &metal3api.HostFirmwareSettings{}
 			err = r.Client.Get(ctx, key, actualSettings)
-			assert.Equal(t, nil, err)
+			require.NoError(t, err)
 
 			// Use the same time for expected and actual
 			currentTime := metav1.Now()
@@ -531,7 +532,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				Namespace: hfs.ObjectMeta.Namespace, Name: schemaName}
 			actualSchema := &metal3api.FirmwareSchema{}
 			err = r.Client.Get(ctx, key, actualSchema)
-			assert.Equal(t, nil, err)
+			require.NoError(t, err)
 			var expectedSchema *metal3api.FirmwareSchema
 			if tc.CreateSchemaResource {
 				expectedSchema = getExpectedSchemaTwoOwners()
@@ -639,7 +640,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 
 			errors := r.validateHostFirmwareSettings(info, &info.hfs.Status, getExpectedSchema())
 			if len(errors) == 0 {
-				assert.Equal(t, tc.ExpectedError, "")
+				assert.Equal(t, "", tc.ExpectedError)
 			} else {
 				for _, error := range errors {
 					assert.Equal(t, tc.ExpectedError, error.Error())

@@ -11,6 +11,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEmpty(t *testing.T) {
@@ -157,7 +158,7 @@ func TestEmpty(t *testing.T) {
 			}
 
 			assert.Equal(t, tc.expected, result)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }

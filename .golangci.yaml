@@ -65,7 +65,7 @@ linters:
   - staticcheck
   - stylecheck
   #- tagliatelle
-  #- testifylint
+  - testifylint
   - thelper
   - tparallel
   - typecheck

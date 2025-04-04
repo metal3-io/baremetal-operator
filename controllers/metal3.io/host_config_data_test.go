@@ -9,6 +9,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -71,14 +72,14 @@ func TestLabelSecrets(t *testing.T) {
 
 			secret := newSecret(tc.name, map[string]string{"value": "somedata"})
 			err := c.Create(context.TODO(), secret)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			_, err = tc.getter(hcd)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			actualSecret := &corev1.Secret{}
 			err = c.Get(context.TODO(), types.NamespacedName{Name: tc.name, Namespace: namespace}, actualSecret)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, "baremetal", actualSecret.Labels["environment.metal3.io"])
 		})
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRegisterNoMAC(t *testing.T) {
@@ -103,7 +104,7 @@ func TestRegisterCreateNodeNoImage(t *testing.T) {
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.NotEqual(t, "", createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, createdNode.DeployInterface, "")
+	assert.Equal(t, "", createdNode.DeployInterface)
 	assert.Equal(t, "agent", createdNode.InspectInterface)
 }
 
@@ -176,7 +177,7 @@ func TestRegisterCreateWithImage(t *testing.T) {
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, createdNode.DeployInterface, "")
+	assert.Equal(t, "", createdNode.DeployInterface)
 	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
 	assert.Contains(t, updates, "/instance_info/image_source")
 	assert.Contains(t, updates, host.Spec.Image.URL)
@@ -212,7 +213,7 @@ func TestRegisterCreateWithLiveIso(t *testing.T) {
 	}
 	assert.Equal(t, "", result.ErrorMessage)
 	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, createdNode.DeployInterface, "ramdisk")
+	assert.Equal(t, "ramdisk", createdNode.DeployInterface)
 	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
 	assert.Contains(t, updates, "/instance_info/boot_iso")
 	assert.Contains(t, updates, host.Spec.Image.URL)
@@ -285,7 +286,7 @@ func TestRegisterExistingNodeNameUpdate(t *testing.T) {
 		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Equal(t, "", result.ErrorMessage)
-	assert.Equal(t, false, result.Dirty)
+	assert.False(t, result.Dirty)
 }
 
 func TestRegisterExistingNodeContinue(t *testing.T) {
@@ -358,8 +359,8 @@ func TestRegisterExistingNodeContinue(t *testing.T) {
 				t.Fatalf("error from Register: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
-			assert.Equal(t, false, result.Dirty)
-			assert.Len(t, ironic.GetLastNodeUpdateRequestFor("uuid"), 0)
+			assert.False(t, result.Dirty)
+			assert.Empty(t, ironic.GetLastNodeUpdateRequestFor("uuid"))
 		})
 	}
 }
@@ -538,8 +539,8 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 				t.Fatalf("error from Register: %s", err)
 			}
 			assert.Equal(t, "", result.ErrorMessage)
-			assert.Equal(t, false, result.Dirty)
-			assert.Len(t, ironic.GetLastNodeUpdateRequestFor("uuid"), 0)
+			assert.False(t, result.Dirty)
+			assert.Empty(t, ironic.GetLastNodeUpdateRequestFor("uuid"))
 		})
 	}
 }
@@ -777,8 +778,8 @@ func TestRegisterExistingPortButHasName(t *testing.T) {
 	}
 
 	res, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
-	assert.Nil(t, err)
-	assert.Equal(t, res.ErrorMessage, "MAC address 11:11:11:11:11:11 conflicts with existing node wrong-name")
+	require.NoError(t, err)
+	assert.Equal(t, "MAC address 11:11:11:11:11:11 conflicts with existing node wrong-name", res.ErrorMessage)
 }
 
 func TestRegisterAddTwoHostsWithSameMAC(t *testing.T) {
@@ -1048,7 +1049,7 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 
 			fmts, err := prov.PreprovisioningImageFormats()
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tc.Expected, fmts)
 		})
 	}
@@ -1386,7 +1387,7 @@ func TestSetExternalURLIPv4(t *testing.T) {
 	driverInfo := make(map[string]interface{}, 0)
 	updatedDriverInfo := setExternalURL(prov, driverInfo)
 
-	assert.Equal(t, nil, updatedDriverInfo["external_http_url"])
+	assert.Nil(t, updatedDriverInfo["external_http_url"])
 }
 
 func TestSetExternalURLRemoving(t *testing.T) {
@@ -1415,7 +1416,7 @@ func TestSetExternalURLRemoving(t *testing.T) {
 	driverInfo["external_http_url"] = "non-empty"
 	updatedDriverInfo := setExternalURL(prov, driverInfo)
 
-	assert.Equal(t, nil, updatedDriverInfo["external_http_url"])
+	assert.Nil(t, updatedDriverInfo["external_http_url"])
 }
 
 func TestRegisterDisablePowerOff(t *testing.T) {

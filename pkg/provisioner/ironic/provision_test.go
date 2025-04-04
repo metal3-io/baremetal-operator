@@ -16,6 +16,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testbmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -184,9 +185,9 @@ func TestProvision(t *testing.T) {
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
 			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage)
 			if !tc.expectedError {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 			}
 
 			lastProvOp := tc.ironic.GetLastNodeStatesProvisionUpdateRequestFor(nodeUUID)
@@ -308,9 +309,9 @@ func TestDeprovision(t *testing.T) {
 			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage != "")
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
 			if !tc.expectedError {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 			}
 		})
 	}
@@ -685,7 +686,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				TargetFirmwareSettings: tc.desiredSettings,
 			})
 
-			assert.Equal(t, nil, err)
+			require.NoError(t, err)
 			if cleanSteps == nil {
 				assert.Equal(t, tc.expectedSettings, []map[string]interface{}(nil))
 			} else {
@@ -755,9 +756,9 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 			}
 			t.Logf("update: %v", update)
 			if e.Map != nil {
-				assert.Equal(t, e.Map, update.Value, fmt.Sprintf("%s does not match", e.Path))
+				assert.Equal(t, e.Map, update.Value, "%s does not match", e.Path)
 			} else {
-				assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+				assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 			}
 		})
 	}
@@ -856,7 +857,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 		})
 	}
 }
@@ -950,7 +951,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 		})
 	}
 }
@@ -1011,7 +1012,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 		})
 	}
 }
@@ -1086,8 +1087,8 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s value does not match", e.Path))
-			assert.Equal(t, e.Op, update.Op, fmt.Sprintf("%s operation does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s value does not match", e.Path)
+			assert.Equal(t, e.Op, update.Op, "%s operation does not match", e.Path)
 		})
 	}
 }
@@ -1165,8 +1166,8 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s value does not match", e.Path))
-			assert.Equal(t, e.Op, update.Op, fmt.Sprintf("%s operation does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s value does not match", e.Path)
+			assert.Equal(t, e.Op, update.Op, "%s operation does not match", e.Path)
 		})
 	}
 }
@@ -1223,7 +1224,7 @@ func TestGetUpdateOptsForNodeCustomDeploy(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 		})
 	}
 }
@@ -1284,7 +1285,7 @@ func TestGetUpdateOptsForNodeCustomDeployWithImage(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 		})
 	}
 }
@@ -1355,8 +1356,8 @@ func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s value does not match", e.Path))
-			assert.Equal(t, e.Op, update.Op, fmt.Sprintf("%s operation does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s value does not match", e.Path)
+			assert.Equal(t, e.Op, update.Op, "%s operation does not match", e.Path)
 		})
 	}
 }
@@ -1440,7 +1441,7 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 				return
 			}
 			t.Logf("update: %v", update)
-			assert.Equal(t, e.Value, update.Value, fmt.Sprintf("%s does not match", e.Path))
+			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 		})
 	}
 }
@@ -1552,7 +1553,7 @@ func TestBuildCleanStepsForUpdateFirmware(t *testing.T) {
 				TargetFirmwareComponents: tc.targetFirmwareComponents,
 			})
 
-			assert.Equal(t, nil, err)
+			require.NoError(t, err)
 			if tc.targetFirmwareComponents == nil {
 				assert.Equal(t, tc.expectedFirmwareUpdates, []map[string]string(nil))
 			} else {

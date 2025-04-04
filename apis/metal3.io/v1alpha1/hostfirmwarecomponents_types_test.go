@@ -85,7 +85,7 @@ func TestValidateHostFirmwareComponents(t *testing.T) {
 
 			err := hostFirmwareComponents.ValidateHostFirmwareComponents()
 			if err == nil {
-				assert.Equal(t, tc.ExpectedError, "")
+				assert.Equal(t, "", tc.ExpectedError)
 			} else {
 				assert.Equal(t, tc.ExpectedError, err.Error())
 			}

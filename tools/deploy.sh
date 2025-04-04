@@ -198,8 +198,14 @@ fi
 if [[ "${DEPLOY_BMO}" == "true" ]]; then
     # Create a temporary overlay where we can make changes.
     pushd "${TEMP_BMO_OVERLAY}"
-    ${KUSTOMIZE} create --resources=../../base,../../namespace \
-    --namespace=baremetal-operator-system
+
+    # TODO: ADD FLAG FOR NAMESPACE SCOPED
+    # TODO: ADD ANOTHER FLAG FOR WHICH NAMESPACES
+
+    #${KUSTOMIZE} create --resources=../../base,../../namespace \
+    #--namespace=baremetal-operator-system
+
+    ${KUSTOMIZE} create --resources=../../overlays/namespaced,../../namespace
 
     if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
         ${KUSTOMIZE} edit add component ../../components/basic-auth
@@ -223,8 +229,14 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     # This is to keep the current behavior of using the ironic.env file for the configmap
     cp "${SCRIPTDIR}/config/default/ironic.env" "${TEMP_BMO_OVERLAY}/ironic.env"
     ${KUSTOMIZE} edit add configmap ironic --behavior=create --from-env-file=ironic.env
+
+    # Need to build the kustomize role annotator plugin
+    docker build -t bmo/roleannotator:1.0.0 \
+        -f "${SCRIPTDIR}/hack/tools/kustomize-namespace-annotator/Dockerfile" \
+        "${SCRIPTDIR}/hack/tools/kustomize-namespace-annotator/"
+
     # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${TEMP_BMO_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build --enable-alpha-plugins "${TEMP_BMO_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
     popd
 fi
 

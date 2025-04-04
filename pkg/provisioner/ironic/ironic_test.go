@@ -14,6 +14,7 @@ import (
 	// types.
 	_ "github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testbmc"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -134,6 +135,6 @@ func TestNewNoBMCDetails(t *testing.T) {
 
 	factory := newTestProvisionerFactory()
 	prov, err := factory.NewProvisioner(context.TODO(), provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
-	assert.Equal(t, nil, err)
-	assert.NotEqual(t, nil, prov)
+	require.NoError(t, err)
+	assert.NotNil(t, prov)
 }

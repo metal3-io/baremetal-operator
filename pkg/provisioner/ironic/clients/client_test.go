@@ -6,6 +6,7 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIronicClientInvalidAuthType(t *testing.T) {
@@ -47,7 +48,7 @@ func TestIronicClientInvalidAuthType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotClient, err := IronicClient(tt.args.ironicEndpoint, tt.args.auth, tt.args.tls)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Nil(t, gotClient)
 		})
 	}
@@ -157,10 +158,10 @@ func TestIronicClientValidAuthType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotClient, err := IronicClient(tt.args.ironicEndpoint, tt.args.auth, tt.args.tls)
-			assert.Nil(t, err)
+			require.NoError(t, err)
 			assert.NotNil(t, gotClient)
 			assert.Equalf(t, gotClient.Endpoint, tt.wantClient.Endpoint, "IronicClient() gotClient = %v, want %v", gotClient.Endpoint, tt.wantClient.Endpoint)
-			assert.Falsef(t, !reflect.DeepEqual(gotClient.MoreHeaders, tt.wantClient.MoreHeaders), "IronicClient() gotClient = %v, want %v", gotClient.MoreHeaders, tt.wantClient.MoreHeaders)
+			assert.Truef(t, reflect.DeepEqual(gotClient.MoreHeaders, tt.wantClient.MoreHeaders), "IronicClient() gotClient = %v, want %v", gotClient.MoreHeaders, tt.wantClient.MoreHeaders)
 		})
 	}
 }
@@ -232,7 +233,7 @@ func Test_updateHTTPClient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := updateHTTPClient(tt.args.client, tt.args.tlsConf)
-			assert.Nil(t, err)
+			require.NoError(t, err)
 		})
 	}
 }

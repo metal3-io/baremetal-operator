@@ -9,6 +9,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUpdateHardwareState(t *testing.T) {
@@ -133,9 +134,9 @@ func TestUpdateHardwareState(t *testing.T) {
 
 			assert.Equal(t, tc.expectedPublish, publishedMsg)
 			if tc.expectedError == "" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Regexp(t, tc.expectedError, err.Error())
 			}
 		})

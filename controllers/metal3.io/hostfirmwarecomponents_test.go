@@ -9,6 +9,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -400,17 +401,17 @@ func TestStoreHostFirmwareComponents(t *testing.T) {
 			}
 
 			components, err := prov.GetFirmwareComponents()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			err = r.updateHostFirmware(info, components)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Check that resources get created or updated
 			key := client.ObjectKey{
 				Namespace: hfc.ObjectMeta.Namespace, Name: hfc.ObjectMeta.Name}
 			actual := &metal3api.HostFirmwareComponents{}
 			err = r.Client.Get(ctx, key, actual)
-			assert.Equal(t, nil, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, tc.ExpectedComponents.Spec.Updates, actual.Spec.Updates)
 			assert.Equal(t, tc.ExpectedComponents.Status.Components, actual.Status.Components)
@@ -510,7 +511,7 @@ func TestValidadeHostFirmwareComponents(t *testing.T) {
 			}
 			errors := r.validateHostFirmwareComponents(&info)
 			if len(errors) == 0 {
-				assert.Equal(t, tc.ExpectedErrors[0], "")
+				assert.Equal(t, "", tc.ExpectedErrors[0])
 			} else {
 				for i := range errors {
 					assert.Equal(t, tc.ExpectedErrors[i], errors[i].Error())

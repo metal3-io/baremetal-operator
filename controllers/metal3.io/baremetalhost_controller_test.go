@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -539,14 +539,14 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	// Let the host reach the available state before deleting it
 	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
 	err := doDeleteHost(host, r)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	waitForProvisioningState(t, r, host, metal3api.StateDeleting)
 
 	// The next reconcile loop will start the delete process,
 	// and as a first step the Ironic node will be removed
 	request := newRequest(host)
 	_, err = r.Reconcile(context.Background(), request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// The next reconcile loop remove the finalizers from
 	// both the host and the secret.
@@ -554,19 +554,19 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	// from its cache, so let's keep the latest updated
 	// host
 	err = r.Get(context.TODO(), request.NamespacedName, host)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = r.Reconcile(context.Background(), request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// To simulate an immediate reconciliation loop due the
 	// secret update (and a slow host deletion), let's push
 	// back the host in the client cache.
 	host.ResourceVersion = ""
 	err = r.Client.Create(context.TODO(), host)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	previousSecret := getHostSecret(t, r, host)
 	_, err = r.Reconcile(context.Background(), request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Secret must remain unchanged
 	actualSecret := getHostSecret(t, r, host)
@@ -781,7 +781,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 
 	delete(host.Annotations, annotation)
 	err := r.Update(context.TODO(), host)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -820,13 +820,13 @@ func TestRebootWithSuffixedAnnotationPowerOffDisabled(t *testing.T) {
 	)
 
 	assert.True(t, host.Status.PoweredOn)
-	assert.Equal(t, fix.RebootCalled, false)
+	assert.False(t, fix.RebootCalled)
 
 	// Add the reboot annotation
 	host.Annotations = make(map[string]string)
 	host.Annotations[metal3api.RebootAnnotationPrefix] = "{\"mode\":\"soft\"}"
 	err := r.Update(context.TODO(), host)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -836,7 +836,7 @@ func TestRebootWithSuffixedAnnotationPowerOffDisabled(t *testing.T) {
 	)
 
 	assert.True(t, host.Status.PoweredOn)
-	assert.Equal(t, fix.RebootCalled, true)
+	assert.True(t, fix.RebootCalled)
 }
 
 // TestRebootWithServicing tests full reboot cycle with suffixless
@@ -1818,13 +1818,13 @@ func TestProvisionerIsReady(t *testing.T) {
 	fix := fixture.Fixture{BecomeReadyCounter: 5}
 	r := newTestReconcilerWithFixture(&fix, host)
 
-	assert.Equal(t, 0.0, promutil.ToFloat64(provisionerNotReady))
+	assert.InDelta(t, 0.0, promutil.ToFloat64(provisionerNotReady), 0.01)
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			return host.Status.Provisioning.State != metal3api.StateNone
 		},
 	)
-	assert.Equal(t, 4.0, promutil.ToFloat64(provisionerNotReady))
+	assert.InDelta(t, 4.0, promutil.ToFloat64(provisionerNotReady), 0.01)
 }
 
 func TestUpdateEventHandler(t *testing.T) {
@@ -1970,7 +1970,7 @@ func TestErrorCountIncrementsAlways(t *testing.T) {
 	errorTypes := []metal3api.ErrorType{metal3api.RegistrationError, metal3api.InspectionError, metal3api.ProvisioningError, metal3api.PowerManagementError}
 
 	b := &metal3api.BareMetalHost{}
-	assert.Equal(t, b.Status.ErrorCount, 0)
+	assert.Equal(t, 0, b.Status.ErrorCount)
 
 	for _, c := range errorTypes {
 		before := b.Status.ErrorCount
@@ -2252,7 +2252,7 @@ func TestUpdateRAID(t *testing.T) {
 			assert.Equal(t, c.dirty, dirty)
 			assert.Equal(t, c.expected, host.Status.Provisioning.RAID)
 			dirty, _, _ = getHostProvisioningSettings(&host, info)
-			assert.Equal(t, false, dirty)
+			assert.False(t, dirty)
 		})
 	}
 }
@@ -2276,7 +2276,7 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 	assert.Equal(t, "malformed url", host.Status.ErrorMessage)
 
 	err := doDeleteHost(host, r)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tryReconcile(t, r, host, func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 		return host == nil
@@ -2418,12 +2418,12 @@ func TestGetPreprovImageNoFormats(t *testing.T) {
 
 	imgData, err := r.getPreprovImage(i, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, imgData)
 
 	imgData, err = r.getPreprovImage(i, []metal3api.ImageFormat{})
-	assert.True(t, errors.As(err, &imageBuildError{}))
-	assert.EqualError(t, err, "no acceptable formats for preprovisioning image")
+	require.EqualError(t, err, "no acceptable formats for preprovisioning image")
+	require.ErrorAs(t, err, &imageBuildError{})
 	assert.Nil(t, imgData)
 
 	assert.Error(t, r.Client.Get(context.TODO(), client.ObjectKey{
@@ -2444,11 +2444,11 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	i := makeReconcileInfo(host)
 
 	imgData, err := r.getPreprovImage(i, []metal3api.ImageFormat{"iso"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, imgData)
 
 	img := metal3api.PreprovisioningImage{}
-	assert.NoError(t, r.Client.Get(context.TODO(), client.ObjectKey{
+	require.NoError(t, r.Client.Get(context.TODO(), client.ObjectKey{
 		Name:      host.Name,
 		Namespace: host.Namespace,
 	},
@@ -2462,10 +2462,10 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	host.Labels["cat.metal3.io"] = "meow"
 
 	imgData, err = r.getPreprovImage(i, []metal3api.ImageFormat{"iso"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, imgData)
 
-	assert.NoError(t, r.Client.Get(context.TODO(), client.ObjectKey{
+	require.NoError(t, r.Client.Get(context.TODO(), client.ObjectKey{
 		Name:      host.Name,
 		Namespace: host.Namespace,
 	},
@@ -2508,7 +2508,7 @@ func TestGetPreprovImage(t *testing.T) {
 	i := makeReconcileInfo(host)
 
 	imgData, err := r.getPreprovImage(i, acceptFormats)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, imgData)
 	assert.Equal(t, imageURL, imgData.ImageURL)
 	assert.Equal(t, metal3api.ImageFormatISO, imgData.Format)
@@ -2545,7 +2545,7 @@ func TestGetPreprovImageNotCurrent(t *testing.T) {
 	i := makeReconcileInfo(host)
 
 	imgData, err := r.getPreprovImage(i, []metal3api.ImageFormat{metal3api.ImageFormatISO})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, imgData)
 }
 
@@ -2821,10 +2821,10 @@ func TestPreprovImageAvailable(t *testing.T) {
 			}
 			available, err := r.preprovImageAvailable(makeReconcileInfo(host), &image)
 			if tc.BuildError {
-				assert.EqualError(t, err, "oops")
-				assert.True(t, errors.As(err, &imageBuildError{}))
+				require.EqualError(t, err, "oops")
+				require.ErrorAs(t, err, &imageBuildError{})
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			assert.Equal(t, tc.Available, available)
 		})
@@ -2873,7 +2873,7 @@ func TestHostFirmwareSettings(t *testing.T) {
 
 			hfs := newHostFirmwareSettings(host, tc.Conditions)
 			err := r.Create(context.TODO(), hfs)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			dirty, _, err := r.getHostFirmwareSettings(i)
 			if err != nil {
@@ -2942,7 +2942,7 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 	}
 
 	err := r.Update(context.TODO(), hfs)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 }
@@ -2975,7 +2975,7 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 	}
 
 	err := r.Update(context.TODO(), hfs)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -2992,7 +2992,7 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 	}
 
 	err = r.Update(context.TODO(), hfs)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			return host.Status.Provisioning.State == metal3api.StateAvailable

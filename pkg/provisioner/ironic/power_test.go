@@ -12,6 +12,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPowerOn(t *testing.T) {
@@ -122,9 +123,9 @@ func TestPowerOn(t *testing.T) {
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
 			if !tc.expectedError {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 			}
 			if tc.expectedErrorResult {
 				assert.Contains(t, result.ErrorMessage, "PowerOn operation failed")
@@ -272,9 +273,9 @@ func TestPowerOff(t *testing.T) {
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
 			if !tc.expectedError {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 			}
 			if tc.expectedErrorResult {
 				assert.Contains(t, result.ErrorMessage, "hard power off failed")
@@ -312,14 +313,14 @@ func TestSoftPowerOffFallback(t *testing.T) {
 	}
 
 	_, err = prov.PowerOff(metal3api.RebootModeSoft, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.False(t, errors.As(err, &softPowerOffUnsupportedError{}))
 
 	_, err = prov.changePower(&node, nodes.PowerOff)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.False(t, errors.As(err, &softPowerOffUnsupportedError{}))
 
 	_, err = prov.changePower(&node, nodes.SoftPowerOff)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorAs(t, err, &softPowerOffUnsupportedError{})
 }

@@ -213,9 +213,18 @@ func run() int {
 		}
 		body = fmt.Sprintf("- %s", body)
 
-		_, err := fmt.Sscanf(c.merge, "Merge pull request %s from %s", &prNumber, &fork)
-		if err != nil {
-			log.Fatalf("Error parsing merge commit message: %v", err)
+		if strings.HasPrefix(c.merge, "Merge pull request") {
+			_, err = fmt.Sscanf(c.merge, "Merge pull request %s from %s", &prNumber, &fork)
+			if err != nil {
+				log.Fatalf("Error parsing merge commit message: %v", err)
+			}
+		} else if strings.HasPrefix(c.merge, "Merge commit from fork") {
+			_, err = fmt.Sscanf(c.merge, "Merge commit from fork")
+			if err != nil {
+				log.Fatalf("Error parsing merge commit message: %v", err)
+			}
+		} else {
+			log.Fatalf("Unexpected merge commit message format: %s", c.merge)
 		}
 
 		merges[key] = append(merges[key], formatMerge(body, prNumber))
@@ -227,6 +236,12 @@ func run() int {
 	}
 
 	fmt.Println("<!-- markdownlint-disable no-inline-html line-length -->")
+	if isBeta(latestTag) {
+		fmt.Printf(warningTemplate, "BETA RELEASE")
+	}
+	if isRC(latestTag) {
+		fmt.Printf(warningTemplate, "RELEASE CANDIDATE")
+	}
 	// TODO Turn this into a link (requires knowing the project name + organization)
 	fmt.Printf("# Changes since %v\n\n", lastTag)
 
@@ -243,12 +258,6 @@ func run() int {
 
 		// if we're doing beta/rc, print breaking changes and hide the rest of the changes
 		if key == warning {
-			if isBeta(latestTag) {
-				fmt.Printf(warningTemplate, "BETA RELEASE")
-			}
-			if isRC(latestTag) {
-				fmt.Printf(warningTemplate, "RELEASE CANDIDATE")
-			}
 			if isBeta(latestTag) || isRC(latestTag) {
 				fmt.Printf("<details>\n")
 				fmt.Printf("<summary>More details about the release</summary>\n\n")

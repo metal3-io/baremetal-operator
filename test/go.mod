@@ -2,6 +2,8 @@ module github.com/metal3-io/baremetal-operator/test
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/cert-manager/cert-manager v1.16.3
 	github.com/dypflying/go-qcow2lib v1.0.0
@@ -18,8 +20,8 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	libvirt.org/go/libvirt v1.11001.0
-	sigs.k8s.io/cluster-api v1.9.5
-	sigs.k8s.io/cluster-api/test v1.9.5
+	sigs.k8s.io/cluster-api v1.9.6
+	sigs.k8s.io/cluster-api/test v1.9.6
 	sigs.k8s.io/controller-runtime v0.19.7
 	sigs.k8s.io/kind v0.27.0
 	sigs.k8s.io/kustomize/api v0.19.0

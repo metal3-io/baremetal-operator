@@ -19,7 +19,7 @@ func compareStrings(t *testing.T, s1, s2 string) bool {
 		maxLines = len(s2Lines)
 	}
 
-	for i := 0; i < maxLines; i++ {
+	for i := range maxLines {
 		if s1Lines[i] != s2Lines[i] {
 			t.Logf("line %d differ: %q != %q", i, s1Lines[i], s2Lines[i])
 		}

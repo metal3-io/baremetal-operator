@@ -14,6 +14,7 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -69,7 +70,7 @@ func (webhook *BMCEventSubscription) ValidateUpdate(_ context.Context, oldObj, n
 	}
 
 	if newBMCES.Spec != oldBmces.Spec {
-		return nil, fmt.Errorf("subscriptions cannot be updated, please recreate it")
+		return nil, errors.New("subscriptions cannot be updated, please recreate it")
 	}
 
 	return nil, nil

@@ -11,8 +11,7 @@ type EmptyBMCAddressError struct {
 }
 
 func (e EmptyBMCAddressError) Error() string {
-	return fmt.Sprintf("Empty BMC address %s",
-		e.message)
+	return "Empty BMC address " + e.message
 }
 
 // EmptyBMCSecretError is returned when the BMC secret
@@ -22,8 +21,7 @@ type EmptyBMCSecretError struct {
 }
 
 func (e EmptyBMCSecretError) Error() string {
-	return fmt.Sprintf("No BMC CredentialsName defined %s",
-		e.message)
+	return "No BMC CredentialsName defined " + e.message
 }
 
 // ResolveBMCSecretRefError is returned when the BMC secret
@@ -33,8 +31,7 @@ type ResolveBMCSecretRefError struct {
 }
 
 func (e ResolveBMCSecretRefError) Error() string {
-	return fmt.Sprintf("BMC CredentialsName secret doesn't exist %s",
-		e.message)
+	return "BMC CredentialsName secret doesn't exist " + e.message
 }
 
 // NoDataInSecretError is returned when host configuration

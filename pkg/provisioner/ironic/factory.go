@@ -138,7 +138,7 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 
 	if forcePersistentBootDevice := os.Getenv("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE"); forcePersistentBootDevice != "" {
 		if forcePersistentBootDevice != "Default" && forcePersistentBootDevice != "Always" && forcePersistentBootDevice != "Never" {
-			return c, fmt.Errorf("invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
+			return c, errors.New("invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
 		}
 		c.liveISOForcePersistentBootDevice = forcePersistentBootDevice
 	}

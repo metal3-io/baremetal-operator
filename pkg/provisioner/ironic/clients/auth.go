@@ -1,7 +1,7 @@
 package clients
 
 import (
-	"fmt"
+	"errors"
 	"net/url"
 	"os"
 	"path"
@@ -63,9 +63,9 @@ func LoadAuth() (auth AuthConfig, err error) {
 	}
 
 	if auth.Username == "" {
-		err = fmt.Errorf("empty HTTP Basic Auth username")
+		err = errors.New("empty HTTP Basic Auth username")
 	} else if auth.Password == "" {
-		err = fmt.Errorf("empty HTTP Basic Auth password")
+		err = errors.New("empty HTTP Basic Auth password")
 	}
 	return
 }
@@ -84,7 +84,7 @@ func ConfigFromEndpointURL(endpointURL string) (endpoint string, auth AuthConfig
 		auth.Username = parsedURL.User.Username()
 		auth.Password, hasPasswd = parsedURL.User.Password()
 		if !hasPasswd {
-			err = fmt.Errorf("no password supplied for HTTP Basic Auth")
+			err = errors.New("no password supplied for HTTP Basic Auth")
 		}
 		parsedURL.User = nil
 	} else {

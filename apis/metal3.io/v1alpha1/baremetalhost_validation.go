@@ -25,7 +25,7 @@ var (
 )
 
 // validateHost validates BareMetalHost resource for creation.
-func (host *BareMetalHost) validateHost() []error {
+func (webhook *BareMetalHost) validateHost(host *BareMetalHost) []error {
 	var errs []error
 	var bmcAccess bmc.AccessDetails
 
@@ -37,7 +37,7 @@ func (host *BareMetalHost) validateHost() []error {
 		}
 	}
 
-	errs = append(errs, host.validateCrossNamespaceSecretReferences()...)
+	errs = append(errs, webhook.validateCrossNamespaceSecretReferences(host)...)
 
 	if raidErrors := validateRAID(host.Spec.RAID); raidErrors != nil {
 		errs = append(errs, raidErrors...)
@@ -76,21 +76,21 @@ func (host *BareMetalHost) validateHost() []error {
 
 // validateChanges validates BareMetalHost resource on changes
 // but also covers the validations of creation.
-func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
+func (webhook *BareMetalHost) validateChanges(oldObj *BareMetalHost, newObj *BareMetalHost) []error {
 	var errs []error
 
-	if err := host.validateHost(); err != nil {
+	if err := webhook.validateHost(newObj); err != nil {
 		errs = append(errs, err...)
 	}
 
-	if old.Spec.BMC.Address != "" &&
-		host.Spec.BMC.Address != old.Spec.BMC.Address &&
-		host.Status.OperationalStatus != OperationalStatusDetached &&
-		host.Status.Provisioning.State != StateRegistering {
+	if oldObj.Spec.BMC.Address != "" &&
+		newObj.Spec.BMC.Address != oldObj.Spec.BMC.Address &&
+		newObj.Status.OperationalStatus != OperationalStatusDetached &&
+		newObj.Status.Provisioning.State != StateRegistering {
 		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
-	if old.Spec.BootMACAddress != "" && host.Spec.BootMACAddress != old.Spec.BootMACAddress {
+	if oldObj.Spec.BootMACAddress != "" && newObj.Spec.BootMACAddress != oldObj.Spec.BootMACAddress {
 		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
 	}
 
@@ -340,7 +340,7 @@ func validateCrossNamespaceSecretReferences(hostNamespace, hostName, fieldName s
 // validateCrossNamespaceSecretReferences checks all Secret references in the BareMetalHost spec
 // to ensure they do not reference Secrets from other namespaces. This includes userData,
 // networkData, and metaData Secret references.
-func (host *BareMetalHost) validateCrossNamespaceSecretReferences() []error {
+func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *BareMetalHost) []error {
 	secretRefs := map[*corev1.SecretReference]string{
 		host.Spec.UserData:    "userData",
 		host.Spec.NetworkData: "networkData",

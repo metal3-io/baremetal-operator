@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -54,7 +55,8 @@ func TestBareMetalHostCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := tt.bmh.ValidateCreate(); !errorContains(err, tt.wantedErr) {
+			ctx := context.Background()
+			if _, err := tt.bmh.ValidateCreate(ctx, tt.bmh); !errorContains(err, tt.wantedErr) {
 				t.Errorf("BareMetalHost.ValidateCreate() error = %v, wantErr %v", err, tt.wantedErr)
 			}
 		})
@@ -90,7 +92,8 @@ func TestBareMetalHostUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := tt.bmh.ValidateUpdate(tt.old); !errorContains(err, tt.wantedErr) {
+			ctx := context.Background()
+			if _, err := tt.old.ValidateUpdate(ctx, tt.old, tt.bmh); !errorContains(err, tt.wantedErr) {
 				t.Errorf("BareMetalHost.ValidateUpdate() error = %v, wantErr %v", err, tt.wantedErr)
 			}
 		})

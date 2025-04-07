@@ -13,11 +13,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -26,25 +30,43 @@ var bmcsubscriptionlog = logf.Log.WithName("webhooks").WithName("BMCEventSubscri
 
 //+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-bmceventsubscription,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=bmceventsubscriptions,versions=v1alpha1,name=bmceventsubscription.metal3.io
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (s *BMCEventSubscription) ValidateCreate() (admission.Warnings, error) {
-	bmcsubscriptionlog.Info("validate create", "namespace", s.Namespace, "name", s.Name)
-	return nil, kerrors.NewAggregate(s.validateSubscription())
+func (webhook *BMCEventSubscription) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&BMCEventSubscription{}).
+		WithValidator(webhook).
+		Complete()
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+var _ webhook.CustomValidator = &BMCEventSubscription{}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
+func (webhook *BMCEventSubscription) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	bmces, ok := obj.(*BMCEventSubscription)
+	if !ok {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BMCEventSubscription but got a %T", obj))
+	}
+
+	bmcsubscriptionlog.Info("validate create", "namespace", bmces.Namespace, "name", bmces.Name)
+	return nil, kerrors.NewAggregate(webhook.validateSubscription(bmces))
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 //
 // We prevent updates to the spec.  All other updates (e.g. status, finalizers) are allowed.
-func (s *BMCEventSubscription) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	bmcsubscriptionlog.Info("validate update", "namespace", s.Namespace, "name", s.Name)
+func (webhook *BMCEventSubscription) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	newBmces, ok := newObj.(*BMCEventSubscription)
+	if !ok {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BMCEventSubscription but got a %T", newObj))
+	}
+	bmcsubscriptionlog.Info("validate update", "namespace", newBmces.Namespace, "name", newBmces.Name)
 
-	bes, casted := old.(*BMCEventSubscription)
+	oldBmces, casted := oldObj.(*BMCEventSubscription)
 	if !casted {
-		bmcsubscriptionlog.Error(fmt.Errorf("old object conversion error for %s/%s", s.Namespace, s.Name), "validate update error")
+		bmcsubscriptionlog.Error(fmt.Errorf("old object conversion error for %s/%s", oldBmces.Namespace, oldBmces.Name), "validate update error")
 		return nil, nil
 	}
 
-	if s.Spec != bes.Spec {
+	if newBmces.Spec != oldBmces.Spec {
 		return nil, fmt.Errorf("subscriptions cannot be updated, please recreate it")
 	}
 
@@ -52,6 +74,6 @@ func (s *BMCEventSubscription) ValidateUpdate(old runtime.Object) (admission.War
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (s *BMCEventSubscription) ValidateDelete() (admission.Warnings, error) {
+func (webhook *BMCEventSubscription) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

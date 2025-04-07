@@ -96,7 +96,7 @@ func TestBMCEventSubscriptionValidateCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.newS.validateSubscription(); !errorArrContains(err, tt.wantedErr) {
+			if err := tt.newS.validateSubscription(tt.newS); !errorArrContains(err, tt.wantedErr) {
 				t.Errorf("BareMetalHost.validateSubscription() error = %v, wantErr %v", err, tt.wantedErr)
 			}
 		})

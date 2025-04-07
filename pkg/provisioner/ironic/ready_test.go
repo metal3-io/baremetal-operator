@@ -8,6 +8,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProvisionerIsReady(t *testing.T) {
@@ -75,7 +76,7 @@ func TestProvisionerIsReady(t *testing.T) {
 			if tc.expectedError != "" {
 				assert.Regexp(t, tc.expectedError, err, "error message")
 			} else {
-				assert.Nil(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.expectedIsReady, ready, "ready flag")
 			}
 		})

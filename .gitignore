@@ -58,3 +58,5 @@ config/overlays/temp
 .devcontainer
 # Python venv
 .venv
+
+.idea/

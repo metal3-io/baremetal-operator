@@ -11,6 +11,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type TestFunc func(string)
@@ -203,9 +204,9 @@ func deleteTest(t *testing.T, detach bool) {
 			}
 
 			if tc.expectedError == "" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Regexp(t, tc.expectedError, err.Error())
 			}
 		})

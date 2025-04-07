@@ -248,7 +248,7 @@ func TestOptionValueEqual(t *testing.T) {
 				ne = "!"
 			}
 			assert.Equal(t, c.Equal, optionValueEqual(c.Before, c.After),
-				fmt.Sprintf("%v %s= %v", c.Before, ne, c.After))
+				"%v %s= %v", c.Before, ne, c.After)
 		})
 	}
 }
@@ -396,7 +396,7 @@ func TestTopLevelUpdateOpt(t *testing.T) {
 
 	u = UpdateOptsBuilder(logf.Log)
 	u.SetTopLevelOpt("foo", "bar", "bar")
-	assert.Len(t, u.Updates, 0)
+	assert.Empty(t, u.Updates)
 }
 
 func TestPropertiesUpdateOpts(t *testing.T) {

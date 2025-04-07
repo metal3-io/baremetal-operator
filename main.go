@@ -27,6 +27,7 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/controllers/metal3.io"
+	webhooks "github.com/metal3-io/baremetal-operator/internal/webhooks/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
@@ -98,12 +99,12 @@ func setupChecks(mgr ctrl.Manager) {
 }
 
 func setupWebhooks(mgr ctrl.Manager) {
-	if err := (&metal3api.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhooks.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
 		os.Exit(1)
 	}
 
-	if err := (&metal3api.BMCEventSubscription{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhooks.BMCEventSubscription{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
 		os.Exit(1)
 	}

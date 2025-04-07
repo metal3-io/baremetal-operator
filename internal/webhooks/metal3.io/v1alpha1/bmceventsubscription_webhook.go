@@ -1,4 +1,6 @@
 /*
+Copyright 2025 The Metal3 Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -10,12 +12,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhooks
 
 import (
 	"context"
 	"fmt"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -30,18 +33,21 @@ var bmcsubscriptionlog = logf.Log.WithName("webhooks").WithName("BMCEventSubscri
 
 func (webhook *BMCEventSubscription) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&BMCEventSubscription{}).
+		For(&metal3api.BMCEventSubscription{}).
 		WithValidator(webhook).
 		Complete()
 }
 
+//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-bmceventsubscription,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=bmceventsubscriptions,versions=v1alpha1,name=bmceventsubscription.metal3.io
+
+// BMCEventSubscription implements a validation and defaulting webhook for BMCEventSubscription.
+type BMCEventSubscription struct{}
+
 var _ webhook.CustomValidator = &BMCEventSubscription{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-//
-// Deprecated: This method is going to be removed in a next release.
 func (webhook *BMCEventSubscription) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	bmces, ok := obj.(*BMCEventSubscription)
+	bmces, ok := obj.(*metal3api.BMCEventSubscription)
 	if !ok {
 		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BMCEventSubscription but got a %T", obj))
 	}
@@ -51,24 +57,20 @@ func (webhook *BMCEventSubscription) ValidateCreate(_ context.Context, obj runti
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-//
-// We prevent updates to the spec.  All other updates (e.g. status, finalizers) are allowed.
-//
-// Deprecated: This method is going to be removed in a next release.
 func (webhook *BMCEventSubscription) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	newBMCES, ok := newObj.(*BMCEventSubscription)
+	newBMCES, ok := newObj.(*metal3api.BMCEventSubscription)
 	if !ok {
 		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BMCEventSubscription but got a %T", newObj))
 	}
 	bmcsubscriptionlog.Info("validate update", "namespace", newBMCES.Namespace, "name", newBMCES.Name)
 
-	oldBmces, casted := oldObj.(*BMCEventSubscription)
+	oldBMCES, casted := oldObj.(*metal3api.BMCEventSubscription)
 	if !casted {
-		bmcsubscriptionlog.Error(fmt.Errorf("old object conversion error for %s/%s", oldBmces.Namespace, oldBmces.Name), "validate update error")
+		bmcsubscriptionlog.Error(fmt.Errorf("old object conversion error for %s/%s", oldBMCES.Namespace, oldBMCES.Name), "validate update error")
 		return nil, nil
 	}
 
-	if newBMCES.Spec != oldBmces.Spec {
+	if newBMCES.Spec != oldBMCES.Spec {
 		return nil, fmt.Errorf("subscriptions cannot be updated, please recreate it")
 	}
 
@@ -76,8 +78,6 @@ func (webhook *BMCEventSubscription) ValidateUpdate(_ context.Context, oldObj, n
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-//
-// Deprecated: This method is going to be removed in a next release.
 func (webhook *BMCEventSubscription) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

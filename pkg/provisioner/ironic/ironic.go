@@ -448,7 +448,7 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
 			if hostImage.ExtraKernelParams != "" {
 				// Using %default% prevents overriding the config in ironic-image
-				deployImageInfo[kernelParamsKey] = "%%default%% " + hostImage.ExtraKernelParams
+				deployImageInfo[kernelParamsKey] = "%default% " + hostImage.ExtraKernelParams
 			}
 			return deployImageInfo
 		}

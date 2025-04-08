@@ -37,7 +37,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		accessDetails, err := metal3bmc.NewAccessDetails(bmc.Address, false)
 		Expect(err).NotTo(HaveOccurred())
 		if !accessDetails.SupportsISOPreprovisioningImage() {
-			Skip(fmt.Sprintf("BMC does not support ISO images. It does not make sense to test live-ISO here. BMC address: %s", bmc.Address))
+			Skip("BMC does not support ISO images. It does not make sense to test live-ISO here. BMC address: " + bmc.Address)
 		}
 
 		imageURL = e2eConfig.GetVariable("ISO_IMAGE_URL")

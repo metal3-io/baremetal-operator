@@ -372,7 +372,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			Expect(upgradeClusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 			kubeconfigPath = upgradeClusterProvider.GetKubeconfigPath()
 			DeferCleanup(func() {
-				By(fmt.Sprintf("Disposing the kind cluster %s", upgradeClusterName))
+				By("Disposing the kind cluster " + upgradeClusterName)
 				upgradeClusterProvider.Dispose(ctx)
 			})
 		}

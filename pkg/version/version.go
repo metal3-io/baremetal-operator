@@ -1,8 +1,6 @@
 // Package version includes the version information.
 package version
 
-import "fmt"
-
 var (
 	// Raw is the string representation of the version. This will be replaced
 	// with the calculated version at build time.
@@ -10,7 +8,7 @@ var (
 	Raw = "was not built with version info"
 
 	// String is the human-friendly representation of the version.
-	String = fmt.Sprintf("metal3-io/baremetal-operator %s", Raw)
+	String = "metal3-io/baremetal-operator " + Raw
 
 	// Commit is the commit hash from which the software was built.
 	// Set via LDFLAGS in Makefile.

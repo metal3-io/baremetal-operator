@@ -13,6 +13,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,7 +46,7 @@ func (s *BMCEventSubscription) ValidateUpdate(old runtime.Object) (admission.War
 	}
 
 	if s.Spec != bes.Spec {
-		return nil, fmt.Errorf("subscriptions cannot be updated, please recreate it")
+		return nil, errors.New("subscriptions cannot be updated, please recreate it")
 	}
 
 	return nil, nil

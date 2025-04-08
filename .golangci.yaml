@@ -56,7 +56,7 @@ linters:
   - noctx
   - nolintlint
   - nosprintfhostport
-  #- perfsprint
+  - perfsprint
   - prealloc
   - predeclared
   - reassign

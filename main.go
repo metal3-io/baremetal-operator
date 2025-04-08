@@ -78,11 +78,11 @@ func init() {
 }
 
 func printVersion() {
-	setupLog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
+	setupLog.Info("Go Version: " + runtime.Version())
 	setupLog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	setupLog.Info(fmt.Sprintf("Git commit: %s", version.Commit))
-	setupLog.Info(fmt.Sprintf("Build time: %s", version.BuildTime))
-	setupLog.Info(fmt.Sprintf("Component: %s", version.String))
+	setupLog.Info("Git commit: " + version.Commit)
+	setupLog.Info("Build time: " + version.BuildTime)
+	setupLog.Info("Component: " + version.String)
 }
 
 func setupChecks(mgr ctrl.Manager) {

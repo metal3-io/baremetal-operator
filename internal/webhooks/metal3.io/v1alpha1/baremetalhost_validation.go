@@ -1,4 +1,18 @@
-package v1alpha1
+/*
+Copyright 2025 The Metal3 Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package webhooks
 
 import (
 	"encoding/json"
@@ -11,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,9 +40,7 @@ var (
 )
 
 // validateHost validates BareMetalHost resource for creation.
-//
-// Deprecated: This method is going to be removed in a next release.
-func (webhook *BareMetalHost) validateHost(host *BareMetalHost) []error {
+func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []error {
 	var errs []error
 	var bmcAccess bmc.AccessDetails
 
@@ -78,9 +91,7 @@ func (webhook *BareMetalHost) validateHost(host *BareMetalHost) []error {
 
 // validateChanges validates BareMetalHost resource on changes
 // but also covers the validations of creation.
-//
-// Deprecated: This method is going to be removed in a next release.
-func (webhook *BareMetalHost) validateChanges(oldObj *BareMetalHost, newObj *BareMetalHost) []error {
+func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, newObj *metal3api.BareMetalHost) []error {
 	var errs []error
 
 	if err := webhook.validateHost(newObj); err != nil {
@@ -89,8 +100,8 @@ func (webhook *BareMetalHost) validateChanges(oldObj *BareMetalHost, newObj *Bar
 
 	if oldObj.Spec.BMC.Address != "" &&
 		newObj.Spec.BMC.Address != oldObj.Spec.BMC.Address &&
-		newObj.Status.OperationalStatus != OperationalStatusDetached &&
-		newObj.Status.Provisioning.State != StateRegistering {
+		newObj.Status.OperationalStatus != metal3api.OperationalStatusDetached &&
+		newObj.Status.Provisioning.State != metal3api.StateRegistering {
 		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
@@ -101,8 +112,7 @@ func (webhook *BareMetalHost) validateChanges(oldObj *BareMetalHost, newObj *Bar
 	return errs
 }
 
-// Deprecated: This method is going to be removed in a next release.
-func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
+func validateBMCAccess(s metal3api.BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
 	var errs []error
 
 	if bmcAccess == nil {
@@ -132,15 +142,14 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 		}
 	}
 
-	if s.BootMode == UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
+	if s.BootMode == metal3api.UEFISecureBoot && !bmcAccess.SupportsSecureBoot() {
 		errs = append(errs, fmt.Errorf("BMC driver %s does not support secure boot", bmcAccess.Type()))
 	}
 
 	return errs
 }
 
-// Deprecated: This method is going to be removed in a next release.
-func validateRAID(r *RAIDConfig) []error {
+func validateRAID(r *metal3api.RAIDConfig) []error {
 	var errs []error
 
 	if r == nil {
@@ -170,7 +179,6 @@ func validateRAID(r *RAIDConfig) []error {
 	return errs
 }
 
-// Deprecated: This method is going to be removed in a next release.
 func validateBMHName(bmhname string) error {
 	invalidname, _ := regexp.MatchString(`[^A-Za-z0-9\.\-\_]`, bmhname)
 	if invalidname {
@@ -185,7 +193,6 @@ func validateBMHName(bmhname string) error {
 	return nil
 }
 
-// Deprecated: This method is going to be removed in a next release.
 func validateDNSName(hostaddress string) error {
 	if hostaddress == "" {
 		return nil
@@ -195,21 +202,20 @@ func validateDNSName(hostaddress string) error {
 	return err // the error has enough context already
 }
 
-// Deprecated: This method is going to be removed in a next release.
-func validateAnnotations(host *BareMetalHost) []error {
+func validateAnnotations(host *metal3api.BareMetalHost) []error {
 	var errs []error
 	var err error
 
 	for annotation, value := range host.Annotations {
 		switch {
-		case annotation == StatusAnnotation:
+		case annotation == metal3api.StatusAnnotation:
 			err = validateStatusAnnotation(value)
-		case strings.HasPrefix(annotation, RebootAnnotationPrefix+"/") || annotation == RebootAnnotationPrefix:
+		case strings.HasPrefix(annotation, metal3api.RebootAnnotationPrefix+"/") || annotation == metal3api.RebootAnnotationPrefix:
 			err = validateRebootAnnotation(value)
-		case annotation == InspectAnnotationPrefix:
+		case annotation == metal3api.InspectAnnotationPrefix:
 			err = validateInspectAnnotation(value)
-		case annotation == HardwareDetailsAnnotation:
-			inspect := host.Annotations[InspectAnnotationPrefix]
+		case annotation == metal3api.HardwareDetailsAnnotation:
+			inspect := host.Annotations[metal3api.InspectAnnotationPrefix]
 			err = validateHwdDetailsAnnotation(value, inspect)
 		default:
 			err = nil
@@ -222,10 +228,9 @@ func validateAnnotations(host *BareMetalHost) []error {
 	return errs
 }
 
-// Deprecated: This method is going to be removed in a next release.
 func validateStatusAnnotation(statusAnnotation string) error {
 	if statusAnnotation != "" {
-		objBMHStatus := &BareMetalHostStatus{}
+		objBMHStatus := &metal3api.BareMetalHostStatus{}
 
 		deco := json.NewDecoder(strings.NewReader(statusAnnotation))
 		deco.DisallowUnknownFields()
@@ -241,7 +246,6 @@ func validateStatusAnnotation(statusAnnotation string) error {
 	return nil
 }
 
-// Deprecated: This method is going to be removed in a next release.
 func validateImageURL(imageURL string) error {
 	_, err := url.ParseRequestURI(imageURL)
 	if err != nil {
@@ -251,8 +255,7 @@ func validateImageURL(imageURL string) error {
 	return nil
 }
 
-// Deprecated: This method is going to be removed in a next release.
-func validateRootDeviceHints(rdh *RootDeviceHints) error {
+func validateRootDeviceHints(rdh *metal3api.RootDeviceHints) error {
 	if rdh == nil || rdh.DeviceName == "" {
 		return nil
 	}
@@ -273,21 +276,18 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 // also make the corresponding changes in the OperationalStatus and
 // ErrorType fields in the struct definition of BareMetalHostStatus in
 // the file baremetalhost_types.go.
-//
-// Deprecated: This method is going to be removed in a next release.
-func checkStatusAnnotation(bmhStatus *BareMetalHostStatus) error {
-	if !slices.Contains(OperationalStatusAllowed, string(bmhStatus.OperationalStatus)) {
-		return fmt.Errorf("invalid operationalStatus '%s' in the %s annotation", string(bmhStatus.OperationalStatus), StatusAnnotation)
+func checkStatusAnnotation(bmhStatus *metal3api.BareMetalHostStatus) error {
+	if !slices.Contains(metal3api.OperationalStatusAllowed, string(bmhStatus.OperationalStatus)) {
+		return fmt.Errorf("invalid operationalStatus '%s' in the %s annotation", string(bmhStatus.OperationalStatus), metal3api.StatusAnnotation)
 	}
 
-	if !slices.Contains(ErrorTypeAllowed, string(bmhStatus.ErrorType)) {
-		return fmt.Errorf("invalid errorType '%s' in the %s annotation", string(bmhStatus.ErrorType), StatusAnnotation)
+	if !slices.Contains(metal3api.ErrorTypeAllowed, string(bmhStatus.ErrorType)) {
+		return fmt.Errorf("invalid errorType '%s' in the %s annotation", string(bmhStatus.ErrorType), metal3api.StatusAnnotation)
 	}
 
 	return nil
 }
 
-// Deprecated: This method is going to be removed in a next release.
 func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspect string) error {
 	if hwdDetAnnotation == "" {
 		return nil
@@ -297,40 +297,38 @@ func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspect string) error
 		return errors.New("when hardware details are provided, the inspect.metal3.io annotation must be set to disabled")
 	}
 
-	objHwdDet := &HardwareDetails{}
+	objHwdDet := &metal3api.HardwareDetails{}
 
 	deco := json.NewDecoder(strings.NewReader(hwdDetAnnotation))
 	deco.DisallowUnknownFields()
 	if err := deco.Decode(objHwdDet); err != nil {
-		return fmt.Errorf("error decoding the %s annotation: %w", HardwareDetailsAnnotation, err)
+		return fmt.Errorf("error decoding the %s annotation: %w", metal3api.HardwareDetailsAnnotation, err)
 	}
 
 	return nil
 }
 
-// Deprecated: This method is going to be removed in a next release.
 func validateInspectAnnotation(inspectAnnotation string) error {
 	if !slices.Contains(inspectAnnotationAllowed, inspectAnnotation) {
-		return fmt.Errorf("invalid value for the %s annotation, allowed are %v", InspectAnnotationPrefix, inspectAnnotationAllowedString)
+		return fmt.Errorf("invalid value for the %s annotation, allowed are %v", metal3api.InspectAnnotationPrefix, inspectAnnotationAllowedString)
 	}
 
 	return nil
 }
 
-// Deprecated: This method is going to be removed in a next release.
 func validateRebootAnnotation(rebootAnnotation string) error {
 	if rebootAnnotation == "" {
 		return nil
 	}
 
-	objStatus := &RebootAnnotationArguments{}
+	objStatus := &metal3api.RebootAnnotationArguments{}
 	err := json.Unmarshal([]byte(rebootAnnotation), objStatus)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal the data from the %s annotation: %w", RebootAnnotationPrefix, err)
+		return fmt.Errorf("failed to unmarshal the data from the %s annotation: %w", metal3api.RebootAnnotationPrefix, err)
 	}
 
 	if !slices.Contains(supportedRebootModes, string(objStatus.Mode)) {
-		return fmt.Errorf("invalid mode in the %s annotation, allowed are %v", RebootAnnotationPrefix, supportedRebootModesString)
+		return fmt.Errorf("invalid mode in the %s annotation, allowed are %v", metal3api.RebootAnnotationPrefix, supportedRebootModesString)
 	}
 
 	return nil
@@ -338,8 +336,6 @@ func validateRebootAnnotation(rebootAnnotation string) error {
 
 // validateCrossNamespaceSecretReferences validates that a SecretReference does not refer to a Secret
 // in a different namespace than the host resource.
-//
-// Deprecated: This method is going to be removed in a next release.
 func validateCrossNamespaceSecretReferences(hostNamespace, hostName, fieldName string, ref *corev1.SecretReference) error {
 	if ref != nil &&
 		ref.Namespace != "" &&
@@ -359,9 +355,7 @@ func validateCrossNamespaceSecretReferences(hostNamespace, hostName, fieldName s
 // validateCrossNamespaceSecretReferences checks all Secret references in the BareMetalHost spec
 // to ensure they do not reference Secrets from other namespaces. This includes userData,
 // networkData, and metaData Secret references.
-//
-// Deprecated: This method is going to be removed in a next release.
-func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *BareMetalHost) []error {
+func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *metal3api.BareMetalHost) []error {
 	secretRefs := map[*corev1.SecretReference]string{
 		host.Spec.UserData:    "userData",
 		host.Spec.NetworkData: "networkData",
@@ -376,8 +370,7 @@ func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *BareM
 	return errs
 }
 
-// Deprecated: This method is going to be removed in a next release.
-func validatePowerStatus(host *BareMetalHost) error {
+func validatePowerStatus(host *metal3api.BareMetalHost) error {
 	if host.Spec.DisablePowerOff && !host.Spec.Online {
 		return fmt.Errorf("node can't simultaneously have online set to false and have power off disabled")
 	}

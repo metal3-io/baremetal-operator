@@ -1,4 +1,6 @@
 /*
+Copyright 2025 The Metal3 Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -10,12 +12,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhooks
 
 import (
 	"context"
 	"fmt"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -28,22 +31,23 @@ import (
 // log is for logging in this package.
 var baremetalhostlog = logf.Log.WithName("webhooks").WithName("BareMetalHost")
 
-var _ webhook.CustomValidator = &BareMetalHost{}
-
 func (webhook *BareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&BareMetalHost{}).
+		For(&metal3api.BareMetalHost{}).
 		WithValidator(webhook).
 		Complete()
 }
 
+//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-baremetalhost,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=baremetalhosts,versions=v1alpha1,name=baremetalhost.metal3.io
+
+// BareMetalHost implements a validation and defaulting webhook for BareMetalHost.
+type BareMetalHost struct{}
+
 var _ webhook.CustomValidator = &BareMetalHost{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-//
-// Deprecated: This method is going to be removed in a next release.
 func (webhook *BareMetalHost) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	bmh, ok := obj.(*BareMetalHost)
+	bmh, ok := obj.(*metal3api.BareMetalHost)
 	baremetalhostlog.Info("validate create", "namespace", bmh.Namespace, "name", bmh.Name)
 	if !ok {
 		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BareMetalHost but got a %T", obj))
@@ -52,16 +56,14 @@ func (webhook *BareMetalHost) ValidateCreate(_ context.Context, obj runtime.Obje
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-//
-// Deprecated: This method is going to be removed in a next release.
 func (webhook *BareMetalHost) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldBmh, casted := oldObj.(*BareMetalHost)
+	oldBmh, casted := oldObj.(*metal3api.BareMetalHost)
 	if !casted {
 		baremetalhostlog.Error(fmt.Errorf("old object conversion error for %s/%s", oldBmh.Namespace, oldBmh.Name), "validate update error")
 		return nil, nil
 	}
 
-	newBmh, ok := newObj.(*BareMetalHost)
+	newBmh, ok := newObj.(*metal3api.BareMetalHost)
 	if !ok {
 		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BareMetalHost but got a %T", newObj))
 	}
@@ -69,8 +71,6 @@ func (webhook *BareMetalHost) ValidateUpdate(_ context.Context, oldObj, newObj r
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-//
-// Deprecated: This method is going to be removed in a next release.
 func (webhook *BareMetalHost) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

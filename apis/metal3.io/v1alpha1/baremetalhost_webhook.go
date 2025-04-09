@@ -13,11 +13,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -26,24 +30,41 @@ var baremetalhostlog = logf.Log.WithName("webhooks").WithName("BareMetalHost")
 
 //+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-baremetalhost,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=baremetalhosts,versions=v1alpha1,name=baremetalhost.metal3.io
 
+func (webhook *BareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&BareMetalHost{}).
+		WithValidator(webhook).
+		Complete()
+}
+
+var _ webhook.CustomValidator = &BareMetalHost{}
+
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *BareMetalHost) ValidateCreate() (admission.Warnings, error) {
-	baremetalhostlog.Info("validate create", "namespace", r.Namespace, "name", r.Name)
-	return nil, kerrors.NewAggregate(r.validateHost())
+func (webhook *BareMetalHost) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	bmh, ok := obj.(*BareMetalHost)
+	baremetalhostlog.Info("validate create", "namespace", bmh.Namespace, "name", bmh.Name)
+	if !ok {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BareMetalHost but got a %T", obj))
+	}
+	return nil, kerrors.NewAggregate(webhook.validateHost(bmh))
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *BareMetalHost) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	baremetalhostlog.Info("validate update", "namespace", r.Namespace, "name", r.Name)
-	bmh, casted := old.(*BareMetalHost)
+func (webhook *BareMetalHost) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	oldBmh, casted := oldObj.(*BareMetalHost)
 	if !casted {
-		baremetalhostlog.Error(fmt.Errorf("old object conversion error for %s/%s", r.Namespace, r.Name), "validate update error")
+		baremetalhostlog.Error(fmt.Errorf("old object conversion error for %s/%s", oldBmh.Namespace, oldBmh.Name), "validate update error")
 		return nil, nil
 	}
-	return nil, kerrors.NewAggregate(r.validateChanges(bmh))
+
+	newBmh, ok := newObj.(*BareMetalHost)
+	if !ok {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("expected a BareMetalHost but got a %T", newObj))
+	}
+	return nil, kerrors.NewAggregate(webhook.validateChanges(oldBmh, newBmh))
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *BareMetalHost) ValidateDelete() (admission.Warnings, error) {
+func (webhook *BareMetalHost) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

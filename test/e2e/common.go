@@ -531,13 +531,7 @@ func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
 }
 
 // DumpResources dumps resources related to BMO e2e tests as YAML.
-func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framework.ClusterProxy, namespace string, artifactFolder string) {
-	// CAPI resources.
-	framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
-		Lister:    clusterProxy.GetClient(),
-		Namespace: namespace,
-		LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
-	})
+func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framework.ClusterProxy, artifactFolder string) {
 	dumpCRDS(ctx, clusterProxy.GetClient(), filepath.Join(artifactFolder, "crd"))
 	if e2eConfig.GetBoolVariable("FETCH_IRONIC_NODES") {
 		dumpIronicNodes(ctx, e2eConfig, artifactFolder)

@@ -1403,7 +1403,7 @@ func (p *mockProvisioner) GetFirmwareComponents() (components []metal3api.Firmwa
 	return components, nil
 }
 
-func (m *mockProvisioner) IsDataImageReady() (isNodeBusy bool, nodeError error) {
+func (p *mockProvisioner) GetDataImageStatus() (isImageAttached bool, err error) {
 	return false, nil
 }
 

@@ -216,8 +216,8 @@ type Provisioner interface {
 	// GetFirmwareComponents gets all firmware components available from a note
 	GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error)
 
-	// Check if DataImage attach/detach was successful
-	IsDataImageReady() (isNodeBusy bool, nodeError error)
+	// Get DataImage
+	GetDataImageStatus() (isImageAttached bool, err error)
 
 	// Attach DataImage
 	AttachDataImage(URL string) (err error)
@@ -254,3 +254,7 @@ var ErrNeedsPreprovisioningImage = errors.New("no suitable Preprovisioning image
 
 // ErrFirmwareUpdateUnsupported is returned if the host can't execute firmware updates.
 var ErrFirmwareUpdateUnsupported = errors.New("host does not support Firmware Updates")
+
+// ErrNodeIsBusy is returned when the node is busy due to being reserved for another
+// task.
+var ErrNodeIsBusy = errors.New("node is busy")

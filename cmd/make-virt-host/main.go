@@ -143,7 +143,7 @@ func main() {
 	}
 
 	if *verbose {
-		fmt.Printf("net: %s domain: %s\n", *provisionNet, virshDomain)
+		fmt.Fprintf(os.Stdout, "net: %s domain: %s\n", *provisionNet, virshDomain)
 	}
 
 	// Figure out the MAC for the VM
@@ -165,12 +165,12 @@ func main() {
 	}
 
 	if *verbose {
-		fmt.Printf("%v\n", domainResult)
+		fmt.Fprintf(os.Stdout, "%v\n", domainResult)
 	}
 
 	for _, iface := range domainResult.Interfaces {
 		if *verbose {
-			fmt.Printf("%v\n", iface)
+			fmt.Fprintf(os.Stdout, "%v\n", iface)
 		}
 		if iface.Source.Bridge == *provisionNet {
 			desiredMAC = iface.MAC.Address
@@ -182,7 +182,7 @@ func main() {
 	b64Password := base64.StdEncoding.EncodeToString([]byte(*password))
 
 	if *verbose {
-		fmt.Printf("Using MAC: %s\n", desiredMAC)
+		fmt.Fprintf(os.Stdout, "Using MAC: %s\n", desiredMAC)
 	}
 	if desiredMAC == "" {
 		fmt.Fprintf(os.Stderr, "Could not find MAC for %s on network %s\n",
@@ -208,7 +208,7 @@ func main() {
 	nameToPort := make(map[string]int)
 	for _, vbmc := range vbmcResult {
 		if *verbose {
-			fmt.Printf("VBMC: %s: %d\n", vbmc.Name, vbmc.Port)
+			fmt.Fprintf(os.Stdout, "VBMC: %s: %d\n", vbmc.Name, vbmc.Port)
 		}
 		nameToPort[vbmc.Name] = vbmc.Port
 	}

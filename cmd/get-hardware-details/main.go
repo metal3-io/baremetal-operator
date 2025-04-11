@@ -40,7 +40,7 @@ func main() {
 	endpoint := opts.Endpoint
 	parsedEndpoint, err := url.Parse(endpoint)
 	if err != nil {
-		fmt.Printf("invalid ironic endpoint: %s", err)
+		fmt.Fprintf(os.Stdout, "invalid ironic endpoint: %s", err)
 		os.Exit(1)
 	}
 
@@ -55,36 +55,36 @@ func main() {
 
 	ironic, err := clients.IronicClient(endpoint, opts.AuthConfig, tlsConf)
 	if err != nil {
-		fmt.Printf("could not get ironic client: %s", err)
+		fmt.Fprintf(os.Stdout, "could not get ironic client: %s", err)
 		os.Exit(1)
 	}
 
 	introData := nodes.GetInventory(context.TODO(), ironic, opts.NodeID)
 	data, err := introData.Extract()
 	if err != nil {
-		fmt.Printf("could not get inspection data: %s", err)
+		fmt.Fprintf(os.Stdout, "could not get inspection data: %s", err)
 		os.Exit(1)
 	}
 
 	json, err := json.MarshalIndent(hardwaredetails.GetHardwareDetails(data, klog.NewKlogr()), "", "\t")
 	if err != nil {
-		fmt.Printf("could not convert inspection data: %s", err)
+		fmt.Fprintf(os.Stdout, "could not convert inspection data: %s", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(string(json))
+	fmt.Fprintln(os.Stdout, string(json))
 }
 
 func getOptions() (o options) {
 	if len(os.Args) != 3 {
-		fmt.Println("Usage: get-hardware-details <ironic URI> <node UUID>")
+		fmt.Fprintln(os.Stdout, "Usage: get-hardware-details <ironic URI> <node UUID>")
 		os.Exit(1)
 	}
 
 	var err error
 	o.Endpoint, o.AuthConfig, err = clients.ConfigFromEndpointURL(os.Args[1])
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
+		fmt.Fprintf(os.Stdout, "Error: %s\n", err)
 		os.Exit(1)
 	}
 	o.NodeID = os.Args[2]

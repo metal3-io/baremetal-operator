@@ -137,7 +137,7 @@ func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, 
 // If the domain is successfully defined and created, the virtual machine is
 // started. Errors during qcow2 file creation, volume creation, libvirt connection,
 // template rendering, or domain creation are returned.
-func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string) error {
+func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress, osLoader string) error {
 	poolName := "default"
 	poolPath := "/tmp/pool_oo"
 	opts := make(map[string]any)
@@ -162,11 +162,13 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 		Network    string
 		MacAddress string
 		PoolPath   string
+		OSLoader   string
 	}{
 		Name:       name,
 		Network:    networkName,
 		MacAddress: macAddress,
 		PoolPath:   poolPath,
+		OSLoader:   osLoader,
 	}
 
 	vmCfg, err := RenderTemplate("templates/VM.xml.tpl", data)
@@ -192,7 +194,7 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 //
 // It will return an error if the network does not exist, or if creating the VM
 // or adding the DHCP host entry fails.
-func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, name, ipAddress, networkName string) error {
+func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, name, ipAddress, osLoader, networkName string) error {
 	network, err := conn.LookupNetworkByName(networkName)
 	if err != nil {
 		return err
@@ -208,10 +210,12 @@ func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, nam
 		MacAddress string
 		Name       string
 		IPAddress  string
+		OSLoader   string
 	}{
 		MacAddress: macAddress,
 		Name:       name,
 		IPAddress:  ipAddress,
+		OSLoader:   osLoader,
 	}
 
 	var buf bytes.Buffer
@@ -234,7 +238,7 @@ func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, nam
 		fmt.Printf("Error occurred: %v\n", err)
 		return err
 	}
-	if err = CreateLibvirtVM(conn, name, networkName, macAddress); err != nil {
+	if err = CreateLibvirtVM(conn, name, networkName, macAddress, osLoader); err != nil {
 		fmt.Printf("Error occurred: %v\n", err)
 		return err
 	}
@@ -280,7 +284,7 @@ func main() {
 	defer conn.Close()
 
 	for _, bmc := range bmcs {
-		if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, "baremetal-e2e"); err != nil {
+		if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, bmc.OSLoader, "baremetal-e2e"); err != nil {
 			fmt.Printf("Error occurred: %v\n", err)
 			// Not using os.Exit here so that we still close the connection
 			break

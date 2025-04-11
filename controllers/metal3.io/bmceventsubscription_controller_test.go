@@ -20,7 +20,7 @@ import (
 func newBMCTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Object) *BMCEventSubscriptionReconciler {
 	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
 	for _, v := range initObjs {
-		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object)) //nolint:forcetypeassert
 	}
 	c := clientBuilder.Build()
 	// Add a default secret that can be used by most subscriptions.

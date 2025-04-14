@@ -43,7 +43,7 @@ linters:
   - iface
   - importas
   - ineffassign
-  #- intrange
+  - intrange
   - loggercheck
   - makezero
   - mirror

@@ -482,7 +482,7 @@ func Logf(format string, a ...interface{}) {
 // FlakeAttempt retries the given function up to attempts times.
 func FlakeAttempt(attempts int, f func() error) error {
 	var err error
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		err = f()
 		if err == nil {
 			return nil

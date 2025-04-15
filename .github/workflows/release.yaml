@@ -109,6 +109,8 @@ jobs:
     - name: generate release artifacts
       run: |
         make release-notes
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: get release notes
       run: |
         curl -L "https://raw.githubusercontent.com/${{ github.repository }}/main/releasenotes/${{ env.RELEASE_TAG }}.md" \

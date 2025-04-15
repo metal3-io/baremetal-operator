@@ -745,7 +745,8 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -847,7 +848,8 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -941,7 +943,8 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -1002,7 +1005,8 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -1077,7 +1081,8 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -1156,7 +1161,8 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -1214,7 +1220,8 @@ func TestGetUpdateOptsForNodeCustomDeploy(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -1275,7 +1282,8 @@ func TestGetUpdateOptsForNodeCustomDeployWithImage(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -1346,7 +1354,8 @@ func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}
@@ -1431,7 +1440,8 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 			t.Logf("expected: %v", e)
 			var update nodes.UpdateOperation
 			for _, patch := range patches {
-				update = patch.(nodes.UpdateOperation)
+				update, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok)
 				if update.Path == e.Path {
 					break
 				}

@@ -98,7 +98,6 @@ unit: ## Run unit tests
 	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd apis/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd pkg/hardwareutils && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
-	cd internal/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
@@ -108,8 +107,6 @@ unit-cover: ## Run unit tests with code coverage
 	cd apis/ && go tool cover -func=$(COVER_PROFILE)
 	cd pkg/hardwareutils/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
 	cd pkg/hardwareutils/ && go tool cover -func=$(COVER_PROFILE)
-	cd internal/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
-	cd internal/ && go tool cover -func=$(COVER_PROFILE)
 
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
@@ -147,7 +144,6 @@ lint: $(GOLANGCI_LINT)
 	cd test; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	cd hack/tools; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
-	cd internal; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 
 .PHONY: lint-fix
 lint-fix: $(GOLANGCI_LINT) ## Lint the codebase and run auto-fixers if supported by the linter
@@ -251,7 +247,6 @@ set-manifest-image-ipa-downloader: $(KUSTOMIZE) manifests
 .PHONY: generate
 generate: $(CONTROLLER_GEN) ## Generate code
 	cd apis; $(abspath $<) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
-	cd internal; $(abspath $<) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 	$< object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 ## --------------------------------------

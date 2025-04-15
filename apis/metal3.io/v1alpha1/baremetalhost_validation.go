@@ -379,7 +379,7 @@ func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *BareM
 // Deprecated: This method is going to be removed in a next release.
 func validatePowerStatus(host *BareMetalHost) error {
 	if host.Spec.DisablePowerOff && !host.Spec.Online {
-		return fmt.Errorf("node can't simultaneously have online set to false and have power off disabled")
+		return errors.New("node can't simultaneously have online set to false and have power off disabled")
 	}
 	return nil
 }

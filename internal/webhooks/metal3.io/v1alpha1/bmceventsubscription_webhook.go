@@ -16,6 +16,7 @@ package webhooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -71,7 +72,7 @@ func (webhook *BMCEventSubscription) ValidateUpdate(_ context.Context, oldObj, n
 	}
 
 	if newBMCES.Spec != oldBMCES.Spec {
-		return nil, fmt.Errorf("subscriptions cannot be updated, please recreate it")
+		return nil, errors.New("subscriptions cannot be updated, please recreate it")
 	}
 
 	return nil, nil

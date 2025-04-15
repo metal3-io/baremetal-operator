@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -152,7 +153,7 @@ func (m *MockServer) ResponseJSON(pattern string, payload interface{}) *MockServ
 func (m *MockServer) ErrorResponse(pattern string, errorCode int) *MockServer {
 	m.t.Logf("%s: adding error response handler for %s", m.name, pattern)
 	m.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		m.logRequest(r, fmt.Sprintf("%d", errorCode))
+		m.logRequest(r, strconv.Itoa(errorCode))
 		http.Error(w, "An error", errorCode)
 	})
 	return m

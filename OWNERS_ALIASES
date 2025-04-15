@@ -11,7 +11,9 @@ aliases:
   - zaneb
 
   baremetal-operator-reviewers:
+  - adilGhaffarDev
   - iurygregory
+  - peppi-lotta
   - s3rj1k
   - tuminoid
   - zhouhao3

@@ -132,13 +132,13 @@ func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, 
 
 // CreateLibvirtVM creates a new virtual machine with the given name,
 // network name, and MAC address. It first creates a qcow2 file with a size
-// of 3GB and defines it in the default storage pool. The function then connects
+// of 3GB and defines it in the baremetal-e2e storage pool. The function then connects
 // to the libvirt daemon and uses a template to generate the VM's XML configuration.
 // If the domain is successfully defined and created, the virtual machine is
 // started. Errors during qcow2 file creation, volume creation, libvirt connection,
 // template rendering, or domain creation are returned.
 func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string) error {
-	poolName := "default"
+	poolName := "baremetal-e2e"
 	poolPath := "/tmp/pool_oo"
 	opts := make(map[string]any)
 	opts[qcow2.OPT_SIZE] = 3 * (1 << 30) // qcow2 file's size is 3g

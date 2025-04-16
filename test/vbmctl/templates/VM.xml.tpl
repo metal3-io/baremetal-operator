@@ -1,11 +1,11 @@
 <domain type='kvm'>
   <name>{{ .Name }}</name>
   <memory unit='KiB'>4194304</memory>
-  <currentMemory unit='KiB'>4194304</currentMemory>
   <vcpu placement='static'>2</vcpu>
   <os>
     <type arch='x86_64' machine='pc-q35-6.2'>hvm</type>
     <boot dev='hd'/>
+    {{- or .OSLoader "" }}
   </os>
   <features>
     <acpi/>

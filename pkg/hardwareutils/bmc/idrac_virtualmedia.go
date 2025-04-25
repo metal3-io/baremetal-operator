@@ -1,7 +1,6 @@
 package bmc
 
 import (
-	"fmt"
 	"net/url"
 )
 
@@ -18,18 +17,17 @@ func init() {
 
 func newRedfishiDracVirtualMediaAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
 	return &redfishiDracVirtualMediaAccessDetails{
-		bmcType:                        parsedURL.Scheme,
-		host:                           parsedURL.Host,
-		path:                           parsedURL.Path,
-		disableCertificateVerification: disableCertificateVerification,
+		redfishAccessDetails{
+			bmcType:                        parsedURL.Scheme,
+			host:                           parsedURL.Host,
+			path:                           parsedURL.Path,
+			disableCertificateVerification: disableCertificateVerification,
+		},
 	}, nil
 }
 
 type redfishiDracVirtualMediaAccessDetails struct {
-	bmcType                        string
-	host                           string
-	path                           string
-	disableCertificateVerification bool
+	redfishAccessDetails
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) Type() string {
@@ -54,18 +52,7 @@ func (a *redfishiDracVirtualMediaAccessDetails) DisableCertificateVerification()
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
 func (a *redfishiDracVirtualMediaAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-	result := map[string]interface{}{
-		"redfish_system_id": a.path,
-		"redfish_username":  bmcCreds.Username,
-		"redfish_password":  bmcCreds.Password,
-		"redfish_address":   getRedfishAddress(a.bmcType, a.host),
-	}
-
-	if a.disableCertificateVerification {
-		result["redfish_verify_ca"] = false
-	}
-
-	return result
+	return a.redfishAccessDetails.DriverInfo(bmcCreds)
 }
 
 // iDrac Virtual Media Overrides
@@ -116,8 +103,5 @@ func (a *redfishiDracVirtualMediaAccessDetails) RequiresProvisioningNetwork() bo
 }
 
 func (a *redfishiDracVirtualMediaAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
-	if firmwareConfig != nil {
-		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
-	}
-	return nil, nil
+	return a.redfishAccessDetails.BuildBIOSSettings(firmwareConfig)
 }

@@ -85,10 +85,13 @@ func getRedfishAddress(bmcType, host string) string {
 // the kernel and ramdisk locations).
 func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
 	result := map[string]interface{}{
-		"redfish_system_id": a.path,
-		"redfish_username":  bmcCreds.Username,
-		"redfish_password":  bmcCreds.Password,
-		"redfish_address":   getRedfishAddress(a.bmcType, a.host),
+		"redfish_username": bmcCreds.Username,
+		"redfish_password": bmcCreds.Password,
+		"redfish_address":  getRedfishAddress(a.bmcType, a.host),
+	}
+	trimmedPath := strings.Trim(a.path, "/")
+	if trimmedPath != "" && trimmedPath != "redfish/v1" {
+		result["redfish_system_id"] = a.path
 	}
 
 	if a.disableCertificateVerification {

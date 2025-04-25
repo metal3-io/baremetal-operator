@@ -685,10 +685,10 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "Redfish",
-			input:    "redfish://192.168.122.1/foo/bar",
+			input:    "redfish://192.168.122.1/redfish/v1/foo/bar",
 			expects: map[string]interface{}{
 				"redfish_address":   "https://192.168.122.1",
-				"redfish_system_id": "/foo/bar",
+				"redfish_system_id": "/redfish/v1/foo/bar",
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
@@ -756,11 +756,44 @@ func TestDriverInfo(t *testing.T) {
 		},
 
 		{
-			Scenario: "Redfish virtual media",
-			input:    "redfish-virtualmedia://192.168.122.1/foo/bar",
+			Scenario: "Redfish no system ID",
+			input:    "redfish+https://192.168.122.1/",
 			expects: map[string]interface{}{
 				"redfish_address":   "https://192.168.122.1",
-				"redfish_system_id": "/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
+				"redfish_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "Redfish wrong system ID",
+			input:    "redfish+https://192.168.122.1/redfish/v1/",
+			expects: map[string]interface{}{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_password":  "",
+				"redfish_username":  "",
+				"redfish_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "Redfish virtual media",
+			input:    "redfish-virtualmedia://192.168.122.1/redfish/v1/foo/bar",
+			expects: map[string]interface{}{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_system_id": "/redfish/v1/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
+				"redfish_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "Redfish virtual media wrong system ID",
+			input:    "redfish-virtualmedia://192.168.122.1/redfish/v1/",
+			expects: map[string]interface{}{
+				"redfish_address":   "https://192.168.122.1",
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,
@@ -793,10 +826,21 @@ func TestDriverInfo(t *testing.T) {
 
 		{
 			Scenario: "idrac virtual media",
-			input:    "idrac-virtualmedia://192.168.122.1/foo/bar",
+			input:    "idrac-virtualmedia://192.168.122.1/redfish/v1/foo/bar",
 			expects: map[string]interface{}{
 				"redfish_address":   "https://192.168.122.1",
-				"redfish_system_id": "/foo/bar",
+				"redfish_system_id": "/redfish/v1/foo/bar",
+				"redfish_password":  "",
+				"redfish_username":  "",
+				"redfish_verify_ca": false,
+			},
+		},
+
+		{
+			Scenario: "idrac virtual media wrong system ID",
+			input:    "idrac-virtualmedia://192.168.122.1/redfish/v1/",
+			expects: map[string]interface{}{
+				"redfish_address":   "https://192.168.122.1",
 				"redfish_password":  "",
 				"redfish_username":  "",
 				"redfish_verify_ca": false,

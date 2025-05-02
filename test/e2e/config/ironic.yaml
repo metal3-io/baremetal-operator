@@ -5,11 +5,11 @@ images:
 # - name: quay.io/metal3-io/ironic:local
 #   loadBehavior: tryLoad
 # Save some time and network by using cached images if available
-- name: quay.io/metal3-io/baremetal-operator:release-0.6
-  loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.8
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.9
+  loadBehavior: tryLoad
+- name: quay.io/metal3-io/baremetal-operator:release-0.10
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.17.1
   loadBehavior: tryLoad
@@ -78,20 +78,9 @@ kindExtraPortMappings:
   hostPort: 6385
   listenAddress: "0.0.0.0"
   protocol: TCP
-- containerPort: 5050
-  hostPort: 5050
-  listenAddress: "0.0.0.0"
-  protocol: TCP
 
 
 bmoIronicUpgradeSpecs:
-# Upgrade BMO 0.6 -> main
-- deployIronic: true
-  deployBMO: true
-  initBMOKustomization: "../../config/overlays/e2e-release-0.6"
-  initIronicKustomization: "../../ironic-deployment/overlays/e2e"
-  upgradeEntityKustomization: "../../config/overlays/e2e"
-  upgradeEntityName: "bmo"
 # Upgrade BMO 0.8 -> main
 - deployIronic: true
   deployBMO: true
@@ -106,24 +95,33 @@ bmoIronicUpgradeSpecs:
   initIronicKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityKustomization: "../../config/overlays/e2e"
   upgradeEntityName: "bmo"
-# Upgrade Ironic 24.1 -> latest | BMO 0.9
+# Upgrade BMO 0.10 -> main
 - deployIronic: true
   deployBMO: true
-  initBMOKustomization: "../../config/overlays/e2e-release-0.9"
-  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-24.1"
-  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
-  upgradeEntityName: "ironic"
-# Upgrade Ironic 25.0 -> latest | BMO 0.9
+  initBMOKustomization: "../../config/overlays/e2e-release-0.10"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityKustomization: "../../config/overlays/e2e"
+  upgradeEntityName: "bmo"
+# Upgrade Ironic 25.0 -> 29.0 | BMO 0.10
+# # NOTE: BMO 0.10 requires Ironic 29.0 or later so we test BMO 0.9 here
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.9"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-25.0"
-  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e-release-29.0"
   upgradeEntityName: "ironic"
-# Upgrade Ironic 26.0 -> latest | BMO 0.9
+# Upgrade Ironic 26.0 -> 29.0 | BMO 0.9
+# NOTE: BMO 0.10 requires Ironic 29.0 or later so we test BMO 0.9 here
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.9"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-26.0"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e-release-29.0"
+  upgradeEntityName: "ironic"
+# Upgrade Ironic 29.0 -> latest | BMO 0.10
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.10"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-29.0"
   upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityName: "ironic"

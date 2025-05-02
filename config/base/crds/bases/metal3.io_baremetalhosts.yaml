@@ -724,7 +724,7 @@ spec:
                         speedGbps:
                           description: The speed of the device in Gigabits per second
                           type: integer
-                        vlanId:
+                        vlanID:
                           description: The untagged VLAN ID
                           format: int32
                           maximum: 4094
@@ -914,11 +914,6 @@ spec:
               provisioning:
                 description: Information tracked by the provisioner.
                 properties:
-                  ID:
-                    description: |-
-                      The hosts's ID from the underlying provisioning tool (e.g. the
-                      Ironic node UUID).
-                    type: string
                   bootMode:
                     description: BootMode indicates the boot mode used to provision
                       the host.
@@ -964,6 +959,11 @@ spec:
                         - false
                         type: boolean
                     type: object
+                  id:
+                    description: |-
+                      The hosts's ID from the underlying provisioning tool (e.g. the
+                      Ironic node UUID).
+                    type: string
                   image:
                     description: |-
                       Image holds the details of the last image successfully
@@ -1223,7 +1223,7 @@ spec:
                       the host.
                     type: string
                 required:
-                - ID
+                - id
                 - state
                 type: object
               triedCredentials:

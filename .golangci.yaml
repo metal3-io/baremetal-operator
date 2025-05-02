@@ -14,7 +14,7 @@ linters:
   - copyloopvar
   - decorder
   - dogsled
-  #- dupl
+  - dupl
   - dupword
   - durationcheck
   - errcheck
@@ -134,16 +134,11 @@ issues:
   - path: test/e2e
     linters:
     - gosec
-  - path: test/e2e
-    linters:
     - goconst
   - path: _test\.go
     linters:
-    - gci
     - goconst
     - gosec
-  - path: _test\.go
-    linters:
     - errcheck
     - gci
     - noctx

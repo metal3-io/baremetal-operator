@@ -11,6 +11,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	retryCount = 3
+)
+
 // hostStateMachine is a finite state machine that manages transitions between
 // the states of a BareMetalHost.
 type hostStateMachine struct {
@@ -559,7 +563,7 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 		case actionFailed:
 			// If the provisioner gives up deprovisioning and
 			// deletion has been requested, continue to delete.
-			if hsm.Host.Status.ErrorCount > 3 {
+			if hsm.Host.Status.ErrorCount > retryCount {
 				info.log.Info("Giving up on host clean up after 3 attempts. The host may still be operational " +
 					"and cause issues in your clusters. You should clean it up manually now.")
 				hsm.NextState = metal3api.StatePoweringOffBeforeDelete
@@ -596,7 +600,7 @@ func (hsm *hostStateMachine) handlePoweringOffBeforeDelete(info *reconcileInfo) 
 	case actionFailed:
 		// If the provisioner gives up deprovisioning and
 		// deletion has been requested, continue to delete.
-		if hsm.Host.Status.ErrorCount > 3 {
+		if hsm.Host.Status.ErrorCount > retryCount {
 			info.log.Info("Giving up on host power off after 3 attempts.")
 			return skipToDelete()
 		}

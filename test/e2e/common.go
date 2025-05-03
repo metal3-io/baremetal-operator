@@ -45,6 +45,9 @@ type PowerState string
 const (
 	PoweredOn  PowerState = "on"
 	PoweredOff PowerState = "off"
+
+	filePerm600 = 0600
+	filePerm750 = 0750
 )
 
 func isUndesiredState(currentState metal3api.ProvisioningState, undesiredStates []metal3api.ProvisioningState) bool {
@@ -223,7 +226,7 @@ func HasRootOnDisk(output string) bool {
 		}
 
 		fields := strings.Fields(line)
-		if len(fields) < 6 {
+		if len(fields) < 6 { //nolint: mnd
 			continue // Skip malformed lines
 		}
 
@@ -507,11 +510,11 @@ func dumpObj[T any](obj T, name string, path string) {
 	Expect(err).ToNot(HaveOccurred(), "Failed to marshal %s", name)
 	fullpath := filepath.Join(path, name)
 	filepath.Clean(fullpath)
-	Expect(os.MkdirAll(filepath.Dir(fullpath), 0750)).To(Succeed(), "Failed to create folders on path %s", filepath.Dir(fullpath))
-	f, err := os.OpenFile(fullpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	Expect(os.MkdirAll(filepath.Dir(fullpath), filePerm750)).To(Succeed(), "Failed to create folders on path %s", filepath.Dir(fullpath))
+	f, err := os.OpenFile(fullpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm600)
 	Expect(err).ToNot(HaveOccurred(), "Failed to open file with path %s", fullpath)
 	defer f.Close()
-	Expect(os.WriteFile(f.Name(), objYaml, 0600)).To(Succeed())
+	Expect(os.WriteFile(f.Name(), objYaml, filePerm600)).To(Succeed())
 }
 
 // DumpCRDs fetches all CRDs and filedumps them.

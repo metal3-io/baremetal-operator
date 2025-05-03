@@ -81,7 +81,7 @@ func getNICDetails(ifdata []inventory.InterfaceType,
 				IP:        intf.IPV4Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,
-				SpeedGbps: intf.SpeedMbps / 1000,
+				SpeedGbps: intf.SpeedMbps / 1000, //nolint:mnd
 				PXE:       pxeEnabled,
 			})
 		}
@@ -94,7 +94,7 @@ func getNICDetails(ifdata []inventory.InterfaceType,
 				IP:        intf.IPV6Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,
-				SpeedGbps: intf.SpeedMbps / 1000,
+				SpeedGbps: intf.SpeedMbps / 1000, //nolint:mnd
 				PXE:       pxeEnabled,
 			})
 		}

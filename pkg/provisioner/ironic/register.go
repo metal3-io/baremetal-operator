@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"regexp"
 
@@ -256,7 +257,7 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 	ironicNode, err = nodes.Create(p.ctx, p.client, nodeCreateOpts).Extract()
 	if err == nil {
 		p.publisher("Registered", "Registered new host")
-	} else if gophercloud.ResponseCodeIs(err, 409) {
+	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not register host in ironic, busy")
 		return nil, true, nil
 	} else {

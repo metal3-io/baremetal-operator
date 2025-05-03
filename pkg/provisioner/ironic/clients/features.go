@@ -47,23 +47,23 @@ func (af AvailableFeatures) Log(logger logr.Logger) {
 }
 
 func (af AvailableFeatures) HasFirmwareUpdates() bool {
-	return af.MaxVersion >= 86
+	return af.MaxVersion >= 86 //nolint:mnd
 }
 
 func (af AvailableFeatures) HasServicing() bool {
-	return af.MaxVersion >= 87
+	return af.MaxVersion >= 87 //nolint:mnd
 }
 
 func (af AvailableFeatures) HasDataImage() bool {
-	return af.MaxVersion >= 89
+	return af.MaxVersion >= 89 //nolint:mnd
 }
 
 func (af AvailableFeatures) HasVirtualMediaGetAPI() bool {
-	return af.MaxVersion >= 93
+	return af.MaxVersion >= 93 //nolint:mnd
 }
 
 func (af AvailableFeatures) HasDisablePowerOff() bool {
-	return af.MaxVersion >= 95
+	return af.MaxVersion >= 95 //nolint:mnd
 }
 
 func (af AvailableFeatures) ChooseMicroversion() string {

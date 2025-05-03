@@ -119,7 +119,7 @@ func (c *Config) Validate() error {
 		switch len(intervals) {
 		case 0:
 			return errors.Errorf("Invalid interval: Intervals[%s]=%q", k, intervals)
-		case 1, 2:
+		case 1, 2: //nolint: mnd
 		default:
 			return errors.Errorf("Invalid interval: Intervals[%s]=%q", k, intervals)
 		}

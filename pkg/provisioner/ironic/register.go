@@ -243,10 +243,13 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 		PowerInterface:      bmcAccess.PowerInterface(),
 		RAIDInterface:       bmcAccess.RAIDInterface(),
 		VendorInterface:     bmcAccess.VendorInterface(),
-		DisablePowerOff:     &data.DisablePowerOff,
 		Properties: map[string]interface{}{
 			"capabilities": buildCapabilitiesValue(nil, data.BootMode),
 		},
+	}
+
+	if data.DisablePowerOff {
+		nodeCreateOpts.DisablePowerOff = &data.DisablePowerOff
 	}
 
 	if p.availableFeatures.HasFirmwareUpdates() {

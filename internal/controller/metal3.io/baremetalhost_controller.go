@@ -353,11 +353,10 @@ func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState)
 }
 
 func (r *BareMetalHostReconciler) credentialsErrorResult(ctx context.Context, err error, request ctrl.Request, host *metal3api.BareMetalHost) (ctrl.Result, error) {
-	switch err.(type) {
 	// In the event a credential secret is defined, but we cannot find it
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
-	case *ResolveBMCSecretRefError:
+	if errors.As(err, &ResolveBMCSecretRefError{}) {
 		credentialsMissing.Inc()
 		saveErr := r.setErrorCondition(ctx, request, host, metal3api.RegistrationError, err.Error())
 		if saveErr != nil {
@@ -366,14 +365,16 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(ctx context.Context, er
 		r.publishEvent(ctx, request, host.NewEvent("BMCCredentialError", err.Error()))
 
 		return ctrl.Result{Requeue: true, RequeueAfter: hostErrorRetryDelay}, nil
+	}
+
 	// If a managed Host is missing a BMC address or secret, or
 	// we have found the secret but it is missing the required fields,
 	// or the BMC address is defined but malformed, we set the
 	// host into an error state but we do not Requeue it
 	// as fixing the secret or the host BMC info will trigger
 	// the host to be reconciled again
-	case *EmptyBMCAddressError, *EmptyBMCSecretError,
-		*bmc.CredentialsValidationError, *bmc.UnknownBMCTypeError:
+	if errors.As(err, &EmptyBMCAddressError{}) || errors.As(err, &EmptyBMCSecretError{}) ||
+		errors.As(err, &bmc.CredentialsValidationError{}) || errors.As(err, &bmc.UnknownBMCTypeError{}) {
 		credentialsInvalid.Inc()
 		saveErr := r.setErrorCondition(ctx, request, host, metal3api.RegistrationError, err.Error())
 		if saveErr != nil {
@@ -383,10 +384,10 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(ctx context.Context, er
 		// after saving so that we only publish one time.
 		r.publishEvent(ctx, request, host.NewEvent("BMCCredentialError", err.Error()))
 		return ctrl.Result{}, nil
-	default:
-		unhandledCredentialsError.Inc()
-		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
 	}
+
+	unhandledCredentialsError.Inc()
+	return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
 }
 
 // hasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist.

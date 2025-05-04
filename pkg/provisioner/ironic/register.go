@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -70,12 +71,12 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 
 	ironicNode, err = p.findExistingHost(p.bootMACAddress)
 	if err != nil {
-		switch err.(type) {
-		case macAddressConflictError:
+		if errors.As(err, &macAddressConflictError{}) {
 			result, err = operationFailed(err.Error())
-		default:
+		} else {
 			result, err = transientError(fmt.Errorf("failed to find existing host: %w", err))
 		}
+
 		return result, "", err
 	}
 
@@ -260,7 +261,7 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 		p.log.Info("could not register host in ironic, busy")
 		return nil, true, nil
 	} else {
-		return nil, true, fmt.Errorf("failed to register host in ironic: %s", err)
+		return nil, true, fmt.Errorf("failed to register host in ironic: %w", err)
 	}
 
 	// If we know the MAC, create a port. Otherwise we will have

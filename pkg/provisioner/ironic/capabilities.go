@@ -30,7 +30,12 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3api.BootMode)
 		// There is no existing capabilities value
 		return bootModeCapabilities[bootMode]
 	}
-	existingCapabilities := capabilities.(string)
+	existingCapabilities, ok := capabilities.(string)
+	if !ok {
+		// The existing value is not a string, so we can replace
+		// the whole thing.
+		return bootModeCapabilities[bootMode]
+	}
 
 	if existingCapabilities == "" {
 		// The existing value is empty so we can replace the whole

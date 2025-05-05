@@ -6,6 +6,7 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,10 +14,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
+func newDemoReconciler(t *testing.T, initObjs ...runtime.Object) *BareMetalHostReconciler {
+	t.Helper()
 	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
 	for _, v := range initObjs {
-		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+		object, ok := v.(client.Object)
+		require.True(t, ok, "Failed to cast object to client.Object")
+		clientBuilder = clientBuilder.WithStatusSubresource(object)
 	}
 	c := clientBuilder.Build()
 
@@ -35,7 +39,7 @@ func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 // a registration error.
 func TestDemoRegistrationError(t *testing.T) {
 	host := newDefaultNamedHost(t, demo.RegistrationErrorHost)
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -53,7 +57,7 @@ func TestDemoRegistrationError(t *testing.T) {
 // that it is being registered.
 func TestDemoRegistering(t *testing.T) {
 	host := newDefaultNamedHost(t, demo.RegisteringHost)
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -71,7 +75,7 @@ func TestDemoRegistering(t *testing.T) {
 // that it is being inspected.
 func TestDemoInspecting(t *testing.T) {
 	host := newDefaultNamedHost(t, demo.InspectingHost)
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -92,7 +96,7 @@ func TestDemoPreparing(t *testing.T) {
 		Checksum: "a-checksum",
 	}
 	host.Spec.Online = true
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -113,7 +117,7 @@ func TestDemoPreparingError(t *testing.T) {
 		Checksum: "a-checksum",
 	}
 	host.Spec.Online = true
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -131,7 +135,7 @@ func TestDemoPreparingError(t *testing.T) {
 // that it is available to be provisioned.
 func TestDemoAvailable(t *testing.T) {
 	host := newDefaultNamedHost(t, demo.AvailableHost)
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -154,7 +158,7 @@ func TestDemoProvisioning(t *testing.T) {
 		Checksum: "a-checksum",
 	}
 	host.Spec.Online = true
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -177,7 +181,7 @@ func TestDemoProvisioned(t *testing.T) {
 		Checksum: "a-checksum",
 	}
 	host.Spec.Online = true
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -200,7 +204,7 @@ func TestDemoValidationError(t *testing.T) {
 		Checksum: "a-checksum",
 	}
 	host.Spec.Online = true
-	r := newDemoReconciler(host)
+	r := newDemoReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {

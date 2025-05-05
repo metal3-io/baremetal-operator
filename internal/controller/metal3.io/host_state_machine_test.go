@@ -18,8 +18,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func testStateMachine(host *metal3api.BareMetalHost) *hostStateMachine {
-	r := newTestReconciler()
+func testStateMachine(t *testing.T, host *metal3api.BareMetalHost) *hostStateMachine {
+	t.Helper()
+	r := newTestReconciler(t)
 	p, _ := r.ProvisionerFactory.NewProvisioner(context.TODO(), provisioner.BuildHostData(*host, bmc.Credentials{}),
 		func(reason, message string) {})
 	return newHostStateMachine(host, r, p, true)
@@ -841,7 +842,7 @@ func TestProvisioningCancelled(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			host := tc.Host
-			hsm := testStateMachine(&host)
+			hsm := testStateMachine(t, &host)
 			actual := hsm.provisioningCancelled()
 			if tc.Expected && !actual {
 				t.Error("expected to need deprovisioning")

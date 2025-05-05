@@ -655,7 +655,8 @@ func TestRegisterNewCredentials(t *testing.T) {
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	assert.Equal(t, "/driver_info", updates[0].Path)
-	newValues := updates[0].Value.(map[string]interface{})
+	newValues, ok := updates[0].Value.(map[string]interface{})
+	require.True(t, ok, "expected to be a map")
 	assert.Equal(t, "test.bmc", newValues["test_address"])
 }
 
@@ -940,7 +941,8 @@ func TestRegisterUpdateBMCAddressIP(t *testing.T) {
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	assert.Equal(t, "/driver_info", updates[0].Path)
-	newValues := updates[0].Value.(map[string]interface{})
+	newValues, ok := updates[0].Value.(map[string]interface{})
+	require.True(t, ok, "expected to be a map")
 	assert.Equal(t, "192.168.122.10", newValues["ipmi_address"])
 }
 
@@ -1001,7 +1003,8 @@ func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	assert.Equal(t, "/driver_info", updates[0].Path)
-	newValues := updates[0].Value.(map[string]interface{})
+	newValues, ok := updates[0].Value.(map[string]interface{})
+	require.True(t, ok, "expected to be a map")
 	assert.Equal(t, "https://192.168.122.1:623", newValues["redfish_address"])
 }
 

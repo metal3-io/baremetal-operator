@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"flag"
-	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -138,19 +138,18 @@ func main() {
 
 	virshDomain := flag.Arg(0)
 	if virshDomain == "" {
-		fmt.Fprintf(os.Stderr, "Missing domain argument\n")
+		log.Printf("Missing domain argument\n")
 		os.Exit(1)
 	}
 
 	if *verbose {
-		fmt.Printf("net: %s domain: %s\n", *provisionNet, virshDomain)
+		log.Printf("net: %s domain: %s\n", *provisionNet, virshDomain)
 	}
 
 	// Figure out the MAC for the VM
 	virshOut, err := exec.Command("sudo", "virsh", "dumpxml", virshDomain).Output() // #nosec
 	if err != nil {
-		fmt.Fprintf(os.Stderr,
-			"ERROR: Could not get details of domain %s: %s\n",
+		log.Printf("ERROR: Could not get details of domain %s: %s\n",
 			virshDomain, err)
 		os.Exit(1)
 	}
@@ -158,19 +157,18 @@ func main() {
 	domainResult := Domain{}
 	err = xml.Unmarshal(virshOut, &domainResult)
 	if err != nil {
-		fmt.Fprintf(os.Stderr,
-			"ERROR: Could not unmarshal details of domain %s: %s\n",
+		log.Printf("ERROR: Could not unmarshal details of domain %s: %s\n",
 			virshDomain, err)
 		os.Exit(1)
 	}
 
 	if *verbose {
-		fmt.Printf("%v\n", domainResult)
+		log.Printf("%v\n", domainResult)
 	}
 
 	for _, iface := range domainResult.Interfaces {
 		if *verbose {
-			fmt.Printf("%v\n", iface)
+			log.Printf("%v\n", iface)
 		}
 		if iface.Source.Bridge == *provisionNet {
 			desiredMAC = iface.MAC.Address
@@ -182,10 +180,10 @@ func main() {
 	b64Password := base64.StdEncoding.EncodeToString([]byte(*password))
 
 	if *verbose {
-		fmt.Printf("Using MAC: %s\n", desiredMAC)
+		log.Printf("Using MAC: %s\n", desiredMAC)
 	}
 	if desiredMAC == "" {
-		fmt.Fprintf(os.Stderr, "Could not find MAC for %s on network %s\n",
+		log.Printf("Could not find MAC for %s on network %s\n",
 			virshDomain, *provisionNet)
 		os.Exit(1)
 	}
@@ -194,21 +192,21 @@ func main() {
 		"vbmc", "list", "-f", "json", "-c", "Domain name", "-c", "Port",
 	).Output()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Could not get details of vbmc: %s\n", err)
+		log.Printf("ERROR: Could not get details of vbmc: %s\n", err)
 		os.Exit(1)
 	}
 
 	var vbmcResult []VBMC
 	err = json.Unmarshal(vbmcOut, &vbmcResult)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Could not unmarshal details of vbmc: %s\n", err)
+		log.Printf("ERROR: Could not unmarshal details of vbmc: %s\n", err)
 		os.Exit(1)
 	}
 
 	nameToPort := make(map[string]int)
 	for _, vbmc := range vbmcResult {
 		if *verbose {
-			fmt.Printf("VBMC: %s: %d\n", vbmc.Name, vbmc.Port)
+			log.Printf("VBMC: %s: %d\n", vbmc.Name, vbmc.Port)
 		}
 		nameToPort[vbmc.Name] = vbmc.Port
 	}
@@ -228,6 +226,6 @@ func main() {
 	t := yamltemplate.Must(yamltemplate.New("yaml_out").Parse(templateBody))
 	err = t.Execute(os.Stdout, args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+		log.Printf("ERROR: %s\n", err)
 	}
 }

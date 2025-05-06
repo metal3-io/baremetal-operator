@@ -444,10 +444,10 @@ func kubectlApply(ctx context.Context, kubeconfigPath string, resources []byte, 
 		testexec.WithStdin(rbytes),
 	)
 
-	fmt.Printf("Running kubectl %s\n", strings.Join(aargs, " "))
+	log.Printf("Running kubectl %s\n", strings.Join(aargs, " "))
 	stdout, stderr, err := applyCmd.Run(ctx)
-	fmt.Printf("stderr:\n%s\n", string(stderr))
-	fmt.Printf("stdout:\n%s\n", string(stdout))
+	log.Printf("stderr:\n%s\n", string(stderr))
+	log.Printf("stdout:\n%s\n", string(stdout))
 	return err
 }
 

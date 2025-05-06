@@ -168,8 +168,14 @@ the ability to backport and release patch versions;
 
 | Minor Release | API Version  | Maintained Until                              |
 | ------------- | ------------ | --------------------------------------------- |
-| v0.4.x        | **v1alpha1** | when v0.6.0 will be released                  |
-| v0.3.x        | **v1alpha1** | when v0.5.0 will be released                  |
+| v0.10.x       | **v1alpha1** | when v0.12.0 will be released                 |
+| v0.9.x        | **v1alpha1** | when v0.11.0 will be released                 |
+| v0.8.x        | **v1alpha1** | EOL since 2025-04-29                          |
+| v0.7.x        | **v1alpha1** | EOL since 2024-12-19                          |
+| v0.6.x        | **v1alpha1** | EOL since 2024-09-03                          |
+| v0.5.x        | **v1alpha1** | EOL since 2024-09-03                          |
+| v0.4.x        | **v1alpha1** | EOL since 2024-04-17                          |
+| v0.3.x        | **v1alpha1** | EOL since 2024-01-08                          |
 | v0.2.x        | **v1alpha1** | EOL since 2023-08-30 (*)                      |
 | v0.1.x        | **v1alpha1** | EOL since 2023-04-26 (*)                      |
 

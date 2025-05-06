@@ -9,6 +9,8 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.9
   loadBehavior: tryLoad
+- name: quay.io/metal3-io/baremetal-operator:release-0.10
+  loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.17.1
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-webhook:v1.17.1
@@ -70,5 +72,10 @@ bmoIronicUpgradeSpecs:
 - deployIronic: false
   deployBMO: true
   initBMOKustomization: "../../config/overlays/fixture-release-0.9"
+  upgradeEntityKustomization: "../../config/overlays/fixture"
+  upgradeEntityName: "bmo"
+- deployIronic: false
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/fixture-release-0.10"
   upgradeEntityKustomization: "../../config/overlays/fixture"
   upgradeEntityName: "bmo"

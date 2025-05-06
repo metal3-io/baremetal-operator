@@ -11,6 +11,8 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.9
   loadBehavior: tryLoad
+- name: quay.io/metal3-io/baremetal-operator:release-0.10
+  loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.17.1
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-webhook:v1.17.1
@@ -106,6 +108,13 @@ bmoIronicUpgradeSpecs:
   initIronicKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityKustomization: "../../config/overlays/e2e"
   upgradeEntityName: "bmo"
+# Upgrade BMO 0.10 -> main
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.10"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityKustomization: "../../config/overlays/e2e"
+  upgradeEntityName: "bmo"
 # Upgrade Ironic 24.1 -> latest | BMO 0.9
 - deployIronic: true
   deployBMO: true
@@ -125,5 +134,19 @@ bmoIronicUpgradeSpecs:
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.9"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-26.0"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"
+# Upgrade Ironic 27.0 -> latest | BMO 0.9
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.9"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-27.0"
+  upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"
+# Upgrade Ironic 29.0 -> latest | BMO 0.10
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.10"
+  initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-29.0"
   upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
   upgradeEntityName: "ironic"

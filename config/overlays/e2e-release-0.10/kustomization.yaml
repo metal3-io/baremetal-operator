@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: baremetal-operator-system
 resources:
-- https://github.com/metal3-io/baremetal-operator/config/overlays/basic-auth_tls?ref=release-0.6&timeout=120s
+- https://github.com/metal3-io/baremetal-operator/config/overlays/basic-auth_tls?ref=release-0.10&timeout=120s
 configMapGenerator:
 - name: ironic
   behavior: create
@@ -19,7 +19,7 @@ patches:
     name: controller-manager
 images:
 - name: quay.io/metal3-io/baremetal-operator
-  newTag: release-0.6
+  newTag: release-0.10
 # We cannot use suffix hashes since the kustomizations we build on
 # cannot be aware of what suffixes we add.
 generatorOptions:

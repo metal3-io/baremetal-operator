@@ -153,15 +153,16 @@ popd
 # Generate credentials
 BMO_OVERLAYS=(
   "${REPO_ROOT}/config/overlays/e2e"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.6"
   "${REPO_ROOT}/config/overlays/e2e-release-0.8"
   "${REPO_ROOT}/config/overlays/e2e-release-0.9"
+  "${REPO_ROOT}/config/overlays/e2e-release-0.10"
 )
 IRONIC_OVERLAYS=(
   "${REPO_ROOT}/ironic-deployment/overlays/e2e"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-24.1"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-25.0"
   "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-26.0"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-27.0"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-28.0"
+  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-29.0"
 )
 
 IRONIC_USERNAME="$(uuidgen)"

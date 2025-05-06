@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: baremetal-operator-system
+resources:
+- https://github.com/metal3-io/baremetal-operator/config/namespace?ref=release-0.9&timeout=120s
+- https://github.com/metal3-io/baremetal-operator/ironic-deployment/base?ref=release-0.9&timeout=120s
+
+components:
+- https://github.com/metal3-io/baremetal-operator/ironic-deployment/components/basic-auth?ref=release-0.9&timeout=120s
+- https://github.com/metal3-io/baremetal-operator/ironic-deployment/components/tls?ref=release-0.9&timeout=120s
+
+configMapGenerator:
+- envs:
+  - ironic_bmo_configmap.env
+  name: ironic-bmo-configmap
+  behavior: create
+
+patches:
+- path: ironic-patch.yaml
+# The TLS component adds certificates but it cannot know the exact IPs of our environment.
+# Here we patch the certificates to have the correct IPs.
+# - 192.168.222.1: management computer IP, forwarded to ironic inside kind
+- patch: |-
+    - op: replace
+      path: /spec/ipAddresses/0
+      value: 192.168.222.1
+  target:
+    kind: Certificate
+    name: ironic-cert
+
+images:
+- name: quay.io/metal3-io/ironic
+  newTag: release-27.0
+
+# NOTE: These credentials are generated automatically in hack/ci-e2e.sh
+secretGenerator:
+- name: ironic-htpasswd
+  behavior: create
+  envs:
+  - ironic-htpasswd

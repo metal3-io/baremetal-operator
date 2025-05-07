@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"embed"
 	"flag"
-	"fmt"
+	"log"
 	"os"
 	"text/template"
 
@@ -42,12 +42,12 @@ func CreateVolumePool(conn *libvirt.Connect, poolName, poolPath string) (*libvir
 	pool, err := conn.LookupStoragePoolByName(poolName)
 
 	if err == nil {
-		fmt.Println("Pool already exists")
+		log.Println("Pool already exists")
 		return pool, nil
 	}
 
 	if err = os.Mkdir(poolPath, 0777); err != nil && !os.IsExist(err) {
-		fmt.Println("Cannot determine the state of the poolPath")
+		log.Println("Cannot determine the state of the poolPath")
 		return nil, err
 	}
 
@@ -62,8 +62,8 @@ func CreateVolumePool(conn *libvirt.Connect, poolName, poolPath string) (*libvir
 	poolCfg, err := RenderTemplate("templates/pool.xml.tpl", data)
 
 	if err != nil {
-		fmt.Println("Failed to read pool XML file")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to read pool XML file")
+		log.Printf("Error occurred: %v\n", err)
 		return nil, err
 	}
 
@@ -71,24 +71,24 @@ func CreateVolumePool(conn *libvirt.Connect, poolName, poolPath string) (*libvir
 	pool, err = conn.StoragePoolDefineXML(poolCfg, 0)
 
 	if err != nil {
-		fmt.Println("Failed to create volume pool")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to create volume pool")
+		log.Printf("Error occurred: %v\n", err)
 		return nil, err
 	}
 
 	if err = pool.SetAutostart(true); err != nil {
-		fmt.Println("Failed to Set the pool autostart")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to Set the pool autostart")
+		log.Printf("Error occurred: %v\n", err)
 		return nil, err
 	}
 
 	if err = pool.Create(0); err != nil {
-		fmt.Println("Failed to Start the pool")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to Start the pool")
+		log.Printf("Error occurred: %v\n", err)
 		return nil, err
 	}
 
-	fmt.Println("Volume pool created successfully")
+	log.Println("Volume pool created successfully")
 	return pool, nil
 }
 
@@ -96,8 +96,8 @@ func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, 
 	pool, err := CreateVolumePool(conn, poolName, poolPath)
 
 	if err != nil {
-		fmt.Println("Failed to create storage pool")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to create storage pool")
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 
@@ -112,8 +112,8 @@ func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, 
 	volumeCfg, err := RenderTemplate("templates/volume.xml.tpl", data)
 
 	if err != nil {
-		fmt.Println("Failed to read volume XML file")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to read volume XML file")
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 
@@ -121,12 +121,12 @@ func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, 
 	_, err = pool.StorageVolCreateXML(volumeCfg, 0)
 
 	if err != nil {
-		fmt.Println("Failed to create volume")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to create volume")
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 
-	fmt.Println("Volume created successfully")
+	log.Println("Volume created successfully")
 	return nil
 }
 
@@ -148,8 +148,8 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 	err := qcow2.Blk_Create("/tmp/"+name+".qcow2", opts)
 
 	if err != nil {
-		fmt.Println("Failed to create qcow2 file")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to create qcow2 file")
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 
@@ -178,12 +178,12 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 	_, err = conn.DomainDefineXML(vmCfg)
 
 	if err != nil {
-		fmt.Println("Failed to define domain")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to define domain")
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 
-	fmt.Println("Domain created successfully")
+	log.Println("Domain created successfully")
 	return nil
 }
 
@@ -219,8 +219,8 @@ func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, nam
 	err = xmlTpl.Execute(&buf, data)
 
 	if err != nil {
-		fmt.Println("Failed to create BMC")
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Println("Failed to create BMC")
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 
@@ -231,11 +231,11 @@ func CreateLibvirtVMWithReservedIPAddress(conn *libvirt.Connect, macAddress, nam
 		buf.String(),
 		libvirt.NETWORK_UPDATE_AFFECT_LIVE|libvirt.NETWORK_UPDATE_AFFECT_CONFIG,
 	); err != nil {
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 	if err = CreateLibvirtVM(conn, name, networkName, macAddress); err != nil {
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Printf("Error occurred: %v\n", err)
 		return err
 	}
 	return nil
@@ -266,7 +266,7 @@ func main() {
 	} else {
 		bmcs, err = bmoe2e.LoadBMCConfig(*configFile)
 		if err != nil {
-			fmt.Printf("Error occurred: %v\n", err)
+			log.Printf("Error occurred: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -274,14 +274,14 @@ func main() {
 	// Connect to Libvirt
 	conn, err := libvirt.NewConnect("qemu:///system")
 	if err != nil {
-		fmt.Printf("Error occurred: %v\n", err)
+		log.Printf("Error occurred: %v\n", err)
 		os.Exit(1)
 	}
 	defer conn.Close()
 
 	for _, bmc := range bmcs {
 		if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, "baremetal-e2e"); err != nil {
-			fmt.Printf("Error occurred: %v\n", err)
+			log.Printf("Error occurred: %v\n", err)
 			// Not using os.Exit here so that we still close the connection
 			break
 		}

@@ -53,6 +53,9 @@ export PATH="/usr/local/go/bin:${PATH}"
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
 "${REPO_ROOT}/hack/e2e/ensure_yq.sh"
 
+sudo apt-get update
+sudo apt-get install -y libvirt-dev pkg-config
+
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
 
@@ -149,9 +152,9 @@ popd
 # Generate credentials
 BMO_OVERLAYS=(
   "${REPO_ROOT}/config/overlays/e2e"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.6"
   "${REPO_ROOT}/config/overlays/e2e-release-0.8"
   "${REPO_ROOT}/config/overlays/e2e-release-0.9"
+  "${REPO_ROOT}/config/overlays/e2e-release-0.10"
 )
 IRONIC_OVERLAYS=(
   "${REPO_ROOT}/ironic-deployment/overlays/e2e"

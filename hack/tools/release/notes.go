@@ -28,9 +28,13 @@ import (
 	"os/exec"
 	"strings"
 
+	"fmt"
+
 	"github.com/blang/semver"
 	"github.com/google/go-github/github"
-	"github.com/pkg/errors"
+
+	"errors"
+
 	"golang.org/x/oauth2"
 )
 
@@ -92,7 +96,7 @@ func lastTag(latestTag string) (string, error) {
 
 		semVersion, err := semver.New(latestTag)
 		if err != nil {
-			return "", errors.Wrapf(err, "parsing semver for %s", latestTag)
+			return "", fmt.Errorf("parsing semver for %s: %w", latestTag, err)
 		}
 		semVersion.Minor--
 		lastReleaseTag := fmt.Sprintf("v%s", semVersion.String())
@@ -103,7 +107,7 @@ func lastTag(latestTag string) (string, error) {
 
 	semVersion, err := semver.New(latestTag)
 	if err != nil {
-		return "", errors.Wrapf(err, "parsing semver for %s", latestTag)
+		return "", fmt.Errorf("parsing semver for %s: %w", latestTag, err)
 	}
 	semVersion.Patch--
 	lastReleaseTag := fmt.Sprintf("v%s", semVersion.String())

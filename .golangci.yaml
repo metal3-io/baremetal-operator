@@ -20,7 +20,7 @@ linters:
   - errcheck
   - errchkjson
   #- errname
-  #- errorlint
+  - errorlint
   #- exhaustive
   - exptostd
   - fatcontext

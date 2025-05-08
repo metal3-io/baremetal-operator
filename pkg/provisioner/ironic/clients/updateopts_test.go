@@ -368,7 +368,9 @@ func TestGetUpdateOperation(t *testing.T) {
 				assert.NotNil(t, updateOp)
 				ev := c.ExpectedValue
 				if ev == "" {
-					ev = c.NewValue.(string)
+					nv, ok := c.NewValue.(string)
+					assert.True(t, ok, "expected NewValue to be a string")
+					ev = nv
 				}
 				assert.Equal(t, c.ExpectedOp, updateOp.Op)
 				assert.Equal(t, ev, updateOp.Value)
@@ -389,7 +391,8 @@ func TestTopLevelUpdateOpt(t *testing.T) {
 	u.SetTopLevelOpt("foo", "baz", "bar")
 	ops := u.Updates
 	assert.Len(t, ops, 1)
-	op := ops[0].(nodes.UpdateOperation)
+	op, ok := ops[0].(nodes.UpdateOperation)
+	assert.True(t, ok, "expected UpdateOperation")
 	assert.Equal(t, nodes.AddOp, op.Op)
 	assert.Equal(t, "baz", op.Value)
 	assert.Equal(t, "/foo", op.Path)
@@ -414,7 +417,8 @@ func TestPropertiesUpdateOpts(t *testing.T) {
 	u.SetPropertiesOpts(newValues, &node)
 	ops := u.Updates
 	assert.Len(t, ops, 1)
-	op := ops[0].(nodes.UpdateOperation)
+	op, ok := ops[0].(nodes.UpdateOperation)
+	assert.True(t, ok, "expected UpdateOperation")
 	assert.Equal(t, nodes.AddOp, op.Op)
 	assert.Equal(t, "quux", op.Value)
 	assert.Equal(t, "/properties/baz", op.Path)
@@ -435,7 +439,8 @@ func TestInstanceInfoUpdateOpts(t *testing.T) {
 	u.SetInstanceInfoOpts(newValues, &node)
 	ops := u.Updates
 	assert.Len(t, ops, 1)
-	op := ops[0].(nodes.UpdateOperation)
+	op, ok := ops[0].(nodes.UpdateOperation)
+	assert.True(t, ok, "expected UpdateOperation")
 	assert.Equal(t, nodes.AddOp, op.Op)
 	assert.Equal(t, "quux", op.Value)
 	assert.Equal(t, "/instance_info/baz", op.Path)

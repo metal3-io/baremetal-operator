@@ -2,6 +2,7 @@ package controllers
 
 import (
 	goctx "context"
+	"fmt"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -16,7 +17,13 @@ import (
 func newDemoReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
 	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
 	for _, v := range initObjs {
-		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+		object, ok := v.(client.Object)
+		if !ok {
+			err := fmt.Errorf("Failed to cast object to client.Object")
+			fmt.Println(err)
+			return nil
+		}
+		clientBuilder = clientBuilder.WithStatusSubresource(object)
 	}
 	c := clientBuilder.Build()
 

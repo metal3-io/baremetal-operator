@@ -2831,6 +2831,30 @@ func TestPreprovImageAvailable(t *testing.T) {
 	}
 }
 
+func TestGetUpdatesDifference(t *testing.T) {
+	hfc := metal3api.HostFirmwareComponents{
+		Status: metal3api.HostFirmwareComponentsStatus{
+			Updates: []metal3api.FirmwareUpdate{
+				{Component: "bmc", URL: "http://example1.com/bmc.exe"},
+				{Component: "bios", URL: "http://example1.com/bios.exe"},
+			},
+		},
+		Spec: metal3api.HostFirmwareComponentsSpec{
+			Updates: []metal3api.FirmwareUpdate{
+				{Component: "bmc", URL: "http://example1.com/bmc.exe"},
+				{Component: "bios", URL: "http://example1.com/bios.exe"},
+				{Component: "bios", URL: "http://example2.com/bios.exe"}},
+		},
+	}
+
+	expected := []metal3api.FirmwareUpdate{
+		{Component: "bios", URL: "http://example2.com/bios.exe"},
+	}
+	diff := getUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
+
+	assert.Equal(t, expected, diff)
+}
+
 // TestHostFirwmareSettings verifies that a change to the HFS
 // can be detected as it will be used to set state to Preparing.
 func TestHostFirmwareSettings(t *testing.T) {

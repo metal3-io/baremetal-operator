@@ -1133,6 +1133,22 @@ func (r *BareMetalHostReconciler) matchProfile(info *reconcileInfo) (dirty bool,
 	return
 }
 
+func getUpdatesDifference(specUpdates []metal3api.FirmwareUpdate, statusUpdates []metal3api.FirmwareUpdate) []metal3api.FirmwareUpdate {
+	diff := []metal3api.FirmwareUpdate{}
+	// Mapping already updated components
+	updated := make(map[string]string, len(statusUpdates))
+	for _, s := range statusUpdates {
+		updated[s.Component] = s.URL
+	}
+
+	for _, firmware := range specUpdates {
+		if _, ok := updated[firmware.Component]; !ok || firmware.URL != updated[firmware.Component] {
+			diff = append(diff, firmware)
+		}
+	}
+	return diff
+}
+
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
 
@@ -1178,7 +1194,12 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		return actionContinue{subResourceNotReadyRetryDelay}
 	}
 	if hfcDirty {
-		prepareData.TargetFirmwareComponents = hfc.Spec.Updates
+		// Handle only Firmware Component that it is in hfc.Spec.Updates but not in hfc.Status.Updates.
+		if hfc.Status.Updates != nil {
+			prepareData.TargetFirmwareComponents = getUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
+		} else {
+			prepareData.TargetFirmwareComponents = hfc.Spec.Updates
+		}
 	}
 
 	provResult, started, err := prov.Prepare(prepareData, bmhDirty || hfsDirty || hfcDirty,
@@ -1426,7 +1447,12 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 			return actionError{fmt.Errorf("could not determine firmware components: %w", err)}
 		}
 		if hfcDirty {
-			servicingData.TargetFirmwareComponents = hfc.Spec.Updates
+			// Handle only Firmware Component that it is in hfc.Spec.Updates but not in hfc.Status.Updates.
+			if hfc.Status.Updates != nil {
+				servicingData.TargetFirmwareComponents = getUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
+			} else {
+				servicingData.TargetFirmwareComponents = hfc.Spec.Updates
+			}
 		}
 	}
 

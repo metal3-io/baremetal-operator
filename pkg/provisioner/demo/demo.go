@@ -8,6 +8,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -97,7 +98,7 @@ func (p *demoProvisioner) Register(_ provisioner.ManagementAccessData, _, _ bool
 		// Always mark the host as dirty so it never moves past this
 		// point.
 		result.Dirty = true
-		result.RequeueAfter = time.Second * 5
+		result.RequeueAfter = time.Second * fixture.DefaultRequeueSecs
 
 	default:
 		if p.provID == "" {
@@ -126,14 +127,14 @@ func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ boo
 		// set dirty so we don't allow the host to progress past this
 		// state in Reconcile()
 		result.Dirty = true
-		result.RequeueAfter = time.Second * 5
+		result.RequeueAfter = time.Second * fixture.DefaultRequeueSecs
 		return result, started, nil, nil
 	}
 
 	p.log.Info("continuing inspection by setting details")
 	details =
 		&metal3api.HardwareDetails{
-			RAMMebibytes: 128 * 1024,
+			RAMMebibytes: fixture.DefaultRAMMebibytes * fixture.DefaultGB,
 			NIC: []metal3api.NIC{
 				{
 					Name:      "nic-1",
@@ -156,20 +157,20 @@ func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ boo
 				{
 					Name:       "disk-1 (boot)",
 					Rotational: false,
-					SizeBytes:  metal3api.TebiByte * 93,
+					SizeBytes:  metal3api.TebiByte * fixture.DefaultSizeBytes,
 					Model:      "Dell CFJ61",
 				},
 				{
 					Name:       "disk-2",
 					Rotational: false,
-					SizeBytes:  metal3api.TebiByte * 93,
+					SizeBytes:  metal3api.TebiByte * fixture.DefaultSizeBytes,
 					Model:      "Dell CFJ61",
 				},
 			},
 			CPU: metal3api.CPU{
 				Arch:           "x86_64",
 				Model:          "Core 2 Duo",
-				ClockMegahertz: 3.0 * metal3api.GigaHertz,
+				ClockMegahertz: fixture.DefaultClockMegahertz * metal3api.GigaHertz,
 				Flags:          []string{"lm", "hypervisor", "vmx"},
 				Count:          1,
 			},
@@ -201,7 +202,7 @@ func (p *demoProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ 
 		p.log.Info("preparing host")
 		started = unprepared
 		result.Dirty = true
-		result.RequeueAfter = time.Second * 5
+		result.RequeueAfter = time.Second * fixture.DefaultRequeueSecs
 
 	default:
 		p.log.Info("finished preparing")
@@ -223,7 +224,7 @@ func (p *demoProvisioner) Service(_ provisioner.ServicingData, unprepared bool, 
 		p.log.Info("servicing host")
 		started = unprepared
 		result.Dirty = true
-		result.RequeueAfter = time.Second * 5
+		result.RequeueAfter = time.Second * fixture.DefaultRequeueSecs
 
 	default:
 		p.log.Info("finished servicing")
@@ -256,7 +257,7 @@ func (p *demoProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result
 	case ProvisioningHost:
 		p.log.Info("provisioning host")
 		result.Dirty = true
-		result.RequeueAfter = time.Second * 5
+		result.RequeueAfter = time.Second * fixture.DefaultRequeueSecs
 
 	default:
 		p.log.Info("finished provisioning")

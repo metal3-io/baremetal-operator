@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -175,7 +176,7 @@ func (p *ironicProvisioner) getNode() (*nodes.Node, error) {
 		return ironicNode, nil
 	}
 
-	if gophercloud.ResponseCodeIs(err, 404) {
+	if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
 		// Look by ID failed, trying to lookup by hostname in case it was
 		// previously created
 		return nil, provisioner.ErrNeedsRegistration
@@ -250,7 +251,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 			return ironicNode, nil
 		}
 
-		if gophercloud.ResponseCodeIs(err, 404) {
+		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
 			p.log.Info(fmt.Sprintf("node with name %s doesn't exist", nodeName))
 		} else {
 			return nil, fmt.Errorf("failed to find node by name %s: %w", nodeName, err)
@@ -279,7 +280,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 
 			return ironicNode, nil
 		}
-		if gophercloud.ResponseCodeIs(err, 404) {
+		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
 			return nil, fmt.Errorf("port %s exists but linked node %s doesn't: %w", bootMACAddress, nodeUUID, err)
 		}
 		return nil, fmt.Errorf("port %s exists but failed to find linked node %s by ID: %w", bootMACAddress, nodeUUID, err)
@@ -489,7 +490,7 @@ func (p *ironicProvisioner) tryUpdateNode(ironicNode *nodes.Node, updater *clien
 	updatedNode, err = nodes.Update(p.ctx, p.client, ironicNode.UUID, updater.Updates).Extract()
 	if err == nil {
 		success = true
-	} else if gophercloud.ResponseCodeIs(err, 409) {
+	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not update node settings in ironic, busy or update cannot be applied in the current state")
 		result, err = retryAfterDelay(provisionRequeueDelay)
 	} else {
@@ -521,7 +522,7 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ironicNode *nodes.Node, 
 	changeResult := nodes.ChangeProvisionState(p.ctx, p.client, ironicNode.UUID, opts)
 	if changeResult.Err == nil {
 		success = true
-	} else if gophercloud.ResponseCodeIs(changeResult.Err, 409) {
+	} else if gophercloud.ResponseCodeIs(changeResult.Err, http.StatusConflict) {
 		p.log.Info("could not change state of host, busy")
 		result, err = retryAfterDelay(provisionRequeueDelay)
 		return success, result, err
@@ -758,7 +759,7 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 	}
 
 	// Setting to 2 since we only support bmc and bios
-	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 2)
+	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 2) //nolint:mnd
 
 	if ironicNode.FirmwareInterface == "no-firmware" {
 		return componentsInfo, provisioner.ErrFirmwareUpdateUnsupported
@@ -805,7 +806,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 	}
 
 	errorMessage, err := p.validateNode(ironicNode)
-	if gophercloud.ResponseCodeIs(err, 409) {
+	if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not validate host during registration, busy")
 		return retryAfterDelay(provisionRequeueDelay)
 	} else if err != nil {
@@ -1345,7 +1346,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 
 	if err == nil {
 		result, err = operationContinuing(0)
-	} else if gophercloud.ResponseCodeIs(err, 409) {
+	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not update maintenance in ironic, busy")
 		result, err = retryAfterDelay(provisionRequeueDelay)
 	} else {
@@ -1511,10 +1512,10 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	err = nodes.Delete(p.ctx, p.client, ironicNode.UUID).ExtractErr()
 	if err == nil {
 		p.log.Info("removed")
-	} else if gophercloud.ResponseCodeIs(err, 409) {
+	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not remove host, busy")
 		return retryAfterDelay(provisionRequeueDelay)
-	} else if gophercloud.ResponseCodeIs(err, 404) {
+	} else if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
 		p.log.Info("did not find host to delete, OK")
 	} else {
 		return transientError(fmt.Errorf("failed to remove host: %w", err))
@@ -1581,10 +1582,10 @@ func (p *ironicProvisioner) changePower(ironicNode *nodes.Node, target nodes.Tar
 		}[target]
 		p.publisher(event.Event, event.Reason)
 		return operationContinuing(0)
-	} else if gophercloud.ResponseCodeIs(changeResult.Err, 409) {
+	} else if gophercloud.ResponseCodeIs(changeResult.Err, http.StatusConflict) {
 		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
 		return retryAfterDelay(powerRequeueDelay)
-	} else if gophercloud.ResponseCodeIs(changeResult.Err, 400) {
+	} else if gophercloud.ResponseCodeIs(changeResult.Err, http.StatusBadRequest) {
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		if target == nodes.SoftPowerOff {
 			changeResult.Err = softPowerOffUnsupportedError{changeResult.Err}

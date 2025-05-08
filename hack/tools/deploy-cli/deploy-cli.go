@@ -21,6 +21,11 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
+const (
+	filePerm755 = 0755
+	filePerm600 = 0600
+)
+
 // DeployContext defines the context of the deploy run.
 type DeployContext struct {
 	Context context.Context
@@ -75,7 +80,7 @@ func (d *DeployContext) determineIronicAuth() error {
 	ironicAuthDir := filepath.Join(ironicDataDir, "auth")
 	ironicUsernameFile := filepath.Join(ironicAuthDir, "ironic-username")
 
-	if err := os.MkdirAll(ironicAuthDir, 0755); err != nil {
+	if err := os.MkdirAll(ironicAuthDir, filePerm755); err != nil {
 		return err
 	}
 
@@ -84,24 +89,24 @@ func (d *DeployContext) determineIronicAuth() error {
 		return err
 	}
 	if ironicUsername == "" {
-		ironicUsername, err = GenerateRandomString(12)
+		ironicUsername, err = GenerateRandomString(12) //nolint: mnd
 		if err != nil {
 			return err
 		}
 	}
-	if err = os.WriteFile(ironicUsernameFile, []byte(ironicUsername), 0600); err != nil {
+	if err = os.WriteFile(ironicUsernameFile, []byte(ironicUsername), filePerm600); err != nil {
 		return err
 	}
 
 	ironicPasswordFile := filepath.Join(ironicAuthDir, "ironic-password")
 	ironicPassword, err := getEnvOrFileContent("IRONIC_PASSWORD", ironicPasswordFile)
 	if err != nil || ironicPassword == "" {
-		ironicPassword, err = GenerateRandomString(12)
+		ironicPassword, err = GenerateRandomString(12) //nolint: mnd
 		if err != nil {
 			return err
 		}
 	}
-	if err = os.WriteFile(ironicPasswordFile, []byte(ironicPassword), 0600); err != nil {
+	if err = os.WriteFile(ironicPasswordFile, []byte(ironicPassword), filePerm600); err != nil {
 		return err
 	}
 
@@ -132,9 +137,9 @@ func (d *DeployContext) deployIronic() error {
 		if d.BMOPath != "" {
 			ironicOverlay = filepath.Join(d.BMOPath, "ironic-deployment", "overlays", "temp")
 			ironicKustomizeTpl = "templates/ironic-kustomize-bmopath.tpl"
-			err = EnsureCleanDirectory(ironicOverlay, 0755)
+			err = EnsureCleanDirectory(ironicOverlay, filePerm755)
 		} else {
-			ironicOverlay, err = MakeRandomDirectory("/tmp/ironic-overlay-", 0755)
+			ironicOverlay, err = MakeRandomDirectory("/tmp/ironic-overlay-", filePerm755)
 			ironicKustomizeTpl = "templates/ironic-kustomize.tpl"
 		}
 
@@ -176,7 +181,7 @@ func (d *DeployContext) deployIronic() error {
 			return err
 		}
 		htpasswdPath := filepath.Join(d.IronicOverlay, "ironic-htpasswd")
-		if err = os.WriteFile(htpasswdPath, []byte(ironicHtpasswd), 0600); err != nil {
+		if err = os.WriteFile(htpasswdPath, []byte(ironicHtpasswd), filePerm600); err != nil {
 			return err
 		}
 	}
@@ -205,9 +210,9 @@ func (d *DeployContext) deployBMO() error {
 		if d.BMOPath != "" {
 			bmoOverlay = filepath.Join(d.BMOPath, "config", "overlays", "temp")
 			kustomizeTpl = "templates/bmo-kustomize-bmopath.tpl"
-			err = EnsureCleanDirectory(bmoOverlay, 0755)
+			err = EnsureCleanDirectory(bmoOverlay, filePerm755)
 		} else {
-			bmoOverlay, err = MakeRandomDirectory("/tmp/bmo-overlay-", 0755)
+			bmoOverlay, err = MakeRandomDirectory("/tmp/bmo-overlay-", filePerm755)
 			kustomizeTpl = "templates/bmo-kustomize.tpl"
 		}
 		if err != nil {
@@ -238,11 +243,11 @@ func (d *DeployContext) deployBMO() error {
 	username, password := d.IronicUsername, d.IronicPassword
 	if username != "" && password != "" {
 		usernameFile := filepath.Join(bmoOverlay, "ironic-username")
-		if err := os.WriteFile(usernameFile, []byte(username), 0600); err != nil {
+		if err := os.WriteFile(usernameFile, []byte(username), filePerm600); err != nil {
 			return err
 		}
 		passwordFile := filepath.Join(bmoOverlay, "ironic-password")
-		if err := os.WriteFile(passwordFile, []byte(password), 0600); err != nil {
+		if err := os.WriteFile(passwordFile, []byte(password), filePerm600); err != nil {
 			return err
 		}
 	}
@@ -344,7 +349,7 @@ func EnsureCleanDirectory(name string, perm os.FileMode) error {
 // MakeRandomDirectory generates a new directory whose name starts with the
 // provided prefix and ends with a random string.
 func MakeRandomDirectory(prefix string, perm os.FileMode) (string, error) {
-	randomStr, err := GenerateRandomString(6)
+	randomStr, err := GenerateRandomString(6) //nolint: mnd
 	if err != nil {
 		return "", err
 	}

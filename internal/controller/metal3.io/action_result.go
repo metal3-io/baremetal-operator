@@ -13,7 +13,10 @@ import (
 
 // This is an upper limit for the ErrorCount, so that the max backoff
 // timeout will not exceed (roughly) 8 hours.
-const maxBackOffCount = 9
+const (
+	maxBackOffCount = 9
+	defaultBackoff  = 0.5
+)
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -139,7 +142,7 @@ func calculateBackoff(errorCount int) time.Duration {
 	}
 
 	base := math.Exp2(float64(errorCount))
-	backOff := base - (rand.Float64() * base * 0.5) // #nosec
+	backOff := base - (rand.Float64() * base * defaultBackoff) // #nosec
 	backOffDuration := time.Duration(float64(time.Minute) * backOff)
 	return backOffDuration
 }

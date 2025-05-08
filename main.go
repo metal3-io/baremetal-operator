@@ -144,11 +144,11 @@ func main() {
 		"use the demo provisioner to set host states")
 	flag.StringVar(&healthAddr, "health-addr", ":9440",
 		"The address the health endpoint binds to.")
-	flag.IntVar(&webhookPort, "webhook-port", 9443,
+	flag.IntVar(&webhookPort, "webhook-port", 9443, //nolint:mnd
 		"Webhook Server port (set to 0 to disable)")
-	flag.Float64Var(&restConfigQPS, "kube-api-qps", 20,
+	flag.Float64Var(&restConfigQPS, "kube-api-qps", 20, //nolint:mnd
 		"Maximum queries per second from the controller client to the Kubernetes API server. Default 20")
-	flag.IntVar(&restConfigBurst, "kube-api-burst", 30,
+	flag.IntVar(&restConfigBurst, "kube-api-burst", 30, //nolint:mnd
 		"Maximum number of queries that should be allowed in one burst from the controller client to the Kubernetes API server. Default 30")
 	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", TLSVersion12,
 		"The minimum TLS version in use by the webhook server.\n"+
@@ -436,10 +436,10 @@ func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
 	// controller-concurrency value is 0 i.e. no values passed via the flag
 	// maxConcurrentReconcile value would be set based on env var or number of CPUs.
 	maxConcurrentReconciles := runtime.NumCPU()
-	if maxConcurrentReconciles > 8 {
+	if maxConcurrentReconciles > 8 { //nolint:mnd
 		maxConcurrentReconciles = 8
 	}
-	if maxConcurrentReconciles < 2 {
+	if maxConcurrentReconciles < 2 { //nolint:mnd
 		maxConcurrentReconciles = 2
 	}
 	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {

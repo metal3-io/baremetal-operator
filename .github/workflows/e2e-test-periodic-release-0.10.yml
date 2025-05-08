@@ -1,4 +1,4 @@
-name: Periodic E2E Test release-0.6
+name: Periodic E2E Test release-0.10
 
 on:
   schedule:
@@ -20,6 +20,6 @@ jobs:
     uses: ./.github/workflows/e2e-test.yml
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}
-      ref: release-0.6
+      ref: release-0.10
     permissions:
       contents: read

@@ -9,26 +9,26 @@ status:
   hardwareModel: "ModelT"
   schema:
     - "ProcVirtualization":
-         attribute_type: "Enumeration"
-         allowable_values:
+         attributeType: "Enumeration"
+         allowableValues:
            - "Enabled"
            - "Disabled"
-         read_only: false
+         readOnly: false
     - "ProcCPUCores":
-         attribute_type: "Integer"
-         lower_bound: 1
-         read_only: true
-         upper_bound: 100
+         attributeType: "Integer"
+         lowerBound: 1
+         readOnly: true
+         upperBound: 100
     - "SRIOV":
-         allowable_values:
+         allowableValues:
            - "Enabled"
            - "Disabled"
     - "SystemModelName":
-         attribute_type: "String"
-         max_length: 40
-         min_length: 0
-         read_only: true
+         attributeType: "String"
+         maxLength: 40
+         minLength: 0
+         readOnly: true
     - "SerialNumber":
-         attribute_type: "String"
-         max_length: 16
-         min_length: 0
+         attributeType: "String"
+         maxLength: 16
+         minLength: 0

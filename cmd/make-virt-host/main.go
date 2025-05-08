@@ -103,11 +103,11 @@ type TemplateArgs struct {
 }
 
 /*
-vbmc list -f json -c 'Domain name' -c Port
+vbmc list -f json -c 'domainName' -c port
 [
   {
-    "Port": 6230,
-    "Domain name": "openshift_master_0"
+    "port": 6230,
+    "domainName": "openshift_master_0"
   }, ...
 ]
 */
@@ -115,8 +115,8 @@ vbmc list -f json -c 'Domain name' -c Port
 // VBMC holds the parameters for describing a virtual machine
 // controller.
 type VBMC struct {
-	Port int    `json:"Port"`
-	Name string `json:"Domain name"`
+	Port int    `json:"port"`
+	Name string `json:"domainName"`
 }
 
 func main() {
@@ -191,7 +191,7 @@ func main() {
 	}
 
 	vbmcOut, err := exec.Command(
-		"vbmc", "list", "-f", "json", "-c", "Domain name", "-c", "Port",
+		"vbmc", "list", "-f", "json", "-c", "domainName", "-c", "port",
 	).Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Could not get details of vbmc: %s\n", err)

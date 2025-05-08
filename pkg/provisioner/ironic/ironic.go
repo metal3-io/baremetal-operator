@@ -107,7 +107,7 @@ type ironicProvisioner struct {
 type VirtualMedia struct {
 	Image      string   `json:"image"`
 	Inserted   bool     `json:"inserted"`
-	MediaTypes []string `json:"media_types"`
+	MediaTypes []string `json:"mediaTypes"`
 }
 
 func (p *ironicProvisioner) bmcAccess() (bmc.AccessDetails, error) {

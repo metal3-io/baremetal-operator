@@ -114,7 +114,7 @@ spec:
                         speedGbps:
                           description: The speed of the device in Gigabits per second
                           type: integer
-                        vlanId:
+                        vlanID:
                           description: The untagged VLAN ID
                           format: int32
                           maximum: 4094

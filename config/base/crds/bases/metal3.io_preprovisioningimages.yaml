@@ -151,11 +151,11 @@ spec:
                 - iso
                 - initrd
                 type: string
-              imageUrl:
-                description: imageUrl is the URL from which the built image can be
+              imageURL:
+                description: imageURL is the URL from which the built image can be
                   downloaded.
                 type: string
-              kernelUrl:
+              kernelURL:
                 description: |-
                   kernelUrl is the URL from which the kernel of the image can be downloaded.
                   Only makes sense for initrd images.

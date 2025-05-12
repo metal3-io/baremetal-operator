@@ -29,7 +29,6 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -139,13 +138,13 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{}, errors.Wrap(err, "could not load hostFirmwareSettings")
+		return ctrl.Result{}, fmt.Errorf("could not load hostFirmwareSettings %w", err)
 	}
 
 	// Create a provisioner that can access Ironic API
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
+		return ctrl.Result{}, fmt.Errorf("failed to create provisioner %w", err)
 	}
 
 	ready, err := prov.TryInit()
@@ -170,7 +169,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if err = r.updateHostFirmwareSettings(currentSettings, schema, info); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "Could not update hostFirmwareSettings")
+		return ctrl.Result{}, fmt.Errorf("Could not update hostFirmwareSettings %w", err)
 	}
 
 	for _, e := range info.events {
@@ -190,11 +189,11 @@ func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSetti
 	// get or create a firmwareSchema to hold schema
 	firmwareSchema, err := r.getOrCreateFirmwareSchema(info, schema)
 	if err != nil {
-		return errors.Wrap(err, "could not get/create firmware schema")
+		return fmt.Errorf("could not get/create firmware schema %w", err)
 	}
 
 	if err = r.updateStatus(info, currentSettings, firmwareSchema); err != nil {
-		return errors.Wrap(err, "could not update hostFirmwareSettings")
+		return fmt.Errorf("could not update hostFirmwareSettings %w", err)
 	}
 
 	return nil
@@ -303,7 +302,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 
 		// Add hfs as owner so can be garbage collected on delete, if already an owner it will just be overwritten
 		if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
-			return nil, errors.Wrap(err, "could not set owner of existing firmwareSchema")
+			return nil, fmt.Errorf("could not set owner of existing firmwareSchema %w", err)
 		}
 		if err = r.Update(info.ctx, firmwareSchema); err != nil {
 			return nil, err
@@ -344,7 +343,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 	}
 	// Set hfs as owner
 	if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
-		return nil, errors.Wrap(err, "could not set owner of firmwareSchema")
+		return nil, fmt.Errorf("could not set owner of firmwareSchema %w", err)
 	}
 
 	if err = r.Create(info.ctx, firmwareSchema); err != nil {

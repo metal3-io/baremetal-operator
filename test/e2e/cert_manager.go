@@ -11,7 +11,6 @@ import (
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,16 +26,16 @@ func checkCertManagerAPI(clusterProxy framework.ClusterProxy) error {
 func installCertManager(ctx context.Context, clusterProxy framework.ClusterProxy, cmVersion string) error {
 	response, err := http.Get(fmt.Sprintf("https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml", cmVersion)) //nolint: noctx
 	if err != nil {
-		return errors.Wrapf(err, "Error downloading cert-manager manifest")
+		return fmt.Errorf("error downloading cert-manager manifest: %w", err)
 	}
 	defer response.Body.Close()
 	manifests, err := io.ReadAll(response.Body)
 	if err != nil {
-		return errors.Wrapf(err, "Error reading downloaded cert-manager manifest")
+		return fmt.Errorf("error reading downloaded cert-manager manifest: %w", err)
 	}
 	err = clusterProxy.CreateOrUpdate(ctx, manifests)
 	if err != nil {
-		return errors.Wrapf(err, "Error installing cert-manager from downloaded manifest")
+		return fmt.Errorf("error installing cert-manager from downloaded manifest: %w", err)
 	}
 	return nil
 }
@@ -70,7 +69,7 @@ func checkCertManagerWebhook(ctx context.Context, clusterProxy framework.Cluster
 		},
 	}
 	if err = c.Create(ctx, issuer); err != nil {
-		return errors.Wrapf(err, "cert-manager webhook not ready")
+		return fmt.Errorf("cert-manager webhook not ready: %w", err)
 	}
 	cert := &cmapi.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -86,7 +85,7 @@ func checkCertManagerWebhook(ctx context.Context, clusterProxy framework.Cluster
 	}
 
 	if err = c.Create(ctx, cert); err != nil {
-		return errors.Wrapf(err, "cert-manager webhook not ready")
+		return fmt.Errorf("cert-manager webhook not ready: %w", err)
 	}
 	return nil
 }

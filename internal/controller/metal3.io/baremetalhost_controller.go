@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -31,7 +32,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -129,7 +129,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{}, errors.Wrap(err, "could not load host data")
+		return ctrl.Result{}, fmt.Errorf("could not load host data %w", err)
 	}
 
 	// If the reconciliation is paused, requeue
@@ -143,7 +143,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	hostData, err := r.reconcileHostData(ctx, host, request)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "Could not reconcile host data")
+		return ctrl.Result{}, fmt.Errorf("Could not reconcile host data %w", err)
 	} else if hostData.Requeue {
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -151,7 +151,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	// Consume hardwaredetails from annotation if present
 	hwdUpdated, err := r.updateHardwareDetails(ctx, request, host)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "Could not update Hardware Details")
+		return ctrl.Result{}, fmt.Errorf("Could not update Hardware Details %w", err)
 	} else if hwdUpdated {
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -172,7 +172,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 			metal3api.BareMetalHostFinalizer)
 		err := r.Update(ctx, host)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -212,7 +212,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
+		return ctrl.Result{}, fmt.Errorf("failed to create provisioner %w", err)
 	}
 
 	ready, err := prov.TryInit()
@@ -233,7 +233,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	result, err = actResult.Result()
 
 	if err != nil {
-		err = errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
+		err = fmt.Errorf("action %q failed: %w", initialState, err)
 		return result, err
 	}
 
@@ -248,8 +248,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 			"provisioning state", host.Status.Provisioning.State)
 		err = r.saveHostStatus(ctx, host)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err,
-				fmt.Sprintf("failed to save host status after %q", initialState))
+			return ctrl.Result{}, fmt.Errorf("failed to save host status after %q: %w", initialState, err)
 		}
 
 		for _, cb := range info.postSaveCallbacks {
@@ -273,13 +272,13 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(ctx context.Context, req
 	if host.Status.HardwareDetails == nil || inspectionDisabled(host) {
 		objHardwareDetails, err := r.getHardwareDetailsFromAnnotation(host)
 		if err != nil {
-			return updated, errors.Wrap(err, "Error parsing HardwareDetails from annotation")
+			return updated, fmt.Errorf("Error parsing HardwareDetails from annotation: %w", err)
 		}
 		if objHardwareDetails != nil {
 			host.Status.HardwareDetails = objHardwareDetails
 			err = r.saveHostStatus(ctx, host)
 			if err != nil {
-				return updated, errors.Wrap(err, "Could not update hardwaredetails from annotation")
+				return updated, fmt.Errorf("Could not update hardwaredetails from annotation: %w", err)
 			}
 			r.publishEvent(ctx, request, host.NewEvent("UpdateHardwareDetails", "Set HardwareDetails from annotation"))
 			updated = true
@@ -292,7 +291,7 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(ctx context.Context, req
 		delete(host.Annotations, metal3api.HardwareDetailsAnnotation)
 		err := r.Update(ctx, host)
 		if err != nil {
-			return updated, errors.Wrap(err, "Could not update removing hardwaredetails annotation")
+			return updated, fmt.Errorf("Could not update removing hardwaredetails annotation: %w", err)
 		}
 		// In the case where the value was not just consumed, generate an event
 		if !updated {
@@ -385,7 +384,7 @@ func (r *BareMetalHostReconciler) credentialsErrorResult(ctx context.Context, er
 		return ctrl.Result{}, nil
 	default:
 		unhandledCredentialsError.Inc()
-		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred with the BMC secret")
+		return ctrl.Result{}, fmt.Errorf("An unhandled failure occurred with the BMC secret: %w", err)
 	}
 }
 
@@ -507,7 +506,7 @@ func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(prov provisioner.
 		info.host.Status.ErrorType == metal3api.PowerManagementError)
 
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to power off before deleting node")}
+		return actionError{fmt.Errorf("failed to power off before deleting node: %w", err)}
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -540,7 +539,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 
 	provResult, err := prov.Delete()
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to delete")}
+		return actionError{fmt.Errorf("failed to delete: %w", err)}
 	}
 	if provResult.Dirty {
 		return actionContinue{provResult.RequeueAfter}
@@ -559,7 +558,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	info.log.Info("cleanup is complete, removed finalizer",
 		"remaining", info.host.Finalizers)
 	if err := r.Update(info.ctx, info.host); err != nil {
-		return actionError{errors.Wrap(err, "failed to remove finalizer")}
+		return actionError{fmt.Errorf("failed to remove finalizer: %w", err)}
 	}
 
 	return deleteComplete{}
@@ -607,7 +606,7 @@ func hasCustomDeploy(host *metal3api.BareMetalHost) bool {
 func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	provResult, err := prov.Detach()
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to detach")}
+		return actionError{fmt.Errorf("failed to detach: %w", err)}
 	}
 	if provResult.ErrorMessage != "" {
 		return recordActionFailure(info, metal3api.DetachError, provResult.ErrorMessage)
@@ -748,7 +747,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		return nil, err
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve pre-provisioning image data")
+		return nil, fmt.Errorf("failed to retrieve pre-provisioning image data: %w", err)
 	}
 
 	needsUpdate := false
@@ -861,7 +860,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	}
 	if err != nil {
 		noManagementAccess.Inc()
-		return actionError{errors.Wrap(err, "failed to validate BMC access")}
+		return actionError{fmt.Errorf("failed to validate BMC access: %w", err)}
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -912,17 +911,17 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		} else {
 			if err = r.createHostFirmwareSettings(info); err != nil {
 				info.log.Info("failed creating hostfirmwaresettings")
-				return actionError{errors.Wrap(err, "failed creating hostFirmwareSettings")}
+				return actionError{fmt.Errorf("failed creating hostFirmwareSettings: %w", err)}
 			}
 			if supportsFirmwareComponents {
 				if err = r.createHostFirmwareComponents(info); err != nil {
 					info.log.Info("failed creating hostfirmwarecomponents")
-					return actionError{errors.Wrap(err, "failed creating hostFirmwareComponents")}
+					return actionError{fmt.Errorf("failed creating hostFirmwareComponents: %w", err)}
 				}
 			}
 			if _, err = r.acquireHostUpdatePolicy(info); err != nil {
 				info.log.Info("failed setting owner reference on hostupdatepolicy")
-				return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
+				return actionError{fmt.Errorf("failed setting owner reference on hostUpdatePolicy: %w", err)}
 			}
 		}
 	}
@@ -959,7 +958,7 @@ func updateRootDeviceHints(host *metal3api.BareMetalHost, info *reconcileInfo) (
 	if hintSource == nil {
 		hwProf, err := profile.GetProfile(host.HardwareProfile())
 		if err != nil {
-			return false, errors.Wrap(err, "failed to update root device hints")
+			return false, fmt.Errorf("failed to update root device hints: %w", err)
 		}
 		hintSource = &hwProf.RootDeviceHints
 	}
@@ -994,7 +993,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		refresh,
 		forceReboot)
 	if err != nil {
-		return actionError{errors.Wrap(err, "hardware inspection failed")}
+		return actionError{fmt.Errorf("hardware inspection failed: %w", err)}
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -1017,7 +1016,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 
 		if dirty {
 			if err := r.Update(info.ctx, info.host); err != nil {
-				return actionError{errors.Wrap(err, "failed to update the host after inspection start")}
+				return actionError{fmt.Errorf("failed to update the host after inspection start: %w", err)}
 			}
 			return actionContinue{}
 		}
@@ -1069,10 +1068,10 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 		}
 		if err := r.Update(info.ctx, hardwareData); err != nil {
-			return actionError{errors.Wrap(err, "failed to remove hardwareData finalizer")}
+			return actionError{fmt.Errorf("failed to remove hardwareData finalizer: %w", err)}
 		}
 		if err := r.Client.Delete(info.ctx, hd); err != nil {
-			return actionError{errors.Wrap(err, "failed to delete hardwareData")}
+			return actionError{fmt.Errorf("failed to delete hardwareData: %w", err)}
 		}
 	}
 
@@ -1083,7 +1082,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 
 	// either hardwareData was deleted above, or not found. We need to re-create it
 	if err := r.Client.Create(info.ctx, hd); err != nil {
-		return actionError{errors.Wrap(err, "failed to create hardwareData")}
+		return actionError{fmt.Errorf("failed to create hardwareData: %w", err)}
 	}
 	info.log.Info(fmt.Sprintf("Created hardwareData %q in %q namespace\n", hd.Name, hd.Namespace))
 
@@ -1185,7 +1184,7 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		info.host.Status.ErrorType == metal3api.PreparationError)
 
 	if err != nil {
-		return actionError{errors.Wrap(err, "error preparing host")}
+		return actionError{fmt.Errorf("error preparing host: %w", err)}
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -1197,7 +1196,7 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 			info.log.Info("handling cleaning error during firmware update")
 			hfc.Status.Updates = nil
 			if err := r.Status().Update(info.ctx, hfc); err != nil {
-				return actionError{errors.Wrap(err, "failed to update hostfirmwarecomponents status")}
+				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 			}
 		}
 		return recordActionFailure(info, metal3api.PreparationError, provResult.ErrorMessage)
@@ -1206,13 +1205,13 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 	if hfcDirty && started {
 		hfcStillDirty, err := r.saveHostFirmwareComponents(prov, info, hfc)
 		if err != nil {
-			return actionError{errors.Wrap(err, "could not save the host firmware components")}
+			return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
 		}
 
 		if hfcStillDirty {
 			info.log.Info("going to update the host firmware components")
 			if err := r.Status().Update(info.ctx, hfc); err != nil {
-				return actionError{errors.Wrap(err, "failed to update hostfirmwarecomponents status")}
+				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 			}
 		}
 	}
@@ -1221,7 +1220,7 @@ func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, 
 		info.log.Info("saving host provisioning settings")
 		_, err := saveHostProvisioningSettings(info.host, info)
 		if err != nil {
-			return actionError{errors.Wrap(err, "could not save the host provisioning settings")}
+			return actionError{fmt.Errorf("could not save the host provisioning settings: %w", err)}
 		}
 	}
 
@@ -1250,9 +1249,8 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 
 	hwProf, err := profile.GetProfile(info.host.HardwareProfile())
 	if err != nil {
-		return actionError{errors.Wrap(err,
-			fmt.Sprintf("could not start provisioning with bad hardware profile %s",
-				info.host.HardwareProfile()))}
+		return actionError{fmt.Errorf("could not start provisioning with bad hardware profile %s: %w",
+			info.host.HardwareProfile(), err)}
 	}
 
 	forceReboot, _ := hasRebootAnnotation(info, true)
@@ -1272,7 +1270,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		CPUArchitecture: getHostArchitecture(info.host),
 	}, forceReboot)
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to provision")}
+		return actionError{fmt.Errorf("failed to provision: %w", err)}
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -1282,7 +1280,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 
 	if clearRebootAnnotations(info.host) {
 		if err := r.Update(info.ctx, info.host); err != nil {
-			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
+			return actionError{fmt.Errorf("failed to remove reboot annotations from host %w", err)}
 		}
 		return actionContinue{}
 	}
@@ -1352,7 +1350,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 
 	provResult, err := prov.Deprovision(info.host.Status.ErrorType == metal3api.ProvisioningError)
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to deprovision")}
+		return actionError{fmt.Errorf("failed to deprovision: %w", err)}
 	}
 
 	if provResult.ErrorMessage != "" {
@@ -1369,7 +1367,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 
 	if clearRebootAnnotations(info.host) {
 		if err = r.Update(info.ctx, info.host); err != nil {
-			return actionError{errors.Wrap(err, "failed to remove reboot annotations from host")}
+			return actionError{fmt.Errorf("failed to remove reboot annotations from host: %w", err)}
 		}
 		return actionContinue{}
 	}
@@ -1457,7 +1455,7 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 		if hfcDirty && hfc.Status.Updates != nil {
 			hfc.Status.Updates = nil
 			if err := r.Status().Update(info.ctx, hfc); err != nil {
-				return actionError{errors.Wrap(err, "failed to update hostfirmwarecomponents status")}
+				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 			}
 		}
 		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
@@ -1474,12 +1472,12 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 	if hfcDirty && started {
 		hfcDirty, err = r.saveHostFirmwareComponents(prov, info, hfc)
 		if err != nil {
-			return actionError{errors.Wrap(err, "could not save the host firmware components")}
+			return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
 		}
 
 		if hfcDirty {
 			if err := r.Status().Update(info.ctx, hfc); err != nil {
-				return actionError{errors.Wrap(err, "failed to update hostfirmwarecomponents status")}
+				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 			}
 		}
 	}
@@ -1507,7 +1505,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 	// Check the current status and save it before trying to update it.
 	hwState, err := prov.UpdateHardwareState()
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to update the host power status")}
+		return actionError{fmt.Errorf("failed to update the host power status: %w", err)}
 	}
 
 	if hwState.PoweredOn != nil && *hwState.PoweredOn != info.host.Status.PoweredOn {
@@ -1543,7 +1541,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
 
 			if err = r.Update(info.ctx, info.host); err != nil {
-				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+				return actionError{fmt.Errorf("failed to remove reboot annotation from host: %w", err)}
 			}
 
 			return actionContinue{}
@@ -1555,7 +1553,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		hup, err := r.acquireHostUpdatePolicy(info)
 		if err != nil {
 			info.log.Info("failed setting owner reference on hostupdatepolicy")
-			return actionError{errors.Wrap(err, "failed setting owner reference on hostUpdatePolicy")}
+			return actionError{fmt.Errorf("failed setting owner reference on hostUpdatePolicy: %w", err)}
 		}
 
 		result := r.doServiceIfNeeded(prov, info, hup)
@@ -1593,7 +1591,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		provResult, err = prov.PowerOff(desiredRebootMode, info.host.Status.ErrorType == metal3api.PowerManagementError)
 	}
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to manage power state of host")}
+		return actionError{fmt.Errorf("failed to manage power state of host: %w", err)}
 	}
 
 	// If DisablePowerOff was enabled then prov.PowerOff above will have rebooted instead of powering off, in this case
@@ -1602,7 +1600,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
 			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
 			if err = r.Update(info.ctx, info.host); err != nil {
-				return actionError{errors.Wrap(err, "failed to remove reboot annotation from host")}
+				return actionError{fmt.Errorf("failed to remove reboot annotation from host: %w", err)}
 			}
 			return actionContinue{}
 		}
@@ -1865,7 +1863,7 @@ func getHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcileI
 	hostCopy := host.DeepCopy()
 	dirty, err = saveHostProvisioningSettings(hostCopy, info)
 	if err != nil {
-		err = errors.Wrap(err, "could not determine the host provisioning settings")
+		err = fmt.Errorf("could not determine the host provisioning settings: %w", err)
 	}
 	status = &hostCopy.Status
 	return
@@ -1955,26 +1953,26 @@ func (r *BareMetalHostReconciler) createHostFirmwareComponents(info *reconcileIn
 
 			// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
 			if err = controllerutil.SetOwnerReference(info.host, hfc, r.Scheme()); err != nil {
-				return errors.Wrap(err, "could not set bmh as owner for hostFirmwareComponents")
+				return fmt.Errorf("could not set bmh as owner for hostFirmwareComponents: %w", err)
 			}
 			if err = r.Create(info.ctx, hfc); err != nil {
-				return errors.Wrap(err, "failure creating hostFirmwareComponents resource")
+				return fmt.Errorf("failure creating hostFirmwareComponents resource: %w", err)
 			}
 
 			info.log.Info("created new hostFirmwareComponents resource")
 			return nil
 		}
 		// Error reading the object
-		return errors.Wrap(err, "could not load hostFirmwareComponents resource")
+		return fmt.Errorf("could not load hostFirmwareComponents resource: %w", err)
 	}
 	// Necessary in case the CRD is created manually.
 
 	if !ownerReferenceExists(info.host, hfc) {
 		if err := controllerutil.SetOwnerReference(info.host, hfc, r.Scheme()); err != nil {
-			return errors.Wrap(err, "could not set bmh as owner for hostFirmwareComponents")
+			return fmt.Errorf("could not set bmh as owner for hostFirmwareComponents: %w", err)
 		}
 		if err := r.Update(info.ctx, hfc); err != nil {
-			return errors.Wrap(err, "failure updating hostFirmwareComponents resource")
+			return fmt.Errorf("failure updating hostFirmwareComponents resource: %w", err)
 		}
 
 		return nil
@@ -1997,16 +1995,16 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(info *reconcileInfo
 
 			// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
 			if err = controllerutil.SetControllerReference(info.host, hfs, r.Scheme()); err != nil {
-				return errors.Wrap(err, "could not set bmh as controller")
+				return fmt.Errorf("could not set bmh as controller: %w", err)
 			}
 			if err = r.Create(info.ctx, hfs); err != nil {
-				return errors.Wrap(err, "failure creating hostFirmwareSettings resource")
+				return fmt.Errorf("failure creating hostFirmwareSettings resource: %w", err)
 			}
 
 			info.log.Info("created new hostFirmwareSettings resource")
 		} else {
 			// Error reading the object
-			return errors.Wrap(err, "could not load hostFirmwareSettings resource")
+			return fmt.Errorf("could not load hostFirmwareSettings resource: %w", err)
 		}
 	}
 
@@ -2048,7 +2046,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 	if err = r.Get(info.ctx, info.request.NamespacedName, hfs); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			// Error reading the object
-			return false, nil, errors.Wrap(err, "could not load host firmware settings")
+			return false, nil, fmt.Errorf("could not load host firmware settings: %w", err)
 		}
 
 		// Could not get settings, log it but don't return error as settings may not have been available at provisioner
@@ -2083,7 +2081,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(info *reconcileInfo)
 	if err = r.Get(info.ctx, info.request.NamespacedName, hfc); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			// Error reading the object
-			return false, nil, errors.Wrap(err, "could not load host firmware components")
+			return false, nil, fmt.Errorf("could not load host firmware components: %w", err)
 		}
 
 		// Could not get settings, log it but don't return error as settings may not have been available at provisioner
@@ -2116,7 +2114,7 @@ func (r *BareMetalHostReconciler) saveHostStatus(ctx context.Context, host *meta
 func unmarshalStatusAnnotation(content []byte) (*metal3api.BareMetalHostStatus, error) {
 	objStatus := &metal3api.BareMetalHostStatus{}
 	if err := json.Unmarshal(content, objStatus); err != nil {
-		return nil, errors.Wrap(err, "Failed to fetch Status from annotation")
+		return nil, fmt.Errorf("Failed to fetch Status from annotation: %w", err)
 	}
 	return objStatus, nil
 }
@@ -2161,7 +2159,7 @@ func (r *BareMetalHostReconciler) setErrorCondition(ctx context.Context, request
 	)
 	err = r.saveHostStatus(ctx, host)
 	if err != nil {
-		err = errors.Wrap(err, "failed to update error message")
+		err = fmt.Errorf("failed to update error message: %w", err)
 	}
 
 	return
@@ -2314,7 +2312,7 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 			reqLogger.Info("removing finalizer from hardwareData")
 			if err := r.Update(ctx, hardwareData); err != nil {
-				return ctrl.Result{}, errors.Wrap(err, "failed to remove hardwareData finalizer")
+				return ctrl.Result{}, fmt.Errorf("failed to remove hardwareData finalizer: %w", err)
 			}
 		}
 		reqLogger.Info("hardwareData is ready to be deleted")
@@ -2342,7 +2340,7 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 			}
 			errStatus := r.Status().Update(ctx, host)
 			if errStatus != nil {
-				return ctrl.Result{}, errors.Wrap(errStatus, "Could not restore status from annotation")
+				return ctrl.Result{}, fmt.Errorf("Could not restore status from annotation", errStatus)
 			}
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -2355,7 +2353,7 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 		delete(annotations, metal3api.StatusAnnotation)
 		errStatus := r.Update(ctx, host)
 		if errStatus != nil {
-			return ctrl.Result{}, errors.Wrap(errStatus, "Could not delete status annotation")
+			return ctrl.Result{}, fmt.Errorf("could not delete status annotation : %w", errStatus)
 		}
 		reqLogger.Info("deleted status annotation")
 		return ctrl.Result{Requeue: true}, nil
@@ -2366,7 +2364,7 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 		reqLogger.Info("updating architecture", "Architecture", newArch)
 		host.Spec.Architecture = newArch
 		if err := r.Client.Update(ctx, host); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to update architecture")
+			return ctrl.Result{}, fmt.Errorf("failed to update architecture: %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}

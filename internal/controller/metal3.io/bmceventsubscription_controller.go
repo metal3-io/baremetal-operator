@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -25,7 +26,6 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,7 +72,7 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{}, errors.Wrap(err, "could not load subscription")
+		return ctrl.Result{}, fmt.Errorf("could not load subscription: %w", err)
 	}
 
 	host := &metal3api.BareMetalHost{}
@@ -89,13 +89,13 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 			return r.handleError(ctx, subscription, err, message, true)
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{}, errors.Wrap(err, "could not load host data")
+		return ctrl.Result{}, fmt.Errorf("could not load host data: %w", err)
 	}
 
 	err = r.addFinalizer(ctx, subscription)
 
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed add finalizer")
+		return ctrl.Result{}, fmt.Errorf("failed add finalizer: %w", err)
 	}
 
 	prov, ready, err := r.getProvisioner(ctx, request, host)
@@ -132,14 +132,14 @@ func (r *BMCEventSubscriptionReconciler) handleError(ctx context.Context, subscr
 	subscription.Status.Error = message
 	err := r.Status().Update(ctx, subscription)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to update subscription status")
+		return ctrl.Result{}, fmt.Errorf("failed to update subscription status: %w", err)
 	}
 
 	if requeue {
 		return ctrl.Result{RequeueAfter: subscriptionRetryDelay}, nil
 	}
 
-	return ctrl.Result{}, errors.Wrap(e, message)
+	return ctrl.Result{}, fmt.Errorf("%s: %w", message, e)
 }
 
 func (r *BMCEventSubscriptionReconciler) addFinalizer(ctx context.Context, subscription *metal3api.BMCEventSubscription) error {
@@ -156,7 +156,7 @@ func (r *BMCEventSubscriptionReconciler) addFinalizer(ctx context.Context, subsc
 			metal3api.BMCEventSubscriptionFinalizer)
 		err := r.Update(ctx, subscription)
 		if err != nil {
-			return errors.Wrap(err, "failed to add finalizer")
+			return fmt.Errorf("failed to add finalizer: %w", err)
 		}
 		return nil
 	}
@@ -179,13 +179,13 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 		subscription.Status.Error = "failed to retrieve HTTP headers secret"
 		updateErr := r.Status().Update(ctx, subscription)
 		if updateErr != nil {
-			return errors.Wrap(updateErr, "failed to update subscription status")
+			return fmt.Errorf("failed to update subscription status: %w", updateErr)
 		}
 		return err
 	}
 
 	if _, err := prov.AddBMCEventSubscriptionForNode(subscription, headers); err != nil {
-		return errors.Wrap(err, "failed to create subscription")
+		return fmt.Errorf("failed to create subscription: %w", err)
 	}
 
 	return r.Status().Update(ctx, subscription)
@@ -197,7 +197,7 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context,
 
 	if subscriptionHasFinalizer(subscription) {
 		if _, err := prov.RemoveBMCEventSubscriptionForNode(*subscription); err != nil {
-			return errors.Wrap(err, "failed to remove a subscription")
+			return fmt.Errorf("failed to remove a subscription: %w", err)
 		}
 
 		// Remove finalizer to allow deletion
@@ -218,7 +218,7 @@ func (r *BMCEventSubscriptionReconciler) getProvisioner(ctx context.Context, req
 
 	prov, err = r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*host), nil)
 	if err != nil {
-		return prov, ready, errors.Wrap(err, "failed to create provisioner")
+		return prov, ready, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
 	ready, err = prov.TryInit()

@@ -21,7 +21,6 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/apps/v1"
@@ -355,13 +354,13 @@ func (input *BuildAndApplyKustomizationInput) validate() error {
 		return nil
 	}
 	if input.WaitForDeployment && input.WaitIntervals == nil {
-		return errors.Errorf("WaitIntervals is expected if WaitForDeployment is set to true")
+		return fmt.Errorf("WaitIntervals is expected if WaitForDeployment is set to true")
 	}
 	if input.WatchDeploymentLogs && input.LogPath == "" {
-		return errors.Errorf("LogPath is expected if WatchDeploymentLogs is set to true")
+		return fmt.Errorf("LogPath is expected if WatchDeploymentLogs is set to true")
 	}
 	if input.DeploymentName == "" || input.DeploymentNamespace == "" {
-		return errors.Errorf("DeploymentName and DeploymentNamespace are expected if WaitForDeployment or WatchDeploymentLogs is true")
+		return fmt.Errorf("DeploymentName and DeploymentNamespace are expected if WaitForDeployment or WatchDeploymentLogs is true")
 	}
 	return nil
 }

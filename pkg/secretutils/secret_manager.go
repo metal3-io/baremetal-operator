@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,7 +93,7 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 		if !alreadyOwned {
 			ownerLog.Info("setting secret owner reference")
 			if err := controllerutil.SetOwnerReference(owner, secret, sm.client.Scheme()); err != nil {
-				return errors.Wrap(err, "failed to set secret owner reference")
+				return fmt.Errorf("failed to set secret owner reference: %w", err)
 			}
 			needsUpdate = true
 		}
@@ -108,7 +107,7 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 
 	if needsUpdate {
 		if err := sm.client.Update(sm.ctx, secret); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to update secret %s in namespace %s", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
+			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
 		}
 	}
 
@@ -122,7 +121,7 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
 	secret, err := sm.findSecret(key)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to fetch secret %s in namespace %s", key.Name, key.Namespace))
+		return nil, fmt.Errorf("failed to fetch secret %s in namespace %s: %w", key.Name, key.Namespace, err)
 	}
 	err = sm.claimSecret(secret, owner, addFinalizer)
 
@@ -158,8 +157,8 @@ func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
 		secret.Finalizers, SecretsFinalizer)
 
 	if err := sm.client.Update(sm.ctx, secret); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to remove finalizer from secret %s in namespace %s",
-			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
+		return fmt.Errorf("failed to remove finalizer from secret %s in namespace %s: %w",
+			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
 	}
 
 	sm.log.Info("removed secret finalizer",

@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -88,7 +87,7 @@ func recordStateEnd(info *reconcileInfo, host *metal3api.BareMetalHost, state me
 func (hsm *hostStateMachine) ensureCapacity(info *reconcileInfo, state metal3api.ProvisioningState) actionResult {
 	hasCapacity, err := hsm.Provisioner.HasCapacity()
 	if err != nil {
-		return actionError{errors.Wrap(err, "failed to determine current provisioner capacity")}
+		return actionError{fmt.Errorf("failed to determine current provisioner capacity: %w", err)}
 	}
 
 	if !hasCapacity {

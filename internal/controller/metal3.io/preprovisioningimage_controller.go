@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -25,7 +27,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -89,7 +90,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 			img.Finalizers, metal3api.PreprovisioningImageFinalizer)
 		err := r.Update(ctx, &img)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
+			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -99,7 +100,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		img.Finalizers = append(img.Finalizers, metal3api.PreprovisioningImageFinalizer)
 		err := r.Update(ctx, &img)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer %w", err)
 		}
 		return ctrl.Result{}, nil
 	}

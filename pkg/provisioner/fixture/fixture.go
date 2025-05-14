@@ -16,14 +16,6 @@ var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var inspectionRequeueDelay = time.Second * 2
 
-const (
-	DefaultRequeueSecs    = 5
-	DefaultSizeBytes      = 93
-	DefaultClockMegahertz = 3.0
-	DefaultRAMMebibytes   = 128
-	DefaultGB             = 1024
-)
-
 type fixtureHostConfigData struct {
 	userData    string
 	networkData string
@@ -137,7 +129,7 @@ func (p *fixtureProvisioner) Register(_ provisioner.ManagementAccessData, _, _ b
 	if p.provID == "" {
 		provID = "temporary-fake-id"
 		result.Dirty = true
-		result.RequeueAfter = time.Second * DefaultRequeueSecs
+		result.RequeueAfter = time.Second * 5
 		p.publisher("Registered", "Registered new host")
 		return
 	}
@@ -162,7 +154,7 @@ func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ 
 		p.log.Info("continuing inspection by setting details")
 		details =
 			&metal3api.HardwareDetails{
-				RAMMebibytes: DefaultRAMMebibytes * DefaultGB,
+				RAMMebibytes: 128 * 1024,
 				NIC: []metal3api.NIC{
 					{
 						Name:      "nic-1",
@@ -185,20 +177,20 @@ func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ 
 					{
 						Name:       "disk-1 (boot)",
 						Rotational: false,
-						SizeBytes:  metal3api.TebiByte * DefaultSizeBytes,
+						SizeBytes:  metal3api.TebiByte * 93,
 						Model:      "Dell CFJ61",
 					},
 					{
 						Name:       "disk-2",
 						Rotational: false,
-						SizeBytes:  metal3api.TebiByte * DefaultSizeBytes,
+						SizeBytes:  metal3api.TebiByte * 93,
 						Model:      "Dell CFJ61",
 					},
 				},
 				CPU: metal3api.CPU{
 					Arch:           "x86_64",
 					Model:          "FancyPants CPU",
-					ClockMegahertz: DefaultClockMegahertz * metal3api.GigaHertz,
+					ClockMegahertz: 3.0 * metal3api.GigaHertz,
 					Flags:          []string{"fpu", "hypervisor", "sse", "vmx"},
 					Count:          1,
 				},

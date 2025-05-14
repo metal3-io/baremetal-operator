@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 
@@ -126,7 +125,7 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 	response := nodes.GetInventory(p.ctx, p.client, ironicNode.UUID)
 	introData, err := response.Extract()
 	if err != nil {
-		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+		if gophercloud.ResponseCodeIs(err, 404) {
 			// The node has just been enrolled, inspection hasn't been started yet.
 			result, started, err = p.startInspection(data, ironicNode)
 			return result, started, details, err

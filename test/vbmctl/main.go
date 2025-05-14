@@ -16,10 +16,6 @@ import (
 	"libvirt.org/go/libvirt"
 )
 
-const (
-	filePerm777 = 0777
-)
-
 var (
 	//go:embed templates/*.tpl
 	templateFiles embed.FS
@@ -50,7 +46,7 @@ func CreateVolumePool(conn *libvirt.Connect, poolName, poolPath string) (*libvir
 		return pool, nil
 	}
 
-	if err = os.Mkdir(poolPath, filePerm777); err != nil && !os.IsExist(err) {
+	if err = os.Mkdir(poolPath, 0777); err != nil && !os.IsExist(err) {
 		fmt.Println("Cannot determine the state of the poolPath")
 		return nil, err
 	}
@@ -145,7 +141,7 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 	poolName := "default"
 	poolPath := "/tmp/pool_oo"
 	opts := make(map[string]any)
-	opts[qcow2.OPT_SIZE] = 3 * (1 << 30) //nolint: mnd // qcow2 file's size is 3g
+	opts[qcow2.OPT_SIZE] = 3 * (1 << 30) // qcow2 file's size is 3g
 	opts[qcow2.OPT_FMT] = "qcow2"        // qcow2 format
 	opts[qcow2.OPT_SUBCLUSTER] = true    // enable sub-cluster
 
@@ -157,7 +153,7 @@ func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string
 		return err
 	}
 
-	if err = CreateVolume(conn, name, poolName, poolPath, 20); err != nil { //nolint: mnd
+	if err = CreateVolume(conn, name, poolName, poolPath, 20); err != nil {
 		return err
 	}
 

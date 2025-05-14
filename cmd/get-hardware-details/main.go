@@ -17,10 +17,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	reqOptArgs = 3
-)
-
 type options struct {
 	Endpoint   string
 	AuthConfig clients.AuthConfig
@@ -80,7 +76,7 @@ func main() {
 }
 
 func getOptions() (o options) {
-	if len(os.Args) != reqOptArgs {
+	if len(os.Args) != 3 {
 		fmt.Println("Usage: get-hardware-details <ironic URI> <node UUID>")
 		os.Exit(1)
 	}

@@ -63,11 +63,13 @@ const (
 // PreprovisioningImageStatus defines the observed state of PreprovisioningImage.
 type PreprovisioningImageStatus struct {
 	// imageUrl is the URL from which the built image can be downloaded.
+	//nolint:tagliatelle
 	ImageUrl string `json:"imageUrl,omitempty"` //nolint:revive,stylecheck
 
 	// kernelUrl is the URL from which the kernel of the image can be downloaded.
 	// Only makes sense for initrd images.
 	// +optional
+	//nolint:tagliatelle
 	KernelUrl string `json:"kernelUrl,omitempty"` //nolint:revive,stylecheck
 
 	// extraKernelParams is a string with extra parameters to pass to the

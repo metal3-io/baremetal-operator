@@ -36,6 +36,7 @@ func testNewReconciler(host *metal3api.BareMetalHost) *BareMetalHostReconciler {
 	return reconciler
 }
 
+//nolint:dupl
 func TestProvisioningCapacity(t *testing.T) {
 	testCases := []struct {
 		Scenario string
@@ -165,6 +166,7 @@ func TestProvisioningCapacity(t *testing.T) {
 	}
 }
 
+//nolint:dupl
 func TestDeprovisioningCapacity(t *testing.T) {
 	testCases := []struct {
 		Scenario string

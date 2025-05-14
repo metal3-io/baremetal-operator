@@ -30,24 +30,31 @@ type SettingSchema struct {
 
 	// The type of setting.
 	// +kubebuilder:validation:Enum=Enumeration;String;Integer;Boolean;Password
+	//nolint:tagliatelle
 	AttributeType string `json:"attribute_type,omitempty"`
 
+	//nolint:tagliatelle
 	// The allowable value for an Enumeration type setting.
 	AllowableValues []string `json:"allowable_values,omitempty"`
 
 	// The lowest value for an Integer type setting.
+	//nolint:tagliatelle
 	LowerBound *int `json:"lower_bound,omitempty"`
 
 	// The highest value for an Integer type setting.
+	//nolint:tagliatelle
 	UpperBound *int `json:"upper_bound,omitempty"`
 
 	// Minimum length for a String type setting.
+	//nolint:tagliatelle
 	MinLength *int `json:"min_length,omitempty"`
 
 	// Maximum length for a String type setting.
+	//nolint:tagliatelle
 	MaxLength *int `json:"max_length,omitempty"`
 
 	// Whether or not this setting is read only.
+	//nolint:tagliatelle
 	ReadOnly *bool `json:"read_only,omitempty"`
 
 	// Whether or not this setting's value is unique to this node, e.g.

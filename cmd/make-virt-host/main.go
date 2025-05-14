@@ -115,7 +115,9 @@ vbmc list -f json -c 'Domain name' -c Port
 // VBMC holds the parameters for describing a virtual machine
 // controller.
 type VBMC struct {
-	Port int    `json:"Port"`
+	//nolint:tagliatelle
+	Port int `json:"Port"`
+	//nolint:tagliatelle
 	Name string `json:"Domain name"`
 }
 

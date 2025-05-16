@@ -59,6 +59,11 @@ IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e
 
+# Allow traffic between docker bridges and the metal3 interface
+sudo iptables -I FORWARD -i br-+ -o metal3 -j ACCEPT
+sudo iptables -I FORWARD -i metal3 -o br-+ -j ACCEPT
+sudo iptables -L FORWARD -n -v
+
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
 

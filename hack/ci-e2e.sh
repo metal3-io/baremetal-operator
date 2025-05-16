@@ -46,8 +46,8 @@ case "${GINKGO_FOCUS:-}" in
 esac
 
 # Ensure requirements are installed
-"${REPO_ROOT}/hack/e2e/ensure_go.sh"
 export PATH="/usr/local/go/bin:${PATH}"
+"${REPO_ROOT}/hack/e2e/ensure_go.sh"
 "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
@@ -58,6 +58,11 @@ IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
 
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e
+
+# Allow traffic between docker bridges and the metal3 interface
+sudo iptables -I FORWARD -i br-+ -o metal3 -j ACCEPT
+sudo iptables -I FORWARD -i metal3 -o br-+ -j ACCEPT
+sudo iptables -L FORWARD -n -v
 
 # This IP is defined by the network we created above.
 IP_ADDRESS="192.168.222.1"
@@ -112,7 +117,6 @@ mkdir -p "${IMAGE_DIR}"
 ## Download disk images
 wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
 wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/systemrescue-11.00-amd64.iso
-wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/minimal_linux_live-v2.iso
 
 ## Start the image server
 docker run --name image-server-e2e -d \

@@ -38,7 +38,8 @@ jobs:
       matrix:
         bmc-protocol:
         - redfish-virtualmedia
-        - ipmi
+        # TODO(lentzi90): Enable again when https://github.com/metal3-io/baremetal-operator/issues/2456 is fixed.
+        # - ipmi
     uses: ./.github/workflows/e2e-test.yml
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}

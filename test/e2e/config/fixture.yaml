@@ -55,6 +55,7 @@ intervals:
   default/wait-deleted: ["5s", "10ms"]
   default/wait-secret-deletion: ["5s", "10ms"]
   default/wait-power-state: ["5s", "10ms"]
+  default/wait-externally-provisioned: ["1m", "10ms"]
 
 bmoIronicUpgradeSpecs:
 - deployIronic: false

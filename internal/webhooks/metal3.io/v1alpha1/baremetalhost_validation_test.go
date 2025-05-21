@@ -77,6 +77,11 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "",
 		},
 		{
+			name:      "validExternallyProvisioned",
+			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
+			wantedErr: "",
+		},
+		{
 			name:      "invalidName",
 			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: inom, Spec: metal3api.BareMetalHostSpec{}},
 			oldBMH:    nil,
@@ -894,6 +899,14 @@ func TestValidateUpdate(t *testing.T) {
 			oldBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "test-mac"}},
 			wantedErr: "bootMACAddress can not be changed once it is set",
+		},
+		{
+			name: "updateExternallyProvisioned",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
+			wantedErr: "externallyProvisioned can not be changed",
 		},
 	}
 

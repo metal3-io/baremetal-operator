@@ -35,7 +35,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/version"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -445,7 +444,7 @@ func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
 	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {
 		mcr, err := strconv.Atoi(mcrEnv)
 		if err != nil {
-			return 0, errors.Wrap(err, fmt.Sprintf("BMO_CONCURRENCY value: %s is invalid", mcrEnv))
+			return 0, fmt.Errorf("BMO_CONCURRENCY value: %s is invalid: %w", mcrEnv, err)
 		}
 		if mcr > 0 {
 			ctrl.Log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))

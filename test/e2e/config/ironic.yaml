@@ -67,6 +67,7 @@ intervals:
   default/wait-deleted: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]
   default/wait-connect-ssh: ["2m", "10s"]
+  default/wait-externally-provisioned: ["1m", "10ms"]
 
 kindExtraPortMappings:
 # Expose Ironic ports so they are reachable outside of kind

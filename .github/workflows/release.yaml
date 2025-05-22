@@ -25,7 +25,7 @@ jobs:
         fetch-depth: 0
     - name: Get changed files
       id: changed-files
-      uses: tj-actions/changed-files@823fcebdb31bb35fdf2229d9f769b400309430d0 # v46.0.3
+      uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46.0.5
     - name: Get release version
       id: release-version
       run: |
@@ -116,7 +116,7 @@ jobs:
         curl -L "https://raw.githubusercontent.com/${{ github.repository }}/main/releasenotes/${{ env.RELEASE_TAG }}.md" \
         -o "${{ env.RELEASE_TAG }}.md"
     - name: Release
-      uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
+      uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
       with:
         draft: true
         body_path: ${{ env.RELEASE_TAG }}.md

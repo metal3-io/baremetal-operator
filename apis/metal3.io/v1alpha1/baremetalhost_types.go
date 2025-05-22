@@ -679,6 +679,7 @@ type NIC struct {
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// The untagged VLAN ID
+	//nolint:tagliatelle
 	VLANID VLANID `json:"vlanId,omitempty"`
 
 	// Whether the NIC is PXE Bootable
@@ -866,6 +867,7 @@ type ProvisionStatus struct {
 
 	// The hosts's ID from the underlying provisioning tool (e.g. the
 	// Ironic node UUID).
+	//nolint:tagliatelle
 	ID string `json:"ID"`
 
 	// Image holds the details of the last image successfully

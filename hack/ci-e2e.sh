@@ -55,6 +55,13 @@ export PATH="/usr/local/go/bin:${PATH}"
 
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
+# Pull the ironic image and extract tftpboot files
+docker pull quay.io/metal3-io/ironic:release-26.0
+docker create --name tmp-ironic quay.io/metal3-io/ironic:release-26.0
+rm -rf /tmp/tftpboot
+mkdir -p /tmp/tftpboot
+docker cp tmp-ironic:/tftpboot/. /tmp/tftpboot/
+docker rm tmp-ironic
 
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e

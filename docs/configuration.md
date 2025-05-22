@@ -46,6 +46,10 @@ BMO_CONCURRENCY value lower than the requested PROVISIONING_LIMIT. Default is 20
 image for nodes that use IPv6. In dual stack environments, this can be
 used to tell Ironic which IP version it should set on the BMC.
 
+`PROVISIONING_NETWORK_DISABLED` -- Set to `true` if your deployment does not
+feature a provisioning network. This option disables drivers that require a
+provisioning network (such as IPMI).
+
 Kustomization Configuration
 ---------------------------
 

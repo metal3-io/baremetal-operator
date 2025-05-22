@@ -69,6 +69,7 @@ type ironicConfig struct {
 	liveISOForcePersistentBootDevice string
 	maxBusyHosts                     int
 	externalURL                      string
+	provNetDisabled                  bool
 }
 
 // Provisioner implements the provisioning.Provisioner interface

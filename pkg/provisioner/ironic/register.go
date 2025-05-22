@@ -55,6 +55,13 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		return result, "", err
 	}
 
+	if bmcAccess.RequiresProvisioningNetwork() && p.config.provNetDisabled {
+		msg := fmt.Sprintf("BMC driver %s requires a provisioning network", bmcAccess.Type())
+		p.log.Info(msg)
+		result, err = operationFailed(msg)
+		return result, "", err
+	}
+
 	// Refuse to manage a node that has Disabled Power off if not supported by ironic,
 	// accidentally powering it off would require a arctic expedition to the data center
 	if data.DisablePowerOff && !p.availableFeatures.HasDisablePowerOff() {

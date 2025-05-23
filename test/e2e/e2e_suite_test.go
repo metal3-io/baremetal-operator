@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -242,7 +243,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			cmd := exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				fmt.Printf("Service check output: %s\n", string(output))
+				log.Printf("Service check output: %s\n", string(output))
 				return err
 			}
 			return nil

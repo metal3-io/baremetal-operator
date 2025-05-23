@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -44,8 +45,7 @@ func main() {
 	endpoint := opts.Endpoint
 	parsedEndpoint, err := url.Parse(endpoint)
 	if err != nil {
-		fmt.Printf("invalid ironic endpoint: %s", err)
-		os.Exit(1)
+		log.Fatalf("invalid ironic endpoint: %s", err)
 	}
 
 	// Previously, this command accepted the Inspector endpoint. But since
@@ -59,37 +59,33 @@ func main() {
 
 	ironic, err := clients.IronicClient(endpoint, opts.AuthConfig, tlsConf)
 	if err != nil {
-		fmt.Printf("could not get ironic client: %s", err)
-		os.Exit(1)
+		log.Fatalf("could not get ironic client: %s", err)
 	}
 
 	introData := nodes.GetInventory(context.TODO(), ironic, opts.NodeID)
 	data, err := introData.Extract()
 	if err != nil {
-		fmt.Printf("could not get inspection data: %s", err)
-		os.Exit(1)
+		log.Fatalf("could not get inspection data: %s", err)
 	}
 
 	json, err := json.MarshalIndent(hardwaredetails.GetHardwareDetails(data, klog.NewKlogr()), "", "\t")
 	if err != nil {
-		fmt.Printf("could not convert inspection data: %s", err)
-		os.Exit(1)
+		log.Fatalf("could not convert inspection data: %s", err)
 	}
 
+	//nolint:forbidigo
 	fmt.Println(string(json))
 }
 
 func getOptions() (o options) {
 	if len(os.Args) != reqOptArgs {
-		fmt.Println("Usage: get-hardware-details <ironic URI> <node UUID>")
-		os.Exit(1)
+		log.Fatalln("Usage: get-hardware-details <ironic URI> <node UUID>")
 	}
 
 	var err error
 	o.Endpoint, o.AuthConfig, err = clients.ConfigFromEndpointURL(os.Args[1])
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-		os.Exit(1)
+		log.Fatalf("Error: %s\n", err)
 	}
 	o.NodeID = os.Args[2]
 	return

@@ -7,6 +7,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/utils"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,10 +18,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func newBMCTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Object) *BMCEventSubscriptionReconciler {
+func newBMCTestReconcilerWithFixture(t *testing.T, fix *fixture.Fixture, initObjs ...runtime.Object) *BMCEventSubscriptionReconciler {
+	t.Helper()
 	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
 	for _, v := range initObjs {
-		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+		object, ok := v.(client.Object)
+		require.True(t, ok, "failed to cast object to client.Object")
+		clientBuilder = clientBuilder.WithStatusSubresource(object)
 	}
 	c := clientBuilder.Build()
 	// Add a default secret that can be used by most subscriptions.
@@ -39,9 +43,10 @@ func newBMCTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.O
 
 type BMCDoneFunc func(subscription *metal3api.BMCEventSubscription, result reconcile.Result) bool
 
-func newBMCTestReconciler(initObjs ...runtime.Object) *BMCEventSubscriptionReconciler {
+func newBMCTestReconciler(t *testing.T, initObjs ...runtime.Object) *BMCEventSubscriptionReconciler {
+	t.Helper()
 	fix := fixture.Fixture{}
-	return newBMCTestReconcilerWithFixture(&fix, initObjs...)
+	return newBMCTestReconcilerWithFixture(t, &fix, initObjs...)
 }
 
 func newBMCRequest(subscription *metal3api.BMCEventSubscription) ctrl.Request {
@@ -95,7 +100,7 @@ func HostWithProvisioningID(t *testing.T, host *metal3api.BareMetalHost) *metal3
 func TestBMCAddFinalizers(t *testing.T) {
 	host := newDefaultHost(t)
 	subscription := newDefaultSubscription(t)
-	r := newBMCTestReconciler(subscription, host)
+	r := newBMCTestReconciler(t, subscription, host)
 	err := r.addFinalizer(context.Background(), subscription)
 	if err != nil {
 		t.Error(err)
@@ -110,7 +115,7 @@ func TestBMCGetProvisioner(t *testing.T) {
 	host := newDefaultHost(t)
 	subscription := newDefaultSubscription(t)
 	request := newBMCRequest(subscription)
-	r := newBMCTestReconciler(subscription, host)
+	r := newBMCTestReconciler(t, subscription, host)
 	for _, tc := range []struct {
 		Scenario string
 		Host     *metal3api.BareMetalHost
@@ -145,7 +150,7 @@ func TestGetHTTPHeaders(t *testing.T) {
 	// The secret is automatically created by newBMCTestReconciler.
 	host := newDefaultHost(t)
 	subscription := newDefaultSubscription(t)
-	r := newBMCTestReconciler(subscription, host)
+	r := newBMCTestReconciler(t, subscription, host)
 
 	for _, tc := range []struct {
 		Scenario      string

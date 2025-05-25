@@ -13,7 +13,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.22.0
 	github.com/stretchr/testify v1.10.0
-	go.etcd.io/etcd/client/pkg/v3 v3.5.21
+	go.etcd.io/etcd/client/pkg/v3 v3.6.0
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.32.4
 	k8s.io/apimachinery v0.32.4

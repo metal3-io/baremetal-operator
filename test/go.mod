@@ -21,7 +21,7 @@ require (
 	sigs.k8s.io/cluster-api v1.10.2
 	sigs.k8s.io/cluster-api/test v1.10.2
 	sigs.k8s.io/controller-runtime v0.20.4
-	sigs.k8s.io/kind v0.27.0
+	sigs.k8s.io/kind v0.29.0
 	sigs.k8s.io/kustomize/api v0.19.0
 	sigs.k8s.io/kustomize/kyaml v0.19.0
 )
@@ -76,7 +76,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
-	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect

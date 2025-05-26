@@ -8,11 +8,12 @@ be reusable so that they can run also on real hardware. This is accomplished by
 tuning the tests based on a configuration file and flags. Examples can be seen
 in `config`.
 
-In the CI system we set up a pre-configured minikube cluster that is then used
-for the tests, as seen in [ci-e2e.sh](../../hack/ci-e2e.sh). This allows us to
-have control over the network and have a static configuration for Ironic and the
-Baremetal Operator. The script creates a VM to represent a BareMetalHost, and
-configures either VBMC or sushy-tools to be used as BMC.
+In the CI system we use a script ([ci-e2e.sh](../../hack/ci-e2e.sh)) to make
+some preparations before running the test suite. The script creates VMs to
+represent BareMetalHosts, and configures either VBMC or sushy-tools to be used
+as BMC. Ironic runs in the "host network" of the kind cluster in the test. The
+kind cluster is then configured to expose the relevant ports on the actual host
+so that they can be reached from the BareMetalHost VMs.
 
 Currently there are two sets of tests, which cannot be ran together in the same
 cluster. One is the "optional" set, currently consists of only the

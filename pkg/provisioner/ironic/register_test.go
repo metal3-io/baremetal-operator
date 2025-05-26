@@ -847,6 +847,28 @@ func TestRegisterUnsupportedSecureBoot(t *testing.T) {
 	assert.Contains(t, result.ErrorMessage, "does not support secure boot")
 }
 
+func TestRegisterUnsupportedDriverWithoutProvNet(t *testing.T) {
+	host := makeHost()
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	ironic := testserver.NewIronic(t).NoNode("myns" + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+	prov.config.provNetDisabled = true
+
+	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Contains(t, result.ErrorMessage, "requires a provisioning network")
+}
+
 func TestRegisterNoBMCDetails(t *testing.T) {
 	ironic := testserver.NewIronic(t)
 	ironic.Start()

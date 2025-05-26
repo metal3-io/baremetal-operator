@@ -154,6 +154,8 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 		}
 	}
 
+	c.provNetDisabled = strings.ToLower(os.Getenv("PROVISIONING_NETWORK_DISABLED")) == "true"
+
 	return c, nil
 }
 

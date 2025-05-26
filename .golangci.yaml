@@ -25,7 +25,7 @@ linters:
   - exptostd
   - fatcontext
   - forbidigo
-  #- forcetypeassert
+  - forcetypeassert
   - gci
   - ginkgolinter
   - gocheckcompilerdirectives

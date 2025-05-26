@@ -136,10 +136,13 @@ func newDefaultHost(t *testing.T) *metal3api.BareMetalHost {
 	return newDefaultNamedHost(t, t.Name())
 }
 
-func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Object) *BareMetalHostReconciler {
+func newTestReconcilerWithFixture(t *testing.T, fix *fixture.Fixture, initObjs ...runtime.Object) *BareMetalHostReconciler {
+	t.Helper()
 	clientBuilder := fakeclient.NewClientBuilder().WithRuntimeObjects(initObjs...)
 	for _, v := range initObjs {
-		clientBuilder = clientBuilder.WithStatusSubresource(v.(client.Object))
+		object, ok := v.(client.Object)
+		require.True(t, ok, "failed to cast object to client.Object")
+		clientBuilder = clientBuilder.WithStatusSubresource(object)
 	}
 	c := clientBuilder.Build()
 	// Add a default secret that can be used by most hosts.
@@ -154,9 +157,10 @@ func newTestReconcilerWithFixture(fix *fixture.Fixture, initObjs ...runtime.Obje
 	}
 }
 
-func newTestReconciler(initObjs ...runtime.Object) *BareMetalHostReconciler {
+func newTestReconciler(t *testing.T, initObjs ...runtime.Object) *BareMetalHostReconciler {
+	t.Helper()
 	fix := fixture.Fixture{}
-	return newTestReconcilerWithFixture(&fix, initObjs...)
+	return newTestReconcilerWithFixture(t, &fix, initObjs...)
 }
 
 type DoneFunc func(host *metal3api.BareMetalHost, result reconcile.Result) bool
@@ -257,7 +261,7 @@ func TestHardwareDetails_EmptyStatus(t *testing.T) {
 		metal3api.HardwareDetailsAnnotation: hwdAnnotation,
 	}
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -283,7 +287,7 @@ func TestHardwareDetails_StatusPresent(t *testing.T) {
 	hwd.Hostname = "existinghost"
 	host.Status.HardwareDetails = &hwd
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -311,7 +315,7 @@ func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
 	hwd.Hostname = "existinghost"
 	host.Status.HardwareDetails = &hwd
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -339,7 +343,7 @@ func TestHardwareDetails_Invalid(t *testing.T) {
 	hwd.Hostname = "existinghost"
 	host.Status.HardwareDetails = &hwd
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 	request := newRequest(host)
 	_, err := r.Reconcile(context.Background(), request)
 	expectedErr := "json: unknown field"
@@ -356,7 +360,7 @@ func TestStatusAnnotation_EmptyStatus(t *testing.T) {
 	host.Spec.Online = true
 	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -380,7 +384,7 @@ func TestStatusAnnotation_StatusPresent(t *testing.T) {
 	time := metav1.Now()
 	host.Status.LastUpdated = &time
 	host.Status.Provisioning.Image = metal3api.Image{URL: "foo", Checksum: "123"}
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -418,7 +422,7 @@ func TestStatusAnnotation_Partial(t *testing.T) {
 	host.Spec.Online = true
 	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -454,7 +458,7 @@ func TestHardwareDataExist(t *testing.T) {
 		},
 	}
 
-	r := newTestReconciler(host, hardwareData)
+	r := newTestReconciler(t, host, hardwareData)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -473,7 +477,7 @@ func TestPause(t *testing.T) {
 	host.Annotations = map[string]string{
 		metal3api.PausedAnnotation: "true",
 	}
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -495,7 +499,7 @@ func TestInspectDisabled(t *testing.T) {
 	host.Annotations = map[string]string{
 		metal3api.InspectAnnotationPrefix: "disabled",
 	}
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 	assert.Nil(t, host.Status.HardwareDetails)
 }
@@ -503,7 +507,7 @@ func TestInspectDisabled(t *testing.T) {
 // TestInspectEnabled ensures that Inspection is completed when not disabled.
 func TestInspectEnabled(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 	assert.NotNil(t, host.Status.HardwareDetails)
 }
@@ -512,7 +516,7 @@ func TestInspectEnabled(t *testing.T) {
 // updated as part of reconciling it.
 func TestAddFinalizers(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -534,7 +538,7 @@ func TestAddFinalizers(t *testing.T) {
 // then the secret finalizer is not added again.
 func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	// Let the host reach the available state before deleting it
 	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
@@ -578,7 +582,7 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 // status is set to a non-zero value during reconciliation.
 func TestSetLastUpdated(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -718,7 +722,7 @@ func TestRebootWithSuffixlessAnnotation(t *testing.T) {
 	host.Spec.Image.URL = "foo"
 	host.Status.Provisioning.Image.URL = "foo"
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -764,7 +768,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	host.Spec.Image.URL = "foo"
 	host.Status.Provisioning.Image.URL = "foo"
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -810,7 +814,7 @@ func TestRebootWithSuffixedAnnotationPowerOffDisabled(t *testing.T) {
 	host.Spec.DisablePowerOff = true
 
 	fix := fixture.Fixture{DisablePowerOff: true, PoweredOn: true}
-	r := newTestReconcilerWithFixture(&fix, host)
+	r := newTestReconcilerWithFixture(t, &fix, host)
 
 	// bmh reconcils until credentials are verified as valid
 	tryReconcile(t, r, host,
@@ -867,7 +871,7 @@ func TestRebootWithServicing(t *testing.T) {
 		},
 	}
 
-	r := newTestReconciler(host, hup)
+	r := newTestReconciler(t, host, hup)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -923,7 +927,7 @@ func TestRebootWithoutServicing(t *testing.T) {
 		VirtualizationEnabled: ptr.To(true),
 	}
 
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -971,7 +975,7 @@ func getHostSecret(t *testing.T, r *BareMetalHostReconciler, host *metal3api.Bar
 
 func TestSecretUpdateOwnerRefAndEnvironmentLabelOnStartup(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	secret := getHostSecret(t, r, host)
 	assert.Empty(t, secret.OwnerReferences)
@@ -992,7 +996,7 @@ func TestSecretUpdateOwnerRefAndEnvironmentLabelOnStartup(t *testing.T) {
 // when the secret used exists and has all of the right fields.
 func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1008,7 +1012,7 @@ func TestUpdateCredentialsSecretSuccessFields(t *testing.T) {
 // changed to another secret that is also good.
 func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1049,7 +1053,7 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	host := newDefaultHost(t)
 	badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
-	r := newTestReconciler(host, badSecret)
+	r := newTestReconciler(t, host, badSecret)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1090,7 +1094,7 @@ func TestDiscoveredHost(t *testing.T) {
 				CredentialsName: "",
 			},
 		})
-	r := newTestReconciler(noAddressOrSecret)
+	r := newTestReconciler(t, noAddressOrSecret)
 	waitForStatus(t, r, noAddressOrSecret, metal3api.OperationalStatusDiscovered)
 	if noAddressOrSecret.Status.ErrorType != "" {
 		t.Errorf("Unexpected error type %s", noAddressOrSecret.Status.ErrorType)
@@ -1171,7 +1175,7 @@ func TestMissingBMCParameters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			r := newTestReconciler(tc.Secret, tc.Host)
+			r := newTestReconciler(t, tc.Secret, tc.Host)
 			waitForError(t, r, tc.Host)
 			if tc.Host.Status.OperationalStatus != metal3api.OperationalStatusError {
 				t.Errorf("Unexpected operational status %s", tc.Host.Status.OperationalStatus)
@@ -1194,7 +1198,7 @@ func TestFixSecret(t *testing.T) {
 				CredentialsName: "bmc-creds-no-user",
 			},
 		})
-	r := newTestReconciler(host, secret)
+	r := newTestReconciler(t, host, secret)
 	waitForError(t, r, host)
 
 	secret = &corev1.Secret{}
@@ -1228,7 +1232,7 @@ func TestBreakThenFixSecret(t *testing.T) {
 				CredentialsName: "bmc-creds-toggle-user",
 			},
 		})
-	r := newTestReconciler(host, secret)
+	r := newTestReconciler(t, host, secret)
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			id := host.Status.Provisioning.ID
@@ -1275,7 +1279,7 @@ func TestBreakThenFixSecret(t *testing.T) {
 // the hardware profile name.
 func TestSetHardwareProfile(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1289,7 +1293,7 @@ func TestSetHardwareProfile(t *testing.T) {
 // of the status block is filled in for new hosts.
 func TestCreateHardwareDetails(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1410,7 +1414,7 @@ func TestProvision(t *testing.T) {
 		Checksum: "12345",
 	}
 	host.Spec.Online = true
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1430,7 +1434,7 @@ func TestProvisionCustomDeploy(t *testing.T) {
 		Method: "install_everything",
 	}
 	host.Spec.Online = true
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1454,7 +1458,7 @@ func TestProvisionCustomDeployWithURL(t *testing.T) {
 		Checksum: "12345",
 	}
 	host.Spec.Online = true
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1477,7 +1481,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		host.Spec.Online = true
 		host.Spec.ConsumerRef = &corev1.ObjectReference{} // it doesn't have to point to a real object
 		host.Spec.ExternallyProvisioned = true
-		r := newTestReconciler(host)
+		r := newTestReconciler(t, host)
 
 		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
 	})
@@ -1486,7 +1490,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		host := newDefaultHost(t)
 		host.Spec.Online = true
 		host.Spec.ExternallyProvisioned = true
-		r := newTestReconciler(host)
+		r := newTestReconciler(t, host)
 
 		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
 
@@ -1503,7 +1507,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 	t.Run("preparing to externally provisioned", func(t *testing.T) {
 		host := newDefaultHost(t)
 		host.Spec.Online = true
-		r := newTestReconciler(host)
+		r := newTestReconciler(t, host)
 
 		waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 
@@ -1523,7 +1527,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 func TestPowerOn(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Spec.Online = true
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1538,7 +1542,7 @@ func TestPowerOn(t *testing.T) {
 func TestPowerOff(t *testing.T) {
 	host := newDefaultHost(t)
 	host.Spec.Online = false
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1609,7 +1613,7 @@ func TestDeleteHost(t *testing.T) {
 			host.Status.Provisioning.ID = "made-up-id"
 			badSecret := newBMCCredsSecret("bmc-creds-no-user", "", "Pass")
 			fix := fixture.Fixture{}
-			r := newTestReconcilerWithFixture(&fix, host, badSecret)
+			r := newTestReconcilerWithFixture(t, &fix, host, badSecret)
 
 			tryReconcile(t, r, host,
 				func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1816,7 +1820,7 @@ func TestProvisionerIsReady(t *testing.T) {
 	host := newDefaultHost(t)
 
 	fix := fixture.Fixture{BecomeReadyCounter: 5}
-	r := newTestReconcilerWithFixture(&fix, host)
+	r := newTestReconcilerWithFixture(t, &fix, host)
 
 	assert.InDelta(t, 0.0, promutil.ToFloat64(provisionerNotReady), 0.01)
 	tryReconcile(t, r, host,
@@ -1960,7 +1964,7 @@ func TestUpdateEventHandler(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := newTestReconciler()
+			r := newTestReconciler(t)
 			assert.Equal(t, tc.expectedProcess, r.updateEventHandler(tc.event))
 		})
 	}
@@ -2266,7 +2270,7 @@ func TestInvalidBMHCanBeDeleted(t *testing.T) {
 	host.Spec.BMC.Address = fmt.Sprintf("%s%s%s", "<", host.Spec.BMC.Address, ">")
 
 	var fix fixture.Fixture
-	r := newTestReconcilerWithFixture(&fix, host)
+	r := newTestReconcilerWithFixture(t, &fix, host)
 
 	fix.SetValidateError("malformed url")
 	waitForError(t, r, host)
@@ -2413,7 +2417,7 @@ func TestGetHostArchitecture(t *testing.T) {
 
 func TestGetPreprovImageNoFormats(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 	i := makeReconcileInfo(host)
 
 	imgData, err := r.getPreprovImage(i, nil)
@@ -2440,7 +2444,7 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	host.Labels = map[string]string{
 		"answer.metal3.io": "42",
 	}
-	r := newTestReconciler(host, newSecret(secretName, nil))
+	r := newTestReconciler(t, host, newSecret(secretName, nil))
 	i := makeReconcileInfo(host)
 
 	imgData, err := r.getPreprovImage(i, []metal3api.ImageFormat{"iso"})
@@ -2504,7 +2508,7 @@ func TestGetPreprovImage(t *testing.T) {
 			},
 		},
 	}
-	r := newTestReconciler(host, image)
+	r := newTestReconciler(t, host, image)
 	i := makeReconcileInfo(host)
 
 	imgData, err := r.getPreprovImage(i, acceptFormats)
@@ -2541,7 +2545,7 @@ func TestGetPreprovImageNotCurrent(t *testing.T) {
 			},
 		},
 	}
-	r := newTestReconciler(host, image)
+	r := newTestReconciler(t, host, image)
 	i := makeReconcileInfo(host)
 
 	imgData, err := r.getPreprovImage(i, []metal3api.ImageFormat{metal3api.ImageFormatISO})
@@ -2551,7 +2555,7 @@ func TestGetPreprovImageNotCurrent(t *testing.T) {
 
 func TestPreprovImageAvailable(t *testing.T) {
 	host := newDefaultHost(t)
-	r := newTestReconciler(host, newSecret("network_secret_1", nil))
+	r := newTestReconciler(t, host, newSecret("network_secret_1", nil))
 
 	testCases := []struct {
 		Scenario   string
@@ -2891,7 +2895,7 @@ func TestHostFirmwareSettings(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			host := newDefaultHost(t)
-			r := newTestReconciler(host)
+			r := newTestReconciler(t, host)
 			i := makeReconcileInfo(host)
 			i.request = newRequest(host)
 
@@ -2915,7 +2919,7 @@ func TestBMHTransitionToPreparing(t *testing.T) {
 	host.Spec.Online = true
 	host.Spec.ExternallyProvisioned = false
 	host.Spec.ConsumerRef = &corev1.ObjectReference{}
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
 
@@ -2942,7 +2946,7 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 	host.Spec.Online = true
 	host.Spec.ConsumerRef = &corev1.ObjectReference{}
 	host.Spec.ExternallyProvisioned = false
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
 
@@ -2979,7 +2983,7 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 	host.Spec.Online = true
 	host.Spec.ConsumerRef = &corev1.ObjectReference{}
 	host.Spec.ExternallyProvisioned = false
-	r := newTestReconciler(host)
+	r := newTestReconciler(t, host)
 
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 

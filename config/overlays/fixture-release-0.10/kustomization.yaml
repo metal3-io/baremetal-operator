@@ -1,8 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- https://github.com/metal3-io/baremetal-operator/config/namespace?ref=release-0.6
-- https://github.com/metal3-io/baremetal-operator/config/default?ref=release-0.6
+- https://github.com/metal3-io/baremetal-operator/config/namespace?ref=release-0.10
+- https://github.com/metal3-io/baremetal-operator/config/default?ref=release-0.10
 patches:
 - patch: |
     # Enable test mode (fixture provider instead of ironic)
@@ -18,4 +18,4 @@ patches:
     name: controller-manager
 images:
 - name: quay.io/metal3-io/baremetal-operator
-  newTag: release-0.6
+  newTag: release-0.10

@@ -127,6 +127,7 @@ bmoIronicUpgradeSpecs:
   initBMOKustomization: "../../config/overlays/e2e-release-0.10"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-28.0"
   upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"
 # Upgrade Ironic 29.0 -> latest | BMO 0.10
 - deployIronic: true
   deployBMO: true

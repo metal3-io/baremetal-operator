@@ -79,10 +79,6 @@ kindExtraPortMappings:
   hostPort: 6385
   listenAddress: "0.0.0.0"
   protocol: TCP
-- containerPort: 5050
-  hostPort: 5050
-  listenAddress: "0.0.0.0"
-  protocol: TCP
 
 
 bmoIronicUpgradeSpecs:
@@ -127,6 +123,7 @@ bmoIronicUpgradeSpecs:
   initBMOKustomization: "../../config/overlays/e2e-release-0.10"
   initIronicKustomization: "../../ironic-deployment/overlays/e2e-release-28.0"
   upgradeEntityKustomization: "../../ironic-deployment/overlays/e2e"
+  upgradeEntityName: "ironic"
 # Upgrade Ironic 29.0 -> latest | BMO 0.10
 - deployIronic: true
   deployBMO: true

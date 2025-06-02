@@ -1,10 +1,11 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -22,7 +23,7 @@ type hostConfigData struct {
 // keys.
 func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (string, error) {
 	if namespace != hcd.host.Namespace {
-		return "", errors.Errorf("%s secret must be in same namespace as host %s/%s", dataKey, hcd.host.Namespace, hcd.host.Name)
+		return "", fmt.Errorf("%s secret must be in same namespace as host %s/%s", dataKey, hcd.host.Namespace, hcd.host.Name)
 	}
 
 	key := types.NamespacedName{

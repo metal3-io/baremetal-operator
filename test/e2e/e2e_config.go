@@ -11,7 +11,6 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
@@ -104,13 +103,13 @@ func (c *Config) Validate() error {
 	// Image should have name and loadBehavior be one of [mustload, tryload].
 	for i, containerImage := range c.Images {
 		if containerImage.Name == "" {
-			return errors.Errorf("Container image is missing name: Images[%d].Name=%q", i, containerImage.Name)
+			return fmt.Errorf("container image is missing name: Images[%d].Name=%q", i, containerImage.Name)
 		}
 		switch containerImage.LoadBehavior {
 		case clusterctl.MustLoadImage, clusterctl.TryLoadImage:
 			// Valid
 		default:
-			return errors.Errorf("Invalid load behavior: Images[%d].LoadBehavior=%q", i, containerImage.LoadBehavior)
+			return fmt.Errorf("invalid load behavior: Images[%d].LoadBehavior=%q", i, containerImage.LoadBehavior)
 		}
 	}
 
@@ -118,14 +117,14 @@ func (c *Config) Validate() error {
 	for k, intervals := range c.Intervals {
 		switch len(intervals) {
 		case 0:
-			return errors.Errorf("Invalid interval: Intervals[%s]=%q", k, intervals)
+			return fmt.Errorf("invalid interval: Intervals[%s]=%q", k, intervals)
 		case 1, 2: //nolint: mnd
 		default:
-			return errors.Errorf("Invalid interval: Intervals[%s]=%q", k, intervals)
+			return fmt.Errorf("invalid interval: Intervals[%s]=%q", k, intervals)
 		}
 		for _, i := range intervals {
 			if _, err := time.ParseDuration(i); err != nil {
-				return errors.Errorf("Invalid interval: Intervals[%s]=%q", k, intervals)
+				return fmt.Errorf("invalid interval: Intervals[%s]=%q", k, intervals)
 			}
 		}
 	}

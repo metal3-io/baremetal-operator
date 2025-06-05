@@ -913,8 +913,6 @@ type BareMetalHost struct {
 }
 
 // BootMode returns the boot method to use for the host.
-//
-//nolint:stylecheck
 func (host *BareMetalHost) BootMode() BootMode {
 	mode := host.Spec.BootMode
 	if mode == "" {

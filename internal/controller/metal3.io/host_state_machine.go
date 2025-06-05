@@ -110,6 +110,7 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3api.Provisio
 			if actionRes := hsm.ensureCapacity(info, hsm.NextState); actionRes != nil {
 				return actionRes
 			}
+		default:
 		}
 
 		info.log.Info("changing provisioning state",
@@ -140,6 +141,7 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3api.Provisio
 				info.log.Info("saving boot mode",
 					"new mode", hsm.Host.Status.Provisioning.BootMode)
 			}
+		default:
 		}
 	}
 
@@ -166,6 +168,7 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}
+	default:
 	}
 
 	return nil
@@ -302,6 +305,7 @@ func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result acti
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:
 			return hsm.Reconciler.detachHost(hsm.Provisioner, info)
+		default:
 		}
 	}
 	if info.host.Status.ErrorType == metal3api.DetachError {

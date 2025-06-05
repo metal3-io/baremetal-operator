@@ -338,21 +338,17 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 		return result, err
 	}
 
+	if data.State == metal3api.StateProvisioning && data.CurrentImage.IsLiveISO() {
+		// Live ISO doesn't need pre-provisioning image
+		return result, nil
+	}
+
+	if data.State == metal3api.StateDeprovisioning && data.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
+		// No need for pre-provisioning image if cleaning disabled
+		return result, nil
+	}
+
 	switch data.State {
-	case metal3api.StateProvisioning,
-		metal3api.StateDeprovisioning:
-		if data.State == metal3api.StateProvisioning {
-			if data.CurrentImage.IsLiveISO() {
-				// Live ISO doesn't need pre-provisioning image
-				return result, nil
-			}
-		} else {
-			if data.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
-				// No need for pre-provisioning image if cleaning disabled
-				return result, nil
-			}
-		}
-		fallthrough
 	case metal3api.StateInspecting,
 		metal3api.StatePreparing:
 		if deployImageInfo == nil {
@@ -363,6 +359,7 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 			}
 			return result, err
 		}
+	default:
 	}
 
 	return result, nil
@@ -1727,6 +1724,7 @@ func (p *ironicProvisioner) loadBusyHosts() (hosts map[string]struct{}, err erro
 			if !strings.Contains(node.BootInterface, "virtual-media") {
 				hosts[node.Name] = struct{}{}
 			}
+		default:
 		}
 	}
 

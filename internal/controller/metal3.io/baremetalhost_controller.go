@@ -585,6 +585,7 @@ func getCurrentImage(host *metal3api.BareMetalHost) *metal3api.Image {
 		if host.Spec.Image != nil && host.Spec.Image.URL != "" {
 			return host.Spec.Image.DeepCopy()
 		}
+	default:
 	}
 	return nil
 }
@@ -815,6 +816,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		if info.host.Spec.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
 			preprovImgFormats = nil
 		}
+	default:
 	}
 
 	preprovImg, err := r.getPreprovImage(info, preprovImgFormats)

@@ -99,6 +99,7 @@ func (c *Config) Defaults() {
 // Validate validates the configuration. More specifically:
 // - Image should have name and loadBehavior be one of [mustload, tryload].
 // - Intervals should be valid ginkgo intervals.
+// - BMOIronicUpgradeSpecs should have fields as specified.
 func (c *Config) Validate() error {
 	// Image should have name and loadBehavior be one of [mustload, tryload].
 	for i, containerImage := range c.Images {
@@ -128,6 +129,38 @@ func (c *Config) Validate() error {
 			}
 		}
 	}
+
+	for _, spec := range c.BMOIronicUpgradeSpecs {
+		if spec.DeployIronic {
+			if spec.InitIronicKustomization == "" {
+				return errors.Errorf("Ironic kustomization should be provided")
+			}
+			if _, err := os.Stat(spec.InitIronicKustomization); err != nil {
+				return errors.Errorf("Ironic kustomization file not found: %s", spec.InitIronicKustomization)
+			}
+		}
+
+		if spec.DeployBMO {
+			if spec.InitBMOKustomization == "" {
+				return errors.Errorf("BMO kustomization should be provided")
+			}
+			if _, err := os.Stat(spec.InitBMOKustomization); err != nil {
+				return errors.Errorf("BMO kustomization file not found: %s", spec.InitBMOKustomization)
+			}
+		}
+
+		if spec.UpgradeEntityName != "bmo" && spec.UpgradeEntityName != "ironic" {
+			return errors.Errorf("UpgradeEntityName should be eithe 'bmo' or 'ironic'")
+		}
+
+		if spec.UpgradeEntityKustomization == "" {
+			return errors.Errorf("UpgradeEntityKustomization should be provided")
+		}
+		if _, err := os.Stat(spec.UpgradeEntityKustomization); err != nil {
+			return errors.Errorf("UpgradeEntityKustomization file not found: %s", spec.UpgradeEntityKustomization)
+		}
+	}
+
 	return nil
 }
 

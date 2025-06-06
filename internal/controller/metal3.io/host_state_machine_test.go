@@ -252,6 +252,16 @@ func TestDetach(t *testing.T) {
 			ExpectedState: metal3api.StateDeleting,
 		},
 		{
+			Scenario:                  "DeleteDetachedExternallyProvisionedHost",
+			Host:                      host(metal3api.StateExternallyProvisioned).SetOperationalStatus(metal3api.OperationalStatusDetached).setDeletion().withFinalizer().build(),
+			HasDetachedAnnotation:     true,
+			ExpectedDetach:            false,
+			ExpectedDirty:             true,
+			ExpectedOperationalStatus: metal3api.OperationalStatusDetached,
+			// Should move to Deleting without any Deprovisioning
+			ExpectedState: metal3api.StateDeleting,
+		},
+		{
 			Scenario:                  "ExternallyProvisionedHost",
 			Host:                      host(metal3api.StateExternallyProvisioned).SetExternallyProvisioned().build(),
 			HasDetachedAnnotation:     false,

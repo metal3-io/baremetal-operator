@@ -400,8 +400,8 @@ k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 h1:hcha5B1kVACrLujCKLbr8X
 k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7/go.mod h1:GewRfANuJ70iYzvn+i4lezLDAFzvjxZYK1gn1lWcfas=
 k8s.io/utils v0.0.0-20241210054802-24370beab758 h1:sdbE21q2nlQtFh65saZY+rRM6x6aJJI8IUa1AmH/qa0=
 k8s.io/utils v0.0.0-20241210054802-24370beab758/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
-libvirt.org/go/libvirt v1.11002.0 h1:cb8KJG3D97pc/hxQ2n6P82hRX3rlgdzO7bih6W1AAQ8=
-libvirt.org/go/libvirt v1.11002.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
+libvirt.org/go/libvirt v1.11004.0 h1:8iWbiTJzrqQoS+opyowkDeJAWImDx8jb/jGQjo++upM=
+libvirt.org/go/libvirt v1.11004.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.1 h1:uOuSLOMBWkJH0TWa9X6l+mj5nZdm6Ay6Bli8HL8rNfk=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.1/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
 sigs.k8s.io/cluster-api v1.10.2 h1:xfvtNu4Fy/41grL0ryH5xSKQjpJEWdO8HiV2lPCCozQ=

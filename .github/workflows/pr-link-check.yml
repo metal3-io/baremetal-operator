@@ -1,0 +1,14 @@
+name: PR Check Links
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  check-pr-links:
+    uses: metal3-io/project-infra/.github/workflows/pr-link-check.yml@main
+    with:
+      upstream: https://github.com/metal3-io/baremetal-operator.git

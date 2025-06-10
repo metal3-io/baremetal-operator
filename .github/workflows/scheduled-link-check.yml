@@ -1,0 +1,19 @@
+name: Scheduled Link Check
+
+on:
+  workflow_dispatch:
+  schedule:
+  # random time to avoid overlap with other scheduled checks
+  - cron: "40 5 1 * *"
+  repository_dispatch:
+    # run manually
+    types: [check-links]
+
+permissions:
+  contents: read
+  issues: write
+
+# links found but not broken despite no access should be added to a .lycheeignore file
+jobs:
+  check-links:
+    uses: metal3-io/project-infra/.github/workflows/scheduled-link-check.yml@main

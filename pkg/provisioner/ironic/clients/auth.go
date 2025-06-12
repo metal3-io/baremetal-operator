@@ -43,7 +43,7 @@ func readAuthFile(filename string) (string, error) {
 func LoadAuth() (auth AuthConfig, err error) {
 	authPath := path.Join(authRoot(), "ironic")
 
-	if _, err := os.Stat(authPath); err != nil {
+	if _, err = os.Stat(authPath); err != nil {
 		if os.IsNotExist(err) {
 			auth.Type = NoAuth
 			return auth, nil

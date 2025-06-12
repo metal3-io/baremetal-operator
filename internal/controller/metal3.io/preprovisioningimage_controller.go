@@ -67,12 +67,15 @@ const (
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update
 
 func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var err error
+	var changed bool
+
 	log := r.Log.WithValues("preprovisioningimage", req.NamespacedName)
 
 	result := ctrl.Result{}
 
 	img := metal3api.PreprovisioningImage{}
-	err := r.Get(ctx, req.NamespacedName, &img)
+	err = r.Get(ctx, req.NamespacedName, &img)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.Info("PreprovisioningImage not found")
@@ -83,12 +86,12 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 
 	if !img.DeletionTimestamp.IsZero() {
 		log.Info("cleaning up deleted resource")
-		if err := r.discardExistingImage(&img, log); err != nil {
+		if err = r.discardExistingImage(&img, log); err != nil {
 			return ctrl.Result{}, err
 		}
 		img.Finalizers = utils.FilterStringFromList(
 			img.Finalizers, metal3api.PreprovisioningImageFinalizer)
-		err := r.Update(ctx, &img)
+		err = r.Update(ctx, &img)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
@@ -98,14 +101,14 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	if !utils.StringInList(img.Finalizers, metal3api.PreprovisioningImageFinalizer) {
 		log.Info("adding finalizer")
 		img.Finalizers = append(img.Finalizers, metal3api.PreprovisioningImageFinalizer)
-		err := r.Update(ctx, &img)
+		err = r.Update(ctx, &img)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	changed, err := r.update(ctx, &img, log)
+	changed, err = r.update(ctx, &img, log)
 
 	if k8serrors.IsNotFound(err) {
 		delay := getErrorRetryDelay(img.Status)
@@ -145,6 +148,11 @@ func configChanged(img *metal3api.PreprovisioningImage, format metal3api.ImageFo
 // image build. If the image configuration has not changed, it simply updates the
 // image status with the latest information.
 func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3api.PreprovisioningImage, log logr.Logger) (bool, error) {
+	var networkData *corev1.Secret
+	var secretStatus metal3api.SecretStatus
+	var err error
+	var image imageprovider.GeneratedImage
+
 	generation := img.GetGeneration()
 
 	if !r.ImageProvider.SupportsArchitecture(img.Spec.Architecture) {
@@ -158,7 +166,7 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 	}
 
 	secretManager := secretutils.NewSecretManager(ctx, log, r.Client, r.APIReader)
-	networkData, secretStatus, err := getNetworkData(secretManager, img)
+	networkData, secretStatus, err = getNetworkData(secretManager, img)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.Info("network data Secret does not exist")
@@ -174,7 +182,7 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 			// from the image cache.
 			setUnready(generation, &img.Status, reason)
 		} else {
-			if err := r.discardExistingImage(img, log); err != nil {
+			if err = r.discardExistingImage(img, log); err != nil {
 				return false, err
 			}
 			// Set up all the data before building the image and adding the URL,
@@ -191,7 +199,7 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 	if networkData != nil {
 		networkDataContent = networkData.Data
 	}
-	image, err := r.ImageProvider.BuildImage(imageprovider.ImageData{
+	image, err = r.ImageProvider.BuildImage(imageprovider.ImageData{
 		ImageMetadata:     img.ObjectMeta.DeepCopy(),
 		Format:            format,
 		Architecture:      img.Spec.Architecture,

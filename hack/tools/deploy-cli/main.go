@@ -117,8 +117,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := dc.determineIronicAuth(); err != nil {
-		log.Fatalf("Error retrieving Ironic username/password: %v", err)
+	if errOnAuth := dc.determineIronicAuth(); errOnAuth != nil {
+		log.Fatalf("Error retrieving Ironic username/password: %v", errOnAuth)
 	}
 
 	if deployIronicFlag {

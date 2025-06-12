@@ -124,6 +124,10 @@ func main() {
 	var leaseDurationSeconds string
 	var renewDeadlineSeconds string
 	var retryPeriodSeconds string
+	var tlsOptionOverrides []func(*tls.Config)
+	var err error
+	var mgr ctrl.Manager
+	var maxConcurrency int
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -191,7 +195,7 @@ func main() {
 	if leaderElectionNamespace == "" {
 		leaderElectionNamespace = watchNamespace
 	}
-	tlsOptionOverrides, err := GetTLSOptionOverrideFuncs(tlsOptions)
+	tlsOptionOverrides, err = GetTLSOptionOverrideFuncs(tlsOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to add TLS settings to the webhook server")
 		os.Exit(1)
@@ -231,7 +235,8 @@ func main() {
 	}
 
 	if leaseDurationSeconds != "" {
-		seconds, err := strconv.ParseInt(leaseDurationSeconds, 10, 16)
+		var seconds int64
+		seconds, err = strconv.ParseInt(leaseDurationSeconds, 10, 16)
 		if err != nil {
 			setupLog.Error(err, "failed to parse duration")
 			os.Exit(1)
@@ -242,7 +247,8 @@ func main() {
 	}
 
 	if renewDeadlineSeconds != "" {
-		seconds, err := strconv.ParseInt(renewDeadlineSeconds, 10, 16)
+		var seconds int64
+		seconds, err = strconv.ParseInt(renewDeadlineSeconds, 10, 16)
 		if err != nil {
 			setupLog.Error(err, "failed to parse renew deadline")
 			os.Exit(1)
@@ -253,7 +259,8 @@ func main() {
 	}
 
 	if retryPeriodSeconds != "" {
-		seconds, err := strconv.ParseInt(retryPeriodSeconds, 10, 16)
+		var seconds int64
+		seconds, err = strconv.ParseInt(retryPeriodSeconds, 10, 16)
 		if err != nil {
 			setupLog.Error(err, "failed to parse retry period")
 			os.Exit(1)
@@ -262,7 +269,7 @@ func main() {
 		ctrlOpts.RetryPeriod = &duration
 	}
 
-	mgr, err := ctrl.NewManager(restConfig, ctrlOpts)
+	mgr, err = ctrl.NewManager(restConfig, ctrlOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -280,7 +287,7 @@ func main() {
 		provisionerFactory = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
 	}
 
-	maxConcurrency, err := getMaxConcurrentReconciles(controllerConcurrency)
+	maxConcurrency, err = getMaxConcurrentReconciles(controllerConcurrency)
 	if err != nil {
 		setupLog.Error(err, "unable to create controllers")
 		os.Exit(1)
@@ -356,8 +363,8 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+	if errOnStart := mgr.Start(ctrl.SetupSignalHandler()); errOnStart != nil {
+		setupLog.Error(errOnStart, "problem running manager")
 		os.Exit(1)
 	}
 }

@@ -41,6 +41,10 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 		})
 
 		It("provisions a BMH, applies detached and status annotations, then deprovisions", func() {
+			var err error
+			var helper *patch.Helper
+			var statusJSON []byte
+
 			By("Creating a secret with BMH credentials")
 			bmcCredentialsData := map[string]string{
 				"username": bmc.User,
@@ -69,7 +73,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 					AutomatedCleaningMode: "disabled",
 				},
 			}
-			err := clusterProxy.GetClient().Create(ctx, &bmh)
+			err = clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for the BMH to become available")
@@ -80,7 +84,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
 			By("Patching the BMH to test provisioning")
-			helper, err := patch.NewHelper(&bmh, clusterProxy.GetClient())
+			helper, err = patch.NewHelper(&bmh, clusterProxy.GetClient())
 			Expect(err).NotTo(HaveOccurred())
 			bmh.Spec.Image = &metal3api.Image{
 				URL:          e2eConfig.GetVariable("IMAGE_URL"),
@@ -142,7 +146,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 
 			By("Saving the status to a JSON string")
 			savedStatus := bmh.Status
-			statusJSON, err := json.Marshal(savedStatus)
+			statusJSON, err = json.Marshal(savedStatus)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Deleting the BMH")
@@ -167,7 +171,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 
 			By("Waiting for the secret to be deleted")
 			Eventually(func() bool {
-				err := clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 					Name:      "bmc-credentials",
 					Namespace: namespace.Name,
 				}, &corev1.Secret{})

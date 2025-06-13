@@ -93,6 +93,7 @@ const metricsRoleBindingName = "baremetal-operator-metrics-binding"
 // It uses the Kubernetes TokenRequest API to generate a token by directly sending a request
 // and parsing the resulting token from the API response.
 func serviceAccountToken() (string, error) {
+	var err error
 	const tokenRequestRawString = `{
 		"apiVersion": "authentication.k8s.io/v1",
 		"kind": "TokenRequest"
@@ -101,13 +102,14 @@ func serviceAccountToken() (string, error) {
 	// Temporary file to store the token request
 	secretName := fmt.Sprintf("%s-token-request", serviceAccountName)
 	tokenRequestFile := filepath.Join("/tmp", secretName) //nolint: gocritic
-	err := os.WriteFile(tokenRequestFile, []byte(tokenRequestRawString), os.FileMode(0o644))
+	err = os.WriteFile(tokenRequestFile, []byte(tokenRequestRawString), os.FileMode(0o644))
 	if err != nil {
 		return "", err
 	}
 
 	var out string
 	verifyTokenCreation := func(g Gomega) {
+		var output []byte
 		// Execute kubectl command to create the token
 		cmd := exec.Command("kubectl", "create", "--raw", fmt.Sprintf(
 			"/api/v1/namespaces/%s/serviceaccounts/%s/token",
@@ -115,7 +117,7 @@ func serviceAccountToken() (string, error) {
 			serviceAccountName,
 		), "-f", tokenRequestFile)
 
-		output, err := cmd.CombinedOutput()
+		output, err = cmd.CombinedOutput()
 		g.Expect(err).NotTo(HaveOccurred())
 
 		// Parse the JSON output to extract the token
@@ -165,29 +167,29 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	scheme := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(scheme)
-	clusterProxy := framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
-	Expect(clusterProxy).ToNot(BeNil(), "Failed to get a cluster proxy")
+	clstrProxy := framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
+	Expect(clstrProxy).ToNot(BeNil(), "Failed to get a cluster proxy")
 
 	DeferCleanup(func() {
-		clusterProxy.Dispose(ctx)
+		clstrProxy.Dispose(ctx)
 	})
 
-	os.Setenv("KUBECONFIG", clusterProxy.GetKubeconfigPath())
+	os.Setenv("KUBECONFIG", clstrProxy.GetKubeconfigPath())
 
 	if e2eConfig.GetBoolVariable("DEPLOY_CERT_MANAGER") {
 		// Install cert-manager
 		By("Installing cert-manager")
-		err := checkCertManagerAPI(clusterProxy)
+		err := checkCertManagerAPI(clstrProxy)
 		if err != nil {
 			cmVersion := e2eConfig.GetVariable("CERT_MANAGER_VERSION")
-			err = installCertManager(ctx, clusterProxy, cmVersion)
+			err = installCertManager(ctx, clstrProxy, cmVersion)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for cert-manager webhook")
 			Eventually(func() error {
-				return checkCertManagerWebhook(ctx, clusterProxy)
+				return checkCertManagerWebhook(ctx, clstrProxy)
 			}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
-			err = checkCertManagerAPI(clusterProxy)
+			err = checkCertManagerAPI(clstrProxy)
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
@@ -200,7 +202,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		err := FlakeAttempt(2, func() error {
 			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
 				Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
-				ClusterProxy:        clusterProxy,
+				ClusterProxy:        clstrProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
 				DeploymentName:      "ironic",
@@ -213,12 +215,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	}
 
 	if e2eConfig.GetBoolVariable("DEPLOY_BMO") {
+		var cmd *exec.Cmd
+		var err error
+		var token string
 		// Install BMO
 		By("Installing BMO")
-		err := FlakeAttempt(2, func() error {
+		err = FlakeAttempt(2, func() error {
 			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
 				Kustomization:       e2eConfig.GetVariable("BMO_KUSTOMIZATION"),
-				ClusterProxy:        clusterProxy,
+				ClusterProxy:        clstrProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
 				DeploymentName:      "baremetal-operator-controller-manager",
@@ -231,7 +236,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 		// Metrics test start
 		By("creating a ClusterRoleBinding for the service account to allow access to metrics")
-		cmd := exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
+		cmd = exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
 			"--clusterrole=baremetal-operator-metrics-reader",
 			fmt.Sprintf("--serviceaccount=%s:%s", namespace, serviceAccountName),
 		)
@@ -240,8 +245,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 		By("validating that the metrics service is available")
 		Eventually(func() error {
-			cmd := exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
-			output, err := cmd.CombinedOutput()
+			var output []byte
+			cmd = exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
+			output, err = cmd.CombinedOutput()
 			if err != nil {
 				log.Printf("Service check output: %s\n", string(output))
 				return err
@@ -250,14 +256,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		}, "30s", "5s").Should(Succeed(), "Metrics service is not available")
 
 		By("getting the service account token")
-		token, err := serviceAccountToken()
+		token, err = serviceAccountToken()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(token).NotTo(BeEmpty())
 
 		By("waiting for the metrics endpoint to be ready")
 		verifyMetricsEndpointReady := func(g Gomega) {
-			cmd := exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
-			output, err := cmd.CombinedOutput()
+			var output []byte
+			cmd = exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
+			output, err = cmd.CombinedOutput()
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(output).To(ContainSubstring("8443"), "Metrics endpoint is not ready")
 		}
@@ -275,10 +282,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 		By("waiting for the curl-metrics pod to complete.")
 		verifyCurlUp := func(g Gomega) {
-			cmd := exec.Command("kubectl", "get", "pods", "curl-metrics",
+			var output []byte
+			cmd = exec.Command("kubectl", "get", "pods", "curl-metrics",
 				"-o", "jsonpath={.status.phase}",
 				"-n", namespace)
-			output, err := cmd.CombinedOutput()
+			output, err = cmd.CombinedOutput()
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(string(output)).To(Equal("Succeeded"), "curl pod in wrong status")
 		}
@@ -293,7 +301,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	}
 
-	return []byte(strings.Join([]string{clusterProxy.GetKubeconfigPath()}, ","))
+	return []byte(strings.Join([]string{clstrProxy.GetKubeconfigPath()}, ","))
 }, func(data []byte) {
 	// Before each parallel node
 	parts := strings.Split(string(data), ",")

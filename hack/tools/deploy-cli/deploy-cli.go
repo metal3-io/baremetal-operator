@@ -69,22 +69,27 @@ type DeployContext struct {
 // - `ironic-username` and `ironic-password` files content
 // - Random string.
 func (d *DeployContext) determineIronicAuth() error {
+	var err error
+	var ironicDataDir string
+	var ironicUsername string
+	var ironicPassword string
+
 	if !d.DeployTLS {
 		log.Println("WARNING: Deploying without authentication is not recommended")
 		return nil
 	}
-	ironicDataDir, err := d.GetEnvOrDefault("IRONIC_DATA_DIR")
+	ironicDataDir, err = d.GetEnvOrDefault("IRONIC_DATA_DIR")
 	if err != nil {
 		return err
 	}
 	ironicAuthDir := filepath.Join(ironicDataDir, "auth")
 	ironicUsernameFile := filepath.Join(ironicAuthDir, "ironic-username")
 
-	if err := os.MkdirAll(ironicAuthDir, filePerm755); err != nil {
+	if err = os.MkdirAll(ironicAuthDir, filePerm755); err != nil {
 		return err
 	}
 
-	ironicUsername, err := getEnvOrFileContent("IRONIC_USERNAME", ironicUsernameFile)
+	ironicUsername, err = getEnvOrFileContent("IRONIC_USERNAME", ironicUsernameFile)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -99,7 +104,7 @@ func (d *DeployContext) determineIronicAuth() error {
 	}
 
 	ironicPasswordFile := filepath.Join(ironicAuthDir, "ironic-password")
-	ironicPassword, err := getEnvOrFileContent("IRONIC_PASSWORD", ironicPasswordFile)
+	ironicPassword, err = getEnvOrFileContent("IRONIC_PASSWORD", ironicPasswordFile)
 	if err != nil || ironicPassword == "" {
 		ironicPassword, err = GenerateRandomString(12) //nolint: mnd
 		if err != nil {
@@ -119,7 +124,6 @@ func (d *DeployContext) determineIronicAuth() error {
 // deployIronic configures the kustomize overlay for ironic
 // based on the configuration, then install ironic with that overlay.
 func (d *DeployContext) deployIronic() error {
-	var err error
 	ironicDataDir, err := d.GetEnvOrDefault("IRONIC_DATA_DIR")
 	if err != nil {
 		return err
@@ -127,7 +131,7 @@ func (d *DeployContext) deployIronic() error {
 	configMapFileName := "ironic_bmo_configmap.env"
 	configMapInDataDir := filepath.Join(ironicDataDir, configMapFileName)
 
-	if _, err := os.Stat(configMapInDataDir); err == nil && d.IronicBMOConfigMapEnvFile == "" {
+	if _, errOnPath := os.Stat(configMapInDataDir); errOnPath == nil && d.IronicBMOConfigMapEnvFile == "" {
 		log.Printf("Detected ironic_bmo_configmap.env file in IRONIC_DATA_DIR: %s. Taken into use.", configMapInDataDir)
 		d.IronicBMOConfigMapEnvFile = configMapInDataDir
 	}
@@ -149,15 +153,15 @@ func (d *DeployContext) deployIronic() error {
 
 		kustomizeFile := filepath.Join(ironicOverlay, "kustomization.yaml")
 
-		if err := RenderEmbedTemplateToFile(d.TemplateFiles, ironicKustomizeTpl, kustomizeFile, d); err != nil {
-			return err
+		if errOnRender := RenderEmbedTemplateToFile(d.TemplateFiles, ironicKustomizeTpl, kustomizeFile, d); errOnRender != nil {
+			return errOnRender
 		}
 
 		ironicBMOConfigMapTpl := "templates/ironic_bmo_configmap_env.tpl"
 		ironicBMOConfigMapOutput := filepath.Join(ironicOverlay, configMapFileName)
 
-		if err := RenderEmbedTemplateToFile(d.TemplateFiles, ironicBMOConfigMapTpl, ironicBMOConfigMapOutput, d); err != nil {
-			return err
+		if errOnRender := RenderEmbedTemplateToFile(d.TemplateFiles, ironicBMOConfigMapTpl, ironicBMOConfigMapOutput, d); errOnRender != nil {
+			return errOnRender
 		}
 
 		d.IronicOverlay = ironicOverlay
@@ -168,21 +172,21 @@ func (d *DeployContext) deployIronic() error {
 
 	if d.IronicBMOConfigMapEnvFile != "" {
 		log.Printf("Using custom ironic_bmo_configmap.env file: %s", d.IronicBMOConfigMapEnvFile)
-		if err := CopyFile(d.IronicBMOConfigMapEnvFile, filepath.Join(ironicOverlay, "ironic_bmo_configmap.env")); err != nil {
-			return err
+		if errOnCopy := CopyFile(d.IronicBMOConfigMapEnvFile, filepath.Join(ironicOverlay, "ironic_bmo_configmap.env")); errOnCopy != nil {
+			return errOnCopy
 		}
 	}
 
 	username, password := d.IronicUsername, d.IronicPassword
 
 	if username != "" && password != "" {
-		ironicHtpasswd, err := GenerateHtpasswd(username, password)
-		if err != nil {
-			return err
+		ironicHtpasswd, errOnPasswd := GenerateHtpasswd(username, password)
+		if errOnPasswd != nil {
+			return errOnPasswd
 		}
 		htpasswdPath := filepath.Join(d.IronicOverlay, "ironic-htpasswd")
-		if err = os.WriteFile(htpasswdPath, []byte(ironicHtpasswd), filePerm600); err != nil {
-			return err
+		if errOnPasswd = os.WriteFile(htpasswdPath, []byte(ironicHtpasswd), filePerm600); errOnPasswd != nil {
+			return errOnPasswd
 		}
 	}
 
@@ -200,7 +204,7 @@ func (d *DeployContext) deployBMO() error {
 	ironicEnvFileName := "ironic.env"
 	ironicEnvInDataDir := filepath.Join(ironicDataDir, ironicEnvFileName)
 
-	if _, err := os.Stat(ironicEnvInDataDir); err == nil && d.IronicEnvFile == "" {
+	if _, errOnPath := os.Stat(ironicEnvInDataDir); errOnPath == nil && d.IronicEnvFile == "" {
 		log.Printf("Detected ironic.env file in IRONIC_DATA_DIR: %s. Taken into use.", ironicEnvInDataDir)
 		d.IronicEnvFile = ironicEnvInDataDir
 	}

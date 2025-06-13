@@ -1113,6 +1113,7 @@ func (host *BareMetalHost) OperationMetricForState(operation ProvisioningState) 
 		metric = &history.Provision
 	case StateDeprovisioning:
 		metric = &history.Deprovision
+	default:
 	}
 	return
 }

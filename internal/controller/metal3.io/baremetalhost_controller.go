@@ -709,7 +709,7 @@ func getHostArchitecture(host *metal3api.BareMetalHost) string {
 func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats []metal3api.ImageFormat) (*provisioner.PreprovisioningImage, error) {
 	if formats == nil {
 		// No image build requested
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	if len(formats) == 0 {
@@ -2047,7 +2047,7 @@ func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(info *reconcileInfo) (
 			// garbage collected. For additional cleanup logic use
 			// finalizers.  Return and don't requeue
 
-			return nil, nil
+			return nil, nil //nolint:nilnil
 		}
 		// Error reading the object
 		return nil, fmt.Errorf("could not load hostUpdatePolicy resource due to %w", err)
@@ -2150,7 +2150,7 @@ func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3api.Ba
 	annotations := host.GetAnnotations()
 	content := []byte(annotations[metal3api.StatusAnnotation])
 	if annotations[metal3api.StatusAnnotation] == "" {
-		return nil, nil
+		return nil, errors.New("status annotation not found")
 	}
 	objStatus, err := unmarshalStatusAnnotation(content)
 	if err != nil {
@@ -2163,7 +2163,7 @@ func (r *BareMetalHostReconciler) getHostStatusFromAnnotation(host *metal3api.Ba
 func (r *BareMetalHostReconciler) getHardwareDetailsFromAnnotation(host *metal3api.BareMetalHost) (*metal3api.HardwareDetails, error) {
 	annotations := host.GetAnnotations()
 	if annotations[metal3api.HardwareDetailsAnnotation] == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 	objHardwareDetails := &metal3api.HardwareDetails{}
 	decoder := json.NewDecoder(strings.NewReader(annotations[metal3api.HardwareDetailsAnnotation]))

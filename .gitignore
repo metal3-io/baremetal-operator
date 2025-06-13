@@ -60,3 +60,6 @@ config/overlays/temp
 .venv
 
 .idea/
+
+# VS Code settings
+.vscode/

@@ -232,6 +232,7 @@ func (p *ironicProvisioner) isAddressAllocatedToPort(address string) (bool, erro
 }
 
 // Look for an existing registration for the host in Ironic.
+// Returns nil, nil if no host exists with MAC.
 func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode *nodes.Node, err error) {
 	// Try to load the node by UUID
 	ironicNode, err = p.getNode()
@@ -266,7 +267,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 
 	if err != nil {
 		p.log.Info("failed to find an existing port with address", "MAC", bootMACAddress)
-		return nil, nil //nolint:nilerr
+		return nil, nil //nolint:nilerr,nilnil
 	}
 
 	if len(allPorts) > 0 {
@@ -291,7 +292,7 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 	p.log.Info("port with address doesn't exist", "MAC", bootMACAddress)
 	// Either the node was never created or the Ironic database has
 	// been dropped.
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) error {

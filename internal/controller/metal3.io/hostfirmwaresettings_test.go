@@ -640,7 +640,7 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 
 			errors := r.validateHostFirmwareSettings(info, &info.hfs.Status, getExpectedSchema())
 			if len(errors) == 0 {
-				assert.Equal(t, "", tc.ExpectedError)
+				assert.Empty(t, tc.ExpectedError)
 			} else {
 				for _, error := range errors {
 					assert.Equal(t, tc.ExpectedError, error.Error())

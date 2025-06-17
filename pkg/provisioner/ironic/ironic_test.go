@@ -8,7 +8,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
-
 	// We don't use this package directly here, but need it imported
 	// so it registers its test fixture with the other BMC access
 	// types.

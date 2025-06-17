@@ -208,7 +208,7 @@ func main() {
 	}
 
 	args := TemplateArgs{
-		Domain:            strings.Replace(virshDomain, "_", "-", -1),
+		Domain:            strings.ReplaceAll(virshDomain, "_", "-"),
 		B64UserName:       b64UserName,
 		B64Password:       b64Password,
 		MAC:               desiredMAC,

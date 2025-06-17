@@ -93,17 +93,17 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 
 // Allow for managing hostfirmwaresettings, firmwareschema, bmceventsubscriptions and hostfirmwarecomponents
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=metal3.io,resources=hostfirmwaresettings,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=metal3.io,resources=firmwareschemas,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=metal3.io,resources=bmceventsubscriptions,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=metal3.io,resources=hostfirmwarecomponents,verbs=get;list;watch;create;update;patch
 
 // Allow for updating dataimage
 // +kubebuilder:rbac:groups=metal3.io,resources=dataimages,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=metal3.io,resources=dataimages/status,verbs=get;update;patch
 
 // Allow for updating hostupdatepolicies
-//+kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch;update
 
 // Reconcile handles changes to BareMetalHost resources.
 func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Request) (result ctrl.Result, err error) {
@@ -898,12 +898,9 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return actionUpdate{}
 	}
 
-	// Check if the host can support firmware components before creating the resrouce
+	// Check if the host can support firmware components before creating the resource
 	_, errGetFirmwareComponents := prov.GetFirmwareComponents()
-	supportsFirmwareComponents := true
-	if errGetFirmwareComponents != nil && errors.Is(errGetFirmwareComponents, provisioner.ErrFirmwareUpdateUnsupported) {
-		supportsFirmwareComponents = false
-	}
+	supportsFirmwareComponents := !errors.Is(errGetFirmwareComponents, provisioner.ErrFirmwareUpdateUnsupported)
 
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	// Create the hostFirmwareComponents resource with same host name/namespace if it doesn't exist

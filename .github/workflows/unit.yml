@@ -7,7 +7,7 @@ on:
 permissions: {}
 
 jobs:
-  golangci:
+  unit-tests:
     name: unit
     runs-on: ubuntu-latest
     steps:

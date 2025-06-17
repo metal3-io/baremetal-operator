@@ -511,7 +511,7 @@ func TestValidadeHostFirmwareComponents(t *testing.T) {
 			}
 			errors := r.validateHostFirmwareComponents(&info)
 			if len(errors) == 0 {
-				assert.Equal(t, "", tc.ExpectedErrors[0])
+				assert.Empty(t, tc.ExpectedErrors[0])
 			} else {
 				for i := range errors {
 					assert.Equal(t, tc.ExpectedErrors[i], errors[i].Error())

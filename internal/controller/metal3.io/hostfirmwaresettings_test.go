@@ -474,7 +474,7 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			ctx := context.TODO()
+			ctx := t.Context()
 
 			tc.ExpectedSettings.TypeMeta = metav1.TypeMeta{
 				Kind:       "HostFirmwareSettings",

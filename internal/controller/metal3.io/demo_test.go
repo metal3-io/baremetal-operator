@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	goctx "context"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -26,7 +25,7 @@ func newDemoReconciler(t *testing.T, initObjs ...runtime.Object) *BareMetalHostR
 
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newSecret(defaultSecretName, map[string]string{"username": "User", "password": "Pass"})
-	_ = c.Create(goctx.TODO(), bmcSecret)
+	_ = c.Create(t.Context(), bmcSecret)
 
 	return &BareMetalHostReconciler{
 		Client:             c,

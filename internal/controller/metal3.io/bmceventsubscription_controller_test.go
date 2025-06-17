@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -29,7 +28,7 @@ func newBMCTestReconcilerWithFixture(t *testing.T, fix *fixture.Fixture, initObj
 	c := clientBuilder.Build()
 	// Add a default secret that can be used by most subscriptions.
 	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
-	err := c.Create(context.TODO(), bmcSecret)
+	err := c.Create(t.Context(), bmcSecret)
 	if err != nil {
 		return nil
 	}
@@ -101,7 +100,7 @@ func TestBMCAddFinalizers(t *testing.T) {
 	host := newDefaultHost(t)
 	subscription := newDefaultSubscription(t)
 	r := newBMCTestReconciler(t, subscription, host)
-	err := r.addFinalizer(context.Background(), subscription)
+	err := r.addFinalizer(t.Context(), subscription)
 	if err != nil {
 		t.Error(err)
 	}
@@ -133,7 +132,7 @@ func TestBMCGetProvisioner(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			prov, actual, err := r.getProvisioner(context.Background(), request, tc.Host)
+			prov, actual, err := r.getProvisioner(t.Context(), request, tc.Host)
 			if err != nil {
 				t.Error(err)
 			}
@@ -204,13 +203,13 @@ func TestGetHTTPHeaders(t *testing.T) {
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			if tc.Secret != nil {
-				err := r.Create(context.Background(), tc.Secret)
+				err := r.Create(t.Context(), tc.Secret)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
 
-			headers, err := r.getHTTPHeaders(context.Background(), *tc.Subscription)
+			headers, err := r.getHTTPHeaders(t.Context(), *tc.Subscription)
 			if tc.ExpectedError && err == nil {
 				t.Error("Expected error but got none")
 			}

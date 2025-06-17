@@ -18,7 +18,6 @@ limitations under the License.
 package webhooks
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -58,7 +57,7 @@ func TestBareMetalHostCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			webhook := &BareMetalHost{}
-			ctx := context.Background()
+			ctx := t.Context()
 			if _, err := webhook.ValidateCreate(ctx, tt.bmh); !errorContains(err, tt.wantedErr) {
 				t.Errorf("BareMetalHost.ValidateCreate() error = %v, wantErr %v", err, tt.wantedErr)
 			}
@@ -96,7 +95,7 @@ func TestBareMetalHostUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			webhook := &BareMetalHost{}
-			ctx := context.Background()
+			ctx := t.Context()
 			if _, err := webhook.ValidateUpdate(ctx, tt.old, tt.bmh); !errorContains(err, tt.wantedErr) {
 				t.Errorf("BareMetalHost.ValidateUpdate() error = %v, wantErr %v", err, tt.wantedErr)
 			}

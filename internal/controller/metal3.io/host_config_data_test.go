@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -67,18 +66,18 @@ func TestLabelSecrets(t *testing.T) {
 			hcd := &hostConfigData{
 				host:          host,
 				log:           baselog.WithName("host_config_data"),
-				secretManager: secretutils.NewSecretManager(context.TODO(), baselog, c, c),
+				secretManager: secretutils.NewSecretManager(t.Context(), baselog, c, c),
 			}
 
 			secret := newSecret(tc.name, map[string]string{"value": "somedata"})
-			err := c.Create(context.TODO(), secret)
+			err := c.Create(t.Context(), secret)
 			require.NoError(t, err)
 
 			_, err = tc.getter(hcd)
 			require.NoError(t, err)
 
 			actualSecret := &corev1.Secret{}
-			err = c.Get(context.TODO(), types.NamespacedName{Name: tc.name, Namespace: namespace}, actualSecret)
+			err = c.Get(t.Context(), types.NamespacedName{Name: tc.name, Namespace: namespace}, actualSecret)
 			require.NoError(t, err)
 			assert.Equal(t, "baremetal", actualSecret.Labels["environment.metal3.io"])
 		})
@@ -383,15 +382,15 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			tc.Host.Spec.Online = true
 
 			c := fakeclient.NewClientBuilder().WithObjects(tc.Host).Build()
-			_ = c.Create(context.TODO(), testBMCSecret)
-			_ = c.Create(context.TODO(), tc.UserDataSecret)
-			_ = c.Create(context.TODO(), tc.NetworkDataSecret)
-			_ = c.Create(context.TODO(), tc.PreprovNetworkDataSecret)
+			_ = c.Create(t.Context(), testBMCSecret)
+			_ = c.Create(t.Context(), tc.UserDataSecret)
+			_ = c.Create(t.Context(), tc.NetworkDataSecret)
+			_ = c.Create(t.Context(), tc.PreprovNetworkDataSecret)
 			baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
 			hcd := &hostConfigData{
 				host:          tc.Host,
 				log:           baselog.WithName("host_config_data"),
-				secretManager: secretutils.NewSecretManager(context.TODO(), baselog, c, c),
+				secretManager: secretutils.NewSecretManager(t.Context(), baselog, c, c),
 			}
 
 			actualUserData, err := hcd.UserData()

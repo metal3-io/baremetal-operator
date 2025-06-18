@@ -32,7 +32,7 @@ func main() {
 	opts := getOptions()
 	ironicTrustedCAFile := os.Getenv("IRONIC_CACERT_FILE")
 	ironicInsecureStr := os.Getenv("IRONIC_INSECURE")
-	ironicInsecure := false
+	var ironicInsecure bool
 	if strings.EqualFold(ironicInsecureStr, "true") {
 		ironicInsecure = true
 	}

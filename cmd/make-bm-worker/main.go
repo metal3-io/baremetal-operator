@@ -76,7 +76,7 @@ func main() {
 	}
 
 	template := templates.Template{
-		Name:                           strings.Replace(hostName, "_", "-", -1),
+		Name:                           strings.ReplaceAll(hostName, "_", "-"),
 		BMCAddress:                     *bmcAddress,
 		DisableCertificateVerification: *disableCertificateVerification,
 		Username:                       *username,

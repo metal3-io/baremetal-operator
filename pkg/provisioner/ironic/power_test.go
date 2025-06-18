@@ -1,7 +1,6 @@
 package ironic
 
 import (
-	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -314,11 +313,11 @@ func TestSoftPowerOffFallback(t *testing.T) {
 
 	_, err = prov.PowerOff(metal3api.RebootModeSoft, false)
 	require.Error(t, err)
-	assert.False(t, errors.As(err, &softPowerOffUnsupportedError{}))
+	assert.NotErrorAs(t, err, &softPowerOffUnsupportedError{})
 
 	_, err = prov.changePower(&node, nodes.PowerOff)
 	require.Error(t, err)
-	assert.False(t, errors.As(err, &softPowerOffUnsupportedError{}))
+	assert.NotErrorAs(t, err, &softPowerOffUnsupportedError{})
 
 	_, err = prov.changePower(&node, nodes.SoftPowerOff)
 	require.Error(t, err)

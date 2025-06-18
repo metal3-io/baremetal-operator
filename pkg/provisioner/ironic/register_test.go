@@ -69,7 +69,7 @@ func TestRegisterMACOptional(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 }
 
 func TestRegisterCreateNodeNoImage(t *testing.T) {
@@ -101,10 +101,10 @@ func TestRegisterCreateNodeNoImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
-	assert.NotEqual(t, "", createdNode.UUID)
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, "", createdNode.DeployInterface)
+	assert.Empty(t, createdNode.DeployInterface)
 	assert.Equal(t, "agent", createdNode.InspectInterface)
 }
 
@@ -140,8 +140,8 @@ func TestRegisterCreateNodeOldInspection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
-	assert.NotEqual(t, "", createdNode.UUID)
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
 	assert.Equal(t, "inspector", createdNode.InspectInterface)
 }
@@ -175,9 +175,9 @@ func TestRegisterCreateWithImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, "", createdNode.DeployInterface)
+	assert.Empty(t, createdNode.DeployInterface)
 	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
 	assert.Contains(t, updates, "/instance_info/image_source")
 	assert.Contains(t, updates, host.Spec.Image.URL)
@@ -211,7 +211,7 @@ func TestRegisterCreateWithLiveIso(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 	assert.Equal(t, createdNode.UUID, provID)
 	assert.Equal(t, "ramdisk", createdNode.DeployInterface)
 	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
@@ -250,7 +250,7 @@ func TestRegisterExistingNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
 }
 
@@ -285,7 +285,7 @@ func TestRegisterExistingNodeNameUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 	assert.False(t, result.Dirty)
 }
 
@@ -358,7 +358,7 @@ func TestRegisterExistingNodeContinue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error from Register: %s", err)
 			}
-			assert.Equal(t, "", result.ErrorMessage)
+			assert.Empty(t, result.ErrorMessage)
 			assert.False(t, result.Dirty)
 			assert.Empty(t, ironic.GetLastNodeUpdateRequestFor("uuid"))
 		})
@@ -538,7 +538,7 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error from Register: %s", err)
 			}
-			assert.Equal(t, "", result.ErrorMessage)
+			assert.Empty(t, result.ErrorMessage)
 			assert.False(t, result.Dirty)
 			assert.Empty(t, ironic.GetLastNodeUpdateRequestFor("uuid"))
 		})
@@ -594,7 +594,7 @@ func TestRegisterExistingNodeWaiting(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error from Register: %s", err)
 			}
-			assert.Equal(t, "", result.ErrorMessage)
+			assert.Empty(t, result.ErrorMessage)
 
 			switch status {
 			case nodes.Manageable:
@@ -650,7 +650,7 @@ func TestRegisterNewCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
@@ -698,8 +698,8 @@ func TestRegisterLinkExistingIronicNodeByMAC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
-	assert.NotEqual(t, "", provID)
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, provID)
 }
 
 func TestRegisterExistingPortWithWrongUUID(t *testing.T) {
@@ -820,8 +820,8 @@ func TestRegisterAddTwoHostsWithSameMAC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
-	assert.NotEqual(t, "", provID)
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, provID)
 }
 
 func TestRegisterUnsupportedSecureBoot(t *testing.T) {
@@ -958,7 +958,7 @@ func TestRegisterUpdateBMCAddressIP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
@@ -1020,7 +1020,7 @@ func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 	assert.Equal(t, "uuid", provID)
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
@@ -1470,7 +1470,7 @@ func TestRegisterDisablePowerOff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
-	assert.Equal(t, "", result.ErrorMessage)
+	assert.Empty(t, result.ErrorMessage)
 }
 
 func TestRegisterDisablePowerOffNotAvail(t *testing.T) {

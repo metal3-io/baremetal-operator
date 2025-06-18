@@ -167,7 +167,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 
 			By("Waiting for the secret to be deleted")
 			Eventually(func() bool {
-				err := clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 					Name:      "bmc-credentials",
 					Namespace: namespace.Name,
 				}, &corev1.Secret{})

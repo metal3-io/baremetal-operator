@@ -83,12 +83,12 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 
 	if !img.DeletionTimestamp.IsZero() {
 		log.Info("cleaning up deleted resource")
-		if err := r.discardExistingImage(&img, log); err != nil {
+		if err = r.discardExistingImage(&img, log); err != nil {
 			return ctrl.Result{}, err
 		}
 		img.Finalizers = utils.FilterStringFromList(
 			img.Finalizers, metal3api.PreprovisioningImageFinalizer)
-		err := r.Update(ctx, &img)
+		err = r.Update(ctx, &img)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
@@ -98,7 +98,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	if !utils.StringInList(img.Finalizers, metal3api.PreprovisioningImageFinalizer) {
 		log.Info("adding finalizer")
 		img.Finalizers = append(img.Finalizers, metal3api.PreprovisioningImageFinalizer)
-		err := r.Update(ctx, &img)
+		err = r.Update(ctx, &img)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
 		}
@@ -174,7 +174,7 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 			// from the image cache.
 			setUnready(generation, &img.Status, reason)
 		} else {
-			if err := r.discardExistingImage(img, log); err != nil {
+			if err = r.discardExistingImage(img, log); err != nil {
 				return false, err
 			}
 			// Set up all the data before building the image and adding the URL,

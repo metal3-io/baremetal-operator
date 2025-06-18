@@ -1245,6 +1245,8 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboo
 		// with the image and checksum we have been trying to use, so we
 		// should stop. (If the image values do not match, we want to try
 		// again.)
+		var provResult provisioner.Result
+		var configDrive nodes.ConfigDrive
 		if ironicHasSameImage {
 			// Save me from "eventually consistent" systems built on
 			// top of relational databases...
@@ -1257,11 +1259,11 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboo
 				ironicNode.LastError))
 		}
 		p.log.Info("recovering from previous failure")
-		if provResult, err := p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		if provResult, err = p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
-		configDrive, err := p.getConfigDrive(data)
+		configDrive, err = p.getConfigDrive(data)
 		if err != nil {
 			return transientError(err)
 		}
@@ -1290,14 +1292,17 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboo
 		)
 
 	case nodes.Available:
-		if provResult, err := p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
+		var provResult provisioner.Result
+		var configDrive nodes.ConfigDrive
+
+		if provResult, err = p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
 			return provResult, err
 		}
 
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
 
-		configDrive, err := p.getConfigDrive(data)
+		configDrive, err = p.getConfigDrive(data)
 		if err != nil {
 			return transientError(err)
 		}
@@ -1487,10 +1492,11 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	if currentProvState == nodes.Available || currentProvState == nodes.Manageable {
 		// Make sure we don't have a stale instance UUID
 		if ironicNode.InstanceUUID != "" {
+			var success bool
 			p.log.Info("removing stale instance UUID before deletion", "instanceUUID", ironicNode.InstanceUUID)
 			updater := clients.UpdateOptsBuilder(p.log)
 			updater.SetTopLevelOpt("instance_uuid", nil, ironicNode.InstanceUUID)
-			_, success, result, err := p.tryUpdateNode(ironicNode, updater)
+			_, success, result, err = p.tryUpdateNode(ironicNode, updater)
 			if !success {
 				return result, err
 			}

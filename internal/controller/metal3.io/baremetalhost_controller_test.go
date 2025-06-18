@@ -147,7 +147,7 @@ func newTestReconcilerWithFixture(t *testing.T, fix *fixture.Fixture, initObjs .
 	c := clientBuilder.Build()
 	// Add a default secret that can be used by most hosts.
 	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
-	_ = c.Create(context.TODO(), bmcSecret)
+	_ = c.Create(t.Context(), bmcSecret)
 
 	return &BareMetalHostReconciler{
 		Client:             c,
@@ -183,7 +183,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3api.Bare
 			t.Fatal("Exceeded 25 iterations")
 		}
 
-		result, err := r.Reconcile(context.Background(), request)
+		result, err := r.Reconcile(t.Context(), request)
 
 		if err != nil {
 			t.Fatal(err)
@@ -193,7 +193,7 @@ func tryReconcile(t *testing.T, r *BareMetalHostReconciler, host *metal3api.Bare
 		// need to replace the one we have with the updated data in
 		// order to test it. In case it was not found, let's set it to nil
 		updatedHost := &metal3api.BareMetalHost{}
-		if err = r.Get(context.TODO(), request.NamespacedName, updatedHost); k8serrors.IsNotFound(err) {
+		if err = r.Get(t.Context(), request.NamespacedName, updatedHost); k8serrors.IsNotFound(err) {
 			host = nil
 		} else {
 			updatedHost.DeepCopyInto(host)
@@ -345,7 +345,7 @@ func TestHardwareDetails_Invalid(t *testing.T) {
 
 	r := newTestReconciler(t, host)
 	request := newRequest(host)
-	_, err := r.Reconcile(context.Background(), request)
+	_, err := r.Reconcile(t.Context(), request)
 	expectedErr := "json: unknown field"
 	assert.Contains(t, err.Error(), expectedErr)
 }
@@ -549,7 +549,7 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	// The next reconcile loop will start the delete process,
 	// and as a first step the Ironic node will be removed
 	request := newRequest(host)
-	_, err = r.Reconcile(context.Background(), request)
+	_, err = r.Reconcile(t.Context(), request)
 	require.NoError(t, err)
 
 	// The next reconcile loop remove the finalizers from
@@ -557,19 +557,19 @@ func TestDoNotAddSecretFinalizersDuringDelete(t *testing.T) {
 	// The fake client will immediately remove the host
 	// from its cache, so let's keep the latest updated
 	// host
-	err = r.Get(context.TODO(), request.NamespacedName, host)
+	err = r.Get(t.Context(), request.NamespacedName, host)
 	require.NoError(t, err)
-	_, err = r.Reconcile(context.Background(), request)
+	_, err = r.Reconcile(t.Context(), request)
 	require.NoError(t, err)
 
 	// To simulate an immediate reconciliation loop due the
 	// secret update (and a slow host deletion), let's push
 	// back the host in the client cache.
 	host.ResourceVersion = ""
-	err = r.Client.Create(context.TODO(), host)
+	err = r.Client.Create(t.Context(), host)
 	require.NoError(t, err)
 	previousSecret := getHostSecret(t, r, host)
-	_, err = r.Reconcile(context.Background(), request)
+	_, err = r.Reconcile(t.Context(), request)
 	require.NoError(t, err)
 
 	// Secret must remain unchanged
@@ -784,7 +784,7 @@ func TestRebootWithSuffixedAnnotation(t *testing.T) {
 	)
 
 	delete(host.Annotations, annotation)
-	err := r.Update(context.TODO(), host)
+	err := r.Update(t.Context(), host)
 	require.NoError(t, err)
 
 	tryReconcile(t, r, host,
@@ -829,7 +829,7 @@ func TestRebootWithSuffixedAnnotationPowerOffDisabled(t *testing.T) {
 	// Add the reboot annotation
 	host.Annotations = make(map[string]string)
 	host.Annotations[metal3api.RebootAnnotationPrefix] = "{\"mode\":\"soft\"}"
-	err := r.Update(context.TODO(), host)
+	err := r.Update(t.Context(), host)
 	require.NoError(t, err)
 
 	tryReconcile(t, r, host,
@@ -966,7 +966,7 @@ func getHostSecret(t *testing.T, r *BareMetalHostReconciler, host *metal3api.Bar
 		Namespace: host.Namespace,
 		Name:      host.Spec.BMC.CredentialsName,
 	}
-	err := r.Get(context.TODO(), secretName, secret)
+	err := r.Get(t.Context(), secretName, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1024,13 +1024,13 @@ func TestUpdateGoodCredentialsOnNewSecret(t *testing.T) {
 
 	// Define a second valid secret and update the host to use it.
 	secret2 := newBMCCredsSecret("bmc-creds-valid2", "User", "Pass")
-	err := r.Create(context.TODO(), secret2)
+	err := r.Create(t.Context(), secret2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	host.Spec.BMC.CredentialsName = "bmc-creds-valid2"
-	err = r.Update(context.TODO(), host)
+	err = r.Update(t.Context(), host)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1064,7 +1064,7 @@ func TestUpdateGoodCredentialsOnBadSecret(t *testing.T) {
 	)
 
 	host.Spec.BMC.CredentialsName = "bmc-creds-no-user"
-	err := r.Update(context.TODO(), host)
+	err := r.Update(t.Context(), host)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1206,12 +1206,12 @@ func TestFixSecret(t *testing.T) {
 		Namespace: namespace,
 		Name:      "bmc-creds-no-user",
 	}
-	err := r.Get(context.TODO(), secretName, secret)
+	err := r.Get(t.Context(), secretName, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
 	secret.Data["username"] = []byte(base64.StdEncoding.EncodeToString([]byte("username")))
-	err = r.Update(context.TODO(), secret)
+	err = r.Update(t.Context(), secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1248,13 +1248,13 @@ func TestBreakThenFixSecret(t *testing.T) {
 		Namespace: namespace,
 		Name:      "bmc-creds-toggle-user",
 	}
-	err := r.Get(context.TODO(), secretName, secret)
+	err := r.Get(t.Context(), secretName, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
 	oldUsername := secret.Data["username"]
 	secret.Data["username"] = []byte{}
-	err = r.Update(context.TODO(), secret)
+	err = r.Update(t.Context(), secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1263,12 +1263,12 @@ func TestBreakThenFixSecret(t *testing.T) {
 	// Modify the secret to be correct again. Wait for the error to be
 	// cleared from the host.
 	secret = &corev1.Secret{}
-	err = r.Get(context.TODO(), secretName, secret)
+	err = r.Get(t.Context(), secretName, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
 	secret.Data["username"] = oldUsername
-	err = r.Update(context.TODO(), secret)
+	err = r.Update(t.Context(), secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1495,7 +1495,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
 
 		host.Spec.ExternallyProvisioned = false
-		err := r.Update(context.TODO(), host)
+		err := r.Update(t.Context(), host)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1512,7 +1512,7 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 
 		host.Spec.ExternallyProvisioned = true
-		err := r.Update(context.TODO(), host)
+		err := r.Update(t.Context(), host)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2430,7 +2430,7 @@ func TestGetPreprovImageNoFormats(t *testing.T) {
 	require.ErrorAs(t, err, &imageBuildError{})
 	assert.Nil(t, imgData)
 
-	assert.Error(t, r.Client.Get(context.TODO(), client.ObjectKey{
+	assert.Error(t, r.Client.Get(t.Context(), client.ObjectKey{
 		Name:      host.Name,
 		Namespace: host.Namespace,
 	},
@@ -2452,7 +2452,7 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	assert.Nil(t, imgData)
 
 	img := metal3api.PreprovisioningImage{}
-	require.NoError(t, r.Client.Get(context.TODO(), client.ObjectKey{
+	require.NoError(t, r.Client.Get(t.Context(), client.ObjectKey{
 		Name:      host.Name,
 		Namespace: host.Namespace,
 	},
@@ -2469,7 +2469,7 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, imgData)
 
-	require.NoError(t, r.Client.Get(context.TODO(), client.ObjectKey{
+	require.NoError(t, r.Client.Get(t.Context(), client.ObjectKey{
 		Name:      host.Name,
 		Namespace: host.Namespace,
 	},
@@ -2900,7 +2900,7 @@ func TestHostFirmwareSettings(t *testing.T) {
 			i.request = newRequest(host)
 
 			hfs := newHostFirmwareSettings(host, tc.Conditions)
-			err := r.Create(context.TODO(), hfs)
+			err := r.Create(t.Context(), hfs)
 			require.NoError(t, err)
 
 			dirty, _, err := r.getHostFirmwareSettings(i)
@@ -2933,7 +2933,7 @@ func TestBMHTransitionToPreparing(t *testing.T) {
 		SimultaneousMultithreadingEnabled: &True,
 	}
 
-	err := r.Update(context.TODO(), host)
+	err := r.Update(t.Context(), host)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2954,7 +2954,7 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 	hfs := &metal3api.HostFirmwareSettings{}
 	key := client.ObjectKey{
 		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
-	if err := r.Get(context.TODO(), key, hfs); err != nil {
+	if err := r.Get(t.Context(), key, hfs); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2969,7 +2969,7 @@ func TestHFSTransitionToPreparing(t *testing.T) {
 		},
 	}
 
-	err := r.Update(context.TODO(), hfs)
+	err := r.Update(t.Context(), hfs)
 	require.NoError(t, err)
 
 	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
@@ -2991,7 +2991,7 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 	hfs := &metal3api.HostFirmwareSettings{}
 	key := client.ObjectKey{
 		Namespace: host.ObjectMeta.Namespace, Name: host.ObjectMeta.Name}
-	if err := r.Get(context.TODO(), key, hfs); err != nil {
+	if err := r.Get(t.Context(), key, hfs); err != nil {
 		t.Fatal(err)
 	}
 
@@ -3002,7 +3002,7 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 		},
 	}
 
-	err := r.Update(context.TODO(), hfs)
+	err := r.Update(t.Context(), hfs)
 	require.NoError(t, err)
 
 	tryReconcile(t, r, host,
@@ -3019,7 +3019,7 @@ func TestHFSEmptyStatusSettings(t *testing.T) {
 		},
 	}
 
-	err = r.Update(context.TODO(), hfs)
+	err = r.Update(t.Context(), hfs)
 	require.NoError(t, err)
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {

@@ -16,7 +16,6 @@ limitations under the License.
 package webhooks
 
 import (
-	"context"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -150,7 +149,7 @@ func TestBMCEventSubscriptionUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			webhook := &BMCEventSubscription{}
-			context := context.Background()
+			context := t.Context()
 			if _, err := webhook.ValidateUpdate(context, tt.old, tt.bes); !errorContains(err, tt.wantedErr) {
 				t.Errorf("metal3api.BMCEventSubscription.ValidateUpdate() error = %v, wantErr %v", err, tt.wantedErr)
 			}

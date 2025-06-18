@@ -1,3 +1,3 @@
 module github.com/metal3-io/baremetal-operator/pkg/hardwareutils
 
-go 1.22
+go 1.24.0

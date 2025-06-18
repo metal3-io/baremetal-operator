@@ -1345,6 +1345,106 @@ func clearHostProvisioningSettings(host *metal3api.BareMetalHost) {
 	host.Status.Provisioning.Firmware = nil
 }
 
+// updateHostPowerState fetches the current power state in case the status is out of sync
+// and powers on the host if its not poweredOn.
+func (r *BareMetalHostReconciler) updateHostPowerState(wantPowerOn bool, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	hwState, err := prov.UpdateHardwareState()
+	if err != nil {
+		return actionError{fmt.Errorf("failed to update the host power status: %w", err)}
+	}
+	if hwState.PoweredOn != nil && *hwState.PoweredOn != info.host.Status.PoweredOn {
+		info.log.Info("updating power status", "discovered", *hwState.PoweredOn)
+		info.host.Status.PoweredOn = *hwState.PoweredOn
+		if info.host.Status.OperationalStatus == metal3api.OperationalStatusError && info.host.Status.ErrorType == metal3api.PowerManagementError {
+			clearError(info.host)
+		}
+		return actionUpdate{}
+	}
+
+	if !wantPowerOn && *hwState.PoweredOn {
+		provResult, err := prov.PowerOff(metal3api.RebootModeSoft, info.host.Status.ErrorType == metal3api.PowerManagementError)
+		if err != nil {
+			return actionError{fmt.Errorf("failed to manage power state of host: %w", err)}
+		}
+		if provResult.ErrorMessage != "" {
+			return recordActionFailure(info, metal3api.PowerManagementError, provResult.ErrorMessage)
+		}
+
+		return actionContinue{dataImageUpdateDelay}
+	}
+
+	if wantPowerOn && !*hwState.PoweredOn {
+		// Power on host if its powered off.
+		provResult, err := prov.PowerOn(info.host.Status.ErrorType == metal3api.PowerManagementError)
+		if err != nil {
+			return actionError{fmt.Errorf("failed to manage power state of host: %w", err)}
+		}
+		if provResult.ErrorMessage != "" {
+			return recordActionFailure(info, metal3api.PowerManagementError, provResult.ErrorMessage)
+		}
+
+		return actionContinue{dataImageUpdateDelay}
+	}
+
+	return nil
+}
+
+// handleDataImageBeforeDeprovisioning detaches the dataImage, before deprovisioning
+// the host, and handles the power changes that are required for detaching.
+func (r *BareMetalHostReconciler) handleDataImageBeforeDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) actionResult {
+	info.log.Info("handling dataImage before deprovisioning host")
+
+	isImageAttached, getVmediaError := prov.GetDataImageStatus()
+	if getVmediaError != nil {
+		info.log.Error(getVmediaError, "Error fetching Virtual Media details")
+
+		if !errors.Is(getVmediaError, provisioner.ErrNodeIsBusy) {
+			dataImage.Status.Error.Message = getVmediaError.Error()
+			dataImage.Status.Error.Count++
+
+			if err := r.Status().Update(info.ctx, dataImage); err != nil {
+				return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
+			}
+		}
+
+		return actionContinue{dataImageUpdateDelay}
+	}
+
+	wantPowerOn := false
+	// TODO(hroyrh) : how to handle DisablePowerOff here ?
+	if isImageAttached {
+		// Ensure the host is powered off before the dataImage detach request
+		if powerOffResult := r.updateHostPowerState(wantPowerOn, prov, info); powerOffResult != nil {
+			return powerOffResult
+		}
+
+		if err := r.detachDataImage(prov, info, dataImage); err != nil {
+			return actionError{fmt.Errorf("failed to detach, %w", err)}
+		}
+
+		return actionContinue{dataImageUpdateDelay}
+	}
+
+	// If host is not powered on and the image is not attached, we
+	// have to power on the host so that deprovisioning can proceed.
+	// TODO(hroyrh) : is it possible to proceed without powering on the host ?
+	wantPowerOn = true
+	if powerOnResult := r.updateHostPowerState(wantPowerOn, prov, info); powerOnResult != nil {
+		return powerOnResult
+	}
+
+	// Update dataImage status once the virtual media has been detached
+	// and the host has been powered on.
+	if dataImage.Status.AttachedImage.URL != "" {
+		dataImage.Status.AttachedImage.URL = ""
+		if err := r.Status().Update(info.ctx, dataImage); err != nil {
+			return actionError{fmt.Errorf("deprovisioning bmh, failed to update DataImage status, %w", err)}
+		}
+	}
+
+	return actionContinue{dataImageUpdateDelay}
+}
+
 func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.Status.Provisioning.Image.URL != "" || info.host.Status.Provisioning.CustomDeploy != nil {
 		// Adopt the host in case it has been re-registered during the
@@ -1365,6 +1465,27 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 			}
 			return result
 		}
+	}
+
+	dataImage := &metal3api.DataImage{}
+	err := r.Get(info.ctx, info.request.NamespacedName, dataImage)
+	if !k8serrors.IsNotFound(err) {
+		if err != nil {
+			// Error reading the object - requeue the request.
+			return actionError{fmt.Errorf("could not load dataImage, %w", err)}
+		}
+
+		// TODO(hroyrh) : Is this acceptable to just check the status and not use
+		// Get vmedia api here ?
+		if dataImage.Status.AttachedImage.URL != "" {
+			actionResult := r.handleDataImageBeforeDeprovisioning(prov, info, dataImage)
+
+			return actionResult
+		}
+	}
+	// DataImage does not exist or it may have been deleted
+	if k8serrors.IsNotFound(err) {
+		info.log.Info("dataImage not found")
 	}
 
 	info.log.Info("deprovisioning")

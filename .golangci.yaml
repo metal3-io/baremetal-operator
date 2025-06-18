@@ -21,7 +21,7 @@ linters:
   - errchkjson
   #- errname
   #- errorlint
-  #- exhaustive
+  - exhaustive
   - exptostd
   - fatcontext
   - forbidigo
@@ -78,6 +78,8 @@ linters:
   # Run with --fast=false for more extensive checks
   fast: true
 linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: true
   gosec:
     severity: medium
     confidence: medium

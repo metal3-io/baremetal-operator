@@ -1,0 +1,15 @@
+apiVersion: transformers.example.co/v1
+kind: ValueAnnotator
+metadata:
+  annotations:
+    config.kubernetes.io/function: "container:\n  image: sunnatillo/roleannotator:0.0.1 \
+      \     \n"
+  name: notImportantHere
+values:
+- metal3
+- basic-ops-test
+- external-inspection-test
+- inspection-test
+- live-iso-ops-test
+- provisioning-ops-test
+- re-inspection-test

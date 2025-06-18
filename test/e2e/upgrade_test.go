@@ -189,10 +189,10 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	specName := "upgrade"
 	var upgradeDeploymentName, upgradeFromKustomization string
 	switch upgradeEntityName {
-	case "bmo":
+	case bmoString:
 		upgradeFromKustomization = initBMOKustomization
 		upgradeDeploymentName = "baremetal-operator-controller-manager"
-	case "ironic":
+	case ironicString:
 		upgradeFromKustomization = initIronicKustomization
 		upgradeDeploymentName = "ironic"
 	}
@@ -409,9 +409,9 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			var upgradeFromKustomization string
 			upgradeEntityName := input.UpgradeEntityName
 			switch upgradeEntityName {
-			case "bmo":
+			case bmoString:
 				upgradeFromKustomization = input.InitBMOKustomization
-			case "ironic":
+			case ironicString:
 				upgradeFromKustomization = input.InitIronicKustomization
 			}
 			return fmt.Sprintf("Should upgrade %s from %s to latest version", input.UpgradeEntityName, upgradeFromKustomization)

@@ -19,6 +19,37 @@ patches:
   target:
     kind: Deployment
     name: controller-manager
+- patch: |
+    # Add a namespace to watch
+    - op: replace
+      path: /kind
+      value: RoleBinding
+  target:
+    group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: baremetal-operator-manager-rolebinding
+- patch: |
+    # Add a namespace to watch
+    - op: replace
+      path: /kind
+      value: Role
+  target:
+    group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: baremetal-operator-manager-role
+- path: namespaced-manager-patch.yaml
+- patch: |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: baremetal-operator-manager-rolebinding
+    roleRef:
+      kind: Role
+      name: baremetal-operator-manager-role
+    subjects:
+    - kind: ServiceAccount
+      name: baremetal-operator-controller-manager
+      namespace: baremetal-operator-system
 
 images:
 - name: quay.io/metal3-io/baremetal-operator
@@ -35,3 +66,6 @@ secretGenerator:
   files:
   - username=ironic-username
   - password=ironic-password
+
+transformers:
+- roles-ns-annotator.yaml

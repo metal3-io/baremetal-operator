@@ -108,6 +108,7 @@ func serviceAccountToken() (string, error) {
 
 	var out string
 	verifyTokenCreation := func(g Gomega) {
+		var output []byte
 		// Execute kubectl command to create the token
 		cmd := exec.Command("kubectl", "create", "--raw", fmt.Sprintf(
 			"/api/v1/namespaces/%s/serviceaccounts/%s/token",
@@ -115,7 +116,7 @@ func serviceAccountToken() (string, error) {
 			serviceAccountName,
 		), "-f", tokenRequestFile)
 
-		output, err := cmd.CombinedOutput()
+		output, err = cmd.CombinedOutput()
 		g.Expect(err).NotTo(HaveOccurred())
 
 		// Parse the JSON output to extract the token
@@ -165,7 +166,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	scheme := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(scheme)
-	clusterProxy := framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
+	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
 	Expect(clusterProxy).ToNot(BeNil(), "Failed to get a cluster proxy")
 
 	DeferCleanup(func() {
@@ -240,8 +241,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 		By("validating that the metrics service is available")
 		Eventually(func() error {
-			cmd := exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
-			output, err := cmd.CombinedOutput()
+			var output []byte
+			cmd = exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
+			output, err = cmd.CombinedOutput()
 			if err != nil {
 				log.Printf("Service check output: %s\n", string(output))
 				return err
@@ -256,8 +258,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 		By("waiting for the metrics endpoint to be ready")
 		verifyMetricsEndpointReady := func(g Gomega) {
-			cmd := exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
-			output, err := cmd.CombinedOutput()
+			var output []byte
+			cmd = exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
+			output, err = cmd.CombinedOutput()
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(output).To(ContainSubstring("8443"), "Metrics endpoint is not ready")
 		}
@@ -275,10 +278,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 		By("waiting for the curl-metrics pod to complete.")
 		verifyCurlUp := func(g Gomega) {
-			cmd := exec.Command("kubectl", "get", "pods", "curl-metrics",
+			var output []byte
+			cmd = exec.Command("kubectl", "get", "pods", "curl-metrics",
 				"-o", "jsonpath={.status.phase}",
 				"-n", namespace)
-			output, err := cmd.CombinedOutput()
+			output, err = cmd.CombinedOutput()
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(string(output)).To(Equal("Succeeded"), "curl pod in wrong status")
 		}

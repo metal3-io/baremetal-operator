@@ -402,10 +402,10 @@ libvirt.org/go/libvirt v1.11001.0 h1:QJgpslxY7qkpXZIDxdMHpkDl7FfhgQJwqRTGBbg/S8E
 libvirt.org/go/libvirt v1.11001.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 h1:CPT0ExVicCzcpeN4baWEV2ko2Z/AsiZgEdwgcfwLgMo=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
-sigs.k8s.io/cluster-api v1.10.2 h1:xfvtNu4Fy/41grL0ryH5xSKQjpJEWdO8HiV2lPCCozQ=
-sigs.k8s.io/cluster-api v1.10.2/go.mod h1:/b9Un5Imprib6S7ZOcJitC2ep/5wN72b0pXpMQFfbTw=
-sigs.k8s.io/cluster-api/test v1.10.2 h1:y6vSdS9FSAi/DNoFE2fZo2fed0m1cgW+ueBazk1g4i8=
-sigs.k8s.io/cluster-api/test v1.10.2/go.mod h1:KLeRjNtQS8k5jIPvQF0QxOti/ATu5euwSusb6iFBga8=
+sigs.k8s.io/cluster-api v1.10.3 h1:7tE5xgQJutisgDyeLzaZ9JhDaHGuG3GjPltsFM89BoA=
+sigs.k8s.io/cluster-api v1.10.3/go.mod h1:pu1WDn+fdax9aC9ZtDDoXqnO7P3LLjxbKGU/Nzf/DF4=
+sigs.k8s.io/cluster-api/test v1.10.3 h1:NFdzowDNIY6Pq+3DQKOdpctnIMk4rWBZCxDyKgo6vzM=
+sigs.k8s.io/cluster-api/test v1.10.3/go.mod h1:reUcQ/HTpDDkTXqsZj1BEmn3VzAoABy2XhLaM2XlMQQ=
 sigs.k8s.io/controller-runtime v0.20.4 h1:X3c+Odnxz+iPTRobG4tp092+CvBU9UK0t/bRf+n0DGU=
 sigs.k8s.io/controller-runtime v0.20.4/go.mod h1:xg2XB0K5ShQzAgsoujxuKN4LNXR2LfwwHsPj7Iaw+XY=
 sigs.k8s.io/gateway-api v1.1.0 h1:DsLDXCi6jR+Xz8/xd0Z1PYl2Pn0TyaFMOPPZIj4inDM=

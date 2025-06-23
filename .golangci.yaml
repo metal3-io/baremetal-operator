@@ -126,6 +126,9 @@ linters-settings:
     - unnecessaryDefer
     - whyNoLint
     - wrapperFunc
+  govet:
+    enable:
+    - shadow
   tagliatelle:
     case:
       rules:

@@ -170,7 +170,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		)
 		host.Finalizers = append(host.Finalizers,
 			metal3api.BareMetalHostFinalizer)
-		err := r.Update(ctx, host)
+		err = r.Update(ctx, host)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
 		}
@@ -1017,7 +1017,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		}
 
 		if dirty {
-			if err := r.Update(info.ctx, info.host); err != nil {
+			if err = r.Update(info.ctx, info.host); err != nil {
 				return actionError{fmt.Errorf("failed to update the host after inspection start: %w", err)}
 			}
 			return actionContinue{}
@@ -1069,10 +1069,10 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		if controllerutil.ContainsFinalizer(hardwareData, hardwareDataFinalizer) {
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 		}
-		if err := r.Update(info.ctx, hardwareData); err != nil {
+		if err = r.Update(info.ctx, hardwareData); err != nil {
 			return actionError{fmt.Errorf("failed to remove hardwareData finalizer: %w", err)}
 		}
-		if err := r.Client.Delete(info.ctx, hd); err != nil {
+		if err = r.Client.Delete(info.ctx, hd); err != nil {
 			return actionError{fmt.Errorf("failed to delete hardwareData: %w", err)}
 		}
 	}
@@ -1482,7 +1482,7 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 		info.host.Status.Provisioning.Firmware = nil
 		if hfcDirty && hfc.Status.Updates != nil {
 			hfc.Status.Updates = nil
-			if err := r.Status().Update(info.ctx, hfc); err != nil {
+			if err = r.Status().Update(info.ctx, hfc); err != nil {
 				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 			}
 		}
@@ -1578,7 +1578,8 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 
 	servicingAllowed := isProvisioned && !info.host.Status.PoweredOn && desiredPowerOnState
 	if servicingAllowed || info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError {
-		hup, err := r.acquireHostUpdatePolicy(info)
+		var hup *metal3api.HostUpdatePolicy
+		hup, err = r.acquireHostUpdatePolicy(info)
 		if err != nil {
 			info.log.Info("failed setting owner reference on hostupdatepolicy")
 			return actionError{fmt.Errorf("failed setting owner reference on hostUpdatePolicy: %w", err)}
@@ -1810,8 +1811,8 @@ func (r *BareMetalHostReconciler) attachDataImage(prov provisioner.Provisioner, 
 		dataImage.Status.Error.Count++
 		dataImage.Status.Error.Message = err.Error()
 		// Error updating DataImage Status
-		if err := r.Status().Update(info.ctx, dataImage); err != nil {
-			return fmt.Errorf("failed to update DataImage status, %w", err)
+		if errOnUpdate := r.Status().Update(info.ctx, dataImage); errOnUpdate != nil {
+			return fmt.Errorf("failed to update DataImage status, %w", errOnUpdate)
 		}
 
 		return fmt.Errorf("failed to attach dataImage, %w", err)
@@ -1840,8 +1841,8 @@ func (r *BareMetalHostReconciler) detachDataImage(prov provisioner.Provisioner, 
 		dataImage.Status.Error.Count++
 		dataImage.Status.Error.Message = err.Error()
 		// Error updating DataImage Status
-		if err := r.Status().Update(info.ctx, dataImage); err != nil {
-			return fmt.Errorf("failed to update DataImage status, %w", err)
+		if errOnUpdate := r.Status().Update(info.ctx, dataImage); errOnUpdate != nil {
+			return fmt.Errorf("failed to update DataImage status, %w", errOnUpdate)
 		}
 
 		return fmt.Errorf("failed to detach dataImage, %w", err)

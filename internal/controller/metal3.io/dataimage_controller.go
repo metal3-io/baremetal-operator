@@ -119,7 +119,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			di.Finalizers = utils.FilterStringFromList(
 				di.Finalizers, metal3api.DataImageFinalizer)
 
-			if err := r.Update(ctx, di); err != nil {
+			if err = r.Update(ctx, di); err != nil {
 				return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
 			}
 			return ctrl.Result{}, nil

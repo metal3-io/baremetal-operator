@@ -231,7 +231,8 @@ func main() {
 	}
 
 	if leaseDurationSeconds != "" {
-		seconds, err := strconv.ParseInt(leaseDurationSeconds, 10, 16)
+		var seconds int64
+		seconds, err = strconv.ParseInt(leaseDurationSeconds, 10, 16)
 		if err != nil {
 			setupLog.Error(err, "failed to parse duration")
 			os.Exit(1)
@@ -242,7 +243,8 @@ func main() {
 	}
 
 	if renewDeadlineSeconds != "" {
-		seconds, err := strconv.ParseInt(renewDeadlineSeconds, 10, 16)
+		var seconds int64
+		seconds, err = strconv.ParseInt(renewDeadlineSeconds, 10, 16)
 		if err != nil {
 			setupLog.Error(err, "failed to parse renew deadline")
 			os.Exit(1)
@@ -253,7 +255,8 @@ func main() {
 	}
 
 	if retryPeriodSeconds != "" {
-		seconds, err := strconv.ParseInt(retryPeriodSeconds, 10, 16)
+		var seconds int64
+		seconds, err = strconv.ParseInt(retryPeriodSeconds, 10, 16)
 		if err != nil {
 			setupLog.Error(err, "failed to parse retry period")
 			os.Exit(1)

@@ -228,7 +228,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		fallthrough
 
 	default:
-		result, err = p.configureImages(data, ironicNode, bmcAccess)
+		result, err = p.configureNode(data, ironicNode, bmcAccess)
 		return result, provID, err
 	}
 }
@@ -254,6 +254,7 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 		DisablePowerOff:     &data.DisablePowerOff,
 		Properties: map[string]interface{}{
 			"capabilities": buildCapabilitiesValue(nil, data.BootMode),
+			"cpu_arch":     data.CPUArchitecture,
 		},
 	}
 

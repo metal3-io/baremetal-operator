@@ -21,14 +21,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
-
-	"errors"
 
 	"github.com/blang/semver"
 	"github.com/google/go-github/github"

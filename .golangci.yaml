@@ -1,10 +1,23 @@
+version: "2"
+
+formatters:
+  enable:
+  - gci
+  - gofmt
+  exclusions:
+    paths:
+    - zz_generated.*\.go$
+    - .*conversion.*\.go$
+    - mock*
+
 run:
   go: "1.24"
   build-tags:
   - e2e
   - vbmctl
+
 linters:
-  disable-all: true
+  default: none
   enable:
   - asasalint
   - asciicheck
@@ -26,18 +39,14 @@ linters:
   - fatcontext
   - forbidigo
   - forcetypeassert
-  - gci
   - ginkgolinter
   - gocheckcompilerdirectives
   - gochecksumtype
   - goconst
   - gocritic
   - godot
-  - gofmt
-  - goimports
   - goprintffuncname
   - gosec
-  - gosimple
   - gosmopolitan
   - govet
   - iface
@@ -63,154 +72,167 @@ linters:
   - revive
   - rowserrcheck
   - staticcheck
-  - stylecheck
   - tagliatelle
   - testifylint
   - thelper
   - tparallel
-  - typecheck
   - unconvert
   - unparam
   - unused
   - usestdlibvars
   - usetesting
   - whitespace
-  # Run with --fast=false for more extensive checks
-  fast: true
-linters-settings:
-  exhaustive:
-    default-signifies-exhaustive: true
-  gosec:
-    severity: medium
-    confidence: medium
-    concurrency: 8
-  importas:
-    no-unaliased: true
-    alias:
-    # Kubernetes
-    - pkg: k8s.io/api/core/v1
-      alias: corev1
-    - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-      alias: apiextensionsv1
-    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
-      alias: metav1
-    - pkg: k8s.io/apimachinery/pkg/api/errors
-      alias: k8serrors
-    - pkg: k8s.io/apimachinery/pkg/util/errors
-      alias: kerrors
-    - pkg: k8s.io/component-base/logs/api/v1
-      alias: logsv1
-    # Controller Runtime
-    - pkg: sigs.k8s.io/controller-runtime
-      alias: ctrl
-    # BMO
-    - pkg: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
-      alias: metal3api
-  nolintlint:
-    allow-unused: false
-    require-specific: true
-  gocritic:
-    enabled-tags:
-    - experimental
-    disabled-checks:
-    - appendAssign
-    - dupImport # https://github.com/go-critic/go-critic/issues/845
-    - evalOrder
-    - ifElseChain
-    - octalLiteral
-    - regexpSimplify
-    - sloppyReassign
-    - truncateCmp
-    - typeDefFirst
-    - unnamedResult
-    - unnecessaryDefer
-    - whyNoLint
-    - wrapperFunc
-  govet:
-    enable:
-    - shadow
-  tagliatelle:
-    case:
-      rules:
-        json: goCamel
+
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocritic:
+      disabled-checks:
+      - appendAssign
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - evalOrder
+      - ifElseChain
+      - octalLiteral
+      - regexpSimplify
+      - sloppyReassign
+      - truncateCmp
+      - typeDefFirst
+      - unnamedResult
+      - unnecessaryDefer
+      - whyNoLint
+      - wrapperFunc
+      enabled-tags:
+      - experimental
+    govet:
+      enable:
+      - shadow
+    gosec:
+      severity: medium
+      confidence: medium
+      concurrency: 8
+    importas:
+      alias:
+      # Kubernetes
+      - pkg: k8s.io/api/core/v1
+        alias: corev1
+      - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+        alias: apiextensionsv1
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+      - pkg: k8s.io/apimachinery/pkg/api/errors
+        alias: k8serrors
+      - pkg: k8s.io/apimachinery/pkg/util/errors
+        alias: kerrors
+      - pkg: k8s.io/component-base/logs/api/v1
+        alias: logsv1
+      # Controller Runtime
+      - pkg: sigs.k8s.io/controller-runtime
+        alias: ctrl
+      # BMO
+      - pkg: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
+        alias: metal3api
+      no-unaliased: true
+    nolintlint:
+      require-specific: true
+      allow-unused: false
+    tagliatelle:
+      case:
+        rules:
+          json: goCamel
+    staticcheck:
+      checks:
+      - "all"
+      - "-ST1000"
+      - "-ST1003"
+      - "-ST1016"
+      - "-ST1020"
+      - "-ST1021"
+      - "-ST1022"
+      - "-QF1001"
+      - "-QF1008"
+
+  exclusions:
+    warn-unused: true
+    presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+    rules:
+    - linters:
+      - goconst
+      - gosec
+      path: test/e2e
+    - linters:
+      - errcheck
+      - goconst
+      - gosec
+      - noctx
+      - revive
+      - staticcheck
+      - unparam
+      - unused
+      path: _test\.go
+    # Specific exclude rules for deprecated fields that are still part of the codebase.
+    # These should be removed as the referenced deprecated item is removed from the project.
+    - linters:
+      - staticcheck
+      text: 'SA1019:'
+    # Disable linters for conversion
+    - linters:
+      - staticcheck
+      path: .*(api|types)\/.*\/conversion.*\.go$
+      text: 'SA1019:'
+    # Dot imports for gomega or ginkgo are allowed
+    # within test files.
+    - path: _test\.go
+      text: should not use dot imports
+    - path: (test|e2e)/.*.go
+      text: should not use dot imports
+    # Exclude deprecated packages of CAPI still used in the codebase.
+    - linters:
+      - staticcheck
+      text: 'SA1019: "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch" is deprecated: Deprecated: This package is deprecated and is going to be removed when support for v1beta1 will be dropped.'
+    # Exclude some packages or code to require comments, for example test code, or fake clients.
+    - linters:
+      - revive
+      text: 'exported: exported method .*\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported'
+    - linters:
+      - revive
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+      source: (func|type).*Fake.*
+    - linters:
+      - revive
+      path: fake_\.go
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+    - linters:
+      - revive
+      path: .*(api|types)\/.*\/conversion.*\.go$
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+    - linters:
+      - revive
+      path: .*(api|types)\/.*\/conversion.*\.go$
+      text: 'var-naming: don''t use underscores in Go names;'
+    - linters:
+      - revive
+      path: .*(api|types)\/.*\/conversion.*\.go$
+      text: 'receiver-naming: receiver name'
+    - linters:
+      - staticcheck
+      path: .*(api|types)\/.*\/conversion.*\.go$
+      text: 'ST1003: should not use underscores in Go names;'
+    - linters:
+      - staticcheck
+      path: .*(api|types)\/.*\/conversion.*\.go$
+      text: 'ST1016: methods on the same type should have the same receiver name'
+    - linters:
+      - tagliatelle
+      text: RAID|MAC|BMO
+    paths:
+    - zz_generated.*\.go$
+    - .*conversion.*\.go$
+    - mock*
+
 issues:
-  exclude-dirs:
-  - mock*
-  exclude-files:
-  - "zz_generated.*\\.go$"
-  - ".*conversion.*\\.go$"
-  exclude-rules:
-  - path: test/e2e
-    linters:
-    - gosec
-    - goconst
-  - path: _test\.go
-    linters:
-    - goconst
-    - gosec
-    - errcheck
-    - gci
-    - noctx
-    - revive
-    - stylecheck
-    - unparam
-    - unused
-  # Specific exclude rules for deprecated fields that are still part of the codebase.
-  # These should be removed as the referenced deprecated item is removed from the project.
-  - linters:
-    - staticcheck
-    text: "SA1019:"
-  # Disable linters for conversion
-  - linters:
-    - staticcheck
-    text: "SA1019:"
-    path: .*(api|types)\/.*\/conversion.*\.go$
-  # Dot imports for gomega or ginkgo are allowed
-  # within test files.
-  - path: _test\.go
-    text: should not use dot imports
-  - path: (test|e2e)/.*.go
-    text: should not use dot imports
-  # Exclude deprecated packages of CAPI still used in the codebase.
-  - linters:
-    - staticcheck
-    text: 'SA1019: "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch" is deprecated: Deprecated: This package is deprecated and is going to be removed when support for v1beta1 will be dropped.'
-  - linters:
-    - revive
-    text: "exported: exported method .*\\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported"
-  # Exclude some packages or code to require comments, for example test code, or fake clients.
-  - linters:
-    - revive
-    text: exported (method|function|type|const) (.+) should have comment or be unexported
-    source: (func|type).*Fake.*
-  - linters:
-    - revive
-    text: exported (method|function|type|const) (.+) should have comment or be unexported
-    path: fake_\.go
-  - linters:
-    - revive
-    text: exported (method|function|type|const) (.+) should have comment or be unexported
-    path: .*(api|types)\/.*\/conversion.*\.go$
-  - linters:
-    - revive
-    text: "var-naming: don't use underscores in Go names;"
-    path: .*(api|types)\/.*\/conversion.*\.go$
-  - linters:
-    - revive
-    text: "receiver-naming: receiver name"
-    path: .*(api|types)\/.*\/conversion.*\.go$
-  - linters:
-    - stylecheck
-    text: "ST1003: should not use underscores in Go names;"
-    path: .*(api|types)\/.*\/conversion.*\.go$
-  - linters:
-    - stylecheck
-    text: "ST1016: methods on the same type should have the same receiver name"
-    path: .*(api|types)\/.*\/conversion.*\.go$
-  - linters:
-    - tagliatelle
-    text: "RAID|MAC|BMO"
-  include:
-  - EXC0002 # include "missing comments" issues from golangci-lint
   max-issues-per-linter: 0
   max-same-issues: 0

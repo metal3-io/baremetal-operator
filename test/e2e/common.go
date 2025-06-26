@@ -18,6 +18,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -71,6 +72,13 @@ type WaitForBmhInProvisioningStateInput struct {
 	UndesiredStates []metal3api.ProvisioningState
 }
 
+type WaitForBmhInOperationalStatusInput struct {
+	Client          client.Client
+	Bmh             metal3api.BareMetalHost
+	State           metal3api.OperationalStatus
+	UndesiredStates []metal3api.OperationalStatus
+}
+
 func WaitForBmhInProvisioningState(ctx context.Context, input WaitForBmhInProvisioningStateInput, intervals ...interface{}) {
 	Eventually(func(g Gomega) {
 		bmh := metal3api.BareMetalHost{}
@@ -81,6 +89,23 @@ func WaitForBmhInProvisioningState(ctx context.Context, input WaitForBmhInProvis
 
 		// Check if the current state matches any of the undesired states
 		if isUndesiredState(currentStatus, input.UndesiredStates) {
+			StopTrying(fmt.Sprintf("BMH is in an unexpected state: %s", currentStatus)).Now()
+		}
+
+		g.Expect(currentStatus).To(Equal(input.State))
+	}, intervals...).Should(Succeed())
+}
+
+func WaitForBmhInOperationalStatus(ctx context.Context, input WaitForBmhInOperationalStatusInput, intervals ...interface{}) {
+	Eventually(func(g Gomega) {
+		bmh := metal3api.BareMetalHost{}
+		key := types.NamespacedName{Namespace: input.Bmh.Namespace, Name: input.Bmh.Name}
+		g.Expect(input.Client.Get(ctx, key, &bmh)).To(Succeed())
+
+		currentStatus := bmh.Status.OperationalStatus
+
+		// Check if the current state matches any of the undesired states
+		if slices.Contains(input.UndesiredStates, currentStatus) {
 			StopTrying(fmt.Sprintf("BMH is in an unexpected state: %s", currentStatus)).Now()
 		}
 

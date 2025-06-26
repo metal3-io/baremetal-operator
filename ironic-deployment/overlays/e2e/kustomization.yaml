@@ -38,4 +38,4 @@ secretGenerator:
 
 images:
 - name: quay.io/metal3-io/ironic
-  newTag: main_2025-06-17_b8d4a664fc0bf0d96fb16ae14fee5b63b6080e7d
+  newTag: oldwsgi

@@ -14,6 +14,11 @@ type EnvFixture struct {
 	kernelURL                        string
 	ramdiskURL                       string
 	isoURL                           string
+	bootloaderURL                    string
+	aarch64kernelURL                 string
+	aarch64ramdiskURL                string
+	aarch64isoURL                    string
+	aarch64bootloaderURL             string
 	liveISOForcePersistentBootDevice string
 	ironicCACertFile                 string
 	ironicClientCertFile             string
@@ -49,6 +54,11 @@ func (f *EnvFixture) SetUp() {
 	f.replace("DEPLOY_KERNEL_URL", f.kernelURL)
 	f.replace("DEPLOY_RAMDISK_URL", f.ramdiskURL)
 	f.replace("DEPLOY_ISO_URL", f.isoURL)
+	f.replace("DEPLOY_BOOTLOADER_URL", f.bootloaderURL)
+	f.replace("DEPLOY_KERNEL_URL_AARCH64", f.aarch64kernelURL)
+	f.replace("DEPLOY_RAMDISK_URL_AARCH64", f.aarch64ramdiskURL)
+	f.replace("DEPLOY_ISO_URL_AARCH64", f.aarch64isoURL)
+	f.replace("DEPLOY_BOOTLOADER_URL_AARCH64", f.aarch64bootloaderURL)
 	f.replace("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE", f.liveISOForcePersistentBootDevice)
 	f.replace("IRONIC_CACERT_FILE", f.ironicCACertFile)
 	f.replace("IRONIC_CLIENT_CERT_FILE", f.ironicClientCertFile)
@@ -58,9 +68,14 @@ func (f *EnvFixture) SetUp() {
 }
 func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
 	t.Helper()
-	assert.Equal(t, f.kernelURL, c.deployKernelURL)
-	assert.Equal(t, f.ramdiskURL, c.deployRamdiskURL)
-	assert.Equal(t, f.isoURL, c.deployISOURL)
+	assert.Equal(t, f.kernelURL, c.defaultDeployConfig.kernelURL)
+	assert.Equal(t, f.ramdiskURL, c.defaultDeployConfig.ramdiskURL)
+	assert.Equal(t, f.isoURL, c.defaultDeployConfig.ISOURL)
+	assert.Equal(t, f.bootloaderURL, c.defaultDeployConfig.bootloaderURL)
+	assert.Equal(t, f.aarch64kernelURL, c.archDeployConfig["aarch64"].kernelURL)
+	assert.Equal(t, f.aarch64ramdiskURL, c.archDeployConfig["aarch64"].ramdiskURL)
+	assert.Equal(t, f.aarch64isoURL, c.archDeployConfig["aarch64"].ISOURL)
+	assert.Equal(t, f.aarch64bootloaderURL, c.archDeployConfig["aarch64"].bootloaderURL)
 	assert.Equal(t, f.liveISOForcePersistentBootDevice, c.liveISOForcePersistentBootDevice)
 }
 
@@ -108,14 +123,14 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			env: EnvFixture{
 				kernelURL: "http://kernel",
 			},
-			expectedError: "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError: "DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together",
 		},
 		{
 			name: "only ramdisk",
 			env: EnvFixture{
 				ramdiskURL: "http://ramdisk",
 			},
-			expectedError:         "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError:         "DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together",
 			expectedImgBuildError: "DEPLOY_RAMDISK_URL requires DEPLOY_KERNEL_URL to be set also",
 		},
 		{

@@ -82,6 +82,7 @@ type ManagementAccessData struct {
 	PreprovisioningNetworkData string
 	HasCustomDeploy            bool
 	DisablePowerOff            bool
+	CPUArchitecture            string
 }
 
 type AdoptData struct {

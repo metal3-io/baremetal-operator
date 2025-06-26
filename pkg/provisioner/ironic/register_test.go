@@ -1112,9 +1112,11 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "iso no imgbuilder",
 			Config: ironicConfig{
 				havePreprovImgBuilder: false,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+					ISOURL:     localIso,
+				},
 			},
 			Driver:      isoDriver,
 			ExpectBuild: false,
@@ -1125,8 +1127,10 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "no imgbuilder no iso",
 			Config: ironicConfig{
 				havePreprovImgBuilder: false,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+				},
 			},
 			Driver:      isoDriver,
 			ExpectBuild: false,
@@ -1137,9 +1141,11 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "pxe no imgbuilder",
 			Config: ironicConfig{
 				havePreprovImgBuilder: false,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+					ISOURL:     localIso,
+				},
 			},
 			Driver:      pxeDriver,
 			ExpectBuild: false,
@@ -1150,9 +1156,11 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "iso no build",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+					ISOURL:     localIso,
+				},
 			},
 			Driver:    isoDriver,
 			ExpectISO: false,
@@ -1162,9 +1170,11 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "iso build",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+					ISOURL:     localIso,
+				},
 			},
 			Driver: isoDriver,
 			Image: &provisioner.PreprovisioningImage{
@@ -1181,9 +1191,11 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "pxe build",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+					ISOURL:     localIso,
+				},
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
@@ -1200,9 +1212,11 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "pxe build with new kernel and kernel params",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+					ISOURL:     localIso,
+				},
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
@@ -1223,9 +1237,11 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "pxe iso build",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployKernelURL:       localKernel,
-				deployRamdiskURL:      localRamdisk,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL:  localKernel,
+					ramdiskURL: localRamdisk,
+					ISOURL:     localIso,
+				},
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
@@ -1242,7 +1258,9 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "pxe build no kernel",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					ISOURL: localIso,
+				},
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
@@ -1273,7 +1291,9 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "pxe iso build no initrd",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployKernelURL:       localKernel,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL: localKernel,
+				},
 			},
 			Driver: pxeDriver,
 			Image: &provisioner.PreprovisioningImage{
@@ -1289,7 +1309,9 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "no build no initrd",
 			Config: ironicConfig{
 				havePreprovImgBuilder: true,
-				deployKernelURL:       localKernel,
+				defaultDeployConfig: ironicDeployConfig{
+					kernelURL: localKernel,
+				},
 			},
 			Driver:    pxeDriver,
 			ExpectISO: false,
@@ -1299,7 +1321,9 @@ func TestSetDeployImage(t *testing.T) {
 			Scenario: "pxe no imgbuilder no pxe",
 			Config: ironicConfig{
 				havePreprovImgBuilder: false,
-				deployISOURL:          localIso,
+				defaultDeployConfig: ironicDeployConfig{
+					ISOURL: localIso,
+				},
 			},
 			Driver:    pxeDriver,
 			ExpectISO: false,
@@ -1318,7 +1342,7 @@ func TestSetDeployImage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			opts := setDeployImage(tc.Config, tc.Driver, tc.Image)
+			opts := setDeployImage(tc.Config, tc.Driver, tc.Image, "x86_64")
 
 			switch {
 			case tc.ExpectISO:

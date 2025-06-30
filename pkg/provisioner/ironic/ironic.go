@@ -30,6 +30,7 @@ var (
 	subscriptionRequeueDelay  = time.Second * 10
 	introspectionRequeueDelay = time.Second * 15
 	softPowerOffTimeout       = time.Second * 180
+	supportedArch             = [...]string{"x86_64", "aarch64"}
 )
 
 const (
@@ -41,6 +42,7 @@ const (
 	nameSeparator        = "~"
 	customDeployPriority = 80
 
+	bootloaderKey    = "bootloader"
 	deployKernelKey  = "deploy_kernel"
 	deployRamdiskKey = "deploy_ramdisk"
 	deployISOKey     = "deploy_iso"
@@ -61,11 +63,17 @@ func NewMacAddressConflictError(address, node string) error {
 	return macAddressConflictError{Address: address, ExistingNode: node}
 }
 
+type ironicDeployConfig struct {
+	kernelURL     string
+	ramdiskURL    string
+	bootloaderURL string
+	ISOURL        string
+}
+
 type ironicConfig struct {
 	havePreprovImgBuilder            bool
-	deployKernelURL                  string
-	deployRamdiskURL                 string
-	deployISOURL                     string
+	defaultDeployConfig              ironicDeployConfig
+	archDeployConfig                 map[string]ironicDeployConfig
 	liveISOForcePersistentBootDevice string
 	maxBusyHosts                     int
 	externalURL                      string
@@ -318,7 +326,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
 	updater := clients.UpdateOptsBuilder(p.log)
 
-	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
+	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage, data.CPUArchitecture)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 
 	// NOTE(dtantsur): It is risky to update image information for active nodes since it may affect the ability to clean up.
@@ -430,12 +438,18 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map
 	return driverInfo
 }
 
-func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) clients.UpdateOptsData {
+func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage, cpuArch string) clients.UpdateOptsData {
 	deployImageInfo := clients.UpdateOptsData{
+		bootloaderKey:    nil,
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
 		deployISOKey:     nil,
 		kernelParamsKey:  nil,
+	}
+
+	deployConfig, ok := config.archDeployConfig[cpuArch]
+	if !ok {
+		deployConfig = config.defaultDeployConfig
 	}
 
 	allowISO := accessDetails.SupportsISOPreprovisioningImage()
@@ -450,10 +464,15 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 		case metal3api.ImageFormatInitRD:
 			if hostImage.KernelURL != "" {
 				deployImageInfo[deployKernelKey] = hostImage.KernelURL
-			} else if config.deployKernelURL == "" {
+			} else if deployConfig.kernelURL == "" {
 				return nil
 			} else {
-				deployImageInfo[deployKernelKey] = config.deployKernelURL
+				deployImageInfo[deployKernelKey] = deployConfig.kernelURL
+			}
+			if hostImage.BootloaderURL != "" {
+				deployImageInfo[bootloaderKey] = hostImage.BootloaderURL
+			} else if deployConfig.bootloaderURL != "" {
+				deployImageInfo[bootloaderKey] = deployConfig.bootloaderURL
 			}
 			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
 			if hostImage.ExtraKernelParams != "" {
@@ -465,13 +484,16 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 	}
 
 	if !config.havePreprovImgBuilder {
-		if allowISO && config.deployISOURL != "" {
-			deployImageInfo[deployISOKey] = config.deployISOURL
+		if allowISO && deployConfig.ISOURL != "" {
+			deployImageInfo[deployISOKey] = deployConfig.ISOURL
 			return deployImageInfo
 		}
-		if config.deployKernelURL != "" && config.deployRamdiskURL != "" {
-			deployImageInfo[deployKernelKey] = config.deployKernelURL
-			deployImageInfo[deployRamdiskKey] = config.deployRamdiskURL
+		if deployConfig.kernelURL != "" && deployConfig.ramdiskURL != "" {
+			deployImageInfo[deployKernelKey] = deployConfig.kernelURL
+			deployImageInfo[deployRamdiskKey] = deployConfig.ramdiskURL
+			if deployConfig.bootloaderURL != "" {
+				deployImageInfo[bootloaderKey] = deployConfig.bootloaderURL
+			}
 			return deployImageInfo
 		}
 	}

@@ -27,10 +27,12 @@ func newTestProvisionerFactory() ironicProvisionerFactory {
 	return ironicProvisionerFactory{
 		log: logf.Log,
 		config: ironicConfig{
-			deployKernelURL:  "http://deploy.test/ipa.kernel",
-			deployRamdiskURL: "http://deploy.test/ipa.initramfs",
-			deployISOURL:     "http://deploy.test/ipa.iso",
-			maxBusyHosts:     20,
+			defaultDeployConfig: ironicDeployConfig{
+				kernelURL:  "http://deploy.test/ipa.kernel",
+				ramdiskURL: "http://deploy.test/ipa.initramfs",
+				ISOURL:     "http://deploy.test/ipa.iso",
+			},
+			maxBusyHosts: 20,
 		},
 	}
 }

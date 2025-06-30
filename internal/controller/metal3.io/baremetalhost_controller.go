@@ -847,6 +847,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			PreprovisioningNetworkData: preprovisioningNetworkData,
 			HasCustomDeploy:            hasCustomDeploy(info.host),
 			DisablePowerOff:            info.host.Spec.DisablePowerOff,
+			CPUArchitecture:            getHostArchitecture(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)

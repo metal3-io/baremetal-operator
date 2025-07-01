@@ -376,7 +376,7 @@ func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *metal
 
 func validatePowerStatus(host *metal3api.BareMetalHost) error {
 	if host.Spec.DisablePowerOff && !host.Spec.Online {
-		return fmt.Errorf("node can't simultaneously have online set to false and have power off disabled")
+		return errors.New("node can't simultaneously have online set to false and have power off disabled")
 	}
 	return nil
 }

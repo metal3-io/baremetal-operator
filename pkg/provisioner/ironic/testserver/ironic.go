@@ -225,7 +225,7 @@ func (m *IronicMock) NoNode(name string) *IronicMock {
 
 // NodeError configures the server to return the specified error code for /v1/nodes/name.
 func (m *IronicMock) NodeError(name string, errorCode int) *IronicMock {
-	m.ErrorResponse(fmt.Sprintf("/v1/nodes/%s", name), errorCode)
+	m.ErrorResponse("/v1/nodes/"+name, errorCode)
 	return m
 }
 

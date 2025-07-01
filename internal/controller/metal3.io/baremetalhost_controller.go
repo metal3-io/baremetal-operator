@@ -906,7 +906,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	// Create the hostFirmwareComponents resource with same host name/namespace if it doesn't exist
 	if info.host.Name != "" {
 		if !info.host.DeletionTimestamp.IsZero() {
-			info.log.Info(fmt.Sprintf("will not attempt to create new hostFirmwareSettings and hostFirmwareComponents in %s", info.host.Namespace))
+			info.log.Info("will not attempt to create new hostFirmwareSettings and hostFirmwareComponents in " + info.host.Namespace)
 		} else {
 			if err = r.createHostFirmwareSettings(info); err != nil {
 				info.log.Info("failed creating hostfirmwaresettings")
@@ -1119,7 +1119,7 @@ func (r *BareMetalHostReconciler) matchProfile(info *reconcileInfo) (dirty bool,
 	if info.host.SetHardwareProfile(hardwareProfile) {
 		dirty = true
 		info.log.Info("updating hardware profile", "profile", hardwareProfile)
-		info.publishEvent("ProfileSet", fmt.Sprintf("Hardware profile set: %s", hardwareProfile))
+		info.publishEvent("ProfileSet", "Hardware profile set: "+hardwareProfile)
 	}
 
 	hintsDirty, err := updateRootDeviceHints(info.host, info)

@@ -138,8 +138,7 @@ func (p *ironicProvisioner) validateNode(ironicNode *nodes.Node) (errorMessage s
 		// We expect to see errors of this nature sometimes, so rather
 		// than reporting it as a reconcile error we record the error
 		// status on the host and return.
-		errorMessage = fmt.Sprintf("host validation error: %s",
-			strings.Join(validationErrors, "; "))
+		errorMessage = "host validation error: " + strings.Join(validationErrors, "; ")
 		return errorMessage, nil
 	}
 	return "", nil
@@ -458,7 +457,7 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
 			if hostImage.ExtraKernelParams != "" {
 				// Using %default% prevents overriding the config in ironic-image
-				deployImageInfo[kernelParamsKey] = fmt.Sprintf("%%default%% %s", hostImage.ExtraKernelParams)
+				deployImageInfo[kernelParamsKey] = "%default% " + hostImage.ExtraKernelParams
 			}
 			return deployImageInfo
 		}
@@ -755,7 +754,7 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 	}
 
 	if !p.availableFeatures.HasFirmwareUpdates() {
-		return nil, fmt.Errorf("current ironic version does not support firmware updates")
+		return nil, errors.New("current ironic version does not support firmware updates")
 	}
 
 	// Setting to 2 since we only support bmc and bios
@@ -825,7 +824,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 		"deploy step", ironicNode.DeployStep,
 	)
 	p.publisher("ProvisioningStarted",
-		fmt.Sprintf("Image provisioning started for %s", data.Image.URL))
+		"Image provisioning started for "+data.Image.URL)
 	return result, nil
 }
 
@@ -878,8 +877,8 @@ func (p *ironicProvisioner) Adopt(data provisioner.AdoptData, restartOnFailure b
 				},
 			)
 		}
-		return operationFailed(fmt.Sprintf("Host adoption failed: %s",
-			ironicNode.LastError))
+		return operationFailed("Host adoption failed: " +
+			ironicNode.LastError)
 	case nodes.Active:
 		// Empty Fault means that maintenance was set manually, not by Ironic
 		if ironicNode.Maintenance && ironicNode.Fault == "" && data.State != metal3api.StateDeleting {
@@ -1252,8 +1251,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboo
 				return retryAfterDelay(0)
 			}
 			p.log.Info("found error", "msg", ironicNode.LastError)
-			return operationFailed(fmt.Sprintf("Image provisioning failed: %s",
-				ironicNode.LastError))
+			return operationFailed("Image provisioning failed: " + ironicNode.LastError)
 		}
 		p.log.Info("recovering from previous failure")
 		if provResult, err = p.setUpForProvisioning(ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
@@ -1316,7 +1314,7 @@ func (p *ironicProvisioner) Provision(data provisioner.ProvisionData, forceReboo
 	case nodes.Active:
 		// provisioning is done
 		p.publisher("ProvisioningComplete",
-			fmt.Sprintf("Image provisioning completed for %s", data.Image.URL))
+			"Image provisioning completed for "+data.Image.URL)
 		p.log.Info("finished provisioning")
 		return operationComplete()
 
@@ -1402,7 +1400,7 @@ func (p *ironicProvisioner) Deprovision(restartOnFailure bool) (result provision
 	case nodes.CleanFail:
 		if !restartOnFailure {
 			p.log.Info("cleaning failed", "lastError", ironicNode.LastError)
-			return operationFailed(fmt.Sprintf("Cleaning failed: %s", ironicNode.LastError))
+			return operationFailed("Cleaning failed: " + ironicNode.LastError)
 		}
 		p.log.Info("retrying cleaning")
 		if ironicNode.Maintenance {
@@ -1621,8 +1619,8 @@ func (p *ironicProvisioner) PowerOn(force bool) (result provisioner.Result, err 
 		}
 		if ironicNode.LastError != "" && !force {
 			p.log.Info("PowerOn operation failed", "msg", ironicNode.LastError)
-			return operationFailed(fmt.Sprintf("PowerOn operation failed: %s",
-				ironicNode.LastError))
+			return operationFailed("PowerOn operation failed: " +
+				ironicNode.LastError)
 		}
 		return p.changePower(ironicNode, nodes.PowerOn)
 	}

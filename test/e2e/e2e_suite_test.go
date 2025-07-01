@@ -99,7 +99,7 @@ func serviceAccountToken() (string, error) {
 	}`
 
 	// Temporary file to store the token request
-	secretName := fmt.Sprintf("%s-token-request", serviceAccountName)
+	secretName := serviceAccountName + "-token-request"
 	tokenRequestFile := filepath.Join("/tmp", secretName) //nolint: gocritic
 	err := os.WriteFile(tokenRequestFile, []byte(tokenRequestRawString), os.FileMode(0o644))
 	if err != nil {
@@ -271,7 +271,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			"--namespace", namespace,
 			"--image=curlimages/curl:7.87.0",
 			"--command",
-			"--", "curl", "-v", "--tlsv1.3", "-k", "-H", fmt.Sprintf("Authorization:Bearer %s", token),
+			"--", "curl", "-v", "--tlsv1.3", "-k", "-H", "Authorization:Bearer "+token,
 			fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/metrics", metricsServiceName, namespace))
 		_, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "Failed to create curl-metrics pod")

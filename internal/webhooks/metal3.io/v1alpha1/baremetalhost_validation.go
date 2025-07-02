@@ -73,8 +73,8 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 	}
 
 	if host.Spec.Image != nil {
-		if err := validateImageURL(host.Spec.Image.URL); err != nil {
-			errs = append(errs, err)
+		if err := validateImage(host.Spec.Image); err != nil {
+			errs = append(errs, err...)
 		}
 	}
 
@@ -250,13 +250,19 @@ func validateStatusAnnotation(statusAnnotation string) error {
 	return nil
 }
 
-func validateImageURL(imageURL string) error {
-	_, err := url.ParseRequestURI(imageURL)
+func validateImage(image *metal3api.Image) []error {
+	var errs []error
+
+	_, err := url.ParseRequestURI(image.URL)
 	if err != nil {
-		return fmt.Errorf("image URL %s is invalid: %w", imageURL, err)
+		errs = append(errs, fmt.Errorf("image URL %s is invalid: %w", image.URL, err))
 	}
 
-	return nil
+	if _, _, err = image.GetChecksum(); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errs
 }
 
 func validateRootDeviceHints(rdh *metal3api.RootDeviceHints) error {

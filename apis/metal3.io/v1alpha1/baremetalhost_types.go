@@ -1134,6 +1134,7 @@ func (image *Image) GetChecksum() (checksum, checksumType string, err error) {
 		return "", "", nil
 	}
 
+	// FIXME(dtantsur): Ironic supports oci:// images with an embedded checksum
 	if image.Checksum == "" {
 		// Return empty if checksum is not provided
 		return "", "", errors.New("checksum is required for normal images")

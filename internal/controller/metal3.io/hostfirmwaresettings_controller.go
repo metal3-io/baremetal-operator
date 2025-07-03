@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -381,31 +383,31 @@ func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent)
 
 // Validate the HostFirmwareSetting Spec against the schema.
 func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInfo, status *metal3api.HostFirmwareSettingsStatus, schema *metal3api.FirmwareSchema) []error {
-	var errors []error
+	var errs []error
 
 	for name, val := range info.hfs.Spec.Settings {
 		// Prohibit any Spec settings with "Password"
 		if strings.Contains(name, "Password") {
-			errors = append(errors, fmt.Errorf("cannot set Password field"))
+			errs = append(errs, errors.New("cannot set Password field"))
 			continue
 		}
 
 		// The setting must be in the Status
 		if _, ok := status.Settings[name]; !ok {
-			errors = append(errors, fmt.Errorf("setting %s is not in the Status field", name))
+			errs = append(errs, fmt.Errorf("setting %s is not in the Status field", name))
 			continue
 		}
 
 		// check validity of updated value
 		if schema != nil {
 			if err := schema.ValidateSetting(name, val, schema.Spec.Schema); err != nil {
-				errors = append(errors, err)
+				errs = append(errs, err)
 			}
 		}
 	}
 
-	if len(errors) > 0 {
-		return errors
+	if len(errs) > 0 {
+		return errs
 	}
 
 	return nil
@@ -468,7 +470,7 @@ func GetSchemaName(schema map[string]metal3api.SettingSchema) string {
 
 	h := sha256.New()
 	fmt.Fprintf(h, "%v", hashkeys)
-	hash := fmt.Sprintf("%x", h.Sum(nil))[:8]
+	hash := hex.EncodeToString(h.Sum(nil))[:8]
 
 	return "schema-" + hash
 }

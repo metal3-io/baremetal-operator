@@ -88,7 +88,7 @@ func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) err
 				return nil
 			}
 		}
-		return SchemaSettingError{name: name, message: fmt.Sprintf("unknown enumeration value - %s", value.String())}
+		return SchemaSettingError{name: name, message: "unknown enumeration value - " + value.String()}
 
 	case "Integer":
 		if value.Type == intstr.String {
@@ -118,7 +118,7 @@ func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) err
 		if value.String() == "true" || value.String() == "false" {
 			return nil
 		}
-		return SchemaSettingError{name: name, message: fmt.Sprintf("%s is not a boolean", value.String())}
+		return SchemaSettingError{name: name, message: value.String() + " is not a boolean"}
 
 	case "Password":
 		// Prevent sets of password types
@@ -130,7 +130,7 @@ func (schema *SettingSchema) Validate(name string, value intstr.IntOrString) err
 
 	default:
 		// Unexpected attribute type
-		return SchemaSettingError{name: name, message: fmt.Sprintf("unexpected attribute type %s", schema.AttributeType)}
+		return SchemaSettingError{name: name, message: "unexpected attribute type " + schema.AttributeType}
 	}
 }
 

@@ -1,15 +1,11 @@
 package imageprovider
 
-import (
-	"fmt"
-)
-
 type ImageBuildInvalid struct {
 	err error
 }
 
 func (ibf ImageBuildInvalid) Error() string {
-	return fmt.Sprintf("Cannot generate image: %s", ibf.err.Error())
+	return "Cannot generate image: " + ibf.err.Error()
 }
 
 func (ibf ImageBuildInvalid) Unwrap() error {

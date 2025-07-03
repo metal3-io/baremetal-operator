@@ -178,7 +178,7 @@ func (c *Config) Validate() error {
 func (c *Config) GetIntervals(spec, key string) []interface{} {
 	intervals, ok := c.Intervals[fmt.Sprintf("%s/%s", spec, key)]
 	if !ok {
-		if intervals, ok = c.Intervals[fmt.Sprintf("default/%s", key)]; !ok {
+		if intervals, ok = c.Intervals["default/"+key]; !ok {
 			return nil
 		}
 	}

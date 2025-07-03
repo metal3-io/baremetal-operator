@@ -1,7 +1,6 @@
 package clients
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -358,7 +357,7 @@ func TestGetUpdateOperation(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
-			path := fmt.Sprintf("test/%s", c.Field)
+			path := "test/" + c.Field
 			updateOp := getUpdateOperation(
 				c.Field, existingData,
 				c.NewValue,

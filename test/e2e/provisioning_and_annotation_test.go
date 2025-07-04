@@ -86,9 +86,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 				Checksum:     e2eConfig.GetVariable("IMAGE_CHECKSUM"),
 				ChecksumType: metal3api.AutoChecksum,
 			}
-			bmh.Spec.RootDeviceHints = &metal3api.RootDeviceHints{
-				DeviceName: "/dev/vda",
-			}
+			bmh.Spec.RootDeviceHints = &bmc.RootDeviceHints
 			// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 				userDataSecretName := "user-data"
@@ -216,9 +214,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 						URL:      e2eConfig.GetVariable("IMAGE_URL"),
 						Checksum: e2eConfig.GetVariable("IMAGE_CHECKSUM"),
 					},
-					RootDeviceHints: &metal3api.RootDeviceHints{
-						DeviceName: "/dev/vda",
-					},
+					RootDeviceHints: &bmc.RootDeviceHints,
 				},
 			}
 

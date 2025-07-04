@@ -20,6 +20,7 @@ type ImageData struct {
 type GeneratedImage struct {
 	ImageURL          string
 	KernelURL         string
+	BootloaderURL     string
 	ExtraKernelParams string
 }
 

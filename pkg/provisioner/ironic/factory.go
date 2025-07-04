@@ -58,9 +58,10 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 	f.log.Info("ironic settings",
 		"endpoint", ironicEndpoint,
 		"ironicAuthType", ironicAuth.Type,
-		"deployKernelURL", f.config.deployKernelURL,
-		"deployRamdiskURL", f.config.deployRamdiskURL,
-		"deployISOURL", f.config.deployISOURL,
+		"defaultDeployKernelURL", f.config.defaultDeployConfig.kernelURL,
+		"defaultDeployRamdiskURL", f.config.defaultDeployConfig.ramdiskURL,
+		"defaultDeployISOURL", f.config.defaultDeployConfig.ISOURL,
+		"defaultDeployBootloaderURL", f.config.defaultDeployConfig.bootloaderURL,
 		"liveISOForcePersistentBootDevice", f.config.liveISOForcePersistentBootDevice,
 		"CACertFile", tlsConf.TrustedCAFile,
 		"ClientCertFile", tlsConf.ClientCertificateFile,
@@ -105,26 +106,54 @@ func (f ironicProvisionerFactory) NewProvisioner(ctx context.Context, hostData p
 	return f.ironicProvisioner(ctx, hostData, publisher)
 }
 
-func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
-	c := ironicConfig{
-		havePreprovImgBuilder: havePreprovImgBuilder,
+func loadDeployURLFromEnv(arch string, havePreprovImgBuilder bool) (ironicDeployConfig, error) {
+	c := ironicDeployConfig{}
+	var suffix string
+	if arch != "" {
+		suffix = "_" + strings.ToUpper(arch)
 	}
+	c.kernelURL = os.Getenv("DEPLOY_KERNEL_URL" + suffix)
+	c.ramdiskURL = os.Getenv("DEPLOY_RAMDISK_URL" + suffix)
+	c.ISOURL = os.Getenv("DEPLOY_ISO_URL" + suffix)
+	c.bootloaderURL = os.Getenv("DEPLOY_BOOTLOADER_URL" + suffix)
 
-	c.deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")
-	c.deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
-	c.deployISOURL = os.Getenv("DEPLOY_ISO_URL")
 	if !havePreprovImgBuilder {
-		if c.deployISOURL == "" &&
-			(c.deployKernelURL == "" || c.deployRamdiskURL == "") {
-			return c, errors.New("either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set")
-		}
-		if (c.deployKernelURL == "" && c.deployRamdiskURL != "") ||
-			(c.deployKernelURL != "" && c.deployRamdiskURL == "") {
+		if (c.kernelURL == "" && c.ramdiskURL != "") ||
+			(c.kernelURL != "" && c.ramdiskURL == "") {
 			return c, errors.New("DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together")
 		}
 	}
-	if c.deployKernelURL == "" && c.deployRamdiskURL != "" {
+	if c.kernelURL == "" && c.ramdiskURL != "" {
 		return c, errors.New("DEPLOY_RAMDISK_URL requires DEPLOY_KERNEL_URL to be set also")
+	}
+	return c, nil
+}
+
+func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
+	c := ironicConfig{
+		havePreprovImgBuilder: havePreprovImgBuilder,
+		archDeployConfig:      make(map[string]ironicDeployConfig),
+	}
+	var err error
+	c.defaultDeployConfig, err = loadDeployURLFromEnv("", havePreprovImgBuilder)
+	if err != nil {
+		return c, err
+	}
+	for _, arch := range supportedArch {
+		archDeployConfig, err := loadDeployURLFromEnv(arch, havePreprovImgBuilder)
+		// Only register valid arch specific deploy configuration
+		if archDeployConfig.ISOURL != "" || (archDeployConfig.kernelURL != "" && archDeployConfig.ramdiskURL != "") {
+			c.archDeployConfig[arch] = archDeployConfig
+		}
+		if err != nil {
+			return c, err
+		}
+	}
+	if !havePreprovImgBuilder {
+		if c.defaultDeployConfig.ISOURL == "" &&
+			(c.defaultDeployConfig.kernelURL == "" || c.defaultDeployConfig.ramdiskURL == "") {
+			return c, errors.New("either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set")
+		}
 	}
 
 	c.maxBusyHosts = 20

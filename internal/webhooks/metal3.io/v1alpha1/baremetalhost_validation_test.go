@@ -21,6 +21,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func errorArrContains(out []error, want string) bool {
@@ -516,22 +517,91 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "device name of root device hint must be a /dev/ path, not \"sda\"",
 		},
 		{
+			name: "validImageURL",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL:      "https://example.com/image",
+						Checksum: "be254ebfd73e66ca91f6d91f5050aa2ee1ec4813ee65ba472f608ed340cbff09",
+					},
+				},
+			},
+			oldBMH: nil,
+		},
+		{
+			name: "validImageLiveISO",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL:        "https://example.com/image",
+						DiskFormat: ptr.To("live-iso"),
+					},
+				},
+			},
+			oldBMH: nil,
+		},
+		{
 			name: "invalidImageURL",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta:   tm,
 				ObjectMeta: om,
 				Spec: metal3api.BareMetalHostSpec{
-					BMC: metal3api.BMCDetails{
-						Address:         "redfish://127.0.0.1",
-						CredentialsName: "test1",
-					},
 					Image: &metal3api.Image{
-						URL: "test1",
+						URL:      "test1",
+						Checksum: "be254ebfd73e66ca91f6d91f5050aa2ee1ec4813ee65ba472f608ed340cbff09",
 					},
 				},
 			},
 			oldBMH:    nil,
 			wantedErr: "image URL test1 is invalid: parse \"test1\": invalid URI for request",
+		},
+		{
+			name: "emptyImageURL",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						Checksum: "be254ebfd73e66ca91f6d91f5050aa2ee1ec4813ee65ba472f608ed340cbff09",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "image URL  is invalid: parse \"\": empty url",
+		},
+		{
+			name: "imageNoChecksum",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL: "https://example.com/image",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "checksum is required for normal images",
+		},
+		{
+			name: "imageInvalidChecksum",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL:          "https://example.com/image",
+						Checksum:     "be254ebfd73e66ca91f6d91f5050aa2ee1ec4813ee65ba472f608ed340cbff09",
+						ChecksumType: "SHA42",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "unknown checksumType SHA42, supported are auto, md5, sha256, sha512",
 		},
 		{
 			name: "validStatusAnnotation",

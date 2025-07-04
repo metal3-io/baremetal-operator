@@ -464,7 +464,7 @@ func TestGetImageChecksum(t *testing.T) {
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			_, checksumType, actual := tc.Host.Spec.Image.GetChecksum()
-			assert.Equal(t, tc.Expected, actual)
+			assert.Equal(t, tc.Expected, actual == nil)
 			if tc.Expected {
 				assert.Equal(t, tc.ExpectedType, checksumType)
 			}

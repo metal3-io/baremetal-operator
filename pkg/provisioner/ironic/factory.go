@@ -114,10 +114,8 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 	c.deployRamdiskURL = os.Getenv("DEPLOY_RAMDISK_URL")
 	c.deployISOURL = os.Getenv("DEPLOY_ISO_URL")
 	if !havePreprovImgBuilder {
-		if c.deployISOURL == "" &&
-			(c.deployKernelURL == "" || c.deployRamdiskURL == "") {
-			return c, errors.New("either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set")
-		}
+		// NOTE(dtantsur): with a PreprovisioningImage controller, it makes sense to set only the kernel.
+		// Without it, either both or neither must be set.
 		if (c.deployKernelURL == "" && c.deployRamdiskURL != "") ||
 			(c.deployKernelURL != "" && c.deployRamdiskURL == "") {
 			return c, errors.New("DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together")

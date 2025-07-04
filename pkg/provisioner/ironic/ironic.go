@@ -351,14 +351,10 @@ func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessDat
 	switch data.State {
 	case metal3api.StateInspecting,
 		metal3api.StatePreparing:
-		if deployImageInfo == nil {
-			if p.config.havePreprovImgBuilder {
-				result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
-			} else {
-				result, err = operationFailed("no preprovisioning image available")
-			}
-			return result, err
+		if deployImageInfo == nil && p.config.havePreprovImgBuilder {
+			result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
 		}
+		return result, err
 	default:
 	}
 

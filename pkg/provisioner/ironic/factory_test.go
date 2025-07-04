@@ -99,23 +99,18 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			},
 		},
 		{
-			name:          "no deploy info",
-			env:           EnvFixture{},
-			expectedError: "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
-		},
-		{
 			name: "only kernel",
 			env: EnvFixture{
 				kernelURL: "http://kernel",
 			},
-			expectedError: "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError: "DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together",
 		},
 		{
 			name: "only ramdisk",
 			env: EnvFixture{
 				ramdiskURL: "http://ramdisk",
 			},
-			expectedError:         "either DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL or DEPLOY_ISO_URL must be set",
+			expectedError:         "DEPLOY_KERNEL_URL and DEPLOY_RAMDISK_URL can only be set together",
 			expectedImgBuildError: "DEPLOY_RAMDISK_URL requires DEPLOY_KERNEL_URL to be set also",
 		},
 		{

@@ -314,6 +314,10 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 	return nil
 }
 
+// configureNode configures Node properties that are not related to any specific provisioning phase.
+// It populates the AutomatedClean field, as well as capabilities and architecture in Properties.
+// It also calls setDeployImage to populate IPA parameters in DriverInfo and
+// checks if the required PreprovisioningImage is provided and ready.
 func (p *ironicProvisioner) configureNode(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
 	updater := clients.UpdateOptsBuilder(p.log)
 
@@ -429,6 +433,8 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map
 	return driverInfo
 }
 
+// setDeployImage configures the IPA ramdisk parameters in the Node's DriverInfo.
+// It can use either the provided PreprovisioningImage or the global configuration from ironicConfig.
 func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) clients.UpdateOptsData {
 	deployImageInfo := clients.UpdateOptsData{
 		deployKernelKey:  nil,
@@ -663,6 +669,7 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 		SetTopLevelOpt("deploy_interface", "custom-agent", ironicNode.DeployInterface)
 }
 
+// getInstanceUpdateOpts constructs InstanceInfo options required to provision a Node in Ironic.
 func (p *ironicProvisioner) getInstanceUpdateOpts(ironicNode *nodes.Node, data provisioner.ProvisionData) *clients.NodeUpdater {
 	updater := clients.UpdateOptsBuilder(p.log)
 

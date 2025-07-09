@@ -34,6 +34,8 @@ func TestProvision(t *testing.T) {
 		name                   string
 		ironic                 *testserver.IronicMock
 		forceReboot            bool
+		image                  *metal3api.Image
+		customDeploy           *metal3api.CustomDeploy
 		expectedDirty          bool
 		expectedError          bool
 		expectedErrorMessage   string
@@ -95,6 +97,47 @@ func TestProvision(t *testing.T) {
 			expectedRequestAfter:   10,
 			expectedDirty:          true,
 			expectedProvisionState: nodes.TargetActive,
+		},
+		{
+			name: "available state: live ISO",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			image: &metal3api.Image{
+				URL:        testImage.URL,
+				DiskFormat: ptr.To("live-iso"),
+			},
+			expectedRequestAfter:   10,
+			expectedDirty:          true,
+			expectedProvisionState: nodes.TargetActive,
+		},
+		{
+			name: "available state: custom deploy",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			image: &metal3api.Image{},
+			customDeploy: &metal3api.CustomDeploy{
+				Method: "mine_memecoins",
+			},
+			expectedRequestAfter:   10,
+			expectedDirty:          true,
+			expectedProvisionState: nodes.TargetActive,
+		},
+		{
+			name: "available state: no checksum",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Available),
+				UUID:           nodeUUID,
+			}),
+			image: &metal3api.Image{
+				URL: testImage.URL,
+			},
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+			expectedErrorMessage: "Validation failed: checksum is required for normal images",
 		},
 		{
 			name: "active state",
@@ -175,10 +218,15 @@ func TestProvision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
+			image := tc.image
+			if image == nil {
+				image = &testImage
+			}
 			result, err := prov.Provision(provisioner.ProvisionData{
-				Image:      testImage,
-				HostConfig: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
-				BootMode:   metal3api.DefaultBootMode,
+				Image:        *image,
+				CustomDeploy: tc.customDeploy,
+				HostConfig:   fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
+				BootMode:     metal3api.DefaultBootMode,
 			}, tc.forceReboot)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

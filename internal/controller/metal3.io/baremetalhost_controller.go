@@ -847,6 +847,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			PreprovisioningNetworkData: preprovisioningNetworkData,
 			HasCustomDeploy:            hasCustomDeploy(info.host),
 			DisablePowerOff:            info.host.Spec.DisablePowerOff,
+			CPUArchitecture:            getHostArchitecture(info.host),
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)
@@ -1287,7 +1288,6 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
-		CPUArchitecture: getHostArchitecture(info.host),
 	}, forceReboot)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to provision: %w", err)}

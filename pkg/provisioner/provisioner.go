@@ -82,6 +82,7 @@ type ManagementAccessData struct {
 	PreprovisioningNetworkData string
 	HasCustomDeploy            bool
 	DisablePowerOff            bool
+	CPUArchitecture            string
 }
 
 type AdoptData struct {
@@ -122,7 +123,6 @@ type ProvisionData struct {
 	HardwareProfile profile.Profile
 	RootDeviceHints *metal3api.RootDeviceHints
 	CustomDeploy    *metal3api.CustomDeploy
-	CPUArchitecture string
 }
 
 type HTTPHeaders []map[string]string

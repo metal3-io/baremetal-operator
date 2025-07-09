@@ -314,19 +314,27 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 	return nil
 }
 
-func (p *ironicProvisioner) configureImages(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
+// configureNode configures Node properties that are not related to any specific provisioning phase.
+// It populates the AutomatedClean field, as well as capabilities and architecture in Properties.
+// It also calls setDeployImage to populate IPA parameters in DriverInfo and
+// checks if the required PreprovisioningImage is provided and ready.
+func (p *ironicProvisioner) configureNode(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
 	updater := clients.UpdateOptsBuilder(p.log)
 
 	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 
-	// NOTE(dtantsur): It is risky to update image information for active nodes since it may affect the ability to clean up.
-	if (data.CurrentImage != nil || data.HasCustomDeploy) && ironicNode.ProvisionState != string(nodes.Active) {
-		p.getImageUpdateOptsForNode(ironicNode, data.CurrentImage, data.BootMode, data.HasCustomDeploy, updater)
-	}
 	updater.SetTopLevelOpt("automated_clean",
 		data.AutomatedCleaningMode != metal3api.CleaningModeDisabled,
 		ironicNode.AutomatedClean)
+
+	opts := clients.UpdateOptsData{
+		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+	}
+	if data.CPUArchitecture != "" {
+		opts["cpu_arch"] = data.CPUArchitecture
+	}
+	updater.SetPropertiesOpts(opts, ironicNode)
 
 	_, success, result, err := p.tryUpdateNode(ironicNode, updater)
 	if !success {
@@ -425,6 +433,8 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map
 	return driverInfo
 }
 
+// setDeployImage configures the IPA ramdisk parameters in the Node's DriverInfo.
+// It can use either the provided PreprovisioningImage or the global configuration from ironicConfig.
 func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) clients.UpdateOptsData {
 	deployImageInfo := clients.UpdateOptsData{
 		deployKernelKey:  nil,
@@ -659,40 +669,30 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 		SetTopLevelOpt("deploy_interface", "custom-agent", ironicNode.DeployInterface)
 }
 
-func (p *ironicProvisioner) getImageUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, bootMode metal3api.BootMode, hasCustomDeploy bool, updater *clients.NodeUpdater) {
+// getInstanceUpdateOpts constructs InstanceInfo options required to provision a Node in Ironic.
+func (p *ironicProvisioner) getInstanceUpdateOpts(ironicNode *nodes.Node, data provisioner.ProvisionData) *clients.NodeUpdater {
+	updater := clients.UpdateOptsBuilder(p.log)
+
+	hasCustomDeploy := data.CustomDeploy != nil && data.CustomDeploy.Method != ""
+
 	// instance_uuid
 	updater.SetTopLevelOpt("instance_uuid", string(p.objectMeta.UID), ironicNode.InstanceUUID)
 
 	updater.SetInstanceInfoOpts(clients.UpdateOptsData{
-		"capabilities": buildInstanceInfoCapabilities(bootMode),
+		"capabilities": buildInstanceInfoCapabilities(data.BootMode),
+		"root_device":  devicehints.MakeHintMap(data.RootDeviceHints),
 	}, ironicNode)
 
 	if hasCustomDeploy {
 		// Custom deploy process
-		p.setCustomDeployUpdateOptsForNode(ironicNode, imageData, updater)
-	} else if imageData.IsLiveISO() {
+		p.setCustomDeployUpdateOptsForNode(ironicNode, &data.Image, updater)
+	} else if data.Image.IsLiveISO() {
 		// Set live-iso format options
-		p.setLiveIsoUpdateOptsForNode(ironicNode, imageData, updater)
+		p.setLiveIsoUpdateOptsForNode(ironicNode, &data.Image, updater)
 	} else {
 		// Set deploy_interface direct options when not booting a live-iso
-		p.setDirectDeployUpdateOptsForNode(ironicNode, imageData, updater)
+		p.setDirectDeployUpdateOptsForNode(ironicNode, &data.Image, updater)
 	}
-}
-
-func (p *ironicProvisioner) getUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *clients.NodeUpdater {
-	updater := clients.UpdateOptsBuilder(p.log)
-
-	hasCustomDeploy := data.CustomDeploy != nil && data.CustomDeploy.Method != ""
-	p.getImageUpdateOptsForNode(ironicNode, &data.Image, data.BootMode, hasCustomDeploy, updater)
-
-	opts := clients.UpdateOptsData{
-		"root_device":  devicehints.MakeHintMap(data.RootDeviceHints),
-		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
-	}
-	if data.CPUArchitecture != "" {
-		opts["cpu_arch"] = data.CPUArchitecture
-	}
-	updater.SetPropertiesOpts(opts, ironicNode)
 
 	return updater
 }
@@ -795,7 +795,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data pr
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
 
 	ironicNode, success, result, err := p.tryUpdateNode(ironicNode,
-		p.getUpdateOptsForNode(ironicNode, data))
+		p.getInstanceUpdateOpts(ironicNode, data))
 	if !success {
 		return result, err
 	}

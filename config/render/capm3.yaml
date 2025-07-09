@@ -2510,8 +2510,6 @@ subjects:
 apiVersion: v1
 data:
   CACHEURL: http://172.22.0.1/images
-  DEPLOY_KERNEL_URL: http://172.22.0.2:6180/images/ironic-python-agent.kernel
-  DEPLOY_RAMDISK_URL: http://172.22.0.2:6180/images/ironic-python-agent.initramfs
   DHCP_RANGE: 172.22.0.10,172.22.0.100
   HTTP_PORT: "6180"
   IRONIC_ENDPOINT: http://172.22.0.2:6385/v1/

@@ -72,7 +72,7 @@ func TestRegisterMACOptional(t *testing.T) {
 	assert.Empty(t, result.ErrorMessage)
 }
 
-func TestRegisterCreateNodeNoImage(t *testing.T) {
+func TestRegisterCreateNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.
 	host := makeHost()
@@ -144,79 +144,6 @@ func TestRegisterCreateNodeOldInspection(t *testing.T) {
 	assert.NotEmpty(t, createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
 	assert.Equal(t, "inspector", createdNode.InspectInterface)
-}
-
-func TestRegisterCreateWithImage(t *testing.T) {
-	// Create a host with Image specified in the Spec
-	host := makeHost()
-	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
-	host.Spec.Image.URL = "theimagefoo"
-	host.Spec.Image.Checksum = "thechecksumxyz"
-	host.Spec.Image.ChecksumType = "auto"
-
-	var createdNode *nodes.Node
-
-	createCallback := func(node nodes.Node) {
-		createdNode = &node
-	}
-
-	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
-	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
-	ironic.Start()
-	defer ironic.Stop()
-
-	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
-	if err != nil {
-		t.Fatalf("could not create provisioner: %s", err)
-	}
-
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
-	if err != nil {
-		t.Fatalf("error from Register: %s", err)
-	}
-	assert.Empty(t, result.ErrorMessage)
-	assert.Equal(t, createdNode.UUID, provID)
-	assert.Empty(t, createdNode.DeployInterface)
-	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
-	assert.Contains(t, updates, "/instance_info/image_source")
-	assert.Contains(t, updates, host.Spec.Image.URL)
-	assert.Contains(t, updates, "/instance_info/image_checksum")
-	assert.Contains(t, updates, host.Spec.Image.Checksum)
-}
-
-func TestRegisterCreateWithLiveIso(t *testing.T) {
-	// Create a host with Image specified in the Spec
-	host := makeHostLiveIso()
-	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
-
-	var createdNode *nodes.Node
-
-	createCallback := func(node nodes.Node) {
-		createdNode = &node
-	}
-
-	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
-	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
-	ironic.Start()
-	defer ironic.Stop()
-
-	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
-	if err != nil {
-		t.Fatalf("could not create provisioner: %s", err)
-	}
-
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{CurrentImage: host.Spec.Image.DeepCopy()}, false, false)
-	if err != nil {
-		t.Fatalf("error from Register: %s", err)
-	}
-	assert.Empty(t, result.ErrorMessage)
-	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, "ramdisk", createdNode.DeployInterface)
-	updates, _ := ironic.GetLastRequestFor("/v1/nodes/node-0", http.MethodPatch)
-	assert.Contains(t, updates, "/instance_info/boot_iso")
-	assert.Contains(t, updates, host.Spec.Image.URL)
 }
 
 func TestRegisterExistingNode(t *testing.T) {
@@ -342,6 +269,7 @@ func TestRegisterExistingNodeContinue(t *testing.T) {
 					"test_password":  "******", // ironic returns a placeholder
 					"test_port":      "42",
 				},
+				Properties: map[string]interface{}{"capabilities": ""},
 			}).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			})
@@ -521,6 +449,7 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 				DeployInterface: imageType.DeployInterface,
 				InstanceInfo:    imageType.InstanceInfo,
 				DriverInfo:      imageType.DriverInfo,
+				Properties:      map[string]interface{}{"capabilities": ""},
 			}).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			})
@@ -577,6 +506,7 @@ func TestRegisterExistingNodeWaiting(t *testing.T) {
 					"test_password":  "******", // ironic returns a placeholder
 					"test_port":      "42",
 				},
+				Properties: map[string]interface{}{"capabilities": ""},
 			}
 			ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(node).NodeUpdate(nodes.Node{
 				UUID: "uuid",

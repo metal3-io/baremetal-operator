@@ -39,7 +39,7 @@ jobs:
         echo "has_vulnerabilities=$(jq '.results | length > 0' results.json)" >> "${GITHUB_OUTPUT}"
       continue-on-error: true
     - name: "Run OSV Scanner Reporter"
-      uses: google/osv-scanner/actions/reporter@a2a23858b9650035f019219937f91ae615474b4d # v2.0.2
+      uses: google/osv-scanner/actions/reporter@4f77b30556bb6d171b5d55f01da4fb0261b9da7d # v2.0.3
       with:
         scan-args: |-
           --output=results.sarif
@@ -47,7 +47,7 @@ jobs:
           --gh-annotations=false
       continue-on-error: true
     - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
+      uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
       with:
         sarif_file: results.sarif
     # if the results.json has any results, then it means there is some vulnerability to be checked out

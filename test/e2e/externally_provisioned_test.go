@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Create as externally provisioned, deprovision", Label("required", "provision", "deprovision"),
@@ -79,14 +80,28 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			}, &bmh)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("checking that the BMH was not inspected or deployed")
+			By("Checking that the BMH was not inspected or deployed")
 			Expect(bmh.Status.OperationHistory.Inspect.Start.IsZero()).To(BeTrue())
 			Expect(bmh.Status.OperationHistory.Provision.Start.IsZero()).To(BeTrue())
 
+			By("Removing the ExternallyProvisioned field")
+			bmh.Spec.ExternallyProvisioned = false
+
+			err = clusterProxy.GetClient().Update(ctx, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				err = clusterProxy.GetClient().Get(ctx, kclient.ObjectKeyFromObject(&bmh), &bmh)
+				g.Expect(bmh.Status.Provisioning.State).To(Equal(metal3api.StateProvisioned))
+			}, 2*time.Second, 100*time.Millisecond).Should(Succeed())
+
 			By("Deleting the BMH")
-			// Wait for 2 seconds to allow time to confirm annotation is set
-			// TODO: fix this so we do not need the sleep
-			time.Sleep(2 * time.Second)
+			// Wait for the finalizer to be there, otherwise cleanup logic can't hold the resource
+			Eventually(func(g Gomega) {
+				err = clusterProxy.GetClient().Get(ctx, kclient.ObjectKeyFromObject(&bmh), &bmh)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(bmh.Finalizers).To(ContainElement(metal3api.BareMetalHostFinalizer))
+			}, 2*time.Second, 100*time.Millisecond).Should(Succeed())
 
 			err = clusterProxy.GetClient().Delete(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())

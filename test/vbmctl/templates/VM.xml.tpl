@@ -24,8 +24,13 @@
     </disk>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='{{ .PoolPath }}/{{ .Name }}.qcow2'/>
+      <source file='{{ .PoolPath }}/{{ .Name }}-1.qcow2'/>
       <target dev='vda' bus='virtio'/>
+    </disk>
+    <disk type='file' device='disk'>
+        <driver name='qemu' type='qcow2'/>
+        <source file='{{ .PoolPath }}/{{ .Name }}-2.qcow2'/>
+        <target dev='vdb' bus='virtio'/>
     </disk>
     <controller type='scsi' index='0' model='virtio-scsi'>
       <address type='pci' domain='0x0000' bus='0x03' slot='0x00' function='0x0'/>

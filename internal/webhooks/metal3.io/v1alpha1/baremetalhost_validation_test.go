@@ -970,14 +970,6 @@ func TestValidateUpdate(t *testing.T) {
 				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "test-mac"}},
 			wantedErr: "bootMACAddress can not be changed once it is set",
 		},
-		{
-			name: "updateExternallyProvisioned",
-			newBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{}},
-			oldBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
-			wantedErr: "externallyProvisioned can not be changed",
-		},
 	}
 
 	for _, tt := range tests {

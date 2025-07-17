@@ -101,11 +101,11 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
 
 		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
-		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+		if e2eConfig.GetVariable("PERFORM_SSH_CHECK") == "true" {
 			By("Verifying the node booted from live ISO image")
 			PerformSSHBootCheck(e2eConfig, "memory", bmc.IPAddress)
 		} else {
-			Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
+			Logf("WARNING: Skipping SSH check since PERFORM_SSH_CHECK != true")
 		}
 
 		By("Triggering the deprovisioning of the BMH")

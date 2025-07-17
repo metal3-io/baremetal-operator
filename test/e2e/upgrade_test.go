@@ -18,7 +18,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 )
 
 const hardwareDetailsRelease04 = `
@@ -321,16 +320,13 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	).Should(BeTrue())
 
 	By("Patching the BMH to test provisioning")
-	helper, err := patch.NewHelper(&bmh, upgradeClusterProxy.GetClient())
+	err = PatchBMHForProvisioning(ctx, PatchBMHForProvisioningInput{
+		client:    upgradeClusterProxy.GetClient(),
+		bmh:       &bmh,
+		bmc:       bmc,
+		e2eConfig: e2eConfig,
+	})
 	Expect(err).NotTo(HaveOccurred())
-	bmh.Spec.Image = &metal3api.Image{
-		URL:      e2eConfig.GetVariable("IMAGE_URL"),
-		Checksum: e2eConfig.GetVariable("IMAGE_CHECKSUM"),
-	}
-	bmh.Spec.RootDeviceHints = &metal3api.RootDeviceHints{
-		DeviceName: "/dev/vda",
-	}
-	Expect(helper.Patch(ctx, &bmh)).To(Succeed())
 
 	By("Waiting for the BMH to become provisioned")
 	WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{

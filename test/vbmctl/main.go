@@ -11,7 +11,6 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/dypflying/go-qcow2lib/qcow2"
 	bmoe2e "github.com/metal3-io/baremetal-operator/test/e2e"
 	"libvirt.org/go/libvirt"
 )
@@ -144,20 +143,12 @@ func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, 
 func CreateLibvirtVM(conn *libvirt.Connect, name, networkName, macAddress string) error {
 	poolName := "default"
 	poolPath := "/tmp/pool_oo"
-	opts := make(map[string]any)
-	opts[qcow2.OPT_SIZE] = 3 * (1 << 30) //nolint: mnd // qcow2 file's size is 3g
-	opts[qcow2.OPT_FMT] = "qcow2"        // qcow2 format
-	opts[qcow2.OPT_SUBCLUSTER] = true    // enable sub-cluster
 
-	err := qcow2.Blk_Create("/tmp/"+name+".qcow2", opts)
-
-	if err != nil {
-		log.Println("Failed to create qcow2 file")
-		log.Printf("Error occurred: %v\n", err)
+	if err := CreateVolume(conn, name+"-1", poolName, poolPath, 20); err != nil { //nolint: mnd
 		return err
 	}
 
-	if err = CreateVolume(conn, name, poolName, poolPath, 20); err != nil { //nolint: mnd
+	if err := CreateVolume(conn, name+"-2", poolName, poolPath, 20); err != nil { //nolint: mnd
 		return err
 	}
 

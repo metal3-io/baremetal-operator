@@ -79,25 +79,25 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
 			By("Patching the BMH to test provisioning")
-			helper, err := patch.NewHelper(&bmh, clusterProxy.GetClient())
-			Expect(err).NotTo(HaveOccurred())
-			bmh.Spec.Image = &metal3api.Image{
-				URL:          e2eConfig.GetVariable("IMAGE_URL"),
-				Checksum:     e2eConfig.GetVariable("IMAGE_CHECKSUM"),
-				ChecksumType: metal3api.AutoChecksum,
-			}
-			bmh.Spec.RootDeviceHints = &bmc.RootDeviceHints
-			// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
+			var userDataSecret *corev1.SecretReference
 			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 				userDataSecretName := "user-data"
 				sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-				createCirrosInstanceAndHostnameUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath)
-				bmh.Spec.UserData = &corev1.SecretReference{
+				createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath)
+				userDataSecret = &corev1.SecretReference{
 					Name:      userDataSecretName,
 					Namespace: namespace.Name,
 				}
 			}
-			Expect(helper.Patch(ctx, &bmh)).To(Succeed())
+			err = PatchBMHForProvisioning(ctx, PatchBMHForProvisioningInput{
+				client:         clusterProxy.GetClient(),
+				bmh:            &bmh,
+				bmc:            bmc,
+				e2eConfig:      e2eConfig,
+				namespace:      namespace.Name,
+				userDataSecret: userDataSecret,
+			})
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for the BMH to be in provisioning state")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -129,7 +129,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Adding the detached annotation")
-			helper, err = patch.NewHelper(&bmh, clusterProxy.GetClient())
+			helper, err := patch.NewHelper(&bmh, clusterProxy.GetClient())
 			Expect(err).NotTo(HaveOccurred())
 
 			// Add the detached annotation; "true" is used explicitly to clarify intent.

@@ -79,6 +79,15 @@ type WaitForBmhInOperationalStatusInput struct {
 	UndesiredStates []metal3api.OperationalStatus
 }
 
+type PatchBMHForProvisioningInput struct {
+	client         client.Client
+	bmh            *metal3api.BareMetalHost
+	bmc            BMC
+	e2eConfig      *Config
+	namespace      string
+	userDataSecret *corev1.SecretReference
+}
+
 func WaitForBmhInProvisioningState(ctx context.Context, input WaitForBmhInProvisioningStateInput, intervals ...interface{}) {
 	Eventually(func(g Gomega) {
 		bmh := metal3api.BareMetalHost{}
@@ -111,6 +120,25 @@ func WaitForBmhInOperationalStatus(ctx context.Context, input WaitForBmhInOperat
 
 		g.Expect(currentStatus).To(Equal(input.State))
 	}, intervals...).Should(Succeed())
+}
+
+// PatchBMHForProvisioning patches the BMH to set the image and root device hints.
+// If setUserDataSecret is true, it also sets the user data secret for SSH access.
+func PatchBMHForProvisioning(ctx context.Context, input PatchBMHForProvisioningInput) error {
+	helper, err := patch.NewHelper(input.bmh, input.client)
+	if err != nil {
+		return err
+	}
+	input.bmh.Spec.Image = &metal3api.Image{
+		URL:          input.e2eConfig.GetVariable("IMAGE_URL"),
+		Checksum:     input.e2eConfig.GetVariable("IMAGE_CHECKSUM"),
+		ChecksumType: metal3api.AutoChecksum,
+	}
+	input.bmh.Spec.RootDeviceHints = &input.bmc.RootDeviceHints
+	if input.userDataSecret != nil {
+		input.bmh.Spec.UserData = input.userDataSecret
+	}
+	return helper.Patch(ctx, input.bmh)
 }
 
 // DeleteBmhsInNamespace deletes all BMHs in the given namespace.
@@ -287,7 +315,16 @@ func IsBootedFromDisk(client *ssh.Client) (bool, error) {
 	return bootedFromDisk, nil
 }
 
-func EstablishSSHConnection(e2eConfig *Config, auth ssh.AuthMethod, user, address string) *ssh.Client {
+func EstablishSSHConnection(e2eConfig *Config, ipAddress string) *ssh.Client {
+	user := e2eConfig.GetVariable("SSH_USERNAME")
+	keyPath := e2eConfig.GetVariable("SSH_PRIV_KEY")
+	key, err := os.ReadFile(keyPath)
+	Expect(err).NotTo(HaveOccurred(), "unable to read private key")
+	signer, err := ssh.ParsePrivateKey(key)
+	Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
+	auth := ssh.PublicKeys(signer)
+	address := fmt.Sprintf("%s:%s", ipAddress, e2eConfig.GetVariable("SSH_PORT"))
+
 	config := &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{auth},
@@ -295,7 +332,6 @@ func EstablishSSHConnection(e2eConfig *Config, auth ssh.AuthMethod, user, addres
 	}
 
 	var client *ssh.Client
-	var err error
 	Eventually(func() error {
 		client, err = ssh.Dial("tcp", address, config)
 		return err
@@ -304,9 +340,9 @@ func EstablishSSHConnection(e2eConfig *Config, auth ssh.AuthMethod, user, addres
 	return client
 }
 
-// createCirrosInstanceAndHostnameUserdata creates a Kubernetes secret intended for cloud-init usage.
-// This userdata is utilized during BMH's initialization and setup.
-func createCirrosInstanceAndHostnameUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string) {
+// createSSHSetupUserdata creates a Kubernetes secret intended for cloud-init usage.
+// This userdata sets up SSH authorized keys during BMH's initialization.
+func createSSHSetupUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string) {
 	sshPubKeyData, err := os.ReadFile(sshPubKeyPath) // #nosec G304
 	Expect(err).NotTo(HaveOccurred(), "Failed to read SSH public key file")
 
@@ -318,20 +354,35 @@ echo "%s" >> /root/.ssh/authorized_keys`, sshPubKeyData)
 	CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
 }
 
+// createDiskTestUserdata creates a Kubernetes secret with cloud-init userdata for disk operations.
+// This userdata sets up SSH authorized keys and then formats /dev/vdb, mounts it, and creates a test file.
+// Intended for testing automated cleaning of disks.
+func createDiskTestUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string) {
+	sshPubKeyData, err := os.ReadFile(sshPubKeyPath) // #nosec G304
+	Expect(err).NotTo(HaveOccurred(), "Failed to read SSH public key file")
+	userDataContent := fmt.Sprintf(`#!/bin/sh
+# Create the .ssh directory and authorized_keys file
+mkdir /root/.ssh
+chmod 700 /root/.ssh
+echo "%s" >> /root/.ssh/authorized_keys
+
+# Format and mount additional disk
+mkfs.ext4 /dev/vdb
+mkdir -p /mnt/data
+mount /dev/vdb /mnt/data
+
+# Create test files on both disks
+touch /mnt/data/test_file_vdb.txt
+touch /test_file_vda.txt`, sshPubKeyData)
+
+	CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
+}
+
 // PerformSSHBootCheck performs an SSH check to verify the node's boot source.
 // The `expectedBootMode` parameter should be "disk" or "memory".
 // The `auth` parameter is an ssh.AuthMethod for authentication.
 func PerformSSHBootCheck(e2eConfig *Config, expectedBootMode string, ipAddress string) {
-	user := e2eConfig.GetVariable("SSH_USERNAME")
-	keyPath := e2eConfig.GetVariable("SSH_PRIV_KEY")
-	key, err := os.ReadFile(keyPath)
-	Expect(err).NotTo(HaveOccurred(), "unable to read private key")
-	signer, err := ssh.ParsePrivateKey(key)
-	Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
-	auth := ssh.PublicKeys(signer)
-	sshAddress := fmt.Sprintf("%s:%s", ipAddress, e2eConfig.GetVariable("SSH_PORT"))
-
-	client := EstablishSSHConnection(e2eConfig, auth, user, sshAddress)
+	client := EstablishSSHConnection(e2eConfig, ipAddress)
 	defer func() {
 		if client != nil {
 			client.Close()

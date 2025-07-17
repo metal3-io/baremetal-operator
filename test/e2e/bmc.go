@@ -6,6 +6,7 @@ package e2e
 import (
 	"os"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,6 +29,8 @@ type BMC struct {
 	// This will be paired with the MAC address in the DHCP configuration.
 	// Example: 192.168.222.122
 	IPAddress string `yaml:"ipAddress,omitempty"`
+	// RootDeviceHints provides guidance for where to write the disk image.
+	RootDeviceHints metal3api.RootDeviceHints `yaml:"rootDeviceHints,omitempty"`
 }
 
 func LoadBMCConfig(configPath string) ([]BMC, error) {

@@ -146,6 +146,24 @@ BMO e2e is running as GitHub Actions. We need to add released branch and remove
 the non-maintained branches there, along with the suitable configurations with
 recently released Ironic-image releases as well in the fixtures.
 
+### Dependabot configuration
+
+In `main` branch, Dependabot configuration must be amended to allow updates
+to release branch dependencies and GitHub Workflows.
+
+If project dependencies or modules have not changed, previous release branch
+configuration can be copied and amend the `target-branch` to point to our new
+release branch. Release branches that are End-of-Life should be removed in the
+same PR, as updating `dependabot.yml` causes Dependabot to run the rules,
+ignoring the configured schedules, causing unnecessary PR creation for EOL
+branches.
+
+If project dependencies have changed, then copy the configuration of `main`,
+and adjust the `ignore` rules to match release branches. As generic rule we
+don't allow major or minor bumps in release branches.
+
+[Prior art](https://github.com/metal3-io/baremetal-operator/pull/2427)
+
 ### Branch protection rules
 
 Branch protection rules need to be applied to the new release branch. Copy the

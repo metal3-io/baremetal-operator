@@ -768,7 +768,7 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 
 	// Iterate over the list of components to extract their information and update the list.
 	for _, fwc := range componentList {
-		if fwc.Component != "bios" && fwc.Component != "bmc" {
+		if fwc.Component != "bios" && fwc.Component != "bmc" && !strings.HasPrefix(fwc.Component, "nic:") {
 			p.log.Info("ignoring firmware component for node", "component", fwc.Component, "node", ironicNode.UUID)
 			continue
 		}

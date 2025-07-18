@@ -465,24 +465,35 @@ func TestValidadeHostFirmwareComponents(t *testing.T) {
 			ExpectedErrors: []string{""},
 		},
 		{
-			Scenario: "invalid nic component",
+			Scenario: "valid spec - with nic components",
 			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
 				Updates: []metal3api.FirmwareUpdate{
-					{Component: "nic", URL: "https://myurl/mynicfw"},
+					{Component: "bmc", URL: "https://myurl/mybmcfw"},
+					{Component: "nic:NIC.1", URL: "https://myurl/mynicfw"},
+					{Component: "nic:AD007", URL: "https://myurl/mynic2fw"},
 				},
 			},
-			ExpectedErrors: []string{"component nic is invalid, only 'bmc' or 'bios' are allowed as update names"},
+			ExpectedErrors: []string{""},
 		},
 		{
-			Scenario: "invalid nic component with other valid components",
+			Scenario: "invalid something component",
+			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
+				Updates: []metal3api.FirmwareUpdate{
+					{Component: "something", URL: "https://myurl/myfw"},
+				},
+			},
+			ExpectedErrors: []string{"component something is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names"},
+		},
+		{
+			Scenario: "invalid something component with other valid components",
 			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
 				Updates: []metal3api.FirmwareUpdate{
 					{Component: "bmc", URL: "https://myurl/mybmcfw"},
 					{Component: "bios", URL: "https://myurl/mybiosfw"},
-					{Component: "nic", URL: "https://myurl/mynicfw"},
+					{Component: "something", URL: "https://myurl/myfw"},
 				},
 			},
-			ExpectedErrors: []string{"component nic is invalid, only 'bmc' or 'bios' are allowed as update names"},
+			ExpectedErrors: []string{"component something is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names"},
 		},
 		{
 			Scenario: "component not in lowercase",
@@ -493,8 +504,8 @@ func TestValidadeHostFirmwareComponents(t *testing.T) {
 				},
 			},
 			ExpectedErrors: []string{
-				"component BMC is invalid, only 'bmc' or 'bios' are allowed as update names",
-				"component BIOS is invalid, only 'bmc' or 'bios' are allowed as update names",
+				"component BMC is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names",
+				"component BIOS is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names",
 			},
 		},
 	}

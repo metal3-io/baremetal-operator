@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -101,8 +102,8 @@ func (host *HostFirmwareComponents) ValidateHostFirmwareComponents() error {
 	allowedNames := map[string]struct{}{"bmc": {}, "bios": {}}
 	for _, update := range host.Spec.Updates {
 		componentName := update.Component
-		if _, ok := allowedNames[componentName]; !ok {
-			return fmt.Errorf("component %s is invalid, only 'bmc' or 'bios' are allowed as update names", update.Component)
+		if _, ok := allowedNames[componentName]; !ok && !strings.HasPrefix(componentName, "nic:") {
+			return fmt.Errorf("component %s is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names", update.Component)
 		}
 	}
 

@@ -53,7 +53,7 @@ func TestValidateHostFirmwareComponents(t *testing.T) {
 			Components: []FirmwareComponentStatus{},
 			Updates: []FirmwareUpdate{
 				{
-					Component: "nic",
+					Component: "something",
 					URL:       "https://example.com/bmcupdate",
 				},
 			},
@@ -64,7 +64,40 @@ func TestValidateHostFirmwareComponents(t *testing.T) {
 					LastTransitionTime: metav1.NewTime(time.Now()),
 				},
 			},
-			ExpectedError: "component nic is invalid, only 'bmc' or 'bios' are allowed as update names",
+			ExpectedError: "component something is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names",
+		},
+		{
+			Scenario: "ValidNicPrefixComponent",
+			Components: []FirmwareComponentStatus{
+				{
+					Component:      "nic:NIC.1",
+					InitialVersion: "1.0",
+					CurrentVersion: "1.0",
+				},
+				{
+					Component:      "nic:AD007",
+					InitialVersion: "2.0",
+					CurrentVersion: "2.1",
+				},
+			},
+			Updates: []FirmwareUpdate{
+				{
+					Component: "nic:NIC.1",
+					URL:       "https://example.com/nicupdate",
+				},
+				{
+					Component: "nic:AD007",
+					URL:       "https://example.com/nic2update",
+				},
+			},
+			Conditions: []metav1.Condition{
+				{
+					Type:               string(HostFirmwareComponentsChangeDetected),
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				},
+			},
+			ExpectedError: "",
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {

@@ -256,12 +256,10 @@ func (r *HostFirmwareComponentsReconciler) updateEventHandler(e event.UpdateEven
 
 func (r *HostFirmwareComponentsReconciler) validateHostFirmwareComponents(info *rhfcInfo) []error {
 	var errors []error
-	allowedNames := map[string]struct{}{"bmc": {}, "bios": {}}
-	for _, update := range info.hfc.Spec.Updates {
-		componentName := update.Component
-		if _, ok := allowedNames[componentName]; !ok {
-			errors = append(errors, fmt.Errorf("component %s is invalid, only 'bmc' or 'bios' are allowed as update names", componentName))
-		}
+
+	// Re-Use the existing validation method
+	if err := info.hfc.ValidateHostFirmwareComponents(); err != nil {
+		errors = append(errors, err)
 	}
 
 	return errors

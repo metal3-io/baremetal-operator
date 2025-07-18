@@ -753,8 +753,8 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 		return nil, errors.New("current ironic version does not support firmware updates")
 	}
 
-	// Setting to 2 since we only support bmc and bios
-	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 2) //nolint:mnd
+	// We support bmc, bios, and multiple NICs components. Starting with 3 slots.
+	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 3) //nolint:mnd
 
 	if ironicNode.FirmwareInterface == "no-firmware" {
 		return componentsInfo, provisioner.ErrFirmwareUpdateUnsupported
@@ -768,7 +768,7 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 
 	// Iterate over the list of components to extract their information and update the list.
 	for _, fwc := range componentList {
-		if fwc.Component != "bios" && fwc.Component != "bmc" {
+		if fwc.Component != "bios" && fwc.Component != "bmc" && !strings.HasPrefix(fwc.Component, metal3api.NICComponentPrefix) {
 			p.log.Info("ignoring firmware component for node", "component", fwc.Component, "node", ironicNode.UUID)
 			continue
 		}

@@ -78,6 +78,8 @@ both redfish and ipmi protocols in CI.
   deprovisioned and becomes available again.
 - Live-ISO: Check that an available BareMetalHost can be provisioned with a
   live-ISO image.
+- Automated cleaning: Check that when automated cleaning is enabled the disks are
+  cleaned after deprovision.
 
 **Optional tests:**
 

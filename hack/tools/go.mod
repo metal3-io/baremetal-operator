@@ -7,7 +7,7 @@ require (
 	github.com/google/go-github v17.0.0+incompatible
 	golang.org/x/crypto v0.40.0
 	golang.org/x/oauth2 v0.30.0
-	sigs.k8s.io/cluster-api/test v1.11.0-alpha.2
+	sigs.k8s.io/cluster-api/test v1.11.0-beta.0
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/kustomize/api v0.20.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.7.0
@@ -47,7 +47,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	golang.org/x/mod v0.25.0 // indirect
-	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/text v0.27.0 // indirect

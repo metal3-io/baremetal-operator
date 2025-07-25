@@ -16,6 +16,11 @@ CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
 HTTP_PORT=${HTTP_PORT:-"6180"}
 PROVISIONING_IP="${PROVISIONING_IP:-"172.22.0.1"}"
 CLUSTER_PROVISIONING_IP="${CLUSTER_PROVISIONING_IP:-"172.22.0.2"}"
+if [[ "${CLUSTER_PROVISIONING_IP}" = *":"* ]]; then
+    CLUSTER_PROVISIONING_HOST="[${CLUSTER_PROVISIONING_IP}]"
+else
+    CLUSTER_PROVISIONING_HOST="${CLUSTER_PROVISIONING_IP}"
+fi
 # ironicendpoint is used in the CI setup
 if ip link show ironicendpoint > /dev/null; then
     PROVISIONING_INTERFACE="${PROVISIONING_INTERFACE:-ironicendpoint}"
@@ -69,16 +74,16 @@ if [ "$IRONIC_TLS_SETUP" = "true" ]; then
             -out "${IRONIC_CERT_FILE}" -keyout "${IRONIC_KEY_FILE}"
     fi
 
-    export IRONIC_BASE_URL="https://${CLUSTER_PROVISIONING_IP}"
+    export IRONIC_BASE_URL="https://${CLUSTER_PROVISIONING_HOST}"
     if [ -z "$IRONIC_CACERT_FILE" ]; then
         export IRONIC_CACERT_FILE=$IRONIC_CERT_FILE
     fi
 else
-    export IRONIC_BASE_URL="http://${CLUSTER_PROVISIONING_IP}"
+    export IRONIC_BASE_URL="http://${CLUSTER_PROVISIONING_HOST}"
 fi
 
-DEPLOY_KERNEL_URL="${DEPLOY_KERNEL_URL:-"http://${CLUSTER_PROVISIONING_IP}:${HTTP_PORT}/images/ironic-python-agent.kernel"}"
-DEPLOY_RAMDISK_URL="${DEPLOY_RAMDISK_URL:-"http://${CLUSTER_PROVISIONING_IP}:${HTTP_PORT}/images/ironic-python-agent.initramfs"}"
+DEPLOY_KERNEL_URL="${DEPLOY_KERNEL_URL:-"http://${CLUSTER_PROVISIONING_HOST}:${HTTP_PORT}/images/ironic-python-agent.kernel"}"
+DEPLOY_RAMDISK_URL="${DEPLOY_RAMDISK_URL:-"http://${CLUSTER_PROVISIONING_HOST}:${HTTP_PORT}/images/ironic-python-agent.initramfs"}"
 DEPLOY_ISO_URL=${DEPLOY_ISO_URL:-}
 IRONIC_ENDPOINT="${IRONIC_ENDPOINT:-"${IRONIC_BASE_URL}:6385/v1/"}"
 CACHEURL="${CACHEURL:-"http://${PROVISIONING_IP}/images"}"

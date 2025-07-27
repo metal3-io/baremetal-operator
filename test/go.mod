@@ -17,8 +17,8 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	libvirt.org/go/libvirt v1.11005.0
-	sigs.k8s.io/cluster-api v1.11.0-beta.0
-	sigs.k8s.io/cluster-api/test v1.11.0-beta.0
+	sigs.k8s.io/cluster-api v1.11.0-beta.1
+	sigs.k8s.io/cluster-api/test v1.11.0-beta.1
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/kind v0.29.0
 	sigs.k8s.io/kustomize/api v0.20.0
@@ -97,7 +97,7 @@ require (
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.7 // indirect
 	github.com/spf13/viper v1.20.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -128,7 +128,7 @@ require (
 	gotest.tools/v3 v3.5.0 // indirect
 	k8s.io/apiserver v0.33.3 // indirect
 	k8s.io/client-go v0.33.3 // indirect
-	k8s.io/cluster-bootstrap v0.33.2 // indirect
+	k8s.io/cluster-bootstrap v0.33.3 // indirect
 	k8s.io/component-base v0.33.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect

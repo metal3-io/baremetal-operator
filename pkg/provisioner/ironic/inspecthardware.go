@@ -40,16 +40,19 @@ func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result prov
 }
 
 func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
-	_, started, result, err = p.tryUpdateNode(
-		ironicNode,
-		clients.UpdateOptsBuilder(p.log).
-			SetPropertiesOpts(clients.UpdateOptsData{
-				"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
-			}, ironicNode),
-	)
+	inspectionNodeUpdater := clients.UpdateOptsBuilder(p.log)
+	inspectionNodeUpdater.SetPropertiesOpts(clients.UpdateOptsData{
+		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+	}, ironicNode)
+	inspectionNodeUpdater.SetDriverInfoOpts(clients.UpdateOptsData{
+		"kernel_append_params": fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams),
+	}, ironicNode)
+
+	_, started, result, err = p.tryUpdateNode(ironicNode, inspectionNodeUpdater)
 	if !started {
 		return
 	}
+	// TODO rozzii: I wonder if there is a benefit checking the error value too
 
 	p.log.Info("starting new hardware inspection")
 	started, result, err = p.tryChangeNodeProvisionState(

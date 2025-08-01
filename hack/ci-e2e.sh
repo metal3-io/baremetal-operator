@@ -59,6 +59,8 @@ sudo apt-get install -y libvirt-dev pkg-config
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
 
+make manifests-namespaced
+
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e
 

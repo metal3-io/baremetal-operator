@@ -282,7 +282,7 @@ func main() {
 	defer conn.Close()
 
 	for _, bmc := range bmcs {
-		if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, "baremetal-e2e"); err != nil {
+		if err = CreateLibvirtVM(conn, bmc.Name, "baremetal-e2e", bmc.BootMacAddress); err != nil {
 			log.Printf("Error occurred: %v\n", err)
 			// Not using os.Exit here so that we still close the connection
 			break

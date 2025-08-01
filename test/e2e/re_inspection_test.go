@@ -48,7 +48,7 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 		By("creating a BMH with inspection disabled and hardware details added with wrong HostName")
-		newHardwareDetails := strings.Replace(hardwareDetails, "bmo-e2e-0", wrongHostName, 1)
+		newHardwareDetails := strings.Replace(hardwareDetails, "localhost.localdomain", wrongHostName, 1)
 		bmh := metal3api.BareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      specName + "-reinspect",

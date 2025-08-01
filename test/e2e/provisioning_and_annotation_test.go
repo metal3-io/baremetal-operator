@@ -83,7 +83,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 				userDataSecretName := "user-data"
 				sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-				createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath)
+				createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
 				userDataSecret = &corev1.SecretReference{
 					Name:      userDataSecretName,
 					Namespace: namespace.Name,

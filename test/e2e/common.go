@@ -342,14 +342,15 @@ func EstablishSSHConnection(e2eConfig *Config, ipAddress string) *ssh.Client {
 
 // createSSHSetupUserdata creates a Kubernetes secret intended for cloud-init usage.
 // This userdata sets up SSH authorized keys during BMH's initialization.
-func createSSHSetupUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string) {
+func createSSHSetupUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string, staticIP string) {
 	sshPubKeyData, err := os.ReadFile(sshPubKeyPath) // #nosec G304
 	Expect(err).NotTo(HaveOccurred(), "Failed to read SSH public key file")
 
 	userDataContent := fmt.Sprintf(`#!/bin/sh
+ip a add %s dev eth0
 mkdir /root/.ssh
 chmod 700 /root/.ssh
-echo "%s" >> /root/.ssh/authorized_keys`, sshPubKeyData)
+echo "%s" >> /root/.ssh/authorized_keys`, staticIP, sshPubKeyData)
 
 	CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
 }

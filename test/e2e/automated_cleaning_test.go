@@ -146,7 +146,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		By("Patching the BMH again to trigger re-provisioning")
 		userDataSecretName = "user-data-ssh-setup"
 		// Create new userdata secret for only SSH setup
-		createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath)
+		createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
 		userDataSecret = &corev1.SecretReference{
 			Name:      userDataSecretName,
 			Namespace: namespace.Name,

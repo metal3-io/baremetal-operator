@@ -28,7 +28,7 @@ jobs:
         go-version: ${{ steps.vars.outputs.go_version }}
     # NOTE: this "go install" is not updated by Dependabot
     - name: Install OSV Scanner
-      run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@0e986b49c4e7ee5aa545531c4a8908455f8a9e82 # v2.0.0
+      run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@9267fda97136812f3217852fd380104487cf4a00 # v2.1.0
     - name: Run OSV Scanner
       id: osv-scan
       run: |

@@ -37,6 +37,7 @@ jobs:
         E2E_CONF_FILE: ${{ github.workspace }}/test/e2e/config/fixture.yaml
         USE_EXISTING_CLUSTER: "false"
         GINKGO_NODES: 1
+        GINKGO_SKIP_LABELS: "automated-cleaning"
       run: make test-e2e
 
     - name: Upload artifacts

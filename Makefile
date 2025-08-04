@@ -50,6 +50,7 @@ export GOFLAGS=
 #
 GINKGO_FOCUS ?=
 GINKGO_SKIP ?=
+GINKGO_SKIP_LABELS ?=
 GINKGO_NODES ?= 2
 GINKGO_TIMEOUT ?= 2h
 GINKGO_POLL_PROGRESS_AFTER ?= 60m
@@ -68,6 +69,11 @@ GOLANGCI_LINT_PKG := github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 # to set multiple ginkgo skip flags, if any
 ifneq ($(strip $(GINKGO_SKIP)),)
 _SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
+endif
+
+# to set multiple ginkgo skip labels, if any
+ifneq ($(strip $(GINKGO_SKIP_LABELS)),)
+_SKIP_LABELS_ARGS := --label-filter="!$(GINKGO_SKIP_LABELS)"
 endif
 
 .PHONY: help
@@ -118,7 +124,7 @@ ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
 test-e2e: $(GINKGO) ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \
 		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e,vbmctl --focus="$(GINKGO_FOCUS)" \
-		$(_SKIP_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
+		$(_SKIP_ARGS)  $(_SKIP_LABELS_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
 		--output-dir="$(ARTIFACTS)" --junit-report="junit.e2e_suite.1.xml" $(GINKGO_ARGS) test/e2e -- \
 		-e2e.config="$(E2E_CONF_FILE)" -e2e.bmcsConfig="$(E2E_BMCS_CONF_FILE)" \
 		-e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER) \

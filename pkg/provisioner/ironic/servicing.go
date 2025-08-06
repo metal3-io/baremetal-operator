@@ -76,6 +76,24 @@ func (p *ironicProvisioner) startServicing(bmcAccess bmc.AccessDetails, ironicNo
 	return
 }
 
+func (p *ironicProvisioner) abortServicing(ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
+	// Clear maintenance flag first if it's set
+	if ironicNode.Maintenance {
+		p.log.Info("clearing maintenance flag before aborting servicing")
+		result, err = p.setMaintenanceFlag(ironicNode, false, "")
+		return result, started, err
+	}
+
+	// Set started to let the controller know about the change
+	p.log.Info("aborting servicing due to removal of spec.updates/spec.settings")
+	started, result, err = p.tryChangeNodeProvisionState(
+		ironicNode,
+		nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+	)
+	p.log.Info("abort result", "started", started, "result", result, "error", err)
+	return
+}
+
 func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
 	if !p.availableFeatures.HasServicing() {
 		result, err = operationFailed(fmt.Sprintf("servicing not supported: requires API version 1.87, available is 1.%d", p.availableFeatures.MaxVersion))
@@ -94,9 +112,29 @@ func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, 
 		return result, started, err
 	}
 
+	// Check if there are any pending updates
+	serviceSteps, err := p.buildServiceSteps(bmcAccess, data)
+	if err != nil {
+		result, err = operationFailed(err.Error())
+		return result, started, err
+	}
+
+	p.log.Info("servicing state check:",
+		"hasSettingsSpec", data.HasFirmwareSettingsSpec,
+		"hasComponentsSpec", data.HasFirmwareComponentsSpec,
+		"serviceStepsCount", len(serviceSteps),
+		"nodeState", ironicNode.ProvisionState)
+
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.ServiceFail:
-		// When servicing failed, we need to clean host provisioning settings.
+		// When servicing failed and user actually removed the specs (not just no updates calculated),
+		// we need to abort the servicing operation to back out
+		if !data.HasFirmwareSettingsSpec && !data.HasFirmwareComponentsSpec {
+			p.log.Info("aborting servicing because spec.updates/spec.settings was removed")
+			return p.abortServicing(ironicNode)
+		}
+
+		// When servicing failed and there are pending updates, we need to clean host provisioning settings
 		// If restartOnFailure is false, it means the settings aren't cleared.
 		if !restartOnFailure {
 			result, err = operationFailed(ironicNode.LastError)
@@ -125,6 +163,12 @@ func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, 
 		p.log.Info("servicing finished on the host")
 		result, err = operationComplete()
 	case nodes.Servicing, nodes.ServiceWait:
+		// If user actually removed spec.updates/spec.settings while servicing is in progress, abort immediately
+		if !data.HasFirmwareSettingsSpec && !data.HasFirmwareComponentsSpec {
+			p.log.Info("aborting in-progress servicing because spec.updates/spec.settings was removed")
+			return p.abortServicing(ironicNode)
+		}
+		
 		p.log.Info("waiting for host to become active",
 			"state", ironicNode.ProvisionState,
 			"serviceStep", ironicNode.ServiceStep)

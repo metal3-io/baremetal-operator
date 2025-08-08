@@ -50,6 +50,8 @@ variables:
   IRONIC_PROVISIONING_IP: "localhost"
   IRONIC_PROVISIONING_PORT: "6385"
 
+  NAMESPACE_SCOPED: "true"
+
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]
   default/wait-registering: ["1m", "5s"]

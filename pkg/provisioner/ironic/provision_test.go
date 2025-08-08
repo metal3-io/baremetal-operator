@@ -761,7 +761,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 		BootMode:        metal3api.DefaultBootMode,
 		RootDeviceHints: host.Status.Provisioning.RootDeviceHints,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -857,7 +857,7 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 		BootMode:        metal3api.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -956,7 +956,7 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 		BootMode:        metal3api.DefaultBootMode,
 		HardwareProfile: hwProf,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -1020,7 +1020,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 		Image:    *host.Spec.Image,
 		BootMode: metal3api.DefaultBootMode,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -1089,7 +1089,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 		Image:    *host.Spec.Image,
 		BootMode: metal3api.DefaultBootMode,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -1169,7 +1169,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		Image:    *host.Spec.Image,
 		BootMode: metal3api.DefaultBootMode,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -1243,7 +1243,7 @@ func TestGetUpdateOptsForNodeCustomDeploy(t *testing.T) {
 		BootMode:     metal3api.DefaultBootMode,
 		CustomDeploy: host.Spec.CustomDeploy,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -1302,7 +1302,7 @@ func TestGetUpdateOptsForNodeCustomDeployWithImage(t *testing.T) {
 		BootMode:     metal3api.DefaultBootMode,
 		CustomDeploy: host.Spec.CustomDeploy,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -1371,7 +1371,7 @@ func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
 		BootMode:     metal3api.DefaultBootMode,
 		CustomDeploy: host.Spec.CustomDeploy,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 
@@ -1466,7 +1466,7 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 		BootMode:        metal3api.UEFISecureBoot,
 		HardwareProfile: hwProf,
 	}
-	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+	patches := prov.getProvisioningInstanceUpdateOptsForNode(ironicNode, provData).Updates
 
 	t.Logf("patches: %v", patches)
 

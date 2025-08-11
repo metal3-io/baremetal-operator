@@ -352,8 +352,8 @@ google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422 h1:
 google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422/go.mod h1:b6h1vNKhxaSoEI+5jc3PJUCustfli/mRab7295pY7rw=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f h1:OxYkA3wjPsZyBylwymxSHa7ViiW1Sml4ToBrncvFehI=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f/go.mod h1:+2Yz8+CLJbIfL9z73EW45avw8Lmge3xVElCP9zEKi50=
-google.golang.org/grpc v1.71.1 h1:ffsFWr7ygTUscGPI0KKK6TLrGz0476KUvvsbqWK0rPI=
-google.golang.org/grpc v1.71.1/go.mod h1:H0GRtasmQOh9LkFoCPDu3ZrwUtD1YGE+b2vYBYd/8Ec=
+google.golang.org/grpc v1.71.3 h1:iEhneYTxOruJyZAxdAv8Y0iRZvsc5M6KoW7UA0/7jn0=
+google.golang.org/grpc v1.71.3/go.mod h1:H0GRtasmQOh9LkFoCPDu3ZrwUtD1YGE+b2vYBYd/8Ec=
 google.golang.org/protobuf v1.36.6 h1:z1NpPI8ku2WgiWnf+t9wTPsn6eP1L7ksHUlkfLvd9xY=
 google.golang.org/protobuf v1.36.6/go.mod h1:jduwjTPXsFjZGTmRluh+L6NjiWu7pchiJ2/5YcXBHnY=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
@@ -394,10 +394,10 @@ libvirt.org/go/libvirt v1.11005.0 h1:3ff08ii8h9XSe0OPmTCSUJ/3Nj+ssCAYhC6MK6ppwow
 libvirt.org/go/libvirt v1.11005.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 h1:jpcvIRr3GLoUoEKRkHKSmGjxb6lWwrBlJsXc+eUYQHM=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
-sigs.k8s.io/cluster-api v1.11.0-beta.2 h1:uR9kci1V92xJK3Qaw49liK7zLOvZ5JEqrbeyWReVUyM=
-sigs.k8s.io/cluster-api v1.11.0-beta.2/go.mod h1:SSXGtB+mpuAjAydZH3psEKKQQfKV68llQb3Ph2MYPw4=
-sigs.k8s.io/cluster-api/test v1.11.0-beta.2 h1:v7BvUmmMhTNXYqF9vgVZ7BGohG0SwETWdd8NQzlwDgQ=
-sigs.k8s.io/cluster-api/test v1.11.0-beta.2/go.mod h1:d8LxG8eS4bIvd5hR5jA8x1DmiUTlC1f0mncGCT0q1Ao=
+sigs.k8s.io/cluster-api v1.11.0-rc.0 h1:sZihW/OjiucSnOKrFfo093wC/Qp0MBhmXiIcU9FtTBY=
+sigs.k8s.io/cluster-api v1.11.0-rc.0/go.mod h1:HVLZTAcnkzsM8bYvGgh4eC2Wfx/WzFerPvtCGfmggiw=
+sigs.k8s.io/cluster-api/test v1.11.0-rc.0 h1:PulJADupD3qF2F4Rwdt+OcH0YSrRgTTGYYgU/Pwu5gM=
+sigs.k8s.io/cluster-api/test v1.11.0-rc.0/go.mod h1:2f489Lp5TKPGVhNL6V3huq8fp6eb23APlY2cLbhuDBU=
 sigs.k8s.io/controller-runtime v0.21.0 h1:CYfjpEuicjUecRk+KAeyYh+ouUBn4llGyDYytIGcJS8=
 sigs.k8s.io/controller-runtime v0.21.0/go.mod h1:OSg14+F65eWqIu4DceX7k/+QRAbTTvxeQSNSOQpukWM=
 sigs.k8s.io/gateway-api v1.1.0 h1:DsLDXCi6jR+Xz8/xd0Z1PYl2Pn0TyaFMOPPZIj4inDM=

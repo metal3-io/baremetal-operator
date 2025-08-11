@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
   schedule:
   - cron: "24 6 * * *"
+  pull_request:
+    paths:
+    - '.github/workflows/osv-scanner-scan.yml'
 
 permissions: {}
 
@@ -28,7 +31,7 @@ jobs:
         go-version: ${{ steps.vars.outputs.go_version }}
     # NOTE: this "go install" is not updated by Dependabot
     - name: Install OSV Scanner
-      run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@9267fda97136812f3217852fd380104487cf4a00 # v2.1.0
+      run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@a14aa98ab8408547083d4411091c5fbaf5b47d8e # v2.2.0
     - name: Run OSV Scanner
       id: osv-scan
       run: |
@@ -39,7 +42,7 @@ jobs:
         echo "has_vulnerabilities=$(jq '.results | length > 0' results.json)" >> "${GITHUB_OUTPUT}"
       continue-on-error: true
     - name: "Run OSV Scanner Reporter"
-      uses: google/osv-scanner/actions/reporter@9267fda97136812f3217852fd380104487cf4a00 # v2.1.0
+      uses: google/osv-scanner/actions/reporter@a14aa98ab8408547083d4411091c5fbaf5b47d8e # v2.2.0
       with:
         scan-args: |-
           --output=results.sarif

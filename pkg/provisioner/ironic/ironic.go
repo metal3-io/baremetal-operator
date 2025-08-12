@@ -335,7 +335,7 @@ func fmtPreprovExtraKernParams(params string) string {
 func (p *ironicProvisioner) configureNode(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
 	updater := clients.UpdateOptsBuilder(p.log)
 
-	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
+	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage, data)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 
 	updater.SetTopLevelOpt("automated_clean",
@@ -457,7 +457,7 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]any) map[string]
 
 // setDeployImage configures the IPA ramdisk parameters in the Node's DriverInfo.
 // It can use either the provided PreprovisioningImage or the global configuration from ironicConfig.
-func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) clients.UpdateOptsData {
+func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage, data provisioner.ManagementAccessData) clients.UpdateOptsData {
 	deployImageInfo := clients.UpdateOptsData{
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
@@ -483,9 +483,22 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 				deployImageInfo[deployKernelKey] = config.deployKernelURL
 			}
 			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
+			// Extra params from the kernel have been already posted to
+			// Ironic node API in the Register function, so extra kernel args in driver info need
+			// update only if the dynamically generated preprov image requires it
 			if hostImage.ExtraKernelParams != "" {
-				// Using %default% prevents overriding the config in ironic-image
-				deployImageInfo[kernelParamsKey] = "%default% " + hostImage.ExtraKernelParams
+				// Combine the default ironic node kernel params with the extra
+				// params from the BMH and the dynamically generated preprov image
+				comExtraKernelParams := defaultKernelParam
+				trimDataKParams := strings.TrimSpace(data.PreprovisioningExtraKernelParams)
+				trimPreprovImgKParams := strings.TrimSpace(hostImage.ExtraKernelParams)
+				if trimDataKParams != "" {
+					comExtraKernelParams += " " + data.PreprovisioningExtraKernelParams
+				}
+				if trimPreprovImgKParams != "" {
+					comExtraKernelParams += " " + hostImage.ExtraKernelParams
+				}
+				deployImageInfo[kernelParamsKey] = comExtraKernelParams
 			}
 			return deployImageInfo
 		}

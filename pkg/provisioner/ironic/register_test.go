@@ -994,6 +994,7 @@ func TestSetDeployImage(t *testing.T) {
 		Config             ironicConfig
 		Driver             bmc.AccessDetails
 		Image              *provisioner.PreprovisioningImage
+		Data               provisioner.ManagementAccessData
 		ExpectBuild        bool
 		ExpectISO          bool
 		ExpectPXE          bool
@@ -1210,7 +1211,7 @@ func TestSetDeployImage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			opts := setDeployImage(tc.Config, tc.Driver, tc.Image)
+			opts := setDeployImage(tc.Config, tc.Driver, tc.Image, tc.Data)
 
 			switch {
 			case tc.ExpectISO:

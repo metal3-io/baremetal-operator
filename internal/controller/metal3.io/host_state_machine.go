@@ -408,6 +408,9 @@ func (hsm *hostStateMachine) handleRegistering(_ *reconcileInfo) actionResult {
 	// if the credentials change and the Host must be re-registered.
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3api.StateExternallyProvisioned
+	} else if hsm.Host.Status.Provisioning.State == metal3api.StateExternallyProvisioned {
+		// Removing externallyManaged moves hosts to provisioned state
+		hsm.NextState = metal3api.StateProvisioned
 	} else if inspectionDisabled(hsm.Host) {
 		hsm.NextState = metal3api.StatePreparing
 	} else {

@@ -61,6 +61,14 @@ func (p *ironicProvisioner) startServicing(bmcAccess bmc.AccessDetails, ironicNo
 		return
 	}
 
+	// Updating the kernel_append_params field of the Ironic node's
+	// API drive_info endpoint
+	_, updateSuccess, updateResult, updateErr := p.tryUpdateNode(ironicNode,
+		p.getServicingOptsForNode(ironicNode, data))
+	if !updateSuccess {
+		return updateSuccess, updateResult, updateErr
+	}
+
 	// Start servicing
 	if len(serviceSteps) != 0 {
 		p.log.Info("remove existing configuration and set new configuration", "serviceSteps", serviceSteps)

@@ -74,23 +74,29 @@ type PreprovisioningImage struct {
 }
 
 type ManagementAccessData struct {
-	BootMode                   metal3api.BootMode
-	AutomatedCleaningMode      metal3api.AutomatedCleaningMode
-	State                      metal3api.ProvisioningState
-	CurrentImage               *metal3api.Image
-	PreprovisioningImage       *PreprovisioningImage
-	PreprovisioningNetworkData string
-	HasCustomDeploy            bool
-	DisablePowerOff            bool
-	CPUArchitecture            string
+	BootMode                         metal3api.BootMode
+	AutomatedCleaningMode            metal3api.AutomatedCleaningMode
+	State                            metal3api.ProvisioningState
+	CurrentImage                     *metal3api.Image
+	PreprovisioningImage             *PreprovisioningImage
+	PreprovisioningNetworkData       string
+	PreprovisioningExtraKernelParams string
+	HasCustomDeploy                  bool
+	DisablePowerOff                  bool
+	CPUArchitecture                  string
 }
 
 type AdoptData struct {
 	State metal3api.ProvisioningState
 }
 
+type DeprovisionData struct {
+	PreprovisioningExtraKernelParams string
+}
+
 type InspectData struct {
-	BootMode metal3api.BootMode
+	BootMode                         metal3api.BootMode
+	PreprovisioningExtraKernelParams string
 }
 
 // FirmwareConfig and FirmwareSettings are used for implementation of similar functionality
@@ -100,29 +106,32 @@ type InspectData struct {
 // values are vendor specific.
 // TargetFirmwareSettings contains values that the user has changed.
 type PrepareData struct {
-	TargetRAIDConfig         *metal3api.RAIDConfig
-	ActualRAIDConfig         *metal3api.RAIDConfig
-	RootDeviceHints          *metal3api.RootDeviceHints
-	FirmwareConfig           *metal3api.FirmwareConfig
-	TargetFirmwareSettings   metal3api.DesiredSettingsMap
-	ActualFirmwareSettings   metal3api.SettingsMap
-	TargetFirmwareComponents []metal3api.FirmwareUpdate
+	TargetRAIDConfig                 *metal3api.RAIDConfig
+	ActualRAIDConfig                 *metal3api.RAIDConfig
+	RootDeviceHints                  *metal3api.RootDeviceHints
+	FirmwareConfig                   *metal3api.FirmwareConfig
+	TargetFirmwareSettings           metal3api.DesiredSettingsMap
+	ActualFirmwareSettings           metal3api.SettingsMap
+	TargetFirmwareComponents         []metal3api.FirmwareUpdate
+	PreprovisioningExtraKernelParams string
 }
 
 type ServicingData struct {
-	FirmwareConfig           *metal3api.FirmwareConfig
-	TargetFirmwareSettings   metal3api.DesiredSettingsMap
-	ActualFirmwareSettings   metal3api.SettingsMap
-	TargetFirmwareComponents []metal3api.FirmwareUpdate
+	FirmwareConfig                   *metal3api.FirmwareConfig
+	TargetFirmwareSettings           metal3api.DesiredSettingsMap
+	ActualFirmwareSettings           metal3api.SettingsMap
+	TargetFirmwareComponents         []metal3api.FirmwareUpdate
+	PreprovisioningExtraKernelParams string
 }
 
 type ProvisionData struct {
-	Image           metal3api.Image
-	HostConfig      HostConfigData
-	BootMode        metal3api.BootMode
-	HardwareProfile profile.Profile
-	RootDeviceHints *metal3api.RootDeviceHints
-	CustomDeploy    *metal3api.CustomDeploy
+	Image                            metal3api.Image
+	HostConfig                       HostConfigData
+	BootMode                         metal3api.BootMode
+	HardwareProfile                  profile.Profile
+	RootDeviceHints                  *metal3api.RootDeviceHints
+	CustomDeploy                     *metal3api.CustomDeploy
+	PreprovisioningExtraKernelParams string
 }
 
 type HTTPHeaders []map[string]string
@@ -174,7 +183,7 @@ type Provisioner interface {
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
 	// the deprovisioning operation is completed.
-	Deprovision(restartOnFailure bool) (result Result, err error)
+	Deprovision(data DeprovisionData, restartOnFailure bool) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty

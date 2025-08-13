@@ -18,21 +18,21 @@ import (
 
 type BIOSTestBMC struct{}
 
-func (r *BIOSTestBMC) Type() string                                          { return "bios-test" }
-func (r *BIOSTestBMC) NeedsMAC() bool                                        { return false }
-func (r *BIOSTestBMC) Driver() string                                        { return "bios-test" }
-func (r *BIOSTestBMC) DisableCertificateVerification() bool                  { return false }
-func (r *BIOSTestBMC) DriverInfo(bmc.Credentials) (i map[string]interface{}) { return }
-func (r *BIOSTestBMC) SupportsISOPreprovisioningImage() bool                 { return false }
-func (r *BIOSTestBMC) BIOSInterface() string                                 { return "" }
-func (r *BIOSTestBMC) BootInterface() string                                 { return "" }
-func (r *BIOSTestBMC) FirmwareInterface() string                             { return "" }
-func (r *BIOSTestBMC) ManagementInterface() string                           { return "" }
-func (r *BIOSTestBMC) PowerInterface() string                                { return "" }
-func (r *BIOSTestBMC) RAIDInterface() string                                 { return "" }
-func (r *BIOSTestBMC) VendorInterface() string                               { return "" }
-func (r *BIOSTestBMC) SupportsSecureBoot() bool                              { return false }
-func (r *BIOSTestBMC) RequiresProvisioningNetwork() bool                     { return true }
+func (r *BIOSTestBMC) Type() string                                                  { return "bios-test" }
+func (r *BIOSTestBMC) NeedsMAC() bool                                                { return false }
+func (r *BIOSTestBMC) Driver() string                                                { return "bios-test" }
+func (r *BIOSTestBMC) DisableCertificateVerification() bool                          { return false }
+func (r *BIOSTestBMC) DriverInfo(bmc.Credentials, string) (i map[string]interface{}) { return }
+func (r *BIOSTestBMC) SupportsISOPreprovisioningImage() bool                         { return false }
+func (r *BIOSTestBMC) BIOSInterface() string                                         { return "" }
+func (r *BIOSTestBMC) BootInterface() string                                         { return "" }
+func (r *BIOSTestBMC) FirmwareInterface() string                                     { return "" }
+func (r *BIOSTestBMC) ManagementInterface() string                                   { return "" }
+func (r *BIOSTestBMC) PowerInterface() string                                        { return "" }
+func (r *BIOSTestBMC) RAIDInterface() string                                         { return "" }
+func (r *BIOSTestBMC) VendorInterface() string                                       { return "" }
+func (r *BIOSTestBMC) SupportsSecureBoot() bool                                      { return false }
+func (r *BIOSTestBMC) RequiresProvisioningNetwork() bool                             { return true }
 func (r *BIOSTestBMC) BuildBIOSSettings(_ *bmc.FirmwareConfig) ([]map[string]string, error) {
 	return nil, nil
 }

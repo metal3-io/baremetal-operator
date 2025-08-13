@@ -90,6 +90,10 @@ type AdoptData struct {
 	State metal3api.ProvisioningState
 }
 
+type DeprovisionData struct {
+	PreprovisioningExtraKernelParams string
+}
+
 type InspectData struct {
 	BootMode                         metal3api.BootMode
 	PreprovisioningExtraKernelParams string
@@ -179,7 +183,7 @@ type Provisioner interface {
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
 	// the deprovisioning operation is completed.
-	Deprovision(restartOnFailure bool) (result Result, err error)
+	Deprovision(data DeprovisionData, restartOnFailure bool) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty

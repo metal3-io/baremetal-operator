@@ -735,6 +735,16 @@ func (p *ironicProvisioner) getPrepareOptsForNode(ironicNode *nodes.Node, data p
 	return updater
 }
 
+func (p *ironicProvisioner) getDeprovisionOptsForNode(ironicNode *nodes.Node, data provisioner.DeprovisionData) *clients.NodeUpdater {
+	updater := clients.UpdateOptsBuilder(p.log)
+	driverOpts := clients.UpdateOptsData{
+		"kernel_append_params": fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams),
+	}
+	updater.SetDriverInfoOpts(driverOpts, ironicNode)
+
+	return updater
+}
+
 func (p *ironicProvisioner) getServicingOptsForNode(ironicNode *nodes.Node, data provisioner.ServicingData) *clients.NodeUpdater {
 	updater := clients.UpdateOptsBuilder(p.log)
 	driverOpts := clients.UpdateOptsData{
@@ -1418,12 +1428,19 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision(restartOnFailure bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(data provisioner.DeprovisionData, restartOnFailure bool) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
+	}
+
+	// Updating the kernel_append_params field of the Ironic node's
+	// API drive_info endpoint
+	_, updateSuccess, result, err := p.tryUpdateNode(ironicNode, p.getDeprovisionOptsForNode(ironicNode, data))
+	if !updateSuccess {
+		return result, err
 	}
 
 	p.log.Info("deprovisioning host",

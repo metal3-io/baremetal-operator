@@ -291,7 +291,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "deleting state",
-			ironic: testserver.NewIronic(t).Node(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Deleting),
 				UUID:           nodeUUID,
 			}),
@@ -300,7 +300,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "cleaning state",
-			ironic: testserver.NewIronic(t).Node(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Cleaning),
 				UUID:           nodeUUID,
 			}),
@@ -309,7 +309,7 @@ func TestDeprovision(t *testing.T) {
 		},
 		{
 			name: "cleanWait state",
-			ironic: testserver.NewIronic(t).Node(nodes.Node{
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanWait),
 				UUID:           nodeUUID,
 			}),
@@ -351,7 +351,7 @@ func TestDeprovision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.Deprovision(false)
+			result, err := prov.Deprovision(provisioner.DeprovisionData{}, false)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage != "")

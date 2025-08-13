@@ -10,16 +10,16 @@ import (
 )
 
 type EnvFixture struct {
-	ironicEndpoint                   string
-	kernelURL                        string
-	ramdiskURL                       string
-	isoURL                           string
-	liveISOForcePersistentBootDevice string
-	ironicCACertFile                 string
-	ironicClientCertFile             string
-	ironicClientPrivateKeyFile       string
-	ironicInsecure                   string
-	ironicSkipClientSANVerify        string
+	ironicEndpoint             string
+	kernelURL                  string
+	ramdiskURL                 string
+	isoURL                     string
+	forcePersistentBootDevice  string
+	ironicCACertFile           string
+	ironicClientCertFile       string
+	ironicClientPrivateKeyFile string
+	ironicInsecure             string
+	ironicSkipClientSANVerify  string
 
 	origEnv map[string]string
 }
@@ -49,7 +49,7 @@ func (f *EnvFixture) SetUp() {
 	f.replace("DEPLOY_KERNEL_URL", f.kernelURL)
 	f.replace("DEPLOY_RAMDISK_URL", f.ramdiskURL)
 	f.replace("DEPLOY_ISO_URL", f.isoURL)
-	f.replace("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE", f.liveISOForcePersistentBootDevice)
+	f.replace("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE", f.forcePersistentBootDevice)
 	f.replace("IRONIC_CACERT_FILE", f.ironicCACertFile)
 	f.replace("IRONIC_CLIENT_CERT_FILE", f.ironicClientCertFile)
 	f.replace("IRONIC_CLIENT_PRIVATE_KEY_FILE", f.ironicClientPrivateKeyFile)
@@ -61,7 +61,7 @@ func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
 	assert.Equal(t, f.kernelURL, c.deployKernelURL)
 	assert.Equal(t, f.ramdiskURL, c.deployRamdiskURL)
 	assert.Equal(t, f.isoURL, c.deployISOURL)
-	assert.Equal(t, f.liveISOForcePersistentBootDevice, c.liveISOForcePersistentBootDevice)
+	assert.Equal(t, f.forcePersistentBootDevice, c.forcePersistentBootDevice)
 }
 
 func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic string) {
@@ -133,32 +133,32 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		{
 			name: "Force Persistent Default",
 			env: EnvFixture{
-				isoURL:                           "http://iso",
-				liveISOForcePersistentBootDevice: "Default",
+				isoURL:                    "http://iso",
+				forcePersistentBootDevice: "Default",
 			},
 			forcePersistent: "Default",
 		},
 		{
 			name: "Force Persistent Never",
 			env: EnvFixture{
-				isoURL:                           "http://iso",
-				liveISOForcePersistentBootDevice: "Never",
+				isoURL:                    "http://iso",
+				forcePersistentBootDevice: "Never",
 			},
 			forcePersistent: "Never",
 		},
 		{
 			name: "Force Persistent Always",
 			env: EnvFixture{
-				isoURL:                           "http://iso",
-				liveISOForcePersistentBootDevice: "Always",
+				isoURL:                    "http://iso",
+				forcePersistentBootDevice: "Always",
 			},
 			forcePersistent: "Always",
 		},
 		{
 			name: "Force Persistent Invalid",
 			env: EnvFixture{
-				isoURL:                           "http://iso",
-				liveISOForcePersistentBootDevice: "NotAValidOption",
+				isoURL:                    "http://iso",
+				forcePersistentBootDevice: "NotAValidOption",
 			},
 			expectedError:         "invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
 			expectedImgBuildError: "invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",

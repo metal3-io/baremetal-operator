@@ -90,6 +90,10 @@ type AdoptData struct {
 	State metal3api.ProvisioningState
 }
 
+type DeprovisionData struct {
+	PreprovisioningExtraKernelParams string
+}
+
 type InspectData struct {
 	BootMode                         metal3api.BootMode
 	PreprovisioningExtraKernelParams string
@@ -181,7 +185,7 @@ type Provisioner interface {
 	// the deprovisioning operation is completed.
 	// The automatedCleaningMode parameter is used to ensure the Ironic node's
 	// automated_clean setting is synchronized before deprovisioning starts.
-	Deprovision(restartOnFailure bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
+	Deprovision(data DeprovisionData, restartOnFailure bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty

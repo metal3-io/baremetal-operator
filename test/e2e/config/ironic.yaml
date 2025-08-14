@@ -50,6 +50,8 @@ variables:
   IRONIC_PROVISIONING_IP: "localhost"
   IRONIC_PROVISIONING_PORT: "6385"
 
+  NAMESPACE_SCOPED: "true"
+
 intervals:
   inspection/wait-unmanaged: ["1m", "5s"]
   default/wait-registering: ["1m", "5s"]
@@ -65,6 +67,7 @@ intervals:
   default/wait-provisioned: ["10m", "1s"]
   default/wait-deprovisioning: ["1m", "10ms"]
   default/wait-deleted: ["20s", "10ms"]
+  default/wait-bmh-deleted: ["2m", "10s"]
   default/wait-detached: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]
   default/wait-connect-ssh: ["2m", "10s"]

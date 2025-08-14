@@ -223,8 +223,9 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     # This is to keep the current behavior of using the ironic.env file for the configmap
     cp "${SCRIPTDIR}/config/default/ironic.env" "${TEMP_BMO_OVERLAY}/ironic.env"
     ${KUSTOMIZE} edit add configmap ironic --behavior=create --from-env-file=ironic.env
+
     # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${TEMP_BMO_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build --enable-alpha-plugins --enable-exec "${TEMP_BMO_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
     popd
 fi
 

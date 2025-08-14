@@ -63,7 +63,7 @@ func init() {
 	flag.StringVar(&bmcConfigPath, "e2e.bmcsConfig", "", "path to the bmcs config file")
 	flag.StringVar(&artifactFolder, "e2e.artifacts-folder", "_artifacts", "folder where e2e test artifact should be stored")
 	flag.BoolVar(&useExistingCluster, "e2e.use-existing-cluster", false, "if true, the test uses the current cluster instead of creating a new one (default discovery rules apply)")
-	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
+	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", true, "if true, the resource cleanup after tests will be skipped")
 }
 
 func TestE2e(t *testing.T) {

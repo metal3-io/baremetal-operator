@@ -1,0 +1,18 @@
+apiVersion: namespaceannotator/v1
+kind: namespaceAnnotator
+metadata:
+  annotations:
+    # TODO: run plugin through binary not on container.
+    # Currently we have an issue run exec plugin with krusty.Kutomizer.
+    config.kubernetes.io/function: "container:\n  image: sunnatillo/roleannotator:0.0.1 \
+      \     \n"
+  name: notImportantHere
+values:
+- basic-ops
+- external-inspection
+- externally-provisioned
+- inspection
+- live-iso-ops
+- provisioning-ops
+- re-inspection
+- automated-cleaning

@@ -1,23 +1,31 @@
 package imageprovider
 
-type ImageBuildInvalid struct {
+type ImageBuildInvalidError struct {
 	err error
 }
 
-func (ibf ImageBuildInvalid) Error() string {
+func (ibf ImageBuildInvalidError) Error() string {
 	return "Cannot generate image: " + ibf.err.Error()
 }
 
-func (ibf ImageBuildInvalid) Unwrap() error {
+func (ibf ImageBuildInvalidError) Unwrap() error {
 	return ibf.err
 }
 
-func BuildInvalidError(err error) ImageBuildInvalid {
-	return ImageBuildInvalid{err: err}
+func BuildInvalidError(err error) ImageBuildInvalidError {
+	return ImageBuildInvalidError{err: err}
 }
 
-type ImageNotReady struct{}
+// ImageBuildInvalid has been deprecated in favor of ImageBuildInvalidError
+// Deprecated: Use ImageBuildInvalidError instead.
+type ImageBuildInvalid = ImageBuildInvalidError //nolint:errname
 
-func (inr ImageNotReady) Error() string {
+type ImageNotReadyError struct{}
+
+func (inr ImageNotReadyError) Error() string {
 	return "Image is not ready yet"
 }
+
+// ImageNotReady has been deprecated in favor of ImageNotReadyError
+// Deprecated: Use ImageNotReadyError instead.
+type ImageNotReady = ImageNotReadyError //nolint:errname

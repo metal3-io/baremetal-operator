@@ -35,10 +35,12 @@ jobs:
     - name: Run OSV Scanner
       id: osv-scan
       run: |
+        # osv-scanner returns 1 if there is vulnerability, but script runs with set -e by default
+        # disable it, so we can set the has_vulnerabilities variable for slack reporter
         osv-scanner scan \
           --format json --output results.json --recursive \
           --config=<( echo "GoVersionOverride = \"${{ steps.vars.outputs.go_version }}\"" ) \
-          ./
+          ./ || true
         echo "has_vulnerabilities=$(jq '.results | length > 0' results.json)" >> "${GITHUB_OUTPUT}"
       continue-on-error: true
     - name: "Run OSV Scanner Reporter"
@@ -55,13 +57,13 @@ jobs:
         sarif_file: results.sarif
       continue-on-error: true
     # Send notification if vulnerabilities found or any step failed
-    - name: Slack Notification on Failure
+    - name: Slack Notification on Vulnerability or Failure
       if: ${{ steps.osv-scan.outputs.has_vulnerabilities == 'true' || failure() }}
       uses: rtCamp/action-slack-notify@e31e87e03dd19038e411e38ae27cbad084a90661 # 2.3.3
       env:
-        SLACK_TITLE: "OSV-Scanner detected vulnerabilities in ${{ github.repository }}"
+        SLACK_TITLE: "OSV-Scanner failed or detected vulnerabilities in ${{ github.repository }}"
         SLACK_COLOR: "#FF0000"
-        SLACK_MESSAGE: "OSV-Scanner detected vulnerabilities in ${{ github.repository }}"
+        SLACK_MESSAGE: "OSV-Scanner failed or detected vulnerabilities in ${{ github.repository }}"
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         SLACK_CHANNEL: metal3-github-actions-notify
         SLACK_USERNAME: metal3-github-actions-notify

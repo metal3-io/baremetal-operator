@@ -8,7 +8,7 @@ on:
         type: string
       runner:
         type: string
-        default: "oracle-vm-4cpu-16gb-x86-64"
+        default: "ubuntu-latest-4-cores"
       ginkgo-focus:
         type: string
         default: ""

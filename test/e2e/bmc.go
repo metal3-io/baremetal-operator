@@ -10,6 +10,17 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type Network struct {
+	// Name of the network
+	NetworkName string `yaml:"name,omitempty"`
+	// MacAddress of the network
+	MacAddress string `yaml:"macAddress,omitempty"`
+	// IPAddress of the network
+	IPAddress string `yaml:"ipAddress,omitempty"`
+}
+
+type Networks []Network
+
 // BMC defines connection details for a baseboard management controller
 // and other details needed for creating a virtual machine related to it.
 type BMC struct {
@@ -35,6 +46,8 @@ type BMC struct {
 	IPAddress string `yaml:"ipAddress,omitempty"`
 	// RootDeviceHints provides guidance for where to write the disk image.
 	RootDeviceHints metal3api.RootDeviceHints `yaml:"rootDeviceHints,omitempty"`
+	// Optional. Not needed for E2E tests
+	Networks Networks
 }
 
 func LoadBMCConfig(configPath string) ([]BMC, error) {

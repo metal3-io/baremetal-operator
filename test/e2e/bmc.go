@@ -21,16 +21,14 @@ type BMC struct {
 	Address string `yaml:"address,omitempty"`
 	// DisableCertificateVerification indicates whether to disable certificate verification for the BMC connection.
 	DisableCertificateVerification bool `yaml:"disableCertificateVerification,omitempty"`
-	// BootMacAddress is the MAC address of the VMs network interface.
+	// BootMacAddress is the MAC address of the BMHs network interface.
 	BootMacAddress string `yaml:"bootMacAddress,omitempty"`
 	// BootMode is the boot mode for the BareMetalHost, e.g. "UEFI" or "legacy".
 	BootMode metal3api.BootMode `yaml:"bootMode,omitempty"`
 	// Name of the machine associated with this BMC.
 	Name string `yaml:"name,omitempty"`
-	// NetworkName is the name of the network that the new VM should be attached to
-	NetworkName string `yaml:"networkName,omitempty"`
-	// IPAddress is a reserved IP address for the VM.
-	// This will be paired with the MAC address in the DHCP configuration.
+	// IPAddress is a reserved IP address for the BMH managed through this BMC.
+	// This is used in tests that make ssh connections to the BMH.
 	// Example: 192.168.222.122
 	IPAddress string `yaml:"ipAddress,omitempty"`
 	// RootDeviceHints provides guidance for where to write the disk image.

@@ -150,6 +150,10 @@ func validateBMCAccess(s metal3api.BareMetalHostSpec, bmcAccess bmc.AccessDetail
 		errs = append(errs, fmt.Errorf("BMC driver %s does not support secure boot", bmcAccess.Type()))
 	}
 
+	if s.Image != nil && s.Image.DiskFormat != nil && *s.Image.DiskFormat == "live-iso" && !strings.Contains(bmcAccess.Type(), "virtualmedia") {
+		errs = append(errs, fmt.Errorf("Live-ISO can only be used with a virtualmedia BMC, got BMC driver %s", bmcAccess.Type()))
+	}
+
 	return errs
 }
 

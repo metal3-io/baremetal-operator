@@ -50,6 +50,11 @@ func TestValidateCreate(t *testing.T) {
 		Namespace: "test-namespace",
 	}
 
+	om2 := metav1.ObjectMeta{
+		Name:      "test-name",
+		Namespace: "test-namespace",
+	}
+
 	inom := metav1.ObjectMeta{
 		Name:      "test~",
 		Namespace: "test-namespace",
@@ -57,6 +62,26 @@ func TestValidateCreate(t *testing.T) {
 
 	inom2 := metav1.ObjectMeta{
 		Name:      "07564256-96ae-4315-ab03-8d34ece60fbb",
+		Namespace: "test-namespace",
+	}
+
+	inom3 := metav1.ObjectMeta{
+		Name:      "-test",
+		Namespace: "test-namespace",
+	}
+
+	inom4 := metav1.ObjectMeta{
+		Name:      "test-",
+		Namespace: "test-namespace",
+	}
+
+	inom5 := metav1.ObjectMeta{
+		Name:      "CapitalizedTest",
+		Namespace: "test-namespace",
+	}
+
+	inom6 := metav1.ObjectMeta{
+		Name:      "verylongnamewhichshouldreachjustpastthelengthlimitof63characters",
 		Namespace: "test-namespace",
 	}
 
@@ -78,6 +103,12 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "",
 		},
 		{
+			name:      "valid2",
+			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: om2, Spec: metal3api.BareMetalHostSpec{}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
 			name:      "validExternallyProvisioned",
 			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
 			wantedErr: "",
@@ -86,13 +117,37 @@ func TestValidateCreate(t *testing.T) {
 			name:      "invalidName",
 			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: inom, Spec: metal3api.BareMetalHostSpec{}},
 			oldBMH:    nil,
-			wantedErr: "BareMetalHost resource name cannot contain characters other than [A-Za-z0-9._-]",
+			wantedErr: "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')",
 		},
 		{
 			name:      "invalidName2",
 			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: inom2, Spec: metal3api.BareMetalHostSpec{}},
 			oldBMH:    nil,
 			wantedErr: "BareMetalHost resource name cannot be a UUID",
+		},
+		{
+			name:      "invalidName3LeadingHyphen",
+			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: inom3, Spec: metal3api.BareMetalHostSpec{}},
+			oldBMH:    nil,
+			wantedErr: "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')",
+		},
+		{
+			name:      "invalidName4TrailingHyphen",
+			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: inom4, Spec: metal3api.BareMetalHostSpec{}},
+			oldBMH:    nil,
+			wantedErr: "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')",
+		},
+		{
+			name:      "invalidName5CapitalChars",
+			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: inom5, Spec: metal3api.BareMetalHostSpec{}},
+			oldBMH:    nil,
+			wantedErr: "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')",
+		},
+		{
+			name:      "invalidName6LengthLimitOf63",
+			newBMH:    &metal3api.BareMetalHost{TypeMeta: tm, ObjectMeta: inom6, Spec: metal3api.BareMetalHostSpec{}},
+			oldBMH:    nil,
+			wantedErr: "must be no more than 63 characters",
 		},
 		{
 			name: "invalidRAID",
@@ -863,6 +918,8 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name: "disablePowerOff",
 			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
 				Spec: metal3api.BareMetalHostSpec{
 					DisablePowerOff: true,
 					Online:          true,
@@ -900,6 +957,11 @@ func TestValidateUpdate(t *testing.T) {
 
 	om := metav1.ObjectMeta{
 		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	om2 := metav1.ObjectMeta{
+		Name:      "verylongnamewhichshouldreachjustpastthelengthlimitof63characters",
 		Namespace: "test-namespace",
 	}
 
@@ -977,6 +1039,14 @@ func TestValidateUpdate(t *testing.T) {
 			oldBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
 			wantedErr: "externallyProvisioned can not be changed",
+		},
+		{
+			name: "tooLongNameShouldBeAllowedOnChange",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om2, Spec: metal3api.BareMetalHostSpec{}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om2, Spec: metal3api.BareMetalHostSpec{}},
+			wantedErr: "",
 		},
 	}
 

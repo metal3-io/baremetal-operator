@@ -244,7 +244,7 @@ func main() {
 	var macAddress = flag.String(
 		"mac-address", "00:60:2f:31:81:01", "Mac address of the VM on the network")
 	var ipAddress = flag.String(
-		"ip-address", "192.168.222.122", "IP address of the VM on the network")
+		"ip-address", "", "IP address of the VM on the network")
 	var configFile = flag.String(
 		"yaml-source-file", "", "yaml file where BMCS are defined. If this is set, ignore all other options")
 	flag.Parse()
@@ -255,7 +255,6 @@ func main() {
 			IPAddress:      *ipAddress,
 			BootMacAddress: *macAddress,
 			Name:           *name,
-			NetworkName:    *networkName,
 		}
 		bmcs = append(bmcs, bmc)
 	} else {
@@ -273,10 +272,16 @@ func main() {
 	defer conn.Close()
 
 	for _, bmc := range bmcs {
-		if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, "baremetal-e2e"); err != nil {
-			log.Printf("Error occurred: %v\n", err)
-			// Not using os.Exit here so that we still close the connection
-			break
+		if bmc.IPAddress != "" {
+			if err = CreateLibvirtVMWithReservedIPAddress(conn, bmc.BootMacAddress, bmc.Name, bmc.IPAddress, *networkName); err != nil {
+				log.Printf("Error occurred: %v\n", err)
+				break
+			}
+		} else {
+			if err = CreateLibvirtVM(conn, bmc.Name, *networkName, bmc.BootMacAddress); err != nil {
+				log.Printf("Error occurred: %v\n", err)
+				break
+			}
 		}
 	}
 }

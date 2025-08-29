@@ -83,6 +83,15 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 				AutomatedCleaningMode: metal3api.CleaningModeDisabled,
 			},
 		}
+		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+			userDataSecretName := "user-data"
+			sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
+			createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+			bmh.Spec.UserData = &corev1.SecretReference{
+				Name:      userDataSecretName,
+				Namespace: namespace.Name,
+			}
+		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
 

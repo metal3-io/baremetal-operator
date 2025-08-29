@@ -218,6 +218,25 @@ func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace
 	cancelWatches()
 }
 
+func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, isNamespaced bool, intervals ...interface{}) {
+	// Due to limitation in controller runtime watched namespaces cannot be deleted
+	if !isNamespaced {
+		// Trigger deletion of BMHs before deleting the namespace.
+		// This way there should be no risk of BMO getting stuck trying to progress
+		// and create HardwareDetails or similar, while the namespace is terminating.
+		DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
+		framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+			Deleter: clusterProxy.GetClient(),
+			Name:    namespace.Name,
+		})
+		WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
+			Getter:    clusterProxy.GetClient(),
+			Namespace: *namespace,
+		}, intervals...)
+	}
+	cancelWatches()
+}
+
 type WaitForBmhInPowerStateInput struct {
 	Client client.Client
 	Bmh    metal3api.BareMetalHost

@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"path"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -16,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/test/framework"
-	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 )
 
@@ -43,10 +41,11 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		imageURL = e2eConfig.GetVariable("ISO_IMAGE_URL")
 
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
-			Creator:   clusterProxy.GetClient(),
-			ClientSet: clusterProxy.GetClientSet(),
-			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
-			LogFolder: artifactFolder,
+			Creator:             clusterProxy.GetClient(),
+			ClientSet:           clusterProxy.GetClientSet(),
+			Name:                specName,
+			LogFolder:           artifactFolder,
+			IgnoreAlreadyExists: true,
 		})
 	})
 
@@ -136,12 +135,24 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 			Bmh:    bmh,
 			State:  metal3api.StateAvailable,
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("Delete BMH")
+		err = clusterProxy.GetClient().Delete(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}
 	})
 })

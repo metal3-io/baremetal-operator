@@ -1,11 +1,22 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: baremetal-operator-system
 resources:
 - ../basic-auth_tls
+- ./automated-cleaning
+- ./basic-ops
+- ./external-inspection
+- ./externally-provisioned
+- ./inspection
+- ./live-iso-ops
+- ./provisioning-ops
+- ./re-inspection
+
+components:
+    - ../../components/namespace-scoped
 
 configMapGenerator:
 - name: ironic
+  namespace: baremetal-operator-system
   behavior: create
   envs:
   - ironic.env
@@ -19,6 +30,7 @@ patches:
   target:
     kind: Deployment
     name: controller-manager
+- path: ./namespaced-manager-patch.yaml
 
 images:
 - name: quay.io/metal3-io/baremetal-operator
@@ -32,6 +44,7 @@ generatorOptions:
 # NOTE: These credentials are generated automatically in hack/ci-e2e.sh
 secretGenerator:
 - name: ironic-credentials
+  namespace: baremetal-operator-system
   files:
   - username=ironic-username
   - password=ironic-password

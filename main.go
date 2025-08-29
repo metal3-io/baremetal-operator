@@ -200,11 +200,19 @@ func main() {
 	restConfig.QPS = float32(restConfigQPS)
 	restConfig.Burst = restConfigBurst
 
-	var watchNamespaces map[string]cache.Config
-	if watchNamespace != "" {
-		watchNamespaces = map[string]cache.Config{
-			watchNamespace: {},
+	watchNamespaces := make(map[string]cache.Config)
+
+	if strings.Contains(watchNamespace, ",") {
+		setupLog.Info("Manager set up with multiple namespaces to watch", "namespaces", watchNamespace)
+		namespaces := strings.Split(watchNamespace, ",")
+		for _, namespace := range namespaces {
+			watchNamespaces[namespace] = cache.Config{}
 		}
+	} else if watchNamespace != "" {
+		setupLog.Info("Manager set up to watch a single namespace", "namespace", watchNamespace)
+		watchNamespaces[watchNamespace] = cache.Config{}
+	} else {
+		setupLog.Info("Manager set up with cluster scope")
 	}
 
 	ctrlOpts := ctrl.Options{

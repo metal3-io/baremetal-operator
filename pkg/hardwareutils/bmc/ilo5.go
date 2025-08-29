@@ -51,11 +51,12 @@ func (a *iLO5AccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *iLO5AccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+func (a *iLO5AccessDetails) DriverInfo(bmcCreds Credentials, preProvExtraKernParams string) map[string]interface{} {
 	result := map[string]interface{}{
-		"ilo_username": bmcCreds.Username,
-		"ilo_password": bmcCreds.Password,
-		"ilo_address":  a.hostname,
+		"ilo_username":         bmcCreds.Username,
+		"ilo_password":         bmcCreds.Password,
+		"ilo_address":          a.hostname,
+		"kernel_append_params": preProvExtraKernParams,
 	}
 
 	if a.disableCertificateVerification {

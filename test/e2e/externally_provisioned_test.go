@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
-	"sigs.k8s.io/cluster-api/util"
 )
 
 var _ = Describe("Create as externally provisioned, deprovision", Label("required", "provision", "deprovision"),
@@ -31,10 +29,11 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 
 		BeforeEach(func() {
 			namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
-				Creator:   clusterProxy.GetClient(),
-				ClientSet: clusterProxy.GetClientSet(),
-				Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
-				LogFolder: artifactFolder,
+				Creator:             clusterProxy.GetClient(),
+				ClientSet:           clusterProxy.GetClientSet(),
+				Name:                specName,
+				LogFolder:           artifactFolder,
+				IgnoreAlreadyExists: true,
 			})
 		})
 
@@ -102,7 +101,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 					metal3api.StateDeprovisioning,
 					metal3api.StateInspecting,
 				},
-			}, e2eConfig.GetIntervals(specName, "wait-deleted")...)
+			}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 
 			By("Waiting for the secret to be deleted")
 			Eventually(func() bool {
@@ -117,7 +116,8 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 		AfterEach(func() {
 			DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 			if !skipCleanup {
-				cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+				isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
+				Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 			}
 		})
 	})

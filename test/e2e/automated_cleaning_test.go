@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"path"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -14,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/test/framework"
-	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 )
 
@@ -28,10 +26,11 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 
 	BeforeEach(func() {
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
-			Creator:   clusterProxy.GetClient(),
-			ClientSet: clusterProxy.GetClientSet(),
-			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
-			LogFolder: artifactFolder,
+			Creator:             clusterProxy.GetClient(),
+			ClientSet:           clusterProxy.GetClientSet(),
+			Name:                specName,
+			LogFolder:           artifactFolder,
+			IgnoreAlreadyExists: true,
 		})
 	})
 
@@ -198,11 +197,23 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		output, err = executeSSHCommand(client, "ls -la /mnt/data/test_file_vdb.txt 2>/dev/null || echo 'file not found'")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("file not found"), "Test file /mnt/data/test_file_vdb.txt should have been cleaned")
+
+		By("Delete BMH")
+		err = clusterProxy.GetClient().Delete(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}
 	})
 })

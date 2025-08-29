@@ -1,0 +1,91 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: baremetal-operator-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts
+  - bmceventsubscriptions
+  - dataimages
+  - firmwareschemas
+  - hardwaredata
+  - hostfirmwarecomponents
+  - hostfirmwaresettings
+  - preprovisioningimages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts/finalizers
+  - dataimages/finalizers
+  - hardware/finalizers
+  - hostfirmwarecomponents/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts/status
+  - bmceventsubscriptions/status
+  - dataimages/status
+  - firmwareschemas/status
+  - hostfirmwarecomponents/status
+  - hostfirmwaresettings/status
+  - preprovisioningimages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostupdatepolicies
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: baremetal-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: baremetal-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: baremetal-operator-controller-manager
+  namespace: baremetal-operator-system
+---

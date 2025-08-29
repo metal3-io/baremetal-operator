@@ -5,8 +5,8 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/test/framework"
-	"sigs.k8s.io/cluster-api/util"
 )
 
 var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
@@ -32,10 +31,11 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 	)
 	BeforeEach(func() {
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
-			Creator:   clusterProxy.GetClient(),
-			ClientSet: clusterProxy.GetClientSet(),
-			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
-			LogFolder: artifactFolder,
+			Creator:             clusterProxy.GetClient(),
+			ClientSet:           clusterProxy.GetClientSet(),
+			Name:                specName,
+			LogFolder:           artifactFolder,
+			IgnoreAlreadyExists: true,
 		})
 	})
 
@@ -107,12 +107,35 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		Expect(clusterProxy.GetClient().Get(ctx, key, &bmh)).To(Succeed())
 		// TODO(lentzi90): Hostname should not be determined or configured through BMC
 		Expect(bmh.Status.HardwareDetails.Hostname).To(Equal(bmc.Name))
+
+		By("Delete BMH")
+		err = clusterProxy.GetClient().Delete(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+			UndesiredStates: []metal3api.ProvisioningState{
+				metal3api.StateProvisioning,
+				metal3api.StateRegistering,
+				metal3api.StateDeprovisioning,
+				metal3api.StateInspecting,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+			isNamespaced, err := strconv.ParseBool(namespaced)
+			if err != nil {
+				// if error it sets variable to false
+				isNamespaced = false
+			}
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}
 	})
 })

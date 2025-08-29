@@ -5,8 +5,8 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"path"
+	"strconv"
 	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -17,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
-	"sigs.k8s.io/cluster-api/util"
 )
 
 var _ = Describe("Create as externally provisioned, deprovision", Label("required", "provision", "deprovision"),
@@ -31,10 +30,11 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 
 		BeforeEach(func() {
 			namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
-				Creator:   clusterProxy.GetClient(),
-				ClientSet: clusterProxy.GetClientSet(),
-				Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
-				LogFolder: artifactFolder,
+				Creator:             clusterProxy.GetClient(),
+				ClientSet:           clusterProxy.GetClientSet(),
+				Name:                specName,
+				LogFolder:           artifactFolder,
+				IgnoreAlreadyExists: true,
 			})
 		})
 
@@ -102,7 +102,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 					metal3api.StateDeprovisioning,
 					metal3api.StateInspecting,
 				},
-			}, e2eConfig.GetIntervals(specName, "wait-deleted")...)
+			}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 
 			By("Waiting for the secret to be deleted")
 			Eventually(func() bool {
@@ -117,7 +117,13 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 		AfterEach(func() {
 			DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 			if !skipCleanup {
-				cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+				namespaced := e2eConfig.GetVariable("NAMESPACE_SCOPED")
+				isNamespaced, err := strconv.ParseBool(namespaced)
+				if err != nil {
+					// if error it sets variable to false
+					isNamespaced = false
+				}
+				Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 			}
 		})
 	})

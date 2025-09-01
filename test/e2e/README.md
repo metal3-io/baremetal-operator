@@ -35,6 +35,55 @@ export GINKGO_FOCUS="upgrade"
 ./hack/ci-e2e.sh
 ```
 
+`GINKGO_FOCUS` can be set manually to run specific tests. The options for these
+can be found as the first string value (formatting included) of the line with
+`Describe` or `It`. These can also be combined with other proceeding sections to
+match to even more specific test sections. The value `GINKGO_FOCUS` uses is a
+regexp that should match the description of the spec but not match the regexp
+specified in `GINKGO_SKIP`.
+
+Example:
+
+```go
+var _ = Describe("basic", ...
+  It("should control power cycle of BMH though annotations", ...
+...
+  )
+)
+```
+
+Could be used with:
+
+```bash
+export GINKGO_FOCUS="basic should control power"
+```
+
+Additionally, if you wish to run multiple different tests, just maually
+add another `--focus=` with string to the root Makefile's `test-e2e`
+target.
+
+Skipping tests works otherwise similiarly to adding focus, but in the Makefile
+`GINKGO_SKIP` is split separated by space. Thus, you can either use
+test-specific words with it or you can add another `--skip=` with a longer
+string to the `test-e2e` target.
+
+`BMC_PROTOCOL` can also be set manually. By default the [ci-e2e.sh](https://github.com/metal3-io/baremetal-operator/blob/main/hack/ci-e2e.sh)
+script runs it as `redfish`, but it can also be set to `redfish-virtualmedia`,
+`redfish`, or `ipmi`. Ipmi uses `vbmc` as the BMO e2e emulator, whereas the
+others use `sushy-tools`.
+
+After the tests are run, please ensure proper cleanup before running them again.
+The due process for ensuring all is clean for the next run is (in the
+root directory):
+
+```bash
+./hack/clean-e2e.sh
+make clean
+sudo rm -rf ./test/e2e/images
+```
+
+In addition, make sure related docker containers are removed as well.
+
 It is also possible to run the tests with the fixture provider instead of
 Ironic. Without any changes, the whole suite (including optional tests) will be
 run. Please note, however, that it is quite questionable to call this

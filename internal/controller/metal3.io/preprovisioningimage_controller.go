@@ -113,7 +113,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		result.RequeueAfter = delay
 	}
 
-	notReady := imageprovider.ImageNotReady{}
+	notReady := imageprovider.ImageNotReadyError{}
 	if errors.As(err, &notReady) {
 		log.Info("image is not ready yet, requeuing", "after", minRetryDelay)
 		if setUnready(img.GetGeneration(), &img.Status, err.Error()) {
@@ -198,7 +198,7 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 		NetworkDataStatus: secretStatus,
 	}, networkDataContent, log)
 	if err != nil {
-		failure := imageprovider.ImageBuildInvalid{}
+		failure := imageprovider.ImageBuildInvalidError{}
 		if errors.As(err, &failure) {
 			log.Info("image build failed", "error", "err")
 			return setError(generation, &img.Status, reasonImageBuildInvalid, failure.Error()), nil

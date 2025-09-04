@@ -32,7 +32,7 @@ linters:
   - durationcheck
   - errcheck
   - errchkjson
-  #- errname
+  - errname
   #- errorlint
   - exhaustive
   - exptostd

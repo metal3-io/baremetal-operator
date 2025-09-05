@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/krusty"
+	kustomizetypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
@@ -218,6 +219,24 @@ func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace
 	cancelWatches()
 }
 
+func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, isNamespaced bool, intervals ...interface{}) {
+	// Trigger deletion of BMHs before deleting the namespace.
+	// This way there should be no risk of BMO getting stuck trying to progress
+	// and create HardwareDetails or similar, while the namespace is terminating.
+	DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
+	if !isNamespaced {
+		framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+			Deleter: clusterProxy.GetClient(),
+			Name:    namespace.Name,
+		})
+		WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
+			Getter:    clusterProxy.GetClient(),
+			Namespace: *namespace,
+		}, intervals...)
+	}
+	cancelWatches()
+}
+
 type WaitForBmhInPowerStateInput struct {
 	Client client.Client
 	Bmh    metal3api.BareMetalHost
@@ -234,7 +253,12 @@ func WaitForBmhInPowerState(ctx context.Context, input WaitForBmhInPowerStateInp
 }
 
 func BuildKustomizeManifest(source string) ([]byte, error) {
-	kustomizer := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
+	kustomizeOptions := krusty.MakeDefaultOptions()
+	// Enable plugins
+	kustomizeOptions.PluginConfig = kustomizetypes.MakePluginConfig(
+		kustomizetypes.PluginRestrictionsNone,
+		kustomizetypes.BploUseStaticallyLinked)
+	kustomizer := krusty.MakeKustomizer(kustomizeOptions)
 	fSys := filesys.MakeFsOnDisk()
 	resources, err := kustomizer.Run(fSys, source)
 	if err != nil {

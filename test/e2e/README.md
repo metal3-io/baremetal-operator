@@ -35,6 +35,51 @@ export GINKGO_FOCUS="upgrade"
 ./hack/ci-e2e.sh
 ```
 
+`GINKGO_FOCUS` can be set manually to run specific tests. The options for these
+can be found as the first string value of the line with `Describe` or `It`.
+These can also be combined with other proceeding sections to match to even more
+specific test sections. The value `GINKGO_FOCUS` uses is a regexp that should
+match the description of the spec but not match the regexp specified in
+`GINKGO_SKIP`.
+
+Example:
+
+```go
+var _ = Describe("basic", ...
+  It("should control power cycle of BMH though annotations", ...
+...
+  )
+)
+```
+
+Could be used with:
+
+```bash
+export GINKGO_FOCUS="basic should control power"
+```
+
+The same logic works for setting `GINKGO_SKIP`.
+
+Additionally, if you wish to run or skip multiple different tests, just maually
+add another "--focus=" or "--skip=" to the root Makefile's "test-e2e" target.
+
+`BMC_PROTOCOL` can also be set manually. By default the ci-e2e.sh script runs it
+as "redfish", but it can also be set to "redfish-virtualmedia", "redfish", or
+"ipmi". Ipmi uses "vbmc" as the BMO e2e emulator, whereas the others use
+"sushy-tools".
+
+After the tests are run, please ensure proper cleanup before running them again.
+The due process for ensuring all is clean for the next run is (in the
+root directory):
+
+```bash
+./hack/clean-e2e.sh
+make clean
+sudo rm -rf ./test/e2e/images
+```
+
+In addition, make sure related docker containers are removed as well.
+
 It is also possible to run the tests with the fixture provider instead of
 Ironic. Without any changes, the whole suite (including optional tests) will be
 run. Please note, however, that it is quite questionable to call this

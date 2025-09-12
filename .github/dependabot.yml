@@ -54,6 +54,55 @@ updates:
   - "ok-to-test"
 ## Main branch config ends here
 
+## release-0.11 branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+    day: "saturday"
+  target-branch: release-0.11
+  ## group all action bumps into single PR
+  groups:
+    github-actions:
+      patterns: ["*"]
+  ignore:
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+  # Go
+- package-ecosystem: "gomod"
+  directories:
+  - "/"
+  - "/apis"
+  - "/hack/tools"
+  - "/pkg/hardwareutils"
+  - "/test"
+  schedule:
+    interval: "weekly"
+    day: "sunday"
+  target-branch: release-0.11
+  groups:
+    kubernetes:
+      patterns: ["k8s.io/*"]
+    capi:
+      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
+  ignore:
+  # golang.org/x/* only releases minors no patches, so minors have to be allowed
+  - dependency-name: "golang.org/x/*"
+    update-types: ["version-update:semver-major"]
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+
+## release-0.11 branch config ends here
+
 ## release-0.10 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
@@ -102,52 +151,3 @@ updates:
   - "ok-to-test"
 
 ## release-0.10 branch config ends here
-
-## release-0.9 branch config starts here
-- package-ecosystem: "github-actions"
-  directory: "/" # Location of package manifests
-  schedule:
-    interval: "monthly"
-    day: "saturday"
-  target-branch: release-0.9
-  ## group all action bumps into single PR
-  groups:
-    github-actions:
-      patterns: ["*"]
-  ignore:
-  # Ignore major and minor bumps for release branch
-  - dependency-name: "*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
-  commit-message:
-    prefix: ":seedling:"
-  labels:
-  - "ok-to-test"
-  # Go
-- package-ecosystem: "gomod"
-  directories:
-  - "/"
-  - "/apis"
-  - "/hack/tools"
-  - "/pkg/hardwareutils"
-  - "/test"
-  schedule:
-    interval: "weekly"
-    day: "sunday"
-  target-branch: release-0.9
-  groups:
-    kubernetes:
-      patterns: ["k8s.io/*"]
-    capi:
-      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
-  ignore:
-  # golang.org/x/* only releases minors no patches, so minors have to be allowed
-  - dependency-name: "golang.org/x/*"
-    update-types: ["version-update:semver-major"]
-  - dependency-name: "*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
-  commit-message:
-    prefix: ":seedling:"
-  labels:
-  - "ok-to-test"
-
-## release-0.9 branch config ends here

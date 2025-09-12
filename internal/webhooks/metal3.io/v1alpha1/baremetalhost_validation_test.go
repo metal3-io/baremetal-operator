@@ -540,6 +540,11 @@ func TestValidateCreate(t *testing.T) {
 						URL:        "https://example.com/image",
 						DiskFormat: ptr.To("live-iso"),
 					},
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: metal3api.BMCDetails{
+						Address:         "redfish-virtualmedia://127.0.1.1",
+						CredentialsName: "test1",
+					},
 				},
 			},
 			oldBMH: nil,
@@ -879,6 +884,23 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			wantedErr: "node can't simultaneously have online set to false and have power off disabled",
+		},
+		{
+			name: "nonVirtualMediaLiveCDErr",
+			newBMH: &metal3api.BareMetalHost{
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL:        "https://example.com/image",
+						DiskFormat: ptr.To("live-iso"),
+					},
+					BootMACAddress: "01:02:03:04:05:06",
+					BMC: metal3api.BMCDetails{
+						Address:         "redfish://127.0.1.1",
+						CredentialsName: "test1",
+					},
+				},
+			},
+			wantedErr: "Live-ISO can only be used with a virtualmedia BMC, got BMC driver redfish",
 		},
 	}
 

@@ -1,0 +1,17 @@
+namespace: baremetal-operator-system
+
+resources:
+  - ../../base
+
+components:
+  - ../../../components/tls
+  - ../../../components/basic-auth
+
+patches:
+  - target:
+      kind: Ironic
+      name: ironic
+    patch: |-
+      - op: replace
+        path: /spec/images/ironic
+        value: "quay.io/metal3-io/ironic:release-27.0"

@@ -73,16 +73,16 @@ type Config struct {
 }
 
 // LoadE2EConfig loads the configuration for the e2e test environment.
-func LoadE2EConfig(configPath string) *Config {
+func LoadE2EConfig(configPath string, g *WithT) *Config {
 	configData, err := os.ReadFile(configPath) //#nosec
-	Expect(err).ToNot(HaveOccurred(), "Failed to read the e2e test config file")
-	Expect(configData).ToNot(BeEmpty(), "The e2e test config file should not be empty")
+	g.Expect(err).ToNot(HaveOccurred(), "Failed to read the e2e test config file")
+	g.Expect(configData).ToNot(BeEmpty(), "The e2e test config file should not be empty")
 
 	config := &Config{}
-	Expect(yaml.Unmarshal(configData, config)).To(Succeed(), "Failed to parse the e2e test config file")
+	g.Expect(yaml.Unmarshal(configData, config)).To(Succeed(), "Failed to parse the e2e test config file")
 
 	config.Defaults()
-	Expect(config.Validate()).To(Succeed(), "The e2e test config file is not valid")
+	g.Expect(config.Validate()).To(Succeed(), "The e2e test config file is not valid")
 
 	return config
 }

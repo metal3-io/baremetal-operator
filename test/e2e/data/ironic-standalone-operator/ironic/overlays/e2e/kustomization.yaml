@@ -1,0 +1,8 @@
+namespace: baremetal-operator-system
+
+resources:
+  - ../../base
+
+components:
+  - ../../../components/tls
+  - ../../../components/basic-auth

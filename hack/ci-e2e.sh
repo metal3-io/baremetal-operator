@@ -54,7 +54,7 @@ export PATH="/usr/local/go/bin:${PATH}"
 "${REPO_ROOT}/hack/e2e/ensure_yq.sh"
 
 sudo apt-get update
-sudo apt-get install -y libvirt-dev pkg-config
+sudo apt-get install -y libvirt-dev pkg-config podman
 
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker

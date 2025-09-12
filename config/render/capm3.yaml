@@ -288,6 +288,15 @@ spec:
                 required:
                 - url
                 type: object
+              inspectionMode:
+                description: |-
+                  Specifies the mode for host inspection.
+                  "disabled" - no inspection will be performed
+                  "agent" - normal agent-based inspection will run
+                enum:
+                - disabled
+                - agent
+                type: string
               metaData:
                 description: |-
                   MetaData holds the reference to the Secret containing host metadata

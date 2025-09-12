@@ -61,7 +61,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 		"deployKernelURL", f.config.deployKernelURL,
 		"deployRamdiskURL", f.config.deployRamdiskURL,
 		"deployISOURL", f.config.deployISOURL,
-		"liveISOForcePersistentBootDevice", f.config.liveISOForcePersistentBootDevice,
+		"forcePersistentBootDevice", f.config.forcePersistentBootDevice,
 		"CACertFile", tlsConf.TrustedCAFile,
 		"ClientCertFile", tlsConf.ClientCertificateFile,
 		"ClientPrivKeyFile", tlsConf.ClientPrivateKeyFile,
@@ -138,7 +138,7 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 		if forcePersistentBootDevice != "Default" && forcePersistentBootDevice != "Always" && forcePersistentBootDevice != "Never" {
 			return c, errors.New("invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
 		}
-		c.liveISOForcePersistentBootDevice = forcePersistentBootDevice
+		c.forcePersistentBootDevice = forcePersistentBootDevice
 	}
 
 	c.externalURL = os.Getenv("IRONIC_EXTERNAL_URL_V6")

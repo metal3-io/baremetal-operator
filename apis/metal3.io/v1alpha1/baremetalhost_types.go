@@ -67,7 +67,20 @@ const (
 	// InspectAnnotationValueDisabled is a constant string="disabled"
 	// This is particularly useful to check if inspect annotation is disabled
 	// inspect.metal3.io=disabled.
+	//
+	// Deprecated: use InspectionMode instead.
 	InspectAnnotationValueDisabled = "disabled"
+)
+
+// InspectionMode represents the mode of host inspection.
+type InspectionMode string
+
+const (
+	// InspectionModeDisabled disables host inspection.
+	InspectionModeDisabled InspectionMode = "disabled"
+
+	// InspectionModeAgent runs standard agent-based inspection.
+	InspectionModeAgent InspectionMode = "agent"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
@@ -485,6 +498,13 @@ type BareMetalHostSpec struct {
 	// instead, a reboot will be used in place of power on/off
 	// +optional
 	DisablePowerOff bool `json:"disablePowerOff,omitempty"`
+
+	// Specifies the mode for host inspection.
+	// "disabled" - no inspection will be performed
+	// "agent" - normal agent-based inspection will run
+	// +optional
+	// +kubebuilder:validation:Enum=disabled;agent
+	InspectionMode InspectionMode `json:"inspectionMode,omitempty"`
 }
 
 // AutomatedCleaningMode is the interface to enable/disable automated cleaning
@@ -974,6 +994,19 @@ func (host *BareMetalHost) CredentialsKey() types.NamespacedName {
 	}
 }
 
+// InspectionDisabled returns true if inspection is disabled via either
+// the inspect.metal3.io annotation or the inspectionMode field.
+func (host *BareMetalHost) InspectionDisabled() bool {
+	// Check the new InspectionMode field first
+	if host.Spec.InspectionMode == InspectionModeDisabled {
+		return true
+	}
+
+	// Fall back to the legacy annotation for backward compatibility
+	annotations := host.GetAnnotations()
+	return annotations[InspectAnnotationPrefix] == InspectAnnotationValueDisabled
+}
+
 // NeedsHardwareInspection looks at the state of the host to determine
 // if hardware inspection should be run.
 func (host *BareMetalHost) NeedsHardwareInspection() bool {
@@ -987,6 +1020,11 @@ func (host *BareMetalHost) NeedsHardwareInspection() bool {
 		// this host, because we don't want to reboot it.
 		return false
 	}
+	if host.InspectionDisabled() {
+		// Never perform inspection if it's explicitly disabled
+		return false
+	}
+	// FIXME(dtantsur): the HardwareDetails field is deprecated.
 	return host.Status.HardwareDetails == nil
 }
 

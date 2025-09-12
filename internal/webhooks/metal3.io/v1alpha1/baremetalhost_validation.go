@@ -82,6 +82,10 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 		errs = append(errs, annotationErrors...)
 	}
 
+	if err := validateInspectionMode(host); err != nil {
+		errs = append(errs, err)
+	}
+
 	if err := validatePowerStatus(host); err != nil {
 		errs = append(errs, err)
 	}
@@ -219,8 +223,7 @@ func validateAnnotations(host *metal3api.BareMetalHost) []error {
 		case annotation == metal3api.InspectAnnotationPrefix:
 			err = validateInspectAnnotation(value)
 		case annotation == metal3api.HardwareDetailsAnnotation:
-			inspect := host.Annotations[metal3api.InspectAnnotationPrefix]
-			err = validateHwdDetailsAnnotation(value, inspect)
+			err = validateHwdDetailsAnnotation(value, host.InspectionDisabled())
 		default:
 			err = nil
 		}
@@ -298,13 +301,14 @@ func checkStatusAnnotation(bmhStatus *metal3api.BareMetalHostStatus) error {
 	return nil
 }
 
-func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspect string) error {
+func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspectionDisabled bool) error {
 	if hwdDetAnnotation == "" {
 		return nil
 	}
 
-	if inspect != "disabled" {
-		return errors.New("when hardware details are provided, the inspect.metal3.io annotation must be set to disabled")
+	// Check both the annotation and the new field for disabled inspection
+	if !inspectionDisabled {
+		return errors.New("when hardware details are provided, inspection must be disabled (either via inspect.metal3.io annotation or inspectionMode field)")
 	}
 
 	objHwdDet := &metal3api.HardwareDetails{}
@@ -378,6 +382,31 @@ func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *metal
 		}
 	}
 	return errs
+}
+
+func validateInspectionMode(host *metal3api.BareMetalHost) error {
+	inspectAnnotation := host.Annotations[metal3api.InspectAnnotationPrefix]
+
+	// Check for contradicting values when both are set
+	if inspectAnnotation != "" && host.Spec.InspectionMode != "" {
+		// Annotation logic: "disabled" means disabled, anything else means enabled
+		annotationDisabled := inspectAnnotation == metal3api.InspectAnnotationValueDisabled
+		fieldDisabled := host.Spec.InspectionMode == metal3api.InspectionModeDisabled
+
+		if annotationDisabled != fieldDisabled {
+			return errors.New("inspect.metal3.io annotation and inspectionMode field have contradicting values")
+		}
+	}
+
+	// If InspectionMode is set, it must be a valid value (kubebuilder validation handles this for the API,
+	// but we validate here for safety)
+	if host.Spec.InspectionMode != "" &&
+		host.Spec.InspectionMode != metal3api.InspectionModeDisabled &&
+		host.Spec.InspectionMode != metal3api.InspectionModeAgent {
+		return fmt.Errorf("invalid inspectionMode value: %s, allowed values are 'disabled' or 'agent'", host.Spec.InspectionMode)
+	}
+
+	return nil
 }
 
 func validatePowerStatus(host *metal3api.BareMetalHost) error {

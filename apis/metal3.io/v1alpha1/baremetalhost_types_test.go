@@ -617,51 +617,56 @@ func TestSetHardwareProfile(t *testing.T) {
 }
 
 func TestHasBMCDetails(t *testing.T) {
+}
+
+func TestInspectionDisabled(t *testing.T) {
 	for _, tc := range []struct {
-		Scenario string
-		Host     BareMetalHost
-		Expected bool
+		Scenario       string
+		InspectionMode InspectionMode
+		Annotations    map[string]string
+		Expected       bool
 	}{
 		{
-			Scenario: "Only host bmc address is set",
-			Host: BareMetalHost{
-				Spec: BareMetalHostSpec{
-					BMC: BMCDetails{
-						Address: "http://127.0.0.1/",
-					},
-				},
+			Scenario: "default",
+		},
+		{
+			Scenario: "annotation",
+			Annotations: map[string]string{
+				InspectAnnotationPrefix: "disabled",
 			},
 			Expected: true,
 		},
 		{
-			Scenario: "Only host credentialsName is set",
-			Host: BareMetalHost{
-				Spec: BareMetalHostSpec{
-					BMC: BMCDetails{
-						CredentialsName: "test",
-					},
-				},
+			Scenario: "empty annotation value",
+			Annotations: map[string]string{
+				InspectAnnotationPrefix: "",
 			},
-			Expected: true,
 		},
 		{
-			Scenario: "Neither host credentialsName nor address is set",
-			Host: BareMetalHost{
-				Spec: BareMetalHostSpec{
-					BMC: BMCDetails{},
-				},
+			Scenario:       "InspectionMode",
+			InspectionMode: InspectionModeDisabled,
+			Expected:       true,
+		},
+		{
+			Scenario: "both",
+			Annotations: map[string]string{
+				InspectAnnotationPrefix: "disabled",
 			},
-			Expected: false,
+			InspectionMode: InspectionModeDisabled,
+			Expected:       true,
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			actual := tc.Host.HasBMCDetails()
-			if tc.Expected && !actual {
-				t.Error("Expected BMC details exist")
+			host := BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.Annotations,
+				},
+				Spec: BareMetalHostSpec{
+					InspectionMode: tc.InspectionMode,
+				},
 			}
-			if !tc.Expected && actual {
-				t.Error("Did not expect that BMC details exist")
-			}
+			actual := host.InspectionDisabled()
+			assert.Equal(t, tc.Expected, actual)
 		})
 	}
 }

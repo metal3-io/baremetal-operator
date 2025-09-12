@@ -1,0 +1,24 @@
+namespace: ironic-standalone-operator-system
+
+resources:
+  - ../../base
+
+components:
+  - ../../../components/tls
+
+patches:
+- target:
+    kind: Ironic
+    name: ironic
+  patch: |-
+    - op: replace
+      path: /spec/images/ironic
+      value: "quay.io/metal3-io/ironic:main"
+      images:
+- patch: |-
+    - op: replace
+      path: /spec/ipAddresses/0
+      value: 192.168.222.1
+  target:
+    kind: Certificate
+    name: ironic-cert

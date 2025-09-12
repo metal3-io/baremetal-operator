@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
+	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 type PowerState string
@@ -666,4 +667,37 @@ func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder stri
 	// Write indented JSON to file
 	_, err = file.Write(logOutput.Bytes())
 	Expect(err).ToNot(HaveOccurred(), "Error writing JSON to file")
+}
+
+// WaitForIronicReady waits until the given Ironic resource has Ready condition = True.
+func WaitForIronicReady(ctx context.Context, input WaitForIronicInput) {
+	Logf("Waiting for Ironic %q to be Ready", input.Name)
+
+	Eventually(func(g Gomega) {
+		ironic := &irsov1alpha1.Ironic{}
+		err := input.Client.Get(ctx, client.ObjectKey{
+			Namespace: input.Namespace,
+			Name:      input.Name,
+		}, ironic)
+		g.Expect(err).To(Succeed())
+
+		ready := false
+		for _, cond := range ironic.Status.Conditions {
+			if cond.Type == string(irsov1alpha1.IronicStatusReady) && cond.Status == metav1.ConditionTrue {
+				ready = true
+				break
+			}
+		}
+		g.Expect(ready).To(BeTrue(), "Ironic %q is not Ready yet", input.Name)
+	}, input.Intervals...).Should(Succeed())
+
+	Logf("Ironic %q is Ready", input.Name)
+}
+
+// WaitForIronicInput bundles the parameters for WaitForIronicReady.
+type WaitForIronicInput struct {
+	Client    client.Client
+	Name      string
+	Namespace string
+	Intervals []interface{} // e.g. []interface{}{time.Minute * 15, time.Second * 5}
 }

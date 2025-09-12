@@ -184,6 +184,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	bmoIronicNamespace := "baremetal-operator-system"
 	initBMOKustomization := input.InitBMOKustomization
 	initIronicKustomization := input.InitIronicKustomization
+	irsoNamespace := "ironic-standalone-operator-system"
 	upgradeEntityName := input.UpgradeEntityName
 	specName := "upgrade"
 	var upgradeDeploymentName, upgradeFromKustomization string
@@ -199,21 +200,36 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	testCaseName := fmt.Sprintf("%s-upgrade-from-%s", upgradeEntityName, upgradeFromKustomizationName)
 	testCaseArtifactFolder := filepath.Join(artifactFolder, testCaseName)
 	if input.DeployIronic {
-		// Install Ironic
-		By(fmt.Sprintf("Installing Ironic from kustomization %s on the upgrade cluster", initIronicKustomization))
+		// Install irso
+		By("Install IRSO")
 		err := FlakeAttempt(2, func() error {
 			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-				Kustomization:       initIronicKustomization,
+				Kustomization:       e2eConfig.GetVariable("IRSO_OPERATOR_LATEST"),
 				ClusterProxy:        upgradeClusterProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
-				DeploymentName:      "ironic",
-				DeploymentNamespace: bmoIronicNamespace,
-				LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
+				DeploymentName:      "ironic-standalone-operator",
+				DeploymentNamespace: irsoNamespace,
+				LogPath:             filepath.Join(artifactFolder, "logs", irsoNamespace),
 				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 			})
 		})
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Install Ironic CR in the target cluster")
+		err = BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       initIronicKustomization,
+			ClusterProxy:        upgradeClusterProxy,
+			WaitForDeployment:   false,
+			WatchDeploymentLogs: false,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		WaitForIronicReady(ctx, WaitForIronicInput{
+			Client:    upgradeClusterProxy.GetClient(),
+			Name:      "ironic",
+			Namespace: irsoNamespace,
+		})
 
 		DeferCleanup(func() {
 			By(fmt.Sprintf("Removing Ironic kustomization %s from the upgrade cluster", initIronicKustomization))

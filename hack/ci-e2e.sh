@@ -189,6 +189,11 @@ for overlay in "${IRONIC_OVERLAYS[@]}"; do
   "${overlay}/ironic-auth-config"
 done
 
+sed -i "s|SSH_PUB_KEY_CONTENT|${pub_ssh_key}|" "${REPO_ROOT}"/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml
+sed -i "s|IRONIC_USERNAME|${IRONIC_USERNAME}|" "${REPO_ROOT}"/test/e2e/data/ironic-standalone-operator/components/basic-auth/kustomization.yaml
+sed -i "s|IRONIC_PASSWORD|${IRONIC_PASSWORD}|" "${REPO_ROOT}"/test/e2e/data/ironic-standalone-operator/components/basic-auth/kustomization.yaml
+sed -i "s|IRONIC_HOST_IP|${IRONIC_PROVISIONING_IP}|" "${REPO_ROOT}"/test/e2e/data/ironic-standalone-operator/components/tls/certificate.yaml
+
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e
 

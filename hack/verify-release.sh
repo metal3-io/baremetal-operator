@@ -97,7 +97,6 @@ declare -a release_artifacts=(
 # quay images
 declare -a container_images=(
     "${ORG}/baremetal-operator:v${VERSION}"
-    "${ORG}/keepalived:v${VERSION}"
 )
 
 # go mod bump checks - must match up to leading space before v

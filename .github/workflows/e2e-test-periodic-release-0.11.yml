@@ -1,0 +1,26 @@
+name: Periodic E2E Test release-0.11
+
+on:
+  schedule:
+  # Run every day at 02:50 UTC (it is recommended to avoid running at the start of the hour)
+  - cron: '50 2 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  periodic-e2e-test:
+    if: github.repository == 'metal3-io/baremetal-operator'
+    strategy:
+      fail-fast: false
+      matrix:
+        bmc-protocol:
+        - redfish
+        - redfish-virtualmedia
+        - ipmi
+    uses: ./.github/workflows/e2e-test.yml
+    with:
+      bmc-protocol: ${{ matrix.bmc-protocol }}
+      ref: release-0.11
+    permissions:
+      contents: read

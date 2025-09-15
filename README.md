@@ -3,8 +3,8 @@
 [![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/metal3-io/badge)](https://clomonitor.io/projects/cncf/metal3-io)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9985/badge)](https://www.bestpractices.dev/projects/9985)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/metal3-io/baremetal-operator/badge)](https://securityscorecards.dev/viewer/?uri=github.com/metal3-io/baremetal-operator)
-[![Ubuntu daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-ubuntu-e2e-integration-test-main&subject=Ubuntu%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-ubuntu-e2e-integration-test-main/)
-[![CentOS daily main build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-centos-e2e-integration-test-main&subject=CentOS%20daily%20main)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-centos-e2e-integration-test-main/)
+[![Ubuntu daily release-1-11 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-ubuntu-e2e-integration-test-release-1-11&subject=Ubuntu%20daily%20release-1-11)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-ubuntu-e2e-integration-test-release-1-11/)
+[![CentOS daily release-1-11 build status](https://jenkins.nordix.org/buildStatus/icon?job=metal3-periodic-centos-e2e-integration-test-release-1-11&subject=CentOS%20daily%20release-1-11)](https://jenkins.nordix.org/view/Metal3/job/metal3-periodic-centos-e2e-integration-test-release-1-11/)
 [![Periodic E2E Test](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-periodic-main.yml/badge.svg)](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-periodic-main.yml)
 [![Periodic E2E Test Optional](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-optional-periodic.yml/badge.svg)](https://github.com/metal3-io/baremetal-operator/actions/workflows/e2e-test-optional-periodic.yml)
 
@@ -49,38 +49,13 @@ development. Here are the tests which run on different branches in BMO:
 
 For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
 
-**Main branch:**
+**Release-0.11 branch:**
 
-- **/test metal3-centos-e2e-integration-test-main** runs CAPM3 e2e integration
-  tests with CAPM3 main branch and BMO **main** branch on Centos
-- **/test metal3-ubuntu-e2e-integration-test-main** runs ansible integration
-  tests with CAPM3 main branch and BMO **main** branch on Ubuntu
-
-**Release-0.10 branch:**
-
-- **/test metal3-centos-e2e-integration-test-release-1-10** runs CAPM3 e2e
-  integration tests with CAPM3 release-1.10 branch and BMO **release-0.10**
+- **/test metal3-centos-e2e-integration-test-release-1-11** runs CAPM3 e2e
+  integration tests with CAPM3 release-1.11 branch and BMO **release-0.10**
   branch on Centos
-- **/test metal3-ubuntu-e2e-integration-test-release-1-10** runs ansible
-  integration tests with CAPM3 release-1.10 branch and BMO **release-0.10**
-  branch on Ubuntu
-
-**Release-0.9 branch:**
-
-- **/test metal3-centos-e2e-integration-test-release-1-9** runs CAPM3 e2e
-  integration tests with CAPM3 release-1.9 branch and BMO **release-0.9**
-  branch on Centos
-- **/test metal3-ubuntu-e2e-integration-test-release-1-9** runs ansible
-  integration tests with CAPM3 release-1.9 branch and BMO **release-0.9**
-  branch on Ubuntu
-
-**Release-0.8 branch:**
-
-- **/test metal3-centos-e2e-integration-test-release-1-8** runs CAPM3 e2e
-  integration tests with CAPM3 release-1.8 branch and BMO **release-0.8**
-  branch on Centos
-- **/test metal3-ubuntu-e2e-integration-test-release-1-8** runs ansible
-  integration tests with CAPM3 release-1.8 branch and BMO **release-0.8**
+- **/test metal3-ubuntu-e2e-integration-test-release-1-11** runs ansible
+  integration tests with CAPM3 release-1.11 branch and BMO **release-0.10**
   branch on Ubuntu
 
 ### Important Notes

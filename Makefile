@@ -4,7 +4,7 @@ GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
 GO := $(shell type -P go)
-GO_VERSION ?= 1.24.6
+GO_VERSION ?= 1.24.7
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 

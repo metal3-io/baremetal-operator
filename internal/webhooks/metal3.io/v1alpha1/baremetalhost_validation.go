@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -30,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 )
 
 var (
@@ -61,7 +61,7 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
 
 	if err := validateBMHName(host.Name); err != nil {
-		errs = append(errs, err)
+		errs = append(errs, err...)
 	}
 
 	if err := validateDNSName(host.Spec.BMC.Address); err != nil {
@@ -95,7 +95,13 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 	var errs []error
 
 	if err := webhook.validateHost(newObj); err != nil {
-		errs = append(errs, err...)
+		for i := range err {
+			// ignore length check on changes because the name is immutable anyway, and might have been too
+			// long from before the IsDNS1123Label validation was added.
+			if err[i].Error() != k8svalidation.MaxLenError(k8svalidation.DNS1123LabelMaxLength) {
+				errs = append(errs, err[i])
+			}
+		}
 	}
 
 	if oldObj.Spec.BMC.Address != "" &&
@@ -183,18 +189,20 @@ func validateRAID(r *metal3api.RAIDConfig) []error {
 	return errs
 }
 
-func validateBMHName(bmhname string) error {
-	invalidname, _ := regexp.MatchString(`[^A-Za-z0-9\.\-\_]`, bmhname)
-	if invalidname {
-		return errors.New("BareMetalHost resource name cannot contain characters other than [A-Za-z0-9._-]")
-	}
-
+func validateBMHName(bmhname string) []error {
+	errorStrings := k8svalidation.IsDNS1123Label(bmhname)
 	_, err := uuid.Parse(bmhname)
+
+	errs := make([]error, 0, len(errorStrings)+1)
+
 	if err == nil {
-		return errors.New("BareMetalHost resource name cannot be a UUID")
+		errs = []error{errors.New("BareMetalHost resource name cannot be a UUID")}
+	}
+	for i := range errorStrings {
+		errs = append(errs, errors.New(errorStrings[i]))
 	}
 
-	return nil
+	return errs
 }
 
 func validateDNSName(hostaddress string) error {

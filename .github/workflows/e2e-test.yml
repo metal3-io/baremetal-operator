@@ -15,6 +15,9 @@ on:
       ref:
         type: string
         default: ${{ github.ref }}
+      timeout-minutes:
+        type: number
+        default: 90
 
 permissions: {}
 
@@ -22,7 +25,7 @@ jobs:
   test:
     name: E2E test
     runs-on: ${{ inputs.runner }}
-    timeout-minutes: 90
+    timeout-minutes: ${{ inputs.timeout-minutes }}
 
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -31,8 +34,8 @@ jobs:
 
     - name: Install libvirt
       run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager libvirt-dev
+        sudo apt-get update
+        sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager libvirt-dev
 
     - name: Run BMO e2e Tests
       env:

@@ -77,6 +77,7 @@ type ManagementAccessData struct {
 	BootMode                   metal3api.BootMode
 	AutomatedCleaningMode      metal3api.AutomatedCleaningMode
 	State                      metal3api.ProvisioningState
+	OperationalStatus          metal3api.OperationalStatus
 	CurrentImage               *metal3api.Image
 	PreprovisioningImage       *PreprovisioningImage
 	PreprovisioningNetworkData string

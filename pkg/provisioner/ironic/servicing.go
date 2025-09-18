@@ -91,7 +91,7 @@ func (p *ironicProvisioner) abortServicing(ironicNode *nodes.Node) (result provi
 		nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
 	)
 	p.log.Info("abort result", "started", started, "result", result, "error", err)
-	return
+	return result, started, err
 }
 
 func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
@@ -168,7 +168,7 @@ func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, 
 			p.log.Info("aborting in-progress servicing because spec.updates/spec.settings was removed")
 			return p.abortServicing(ironicNode)
 		}
-		
+
 		p.log.Info("waiting for host to become active",
 			"state", ironicNode.ProvisionState,
 			"serviceStep", ironicNode.ServiceStep)

@@ -1435,6 +1435,12 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 			servicingData.ActualFirmwareSettings = hfs.Status.Settings
 			servicingData.TargetFirmwareSettings = hfs.Spec.Settings
 		}
+
+		// Track if HFS spec has actual settings - check independently since getHostFirmwareSettings
+		// returns nil when no changes even if object exists
+		hfsExists := &metal3api.HostFirmwareSettings{}
+		hfsExistsErr := r.Get(info.ctx, info.request.NamespacedName, hfsExists)
+		servicingData.HasFirmwareSettingsSpec = (hfsExistsErr == nil && len(hfsExists.Spec.Settings) > 0)
 	}
 
 	if liveFirmwareUpdatesAllowed {
@@ -1451,14 +1457,50 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 				servicingData.TargetFirmwareComponents = hfc.Spec.Updates
 			}
 		}
+
+		// Track if HFC spec has actual updates - check independently since getHostFirmwareComponents
+		// returns nil when no changes even if object exists
+		hfcExists := &metal3api.HostFirmwareComponents{}
+		hfcExistsErr := r.Get(info.ctx, info.request.NamespacedName, hfcExists)
+		servicingData.HasFirmwareComponentsSpec = (hfcExistsErr == nil && len(hfcExists.Spec.Updates) > 0)
 	}
 
 	hasChanges := fwDirty || hfsDirty || hfcDirty
+
+	info.log.Info("servicing data flags:",
+		"hasSettingsSpec", servicingData.HasFirmwareSettingsSpec,
+		"hasComponentsSpec", servicingData.HasFirmwareComponentsSpec,
+		"fwDirty", fwDirty, "hfsDirty", hfsDirty, "hfcDirty", hfcDirty,
+		"hasChanges", hasChanges, "note", "hasSpec flags check if spec.settings/spec.updates have content")
 
 	// Even if settings are clean, we need to check the result of the current servicing.
 	if !hasChanges && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
 		// If nothing is going on, return control to the power management.
 		return nil
+	}
+
+	// If we're in a servicing error state and updates were removed from spec,
+	// let the provisioner handle the transition back to active
+	if info.host.Status.ErrorType == metal3api.ServicingError && !hasChanges {
+		info.log.Info("updates removed from spec while in servicing error state, attempting recovery")
+		provResult, _, err := prov.Service(servicingData, false, false)
+		if err != nil {
+			return actionError{fmt.Errorf("failed to recover from servicing error: %w", err)}
+		}
+		if provResult.ErrorMessage != "" {
+			info.log.Info("failed to recover from servicing error", "error", provResult.ErrorMessage)
+			return actionError{fmt.Errorf("failed to recover from servicing error: %s", provResult.ErrorMessage)}
+		}
+		if provResult.Dirty {
+			info.log.Info("abort operation in progress, checking back later")
+			return actionContinue{provResult.RequeueAfter}
+		}
+		// If abort completed and no error, we've successfully recovered
+		info.log.Info("successfully recovered from servicing error")
+		info.host.Status.ErrorType = ""
+		info.host.Status.ErrorMessage = ""
+		info.host.Status.OperationalStatus = metal3api.OperationalStatusOK
+		return actionComplete{}
 	}
 
 	// FIXME(janders/dtantsur): this implementation may lead to a scenario where if we never actually

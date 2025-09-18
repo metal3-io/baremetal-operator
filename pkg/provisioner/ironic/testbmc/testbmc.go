@@ -16,6 +16,7 @@ func NewTestBMCAccessDetails(parsedURL *url.URL, disableCertificateVerification 
 		bmcType:                        parsedURL.Scheme,
 		hostname:                       parsedURL.Hostname(),
 		disableCertificateVerification: disableCertificateVerification,
+		driverInfo:                     "",
 	}, nil
 }
 
@@ -23,6 +24,7 @@ type testAccessDetails struct {
 	bmcType                        string
 	hostname                       string
 	disableCertificateVerification bool
+	driverInfo                     string
 }
 
 func (a *testAccessDetails) Type() string {
@@ -48,12 +50,13 @@ func (a *testAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials) map[string]interface{} {
+func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials, preProvExtraKernParams string) map[string]interface{} {
 	result := map[string]interface{}{
-		"test_port":     "42",
-		"test_username": bmcCreds.Username,
-		"test_password": bmcCreds.Password,
-		"test_address":  a.hostname,
+		"test_port":            "42",
+		"test_username":        bmcCreds.Username,
+		"test_password":        bmcCreds.Password,
+		"test_address":         a.hostname,
+		"kernel_append_params": preProvExtraKernParams,
 	}
 
 	if a.disableCertificateVerification {

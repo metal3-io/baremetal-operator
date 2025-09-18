@@ -1374,7 +1374,7 @@ func (m *mockProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result
 	return m.getNextResultByMethod("Provision"), err
 }
 
-func (m *mockProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Deprovision(_ provisioner.DeprovisionData, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Deprovision"), err
 }
 

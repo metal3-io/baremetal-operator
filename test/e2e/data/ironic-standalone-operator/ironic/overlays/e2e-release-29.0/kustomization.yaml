@@ -1,0 +1,12 @@
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: Ironic
+      name: ironic
+    patch: |-
+      - op: replace
+        path: /spec/images/ironic
+        value: "quay.io/metal3-io/ironic:release-29.0"
+        images:

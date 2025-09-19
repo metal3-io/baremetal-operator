@@ -665,3 +665,55 @@ func TestHasBMCDetails(t *testing.T) {
 		})
 	}
 }
+
+func TestInspectionDisabled(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario       string
+		InspectionMode InspectionMode
+		Annotations    map[string]string
+		Expected       bool
+	}{
+		{
+			Scenario: "default",
+		},
+		{
+			Scenario: "annotation",
+			Annotations: map[string]string{
+				InspectAnnotationPrefix: "disabled",
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "empty annotation value",
+			Annotations: map[string]string{
+				InspectAnnotationPrefix: "",
+			},
+		},
+		{
+			Scenario:       "InspectionMode",
+			InspectionMode: InspectionModeDisabled,
+			Expected:       true,
+		},
+		{
+			Scenario: "both",
+			Annotations: map[string]string{
+				InspectAnnotationPrefix: "disabled",
+			},
+			InspectionMode: InspectionModeDisabled,
+			Expected:       true,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.Annotations,
+				},
+				Spec: BareMetalHostSpec{
+					InspectionMode: tc.InspectionMode,
+				},
+			}
+			actual := host.InspectionDisabled()
+			assert.Equal(t, tc.Expected, actual)
+		})
+	}
+}

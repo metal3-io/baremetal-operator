@@ -363,6 +363,13 @@ func (p *ironicProvisioner) configureNode(data provisioner.ManagementAccessData,
 			result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
 		}
 		return result, err
+	case metal3api.StateProvisioned,
+		metal3api.StateExternallyProvisioned:
+		if data.OperationalStatus == metal3api.OperationalStatusServicing &&
+			deployImageInfo == nil && p.config.havePreprovImgBuilder {
+			result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)
+		}
+		return result, err
 	default:
 	}
 

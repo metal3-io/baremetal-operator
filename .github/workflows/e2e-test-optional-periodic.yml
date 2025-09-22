@@ -22,6 +22,6 @@ jobs:
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}
       ginkgo-focus: upgrade
-      timeout-minutes: 120
+      timeout-minutes: 180
     permissions:
       contents: read

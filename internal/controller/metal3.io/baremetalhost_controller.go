@@ -800,10 +800,14 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		return actionError{err}
 	}
 	switch info.host.Status.Provisioning.State {
-	case metal3api.StateRegistering, metal3api.StateExternallyProvisioned, metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
+	case metal3api.StateRegistering, metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
 		// No need to create PreprovisioningImage if host is not yet registered
-		// or is externally provisioned
 		preprovImgFormats = nil
+	case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned:
+		// Provisioned hosts only need the image for servicing
+		if info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing {
+			preprovImgFormats = nil
+		}
 	case metal3api.StateDeprovisioning:
 		// PreprovisioningImage is not required for deprovisioning when cleaning is disabled
 		if info.host.Spec.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
@@ -835,6 +839,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 			BootMode:                   info.host.Status.Provisioning.BootMode,
 			AutomatedCleaningMode:      info.host.Spec.AutomatedCleaningMode,
 			State:                      info.host.Status.Provisioning.State,
+			OperationalStatus:          info.host.Status.OperationalStatus,
 			CurrentImage:               getCurrentImage(info.host),
 			PreprovisioningImage:       preprovImg,
 			PreprovisioningNetworkData: preprovisioningNetworkData,
@@ -1460,6 +1465,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(prov provisioner.Provisioner
 	// going to impact a small subset of Firmware Settings implementations.
 	if info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing {
 		info.host.Status.OperationalStatus = metal3api.OperationalStatusServicing
+		// NOTE(dtantsur): it's very important to yield to the controller and retry before actually calling Ironic:
+		// a PreprovisioningImage may be missing until we get to the registration code.
 		return actionUpdate{}
 	}
 

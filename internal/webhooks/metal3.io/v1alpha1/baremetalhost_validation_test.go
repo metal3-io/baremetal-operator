@@ -721,7 +721,7 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			oldBMH:    nil,
-			wantedErr: "when hardware details are provided, the inspect.metal3.io annotation must be set to disabled",
+			wantedErr: "when hardware details are provided, inspection must be disabled (either via inspect.metal3.io annotation or inspectionMode field)",
 		},
 		{
 			name: "invalidFieldHardwareDetailsAnnotation",
@@ -879,6 +879,96 @@ func TestValidateCreate(t *testing.T) {
 				},
 			},
 			wantedErr: "node can't simultaneously have online set to false and have power off disabled",
+		},
+		{
+			name: "validInspectionModeDisabled",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					InspectionMode: metal3api.InspectionModeDisabled,
+				},
+			},
+			wantedErr: "",
+		},
+		{
+			name: "validInspectionModeAgent",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					InspectionMode: metal3api.InspectionModeAgent,
+				},
+			},
+			wantedErr: "",
+		},
+		{
+			name: "inspectionModeAndAnnotationConsistent",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.InspectAnnotationPrefix: "disabled",
+					},
+				},
+				Spec: metal3api.BareMetalHostSpec{
+					InspectionMode: metal3api.InspectionModeDisabled,
+				},
+			},
+			wantedErr: "",
+		},
+		{
+			name: "inspectionModeAndAnnotationConflict",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.InspectAnnotationPrefix: "disabled",
+					},
+				},
+				Spec: metal3api.BareMetalHostSpec{
+					InspectionMode: metal3api.InspectionModeAgent,
+				},
+			},
+			wantedErr: "inspect.metal3.io annotation and inspectionMode field have contradicting values",
+		},
+		{
+			name: "inspectionModeAgentAndAnnotationEmptyConsistent",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.InspectAnnotationPrefix: "",
+					},
+				},
+				Spec: metal3api.BareMetalHostSpec{
+					InspectionMode: metal3api.InspectionModeAgent,
+				},
+			},
+			wantedErr: "",
+		},
+		{
+			name: "hardwareDetailsWithInspectionModeDisabled",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.HardwareDetailsAnnotation: `{"systemVendor":{"manufacturer":"QEMU","productName":"Standard PC (Q35 + ICH9, 2009)","serialNumber":""},"firmware":{"bios":{"date":"","vendor":"","version":""}},"ramMebibytes":4096,"nics":[{"name":"eth0","model":"0x1af4 0x0001","mac":"00:b7:8b:bb:3d:f6","ip":"172.22.0.64","speedGbps":0,"vlanId":0,"pxe":true}],"storage":[{"name":"/dev/sda","rotational":true,"sizeBytes":53687091200,"vendor":"QEMU","model":"QEMU HARDDISK","serialNumber":"drive-scsi0-0-0-0","hctl":"6:0:0:0"}],"cpu":{"arch":"x86_64","model":"Intel Xeon E3-12xx v2 (IvyBridge)","clockMegahertz":2494.224,"flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}`,
+					},
+				},
+				Spec: metal3api.BareMetalHostSpec{
+					InspectionMode: metal3api.InspectionModeDisabled,
+				},
+			},
+			wantedErr: "",
 		},
 	}
 

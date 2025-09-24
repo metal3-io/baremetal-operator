@@ -592,16 +592,6 @@ func TestSetLastUpdated(t *testing.T) {
 	)
 }
 
-func TestInspectionDisabledAnnotation(t *testing.T) {
-	host := newDefaultHost(t)
-	host.Annotations = make(map[string]string)
-
-	assert.False(t, inspectionDisabled(host))
-
-	host.Annotations[metal3api.InspectAnnotationPrefix] = "disabled"
-	assert.True(t, inspectionDisabled(host))
-}
-
 func makeReconcileInfo(host *metal3api.BareMetalHost) *reconcileInfo {
 	return &reconcileInfo{
 		log:  logf.Log.WithName("controllers").WithName("BareMetalHost").WithName("baremetal_controller"),

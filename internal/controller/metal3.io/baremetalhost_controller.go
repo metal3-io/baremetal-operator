@@ -269,7 +269,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 // inspect.metal3.io=disabled or there are no existing HardwareDetails.
 func (r *BareMetalHostReconciler) updateHardwareDetails(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (bool, error) {
 	updated := false
-	if host.Status.HardwareDetails == nil || inspectionDisabled(host) {
+	if host.Status.HardwareDetails == nil || host.InspectionDisabled() {
 		objHardwareDetails, err := r.getHardwareDetailsFromAnnotation(host)
 		if err != nil {
 			return updated, fmt.Errorf("error parsing HardwareDetails from annotation: %w", err)
@@ -446,16 +446,9 @@ func clearRebootAnnotations(host *metal3api.BareMetalHost) (dirty bool) {
 	return
 }
 
-// inspectionDisabled checks for existence of inspect.metal3.io=disabled
-// which means we don't inspect even in Inspecting state.
-func inspectionDisabled(host *metal3api.BareMetalHost) bool {
-	annotations := host.GetAnnotations()
-	return annotations[metal3api.InspectAnnotationPrefix] == metal3api.InspectAnnotationValueDisabled
-}
-
-// hasInspectAnnotation checks for existence of inspect.metal3.io annotation
-// and returns true if it exist.
-func hasInspectAnnotation(host *metal3api.BareMetalHost) bool {
+// inspectionRefreshRequested checks for existence of inspect.metal3.io
+// annotation and returns true if it exist.
+func inspectionRefreshRequested(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	if annotations != nil {
 		if expect, ok := annotations[metal3api.InspectAnnotationPrefix]; ok && expect != metal3api.InspectAnnotationValueDisabled {
@@ -974,15 +967,15 @@ func updateRootDeviceHints(host *metal3api.BareMetalHost, info *reconcileInfo) (
 func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("inspecting hardware")
 
-	if inspectionDisabled(info.host) {
-		info.log.Info("inspection disabled by annotation")
-		info.publishEvent("InspectionSkipped", "disabled by annotation")
+	if info.host.InspectionDisabled() {
+		info.log.Info("inspection disabled by user")
+		info.publishEvent("InspectionSkipped", "disabled by user")
 		return actionComplete{}
 	}
 
 	info.log.Info("inspecting hardware")
 
-	refresh := hasInspectAnnotation(info.host)
+	refresh := inspectionRefreshRequested(info.host)
 	forceReboot, _ := hasRebootAnnotation(info, true)
 
 	provResult, started, details, err := prov.InspectHardware(
@@ -1004,7 +997,7 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 		dirty := false
 
 		// Delete inspect annotation if exists
-		if hasInspectAnnotation(info.host) {
+		if inspectionRefreshRequested(info.host) {
 			delete(info.host.Annotations, metal3api.InspectAnnotationPrefix)
 			dirty = true
 		}

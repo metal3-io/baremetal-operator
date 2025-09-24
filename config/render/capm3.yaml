@@ -335,6 +335,11 @@ spec:
                   state (e.g. provisioned), its power state will be forced to match
                   this value.
                 type: boolean
+              preprovisioningExtraKernelParams:
+                description: |-
+                  The value of the kernel commandline argument list that will be passed
+                  to the pre provisioning agent's kernel during boot.
+                type: string
               preprovisioningNetworkDataName:
                 description: |-
                   PreprovisioningNetworkDataName is the name of the Secret in the

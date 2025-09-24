@@ -286,7 +286,7 @@ func (p *fixtureProvisioner) Provision(data provisioner.ProvisionData, _ bool) (
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *fixtureProvisioner) Deprovision(_ bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Deprovision(_ provisioner.DeprovisionData, _ bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is deprovisioned")
 
 	result.RequeueAfter = deprovisionRequeueDelay

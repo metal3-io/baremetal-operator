@@ -5,6 +5,9 @@ DEBUG = --debug
 COVER_PROFILE = cover.out
 GO := $(shell type -P go)
 GO_VERSION ?= 1.24.7
+USR_LOCAL_BIN="/usr/local/bin"
+MINIMUM_KUBECTL_VERSION=v1.28.1
+YQ_VERSION="v4.40.5"
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -119,6 +122,58 @@ unit-verbose: ## Run unit tests with verbose output
 	TEST_FLAGS=-v make unit
 
 ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
+
+## Additional checks for if installations exist could be added
+## The installations could be made to the project's bin, but
+## then in other places the scripts would not know to find them
+##
+## NEXT:
+## - `test-e2e` is used in ci-e2e.sh script so make a new target
+## - expand on `clean-e2e` to have optional steps on cleanup with flags
+## - update info in docs/testing.md and test/e2e/README.md
+##
+## Installing required packages for running e2e scripts locally
+## These installations work for linux amd64, at least on Ubuntu 24.04
+## NOTE: you may need to log out and back in to apply all changes
+.PHONY: e2e-prerequisites
+e2e-prerequisites:
+	echo "INSTALLING some core packages"
+	sudo apt-get install build-essential tar
+	echo "INSTALLING go, removing old versions"
+	sudo rm -rf /usr/local/go
+	wget -P ${HOME} https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
+	sudo tar -C /usr/local -xzf ${HOME}/go${GO_VERSION}.linux-amd64.tar.gz
+	echo "EXPORTING go bin path, optionally add to .bashrc or .profile"
+	export PATH=${PATH}:/usr/local/go/bin
+	go version
+	type go
+	sudo apt-get update
+	echo "INSTALLING libvirt, qemu and related packages"
+	sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager libvirt-dev
+	make build
+	echo "INSTALLING kubectl, assuming no previous version exists and curl is \
+		version 7.73.0 or later"
+	curl --create-dirs -LO --output-dir ${HOME} "https://dl.k8s.io/release/${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+	sudo install ${HOME}/kubectl "${USR_LOCAL_BIN}/kubectl"
+	echo "INSTALLING yq, assuming no previous version exists"
+	go install github.com/mikefarah/yq/v4@${YQ_VERSION}
+	echo "INSTALLING docker and related, removing old versions of docker"
+	echo "ADDING repository to apt sources, GPG key, and other changes"
+	for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove $$pkg; done
+	sudo apt-get update
+	sudo apt-get install ca-certificates
+	sudo install -m 0755 -d /etc/apt/keyrings
+	sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+	sudo chmod a+r /etc/apt/keyrings/docker.asc
+	echo \
+	  "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+	  $$(. /etc/os-release && echo "$${UBUNTU_CODENAME:-$$VERSION_CODENAME}") stable" | \
+	  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+	sudo apt-get update
+	sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+	sudo chmod 777 /var/run/docker.sock
+	sudo usermod -aG docker ${USER}
+	newgrp docker
 
 .PHONY: test-e2e
 test-e2e: $(GINKGO) ## Run the end-to-end tests

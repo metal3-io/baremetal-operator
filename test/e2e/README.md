@@ -15,6 +15,8 @@ as BMC. Ironic runs in the "host network" of the kind cluster in the test. The
 kind cluster is then configured to expose the relevant ports on the actual host
 so that they can be reached from the BareMetalHost VMs.
 
+There is a Makefile target for running this e2e script called `run-e2e-script`.
+
 Currently there are two sets of tests, which cannot be ran together in the same
 cluster. One is the "optional" set, currently consists of only the
 [upgrade tests](upgrade_test.go), and the "main" set, which are the ones
@@ -25,14 +27,14 @@ setting, the script sets `GINKGO_SKIP` to `upgrade`.
 E.g. Here is how to run the E2E main tests:
 
 ```bash
-./hack/ci-e2e.sh
+make run-e2e-script
 ```
 
 And here is how to run the E2E optional tests:
 
 ```bash
 export GINKGO_FOCUS="upgrade"
-./hack/ci-e2e.sh
+make run-e2e-script
 ```
 
 `GINKGO_FOCUS` can be set manually to run specific tests. The options for these
@@ -67,7 +69,7 @@ Skipping tests works otherwise similiarly to adding focus, but in the Makefile
 test-specific words with it or you can add another `--skip=` with a longer
 string to the `test-e2e` target.
 
-`BMC_PROTOCOL` can also be set manually. By default the [ci-e2e.sh](https://github.com/metal3-io/baremetal-operator/blob/main/hack/ci-e2e.sh)
+`BMC_PROTOCOL` can also be set manually. By default the [ci-e2e.sh](../../hack/ci-e2e.sh)
 script runs it as `redfish`, but it can also be set to `redfish-virtualmedia`,
 `redfish`, or `ipmi`. Ipmi uses `vbmc` as the BMO e2e emulator, whereas the
 others use `sushy-tools`.

@@ -45,6 +45,9 @@ export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yam
     ;;
 esac
 
+sudo apt-get update
+sudo apt-get install -y build-essential tar
+
 # Ensure requirements are installed
 export PATH="/usr/local/go/bin:${PATH}"
 "${REPO_ROOT}/hack/e2e/ensure_go.sh"
@@ -52,9 +55,10 @@ export PATH="/usr/local/go/bin:${PATH}"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
 "${REPO_ROOT}/hack/e2e/ensure_yq.sh"
+"${REPO_ROOT}/hack/e2e/ensure_docker.sh"
 
-sudo apt-get update
-sudo apt-get install -y libvirt-dev pkg-config
+sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager libvirt-dev
+make build
 
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator:e2e make docker

@@ -13,7 +13,7 @@ verify_go_version()
             echo 'go not found, installing'
             curl -sLo "/tmp/${MINIMUM_GO_VERSION}.linux-amd64.tar.gz" "https://go.dev/dl/${MINIMUM_GO_VERSION}.linux-amd64.tar.gz"
             sudo tar -C /usr/local -xzf "/tmp/${MINIMUM_GO_VERSION}.linux-amd64.tar.gz"
-            export PATH=/usr/local/go/bin:$PATH
+            export PATH="${PATH}:/usr/local/go/bin"
         else
             echo "Missing required binary in path: go"
             return 2

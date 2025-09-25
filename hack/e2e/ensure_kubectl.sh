@@ -14,35 +14,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -eux
+set -eu
 
 USR_LOCAL_BIN="/usr/local/bin"
 MINIMUM_KUBECTL_VERSION=v1.34.1
+KUBECTL_DOWNLOAD_URL="https://dl.k8s.io/release"
+
+# Verify mode turned off by default
+VERIFY_ONLY="${VERIFY_ONLY:-false}"
 
 # Ensure the kubectl tool exists and is a viable version, or installs it
-verify_kubectl_version()
-{
+verify_kubectl_version() {
     # If kubectl is not available on the path, get it
-    if ! [ -x "$(command -v kubectl)" ]; then
+    KUBECTL="$(command -v kubectl || true)"
+    if ! [[ -x "${KUBECTL}" ]]; then
+        if [[ "${VERIFY_ONLY}" != "false" ]]; then
+            echo "kubectl is not in PATH"
+            return 0
+        fi
         if [[ "${OSTYPE}" == "linux-gnu" ]]; then
             echo "kubectl not found, installing"
-            curl -LO "https://dl.k8s.io/release/${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-            sudo install kubectl "${USR_LOCAL_BIN}/kubectl"
+            set -x
+            curl -LO \
+                --create-dirs \
+                --output-dir "/tmp" \
+                "${KUBECTL_DOWNLOAD_URL}/${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+            sudo install "/tmp/kubectl" "${USR_LOCAL_BIN}/kubectl"
+            set +x
+            KUBECTL="$(command -v kubectl)"
         else
-            echo "Missing required binary in path: kubectl"
+            echo "ERROR: Missing required binary in path: kubectl"
             return 2
         fi
     fi
 
     local kubectl_version
-    IFS=" " read -ra kubectl_version <<< "$(kubectl version --client)"
-    if [[ "${MINIMUM_KUBECTL_VERSION}" != $(echo -e "${MINIMUM_KUBECTL_VERSION}\n${kubectl_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) ]]; then
+    IFS=" " read -ra kubectl_version <<< "$("${KUBECTL}" version --client)"
+    if [[ "${MINIMUM_KUBECTL_VERSION}" != $(
+        echo -e "${MINIMUM_KUBECTL_VERSION}\n${kubectl_version[2]}" \
+        | sort -s -t. -k 1,1 -k 2,2n -k 3,3n \
+        | head -n1
+    ) ]]; then
         cat << EOF
 Detected kubectl version: ${kubectl_version[2]}.
 Requires ${MINIMUM_KUBECTL_VERSION} or greater.
 Please install ${MINIMUM_KUBECTL_VERSION} or later.
 EOF
         return 2
+    else
+        echo "kubectl version ${kubectl_version[2]} is installed at ${KUBECTL}"
     fi
 }
 

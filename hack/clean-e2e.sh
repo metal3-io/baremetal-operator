@@ -11,7 +11,10 @@ docker rm -f sushy-tools
 
 rm -rf "${REPO_ROOT}/test/e2e/_artifacts"
 rm -rf "${REPO_ROOT}"/artifacts-*
-rm -rf "${REPO_ROOT}/test/e2e/images"
+KEEP_E2E_IMAGES="${KEEP_E2E_IMAGES:-false}"
+if [[ "${KEEP_E2E_IMAGES,,}" != "true" ]]; then
+    rm -rf "${REPO_ROOT}/test/e2e/images"
+fi
 
 # Clear network
 virsh -c qemu:///system net-destroy baremetal-e2e

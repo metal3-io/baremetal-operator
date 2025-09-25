@@ -142,6 +142,11 @@ fuzz-run: ## Run all fuzz tests sequentially with fuzzing enabled (use FUZZ_TIME
 
 ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
 
+.PHONY: verify-e2e-prerequisites
+verify-e2e-prerequisites: ## Check that required tools exist for e2e tests
+	@echo "Ensure the local environment is ready for e2e tests..."
+	VERIFY_ONLY=1 ./hack/e2e/ensure_e2e_prerequisites.sh
+
 .PHONY: test-e2e
 test-e2e: $(GINKGO) ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 
@@ -687,6 +688,19 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 	return false, nil
 }
 
+// getControllerArchitecture returns the CPU architecture of the currently
+// running Go program in a format that mimics the output of "uname -p".
+func getControllerArchitecture() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return "x86_64"
+	case "arm64":
+		return "aarch64"
+	default:
+		return runtime.GOARCH
+	}
+}
+
 func getHostArchitecture(host *metal3api.BareMetalHost) string {
 	if host.Spec.Architecture != "" {
 		return host.Spec.Architecture
@@ -696,8 +710,8 @@ func getHostArchitecture(host *metal3api.BareMetalHost) string {
 		host.Status.HardwareDetails.CPU.Arch != "" {
 		return host.Status.HardwareDetails.CPU.Arch
 	}
-	// This is probably the case for most hardware, and is useful for compatibility with hardware profiles.
-	return "x86_64"
+
+	return getControllerArchitecture()
 }
 
 func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats []metal3api.ImageFormat) (*provisioner.PreprovisioningImage, error) {

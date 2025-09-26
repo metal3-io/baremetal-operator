@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: baremetal-operator-system
+
+resources:
+  - https://github.com/metal3-io/ironic-standalone-operator/releases/download/v0.5.1/install.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: ironic-operator-config
+    literals:
+      - IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib
+
+patches:
+  - target:
+      kind: Deployment
+      name: ironic-standalone-operator-controller-manager
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ironic-standalone-operator
+      spec:
+        template:
+          spec:
+            containers:
+              - name: manager
+                envFrom:
+                  - configMapRef:
+                      name: ironic-operator-config
+
+  # Fix namespace in dnsNames, install manifest has different namespace by
+  # default and kustomize namespace override is not smart enough to fix the
+  # cert values.
+  - target:
+      kind: Certificate
+      name: ironic-standalone-operator-serving-cert
+    patch: |-
+      - op: replace
+        path: /spec/dnsNames
+        value:
+          - ironic-standalone-operator-webhook-service.baremetal-operator-system.svc
+          - ironic-standalone-operator-webhook-service.baremetal-operator-system.svc.cluster.local
+
+  # Fix namespace in inject-ca-from annotation also
+  - target:
+      kind: ValidatingWebhookConfiguration
+      name: ironic-standalone-operator-validating-webhook-configuration
+    patch: |-
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingWebhookConfiguration
+      metadata:
+        name: ironic-standalone-operator-validating-webhook-configuration
+        annotations:
+          cert-manager.io/inject-ca-from: baremetal-operator-system/ironic-standalone-operator-serving-cert

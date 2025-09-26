@@ -170,7 +170,7 @@ def include_user_tilt_files():
     for f in user_tiltfiles:
         include(f)
 
-def include_custom_buttons(): 
+def include_custom_buttons():
 
     local_resource(
         name = "BareMetalHosts",

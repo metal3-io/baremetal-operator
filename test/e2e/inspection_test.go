@@ -26,12 +26,23 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 		cancelWatches context.CancelFunc
 	)
 	BeforeEach(func() {
-		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
+
+		isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
+
+		namespaceInput := framework.CreateNamespaceAndWatchEventsInput{
 			Creator:   clusterProxy.GetClient(),
 			ClientSet: clusterProxy.GetClientSet(),
-			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
 			LogFolder: artifactFolder,
-		})
+		}
+
+		if isNamespaced {
+			namespaceInput.Name = specName
+			namespaceInput.IgnoreAlreadyExists = true
+		} else {
+			namespaceInput.Name = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
+		}
+
+		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, namespaceInput)
 	})
 
 	It("should put BMH without BMC credentials in unmanaged state", func() {
@@ -51,6 +62,17 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			Bmh:    bmh,
 			State:  metal3api.StateUnmanaged,
 		}, e2eConfig.GetIntervals(specName, "wait-unmanaged")...)
+
+		By("Delete BMH")
+		err = clusterProxy.GetClient().Delete(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	It("should fail to register the BMH if the secret is missing", func() {
@@ -83,6 +105,17 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			g.Expect(clusterProxy.GetClient().Get(ctx, key, &bmh)).To(Succeed())
 			g.Expect(bmh.Status.ErrorType).To(Equal(metal3api.RegistrationError))
 		}, e2eConfig.GetIntervals(specName, "wait-registration-error")...).Should(Succeed())
+
+		By("Delete BMH")
+		err = clusterProxy.GetClient().Delete(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	It("should inspect a newly created BMH", func() {
@@ -125,6 +158,17 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			Bmh:    bmh,
 			State:  metal3api.StateAvailable,
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("Delete BMH")
+		err = clusterProxy.GetClient().Delete(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	It("should skip inspection when disabled", func() {
@@ -134,18 +178,18 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials-new", bmcCredentialsData)
 
 		By("creating a BMH")
 		bmh := metal3api.BareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-inspect",
+				Name:      specName + "-skip-inspect",
 				Namespace: namespace.Name,
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
 					Address:         bmc.Address,
-					CredentialsName: "bmc-credentials",
+					CredentialsName: "bmc-credentials-new",
 				},
 				BootMode:       metal3api.Legacy,
 				BootMACAddress: bmc.BootMacAddress,
@@ -162,12 +206,24 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			State:           metal3api.StateAvailable,
 			UndesiredStates: []metal3api.ProvisioningState{metal3api.StateInspecting},
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("Delete BMH")
+		err = clusterProxy.GetClient().Delete(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmh.Name,
+			Namespace: bmh.Namespace,
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 		}
 	})
 })

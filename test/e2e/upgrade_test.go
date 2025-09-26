@@ -214,11 +214,6 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 			})
 		})
 		Expect(err).NotTo(HaveOccurred())
-
-		DeferCleanup(func() {
-			By(fmt.Sprintf("Removing Ironic kustomization %s from the upgrade cluster", initIronicKustomization))
-			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, initIronicKustomization)
-		})
 	}
 	if input.DeployBMO {
 		// Install BMO
@@ -236,10 +231,6 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 			})
 		})
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			By(fmt.Sprintf("Removing BMO kustomization %s from the upgrade cluster", initBMOKustomization))
-			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, initBMOKustomization)
-		})
 	}
 
 	namespace, cancelWatches := framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
@@ -307,10 +298,6 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		})
 	})
 	Expect(err).NotTo(HaveOccurred())
-	DeferCleanup(func() {
-		By(fmt.Sprintf("Removing %s kustomization %s from the upgrade cluster", input.UpgradeEntityName, upgradeKustomization))
-		cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, upgradeKustomization)
-	})
 
 	By(fmt.Sprintf("Waiting for %s update to rollout", input.UpgradeEntityName))
 	Eventually(func() bool {
@@ -320,13 +307,15 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	).Should(BeTrue())
 
 	By("Patching the BMH to test provisioning")
-	err = PatchBMHForProvisioning(ctx, PatchBMHForProvisioningInput{
-		client:    upgradeClusterProxy.GetClient(),
-		bmh:       &bmh,
-		bmc:       bmc,
-		e2eConfig: e2eConfig,
-	})
-	Expect(err).NotTo(HaveOccurred())
+	// Using Eventually here since the webhook can take some time after the deployment is ready
+	Eventually(func() error {
+		return PatchBMHForProvisioning(ctx, PatchBMHForProvisioningInput{
+			client:    upgradeClusterProxy.GetClient(),
+			bmh:       &bmh,
+			bmc:       bmc,
+			e2eConfig: e2eConfig,
+		})
+	}, e2eConfig.GetIntervals("default", "wait-deployment")...).Should(Succeed())
 
 	By("Waiting for the BMH to become provisioned")
 	WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -340,10 +329,11 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 
 	var (
-		upgradeClusterProxy framework.ClusterProxy
-		entries             []TableEntry
-		namespace           *corev1.Namespace
-		cancelWatches       context.CancelFunc
+		upgradeClusterProxy    framework.ClusterProxy
+		upgradeClusterProvider bootstrap.ClusterProvider
+		entries                []TableEntry
+		namespace              *corev1.Namespace
+		cancelWatches          context.CancelFunc
 	)
 
 	for i := range e2eConfig.BMOIronicUpgradeSpecs {
@@ -353,24 +343,19 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 	BeforeEach(func() {
 		// Before each test, we need to	initiate the cluster and/or prepare it to be ready for the test
 		var kubeconfigPath string
-		upgradeClusterName := "bmo-e2e-upgrade"
 
 		if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
 			kubeconfigPath = GetKubeconfigPath()
 		} else {
 			By("Creating a separate cluster for upgrade tests")
-			upgradeClusterName = fmt.Sprintf("bmo-e2e-upgrade-%d", GinkgoParallelProcess())
-			upgradeClusterProvider := bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
+			upgradeClusterName := fmt.Sprintf("bmo-e2e-upgrade-%d", GinkgoParallelProcess())
+			upgradeClusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 				Name:              upgradeClusterName,
 				Images:            e2eConfig.Images,
 				ExtraPortMappings: e2eConfig.KindExtraPortMappings,
 			})
 			Expect(upgradeClusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 			kubeconfigPath = upgradeClusterProvider.GetKubeconfigPath()
-			DeferCleanup(func() {
-				By("Disposing the kind cluster " + upgradeClusterName)
-				upgradeClusterProvider.Dispose(ctx)
-			})
 		}
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 		scheme := runtime.NewScheme()
@@ -417,6 +402,19 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 
 	AfterEach(func() {
 		cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+		if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
+			// Try to clean up as best as we can.
+			// Note that we only delete the "normal" BMO kustomization. There could be small
+			// differences between this and the initial or upgrade kustomization, but this also
+			// cleans up the namespace, which should take care of everything except CRDs
+			// and cluster-scoped RBAC, including Ironic if it was deployed.
+			// There is a theoretical risk that we leak cluster-scoped resources for the
+			// next test here, if there are differences between the kustomizations.
+			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, e2eConfig.GetVariable("BMO_KUSTOMIZATION"))
+		} else {
+			// We are using a kind cluster for the upgrade tests, so we just delete the cluster.
+			upgradeClusterProvider.Dispose(ctx)
+		}
 	})
 })
 

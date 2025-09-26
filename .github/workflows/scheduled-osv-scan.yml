@@ -1,0 +1,25 @@
+# runs vulnerability scans and add them to Github Security tab
+
+name: OSV-Scanner Scheduled
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: "24 6 * * *"
+  pull_request:
+    paths:
+    - '.github/workflows/scheduled-osv-scan.yml'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write # for uploading SARIF files
+
+jobs:
+  osv-scan:
+    if: ${{ github.repository == 'metal3-io/baremetal-operator' }}
+    uses: metal3-io/project-infra/.github/workflows/scheduled-osv-scan.yml@main
+    with:
+      repository-name: ${{ github.repository }}
+    secrets:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

@@ -22,7 +22,6 @@ variables:
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/fixture"
-
   # This setting is for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
   # We can create separate clusters for each upgrade test with fixture.
@@ -35,6 +34,8 @@ variables:
   CERT_MANAGER_VERSION: "v1.17.1"
   SSH_CHECK_PROVISIONED: "false"
   FETCH_IRONIC_NODES: "false"
+
+  NAMESPACE_SCOPED: "false"
 
 intervals:
   inspection/wait-unmanaged: ["1m", "10ms"]
@@ -52,6 +53,7 @@ intervals:
   default/wait-deprovisioning: ["5s", "10ms"]
   default/wait-available: ["5m", "1s"]
   default/wait-deleting: ["5s", "10ms"]
+  default/wait-bmh-deleted: ["60s", "1s"]
   default/wait-deleted: ["5s", "10ms"]
   default/wait-detached: ["1s", "10ms"]
   default/wait-secret-deletion: ["5s", "10ms"]

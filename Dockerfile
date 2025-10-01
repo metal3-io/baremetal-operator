@@ -14,7 +14,7 @@ COPY apis/go.mod apis/go.sum apis/
 COPY hack/tools/go.mod hack/tools/go.sum hack/tools/
 COPY pkg/hardwareutils/go.mod pkg/hardwareutils/go.sum pkg/hardwareutils/
 RUN go mod download
-ARG LDFLAGS=-extldflags=-static
+ARG LDFLAGS=-s -w -extldflags=-static
 
 COPY . .
 RUN CGO_ENABLED=0 GO111MODULE=on go build -a -ldflags "${LDFLAGS}" -o baremetal-operator main.go

@@ -120,6 +120,15 @@ unit-verbose: ## Run unit tests with verbose output
 
 ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
 
+## Checking that required tools exist and running e2e script on a VM
+##
+## To note: Run this on your VM and not your local machine. These installations
+## work for linux amd64, at least on Ubuntu 24.04. You may need to log out and
+## log in to apply all changes if the installations are done for the first time.
+.PHONY: run-e2e-script
+run-e2e-script:
+	./hack/ci-e2e.sh
+
 .PHONY: test-e2e
 test-e2e: $(GINKGO) ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \

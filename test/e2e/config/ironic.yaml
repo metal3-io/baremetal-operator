@@ -17,6 +17,10 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-controller:v1.17.1
   loadBehavior: tryLoad
+- name: quay.io/metal3-io/ironic-standalone-operator:v0.5.1
+  loadBehavior: tryLoad
+- name: quay.io/metal3-io/ironic-ipa-downloader:main
+  loadBehavior: tryLoad
 
 # These variables can be overridden with environment variables.
 variables:
@@ -47,8 +51,15 @@ variables:
   FETCH_IRONIC_NODES: "true"
   IRONIC_USERNAME: "changeme"
   IRONIC_PASSWORD: "changeme"
-  IRONIC_PROVISIONING_IP: "localhost"
+  IRONIC_PROVISIONING_IP: "192.168.222.2"
   IRONIC_PROVISIONING_PORT: "6385"
+  IRSO_OPERATOR_LATEST: "data/ironic-standalone-operator/operator"
+  # IRSO_IRONIC_27.0: "data/ironic-standalone-operator/ironic/overlays/e2e-release-27.0"
+  # IRSO_IRONIC_28.0: "data/ironic-standalone-operator/ironic/overlays/e2e-release-28.0"
+  # IRSO_IRONIC_29.0: "data/ironic-standalone-operator/ironic/overlays/e2e-release-29.0"
+  # IRSO_IRONIC_30.0: "data/ironic-standalone-operator/ironic/overlays/e2e-release-30.0"
+  # IRSO_IRONIC_31.0: "data/ironic-standalone-operator/ironic/overlays/e2e-release-31.0"
+  IRSO_IRONIC_MAIN: "data/ironic-standalone-operator/ironic/overlays/e2e"
 
   NAMESPACE_SCOPED: "true"
 

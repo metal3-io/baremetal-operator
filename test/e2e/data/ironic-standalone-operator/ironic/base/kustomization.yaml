@@ -1,0 +1,4 @@
+namespace: baremetal-operator-system
+resources:
+- namespace.yaml
+- ironic.yaml

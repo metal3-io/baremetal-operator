@@ -10,6 +10,8 @@ resources:
 - ./live-iso-ops
 - ./provisioning-ops
 - ./re-inspection
+- ./upgrade-bmo
+- ./upgrade-ironic
 
 components:
     - ../../components/namespace-scoped

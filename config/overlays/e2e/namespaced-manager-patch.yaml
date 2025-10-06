@@ -9,5 +9,5 @@ spec:
       containers:
       - env:
         - name: WATCH_NAMESPACE
-          value: basic-ops,external-inspection,externally-provisioned,inspection,live-iso-ops,provisioning-ops,re-inspection,automated-cleaning
+          value: basic-ops,external-inspection,externally-provisioned,inspection,live-iso-ops,provisioning-ops,re-inspection,automated-cleaning,upgrade-bmo,upgrade-ironic
         name: manager

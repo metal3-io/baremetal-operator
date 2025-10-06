@@ -84,8 +84,9 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
-					Address:         "ipmi://127.0.0.1:5678",
-					CredentialsName: "bmc-credentials",
+					Address:                        "ipmi://127.0.0.1:5678",
+					CredentialsName:                "bmc-credentials",
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 			},
 		}
@@ -135,8 +136,9 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
-					Address:         bmc.Address,
-					CredentialsName: "bmc-credentials",
+					Address:                        bmc.Address,
+					CredentialsName:                "bmc-credentials",
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:       metal3api.Legacy,
 				BootMACAddress: bmc.BootMacAddress,
@@ -188,8 +190,9 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
-					Address:         bmc.Address,
-					CredentialsName: "bmc-credentials-new",
+					Address:                        bmc.Address,
+					CredentialsName:                "bmc-credentials-new",
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:       metal3api.Legacy,
 				BootMACAddress: bmc.BootMacAddress,

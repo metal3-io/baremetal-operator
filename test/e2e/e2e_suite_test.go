@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,8 +76,8 @@ func TestE2e(t *testing.T) {
 	g.Expect(os.MkdirAll(artifactFolder, 0755)).To(Succeed(), "Invalid test suite argument. Can't create e2e.artifacts-folder %q", artifactFolder)
 
 	RegisterFailHandler(Fail)
-	Expect(configPath).To(BeAnExistingFile(), "Invalid test suite argument. e2e.config should be an existing file.")
-	e2eConfig = LoadE2EConfig(configPath)
+	g.Expect(configPath).To(BeAnExistingFile(), "Invalid test suite argument. e2e.config should be an existing file.")
+	e2eConfig = LoadE2EConfig(configPath, g)
 	RunSpecs(t, "E2e Suite")
 }
 
@@ -97,6 +99,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	scheme := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(scheme)
+	Expect(irsov1alpha1.AddToScheme(scheme)).To(Succeed())
 	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
 	Expect(clusterProxy).ToNot(BeNil(), "Failed to get a cluster proxy")
 
@@ -125,23 +128,43 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	}
 
 	bmoIronicNamespace := "baremetal-operator-system"
+	irsoNamespace := "ironic-standalone-operator-system"
 
 	if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
 		// Install Ironic
-		By("Installing Ironic")
+		By("Installing IRSO")
 		err := FlakeAttempt(2, func() error {
 			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-				Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
+				Kustomization:       e2eConfig.GetVariable("IRSO_OPERATOR_LATEST"),
 				ClusterProxy:        clusterProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
-				DeploymentName:      "ironic",
-				DeploymentNamespace: bmoIronicNamespace,
-				LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+				DeploymentName:      "ironic-standalone-operator-controller-manager",
+				DeploymentNamespace: irsoNamespace,
+				LogPath:             filepath.Join(artifactFolder, "logs", irsoNamespace),
 				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 			})
 		})
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Installing Ironic in the target cluster")
+		err = BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       e2eConfig.GetVariable("IRSO_IRONIC_MAIN"),
+			ClusterProxy:        clusterProxy,
+			WaitForDeployment:   false,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "ironic-service",
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(artifactFolder, "logs", bmoIronicNamespace),
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		WaitForIronicReady(ctx, WaitForIronicInput{
+			Client:    clusterProxy.GetClient(),
+			Name:      "ironic",
+			Namespace: bmoIronicNamespace,
+			Intervals: []interface{}{time.Minute * 200, time.Second * 5},
+		})
 	}
 
 	if e2eConfig.GetBoolVariable("DEPLOY_BMO") {
@@ -173,7 +196,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	framework.TryAddDefaultSchemes(scheme)
 	err := metal3api.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
-	e2eConfig = LoadE2EConfig(configPath)
+	Expect(irsov1alpha1.AddToScheme(scheme)).To(Succeed())
 	bmcs, err := LoadBMCConfig(bmcConfigPath)
 	Expect(err).ToNot(HaveOccurred(), "Failed to read the bmcs config file")
 	bmc = (bmcs)[GinkgoParallelProcess()-1]

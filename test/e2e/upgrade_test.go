@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
-	"sigs.k8s.io/cluster-api/util"
 )
 
 const hardwareDetailsRelease04 = `
@@ -234,10 +233,11 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	}
 
 	namespace, cancelWatches := framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
-		Creator:   upgradeClusterProxy.GetClient(),
-		ClientSet: upgradeClusterProxy.GetClientSet(),
-		Name:      fmt.Sprintf("upgrade-%s-%s", input.UpgradeEntityName, util.RandomString(6)),
-		LogFolder: testCaseArtifactFolder,
+		Creator:             upgradeClusterProxy.GetClient(),
+		ClientSet:           upgradeClusterProxy.GetClientSet(),
+		Name:                "upgrade-" + input.UpgradeEntityName,
+		LogFolder:           testCaseArtifactFolder,
+		IgnoreAlreadyExists: true,
 	})
 
 	By("Creating a secret with BMH credentials")

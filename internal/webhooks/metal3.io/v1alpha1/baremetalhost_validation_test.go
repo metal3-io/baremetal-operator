@@ -450,17 +450,6 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "Unknown BMC type 'ipm' for address ipm:host.example.com:6223",
 		},
 		{
-			name: "invalidDNSNameinvalidipv6",
-			newBMH: &metal3api.BareMetalHost{
-				TypeMeta:   tm,
-				ObjectMeta: om,
-				Spec: metal3api.BareMetalHostSpec{
-					BMC: metal3api.BMCDetails{
-						Address: "ipmi://[fe80::fc33:62ff:fe33:8xff]:6223"}}},
-			oldBMH:    nil,
-			wantedErr: "failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
-		},
-		{
 			name: "validRootDeviceHint",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta:   tm,

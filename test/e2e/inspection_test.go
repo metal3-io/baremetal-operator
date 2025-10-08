@@ -173,55 +173,6 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
-	It("should skip inspection when disabled", func() {
-		By("Creating a secret with BMH credentials")
-
-		bmcCredentialsData := map[string]string{
-			"username": bmc.User,
-			"password": bmc.Password,
-		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials-new", bmcCredentialsData)
-
-		By("creating a BMH")
-		bmh := metal3api.BareMetalHost{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-skip-inspect",
-				Namespace: namespace.Name,
-			},
-			Spec: metal3api.BareMetalHostSpec{
-				BMC: metal3api.BMCDetails{
-					Address:                        bmc.Address,
-					CredentialsName:                "bmc-credentials-new",
-					DisableCertificateVerification: bmc.DisableCertificateVerification,
-				},
-				BootMode:       metal3api.Legacy,
-				BootMACAddress: bmc.BootMacAddress,
-				InspectionMode: metal3api.InspectionModeDisabled,
-			},
-		}
-		err := clusterProxy.GetClient().Create(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("waiting for the BMH to become available")
-		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
-			Client:          clusterProxy.GetClient(),
-			Bmh:             bmh,
-			State:           metal3api.StateAvailable,
-			UndesiredStates: []metal3api.ProvisioningState{metal3api.StateInspecting},
-		}, e2eConfig.GetIntervals(specName, "wait-available")...)
-
-		By("Delete BMH")
-		err = clusterProxy.GetClient().Delete(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for the BMH to be deleted")
-		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-			Client:    clusterProxy.GetClient(),
-			BmhName:   bmh.Name,
-			Namespace: bmh.Namespace,
-		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
-	})
-
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {

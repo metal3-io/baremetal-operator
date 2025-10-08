@@ -24,17 +24,13 @@ type ironicProvisionerFactory struct {
 	clientIronic *gophercloud.ServiceClient
 }
 
-func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder bool) provisioner.Factory {
+func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder bool) (provisioner.Factory, error) {
 	factory := ironicProvisionerFactory{
 		log: logger.WithName("ironic"),
 	}
 
 	err := factory.init(havePreprovImgBuilder)
-	if err != nil {
-		factory.log.Error(err, "Cannot start ironic provisioner")
-		os.Exit(1)
-	}
-	return factory
+	return factory, err
 }
 
 func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {

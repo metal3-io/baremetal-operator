@@ -70,8 +70,9 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 			Spec: metal3api.BareMetalHostSpec{
 				Online: true,
 				BMC: metal3api.BMCDetails{
-					Address:         bmc.Address,
-					CredentialsName: secretName,
+					Address:                        bmc.Address,
+					CredentialsName:                secretName,
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				Image: &metal3api.Image{
 					URL:        imageURL,

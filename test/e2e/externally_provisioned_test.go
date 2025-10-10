@@ -54,8 +54,9 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 				Spec: metal3api.BareMetalHostSpec{
 					Online: true,
 					BMC: metal3api.BMCDetails{
-						Address:         bmc.Address,
-						CredentialsName: "bmc-credentials",
+						Address:                        bmc.Address,
+						CredentialsName:                "bmc-credentials",
+						DisableCertificateVerification: bmc.DisableCertificateVerification,
 					},
 					BootMACAddress:        bmc.BootMacAddress,
 					ExternallyProvisioned: true,

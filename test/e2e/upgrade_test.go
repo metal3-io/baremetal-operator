@@ -263,8 +263,9 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		Spec: metal3api.BareMetalHostSpec{
 			Online: true,
 			BMC: metal3api.BMCDetails{
-				Address:         bmc.Address,
-				CredentialsName: secretName,
+				Address:                        bmc.Address,
+				CredentialsName:                secretName,
+				DisableCertificateVerification: bmc.DisableCertificateVerification,
 			},
 			BootMode:       metal3api.Legacy,
 			BootMACAddress: bmc.BootMacAddress,

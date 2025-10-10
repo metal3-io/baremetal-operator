@@ -2397,6 +2397,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ironic.metal3.io
+  resources:
+  - ironics
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - metal3.io
   resources:
   - baremetalhosts

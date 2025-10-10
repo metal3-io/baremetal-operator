@@ -288,7 +288,11 @@ func main() {
 		provisionerFactory = &demo.Demo{}
 	} else {
 		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
-		provisionerFactory = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
+		provisionerFactory, err = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
+		if err != nil {
+			setupLog.Error(err, "cannot start ironic provisioner")
+			os.Exit(1)
+		}
 	}
 
 	maxConcurrency, err := getMaxConcurrentReconciles(controllerConcurrency)

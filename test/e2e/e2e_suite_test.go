@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -135,7 +134,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		By("Installing IRSO")
 		err := FlakeAttempt(2, func() error {
 			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-				Kustomization:       e2eConfig.GetVariable("IRSO_OPERATOR_LATEST"),
+				Kustomization:       e2eConfig.GetVariable("IRSO_KUSTOMIZATION"),
 				ClusterProxy:        clusterProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
@@ -149,7 +148,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 		By("Installing Ironic in the target cluster")
 		err = BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-			Kustomization:       e2eConfig.GetVariable("IRSO_IRONIC_MAIN"),
+			Kustomization:       e2eConfig.GetVariable("IRONIC_KUSTOMIZATION"),
 			ClusterProxy:        clusterProxy,
 			WaitForDeployment:   false,
 			WatchDeploymentLogs: true,
@@ -163,7 +162,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			Client:    clusterProxy.GetClient(),
 			Name:      "ironic",
 			Namespace: bmoIronicNamespace,
-			Intervals: []interface{}{time.Minute * 200, time.Second * 5},
+			Intervals: e2eConfig.GetIntervals("ironic", "wait-deployment"),
 		})
 	}
 

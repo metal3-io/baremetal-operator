@@ -22,8 +22,9 @@ variables:
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
   BMO_KUSTOMIZATION: "../../config/overlays/fixture"
-  # This setting is for the separate cluster that are used for upgrade tests
+  # These settings are for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
+  UPGRADE_DEPLOY_IRSO: "false"
   # We can create separate clusters for each upgrade test with fixture.
   # Since there is no ironic involved, we do not risk having any port collisions.
   UPGRADE_USE_EXISTING_CLUSTER: "false"

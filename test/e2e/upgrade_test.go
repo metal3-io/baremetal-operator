@@ -6,6 +6,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -192,7 +193,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		upgradeDeploymentName = "baremetal-operator-controller-manager"
 	case ironicString:
 		upgradeFromKustomization = initIronicKustomization
-		upgradeDeploymentName = "ironic"
+		upgradeDeploymentName = "ironic-service"
 	}
 	upgradeFromKustomizationName := strings.ReplaceAll(filepath.Base(upgradeFromKustomization), ".", "-")
 	testCaseName := fmt.Sprintf("%s-upgrade-from-%s", upgradeEntityName, upgradeFromKustomizationName)
@@ -200,17 +201,20 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	if input.DeployIronic {
 		// Install Ironic
 		By(fmt.Sprintf("Installing Ironic from kustomization %s on the upgrade cluster", initIronicKustomization))
-		err := FlakeAttempt(2, func() error {
-			return BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-				Kustomization:       initIronicKustomization,
-				ClusterProxy:        upgradeClusterProxy,
-				WaitForDeployment:   true,
-				WatchDeploymentLogs: true,
-				DeploymentName:      "ironic",
-				DeploymentNamespace: bmoIronicNamespace,
-				LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
-				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
-			})
+		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       initIronicKustomization,
+			ClusterProxy:        upgradeClusterProxy,
+			WaitForDeployment:   false,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "ironic-service",
+			DeploymentNamespace: bmoIronicNamespace,
+			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
+		})
+		WaitForIronicReady(ctx, WaitForIronicInput{
+			Client:    clusterProxy.GetClient(),
+			Name:      "ironic",
+			Namespace: bmoIronicNamespace,
+			Intervals: e2eConfig.GetIntervals("ironic", "wait-deployment"),
 		})
 		Expect(err).NotTo(HaveOccurred())
 	}
@@ -280,6 +284,8 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		State:  metal3api.StateAvailable,
 	}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
+	// TODO(lentzi90): Since the introduction of IrSO, we should not be dealing with Deployments for Ironic.
+	// We should split this test into Ironic upgrade and BMO upgrade and handle them separately.
 	By(fmt.Sprintf("Upgrading %s deployment", input.UpgradeEntityName))
 	clientSet := upgradeClusterProxy.GetClientSet()
 	deploy, err := clientSet.AppsV1().Deployments(bmoIronicNamespace).Get(ctx, upgradeDeploymentName, metav1.GetOptions{})
@@ -294,7 +300,6 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 			DeploymentName:      upgradeDeploymentName,
 			DeploymentNamespace: bmoIronicNamespace,
 			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "bmo-upgrade-main"),
-			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 		})
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -303,8 +308,16 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	Eventually(func() bool {
 		return DeploymentRolledOut(ctx, upgradeClusterProxy, upgradeDeploymentName, bmoIronicNamespace, deploy.Status.ObservedGeneration+1)
 	},
-		e2eConfig.GetIntervals("default", "wait-deployment")...,
+		e2eConfig.GetIntervals("ironic", "wait-deployment")...,
 	).Should(BeTrue())
+	if input.UpgradeEntityName == ironicString {
+		WaitForIronicReady(ctx, WaitForIronicInput{
+			Client:    clusterProxy.GetClient(),
+			Name:      "ironic",
+			Namespace: bmoIronicNamespace,
+			Intervals: e2eConfig.GetIntervals("ironic", "wait-deployment"),
+		})
+	}
 
 	By("Patching the BMH to test provisioning")
 	// Using Eventually here since the webhook can take some time after the deployment is ready
@@ -334,6 +347,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		entries                []TableEntry
 		namespace              *corev1.Namespace
 		cancelWatches          context.CancelFunc
+		specName               = "upgrade"
 	)
 
 	for i := range e2eConfig.BMOIronicUpgradeSpecs {
@@ -363,9 +377,6 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		err := metal3api.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 		upgradeClusterProxy = framework.NewClusterProxy("bmo-e2e-upgrade", kubeconfigPath, scheme)
-		DeferCleanup(func() {
-			upgradeClusterProxy.Dispose(ctx)
-		})
 
 		if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_CERT_MANAGER") {
 			By("Installing cert-manager on the upgrade cluster")
@@ -378,6 +389,18 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
 			err = checkCertManagerAPI(upgradeClusterProxy)
 			Expect(err).NotTo(HaveOccurred())
+		}
+		if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_IRSO") {
+			BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+				Kustomization:       e2eConfig.GetVariable("IRSO_KUSTOMIZATION"),
+				ClusterProxy:        clusterProxy,
+				WaitForDeployment:   true,
+				WatchDeploymentLogs: true,
+				DeploymentName:      "ironic-standalone-operator-controller-manager",
+				DeploymentNamespace: "ironic-standalone-operator-system",
+				LogPath:             filepath.Join(artifactFolder, "logs", "ironic-standalone-operator-system"),
+				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
 		}
 	})
 	DescribeTable("",
@@ -401,19 +424,23 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 	)
 
 	AfterEach(func() {
-		cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
-		if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
-			// Try to clean up as best as we can.
-			// Note that we only delete the "normal" BMO kustomization. There could be small
-			// differences between this and the initial or upgrade kustomization, but this also
-			// cleans up the namespace, which should take care of everything except CRDs
-			// and cluster-scoped RBAC, including Ironic if it was deployed.
-			// There is a theoretical risk that we leak cluster-scoped resources for the
-			// next test here, if there are differences between the kustomizations.
-			cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, e2eConfig.GetVariable("BMO_KUSTOMIZATION"))
-		} else {
-			// We are using a kind cluster for the upgrade tests, so we just delete the cluster.
-			upgradeClusterProvider.Dispose(ctx)
+		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
+		if !skipCleanup {
+			cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
+				// Try to clean up as best as we can.
+				// Note that we only delete the "normal" BMO kustomization. There could be small
+				// differences between this and the initial or upgrade kustomization, but this also
+				// cleans up the namespace, which should take care of everything except CRDs
+				// and cluster-scoped RBAC, including Ironic if it was deployed.
+				// There is a theoretical risk that we leak cluster-scoped resources for the
+				// next test here, if there are differences between the kustomizations.
+				cleanupBaremetalOperatorSystem(ctx, upgradeClusterProxy, e2eConfig.GetVariable("BMO_KUSTOMIZATION"))
+			} else {
+				// We are using a kind cluster for the upgrade tests, so we just delete the cluster.
+				upgradeClusterProvider.Dispose(ctx)
+			}
+			upgradeClusterProxy.Dispose(ctx)
 		}
 	})
 })

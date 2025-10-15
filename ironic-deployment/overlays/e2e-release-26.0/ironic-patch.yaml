@@ -6,5 +6,5 @@ spec:
   template:
     spec:
       containers:
-        - name: ironic-dnsmasq
-          $patch: delete
+      - name: ironic-dnsmasq
+        $patch: delete

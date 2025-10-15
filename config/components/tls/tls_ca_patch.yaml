@@ -8,9 +8,9 @@ spec:
       containers:
       - name: manager
         volumeMounts:
-          - name: cacert
-            mountPath: "/opt/metal3/certs/ca"
-            readOnly: true
+        - name: cacert
+          mountPath: "/opt/metal3/certs/ca"
+          readOnly: true
       volumes:
       - name: cacert
         secret:

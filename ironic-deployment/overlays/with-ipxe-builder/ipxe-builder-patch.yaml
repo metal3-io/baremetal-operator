@@ -4,7 +4,7 @@
     name: ipxe-builder
     image: quay.io/metal3-io/ipxe-builder
     command:
-      - /bin/buildipxe.sh
+    - /bin/buildipxe.sh
     envFrom:
     - configMapRef:
         name: ipxe-configmap
@@ -19,4 +19,3 @@
       privileged: false
       runAsUser: 997 # ironic
       runAsGroup: 994 # ironic
-

@@ -1,17 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 namespace: baremetal-operator-system
 
 resources:
-  - ../../base
+- ../../base
 
 components:
-  - ../../../components/tls
-  - ../../../components/basic-auth
+- ../../../components/tls
+- ../../../components/basic-auth
 
 patches:
-  - target:
-      kind: Ironic
-      name: ironic
-    patch: |-
-      - op: replace
-        path: /spec/images/ironic
-        value: "quay.io/metal3-io/ironic:release-29.0"
+- target:
+    kind: Ironic
+    name: ironic
+  patch: |-
+    - op: replace
+      path: /spec/images/ironic
+      value: "quay.io/metal3-io/ironic:release-29.0"

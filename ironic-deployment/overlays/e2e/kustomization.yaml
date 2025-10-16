@@ -28,7 +28,8 @@ patches:
     kind: Certificate
     name: ironic-cert
 
-# NOTE: These credentials are generated automatically in hack/ci-e2e.sh
+# NOTE: You have to create these files with suitable content.
+# For example: htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}" > ironic-htpasswd
 secretGenerator:
 - name: ironic-htpasswd
   behavior: create

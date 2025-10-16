@@ -193,15 +193,6 @@ BMO_OVERLAYS=(
   "${REPO_ROOT}/config/overlays/e2e-release-0.10"
   "${REPO_ROOT}/config/overlays/e2e-release-0.11"
 )
-IRONIC_OVERLAYS=(
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-26.0"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-27.0"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-28.0"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-29.0"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-30.0"
-  "${REPO_ROOT}/ironic-deployment/overlays/e2e-release-31.0"
-)
 
 IRONIC_USERNAME="$(uuidgen)"
 IRONIC_PASSWORD="$(uuidgen)"
@@ -213,13 +204,6 @@ export IRONIC_PASSWORD
 for overlay in "${BMO_OVERLAYS[@]}"; do
   echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
   echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
-done
-
-for overlay in "${IRONIC_OVERLAYS[@]}"; do
-  echo "IRONIC_HTPASSWD=$(htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}")" > \
-    "${overlay}/ironic-htpasswd"
-  envsubst < "${REPO_ROOT}/ironic-deployment/components/basic-auth/ironic-auth-config-tpl" > \
-  "${overlay}/ironic-auth-config"
 done
 
 IRSO_IRONIC_AUTH_DIR="${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/components/basic-auth"

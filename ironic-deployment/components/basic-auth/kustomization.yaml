@@ -14,4 +14,4 @@ kind: Component
 #   IRONIC_HTPASSWD: <base64-encoded-htpasswd-string>
 
 patches:
-  - path: auth.yaml
+- path: auth.yaml

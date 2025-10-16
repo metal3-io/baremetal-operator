@@ -2,12 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../namespace
-  - ../../base
+- ../../namespace
+- ../../base
 
 components:
-  - ../../components/basic-auth
-  - ../../components/tls
+- ../../components/basic-auth
+- ../../components/tls
 # Example for how to generate the necessary secrets:
 # secretGenerator:
 #   - name: ironic-credentials

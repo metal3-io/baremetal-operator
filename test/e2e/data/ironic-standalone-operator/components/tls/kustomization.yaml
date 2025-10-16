@@ -5,4 +5,4 @@ resources:
 - certificate.yaml
 
 patches:
-  - path: tls.yaml
+- path: tls.yaml

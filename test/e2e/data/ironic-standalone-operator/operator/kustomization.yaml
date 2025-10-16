@@ -3,30 +3,30 @@ kind: Kustomization
 namespace: ironic-standalone-operator-system
 
 resources:
-  - https://github.com/metal3-io/ironic-standalone-operator/releases/download/v0.5.1/install.yaml
+- https://github.com/metal3-io/ironic-standalone-operator/releases/download/v0.5.2/install.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
 
 configMapGenerator:
-  - name: ironic-operator-config
-    literals:
-      - IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib
+- name: ironic-operator-config
+  literals:
+  - IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib
 
 patches:
-  - target:
-      kind: Deployment
-      name: ironic-standalone-operator-controller-manager
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: ironic-standalone-operator
-      spec:
-        template:
-          spec:
-            containers:
-              - name: manager
-                envFrom:
-                  - configMapRef:
-                      name: ironic-operator-config
+- target:
+    kind: Deployment
+    name: ironic-standalone-operator-controller-manager
+  patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ironic-standalone-operator
+    spec:
+      template:
+        spec:
+          containers:
+            - name: manager
+              envFrom:
+                - configMapRef:
+                    name: ironic-operator-config

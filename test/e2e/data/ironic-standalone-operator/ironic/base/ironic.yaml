@@ -1,4 +1,3 @@
----
 apiVersion: ironic.metal3.io/v1alpha1
 kind: Ironic
 metadata:
@@ -21,4 +20,3 @@ spec:
   deployRamdisk:
     sshKey: "SSH_PUB_KEY_CONTENT"
     extraKernelParams: "console=ttyS0"
----

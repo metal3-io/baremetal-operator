@@ -24,4 +24,3 @@ patches:
 images:
 - name: quay.io/metal3-io/ironic
   newTag: local
-

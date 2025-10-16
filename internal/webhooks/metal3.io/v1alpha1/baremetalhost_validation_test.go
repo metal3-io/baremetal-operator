@@ -458,7 +458,7 @@ func TestValidateCreate(t *testing.T) {
 					BMC: metal3api.BMCDetails{
 						Address: "ipmi://[fe80::fc33:62ff:fe33:8xff]:6223"}}},
 			oldBMH:    nil,
-			wantedErr: "failed to parse BMC address information: BMC address hostname/IP : [fe80::fc33:62ff:fe33:8xff] is invalid",
+			wantedErr: "failed to parse BMC address information: parse \"ipmi://[fe80::fc33:62ff:fe33:8xff]:6223\": invalid host: ParseAddr(\"fe80::fc33:62ff:fe33:8xff\"): unexpected character, want colon (at \"xff\")",
 		},
 		{
 			name: "validRootDeviceHint",

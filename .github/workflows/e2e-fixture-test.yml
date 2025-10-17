@@ -29,7 +29,8 @@ jobs:
 
     - name: Build BMO e2e Docker Image
       env:
-        IMG: quay.io/metal3-io/baremetal-operator:e2e
+        IMG: quay.io/metal3-io/baremetal-operator
+        IMG_TAG: e2e
       run: make docker
 
     - name: Set Up Environment and Run BMO e2e Tests

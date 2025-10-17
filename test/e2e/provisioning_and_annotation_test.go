@@ -59,8 +59,9 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 				Spec: metal3api.BareMetalHostSpec{
 					Online: true,
 					BMC: metal3api.BMCDetails{
-						Address:         bmc.Address,
-						CredentialsName: "bmc-credentials",
+						Address:                        bmc.Address,
+						CredentialsName:                "bmc-credentials",
+						DisableCertificateVerification: bmc.DisableCertificateVerification,
 					},
 					BootMode:              metal3api.Legacy,
 					BootMACAddress:        bmc.BootMacAddress,
@@ -203,8 +204,9 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 				Spec: metal3api.BareMetalHostSpec{
 					Online: true,
 					BMC: metal3api.BMCDetails{
-						Address:         bmc.Address,
-						CredentialsName: "bmc-credentials",
+						Address:                        bmc.Address,
+						CredentialsName:                "bmc-credentials",
+						DisableCertificateVerification: bmc.DisableCertificateVerification,
 					},
 					BootMode:              metal3api.Legacy,
 					BootMACAddress:        bmc.BootMacAddress,

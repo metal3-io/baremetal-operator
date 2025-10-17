@@ -59,8 +59,9 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
-					Address:         bmc.Address,
-					CredentialsName: "bmc-credentials",
+					Address:                        bmc.Address,
+					CredentialsName:                "bmc-credentials",
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:       metal3api.Legacy,
 				BootMACAddress: bmc.BootMacAddress,

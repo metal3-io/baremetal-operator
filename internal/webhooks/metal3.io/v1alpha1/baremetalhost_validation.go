@@ -109,8 +109,26 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
-	if oldObj.Spec.BootMACAddress != "" && newObj.Spec.BootMACAddress != oldObj.Spec.BootMACAddress {
-		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
+	if oldObj.Spec.BootMACAddress != "" {
+		// BootMACAddress is immutable once set - cannot be changed or cleared
+		if newObj.Spec.BootMACAddress == "" {
+			errs = append(errs, errors.New("bootMACAddress can not be unset once it is set"))
+		} else {
+			// Compare MAC addresses in a case-insensitive manner by parsing them.
+			oldMAC, oldErr := net.ParseMAC(oldObj.Spec.BootMACAddress)
+			newMAC, newErr := net.ParseMAC(newObj.Spec.BootMACAddress)
+
+			// If the old MAC is invalid, we cannot reliably verify immutability.
+			// The new MAC is validated by validateBMCAccess (called via validateHost above).
+			if oldErr != nil {
+				errs = append(errs, fmt.Errorf("cannot validate bootMACAddress immutability: existing value %q is not a valid MAC address", oldObj.Spec.BootMACAddress))
+			}
+
+			// If both MACs are valid and different, enforce immutability.
+			if oldErr == nil && newErr == nil && oldMAC.String() != newMAC.String() {
+				errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
+			}
+		}
 	}
 
 	if oldObj.Spec.ExternallyProvisioned != newObj.Spec.ExternallyProvisioned {

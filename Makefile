@@ -221,6 +221,7 @@ manifests: manifests-generate manifests-kustomize ## Generate manifests e.g. CRD
 manifests-generate: $(CONTROLLER_GEN)
 	cd apis; $(abspath $<) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:webhook:dir=../config/base/webhook/ output:crd:artifacts:config=../config/base/crds/bases
 	$< rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/base/rbac
+	./hack/gen-api-doc.sh
 
 .PHONY: manifests-kustomize
 manifests-kustomize: $(KUSTOMIZE)

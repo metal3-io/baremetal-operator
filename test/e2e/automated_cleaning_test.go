@@ -55,8 +55,9 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 			Spec: metal3api.BareMetalHostSpec{
 				Online: true,
 				BMC: metal3api.BMCDetails{
-					Address:         bmc.Address,
-					CredentialsName: "bmc-credentials",
+					Address:                        bmc.Address,
+					CredentialsName:                "bmc-credentials",
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:              metal3api.Legacy,
 				BootMACAddress:        bmc.BootMacAddress,

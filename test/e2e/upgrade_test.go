@@ -6,7 +6,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -180,7 +179,7 @@ const hardwareDetailsRelease04 = `
 //   - If the BMH is successfully provisioned, it means the upgraded BMO/Ironic recognized that BMH, hence the upgrade succeeded.
 //
 // The function returns the namespace object, with its cancelFunc. These can be used to clean up the created resources.
-func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeClusterProxy framework.ClusterProxy) (*corev1.Namespace, context.CancelFunc) {
+func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeClusterProxy framework.ClusterProxy) (*corev1.Namespace, context.CancelFunc, string) {
 	bmoIronicNamespace := "baremetal-operator-system"
 	initBMOKustomization := input.InitBMOKustomization
 	initIronicKustomization := input.InitIronicKustomization
@@ -255,7 +254,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	By("Creating a BMH with inspection disabled and hardware details added")
 	bmh := metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "upgrade",
+			Name:      testCaseName,
 			Namespace: namespace.Name,
 			Annotations: map[string]string{
 				metal3api.InspectAnnotationPrefix: "disabled",
@@ -337,7 +336,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		Bmh:    bmh,
 		State:  metal3api.StateProvisioned,
 	}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
-	return namespace, cancelWatches
+	return namespace, cancelWatches, testCaseArtifactFolder
 }
 
 var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
@@ -348,7 +347,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		entries                []TableEntry
 		namespace              *corev1.Namespace
 		cancelWatches          context.CancelFunc
-		specName               = "upgrade"
+		testArtifactFolder     string
 	)
 
 	for i := range e2eConfig.BMOIronicUpgradeSpecs {
@@ -407,7 +406,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 	DescribeTable("",
 		// Test function that runs for each table entry
 		func(ctx context.Context, input *BMOIronicUpgradeInput) {
-			namespace, cancelWatches = RunUpgradeTest(ctx, input, upgradeClusterProxy)
+			namespace, cancelWatches, testArtifactFolder = RunUpgradeTest(ctx, input, upgradeClusterProxy)
 		},
 		// Description function that generates test descriptions
 		func(ctx context.Context, input *BMOIronicUpgradeInput) string {
@@ -425,7 +424,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 	)
 
 	AfterEach(func() {
-		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
+		DumpResources(ctx, e2eConfig, upgradeClusterProxy, testArtifactFolder)
 		if !skipCleanup {
 			cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 			if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {

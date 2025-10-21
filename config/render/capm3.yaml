@@ -254,6 +254,13 @@ spec:
                   Image holds the details of the image to be provisioned. Populating
                   the image will cause the host to start provisioning.
                 properties:
+                  authSecretName:
+                    description: |-
+                      AuthSecretName optionally names a Docker-config secret containing
+                      registry credentials for oci:// images. Must be in the same namespace
+                      as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
+                      Only used when Image.URL has the oci:// scheme.
+                    type: string
                   checksum:
                     description: |-
                       Checksum is the checksum for the image. Required for all formats
@@ -978,6 +985,13 @@ spec:
                       Image holds the details of the last image successfully
                       provisioned to the host.
                     properties:
+                      authSecretName:
+                        description: |-
+                          AuthSecretName optionally names a Docker-config secret containing
+                          registry credentials for oci:// images. Must be in the same namespace
+                          as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
+                          Only used when Image.URL has the oci:// scheme.
+                        type: string
                       checksum:
                         description: |-
                           Checksum is the checksum for the image. Required for all formats

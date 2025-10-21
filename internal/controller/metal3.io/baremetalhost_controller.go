@@ -29,6 +29,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/imageauthvalidator"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -39,6 +40,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,6 +67,7 @@ type BareMetalHostReconciler struct {
 	Log                logr.Logger
 	ProvisionerFactory provisioner.Factory
 	APIReader          client.Reader
+	Recorder           record.EventRecorder
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -1296,6 +1299,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		image = *info.host.Spec.Image.DeepCopy()
 	}
 
+	// Extract OCI pull secret credentials if needed
+	imagePullSecret, err := r.getImagePullSecret(info.ctx, info.request, info.host, &image)
+	if err != nil {
+		return recordActionFailure(info, metal3api.ProvisioningError,
+			fmt.Sprintf("failed to get image pull secret: %s", err.Error()))
+	}
+
 	provResult, err := prov.Provision(provisioner.ProvisionData{
 		Image:           image,
 		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
@@ -1303,6 +1313,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		ImagePullSecret: imagePullSecret,
 	}, forceReboot)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
@@ -2232,6 +2243,36 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, r
 	return bmcCredsSecret, nil
 }
 
+// getImagePullSecret validates and extracts the OCI registry credentials for the image.
+// It returns the base64-encoded credentials in the format expected by Ironic, or an empty
+// string if no auth secret is configured.
+func (r *BareMetalHostReconciler) getImagePullSecret(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost, image *metal3api.Image) (string, error) {
+	// Only process images with auth secret
+	if image == nil || image.AuthSecretName == nil || *image.AuthSecretName == "" {
+		return "", nil
+	}
+
+	// Only process OCI images
+	if !strings.HasPrefix(image.URL, "oci://") {
+		return "", nil
+	}
+
+	// Use the validator to validate and extract credentials
+	validator := imageauthvalidator.New(r.Client, r.Recorder)
+	result, err := validator.Validate(ctx, host)
+	if err != nil {
+		return "", fmt.Errorf("failed to validate auth secret: %w", err)
+	}
+
+	// If validation failed, return the error message
+	if !result.Valid {
+		return "", fmt.Errorf("auth secret validation failed: %s", result.Message)
+	}
+
+	// Return the extracted credentials
+	return result.Credentials, nil
+}
+
 func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
 	// We trim surrounding whitespace because those characters are
 	// unlikely to be part of the username or password and it is
@@ -2317,6 +2358,7 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 
 // SetupWithManager registers the reconciler to be run by the manager.
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgEnable bool, maxConcurrentReconcile int) error {
+	r.Recorder = mgr.GetEventRecorderFor("baremetalhost-controller")
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.BareMetalHost{}).
 		WithEventFilter(

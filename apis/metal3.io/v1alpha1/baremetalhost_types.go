@@ -887,6 +887,14 @@ type BareMetalHostStatus struct {
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
 	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
+
+	// Conditions provide observations of the operational state of a BareMetalHost.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // ProvisionStatus holds the state information for a single target.

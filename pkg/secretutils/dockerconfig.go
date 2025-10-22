@@ -3,6 +3,7 @@ package secretutils
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -32,7 +33,7 @@ type DockerConfig map[string]DockerAuthConfig
 // Returns the credentials in base64-encoded "username:password" format as expected by Ironic.
 func ExtractRegistryCredentials(secret *corev1.Secret, imageURL string) (string, error) {
 	if secret == nil {
-		return "", fmt.Errorf("secret is nil")
+		return "", errors.New("secret is nil")
 	}
 
 	registryHost, err := extractRegistryHost(imageURL)
@@ -74,7 +75,7 @@ func ExtractRegistryCredentials(secret *corev1.Secret, imageURL string) (string,
 }
 
 // extractRegistryHost extracts the registry hostname from an OCI image URL.
-// For example, "oci://registry.example.com/repo/image:tag" returns "registry.example.com"
+// For example, "oci://registry.example.com/repo/image:tag" returns "registry.example.com".
 func extractRegistryHost(imageURL string) (string, error) {
 	if !strings.HasPrefix(imageURL, "oci://") {
 		return "", fmt.Errorf("image URL does not have oci:// scheme: %s", imageURL)
@@ -127,8 +128,9 @@ func parseDockerConfig(data []byte, registryHost string) (*DockerAuthConfig, err
 
 // findAuthConfig searches for the auth config matching the registry host.
 // It tries several variations of the registry host to handle different formats.
+// Returns a clear RegistryEntryMissing error when no entry matches.
 func findAuthConfig(auths map[string]DockerAuthConfig, registryHost string) (*DockerAuthConfig, error) {
-	// Try exact match first
+	// Try exact match first (handles both "host" and "host:port")
 	if authConfig, ok := auths[registryHost]; ok {
 		return &authConfig, nil
 	}
@@ -153,20 +155,36 @@ func findAuthConfig(auths map[string]DockerAuthConfig, registryHost string) (*Do
 		return &authConfig, nil
 	}
 
-	// For Docker Hub, try common variations
-	if strings.Contains(registryHost, "docker.io") || registryHost == "docker.io" {
-		for _, key := range []string{
+	// Try with https:// prefix and /v1/ suffix
+	if authConfig, ok := auths["https://"+registryHost+"/v1/"]; ok {
+		return &authConfig, nil
+	}
+
+	// Try with https:// prefix and /v2/ suffix
+	if authConfig, ok := auths["https://"+registryHost+"/v2/"]; ok {
+		return &authConfig, nil
+	}
+
+	// Special handling for Docker Hub
+	// Docker Hub can appear as: docker.io, index.docker.io, https://index.docker.io/v1/, etc.
+	if registryHost == "docker.io" || registryHost == "index.docker.io" ||
+		strings.HasPrefix(registryHost, "docker.io:") || strings.HasPrefix(registryHost, "index.docker.io:") {
+		dockerHubKeys := []string{
 			"https://index.docker.io/v1/",
 			"index.docker.io",
 			"docker.io",
 			"https://docker.io",
-		} {
+			"https://index.docker.io",
+			registryHost, // Already tried but keep for clarity
+		}
+		for _, key := range dockerHubKeys {
 			if authConfig, ok := auths[key]; ok {
 				return &authConfig, nil
 			}
 		}
 	}
 
+	// Return clear error when no entry matches
 	return nil, fmt.Errorf("registry %s not found in auth config", registryHost)
 }
 
@@ -185,14 +203,14 @@ func extractCredentials(authConfig *DockerAuthConfig) (username, password string
 			return "", "", fmt.Errorf("failed to decode auth field: %w", err)
 		}
 
-		parts := strings.SplitN(string(decoded), ":", 2)
-		if len(parts) != 2 {
-			return "", "", fmt.Errorf("invalid auth format: expected username:password")
+		const credentialParts = 2
+		parts := strings.SplitN(string(decoded), ":", credentialParts)
+		if len(parts) != credentialParts {
+			return "", "", errors.New("invalid auth format: expected username:password")
 		}
 
 		return parts[0], parts[1], nil
 	}
 
-	return "", "", fmt.Errorf("no credentials found in auth config")
+	return "", "", errors.New("no credentials found in auth config")
 }
-

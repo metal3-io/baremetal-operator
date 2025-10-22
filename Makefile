@@ -92,6 +92,9 @@ IMG_NAME ?= baremetal-operator
 IMG_TAG ?= latest
 IMG ?= $(REGISTRY)/$(IMG_NAME)
 
+# Which configuration to use when deploying (from the config directory)
+DEPLOY_CONFIG ?= default
+
 ## --------------------------------------
 ## Test Targets
 ## --------------------------------------
@@ -194,7 +197,7 @@ uninstall: $(KUSTOMIZE) manifests ## Uninstall CRDs from a cluster
 .PHONY: deploy
 deploy: $(KUSTOMIZE) manifests  ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	make set-manifest-image-bmo MANIFEST_IMG=$(IMG_NAME) MANIFEST_TAG=$(IMG_TAG)
-	$< build config/default | kubectl apply -f -
+	$< build config/$(DEPLOY_CONFIG) | kubectl apply -f -
 
 $(CONTROLLER_GEN): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen

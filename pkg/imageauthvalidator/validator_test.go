@@ -1,12 +1,11 @@
 package imageauthvalidator
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"testing"
 
-	metal3v1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,27 +16,27 @@ import (
 
 func TestValidate_NoAuthSecret(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
 	validator := New(c, recorder)
 
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
-			Image: &metal3v1.Image{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL: "oci://registry.example.com/repo/image:tag",
 				// AuthSecretName is nil
 			},
 		},
 	}
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +54,7 @@ func TestValidate_NoAuthSecret(t *testing.T) {
 
 func TestValidate_SecretNotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -63,20 +62,20 @@ func TestValidate_SecretNotFound(t *testing.T) {
 	validator := New(c, recorder)
 
 	secretName := "my-secret"
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
-			Image: &metal3v1.Image{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL:            "oci://registry.example.com/repo/image:tag",
 				AuthSecretName: &secretName,
 			},
 		},
 	}
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,7 +90,7 @@ func TestValidate_SecretNotFound(t *testing.T) {
 
 func TestValidate_WrongSecretType(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	secretName := "my-secret"
@@ -111,20 +110,20 @@ func TestValidate_WrongSecretType(t *testing.T) {
 	recorder := record.NewFakeRecorder(10)
 	validator := New(c, recorder)
 
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
-			Image: &metal3v1.Image{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL:            "oci://registry.example.com/repo/image:tag",
 				AuthSecretName: &secretName,
 			},
 		},
 	}
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -136,20 +135,37 @@ func TestValidate_WrongSecretType(t *testing.T) {
 		t.Error("expected Valid to be false")
 	}
 
-	// Check that warning event was recorded
+	// Assert that warning event was recorded
 	select {
 	case event := <-recorder.Events:
-		if event != "Warning ImageAuthFormatUnsupported Secret \"my-secret\" has unsupported type \"Opaque\"" {
-			t.Errorf("unexpected event: %s", event)
+		expectedEvent := "Warning ImageAuthFormatUnsupported Secret \"my-secret\" has unsupported type \"Opaque\""
+		if event != expectedEvent {
+			t.Errorf("expected event %q, got %q", expectedEvent, event)
 		}
 	default:
 		t.Error("expected warning event to be recorded")
 	}
+
+	// Verify error message mentions both expected types
+	if !containsSubstring(result.Message, "kubernetes.io/dockerconfigjson") ||
+		!containsSubstring(result.Message, "kubernetes.io/dockercfg") {
+		t.Errorf("expected message to mention expected secret types, got: %s", result.Message)
+	}
+}
+
+// Helper function to check substring.
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	// Create a valid docker config JSON
@@ -161,7 +177,10 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 			},
 		},
 	}
-	dockerConfigJSON, _ := json.Marshal(dockerConfig)
+	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	if err != nil {
+		t.Fatalf("failed to marshal docker config: %v", err)
+	}
 
 	secretName := "my-secret"
 	secret := &corev1.Secret{
@@ -179,20 +198,20 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 	recorder := record.NewFakeRecorder(10)
 	validator := New(c, recorder)
 
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
-			Image: &metal3v1.Image{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL:            "oci://registry.example.com/repo/image:tag",
 				AuthSecretName: &secretName,
 			},
 		},
 	}
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -217,11 +236,19 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 	if string(decoded) != "testuser:testpass" {
 		t.Errorf("expected credentials to be 'testuser:testpass', got '%s'", string(decoded))
 	}
+
+	// No event should be emitted on success (validator only emits warnings)
+	select {
+	case event := <-recorder.Events:
+		t.Errorf("unexpected event emitted: %q", event)
+	default:
+		// Expected: no events for successful validation
+	}
 }
 
 func TestValidate_RegistryNotInSecret(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	// Create a docker config JSON with different registry
@@ -233,7 +260,10 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 			},
 		},
 	}
-	dockerConfigJSON, _ := json.Marshal(dockerConfig)
+	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	if err != nil {
+		t.Fatalf("failed to marshal docker config: %v", err)
+	}
 
 	secretName := "my-secret"
 	secret := &corev1.Secret{
@@ -251,20 +281,20 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 	recorder := record.NewFakeRecorder(10)
 	validator := New(c, recorder)
 
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
-			Image: &metal3v1.Image{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL:            "oci://registry.example.com/repo/image:tag",
 				AuthSecretName: &secretName,
 			},
 		},
 	}
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -275,11 +305,30 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 	if result.Reason != ReasonRegistryEntryMissing {
 		t.Errorf("expected reason %s, got %s", ReasonRegistryEntryMissing, result.Reason)
 	}
+
+	// Assert warning event was recorded (ParseError is the event type, reason is updated separately)
+	select {
+	case event := <-recorder.Events:
+		if !containsSubstring(event, "Warning") || !containsSubstring(event, "ParseError") {
+			t.Errorf("expected Warning ParseError event, got: %q", event)
+		}
+		// Verify message contains the details
+		if !containsSubstring(event, "not found in auth config") {
+			t.Errorf("expected event to mention 'not found in auth config', got: %q", event)
+		}
+	default:
+		t.Error("expected warning event to be recorded")
+	}
+
+	// Verify error message mentions the registry
+	if !containsSubstring(result.Message, "registry.example.com") {
+		t.Errorf("expected message to mention registry, got: %s", result.Message)
+	}
 }
 
 func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	dockerConfig := map[string]interface{}{
@@ -290,7 +339,10 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 			},
 		},
 	}
-	dockerConfigJSON, _ := json.Marshal(dockerConfig)
+	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	if err != nil {
+		t.Fatalf("failed to marshal docker config: %v", err)
+	}
 
 	secretName := "my-secret"
 	secret := &corev1.Secret{
@@ -308,20 +360,20 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 	recorder := record.NewFakeRecorder(10)
 	validator := New(c, recorder)
 
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
-			Image: &metal3v1.Image{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL:            "http://example.com/image.qcow2", // Non-OCI URL
 				AuthSecretName: &secretName,
 			},
 		},
 	}
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -349,24 +401,24 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 
 func TestValidate_NilImage(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
 	validator := New(c, recorder)
 
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
+		Spec: metal3api.BareMetalHostSpec{
 			Image: nil,
 		},
 	}
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -426,10 +478,11 @@ func TestIsAllowedDockerConfigType(t *testing.T) {
 	}
 }
 
-// Helper function to get a client with the given objects
-func getFakeClientWithSecretAndBMH(t *testing.T, secretType corev1.SecretType, secretData map[string][]byte, imageURL string) (client.Client, *metal3v1.BareMetalHost, *corev1.Secret) {
+// Helper function to get a client with the given objects.
+func getFakeClientWithSecretAndBMH(t *testing.T, secretType corev1.SecretType, secretData map[string][]byte, imageURL string) (client.Client, *metal3api.BareMetalHost, *corev1.Secret) {
+	t.Helper()
 	scheme := runtime.NewScheme()
-	_ = metal3v1.AddToScheme(scheme)
+	_ = metal3api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	secretName := "test-secret"
@@ -442,13 +495,13 @@ func getFakeClientWithSecretAndBMH(t *testing.T, secretType corev1.SecretType, s
 		Data: secretData,
 	}
 
-	bmh := &metal3v1.BareMetalHost{
+	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "default",
 		},
-		Spec: metal3v1.BareMetalHostSpec{
-			Image: &metal3v1.Image{
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
 				URL:            imageURL,
 				AuthSecretName: &secretName,
 			},
@@ -459,7 +512,7 @@ func getFakeClientWithSecretAndBMH(t *testing.T, secretType corev1.SecretType, s
 	return c, bmh, secret
 }
 
-// TestIntegration_ValidateAndExtractCredentials tests the full flow
+// TestIntegration_ValidateAndExtractCredentials tests the full flow.
 func TestIntegration_ValidateAndExtractCredentials(t *testing.T) {
 	dockerConfig := map[string]interface{}{
 		"auths": map[string]interface{}{
@@ -468,7 +521,10 @@ func TestIntegration_ValidateAndExtractCredentials(t *testing.T) {
 			},
 		},
 	}
-	dockerConfigJSON, _ := json.Marshal(dockerConfig)
+	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	if err != nil {
+		t.Fatalf("failed to marshal docker config: %v", err)
+	}
 
 	c, bmh, _ := getFakeClientWithSecretAndBMH(
 		t,
@@ -482,7 +538,7 @@ func TestIntegration_ValidateAndExtractCredentials(t *testing.T) {
 	recorder := record.NewFakeRecorder(10)
 	validator := New(c, recorder)
 
-	result, err := validator.Validate(context.TODO(), bmh)
+	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

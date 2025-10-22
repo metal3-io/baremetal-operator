@@ -1299,11 +1299,11 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		image = *info.host.Spec.Image.DeepCopy()
 	}
 
-	// Extract OCI pull secret credentials if needed
-	imagePullSecret, err := r.getImagePullSecret(info.ctx, info.request, info.host, &image)
+	// Extract OCI auth secret credentials if needed
+	authSecret, err := r.getImageAuthSecret(info.ctx, info.request, info.host, &image)
 	if err != nil {
 		return recordActionFailure(info, metal3api.ProvisioningError,
-			fmt.Sprintf("failed to get image pull secret: %s", err.Error()))
+			"failed to get image auth secret: "+err.Error())
 	}
 
 	provResult, err := prov.Provision(provisioner.ProvisionData{
@@ -1313,7 +1313,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
-		ImagePullSecret: imagePullSecret,
+		ImagePullSecret: authSecret,
 	}, forceReboot)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
@@ -2243,17 +2243,20 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, r
 	return bmcCredsSecret, nil
 }
 
-// getImagePullSecret validates and extracts the OCI registry credentials for the image.
+// getImageAuthSecret validates and extracts the OCI registry credentials for the image.
 // It returns the base64-encoded credentials in the format expected by Ironic, or an empty
 // string if no auth secret is configured.
-func (r *BareMetalHostReconciler) getImagePullSecret(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost, image *metal3api.Image) (string, error) {
-	// Only process images with auth secret
-	if image == nil || image.AuthSecretName == nil || *image.AuthSecretName == "" {
+func (r *BareMetalHostReconciler) getImageAuthSecret(ctx context.Context, _ ctrl.Request, host *metal3api.BareMetalHost, image *metal3api.Image) (string, error) {
+	// Only process OCI images
+	if image == nil || !strings.HasPrefix(image.URL, "oci://") {
+		r.setImageAuthConditions(host, nil, false)
 		return "", nil
 	}
 
-	// Only process OCI images
-	if !strings.HasPrefix(image.URL, "oci://") {
+	// Check for per-host auth secret
+	if image.AuthSecretName == nil || *image.AuthSecretName == "" {
+		// No auth secret configured - set conditions accordingly
+		r.setImageAuthConditions(host, nil, false)
 		return "", nil
 	}
 
@@ -2264,6 +2267,9 @@ func (r *BareMetalHostReconciler) getImagePullSecret(ctx context.Context, reques
 		return "", fmt.Errorf("failed to validate auth secret: %w", err)
 	}
 
+	// Set ImageAuthValid condition based on validation result
+	r.setImageAuthConditions(host, result, result.Valid && result.Credentials != "")
+
 	// If validation failed, return the error message
 	if !result.Valid {
 		return "", fmt.Errorf("auth secret validation failed: %s", result.Message)
@@ -2271,6 +2277,69 @@ func (r *BareMetalHostReconciler) getImagePullSecret(ctx context.Context, reques
 
 	// Return the extracted credentials
 	return result.Credentials, nil
+}
+
+// setImageAuthConditions sets the ImageAuthValid and ImageAuthInUse conditions on the host.
+func (r *BareMetalHostReconciler) setImageAuthConditions(host *metal3api.BareMetalHost, result *imageauthvalidator.Result, credentialsInjected bool) {
+	now := metav1.Now()
+
+	// Set ImageAuthValid condition
+	if result == nil {
+		// No auth secret referenced
+		meta.SetStatusCondition(&host.Status.Conditions, metav1.Condition{
+			Type:               imageauthvalidator.ConditionImageAuthValid,
+			Status:             metav1.ConditionFalse,
+			Reason:             imageauthvalidator.ReasonNotRequired,
+			Message:            "No auth secret referenced",
+			LastTransitionTime: now,
+			ObservedGeneration: host.Generation,
+		})
+	} else if result.Valid {
+		meta.SetStatusCondition(&host.Status.Conditions, metav1.Condition{
+			Type:               imageauthvalidator.ConditionImageAuthValid,
+			Status:             metav1.ConditionTrue,
+			Reason:             result.Reason,
+			Message:            result.Message,
+			LastTransitionTime: now,
+			ObservedGeneration: host.Generation,
+		})
+	} else {
+		meta.SetStatusCondition(&host.Status.Conditions, metav1.Condition{
+			Type:               imageauthvalidator.ConditionImageAuthValid,
+			Status:             metav1.ConditionFalse,
+			Reason:             result.Reason,
+			Message:            result.Message,
+			LastTransitionTime: now,
+			ObservedGeneration: host.Generation,
+		})
+	}
+
+	// Set ImageAuthInUse condition
+	if credentialsInjected {
+		meta.SetStatusCondition(&host.Status.Conditions, metav1.Condition{
+			Type:               imageauthvalidator.ConditionImageAuthInUse,
+			Status:             metav1.ConditionTrue,
+			Reason:             imageauthvalidator.ReasonCredentialsInjected,
+			Message:            "OCI registry credentials injected into provisioning",
+			LastTransitionTime: now,
+			ObservedGeneration: host.Generation,
+		})
+	} else {
+		reason := imageauthvalidator.ReasonNoOCIImage
+		message := "No OCI image or auth secret in use"
+		if result != nil && !result.OCIRelevant {
+			reason = imageauthvalidator.ReasonNoOCIImage
+			message = "Image is not an OCI image"
+		}
+		meta.SetStatusCondition(&host.Status.Conditions, metav1.Condition{
+			Type:               imageauthvalidator.ConditionImageAuthInUse,
+			Status:             metav1.ConditionFalse,
+			Reason:             reason,
+			Message:            message,
+			LastTransitionTime: now,
+			ObservedGeneration: host.Generation,
+		})
+	}
 }
 
 func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {

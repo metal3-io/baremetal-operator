@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"strings"
 
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	metal3v1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 )
 
 const (
-	// Conditions
-	CondImageAuthValid = "ImageAuthValid"
+	// Conditions.
+	ConditionImageAuthValid = "ImageAuthValid"
+	ConditionImageAuthInUse = "ImageAuthInUse"
 
-	// Reasons
+	// Reasons.
 	ReasonUnknown              = "Unknown"
 	ReasonNotRequired          = "NotRequired"
 	ReasonValid                = "Valid"
@@ -27,8 +27,10 @@ const (
 	ReasonWrongType            = "WrongType"
 	ReasonParseError           = "ParseError"
 	ReasonRegistryEntryMissing = "RegistryEntryMissing"
+	ReasonCredentialsInjected  = "CredentialsInjected"
+	ReasonNoOCIImage           = "NoOCIImage"
 
-	// Events
+	// Events.
 	EventAuthSecretIrrelevant  = "ImageAuthIrrelevant"
 	EventAuthFormatUnsupported = "ImageAuthFormatUnsupported"
 )
@@ -46,7 +48,7 @@ type Result struct {
 }
 
 type Validator interface {
-	Validate(ctx context.Context, bmh *metal3v1.BareMetalHost) (*Result, error)
+	Validate(ctx context.Context, bmh *metal3api.BareMetalHost) (*Result, error)
 }
 
 type validator struct {
@@ -58,7 +60,7 @@ func New(c client.Client, recorder record.EventRecorder) Validator {
 	return &validator{c: c, recorder: recorder}
 }
 
-func (v *validator) Validate(ctx context.Context, bmh *metal3v1.BareMetalHost) (*Result, error) {
+func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) (*Result, error) {
 	res := &Result{Valid: false, Reason: ReasonUnknown}
 
 	img := bmh.Spec.Image
@@ -86,7 +88,7 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3v1.BareMetalHost) (
 	var sec corev1.Secret
 	key := types.NamespacedName{Namespace: bmh.Namespace, Name: secretName}
 	if err := v.c.Get(ctx, key, &sec); err != nil {
-		if apierrors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			res.Reason = ReasonSecretNotFound
 			res.Message = fmt.Sprintf("secret %q not found in namespace %q", secretName, bmh.Namespace)
 			return res, nil

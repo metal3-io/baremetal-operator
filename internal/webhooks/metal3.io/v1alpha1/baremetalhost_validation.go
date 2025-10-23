@@ -109,7 +109,7 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
-	if oldObj.Spec.BootMACAddress != "" && newObj.Spec.BootMACAddress != oldObj.Spec.BootMACAddress {
+	if oldObj.Spec.BootMACAddress != "" && !strings.EqualFold(newObj.Spec.BootMACAddress, oldObj.Spec.BootMACAddress) {
 		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
 	}
 

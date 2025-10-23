@@ -101,6 +101,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 		"deployRamdiskURL", f.config.deployRamdiskURL,
 		"deployISOURL", f.config.deployISOURL,
 		"liveISOForcePersistentBootDevice", f.config.liveISOForcePersistentBootDevice,
+		"kernelAndRamdiskForcePersistentBootDevice", f.config.kernelAndRamdiskForcePersistentBootDevice,
 		"CACertFile", tlsConf.TrustedCAFile,
 		"ClientCertFile", tlsConf.ClientCertificateFile,
 		"ClientPrivKeyFile", tlsConf.ClientPrivateKeyFile,
@@ -197,11 +198,17 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 		c.maxBusyHosts = value
 	}
 
-	if forcePersistentBootDevice := os.Getenv("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE"); forcePersistentBootDevice != "" {
-		if forcePersistentBootDevice != "Default" && forcePersistentBootDevice != "Always" && forcePersistentBootDevice != "Never" {
+	if liveISOForcePersistentBootDevice := os.Getenv("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE"); liveISOForcePersistentBootDevice != "" {
+		if liveISOForcePersistentBootDevice != "Default" && liveISOForcePersistentBootDevice != "Always" && liveISOForcePersistentBootDevice != "Never" {
 			return c, errors.New("invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
 		}
-		c.liveISOForcePersistentBootDevice = forcePersistentBootDevice
+		c.liveISOForcePersistentBootDevice = liveISOForcePersistentBootDevice
+	}
+	if kernelAndRamdiskForcePersistentBootDevice := os.Getenv("KERNEL_AND_RAMDISK_FORCE_PERSISTENT_BOOT_DEVICE"); kernelAndRamdiskForcePersistentBootDevice != "" {
+		if kernelAndRamdiskForcePersistentBootDevice != "Default" && kernelAndRamdiskForcePersistentBootDevice != "Always" && kernelAndRamdiskForcePersistentBootDevice != "Never" {
+			return c, errors.New("invalid value for variable KERNEL_AND_RAMDISK_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
+		}
+		c.kernelAndRamdiskForcePersistentBootDevice = kernelAndRamdiskForcePersistentBootDevice
 	}
 
 	c.externalURL = os.Getenv("IRONIC_EXTERNAL_URL_V6")

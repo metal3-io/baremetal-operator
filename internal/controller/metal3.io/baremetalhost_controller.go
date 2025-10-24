@@ -482,6 +482,18 @@ func clearError(host *metal3api.BareMetalHost) (dirty bool) {
 	return clearErrorWithStatus(host, metal3api.OperationalStatusOK)
 }
 
+// removeLLDPInfo creates a deep copy of HardwareDetails with LLDP data removed from all NICs.
+func removeLLDPInfo(details *metal3api.HardwareDetails) *metal3api.HardwareDetails {
+	if details == nil {
+		return nil
+	}
+	detailsWithoutLLDP := details.DeepCopy()
+	for i := range detailsWithoutLLDP.NIC {
+		detailsWithoutLLDP.NIC[i].LLDP = nil
+	}
+	return detailsWithoutLLDP
+}
+
 // setErrorMessage updates the ErrorMessage in the host Status struct
 // and increases the ErrorCount.
 func setErrorMessage(host *metal3api.BareMetalHost, errType metal3api.ErrorType, message string) {
@@ -1046,7 +1058,9 @@ func (r *BareMetalHostReconciler) actionInspecting(prov provisioner.Provisioner,
 	}
 
 	clearError(info.host)
-	info.host.Status.HardwareDetails = details
+	// To avoid further cluttering the BMH status with more information we'll remove the LLDP
+	// info before updating the status, but retain it for the HardwareData contents.
+	info.host.Status.HardwareDetails = removeLLDPInfo(details)
 
 	// Create HardwareData with the same name and namesapce as BareMetalHost
 	hardwareData := &metal3api.HardwareData{}

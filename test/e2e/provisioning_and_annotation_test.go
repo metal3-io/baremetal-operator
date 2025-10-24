@@ -83,7 +83,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 				userDataSecretName := "user-data"
 				sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-				createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+				createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.Networks[0].IPAddress)
 				userDataSecret = &corev1.SecretReference{
 					Name:      userDataSecretName,
 					Namespace: namespace.Name,
@@ -116,7 +116,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 				By("Verifying the node booting from disk")
-				PerformSSHBootCheck(e2eConfig, "disk", bmc.IPAddress)
+				PerformSSHBootCheck(e2eConfig, "disk", bmc.Networks[0].IPAddress)
 			} else {
 				Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 			}

@@ -97,6 +97,19 @@ spec:
                             if one is present.  If both IPv4 and IPv6 addresses are present in a
                             dual-stack environment, two nics will be output, one with each IP.
                           type: string
+                        lldp:
+                          description: LLDP data for this interface
+                          properties:
+                            portID:
+                              description: The switch port ID from LLDP
+                              type: string
+                            switchID:
+                              description: The switch chassis ID from LLDP
+                              type: string
+                            switchSystemName:
+                              description: The switch system name from LLDP
+                              type: string
+                          type: object
                         mac:
                           description: The device MAC address
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'

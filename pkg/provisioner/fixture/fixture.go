@@ -171,6 +171,11 @@ func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ 
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
 						PXE:       true,
+						LLDP: &metal3api.LLDP{
+							SwitchID:         "aa:bb:cc:dd:ee:ff",
+							PortID:           "Ethernet1/1",
+							SwitchSystemName: "switch01.example.com",
+						},
 					},
 					{
 						Name:      "nic-2",
@@ -179,6 +184,11 @@ func (p *fixtureProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ 
 						IP:        "192.168.100.2",
 						SpeedGbps: 1,
 						PXE:       false,
+						LLDP: &metal3api.LLDP{
+							SwitchID:         "ff:ee:dd:cc:bb:aa",
+							PortID:           "Ethernet1/2",
+							SwitchSystemName: "switch02.example.com",
+						},
 					},
 				},
 				Storage: []metal3api.Storage{

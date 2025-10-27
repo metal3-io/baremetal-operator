@@ -18,8 +18,12 @@ permissions:
 jobs:
   osv-scan:
     if: ${{ github.repository == 'metal3-io/baremetal-operator' }}
+    strategy:
+      matrix:
+        branch: [main, release-0.11, release-0.10, release-0.9]
     uses: metal3-io/project-infra/.github/workflows/scheduled-osv-scan.yml@main
     with:
       repository-name: ${{ github.repository }}
+      ref: ${{ matrix.branch }}
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

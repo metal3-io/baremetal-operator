@@ -105,8 +105,8 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		By("checking that the hardware details are corrected after re-inspection")
 		key = types.NamespacedName{Namespace: bmh.Namespace, Name: bmh.Name}
 		Expect(clusterProxy.GetClient().Get(ctx, key, &bmh)).To(Succeed())
-		// TODO(lentzi90): Hostname should not be determined or configured through BMC
-		Expect(bmh.Status.HardwareDetails.Hostname).To(Equal(bmc.Name))
+		// We are just checking that it changed from wrongHostName to something else.
+		Expect(bmh.Status.HardwareDetails.Hostname).To(Not(Equal(wrongHostName)))
 
 		By("Delete BMH")
 		err = clusterProxy.GetClient().Delete(ctx, &bmh)

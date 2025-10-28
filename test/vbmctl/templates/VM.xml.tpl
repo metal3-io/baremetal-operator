@@ -72,11 +72,13 @@
       <target chassis='6' port='0x15'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x5'/>
     </controller>
-    <interface type='network'>
+      {{ range .Networks }}
+      <interface type='network'>
         <mac address='{{ .MacAddress }}'/>
-        <source network='{{ .Network }}'/>
+        <source network='{{ .Name }}'/>
         <model type='virtio' />
-    </interface>
+      </interface>
+      {{ end }}
     <serial type='pty'>
       <log file='/var/log/libvirt/qemu/{{ .Name }}-serial0.log' append='on'/>
       <target type='isa-serial' port='0'>

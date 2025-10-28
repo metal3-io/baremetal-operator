@@ -6,6 +6,10 @@
   ipAddress: "192.168.222.122"
   rootDeviceHints:
     deviceName: "/dev/vda"
+  networks:
+  - name: baremetal-e2e
+    macAddress: "00:60:2f:31:81:01"
+    ipAddress: "192.168.222.122"
 - user: admin
   password: password
   address: "redfish+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-1"
@@ -14,3 +18,7 @@
   ipAddress: "192.168.222.123"
   rootDeviceHints:
     deviceName: "/dev/vda"
+  networks:
+  - name: baremetal-e2e
+    macAddress: "00:60:2f:31:81:02"
+    ipAddress: "192.168.222.123"

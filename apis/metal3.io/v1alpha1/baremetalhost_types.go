@@ -555,6 +555,12 @@ type Image struct {
 	// be live-booted and not deployed to disk.
 	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
 	DiskFormat *string `json:"format,omitempty"`
+
+	// AuthSecretName optionally names a Docker-config secret containing
+	// registry credentials for oci:// images. Must be in the same namespace
+	// as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
+	// Only used when Image.URL has the oci:// scheme.
+	AuthSecretName *string `json:"authSecretName,omitempty"`
 }
 
 func (image *Image) IsLiveISO() bool {
@@ -881,6 +887,14 @@ type BareMetalHostStatus struct {
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
 	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
+
+	// Conditions provide observations of the operational state of a BareMetalHost.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // ProvisionStatus holds the state information for a single target.

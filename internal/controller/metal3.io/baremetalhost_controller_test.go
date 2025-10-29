@@ -274,6 +274,36 @@ func TestHardwareDetails_EmptyStatus(t *testing.T) {
 	)
 }
 
+// TestHardwareDetails_FromHardwareData ensures that hardware details in
+// the status field are populated when the HardwareData object
+// is present and no existing HarwareDetails are present.
+func TestHardwareDetails_FromHardwareData(t *testing.T) {
+	host := newDefaultHost(t)
+	hwdata := &metal3api.HardwareData{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{},
+		},
+	}
+	err := json.Unmarshal([]byte(hwdAnnotation), hwdata.Spec.HardwareDetails)
+	require.NoError(t, err)
+
+	r := newTestReconciler(t, host, hwdata)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[metal3api.HardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
+				return true
+			}
+			return false
+		},
+	)
+}
+
 // TestHardwareDetails_StatusPresent ensures that hardware details in
 // the hardwaredetails annotation is ignored with existing Status.
 func TestHardwareDetails_StatusPresent(t *testing.T) {
@@ -316,6 +346,43 @@ func TestHardwareDetails_StatusPresentInspectDisabled(t *testing.T) {
 	host.Status.HardwareDetails = &hwd
 
 	r := newTestReconciler(t, host)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			_, found := host.Annotations[metal3api.HardwareDetailsAnnotation]
+			if host.Status.HardwareDetails != nil && host.Status.HardwareDetails.Hostname == "hwdAnnotation-0" && !found {
+				return true
+			}
+			return false
+		},
+	)
+}
+
+// TestHardwareDetails_StatusPresentInspectDisabled ensures that
+// hardware details in the HardwareData object are consumed
+// even when existing status exists, when inspection is disabled.
+func TestHardwareDetails_HardwareDataStatusPresentInspectDisabled(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.InspectionMode = metal3api.InspectionModeDisabled
+	time := metav1.Now()
+	host.Status.LastUpdated = &time
+	hwd := metal3api.HardwareDetails{}
+	hwd.Hostname = "existinghost"
+	host.Status.HardwareDetails = &hwd
+
+	hwdata := &metal3api.HardwareData{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{},
+		},
+	}
+	err := json.Unmarshal([]byte(hwdAnnotation), hwdata.Spec.HardwareDetails)
+	require.NoError(t, err)
+
+	r := newTestReconciler(t, host, hwdata)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {

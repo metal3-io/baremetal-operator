@@ -274,17 +274,31 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 func (r *BareMetalHostReconciler) updateHardwareDetails(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (bool, error) {
 	updated := false
 	if host.Status.HardwareDetails == nil || host.InspectionDisabled() {
-		objHardwareDetails, err := r.getHardwareDetailsFromAnnotation(host)
-		if err != nil {
-			return updated, fmt.Errorf("error parsing HardwareDetails from annotation: %w", err)
+		hardwareData := &metal3api.HardwareData{}
+		hardwareDataKey := client.ObjectKey{
+			Name:      host.Name,
+			Namespace: host.Namespace,
 		}
-		if objHardwareDetails != nil {
+		err := r.Client.Get(ctx, hardwareDataKey, hardwareData)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return updated, fmt.Errorf("error loading HardwareData: %w", err)
+		}
+		objHardwareDetails := hardwareData.Spec.HardwareDetails
+
+		if objHardwareDetails == nil {
+			objHardwareDetails, err = r.getHardwareDetailsFromAnnotation(host)
+			if err != nil {
+				return updated, fmt.Errorf("error parsing HardwareDetails from annotation: %w", err)
+			}
+		}
+
+		if objHardwareDetails != nil && !reflect.DeepEqual(host.Status.HardwareDetails, objHardwareDetails) {
 			host.Status.HardwareDetails = objHardwareDetails
 			err = r.saveHostStatus(ctx, host)
 			if err != nil {
-				return updated, fmt.Errorf("could not update hardwaredetails from annotation: %w", err)
+				return updated, fmt.Errorf("could not update hardwaredetails from existing hardware data or annotation: %w", err)
 			}
-			r.publishEvent(ctx, request, host.NewEvent("UpdateHardwareDetails", "Set HardwareDetails from annotation"))
+			r.publishEvent(ctx, request, host.NewEvent("UpdateHardwareDetails", "Set HardwareDetails from hardware data or annotation"))
 			updated = true
 		}
 	}

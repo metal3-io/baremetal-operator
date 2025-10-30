@@ -91,7 +91,7 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 		return
 	}
 
-	client.Microversion = baseline
+	client.Microversion = baselineVersionString
 
 	err = updateHTTPClient(client, tls)
 	return

@@ -19,8 +19,10 @@ type AvailableFeatures struct {
 // conservative when updating this value since doing so unconditionally breaks
 // operators of older Ironic, even if the feature we need is optional.
 // Update docs/configuration.md when updating the version.
-// Version 1.81 allows retrival of Node inventory.
-const baseline = "1.81"
+// Version 1.89 allows attaching and detaching virtual media.
+const baseline = 89
+
+var baselineVersionString = fmt.Sprintf("1.%d", baseline)
 
 func GetAvailableFeatures(ctx context.Context, client *gophercloud.ServiceClient) (features AvailableFeatures, err error) {
 	mvs, err := utils.GetSupportedMicroversions(ctx, client)
@@ -28,8 +30,8 @@ func GetAvailableFeatures(ctx context.Context, client *gophercloud.ServiceClient
 		return
 	}
 
-	if mvs.MaxMajor != 1 || mvs.MaxMinor < 81 {
-		err = fmt.Errorf("ironic API 1.81 or newer is required, got %d.%d", mvs.MaxMajor, mvs.MaxMinor)
+	if mvs.MaxMajor != 1 || mvs.MaxMinor < baseline {
+		err = fmt.Errorf("ironic API 1.%d or newer is required, got %d.%d", baseline, mvs.MaxMajor, mvs.MaxMinor)
 		return
 	}
 
@@ -42,20 +44,8 @@ func (af AvailableFeatures) Log(logger logr.Logger) {
 	logger.Info("supported Ironic API features",
 		"maxVersion", fmt.Sprintf("1.%d", af.MaxVersion),
 		"chosenVersion", af.ChooseMicroversion(),
-		"firmwareUpdates", af.HasFirmwareUpdates(),
-		"dataImage", af.HasDataImage())
-}
-
-func (af AvailableFeatures) HasFirmwareUpdates() bool {
-	return af.MaxVersion >= 86 //nolint:mnd
-}
-
-func (af AvailableFeatures) HasServicing() bool {
-	return af.MaxVersion >= 87 //nolint:mnd
-}
-
-func (af AvailableFeatures) HasDataImage() bool {
-	return af.MaxVersion >= 89 //nolint:mnd
+		"virtualMediaGET", af.HasVirtualMediaGetAPI(),
+		"disablePowerOff", af.HasDisablePowerOff())
 }
 
 func (af AvailableFeatures) HasVirtualMediaGetAPI() bool {
@@ -75,17 +65,5 @@ func (af AvailableFeatures) ChooseMicroversion() string {
 		return "1.93"
 	}
 
-	if af.HasDataImage() {
-		return "1.89"
-	}
-
-	if af.HasServicing() {
-		return "1.87"
-	}
-
-	if af.HasFirmwareUpdates() {
-		return "1.86"
-	}
-
-	return baseline
+	return baselineVersionString
 }

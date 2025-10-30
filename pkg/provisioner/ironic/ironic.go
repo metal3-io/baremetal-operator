@@ -756,10 +756,6 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 		return nil, fmt.Errorf("could not get node to retrieve firmware components: %w", err)
 	}
 
-	if !p.availableFeatures.HasFirmwareUpdates() {
-		return nil, errors.New("current ironic version does not support firmware updates")
-	}
-
 	// We support bmc, bios, and multiple NICs components. Starting with 3 slots.
 	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 3) //nolint:mnd
 
@@ -1833,12 +1829,6 @@ func (p *ironicProvisioner) GetDataImageStatus() (isImageAttached bool, err erro
 }
 
 func (p *ironicProvisioner) AttachDataImage(url string) (err error) {
-	// Check if Ironic API version supports DataImage API
-	// Needs version >= 1.89
-	if !p.availableFeatures.HasDataImage() {
-		return fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
-	}
-
 	err = nodes.AttachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.AttachVirtualMediaOpts{
 		DeviceType: nodes.VirtualMediaCD,
 		ImageURL:   url,
@@ -1851,12 +1841,6 @@ func (p *ironicProvisioner) AttachDataImage(url string) (err error) {
 }
 
 func (p *ironicProvisioner) DetachDataImage() (err error) {
-	// Check if Ironic API version supports DataImage API
-	// Needs version >= 1.89
-	if !p.availableFeatures.HasDataImage() {
-		return fmt.Errorf("ironic version=%d doesn't support DataImage API, needs version>=1.89", p.availableFeatures.MaxVersion)
-	}
-
 	err = nodes.DetachVirtualMedia(p.ctx, p.client, p.nodeID, nodes.DetachVirtualMediaOpts{
 		DeviceTypes: []nodes.VirtualMediaDeviceType{nodes.VirtualMediaCD},
 	}).ExtractErr()

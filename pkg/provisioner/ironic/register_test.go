@@ -108,44 +108,6 @@ func TestRegisterCreateNode(t *testing.T) {
 	assert.Equal(t, "agent", createdNode.InspectInterface)
 }
 
-func TestRegisterCreateNodeOldInspection(t *testing.T) {
-	// Create a host without a bootMACAddress and with a BMC that
-	// does not require one.
-	host := makeHost()
-	host.Spec.BootMACAddress = ""
-	host.Spec.Image = nil
-	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
-
-	var createdNode *nodes.Node
-
-	createCallback := func(node nodes.Node) {
-		createdNode = &node
-	}
-
-	ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
-	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
-	ironic.AddDefaultResponse("/v1/drivers/test", "GET", 200, `
-	    {"enabled_inspect_interfaces": ["inspector", "no-inspect"]}
-	`)
-	ironic.Start()
-	defer ironic.Stop()
-
-	auth := clients.AuthConfig{Type: clients.NoAuth}
-	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
-	if err != nil {
-		t.Fatalf("could not create provisioner: %s", err)
-	}
-
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
-	if err != nil {
-		t.Fatalf("error from Register: %s", err)
-	}
-	assert.Empty(t, result.ErrorMessage)
-	assert.NotEmpty(t, createdNode.UUID)
-	assert.Equal(t, createdNode.UUID, provID)
-	assert.Equal(t, "inspector", createdNode.InspectInterface)
-}
-
 func TestRegisterExistingNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.

@@ -3,31 +3,15 @@ package ironic
 import (
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/gophercloud/gophercloud/v2"
-	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
-
-func (p *ironicProvisioner) getInspectInterface(bmcAccess bmc.AccessDetails) (string, error) {
-	driver, err := drivers.GetDriverDetails(p.ctx, p.client, bmcAccess.Driver()).Extract()
-	if err != nil {
-		return "", fmt.Errorf("cannot load information about driver %s: %w", bmcAccess.Driver(), err)
-	}
-
-	if slices.Contains(driver.EnabledInspectInterfaces, "agent") {
-		return "agent", nil
-	}
-
-	return "inspector", nil // backward compatibility
-}
 
 func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	// Set started to let the controller know about the change

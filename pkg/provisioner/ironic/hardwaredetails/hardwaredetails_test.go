@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/inventory"
-	"github.com/gophercloud/gophercloud/v2/openstack/baremetalintrospection/v1/introspection"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
@@ -129,7 +128,7 @@ func TestGetVLANsMalformed(t *testing.T) {
 	}
 }
 
-func TestGetNICDetailsInspector(t *testing.T) {
+func TestGetNICDetails(t *testing.T) {
 	ironicData := inventory.StandardPluginData{
 		AllInterfaces: map[string]inventory.ProcessedInterfaceType{
 			"eth0": {
@@ -144,21 +143,6 @@ func TestGetNICDetailsInspector(t *testing.T) {
 					},
 				},
 				"switch_port_untagged_vlan_id": 1,
-			},
-		},
-	}
-	inspectorData := introspection.Data{
-		AllInterfaces: map[string]introspection.BaseInterfaceType{
-			"eth0": {
-				PXE: true,
-				LLDPProcessed: map[string]interface{}{
-					"switch_port_vlans": []map[string]interface{}{
-						{
-							"id": 1,
-						},
-					},
-					"switch_port_untagged_vlan_id": 1,
-				},
 			},
 		},
 	}
@@ -182,69 +166,49 @@ func TestGetNICDetailsInspector(t *testing.T) {
 			MACAddress: "00:11:22:33:44:77"},
 	}
 
-	cases := []struct {
-		name          string
-		ironicData    *inventory.StandardPluginData
-		inspectorData *introspection.Data
-	}{
-		{
-			name:          "with-ironic",
-			ironicData:    &ironicData,
-			inspectorData: nil,
-		},
-		{
-			name:          "with-inspector",
-			ironicData:    nil,
-			inspectorData: &inspectorData,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			nics := getNICDetails(interfaces, tc.ironicData, tc.inspectorData)
+	nics := getNICDetails(interfaces, ironicData)
 
-			// 5 expected because eth46 results in two items
-			assert.Len(t, nics, 5)
-			if (!reflect.DeepEqual(nics[0], metal3api.NIC{
-				Name: "eth0",
-				MAC:  "00:11:22:33:44:55",
-				IP:   "192.0.2.1",
-				PXE:  true,
-				VLANs: []metal3api.VLAN{
-					{ID: 1},
-				},
-				VLANID: 1,
-			})) {
-				t.Errorf("Unexpected NIC data")
-			}
-			if (!reflect.DeepEqual(nics[1], metal3api.NIC{
-				Name:      "eth1",
-				MAC:       "66:77:88:99:aa:bb",
-				IP:        "2001:db8::1",
-				SpeedGbps: 1,
-			})) {
-				t.Errorf("Unexpected NIC data")
-			}
-			if (!reflect.DeepEqual(nics[2], metal3api.NIC{
-				Name: "eth46",
-				MAC:  "00:11:22:33:44:66",
-				IP:   "192.0.2.2",
-			})) {
-				t.Errorf("Unexpected NIC data")
-			}
-			if (!reflect.DeepEqual(nics[3], metal3api.NIC{
-				Name: "eth46",
-				MAC:  "00:11:22:33:44:66",
-				IP:   "2001:db8::2",
-			})) {
-				t.Errorf("Unexpected NIC data")
-			}
-			if (!reflect.DeepEqual(nics[4], metal3api.NIC{
-				Name: "ethNoIp",
-				MAC:  "00:11:22:33:44:77",
-			})) {
-				t.Errorf("Unexpected NIC data")
-			}
-		})
+	// 5 expected because eth46 results in two items
+	assert.Len(t, nics, 5)
+	if (!reflect.DeepEqual(nics[0], metal3api.NIC{
+		Name: "eth0",
+		MAC:  "00:11:22:33:44:55",
+		IP:   "192.0.2.1",
+		PXE:  true,
+		VLANs: []metal3api.VLAN{
+			{ID: 1},
+		},
+		VLANID: 1,
+	})) {
+		t.Errorf("Unexpected NIC data")
+	}
+	if (!reflect.DeepEqual(nics[1], metal3api.NIC{
+		Name:      "eth1",
+		MAC:       "66:77:88:99:aa:bb",
+		IP:        "2001:db8::1",
+		SpeedGbps: 1,
+	})) {
+		t.Errorf("Unexpected NIC data")
+	}
+	if (!reflect.DeepEqual(nics[2], metal3api.NIC{
+		Name: "eth46",
+		MAC:  "00:11:22:33:44:66",
+		IP:   "192.0.2.2",
+	})) {
+		t.Errorf("Unexpected NIC data")
+	}
+	if (!reflect.DeepEqual(nics[3], metal3api.NIC{
+		Name: "eth46",
+		MAC:  "00:11:22:33:44:66",
+		IP:   "2001:db8::2",
+	})) {
+		t.Errorf("Unexpected NIC data")
+	}
+	if (!reflect.DeepEqual(nics[4], metal3api.NIC{
+		Name: "ethNoIp",
+		MAC:  "00:11:22:33:44:77",
+	})) {
+		t.Errorf("Unexpected NIC data")
 	}
 }
 

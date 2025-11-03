@@ -106,7 +106,7 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 	m.ResponseWithCode("/v1/drivers/test", `
 	{
 	    "enabled_deploy_interfaces": ["direct", "ramdisk", "custom-agent"],
-	    "enabled_inspect_interfaces": ["agent", "inspector", "no-inspect"]
+	    "enabled_inspect_interfaces": ["agent", "no-inspect"]
 	}
 	`, http.StatusOK)
 	return m

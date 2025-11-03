@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: baremetal-operator-system
 resources:
 - ../base
+- ../namespace
 
 generatorOptions:
   disableNameSuffixHash: true

@@ -244,6 +244,7 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 		BootInterface:       bmcAccess.BootInterface(),
 		Name:                ironicNodeName(p.objectMeta),
 		DriverInfo:          driverInfo,
+		FirmwareInterface:   bmcAccess.FirmwareInterface(),
 		DeployInterface:     p.deployInterface(data),
 		InspectInterface:    defaultInspectInterface,
 		ManagementInterface: bmcAccess.ManagementInterface(),
@@ -255,10 +256,6 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 			"capabilities": buildCapabilitiesValue(nil, data.BootMode),
 			"cpu_arch":     data.CPUArchitecture,
 		},
-	}
-
-	if p.availableFeatures.HasFirmwareUpdates() {
-		nodeCreateOpts.FirmwareInterface = bmcAccess.FirmwareInterface()
 	}
 
 	ironicNode, err = nodes.Create(p.ctx, p.client, nodeCreateOpts).Extract()

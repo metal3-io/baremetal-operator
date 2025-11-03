@@ -16,11 +16,11 @@ func TestAvailableFeatures_ChooseMicroversion(t *testing.T) {
 		want    string
 	}{
 		{
-			name: fmt.Sprintf("MaxVersion < %d return microversion %s", 89, baseline),
+			name: fmt.Sprintf("MaxVersion < %d return microversion %s", 89, baselineVersionString),
 			feature: fields{
 				MaxVersion: 50,
 			},
-			want: baseline,
+			want: baselineVersionString,
 		},
 		{
 			name: fmt.Sprintf("MaxVersion = %d return %s", 89, microVersion),
@@ -44,50 +44,6 @@ func TestAvailableFeatures_ChooseMicroversion(t *testing.T) {
 			}
 			if got := af.ChooseMicroversion(); got != tt.want {
 				t.Errorf("ChooseMicroversion() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestAvailableFeatures_HasFirmwareUpdates(t *testing.T) {
-	maxVersion := 86
-	type fields struct {
-		MaxVersion int
-	}
-	tests := []struct {
-		name    string
-		feature fields
-		want    bool
-	}{
-		{
-			name: fmt.Sprintf("Firmware < %d", maxVersion),
-			feature: fields{
-				MaxVersion: 50,
-			},
-			want: false,
-		},
-		{
-			name: fmt.Sprintf("Firmware = %d", maxVersion),
-			feature: fields{
-				MaxVersion: 86,
-			},
-			want: true,
-		},
-		{
-			name: fmt.Sprintf("Firmware > %d", maxVersion),
-			feature: fields{
-				MaxVersion: 100,
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			af := AvailableFeatures{
-				MaxVersion: tt.feature.MaxVersion,
-			}
-			if got := af.HasFirmwareUpdates(); got != tt.want {
-				t.Errorf("HasFirmwareUpdates() = %v, want %v", got, tt.want)
 			}
 		})
 	}

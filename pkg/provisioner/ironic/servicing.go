@@ -77,11 +77,6 @@ func (p *ironicProvisioner) startServicing(bmcAccess bmc.AccessDetails, ironicNo
 }
 
 func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
-	if !p.availableFeatures.HasServicing() {
-		result, err = operationFailed(fmt.Sprintf("servicing not supported: requires API version 1.87, available is 1.%d", p.availableFeatures.MaxVersion))
-		return result, started, err
-	}
-
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = transientError(err)

@@ -151,6 +151,16 @@ if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
     wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/systemrescue-11.00-amd64.iso
 fi
 
+## Download IPA (Ironic Python Agent) image
+# Ironic IPA downloader is configured to use this local image in the tests.
+# This saves time, especially during ironic upgrade tests and also
+# gives us early failure in case there is some issue downloading it.
+IPA_FILE="ipa-centos9-master.tar.gz"
+IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib/
+if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
+    wget --quiet -P "${IMAGE_DIR}/" "${IPA_BASEURI}/${IPA_FILE}"
+fi
+
 ## Start the image server
 docker start image-server-e2e || docker run --name image-server-e2e -d \
   -p 80:8080 \

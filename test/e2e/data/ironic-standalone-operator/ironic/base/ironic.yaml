@@ -6,7 +6,7 @@ metadata:
 spec:
   images:
     deployRamdiskDownloader: "quay.io/metal3-io/ironic-ipa-downloader:main"
-    ironic: "quay.io/metal3-io/ironic:main"
+    ironic: "quay.io/hroy00/ironic:master-iso"
     keepalived: "quay.io/metal3-io/keepalived"
   version: "latest"
   networking:

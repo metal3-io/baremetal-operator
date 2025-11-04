@@ -11,7 +11,7 @@ generatorOptions:
 configMapGenerator:
 - name: ironic-operator-config
   literals:
-  - IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib
+  - IPA_BASEURI=http://192.168.222.1
 
 patches:
 - target:

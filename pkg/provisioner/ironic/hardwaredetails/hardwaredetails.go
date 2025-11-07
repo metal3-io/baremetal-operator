@@ -53,6 +53,34 @@ func getVLANs(lldp map[string]interface{}) (vlans []metal3api.VLAN, vlanid metal
 	return
 }
 
+func getLLDPData(lldp map[string]interface{}) *metal3api.LLDP {
+	if lldp == nil {
+		return nil
+	}
+
+	lldpData := &metal3api.LLDP{}
+	hasData := false
+
+	if val, ok := lldp["switch_chassis_id"].(string); ok && val != "" {
+		lldpData.SwitchID = val
+		hasData = true
+	}
+	if val, ok := lldp["switch_port_id"].(string); ok && val != "" {
+		lldpData.PortID = val
+		hasData = true
+	}
+	if val, ok := lldp["switch_system_name"].(string); ok && val != "" {
+		lldpData.SwitchSystemName = val
+		hasData = true
+	}
+
+	if !hasData {
+		return nil
+	}
+
+	return lldpData
+}
+
 func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.StandardPluginData) []metal3api.NIC {
 	var nics []metal3api.NIC
 	for _, intf := range ifdata {
@@ -60,6 +88,7 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 		lldp := ironicData.ParsedLLDP[intf.Name]
 
 		vlans, vlanid := getVLANs(lldp)
+		lldpData := getLLDPData(lldp)
 		// We still store one nic even if both ips are unset
 		// if both are set, we store two nics with each ip
 		if intf.IPV4Address != "" || intf.IPV6Address == "" {
@@ -73,6 +102,7 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				VLANID:    vlanid,
 				SpeedGbps: intf.SpeedMbps / 1000, //nolint:mnd
 				PXE:       pxeEnabled,
+				LLDP:      lldpData,
 			})
 		}
 		if intf.IPV6Address != "" {
@@ -86,6 +116,7 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				VLANID:    vlanid,
 				SpeedGbps: intf.SpeedMbps / 1000, //nolint:mnd
 				PXE:       pxeEnabled,
+				LLDP:      lldpData,
 			})
 		}
 	}

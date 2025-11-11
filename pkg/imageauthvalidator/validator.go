@@ -2,7 +2,6 @@ package imageauthvalidator
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -15,35 +14,17 @@ import (
 )
 
 const (
-	// Conditions.
-	ConditionImageAuthValid = "ImageAuthValid"
-	ConditionImageAuthInUse = "ImageAuthInUse"
-
-	// Reasons.
-	ReasonUnknown              = "Unknown"
-	ReasonNotRequired          = "NotRequired"
-	ReasonValid                = "Valid"
-	ReasonSecretNotFound       = "SecretNotFound"
-	ReasonWrongType            = "WrongType"
-	ReasonParseError           = "ParseError"
-	ReasonRegistryEntryMissing = "RegistryEntryMissing"
-	ReasonCredentialsInjected  = "CredentialsInjected"
-	ReasonNoOCIImage           = "NoOCIImage"
-
 	// Events.
 	EventAuthSecretIrrelevant  = "ImageAuthIrrelevant"
 	EventAuthFormatUnsupported = "ImageAuthFormatUnsupported"
 )
 
 type Result struct {
-	Secret      *corev1.Secret
-	Valid       bool
-	Reason      string
-	Message     string
-	OCIRelevant bool
+	Secret *corev1.Secret
+	Valid  bool
 	// Credentials contains the base64-encoded credentials in the format
 	// expected by Ironic (base64-encoded "username:password").
-	// This is only populated if Valid is true and OCIRelevant is true.
+	// This is only populated if Valid is true for OCI images.
 	Credentials string
 }
 
@@ -61,26 +42,23 @@ func New(c client.Client, recorder record.EventRecorder) Validator {
 }
 
 func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) (*Result, error) {
-	res := &Result{Valid: false, Reason: ReasonUnknown}
+	res := &Result{Valid: false}
 
 	img := bmh.Spec.Image
 	if img == nil || img.URL == "" {
-		res.Message = "image URL not set"
 		return res, nil
 	}
 
-	res.OCIRelevant = isOCI(img.URL)
+	ociRelevant := isOCI(img.URL)
 
-	// No per-host secret referenced → not required
+	// No per-host secret referenced → not required, valid for public images
 	if img.AuthSecretName == nil || *img.AuthSecretName == "" {
-		res.Reason = ReasonNotRequired
-		res.Message = "no per-host auth secret referenced"
 		return res, nil
 	}
 	secretName := *img.AuthSecretName
 
 	// Warn if secret is set for non-OCI image (future-proof, do not fail)
-	if !res.OCIRelevant && v.recorder != nil {
+	if !ociRelevant && v.recorder != nil {
 		v.recorder.Eventf(bmh, corev1.EventTypeWarning, EventAuthSecretIrrelevant,
 			"authSecretName=%q is set but image URL is not oci:// (%s)", secretName, img.URL)
 	}
@@ -89,17 +67,12 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) 
 	key := types.NamespacedName{Namespace: bmh.Namespace, Name: secretName}
 	if err := v.c.Get(ctx, key, &sec); err != nil {
 		if k8serrors.IsNotFound(err) {
-			res.Reason = ReasonSecretNotFound
-			res.Message = fmt.Sprintf("secret %q not found in namespace %q", secretName, bmh.Namespace)
 			return res, nil
 		}
 		return res, err
 	}
 
 	if !isAllowedDockerConfigType(sec.Type) {
-		res.Reason = ReasonWrongType
-		res.Message = fmt.Sprintf("secret %q has unsupported type %q; expected %q or %q",
-			secretName, sec.Type, corev1.SecretTypeDockerConfigJson, corev1.SecretTypeDockercfg)
 		if v.recorder != nil {
 			v.recorder.Eventf(bmh, corev1.EventTypeWarning, EventAuthFormatUnsupported,
 				"Secret %q has unsupported type %q", secretName, sec.Type)
@@ -108,19 +81,12 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) 
 	}
 
 	// For OCI images, extract the credentials from the Docker config
-	if res.OCIRelevant {
+	if ociRelevant {
 		credentials, err := secretutils.ExtractRegistryCredentials(&sec, img.URL)
 		if err != nil {
-			res.Reason = ReasonParseError
-			res.Message = fmt.Sprintf("failed to extract credentials from secret %q: %v", secretName, err)
 			if v.recorder != nil {
-				v.recorder.Eventf(bmh, corev1.EventTypeWarning, ReasonParseError,
+				v.recorder.Eventf(bmh, corev1.EventTypeWarning, "ImageAuthParseError",
 					"Failed to extract credentials from secret %q: %v", secretName, err)
-			}
-			// Check if the error is about registry not found
-			if strings.Contains(err.Error(), "not found in auth config") {
-				res.Reason = ReasonRegistryEntryMissing
-				res.Message = fmt.Sprintf("secret %q does not contain credentials for registry in %q", secretName, img.URL)
 			}
 			return res, nil
 		}
@@ -129,8 +95,6 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) 
 
 	res.Secret = &sec
 	res.Valid = true
-	res.Reason = ReasonValid
-	res.Message = "auth secret present and of a supported type"
 	return res, nil
 }
 

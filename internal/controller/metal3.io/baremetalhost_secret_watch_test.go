@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -208,7 +207,7 @@ func TestFindBMHsForAuthSecret(t *testing.T) {
 			}
 
 			// Call the function
-			requests := r.findBMHsForAuthSecret(context.Background(), secret)
+			requests := r.findBMHsForAuthSecret(t.Context(), secret)
 
 			// Verify the results
 			if len(requests) != len(tt.expectedHosts) {
@@ -345,7 +344,7 @@ func TestSecretIndexField(t *testing.T) {
 // TestSecretRotation_EndToEnd is an integration test that verifies the complete flow:
 // 1. BMH is created with an auth secret
 // 2. Secret is updated (key rotation)
-// 3. BMH is automatically reconciled
+// 3. BMH is automatically reconciled.
 func TestSecretRotation_EndToEnd(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = metal3api.AddToScheme(scheme)
@@ -410,7 +409,7 @@ func TestSecretRotation_EndToEnd(t *testing.T) {
 
 	// Verify initial setup
 	var fetchedHost metal3api.BareMetalHost
-	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-host", Namespace: "default"}, &fetchedHost)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "test-host", Namespace: "default"}, &fetchedHost)
 	if err != nil {
 		t.Fatalf("failed to get host: %v", err)
 	}
@@ -423,7 +422,7 @@ func TestSecretRotation_EndToEnd(t *testing.T) {
 	updatedSecret.ResourceVersion = "2" // Simulate version change
 
 	// Find BMHs that should be reconciled
-	requests := r.findBMHsForAuthSecret(context.Background(), updatedSecret)
+	requests := r.findBMHsForAuthSecret(t.Context(), updatedSecret)
 
 	// Verify that our BMH is in the reconcile queue
 	if len(requests) != 1 {
@@ -439,5 +438,11 @@ func TestSecretRotation_EndToEnd(t *testing.T) {
 
 // Helper function to create a test logger.
 func testLogger(t *testing.T) logr.Logger {
+	t.Helper()
 	return logr.Discard()
+}
+
+// Helper function to create a pointer to a string.
+func strPtr(s string) *string {
+	return &s
 }

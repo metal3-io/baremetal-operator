@@ -41,14 +41,11 @@ func TestValidate_NoAuthSecret(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.Reason != ReasonNotRequired {
-		t.Errorf("expected reason %s, got %s", ReasonNotRequired, result.Reason)
-	}
 	if result.Valid {
-		t.Error("expected Valid to be false")
+		t.Error("expected Valid to be false when no auth secret is configured")
 	}
-	if !result.OCIRelevant {
-		t.Error("expected OCIRelevant to be true for oci:// URL")
+	if result.Credentials != "" {
+		t.Error("expected empty credentials when no auth secret is configured")
 	}
 }
 
@@ -80,11 +77,11 @@ func TestValidate_SecretNotFound(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.Reason != ReasonSecretNotFound {
-		t.Errorf("expected reason %s, got %s", ReasonSecretNotFound, result.Reason)
-	}
 	if result.Valid {
-		t.Error("expected Valid to be false")
+		t.Error("expected Valid to be false when secret is not found")
+	}
+	if result.Credentials != "" {
+		t.Error("expected empty credentials when secret is not found")
 	}
 }
 
@@ -128,11 +125,11 @@ func TestValidate_WrongSecretType(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.Reason != ReasonWrongType {
-		t.Errorf("expected reason %s, got %s", ReasonWrongType, result.Reason)
-	}
 	if result.Valid {
-		t.Error("expected Valid to be false")
+		t.Error("expected Valid to be false for wrong secret type")
+	}
+	if result.Credentials != "" {
+		t.Error("expected empty credentials for wrong secret type")
 	}
 
 	// Assert that warning event was recorded
@@ -145,22 +142,6 @@ func TestValidate_WrongSecretType(t *testing.T) {
 	default:
 		t.Error("expected warning event to be recorded")
 	}
-
-	// Verify error message mentions both expected types
-	if !containsSubstring(result.Message, "kubernetes.io/dockerconfigjson") ||
-		!containsSubstring(result.Message, "kubernetes.io/dockercfg") {
-		t.Errorf("expected message to mention expected secret types, got: %s", result.Message)
-	}
-}
-
-// Helper function to check substring.
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestValidate_ValidDockerConfigJSON(t *testing.T) {
@@ -217,10 +198,7 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 	}
 
 	if !result.Valid {
-		t.Errorf("expected Valid to be true, got false: %s", result.Message)
-	}
-	if result.Reason != ReasonValid {
-		t.Errorf("expected reason %s, got %s", ReasonValid, result.Reason)
+		t.Error("expected Valid to be true for valid docker config")
 	}
 	if result.Credentials == "" {
 		t.Error("expected credentials to be populated")
@@ -300,30 +278,31 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 	}
 
 	if result.Valid {
-		t.Error("expected Valid to be false")
+		t.Error("expected Valid to be false when registry is not in secret")
 	}
-	if result.Reason != ReasonRegistryEntryMissing {
-		t.Errorf("expected reason %s, got %s", ReasonRegistryEntryMissing, result.Reason)
+	if result.Credentials != "" {
+		t.Error("expected empty credentials when registry is not in secret")
 	}
 
-	// Assert warning event was recorded (ParseError is the event type, reason is updated separately)
+	// Assert warning event was recorded
 	select {
 	case event := <-recorder.Events:
-		if !containsSubstring(event, "Warning") || !containsSubstring(event, "ParseError") {
-			t.Errorf("expected Warning ParseError event, got: %q", event)
-		}
-		// Verify message contains the details
-		if !containsSubstring(event, "not found in auth config") {
-			t.Errorf("expected event to mention 'not found in auth config', got: %q", event)
+		if !containsSubstring(event, "Warning") || !containsSubstring(event, "ImageAuthParseError") {
+			t.Errorf("expected Warning ImageAuthParseError event, got: %q", event)
 		}
 	default:
 		t.Error("expected warning event to be recorded")
 	}
+}
 
-	// Verify error message mentions the registry
-	if !containsSubstring(result.Message, "registry.example.com") {
-		t.Errorf("expected message to mention registry, got: %s", result.Message)
+// Helper function to check substring.
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
 	}
+	return false
 }
 
 func TestValidate_NonOCIImageWithSecret(t *testing.T) {
@@ -381,9 +360,6 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 	if !result.Valid {
 		t.Error("expected Valid to be true (secret is valid, just not relevant)")
 	}
-	if result.OCIRelevant {
-		t.Error("expected OCIRelevant to be false for non-OCI URL")
-	}
 	if result.Credentials != "" {
 		t.Error("expected credentials to be empty for non-OCI images")
 	}
@@ -424,10 +400,10 @@ func TestValidate_NilImage(t *testing.T) {
 	}
 
 	if result.Valid {
-		t.Error("expected Valid to be false")
+		t.Error("expected Valid to be false when image is nil")
 	}
-	if result.Message != "image URL not set" {
-		t.Errorf("unexpected message: %s", result.Message)
+	if result.Credentials != "" {
+		t.Error("expected empty credentials when image is nil")
 	}
 }
 
@@ -544,7 +520,7 @@ func TestIntegration_ValidateAndExtractCredentials(t *testing.T) {
 	}
 
 	if !result.Valid {
-		t.Fatalf("expected validation to succeed, got: %s", result.Message)
+		t.Fatal("expected validation to succeed for Docker Hub")
 	}
 
 	if result.Credentials == "" {

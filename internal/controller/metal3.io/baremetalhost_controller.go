@@ -2385,7 +2385,10 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 		&metal3api.BareMetalHost{},
 		hostImageAuthSecretIndexField,
 		func(obj client.Object) []string {
-			host := obj.(*metal3api.BareMetalHost)
+			host, ok := obj.(*metal3api.BareMetalHost)
+			if !ok {
+				return nil
+			}
 			if host.Spec.Image != nil && host.Spec.Image.AuthSecretName != nil && *host.Spec.Image.AuthSecretName != "" {
 				return []string{*host.Spec.Image.AuthSecretName}
 			}

@@ -1,11 +1,10 @@
-package imageauthvalidator
+package secretutils
 
 import (
 	"context"
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,7 +36,7 @@ type validator struct {
 	recorder record.EventRecorder
 }
 
-func New(c client.Client, recorder record.EventRecorder) Validator {
+func NewValidator(c client.Client, recorder record.EventRecorder) Validator {
 	return &validator{c: c, recorder: recorder}
 }
 
@@ -82,7 +81,7 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) 
 
 	// For OCI images, extract the credentials from the Docker config
 	if ociRelevant {
-		credentials, err := secretutils.ExtractRegistryCredentials(&sec, img.URL)
+		credentials, err := ExtractRegistryCredentials(&sec, img.URL)
 		if err != nil {
 			if v.recorder != nil {
 				v.recorder.Eventf(bmh, corev1.EventTypeWarning, "ImageAuthParseError",

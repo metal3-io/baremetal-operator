@@ -1,4 +1,4 @@
-package imageauthvalidator
+package secretutils
 
 import (
 	"encoding/base64"
@@ -21,7 +21,7 @@ func TestValidate_NoAuthSecret(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -56,7 +56,7 @@ func TestValidate_SecretNotFound(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	secretName := "my-secret"
 	bmh := &metal3api.BareMetalHost{
@@ -105,7 +105,7 @@ func TestValidate_WrongSecretType(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -177,7 +177,7 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -257,7 +257,7 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -337,7 +337,7 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -382,7 +382,7 @@ func TestValidate_NilImage(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -512,7 +512,7 @@ func TestIntegration_ValidateAndExtractCredentials(t *testing.T) {
 	)
 
 	recorder := record.NewFakeRecorder(10)
-	validator := New(c, recorder)
+	validator := NewValidator(c, recorder)
 
 	result, err := validator.Validate(t.Context(), bmh)
 	if err != nil {

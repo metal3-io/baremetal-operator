@@ -9,7 +9,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -28,19 +27,18 @@ type Result struct {
 }
 
 type Validator interface {
-	Validate(ctx context.Context, bmh *metal3api.BareMetalHost) (*Result, error)
+	Validate(ctx context.Context, bmh *metal3api.BareMetalHost, secretMgr SecretManager) (*Result, error)
 }
 
 type validator struct {
-	c        client.Client
 	recorder record.EventRecorder
 }
 
-func NewValidator(c client.Client, recorder record.EventRecorder) Validator {
-	return &validator{c: c, recorder: recorder}
+func NewValidator(recorder record.EventRecorder) Validator {
+	return &validator{recorder: recorder}
 }
 
-func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) (*Result, error) {
+func (v *validator) Validate(_ context.Context, bmh *metal3api.BareMetalHost, secretMgr SecretManager) (*Result, error) {
 	res := &Result{Valid: false}
 
 	img := bmh.Spec.Image
@@ -62,9 +60,10 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) 
 			"authSecretName=%q is set but image URL is not oci:// (%s)", secretName, img.URL)
 	}
 
-	var sec corev1.Secret
+	// Use SecretManager to obtain and label the secret (following BMC credentials pattern)
 	key := types.NamespacedName{Namespace: bmh.Namespace, Name: secretName}
-	if err := v.c.Get(ctx, key, &sec); err != nil {
+	sec, err := secretMgr.ObtainSecret(key)
+	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return res, nil
 		}
@@ -81,7 +80,7 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) 
 
 	// For OCI images, extract the credentials from the Docker config
 	if ociRelevant {
-		credentials, err := ExtractRegistryCredentials(&sec, img.URL)
+		credentials, err := ExtractRegistryCredentials(sec, img.URL)
 		if err != nil {
 			if v.recorder != nil {
 				v.recorder.Eventf(bmh, corev1.EventTypeWarning, "ImageAuthParseError",
@@ -92,7 +91,7 @@ func (v *validator) Validate(ctx context.Context, bmh *metal3api.BareMetalHost) 
 		res.Credentials = credentials
 	}
 
-	res.Secret = &sec
+	res.Secret = sec
 	res.Valid = true
 	return res, nil
 }

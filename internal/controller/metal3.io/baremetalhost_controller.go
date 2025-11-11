@@ -2250,7 +2250,7 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, r
 // getImageAuthSecret validates and extracts the OCI registry credentials for the image.
 // It returns the base64-encoded credentials in the format expected by Ironic, or an empty
 // string if no auth secret is configured.
-func (r *BareMetalHostReconciler) getImageAuthSecret(ctx context.Context, _ ctrl.Request, host *metal3api.BareMetalHost, image *metal3api.Image) (string, error) {
+func (r *BareMetalHostReconciler) getImageAuthSecret(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost, image *metal3api.Image) (string, error) {
 	// Only process OCI images
 	if image == nil || !strings.HasPrefix(image.URL, "oci://") {
 		return "", nil
@@ -2261,9 +2261,13 @@ func (r *BareMetalHostReconciler) getImageAuthSecret(ctx context.Context, _ ctrl
 		return "", nil
 	}
 
+	// Use SecretManager following the BMC credentials pattern
+	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
+	secretManager := r.secretManager(ctx, reqLogger)
+
 	// Validate and extract credentials
-	validator := secretutils.NewValidator(r.Client, r.Recorder)
-	result, err := validator.Validate(ctx, host)
+	validator := secretutils.NewValidator(r.Recorder)
+	result, err := validator.Validate(ctx, host, secretManager)
 	if err != nil {
 		return "", fmt.Errorf("failed to validate auth secret: %w", err)
 	}

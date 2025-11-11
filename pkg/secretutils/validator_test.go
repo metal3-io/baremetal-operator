@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +22,8 @@ func TestValidate_NoAuthSecret(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -36,7 +38,7 @@ func TestValidate_NoAuthSecret(t *testing.T) {
 		},
 	}
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,7 +58,8 @@ func TestValidate_SecretNotFound(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
 	secretName := "my-secret"
 	bmh := &metal3api.BareMetalHost{
@@ -72,7 +75,7 @@ func TestValidate_SecretNotFound(t *testing.T) {
 		},
 	}
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +108,8 @@ func TestValidate_WrongSecretType(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +124,7 @@ func TestValidate_WrongSecretType(t *testing.T) {
 		},
 	}
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -177,7 +181,8 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -192,7 +197,7 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 		},
 	}
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -257,7 +262,8 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -272,7 +278,7 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 		},
 	}
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -337,7 +343,8 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -352,7 +359,7 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 		},
 	}
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -382,7 +389,8 @@ func TestValidate_NilImage(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
 	bmh := &metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
@@ -394,7 +402,7 @@ func TestValidate_NilImage(t *testing.T) {
 		},
 	}
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -512,9 +520,10 @@ func TestIntegration_ValidateAndExtractCredentials(t *testing.T) {
 	)
 
 	recorder := record.NewFakeRecorder(10)
-	validator := NewValidator(c, recorder)
+	secretManager := NewSecretManager(t.Context(), testLogger(t), c, c)
+	validator := NewValidator(recorder)
 
-	result, err := validator.Validate(t.Context(), bmh)
+	result, err := validator.Validate(t.Context(), bmh, secretManager)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -536,4 +545,10 @@ func TestIntegration_ValidateAndExtractCredentials(t *testing.T) {
 	if string(decoded) != "myuser:mypassword" {
 		t.Errorf("expected decoded credentials to be 'myuser:mypassword', got '%s'", string(decoded))
 	}
+}
+
+// Helper function to create a test logger.
+func testLogger(t *testing.T) logr.Logger {
+	t.Helper()
+	return logr.Discard()
 }

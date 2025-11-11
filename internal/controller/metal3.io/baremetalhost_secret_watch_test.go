@@ -182,13 +182,17 @@ func TestFindBMHsForAuthSecret(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(objs...).
-				WithIndex(&metal3api.BareMetalHost{}, hostImageAuthSecretIndexField, func(obj client.Object) []string {
-					host := obj.(*metal3api.BareMetalHost)
-					if host.Spec.Image != nil && host.Spec.Image.AuthSecretName != nil && *host.Spec.Image.AuthSecretName != "" {
-						return []string{*host.Spec.Image.AuthSecretName}
-					}
-					return nil
-				}).
+				WithIndex(&metal3api.BareMetalHost{}, hostImageAuthSecretIndexField,
+					func(obj client.Object) []string {
+						host, ok := obj.(*metal3api.BareMetalHost)
+						if !ok {
+							return nil
+						}
+						if host.Spec.Image != nil && host.Spec.Image.AuthSecretName != nil && *host.Spec.Image.AuthSecretName != "" {
+							return []string{*host.Spec.Image.AuthSecretName}
+						}
+						return nil
+					}).
 				Build()
 
 			// Create reconciler
@@ -318,7 +322,10 @@ func TestSecretIndexField(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the indexer function
 			indexFunc := func(obj client.Object) []string {
-				host := obj.(*metal3api.BareMetalHost)
+				host, ok := obj.(*metal3api.BareMetalHost)
+				if !ok {
+					return nil
+				}
 				if host.Spec.Image != nil && host.Spec.Image.AuthSecretName != nil && *host.Spec.Image.AuthSecretName != "" {
 					return []string{*host.Spec.Image.AuthSecretName}
 				}
@@ -393,7 +400,10 @@ func TestSecretRotation_EndToEnd(t *testing.T) {
 		WithScheme(scheme).
 		WithObjects(secret, host).
 		WithIndex(&metal3api.BareMetalHost{}, hostImageAuthSecretIndexField, func(obj client.Object) []string {
-			h := obj.(*metal3api.BareMetalHost)
+			h, ok := obj.(*metal3api.BareMetalHost)
+			if !ok {
+				return nil
+			}
 			if h.Spec.Image != nil && h.Spec.Image.AuthSecretName != nil && *h.Spec.Image.AuthSecretName != "" {
 				return []string{*h.Spec.Image.AuthSecretName}
 			}

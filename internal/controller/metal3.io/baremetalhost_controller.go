@@ -29,7 +29,6 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/imageauthvalidator"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -2276,14 +2275,14 @@ func (r *BareMetalHostReconciler) getImageAuthSecret(ctx context.Context, _ ctrl
 		return "", nil
 	}
 
-	// Use the validator to validate and extract credentials
-	validator := imageauthvalidator.New(r.Client, r.Recorder)
+	// Validate and extract credentials
+	validator := secretutils.NewValidator(r.Client, r.Recorder)
 	result, err := validator.Validate(ctx, host)
 	if err != nil {
 		return "", fmt.Errorf("failed to validate auth secret: %w", err)
 	}
 
-	// If validation failed, return empty (validator already emitted events)
+	// If validation failed, return empty (secretutils already emitted events)
 	if !result.Valid {
 		return "", nil
 	}

@@ -34,13 +34,13 @@ func ExtractRegistryCredentials(secret *corev1.Secret, imageURL string) (string,
 
 	// Try parsing as dockerconfigjson format first (newer format)
 	if data, ok = secret.Data[corev1.DockerConfigJsonKey]; ok {
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return "", fmt.Errorf("failed to parse dockerconfigjson: %w", err)
+		if parseErr := json.Unmarshal(data, &cfg); parseErr != nil {
+			return "", fmt.Errorf("failed to parse dockerconfigjson: %w", parseErr)
 		}
 	} else if data, ok = secret.Data[corev1.DockerConfigKey]; ok {
 		// Try parsing as dockercfg format (legacy format) - it's just the AuthConfigs map
-		if err := json.Unmarshal(data, &cfg.AuthConfigs); err != nil {
-			return "", fmt.Errorf("failed to parse dockercfg: %w", err)
+		if parseErr := json.Unmarshal(data, &cfg.AuthConfigs); parseErr != nil {
+			return "", fmt.Errorf("failed to parse dockercfg: %w", parseErr)
 		}
 	} else {
 		return "", fmt.Errorf("secret does not contain %s or %s key", corev1.DockerConfigJsonKey, corev1.DockerConfigKey)

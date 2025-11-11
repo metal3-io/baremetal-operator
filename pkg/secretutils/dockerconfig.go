@@ -75,7 +75,8 @@ func extractRegistryHost(imageURL string) (string, error) {
 	urlWithoutScheme := strings.TrimPrefix(imageURL, "oci://")
 
 	// Extract the registry host (everything before the first /)
-	parts := strings.SplitN(urlWithoutScheme, "/", 2)
+	const maxParts = 2
+	parts := strings.SplitN(urlWithoutScheme, "/", maxParts)
 	if len(parts) == 0 || parts[0] == "" {
 		return "", fmt.Errorf("failed to extract hostname from image URL: %s", imageURL)
 	}

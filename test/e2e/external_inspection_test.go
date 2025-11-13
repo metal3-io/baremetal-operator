@@ -175,7 +175,6 @@ const hardwareDetails = `
 var _ = Describe("External Inspection", Label("required", "external-inspection"), func() {
 	var (
 		specName      = "external-inspection"
-		secretName    = "bmc-credentials"
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
 	)
@@ -195,12 +194,12 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials-annotation", bmcCredentialsData)
 
 		By("creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-inspect",
+				Name:      specName + "-annotation",
 				Namespace: namespace.Name,
 				Annotations: map[string]string{
 					metal3api.InspectAnnotationPrefix:   "disabled",
@@ -210,7 +209,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
 					Address:                        bmc.Address,
-					CredentialsName:                "bmc-credentials",
+					CredentialsName:                "bmc-credentials-annotation",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:       metal3api.Legacy,
@@ -255,12 +254,12 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials-hardware-data", bmcCredentialsData)
 
 		By("pre-creating a hardware data")
 		hwdata := metal3api.HardwareData{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-inspect",
+				Name:      specName + "-hardware-data",
 				Namespace: namespace.Name,
 			},
 			Spec: metal3api.HardwareDataSpec{
@@ -275,13 +274,13 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 		By("creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      specName + "-inspect",
+				Name:      specName + "-hardware-data",
 				Namespace: namespace.Name,
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
 					Address:                        bmc.Address,
-					CredentialsName:                "bmc-credentials",
+					CredentialsName:                "bmc-credentials-hardware-data",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:       metal3api.Legacy,

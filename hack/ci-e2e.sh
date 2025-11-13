@@ -54,7 +54,7 @@ export PATH="/usr/local/go/bin:${PATH}"
 "${REPO_ROOT}/hack/e2e/ensure_yq.sh"
 
 # Build the container image with e2e tag (used in tests)
-IMG=quay.io/metal3-io/baremetal-operator:e2e make docker
+IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
 
 virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
 virsh -c qemu:///system net-start baremetal-e2e

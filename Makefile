@@ -81,9 +81,10 @@ help:  ## Display this help
 	@echo "  DEBUG            -- debug flag, if any ($(DEBUG))"
 
 # Image URL to use all building/pushing image targets
+REGISTRY ?= quay.io/metal3-io
 IMG_NAME ?= baremetal-operator
 IMG_TAG ?= latest
-IMG ?= $(IMG_NAME):$(IMG_TAG)
+IMG ?= $(REGISTRY)/$(IMG_NAME)
 
 ## --------------------------------------
 ## Test Targets
@@ -219,10 +220,15 @@ manifests-generate: $(CONTROLLER_GEN)
 manifests-kustomize: $(KUSTOMIZE)
 	$< build config/default > config/render/capm3.yaml
 
+.PHONY: set-manifest-pull-policy
+set-manifest-pull-policy:
+	$(info Updating kustomize pull policy file for manager resource)
+	sed -i'' -e 's@imagePullPolicy: .*@imagePullPolicy: '"$(PULL_POLICY)"'@' ./config/base/manager.yaml
+
 .PHONY: set-manifest-image-bmo
 set-manifest-image-bmo: $(KUSTOMIZE) manifests
 	$(info Updating container image for BMO to use ${MANIFEST_IMG}:${MANIFEST_TAG})
-	cd config/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/baremetal-operator=${MANIFEST_IMG}:${MANIFEST_TAG}
+	sed -i'' -e 's@image: .*@image: \"'"${MANIFEST_IMG}:$(MANIFEST_TAG)"'\"@' ./config/base/manager.yaml
 
 .PHONY: set-manifest-image-ironic
 set-manifest-image-ironic: $(KUSTOMIZE) manifests
@@ -255,12 +261,21 @@ generate: $(CONTROLLER_GEN) ## Generate code
 
 .PHONY: docker
 docker: generate manifests ## Build the docker image
-	docker build . -t ${IMG} --build-arg http_proxy=$(http_proxy) --build-arg https_proxy=$(https_proxy)
+	docker build . -t ${IMG}:${IMG_TAG} \
+	--build-arg http_proxy=$(http_proxy) \
+	--build-arg https_proxy=$(https_proxy)
+
+.PHONY: docker-debug
+docker-debug: generate manifests ## Build the docker image with debug info
+	docker build . -t ${IMG}:${IMG_TAG} \
+	--build-arg http_proxy=$(http_proxy) \
+	--build-arg https_proxy=$(https_proxy) \
+	--build-arg LDFLAGS="-extldflags=-static"
 
 # Push the docker image
 .PHONY: docker-push
 docker-push:
-	docker push ${IMG}
+	docker push ${IMG}:${IMG_TAG}
 
 ## --------------------------------------
 ## CI Targets
@@ -351,6 +366,20 @@ $(RELEASE_NOTES_DIR):
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
 	cd hack/tools && $(GO) run release/notes.go  --releaseTag=$(RELEASE_TAG) > $(realpath $(RELEASE_NOTES_DIR))/$(RELEASE_TAG).md
+
+.PHONY: release-manifests
+release-manifests: $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release
+	$(KUSTOMIZE) build config > $(RELEASE_DIR)/baremetal-operator.yaml
+
+.PHONY: release
+release:
+	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
+	@if ! [ -z "$$(git status --porcelain)" ]; then echo "You have uncommitted changes"; exit 1; fi
+	git checkout "${RELEASE_TAG}"
+	MANIFEST_IMG=$(IMG) MANIFEST_TAG=$(RELEASE_TAG) $(MAKE) set-manifest-image-bmo
+	PULL_POLICY=IfNotPresent $(MAKE) set-manifest-pull-policy
+	$(MAKE) release-manifests
+	$(MAKE) release-notes
 
 go-version: ## Print the go version we use to compile our binaries and images
 	@echo $(GO_VERSION)

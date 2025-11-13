@@ -476,9 +476,6 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			ctx := t.Context()
 
-			tc.ExpectedSettings.TypeMeta = metav1.TypeMeta{
-				Kind:       "HostFirmwareSettings",
-				APIVersion: "metal3.io/v1alpha1"}
 			tc.ExpectedSettings.ObjectMeta = metav1.ObjectMeta{
 				Name:            hostName,
 				Namespace:       hostNamespace,

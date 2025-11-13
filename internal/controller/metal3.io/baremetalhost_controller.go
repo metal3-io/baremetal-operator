@@ -39,16 +39,22 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
+	hostImageAuthSecretIndexField = ".spec.image.authSecretName"
+
 	hostErrorRetryDelay           = time.Second * 10
 	unmanagedRetryDelay           = time.Minute * 10
 	preprovImageRetryDelay        = time.Minute * 5
@@ -65,6 +71,7 @@ type BareMetalHostReconciler struct {
 	Log                logr.Logger
 	ProvisionerFactory provisioner.Factory
 	APIReader          client.Reader
+	Recorder           record.EventRecorder
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -1310,6 +1317,13 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		image = *info.host.Spec.Image.DeepCopy()
 	}
 
+	// Extract OCI auth secret credentials if needed
+	authSecret, err := r.getImageAuthSecret(info.ctx, info.request, info.host, &image)
+	if err != nil {
+		return recordActionFailure(info, metal3api.ProvisioningError,
+			"failed to get image auth secret: "+err.Error())
+	}
+
 	provResult, err := prov.Provision(provisioner.ProvisionData{
 		Image:           image,
 		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
@@ -1317,6 +1331,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		ImagePullSecret: authSecret,
 	}, forceReboot)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
@@ -2246,6 +2261,40 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, r
 	return bmcCredsSecret, nil
 }
 
+// getImageAuthSecret validates and extracts the OCI registry credentials for the image.
+// It returns the base64-encoded credentials in the format expected by Ironic, or an empty
+// string if no auth secret is configured.
+func (r *BareMetalHostReconciler) getImageAuthSecret(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost, image *metal3api.Image) (string, error) {
+	// Only process OCI images
+	if image == nil || !strings.HasPrefix(image.URL, "oci://") {
+		return "", nil
+	}
+
+	// Check for per-host auth secret
+	if image.AuthSecretName == nil || *image.AuthSecretName == "" {
+		return "", nil
+	}
+
+	// Use SecretManager following the BMC credentials pattern
+	reqLogger := r.Log.WithValues("baremetalhost", request.NamespacedName)
+	secretManager := r.secretManager(ctx, reqLogger)
+
+	// Validate and extract credentials
+	validator := secretutils.NewValidator(r.Recorder)
+	result, err := validator.Validate(ctx, host, secretManager)
+	if err != nil {
+		return "", fmt.Errorf("failed to validate auth secret: %w", err)
+	}
+
+	// If validation failed, return empty (secretutils already emitted events)
+	if !result.Valid {
+		return "", nil
+	}
+
+	// Return the extracted credentials
+	return result.Credentials, nil
+}
+
 func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
 	// We trim surrounding whitespace because those characters are
 	// unlikely to be part of the username or password and it is
@@ -2331,6 +2380,27 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 
 // SetupWithManager registers the reconciler to be run by the manager.
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgEnable bool, maxConcurrentReconcile int) error {
+	r.Recorder = mgr.GetEventRecorderFor("baremetalhost-controller")
+
+	// Add index for image auth secret name to enable efficient secret-to-BMH lookups
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&metal3api.BareMetalHost{},
+		hostImageAuthSecretIndexField,
+		func(obj client.Object) []string {
+			host, ok := obj.(*metal3api.BareMetalHost)
+			if !ok {
+				return nil
+			}
+			if host.Spec.Image != nil && host.Spec.Image.AuthSecretName != nil && *host.Spec.Image.AuthSecretName != "" {
+				return []string{*host.Spec.Image.AuthSecretName}
+			}
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf("failed to create image auth secret index: %w", err)
+	}
+
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.BareMetalHost{}).
 		WithEventFilter(
@@ -2338,7 +2408,13 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 				UpdateFunc: r.updateEventHandler,
 			}).
 		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
-		Owns(&corev1.Secret{}, builder.MatchEveryOwner)
+		Owns(&corev1.Secret{}, builder.MatchEveryOwner).
+		// Watch Secrets to trigger reconciliation when auth secrets are updated (key rotation)
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findBMHsForAuthSecret),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
 
 	if preprovImgEnable {
 		// We use SetControllerReference() to set the owner reference, so no
@@ -2347,6 +2423,38 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 	}
 
 	return controller.Complete(r)
+}
+
+// findBMHsForAuthSecret returns a list of reconcile requests for BareMetalHosts
+// that reference the given Secret as their image auth secret.
+// This enables auto-reconciliation when auth secrets are updated (key rotation).
+func (r *BareMetalHostReconciler) findBMHsForAuthSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	// Only process secrets in the same namespace as BMHs
+	hosts := &metal3api.BareMetalHostList{}
+	if err := r.Client.List(
+		ctx,
+		hosts,
+		client.InNamespace(secret.GetNamespace()),
+		client.MatchingFields{hostImageAuthSecretIndexField: secret.GetName()},
+	); err != nil {
+		r.Log.Error(err, "failed to list BareMetalHosts for secret", "secret", secret.GetName())
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(hosts.Items))
+	for i, host := range hosts.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      host.Name,
+				Namespace: host.Namespace,
+			},
+		}
+		r.Log.Info("queuing BMH reconcile due to auth secret change",
+			"baremetalhost", host.Name,
+			"secret", secret.GetName())
+	}
+
+	return requests
 }
 
 func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *metal3api.BareMetalHost, request ctrl.Request) (result ctrl.Result, err error) {

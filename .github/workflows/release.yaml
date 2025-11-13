@@ -108,7 +108,7 @@ jobs:
         go-version: ${{ env.go_version }}
     - name: generate release artifacts
       run: |
-        make release-notes
+        make release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: get release notes
@@ -119,6 +119,7 @@ jobs:
       uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7 # v2.3.4
       with:
         draft: true
+        files: out/*
         body_path: ${{ env.RELEASE_TAG }}.md
         tag_name: ${{ env.RELEASE_TAG }}
   build_bmo:

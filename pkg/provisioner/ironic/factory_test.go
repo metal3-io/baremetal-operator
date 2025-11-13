@@ -10,16 +10,17 @@ import (
 )
 
 type EnvFixture struct {
-	ironicEndpoint                   string
-	kernelURL                        string
-	ramdiskURL                       string
-	isoURL                           string
-	liveISOForcePersistentBootDevice string
-	ironicCACertFile                 string
-	ironicClientCertFile             string
-	ironicClientPrivateKeyFile       string
-	ironicInsecure                   string
-	ironicSkipClientSANVerify        string
+	ironicEndpoint                        string
+	kernelURL                             string
+	ramdiskURL                            string
+	isoURL                                string
+	liveISOForcePersistentBootDevice      string
+	directDeployForcePersistentBootDevice string
+	ironicCACertFile                      string
+	ironicClientCertFile                  string
+	ironicClientPrivateKeyFile            string
+	ironicInsecure                        string
+	ironicSkipClientSANVerify             string
 
 	origEnv map[string]string
 }
@@ -50,6 +51,7 @@ func (f *EnvFixture) SetUp() {
 	f.replace("DEPLOY_RAMDISK_URL", f.ramdiskURL)
 	f.replace("DEPLOY_ISO_URL", f.isoURL)
 	f.replace("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE", f.liveISOForcePersistentBootDevice)
+	f.replace("DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE", f.directDeployForcePersistentBootDevice)
 	f.replace("IRONIC_CACERT_FILE", f.ironicCACertFile)
 	f.replace("IRONIC_CLIENT_CERT_FILE", f.ironicClientCertFile)
 	f.replace("IRONIC_CLIENT_PRIVATE_KEY_FILE", f.ironicClientPrivateKeyFile)
@@ -62,6 +64,7 @@ func (f EnvFixture) VerifyConfig(t *testing.T, c ironicConfig, _ string) {
 	assert.Equal(t, f.ramdiskURL, c.deployRamdiskURL)
 	assert.Equal(t, f.isoURL, c.deployISOURL)
 	assert.Equal(t, f.liveISOForcePersistentBootDevice, c.liveISOForcePersistentBootDevice)
+	assert.Equal(t, f.directDeployForcePersistentBootDevice, c.directDeployForcePersistentBootDevice)
 }
 
 func (f EnvFixture) VerifyEndpoints(t *testing.T, ironic string) {
@@ -131,7 +134,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			expectedImgBuildError: "DEPLOY_RAMDISK_URL requires DEPLOY_KERNEL_URL to be set also",
 		},
 		{
-			name: "Force Persistent Default",
+			name: "ISO Force Persistent Default",
 			env: EnvFixture{
 				isoURL:                           "http://iso",
 				liveISOForcePersistentBootDevice: "Default",
@@ -139,7 +142,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			forcePersistent: "Default",
 		},
 		{
-			name: "Force Persistent Never",
+			name: "ISO Force Persistent Never",
 			env: EnvFixture{
 				isoURL:                           "http://iso",
 				liveISOForcePersistentBootDevice: "Never",
@@ -147,7 +150,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			forcePersistent: "Never",
 		},
 		{
-			name: "Force Persistent Always",
+			name: "ISO Force Persistent Always",
 			env: EnvFixture{
 				isoURL:                           "http://iso",
 				liveISOForcePersistentBootDevice: "Always",
@@ -155,13 +158,50 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			forcePersistent: "Always",
 		},
 		{
-			name: "Force Persistent Invalid",
+			name: "ISO Force Persistent Invalid",
 			env: EnvFixture{
 				isoURL:                           "http://iso",
 				liveISOForcePersistentBootDevice: "NotAValidOption",
 			},
 			expectedError:         "invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
 			expectedImgBuildError: "invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE",
+		},
+		{
+			name: "kernel/ramdisk Force Persistent Default",
+			env: EnvFixture{
+				kernelURL:                             "http://kernel",
+				ramdiskURL:                            "http://ramdisk",
+				directDeployForcePersistentBootDevice: "Default",
+			},
+			forcePersistent: "Default",
+		},
+		{
+			name: "kernel/ramdisk Force Persistent Never",
+			env: EnvFixture{
+				kernelURL:                             "http://kernel",
+				ramdiskURL:                            "http://ramdisk",
+				directDeployForcePersistentBootDevice: "Never",
+			},
+			forcePersistent: "Never",
+		},
+		{
+			name: "kernel/ramdisk Force Persistent Always",
+			env: EnvFixture{
+				kernelURL:                             "http://kernel",
+				ramdiskURL:                            "http://ramdisk",
+				directDeployForcePersistentBootDevice: "Always",
+			},
+			forcePersistent: "Always",
+		},
+		{
+			name: "kernel/ramdisk Force Persistent Invalid",
+			env: EnvFixture{
+				kernelURL:                             "http://kernel",
+				ramdiskURL:                            "http://ramdisk",
+				directDeployForcePersistentBootDevice: "NotAValidOption",
+			},
+			expectedError:         "invalid value for variable DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE",
+			expectedImgBuildError: "invalid value for variable DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE",
 		},
 	}
 

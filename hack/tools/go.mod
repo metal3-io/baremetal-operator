@@ -9,9 +9,9 @@ require (
 	golang.org/x/oauth2 v0.33.0
 	sigs.k8s.io/cluster-api/test v1.12.0-beta.0
 	sigs.k8s.io/controller-tools v0.16.5
-	sigs.k8s.io/kustomize/api v0.20.1
+	sigs.k8s.io/kustomize/api v0.21.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.7.1
-	sigs.k8s.io/kustomize/kyaml v0.20.1
+	sigs.k8s.io/kustomize/kyaml v0.21.0
 )
 
 require (
@@ -38,8 +38,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/sergi/go-diff v1.2.0 // indirect
+	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

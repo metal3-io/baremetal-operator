@@ -18,6 +18,9 @@ resources:
 - ./re-inspection
 - ./upgrade-bmo
 - ./upgrade-ironic
+- ./hostclaims-infra
+- ./hostclaims-tenant
+- ./cluster-role.yaml
 
 components:
 - ../../components/namespace-scoped

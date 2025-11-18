@@ -261,34 +261,37 @@ func (p *ironicProvisioner) findExistingHost(bootMACAddress string) (ironicNode 
 	}
 
 	// Try to load the node by port address
-	p.log.Info("looking for existing node by MAC", "MAC", bootMACAddress)
-	allPorts, err := p.listAllPorts(bootMACAddress)
+	// Skip MAC-based lookup if bootMACAddress is empty to avoid false conflicts
+	if bootMACAddress != "" {
+		p.log.Info("looking for existing node by MAC", "MAC", bootMACAddress)
+		allPorts, err := p.listAllPorts(bootMACAddress)
 
-	if err != nil {
-		p.log.Info("failed to find an existing port with address", "MAC", bootMACAddress)
-		return nil, nil //nolint:nilerr,nilnil
-	}
+		if err != nil {
+			p.log.Info("failed to find an existing port with address", "MAC", bootMACAddress)
+			return nil, nil //nolint:nilerr,nilnil
+		}
 
-	if len(allPorts) > 0 {
-		nodeUUID := allPorts[0].NodeUUID
-		ironicNode, err = nodes.Get(p.ctx, p.client, nodeUUID).Extract()
-		if err == nil {
-			p.debugLog.Info("found existing node by MAC", "MAC", bootMACAddress, "node", ironicNode.UUID, "name", ironicNode.Name)
+		if len(allPorts) > 0 {
+			nodeUUID := allPorts[0].NodeUUID
+			ironicNode, err = nodes.Get(p.ctx, p.client, nodeUUID).Extract()
+			if err == nil {
+				p.debugLog.Info("found existing node by MAC", "MAC", bootMACAddress, "node", ironicNode.UUID, "name", ironicNode.Name)
 
-			// If the node has a name, this means we didn't find it above.
-			if ironicNode.Name != "" {
-				return nil, NewMacAddressConflictError(bootMACAddress, ironicNode.Name)
+				// If the node has a name, this means we didn't find it above.
+				if ironicNode.Name != "" {
+					return nil, NewMacAddressConflictError(bootMACAddress, ironicNode.Name)
+				}
+
+				return ironicNode, nil
 			}
+			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+				return nil, fmt.Errorf("port %s exists but linked node %s doesn't: %w", bootMACAddress, nodeUUID, err)
+			}
+			return nil, fmt.Errorf("port %s exists but failed to find linked node %s by ID: %w", bootMACAddress, nodeUUID, err)
+		}
 
-			return ironicNode, nil
-		}
-		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-			return nil, fmt.Errorf("port %s exists but linked node %s doesn't: %w", bootMACAddress, nodeUUID, err)
-		}
-		return nil, fmt.Errorf("port %s exists but failed to find linked node %s by ID: %w", bootMACAddress, nodeUUID, err)
+		p.log.Info("port with address doesn't exist", "MAC", bootMACAddress)
 	}
-
-	p.log.Info("port with address doesn't exist", "MAC", bootMACAddress)
 	// Either the node was never created or the Ironic database has
 	// been dropped.
 	return nil, nil //nolint:nilnil

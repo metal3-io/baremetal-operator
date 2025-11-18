@@ -58,7 +58,7 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 		errs = append(errs, raidErrors...)
 	}
 
-	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
+	errs = append(errs, validateBMCAccess(host, bmcAccess)...)
 
 	if err := validateBMHName(host.Name); err != nil {
 		errs = append(errs, err)
@@ -109,7 +109,7 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
-	if oldObj.Spec.BootMACAddress != "" && !strings.EqualFold(newObj.Spec.BootMACAddress, oldObj.Spec.BootMACAddress) {
+	if oldObj.Spec.BootMACAddress != "" && newObj.Spec.BootMACAddress != oldObj.Spec.BootMACAddress {
 		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
 	}
 
@@ -120,8 +120,22 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 	return errs
 }
 
-func validateBMCAccess(s metal3api.BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
+// isInspectionDisabled checks if inspection is disabled via annotation or spec field.
+func isInspectionDisabled(host *metal3api.BareMetalHost) bool {
+	// Check the InspectionMode field first
+	if host.Spec.InspectionMode == metal3api.InspectionModeDisabled {
+		return true
+	}
+	// Check the annotation
+	if host.Annotations[metal3api.InspectAnnotationPrefix] == metal3api.InspectAnnotationValueDisabled {
+		return true
+	}
+	return false
+}
+
+func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetails) []error {
 	var errs []error
+	s := host.Spec
 
 	if bmcAccess == nil {
 		return errs
@@ -139,7 +153,14 @@ func validateBMCAccess(s metal3api.BareMetalHostSpec, bmcAccess bmc.AccessDetail
 		}
 	}
 
-	if bmcAccess.NeedsMAC() && s.BootMACAddress == "" {
+	// Check if bootMACAddress is required
+	requiresMAC := bmcAccess.NeedsMAC()
+	// Virtual media drivers (NeedsMAC() returns false) still require MAC when inspection is disabled
+	if !requiresMAC && isInspectionDisabled(host) {
+		requiresMAC = true
+	}
+
+	if requiresMAC && s.BootMACAddress == "" {
 		errs = append(errs, fmt.Errorf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type()))
 	}
 

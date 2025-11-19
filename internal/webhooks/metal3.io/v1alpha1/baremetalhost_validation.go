@@ -109,7 +109,7 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
-	if oldObj.Spec.BootMACAddress != "" && newObj.Spec.BootMACAddress != oldObj.Spec.BootMACAddress {
+	if oldObj.Spec.BootMACAddress != "" && !strings.EqualFold(newObj.Spec.BootMACAddress, oldObj.Spec.BootMACAddress) {
 		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
 	}
 
@@ -118,19 +118,6 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 	}
 
 	return errs
-}
-
-// isInspectionDisabled checks if inspection is disabled via annotation or spec field.
-func isInspectionDisabled(host *metal3api.BareMetalHost) bool {
-	// Check the InspectionMode field first
-	if host.Spec.InspectionMode == metal3api.InspectionModeDisabled {
-		return true
-	}
-	// Check the annotation
-	if host.Annotations[metal3api.InspectAnnotationPrefix] == metal3api.InspectAnnotationValueDisabled {
-		return true
-	}
-	return false
 }
 
 func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetails) []error {
@@ -156,7 +143,7 @@ func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetail
 	// Check if bootMACAddress is required
 	requiresMAC := bmcAccess.NeedsMAC()
 	// Virtual media drivers (NeedsMAC() returns false) still require MAC when inspection is disabled
-	if !requiresMAC && isInspectionDisabled(host) {
+	if !requiresMAC && host.InspectionDisabled() {
 		requiresMAC = true
 	}
 

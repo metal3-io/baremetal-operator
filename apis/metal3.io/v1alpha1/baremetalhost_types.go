@@ -555,6 +555,12 @@ type Image struct {
 	// be live-booted and not deployed to disk.
 	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
 	DiskFormat *string `json:"format,omitempty"`
+
+	// AuthSecretName optionally names a Docker-config secret containing
+	// registry credentials for oci:// images. Must be in the same namespace
+	// as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
+	// Only used when Image.URL has the oci:// scheme.
+	AuthSecretName *string `json:"authSecretName,omitempty"`
 }
 
 func (image *Image) IsLiveISO() bool {

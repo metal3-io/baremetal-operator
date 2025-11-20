@@ -1090,12 +1090,36 @@ func TestValidateUpdate(t *testing.T) {
 			wantedErr: "address invalid-mac: invalid MAC address",
 		},
 		{
-			name: "updateExternallyProvisioned",
+			name: "rejectDisablingExternallyProvisioned",
 			newBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{}},
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: false}},
 			oldBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
-			wantedErr: "externallyProvisioned can not be changed",
+			wantedErr: "externallyProvisioned can not be changed from true to false",
+		},
+		{
+			name: "rejectEnablingExternallyProvisionedWhenNotInAvailable",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: true},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateInspecting}}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: false},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateInspecting}}},
+			wantedErr: "externallyProvisioned can only be enabled when in Available state, currently in inspecting",
+		},
+		{
+			name: "allowEnablingExternallyProvisionedWhenInAvailable",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: true},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateAvailable}}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: false},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateAvailable}}},
+			wantedErr: "",
 		},
 	}
 

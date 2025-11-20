@@ -1628,6 +1628,30 @@ func (p *ironicProvisioner) PowerOn(force bool) (result provisioner.Result, err 
 	return result, nil
 }
 
+// abortInspectionOrCleaning aborts inspection or cleaning if the node is in one of those states.
+// This is necessary to allow power changes when the node is being deleted.
+func (p *ironicProvisioner) abortInspectionOrCleaning(ironicNode *nodes.Node) (result provisioner.Result, err error) {
+	provState := nodes.ProvisionState(ironicNode.ProvisionState)
+
+	switch provState {
+	case nodes.InspectWait, nodes.Inspecting:
+		p.log.Info("aborting inspection to allow power off during deletion")
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+		)
+	case nodes.CleanWait, nodes.Cleaning:
+		p.log.Info("aborting cleaning to allow power off during deletion")
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+		)
+	default:
+		// Node is not in a state that needs aborting
+		return operationComplete()
+	}
+}
+
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
 func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
@@ -1636,6 +1660,22 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
+	}
+
+	// If the node is in inspection or cleaning, we need to abort it first before we can power off.
+	// This is especially important during deletion to avoid getting stuck waiting for inspection/cleaning to complete.
+	if ironicNode.TargetProvisionState != "" {
+		provState := nodes.ProvisionState(ironicNode.ProvisionState)
+		if provState == nodes.InspectWait || provState == nodes.Inspecting ||
+			provState == nodes.CleanWait || provState == nodes.Cleaning {
+			p.log.Info("node is in inspection or cleaning state, attempting to abort before power off",
+				"state", ironicNode.ProvisionState,
+				"target", ironicNode.TargetProvisionState)
+			result, err = p.abortInspectionOrCleaning(ironicNode)
+			if err != nil || result.Dirty {
+				return result, err
+			}
+		}
 	}
 
 	if ironicNode.PowerState != powerOff {

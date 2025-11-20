@@ -503,7 +503,8 @@ func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(prov provisioner.
 	info.log.Info("host ready to be powered off")
 	provResult, err := prov.PowerOff(
 		metal3api.RebootModeHard,
-		info.host.Status.ErrorType == metal3api.PowerManagementError)
+		info.host.Status.ErrorType == metal3api.PowerManagementError,
+		info.host.Spec.AutomatedCleaningMode)
 
 	if err != nil {
 		return actionError{fmt.Errorf("failed to power off before deleting node: %w", err)}
@@ -1614,7 +1615,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		if info.host.Status.ErrorCount > 0 {
 			desiredRebootMode = metal3api.RebootModeHard
 		}
-		provResult, err = prov.PowerOff(desiredRebootMode, info.host.Status.ErrorType == metal3api.PowerManagementError)
+		provResult, err = prov.PowerOff(desiredRebootMode, info.host.Status.ErrorType == metal3api.PowerManagementError, info.host.Spec.AutomatedCleaningMode)
 	}
 	if err != nil {
 		return actionError{fmt.Errorf("failed setting owner reference on hostUpdatePolicy: %w", err)}

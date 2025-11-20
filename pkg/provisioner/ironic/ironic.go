@@ -1628,14 +1628,73 @@ func (p *ironicProvisioner) PowerOn(force bool) (result provisioner.Result, err 
 	return result, nil
 }
 
+// abortInspectionOrCleaning aborts inspection or cleaning if the node is in one of those states.
+// This is necessary to allow power changes when the node is being deleted.
+// Abort only works in *Wait states; for *ing states we return Dirty to retry later.
+// For cleaning, we abort manual cleaning or automated cleaning if it's been disabled.
+func (p *ironicProvisioner) abortInspectionOrCleaning(ironicNode *nodes.Node, automatedCleaningMode metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
+	provState := nodes.ProvisionState(ironicNode.ProvisionState)
+
+	switch provState {
+	case nodes.InspectWait:
+		p.log.Info("aborting inspection to allow power off during deletion")
+		return p.changeNodeProvisionState(
+			ironicNode,
+			nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+		)
+	case nodes.Inspecting:
+		p.log.Info("inspection in progress, waiting for it to reach inspect wait state")
+		return operationContinuing(provisionRequeueDelay)
+	case nodes.CleanWait:
+		// Abort manual cleaning or automated cleaning if disabled.
+		// Use automatedCleaningMode from BMH spec rather than ironicNode.AutomatedClean
+		// which may be stale if BMO couldn't update it during cleaning states.
+		isManualCleaning := ironicNode.TargetProvisionState == string(nodes.TargetClean)
+		if isManualCleaning || automatedCleaningMode == metal3api.CleaningModeDisabled {
+			if isManualCleaning {
+				p.log.Info("aborting manual cleaning to allow power off during deletion")
+			} else {
+				p.log.Info("aborting automated cleaning (disabled) to allow power off during deletion")
+			}
+			return p.changeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+			)
+		}
+		// Automated cleaning is enabled - let it finish
+		p.log.Info("automated cleaning in progress, waiting for it to complete")
+		return operationContinuing(provisionRequeueDelay)
+	case nodes.Cleaning:
+		// Check if it's manual cleaning or automated cleaning that's been disabled
+		if ironicNode.TargetProvisionState == string(nodes.TargetClean) ||
+			automatedCleaningMode == metal3api.CleaningModeDisabled {
+			p.log.Info("cleaning in progress, waiting for it to reach clean wait state before aborting")
+		} else {
+			p.log.Info("automated cleaning in progress, waiting for it to complete")
+		}
+		return operationContinuing(provisionRequeueDelay)
+	default:
+		// Node is not in a state that needs aborting
+		return operationComplete()
+	}
+}
+
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info(fmt.Sprintf("ensuring host is powered off (mode: %s)", rebootMode))
 
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
+	}
+
+	// If the node is in inspection or cleaning, we need to handle it before we can power off.
+	// For *Wait states, we can abort. For *ing states, we wait for them to transition to *Wait.
+	// This is especially important during deletion to avoid getting stuck waiting for inspection/cleaning to complete.
+	result, err = p.abortInspectionOrCleaning(ironicNode, automatedCleaningMode)
+	if err != nil || result.Dirty {
+		return result, err
 	}
 
 	if ironicNode.PowerState != powerOff {
@@ -1670,7 +1729,7 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 		return p.changePower(ironicNode, powerTarget)
 	}
 
-	return operationComplete()
+	return result, nil
 }
 
 func ironicNodeName(objMeta metav1.ObjectMeta) string {

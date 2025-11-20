@@ -245,6 +245,54 @@ func TestPowerOff(t *testing.T) {
 			expectedDirty:  true,
 			expectedReason: hardPowerOffReason,
 		},
+		{
+			name: "power-off while in InspectWait",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				PowerState:           powerOn,
+				ProvisionState:       string(nodes.InspectWait),
+				TargetProvisionState: string(nodes.TargetManage),
+				UUID:                 nodeUUID,
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			rebootMode:           metal3api.RebootModeHard,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+		},
+		{
+			name: "power-off while in Inspecting",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				PowerState:           powerOn,
+				ProvisionState:       string(nodes.Inspecting),
+				TargetProvisionState: string(nodes.TargetManage),
+				UUID:                 nodeUUID,
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			rebootMode:           metal3api.RebootModeHard,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+		},
+		{
+			name: "power-off while in CleanWait",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				PowerState:           powerOn,
+				ProvisionState:       string(nodes.CleanWait),
+				TargetProvisionState: string(nodes.TargetManage),
+				UUID:                 nodeUUID,
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			rebootMode:           metal3api.RebootModeHard,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+		},
+		{
+			name: "power-off while in Cleaning",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				PowerState:           powerOn,
+				ProvisionState:       string(nodes.Cleaning),
+				TargetProvisionState: string(nodes.TargetManage),
+				UUID:                 nodeUUID,
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			rebootMode:           metal3api.RebootModeHard,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+		},
 	}
 
 	for _, tc := range cases {

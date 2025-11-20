@@ -62,14 +62,15 @@ func NewMacAddressConflictError(address, node string) error {
 }
 
 type ironicConfig struct {
-	havePreprovImgBuilder            bool
-	deployKernelURL                  string
-	deployRamdiskURL                 string
-	deployISOURL                     string
-	liveISOForcePersistentBootDevice string
-	maxBusyHosts                     int
-	externalURL                      string
-	provNetDisabled                  bool
+	havePreprovImgBuilder                 bool
+	deployKernelURL                       string
+	deployRamdiskURL                      string
+	deployISOURL                          string
+	liveISOForcePersistentBootDevice      string
+	directDeployForcePersistentBootDevice string
+	maxBusyHosts                          int
+	externalURL                           string
+	provNetDisabled                       bool
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -631,6 +632,11 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 
 	driverOptValues := clients.UpdateOptsData{
 		"force_persistent_boot_device": "Default",
+	}
+	if p.config.directDeployForcePersistentBootDevice != "" {
+		driverOptValues = clients.UpdateOptsData{
+			"force_persistent_boot_device": p.config.directDeployForcePersistentBootDevice,
+		}
 	}
 	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }

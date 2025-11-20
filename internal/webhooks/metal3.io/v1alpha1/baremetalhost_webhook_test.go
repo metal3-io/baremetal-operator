@@ -52,6 +52,22 @@ func TestBareMetalHostCreate(t *testing.T) {
 			}, Spec: metal3api.BareMetalHostSpec{}},
 			wantedErr: "",
 		},
+		{
+			name: "invalid-no-bootMACAddress-no-preprovisioningNetworkData",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				BMC: metal3api.BMCDetails{
+					Address: "libvirt://192.168.122.1:16509/",
+				},
+				BootMACAddress: "",
+			}},
+			wantedErr: "BMC driver libvirt requires a BootMACAddress value",
+		},
 	}
 
 	for _, tt := range tests {

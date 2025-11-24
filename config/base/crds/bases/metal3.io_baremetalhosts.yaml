@@ -257,7 +257,7 @@ spec:
                   checksum:
                     description: |-
                       Checksum is the checksum for the image. Required for all formats
-                      except for "live-iso".
+                      except for "live-iso" and OCI images (oci://).
                     type: string
                   checksumType:
                     description: |-
@@ -993,7 +993,7 @@ spec:
                       checksum:
                         description: |-
                           Checksum is the checksum for the image. Required for all formats
-                          except for "live-iso".
+                          except for "live-iso" and OCI images (oci://).
                         type: string
                       checksumType:
                         description: |-

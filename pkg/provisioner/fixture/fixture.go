@@ -8,10 +8,10 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	logz "sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"k8s.io/klog/v2"
 )
 
-var log = logz.New().WithName("provisioner").WithName("fixture")
+var log = klog.NewKlogr().WithName("provisioner").WithName("fixture")
 var deprovisionRequeueDelay = time.Second * 10
 var provisionRequeueDelay = time.Second * 10
 var inspectionRequeueDelay = time.Second * 2

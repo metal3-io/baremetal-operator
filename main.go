@@ -36,16 +36,15 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/version"
 	ironicv1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
-	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -75,7 +74,6 @@ const leaderElectionID = "baremetal-operator"
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-
 	_ = metal3api.AddToScheme(scheme)
 	_ = ironicv1alpha1.AddToScheme(scheme)
 }
@@ -177,14 +175,7 @@ func main() {
 
 	flag.Parse()
 
-	logOpts := zap.Options{}
-	if devLogging {
-		logOpts.Development = true
-		logOpts.TimeEncoder = zapcore.ISO8601TimeEncoder
-	} else {
-		logOpts.TimeEncoder = zapcore.EpochTimeEncoder
-	}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
+	ctrl.SetLogger(klog.Background())
 
 	printVersion()
 
@@ -302,13 +293,14 @@ func main() {
 
 	var provisionerFactory provisioner.Factory
 	if runInTestMode {
-		ctrl.Log.Info("using test provisioner")
+		klog.Info("using test provisioner")
 		provisionerFactory = &fixture.Fixture{}
 	} else if runInDemoMode {
-		ctrl.Log.Info("using demo provisioner")
+		klog.Info("using demo provisioner")
 		provisionerFactory = &demo.Demo{}
 	} else {
-		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
+		provLog := klog.NewKlogr().WithName("provisioner")
+		ctrl.SetLogger(provLog)
 		// Check if we should use Ironic CR integration
 		if ironicName != "" && ironicNamespace != "" {
 			provisionerFactory, err = ironic.NewProvisionerFactoryWithClient(provLog, preprovImgEnable,
@@ -330,7 +322,7 @@ func main() {
 
 	if err = (&metal3iocontroller.BareMetalHostReconciler{
 		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		Log:                ctrl.Log.WithName("BareMetalHost"),
 		ProvisionerFactory: provisionerFactory,
 		APIReader:          mgr.GetAPIReader(),
 	}).SetupWithManager(mgr, preprovImgEnable, maxConcurrency); err != nil {
@@ -341,7 +333,7 @@ func main() {
 	if preprovImgEnable {
 		imgReconciler := metal3iocontroller.PreprovisioningImageReconciler{
 			Client:        mgr.GetClient(),
-			Log:           ctrl.Log.WithName("controllers").WithName("PreprovisioningImage"),
+			Log:           ctrl.Log.WithName("PreprovisioningImage"),
 			APIReader:     mgr.GetAPIReader(),
 			Scheme:        mgr.GetScheme(),
 			ImageProvider: imageprovider.NewDefaultImageProvider(),
@@ -357,7 +349,7 @@ func main() {
 
 	if err = (&metal3iocontroller.HostFirmwareSettingsReconciler{
 		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("HostFirmwareSettings"),
+		Log:                ctrl.Log.WithName("HostFirmwareSettings"),
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HostFirmwareSettings")
@@ -366,7 +358,7 @@ func main() {
 
 	if err = (&metal3iocontroller.BMCEventSubscriptionReconciler{
 		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("BMCEventSubscription"),
+		Log:                ctrl.Log.WithName("BMCEventSubscription"),
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BMCEventSubscription")
@@ -375,7 +367,7 @@ func main() {
 
 	if err = (&metal3iocontroller.HostFirmwareComponentsReconciler{
 		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("HostFirmwareComponents"),
+		Log:                ctrl.Log.WithName("HostFirmwareComponents"),
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HostFirmwareComponents")
@@ -384,7 +376,7 @@ func main() {
 
 	if err = (&metal3iocontroller.DataImageReconciler{
 		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("DataImage"),
+		Log:                ctrl.Log.WithName("DataImage"),
 		ProvisionerFactory: provisionerFactory,
 	}).SetupWithManager(mgr, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataImage")
@@ -397,7 +389,7 @@ func main() {
 		setupWebhooks(mgr)
 	}
 
-	setupLog.Info("starting manager")
+	klog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
@@ -439,7 +431,7 @@ func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) 
 	// Cipher suites should not be set if empty.
 	if tlsMinVersion >= tls.VersionTLS13 &&
 		options.TLSCipherSuites != "" {
-		setupLog.Info("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers")
+		klog.Info("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers")
 		options.TLSCipherSuites = ""
 	}
 
@@ -454,7 +446,7 @@ func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) 
 		for _, cipher := range tlsCipherSuites {
 			for _, insecureCipherName := range insecureCipherValues {
 				if insecureCipherName == cipher {
-					setupLog.Info(fmt.Sprintf("warning: use of insecure cipher '%s' detected.", cipher))
+					klog.Infof("warning: use of insecure cipher '%s' detected.", cipher)
 				}
 			}
 		}

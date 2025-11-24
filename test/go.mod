@@ -17,8 +17,8 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	libvirt.org/go/libvirt v1.11006.0
-	sigs.k8s.io/cluster-api v1.12.0-beta.0
-	sigs.k8s.io/cluster-api/test v1.12.0-beta.0
+	sigs.k8s.io/cluster-api v1.12.0-beta.1
+	sigs.k8s.io/cluster-api/test v1.12.0-beta.1
 	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/kind v0.30.0
 	sigs.k8s.io/kustomize/api v0.21.0
@@ -41,7 +41,7 @@ require (
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.5.1+incompatible // indirect
+	github.com/docker/docker v28.5.2+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/drone/envsubst/v2 v2.0.0-20210730161058-179042472c46 // indirect
@@ -115,7 +115,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/oauth2 v0.32.0 // indirect
+	golang.org/x/oauth2 v0.33.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
@@ -130,7 +130,7 @@ require (
 	gotest.tools/v3 v3.5.0 // indirect
 	k8s.io/apiserver v0.34.2 // indirect
 	k8s.io/client-go v0.34.2 // indirect
-	k8s.io/cluster-bootstrap v0.34.1 // indirect
+	k8s.io/cluster-bootstrap v0.34.2 // indirect
 	k8s.io/component-base v0.34.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect

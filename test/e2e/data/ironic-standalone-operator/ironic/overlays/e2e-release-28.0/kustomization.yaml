@@ -15,5 +15,5 @@ patches:
     name: ironic
   patch: |-
     - op: replace
-      path: /spec/images/ironic
-      value: "quay.io/metal3-io/ironic:release-28.0"
+      path: /spec/version
+      value: "28.0"

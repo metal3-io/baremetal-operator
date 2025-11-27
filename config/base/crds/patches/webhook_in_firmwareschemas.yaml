@@ -9,7 +9,7 @@ spec:
     strategy: Webhook
     webhook:
       clientConfig:
-        service:      
+        service:
           namespace: system
           name: webhook-service
           path: /convert

@@ -16,11 +16,11 @@ spec:
           readOnly: true
       - name: ironic-httpd
         livenessProbe:
-         exec:
-           command: ["sh", "-c", "curl -sSfk https://127.0.0.1:6385"]
+          exec:
+            command: [ "sh", "-c", "curl -sSfk https://127.0.0.1:6385" ]
         readinessProbe:
-         exec:
-           command: ["sh", "-c", "curl -sSfk https://127.0.0.1:6385"]
+          exec:
+            command: [ "sh", "-c", "curl -sSfk https://127.0.0.1:6385" ]
         env:
         - name: IRONIC_REVERSE_PROXY_SETUP
           value: "true"

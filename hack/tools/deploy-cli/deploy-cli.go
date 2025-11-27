@@ -278,19 +278,19 @@ func (d *DeployContext) GetEnvOrDefault(key string) (string, error) {
 func CopyFile(src, dst string) error {
 	inputFile, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("failed to open source file %s: %v", src, err)
+		return fmt.Errorf("failed to open source file %s: %w", src, err)
 	}
 	defer inputFile.Close()
 
 	outputFile, err := os.Create(dst)
 	if err != nil {
-		return fmt.Errorf("failed to create destination file %s: %v", dst, err)
+		return fmt.Errorf("failed to create destination file %s: %w", dst, err)
 	}
 	defer outputFile.Close()
 
 	_, err = io.Copy(outputFile, inputFile)
 	if err != nil {
-		return fmt.Errorf("failed to copy from %s to %s: %v", src, dst, err)
+		return fmt.Errorf("failed to copy from %s to %s: %w", src, dst, err)
 	}
 
 	return nil
@@ -312,7 +312,7 @@ func GenerateRandomString(length int) (string, error) {
 	b := make([]byte, length)
 	_, err := rand.Read(b)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate random string: %v", err)
+		return "", fmt.Errorf("failed to generate random string: %w", err)
 	}
 
 	return base64.RawURLEncoding.EncodeToString(b)[:length], nil

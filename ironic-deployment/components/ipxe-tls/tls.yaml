@@ -9,7 +9,7 @@ spec:
       - name: ipxe-builder
         image: quay.io/metal3-io/ipxe-builder
         command:
-          - /bin/buildipxe.sh
+        - /bin/buildipxe.sh
         envFrom:
         - configMapRef:
             name: ipxe-configmap
@@ -37,4 +37,3 @@ spec:
       - name: cert-ipxe
         secret:
           secretName: ipxe-cert
-

@@ -14,7 +14,7 @@ resources:
 - ./upgrade-ironic
 
 components:
-    - ../../components/namespace-scoped
+- ../../components/namespace-scoped
 
 configMapGenerator:
 - name: ironic

@@ -4,14 +4,14 @@ metadata:
   name: hostfirmwaresettings-sample
 spec:
   settings:
-    - "ProcVirtualization": "Enabled"
-    - "SRIOV": "Enabled"
-    - "NetworkBootRetryCount": "20"
+  - "ProcVirtualization": "Enabled"
+  - "SRIOV": "Enabled"
+  - "NetworkBootRetryCount": "20"
 status:
   settings:
-    - "ProcVirtualization": "Enabled"
-    - "ProcCPUCores": "100"
-    - "SRIOV": "Enabled"
-    - "SystemModelName":  "QYZ12345"
-    - "SerialNumber": "22654891"
-    - "NetworkBootRetryCount": "10"
+  - "ProcVirtualization": "Enabled"
+  - "ProcCPUCores": "100"
+  - "SRIOV": "Enabled"
+  - "SystemModelName": "QYZ12345"
+  - "SerialNumber": "22654891"
+  - "NetworkBootRetryCount": "10"

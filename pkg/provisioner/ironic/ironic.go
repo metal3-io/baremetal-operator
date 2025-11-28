@@ -599,7 +599,7 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
-func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *clients.NodeUpdater) {
+func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, imagePullSecret string, updater *clients.NodeUpdater) {
 	checksum, checksumType, err := imageData.GetChecksum()
 	if err != nil {
 		p.log.Info("image/checksum not found for host", "message", err)
@@ -611,6 +611,13 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		"boot_iso":          nil,
 		"image_source":      imageData.URL,
 		"image_disk_format": imageData.DiskFormat,
+	}
+
+	// Add image pull secret for OCI images
+	if imagePullSecret != "" {
+		optValues["image_pull_secret"] = imagePullSecret
+	} else {
+		optValues["image_pull_secret"] = nil
 	}
 
 	if checksumType == "" {
@@ -635,7 +642,7 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 	updater.SetDriverInfoOpts(driverOptValues, ironicNode)
 }
 
-func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, updater *clients.NodeUpdater) {
+func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.Node, imageData *metal3api.Image, imagePullSecret string, updater *clients.NodeUpdater) {
 	var optValues clients.UpdateOptsData
 	if imageData != nil && imageData.URL != "" {
 		checksum, checksumType, err := imageData.GetChecksum()
@@ -659,6 +666,12 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 				"image_disk_format":   imageData.DiskFormat,
 			}
 		}
+		// Add image pull secret for OCI images
+		if imagePullSecret != "" {
+			optValues["image_pull_secret"] = imagePullSecret
+		} else {
+			optValues["image_pull_secret"] = nil
+		}
 	} else {
 		// Clean up everything
 		optValues = clients.UpdateOptsData{
@@ -668,6 +681,7 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 			"image_os_hash_algo":  nil,
 			"image_os_hash_value": nil,
 			"image_disk_format":   nil,
+			"image_pull_secret":   nil,
 		}
 	}
 
@@ -692,13 +706,13 @@ func (p *ironicProvisioner) getInstanceUpdateOpts(ironicNode *nodes.Node, data p
 
 	if hasCustomDeploy {
 		// Custom deploy process
-		p.setCustomDeployUpdateOptsForNode(ironicNode, &data.Image, updater)
+		p.setCustomDeployUpdateOptsForNode(ironicNode, &data.Image, data.ImagePullSecret, updater)
 	} else if data.Image.IsLiveISO() {
 		// Set live-iso format options
 		p.setLiveIsoUpdateOptsForNode(ironicNode, &data.Image, updater)
 	} else {
 		// Set deploy_interface direct options when not booting a live-iso
-		p.setDirectDeployUpdateOptsForNode(ironicNode, &data.Image, updater)
+		p.setDirectDeployUpdateOptsForNode(ironicNode, &data.Image, data.ImagePullSecret, updater)
 	}
 
 	return updater

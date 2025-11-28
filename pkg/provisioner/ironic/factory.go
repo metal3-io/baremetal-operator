@@ -93,7 +93,6 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 	}
 
 	tlsConf := loadTLSConfigFromEnv()
-
 	f.log.Info("ironic settings from environment variables",
 		"endpoint", ironicEndpoint,
 		"ironicAuthType", ironicAuth.Type,

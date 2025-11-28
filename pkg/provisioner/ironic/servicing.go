@@ -28,7 +28,7 @@ func (p *ironicProvisioner) buildServiceSteps(bmcAccess bmc.AccessDetails, data 
 			nodes.ServiceStep{
 				Interface: nodes.InterfaceBIOS,
 				Step:      "apply_configuration",
-				Args: map[string]interface{}{
+				Args: map[string]any{
 					"settings": newSettings,
 				},
 			},
@@ -43,7 +43,7 @@ func (p *ironicProvisioner) buildServiceSteps(bmcAccess bmc.AccessDetails, data 
 			nodes.ServiceStep{
 				Interface: nodes.InterfaceFirmware,
 				Step:      "update",
-				Args: map[string]interface{}{
+				Args: map[string]any{
 					"settings": newUpdates,
 				},
 			},

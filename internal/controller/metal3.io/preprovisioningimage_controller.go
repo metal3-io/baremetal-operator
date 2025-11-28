@@ -351,10 +351,8 @@ func setError(generation int64, status *metal3api.PreprovisioningImageStatus, re
 }
 
 func (r *PreprovisioningImageReconciler) CanStart() bool {
-	for _, fmt := range []metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD} {
-		if r.ImageProvider.SupportsFormat(fmt) {
-			return true
-		}
+	if slices.ContainsFunc([]metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD}, r.ImageProvider.SupportsFormat) {
+		return true
 	}
 	r.Log.Info("not starting preprovisioning image controller; no image data available")
 	return false

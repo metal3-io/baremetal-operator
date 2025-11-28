@@ -57,7 +57,7 @@ func TestProvision(t *testing.T) {
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"image_source":        testImage.URL,
 					"image_os_hash_algo":  string(testImage.ChecksumType),
 					"image_os_hash_value": testImage.Checksum,
@@ -381,7 +381,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			expected:  true,
 			liveImage: false,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"image_source":        "theimage",
 					"image_os_hash_value": "thechecksum",
 					"image_os_hash_algo":  "md5",
@@ -396,7 +396,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			expected:  true,
 			liveImage: false,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"image_source":   "theimage",
 					"image_checksum": "thechecksum",
 				},
@@ -410,7 +410,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			expected:  false,
 			liveImage: false,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"image_source":        "theimage",
 					"image_os_hash_value": "thechecksum",
 					"image_os_hash_algo":  "md5",
@@ -425,7 +425,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			expected:  false,
 			liveImage: false,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"image_source":        "theimage",
 					"image_os_hash_value": "thechecksum",
 					"image_os_hash_algo":  "md5",
@@ -440,7 +440,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			expected:  false,
 			liveImage: false,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"image_source":        "theimage",
 					"image_os_hash_value": "thechecksum",
 					"image_os_hash_algo":  "md5",
@@ -455,7 +455,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			expected:  false,
 			liveImage: false,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"image_source":        "theimage",
 					"image_os_hash_value": "thechecksum",
 					"image_os_hash_algo":  "md5",
@@ -470,7 +470,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			liveImage: true,
 			expected:  true,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"boot_iso": "theimage",
 				},
 			},
@@ -481,7 +481,7 @@ func TestIronicHasSameImage(t *testing.T) {
 			liveImage: true,
 			expected:  false,
 			node: nodes.Node{
-				InstanceInfo: map[string]interface{}{
+				InstanceInfo: map[string]any{
 					"boot_iso": "theimage",
 				},
 			},
@@ -530,7 +530,7 @@ func TestBuildCleanSteps(t *testing.T) {
 		currentSettings  metal3api.SettingsMap
 		desiredSettings  metal3api.DesiredSettingsMap
 		firmwareConfig   *metal3api.FirmwareConfig
-		expectedSettings []map[string]interface{}
+		expectedSettings []map[string]any
 	}{
 		{
 			name: "no current settings",
@@ -544,7 +544,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expectedSettings: []map[string]interface{}{
+			expectedSettings: []map[string]any{
 				{
 					"name":  "ProcVirtualization",
 					"value": "Enabled",
@@ -591,7 +591,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expectedSettings: []map[string]interface{}{
+			expectedSettings: []map[string]any{
 				{
 					"name":  "ProcVirtualization",
 					"value": "Enabled",
@@ -624,7 +624,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &True,
 				SimultaneousMultithreadingEnabled: &False,
 			},
-			expectedSettings: []map[string]interface{}{
+			expectedSettings: []map[string]any{
 				{
 					"name":  "NetworkBootRetryCount",
 					"value": 10,
@@ -661,7 +661,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &False,
 				SimultaneousMultithreadingEnabled: &True,
 			},
-			expectedSettings: []map[string]interface{}{
+			expectedSettings: []map[string]any{
 				{
 					"name":  "ProcVirtualization",
 					"value": "Disabled",
@@ -696,7 +696,7 @@ func TestBuildCleanSteps(t *testing.T) {
 				VirtualizationEnabled:             &False,
 				SimultaneousMultithreadingEnabled: &True,
 			},
-			expectedSettings: []map[string]interface{}{
+			expectedSettings: []map[string]any{
 				{
 					"name":  "ProcHyperthreading",
 					"value": "Enabled",
@@ -736,7 +736,7 @@ func TestBuildCleanSteps(t *testing.T) {
 
 			require.NoError(t, err)
 			if cleanSteps == nil {
-				assert.Equal(t, tc.expectedSettings, []map[string]interface{}(nil))
+				assert.Equal(t, tc.expectedSettings, []map[string]any(nil))
 			} else {
 				settings := cleanSteps[0].Args["settings"]
 				assert.ElementsMatch(t, tc.expectedSettings, settings)
@@ -768,7 +768,7 @@ func TestGetUpdateOptsForNodeWithRootHints(t *testing.T) {
 	expected := []struct {
 		Path  string            // the node property path
 		Map   map[string]string // Expected roothdevicehint map
-		Value interface{}       // the value being passed to ironic (or value associated with the key)
+		Value any               // the value being passed to ironic (or value associated with the key)
 	}{
 		{
 			Path:  "/instance_info/root_device",
@@ -862,9 +862,9 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 	t.Logf("patches: %v", patches)
 
 	expected := []struct {
-		Path  string      // the node property path
-		Key   string      // if value is a map, the key we care about
-		Value interface{} // the value being passed to ironic (or value associated with the key)
+		Path  string // the node property path
+		Key   string // if value is a map, the key we care about
+		Value any    // the value being passed to ironic (or value associated with the key)
 	}{
 		{
 			Path:  "/instance_info/image_source",
@@ -961,9 +961,9 @@ func TestGetUpdateOptsForNodeDell(t *testing.T) {
 	t.Logf("patches: %v", patches)
 
 	expected := []struct {
-		Path  string      // the node property path
-		Key   string      // if value is a map, the key we care about
-		Value interface{} // the value being passed to ironic (or value associated with the key)
+		Path  string // the node property path
+		Key   string // if value is a map, the key we care about
+		Value any    // the value being passed to ironic (or value associated with the key)
 	}{
 		{
 			Path:  "/instance_info/image_source",
@@ -1027,7 +1027,7 @@ func TestGetUpdateOptsForNodeLiveIso(t *testing.T) {
 	expected := []struct {
 		Path  string         // the node property path
 		Key   string         // if value is a map, the key we care about
-		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Value any            // the value being passed to ironic (or value associated with the key)
 		Op    nodes.UpdateOp // The operation add/replace/remove
 	}{
 		{
@@ -1078,7 +1078,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 		t.Fatal(err)
 	}
 	ironicNode := &nodes.Node{
-		InstanceInfo: map[string]interface{}{
+		InstanceInfo: map[string]any{
 			"image_source":        "oldimage",
 			"image_os_hash_value": "thechecksum",
 			"image_os_hash_algo":  "md5",
@@ -1096,7 +1096,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 	expected := []struct {
 		Path  string         // the node property path
 		Key   string         // if value is a map, the key we care about
-		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Value any            // the value being passed to ironic (or value associated with the key)
 		Op    nodes.UpdateOp // The operation add/replace/remove
 	}{
 		{
@@ -1159,7 +1159,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	ironicNode := &nodes.Node{
-		InstanceInfo: map[string]interface{}{
+		InstanceInfo: map[string]any{
 			"boot_iso": "oldimage",
 		},
 		DeployInterface: "ramdisk",
@@ -1176,7 +1176,7 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 	expected := []struct {
 		Path  string         // the node property path
 		Key   string         // if value is a map, the key we care about
-		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Value any            // the value being passed to ironic (or value associated with the key)
 		Op    nodes.UpdateOp // The operation add/replace/remove
 	}{
 		{
@@ -1250,7 +1250,7 @@ func TestGetUpdateOptsForNodeCustomDeploy(t *testing.T) {
 	expected := []struct {
 		Path  string         // the node property path
 		Key   string         // if value is a map, the key we care about
-		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Value any            // the value being passed to ironic (or value associated with the key)
 		Op    nodes.UpdateOp // The operation add/replace/remove
 	}{
 		{
@@ -1309,7 +1309,7 @@ func TestGetUpdateOptsForNodeCustomDeployWithImage(t *testing.T) {
 	expected := []struct {
 		Path  string         // the node property path
 		Key   string         // if value is a map, the key we care about
-		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Value any            // the value being passed to ironic (or value associated with the key)
 		Op    nodes.UpdateOp // The operation add/replace/remove
 	}{
 		{
@@ -1359,7 +1359,7 @@ func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
 		t.Fatal(err)
 	}
 	ironicNode := &nodes.Node{
-		InstanceInfo: map[string]interface{}{
+		InstanceInfo: map[string]any{
 			"image_source":        "oldimage",
 			"image_os_hash_value": "thechecksum",
 			"image_os_hash_algo":  "md5",
@@ -1378,7 +1378,7 @@ func TestGetUpdateOptsForNodeImageToCustomDeploy(t *testing.T) {
 	expected := []struct {
 		Path  string         // the node property path
 		Key   string         // if value is a map, the key we care about
-		Value interface{}    // the value being passed to ironic (or value associated with the key)
+		Value any            // the value being passed to ironic (or value associated with the key)
 		Op    nodes.UpdateOp // The operation add/replace/remove
 	}{
 		{
@@ -1471,9 +1471,9 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	t.Logf("patches: %v", patches)
 
 	expected := []struct {
-		Path  string      // the node property path
-		Key   string      // if value is a map, the key we care about
-		Value interface{} // the value being passed to ironic (or value associated with the key)
+		Path  string // the node property path
+		Key   string // if value is a map, the key we care about
+		Value any    // the value being passed to ironic (or value associated with the key)
 	}{
 		{
 			Path:  "/instance_info/image_source",

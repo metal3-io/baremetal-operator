@@ -10,8 +10,8 @@ import (
 )
 
 func TestGetVLANs(t *testing.T) {
-	vlans, vid := getVLANs(map[string]interface{}{
-		"switch_port_vlans": []map[string]interface{}{
+	vlans, vid := getVLANs(map[string]any{
+		"switch_port_vlans": []map[string]any{
 			{
 				"id":   1,
 				"name": "vlan1",
@@ -30,8 +30,8 @@ func TestGetVLANs(t *testing.T) {
 }
 
 func TestGetVLANsMalformed(t *testing.T) {
-	vlans, vid := getVLANs(map[string]interface{}{
-		"switch_port_vlans": []map[string]interface{}{
+	vlans, vid := getVLANs(map[string]any{
+		"switch_port_vlans": []map[string]any{
 			{
 				"foo":  "bar",
 				"name": "vlan1",
@@ -62,8 +62,8 @@ func TestGetVLANsMalformed(t *testing.T) {
 	assert.Equal(t, metal3api.VLAN{ID: 3}, vlans[3])
 	assert.Equal(t, metal3api.VLAN{}, vlans[4])
 
-	vlans, vid = getVLANs(map[string]interface{}{
-		"switch_port_vlans": map[string]interface{}{
+	vlans, vid = getVLANs(map[string]any{
+		"switch_port_vlans": map[string]any{
 			"foo": "bar",
 		},
 		"switch_port_untagged_vlan_id": "1",
@@ -71,28 +71,28 @@ func TestGetVLANsMalformed(t *testing.T) {
 	assert.Equal(t, metal3api.VLANID(0), vid, "Unexpected untagged VLAN ID")
 	assert.Empty(t, vlans)
 
-	vlans, vid = getVLANs(map[string]interface{}{
-		"switch_port_vlans": []interface{}{
+	vlans, vid = getVLANs(map[string]any{
+		"switch_port_vlans": []any{
 			"foo",
 		},
 	})
 	assert.Equal(t, metal3api.VLANID(0), vid, "Unexpected untagged VLAN ID")
 	assert.Empty(t, vlans)
 
-	vlans, vid = getVLANs(map[string]interface{}{
+	vlans, vid = getVLANs(map[string]any{
 		"switch_port_vlans": "foo",
 	})
 	assert.Equal(t, metal3api.VLANID(0), vid, "Unexpected untagged VLAN ID")
 	assert.Empty(t, vlans)
 
-	vlans, vid = getVLANs(map[string]interface{}{})
+	vlans, vid = getVLANs(map[string]any{})
 	assert.Equal(t, metal3api.VLANID(0), vid, "Unexpected untagged VLAN ID")
 	assert.Empty(t, vlans)
 }
 
 func TestGetLLDPData(t *testing.T) {
 	// Test all fields present
-	lldpData := getLLDPData(map[string]interface{}{
+	lldpData := getLLDPData(map[string]any{
 		"switch_chassis_id":  "aa:bb:cc:dd:ee:ff",
 		"switch_port_id":     "Ethernet1/1",
 		"switch_system_name": "switch01.example.com",
@@ -105,7 +105,7 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Equal(t, expected, lldpData)
 
 	// Test only switch_chassis_id
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_chassis_id": "aa:bb:cc:dd:ee:ff",
 	})
 	expected = &metal3api.LLDP{
@@ -114,7 +114,7 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Equal(t, expected, lldpData)
 
 	// Test only switch_port_id
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_port_id": "Ethernet1/1",
 	})
 	expected = &metal3api.LLDP{
@@ -123,7 +123,7 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Equal(t, expected, lldpData)
 
 	// Test only switch_system_name
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_system_name": "switch01.example.com",
 	})
 	expected = &metal3api.LLDP{
@@ -132,7 +132,7 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Equal(t, expected, lldpData)
 
 	// Test partial fields (chassis ID and port ID)
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_chassis_id": "aa:bb:cc:dd:ee:ff",
 		"switch_port_id":    "Ethernet1/1",
 	})
@@ -147,11 +147,11 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Nil(t, lldpData, "Expected nil for nil input")
 
 	// Test empty map
-	lldpData = getLLDPData(map[string]interface{}{})
+	lldpData = getLLDPData(map[string]any{})
 	assert.Nil(t, lldpData, "Expected nil for empty map")
 
 	// Test empty strings (should return nil)
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_chassis_id":  "",
 		"switch_port_id":     "",
 		"switch_system_name": "",
@@ -159,7 +159,7 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Nil(t, lldpData, "Expected nil for empty strings")
 
 	// Test wrong data types (should be ignored)
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_chassis_id":  123,
 		"switch_port_id":     []string{"port1"},
 		"switch_system_name": map[string]string{"name": "switch"},
@@ -167,7 +167,7 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Nil(t, lldpData, "Expected nil for wrong types")
 
 	// Test mixed valid and invalid fields
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_chassis_id":  "aa:bb:cc:dd:ee:ff",
 		"switch_port_id":     123, // wrong type
 		"switch_system_name": "",  // empty string
@@ -178,7 +178,7 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Equal(t, expected, lldpData)
 
 	// Test with extra unknown fields (should be ignored)
-	lldpData = getLLDPData(map[string]interface{}{
+	lldpData = getLLDPData(map[string]any{
 		"switch_chassis_id":  "aa:bb:cc:dd:ee:ff",
 		"switch_port_id":     "Ethernet1/1",
 		"switch_system_name": "switch01.example.com",
@@ -201,7 +201,7 @@ func TestGetNICDetails(t *testing.T) {
 		},
 		ParsedLLDP: map[string]inventory.ParsedLLDP{
 			"eth0": {
-				"switch_port_vlans": []map[string]interface{}{
+				"switch_port_vlans": []map[string]any{
 					{
 						"id": 1,
 					},

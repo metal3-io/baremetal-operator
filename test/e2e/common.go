@@ -278,13 +278,13 @@ func CreateSecret(ctx context.Context, client client.Client, secretNamespace, se
 func executeSSHCommand(client *ssh.Client, command string) (string, error) {
 	session, err := client.NewSession()
 	if err != nil {
-		return "", fmt.Errorf("failed to create SSH session: %v", err)
+		return "", fmt.Errorf("failed to create SSH session: %w", err)
 	}
 	defer session.Close()
 
 	output, err := session.CombinedOutput(command)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute command '%s': %v", command, err)
+		return "", fmt.Errorf("failed to execute command '%s': %w", command, err)
 	}
 
 	return string(output), nil

@@ -15,10 +15,14 @@ jobs:
   build_bmo:
     name: Build BMO container image
     if: github.repository == 'metal3-io/baremetal-operator'
+    permissions:
+      contents: read
+      id-token: write
     uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
     with:
       image-name: 'baremetal-operator'
       pushImage: true
+      generate-sbom: true
     secrets:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}

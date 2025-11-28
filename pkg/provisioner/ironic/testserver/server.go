@@ -139,7 +139,7 @@ func (m *MockServer) ResponseWithCode(patternWithMethod string, payload string, 
 
 // ResponseJSON marshals the JSON object as payload returned by the response
 // handler.
-func (m *MockServer) ResponseJSON(pattern string, payload interface{}) *MockServer {
+func (m *MockServer) ResponseJSON(pattern string, payload any) *MockServer {
 	content, err := json.Marshal(payload)
 	if err != nil {
 		m.t.Error(err)
@@ -173,7 +173,7 @@ func (m *MockServer) Stop() {
 }
 
 // AddDefaultResponseJSON adds a default response for the specified pattern.
-func (m *MockServer) AddDefaultResponseJSON(patternWithVars string, httpMethod string, code int, payload interface{}) *MockServer {
+func (m *MockServer) AddDefaultResponseJSON(patternWithVars string, httpMethod string, code int, payload any) *MockServer {
 	content, err := json.Marshal(payload)
 	if err != nil {
 		m.t.Error(err)
@@ -255,7 +255,7 @@ func (m *MockServer) sendData(w http.ResponseWriter, r *http.Request, code int, 
 
 // SendJSONResponse marshalls the payload to a JSON object and sends
 // the response using the given writer.
-func (m *MockServer) SendJSONResponse(payload interface{}, code int, w http.ResponseWriter, r *http.Request) {
+func (m *MockServer) SendJSONResponse(payload any, code int, w http.ResponseWriter, r *http.Request) {
 	content, err := json.Marshal(payload)
 	if err != nil {
 		m.t.Error(err)

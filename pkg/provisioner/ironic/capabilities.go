@@ -44,7 +44,7 @@ func buildCapabilitiesValue(ironicNode *nodes.Node, bootMode metal3api.BootMode)
 	}
 
 	var filteredCapabilities []string
-	for _, item := range strings.Split(existingCapabilities, ",") {
+	for item := range strings.SplitSeq(existingCapabilities, ",") {
 		if !strings.HasPrefix(item, "boot_mode:") && !strings.HasPrefix(item, "secure_boot:") {
 			filteredCapabilities = append(filteredCapabilities, item)
 		}

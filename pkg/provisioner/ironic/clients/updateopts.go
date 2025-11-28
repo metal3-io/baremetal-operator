@@ -9,14 +9,14 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 )
 
-type UpdateOptsData map[string]interface{}
+type UpdateOptsData map[string]any
 
-func optionValueEqual(current, value interface{}) bool {
+func optionValueEqual(current, value any) bool {
 	if reflect.DeepEqual(current, value) {
 		return true
 	}
 	switch curVal := current.(type) {
-	case []interface{}:
+	case []any:
 		// newType could reasonably be either []interface{} or e.g. []string,
 		// so we must use reflection.
 		newType := reflect.TypeOf(value)
@@ -35,7 +35,7 @@ func optionValueEqual(current, value interface{}) bool {
 			}
 		}
 		return true
-	case map[string]interface{}:
+	case map[string]any:
 		// newType could reasonably be either map[string]interface{} or
 		// e.g. map[string]string, so we must use reflection.
 		newType := reflect.TypeOf(value)
@@ -58,7 +58,7 @@ func optionValueEqual(current, value interface{}) bool {
 	return false
 }
 
-func deref(v interface{}) interface{} {
+func deref(v any) any {
 	if v == nil {
 		return nil
 	}
@@ -72,7 +72,7 @@ func deref(v interface{}) interface{} {
 	return ptrVal.Elem().Interface()
 }
 
-func sanitisedValue(data interface{}) interface{} {
+func sanitisedValue(data any) any {
 	dataType := reflect.TypeOf(data)
 	if dataType.Kind() != reflect.Map ||
 		dataType.Key().Kind() != reflect.String {
@@ -93,7 +93,7 @@ func sanitisedValue(data interface{}) interface{} {
 	return safeValue.Interface()
 }
 
-func getUpdateOperation(name string, currentData map[string]interface{}, desiredValue interface{}, path string, log logr.Logger) *nodes.UpdateOperation {
+func getUpdateOperation(name string, currentData map[string]any, desiredValue any, path string, log logr.Logger) *nodes.UpdateOperation {
 	current, present := currentData[name]
 
 	desiredValue = deref(desiredValue)
@@ -148,7 +148,7 @@ func (nu *NodeUpdater) path(basepath, option string) string {
 	return fmt.Sprintf("%s/%s", basepath, option)
 }
 
-func (nu *NodeUpdater) setSectionUpdateOpts(currentData map[string]interface{}, settings UpdateOptsData, basepath string) {
+func (nu *NodeUpdater) setSectionUpdateOpts(currentData map[string]any, settings UpdateOptsData, basepath string) {
 	for name, desiredValue := range settings {
 		updateOp := getUpdateOperation(name, currentData, desiredValue,
 			nu.path(basepath, name), nu.logger(basepath, name))
@@ -158,8 +158,8 @@ func (nu *NodeUpdater) setSectionUpdateOpts(currentData map[string]interface{}, 
 	}
 }
 
-func (nu *NodeUpdater) SetTopLevelOpt(name string, desiredValue, currentValue interface{}) *NodeUpdater {
-	currentData := map[string]interface{}{name: currentValue}
+func (nu *NodeUpdater) SetTopLevelOpt(name string, desiredValue, currentValue any) *NodeUpdater {
+	currentData := map[string]any{name: currentValue}
 	desiredData := UpdateOptsData{name: desiredValue}
 
 	nu.setSectionUpdateOpts(currentData, desiredData, "")

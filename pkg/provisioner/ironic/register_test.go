@@ -223,7 +223,7 @@ func TestRegisterExistingNodeContinue(t *testing.T) {
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
 				AutomatedClean: &clean,
-				DriverInfo: map[string]interface{}{
+				DriverInfo: map[string]any{
 					"deploy_kernel":  "http://deploy.test/ipa.kernel",
 					"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
 					"test_address":   "test.bmc",
@@ -231,7 +231,7 @@ func TestRegisterExistingNodeContinue(t *testing.T) {
 					"test_password":  "******", // ironic returns a placeholder
 					"test_port":      "42",
 				},
-				Properties: map[string]interface{}{"capabilities": ""},
+				Properties: map[string]any{"capabilities": ""},
 			}).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			})
@@ -261,16 +261,16 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 		DeployInterface string
 		Image           *metal3api.Image
 		HasCustomDeploy bool
-		InstanceInfo    map[string]interface{}
-		DriverInfo      map[string]interface{}
+		InstanceInfo    map[string]any
+		DriverInfo      map[string]any
 		ProvisionState  string
 	}{
 		{
 			DeployInterface: "",
-			InstanceInfo: map[string]interface{}{
-				"capabilities": map[string]interface{}{},
+			InstanceInfo: map[string]any{
+				"capabilities": map[string]any{},
 			},
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"deploy_kernel":  "http://deploy.test/ipa.kernel",
 				"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
 				"test_address":   "test.bmc",
@@ -285,12 +285,12 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 				Checksum:     "thechecksum",
 				ChecksumType: "auto",
 			},
-			InstanceInfo: map[string]interface{}{
+			InstanceInfo: map[string]any{
 				"image_source":   "theimage",
 				"image_checksum": "thechecksum",
-				"capabilities":   map[string]interface{}{},
+				"capabilities":   map[string]any{},
 			},
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"force_persistent_boot_device": "Default",
 				"deploy_kernel":                "http://deploy.test/ipa.kernel",
 				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
@@ -306,13 +306,13 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 				Checksum:     "thechecksum",
 				ChecksumType: "sha256",
 			},
-			InstanceInfo: map[string]interface{}{
+			InstanceInfo: map[string]any{
 				"image_source":        "theimage",
 				"image_os_hash_algo":  "sha256",
 				"image_os_hash_value": "thechecksum",
-				"capabilities":        map[string]interface{}{},
+				"capabilities":        map[string]any{},
 			},
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"force_persistent_boot_device": "Default",
 				"deploy_kernel":                "http://deploy.test/ipa.kernel",
 				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
@@ -328,11 +328,11 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 				URL:        "theimage",
 				DiskFormat: &liveFormat,
 			},
-			InstanceInfo: map[string]interface{}{
+			InstanceInfo: map[string]any{
 				"boot_iso":     "theimage",
-				"capabilities": map[string]interface{}{},
+				"capabilities": map[string]any{},
 			},
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"force_persistent_boot_device": "Default",
 				"deploy_kernel":                "http://deploy.test/ipa.kernel",
 				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
@@ -345,10 +345,10 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 		{
 			DeployInterface: "custom-agent",
 			HasCustomDeploy: true,
-			InstanceInfo: map[string]interface{}{
-				"capabilities": map[string]interface{}{},
+			InstanceInfo: map[string]any{
+				"capabilities": map[string]any{},
 			},
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"force_persistent_boot_device": "Default",
 				"deploy_kernel":                "http://deploy.test/ipa.kernel",
 				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
@@ -366,14 +366,14 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 				URL:        "theimage",
 				DiskFormat: &liveFormat,
 			},
-			InstanceInfo: map[string]interface{}{
+			InstanceInfo: map[string]any{
 				"image_source":        "theimage",
 				"image_os_hash_algo":  "md5",
 				"image_os_hash_value": "thechecksum",
 				"image_checksum":      "thechecksum",
-				"capabilities":        map[string]interface{}{},
+				"capabilities":        map[string]any{},
 			},
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"force_persistent_boot_device": "Default",
 				"deploy_kernel":                "http://deploy.test/ipa.kernel",
 				"deploy_ramdisk":               "http://deploy.test/ipa.initramfs",
@@ -411,7 +411,7 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 				DeployInterface: imageType.DeployInterface,
 				InstanceInfo:    imageType.InstanceInfo,
 				DriverInfo:      imageType.DriverInfo,
-				Properties:      map[string]interface{}{"capabilities": ""},
+				Properties:      map[string]any{"capabilities": ""},
 			}).NodeUpdate(nodes.Node{
 				UUID: "uuid",
 			})
@@ -460,7 +460,7 @@ func TestRegisterExistingNodeWaiting(t *testing.T) {
 				Name:           host.Namespace + nameSeparator + host.Name,
 				UUID:           "uuid", // to match status in host
 				ProvisionState: string(status),
-				DriverInfo: map[string]interface{}{
+				DriverInfo: map[string]any{
 					"deploy_kernel":  "http://deploy.test/ipa.kernel",
 					"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
 					"test_address":   "test.bmc",
@@ -468,7 +468,7 @@ func TestRegisterExistingNodeWaiting(t *testing.T) {
 					"test_password":  "******", // ironic returns a placeholder
 					"test_port":      "42",
 				},
-				Properties: map[string]interface{}{"capabilities": ""},
+				Properties: map[string]any{"capabilities": ""},
 			}
 			ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(node).NodeUpdate(nodes.Node{
 				UUID: "uuid",
@@ -525,7 +525,7 @@ func TestRegisterNewCredentials(t *testing.T) {
 				Name:           host.Namespace + nameSeparator + host.Name,
 				ProvisionState: string(nodes.Verifying),
 				UUID:           "uuid",
-				DriverInfo: map[string]interface{}{
+				DriverInfo: map[string]any{
 					"test_address": "test.bmc",
 				},
 			})
@@ -547,7 +547,7 @@ func TestRegisterNewCredentials(t *testing.T) {
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	assert.Equal(t, "/driver_info", updates[0].Path)
-	newValues, ok := updates[0].Value.(map[string]interface{})
+	newValues, ok := updates[0].Value.(map[string]any)
 	require.True(t, ok, "expected to be a map")
 	assert.Equal(t, "test.bmc", newValues["test_address"])
 }
@@ -814,7 +814,7 @@ func TestRegisterUpdateBMCAddressIP(t *testing.T) {
 		Node(nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: "uuid",
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"ipmi_address":    "192.168.122.1",
 				"ipmi_port":       623,
 				"ipmi_username":   "",
@@ -826,7 +826,7 @@ func TestRegisterUpdateBMCAddressIP(t *testing.T) {
 		nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: "uuid",
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"ipmi_address":    "192.168.122.10",
 				"ipmi_port":       623,
 				"ipmi_username":   "",
@@ -855,7 +855,7 @@ func TestRegisterUpdateBMCAddressIP(t *testing.T) {
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	assert.Equal(t, "/driver_info", updates[0].Path)
-	newValues, ok := updates[0].Value.(map[string]interface{})
+	newValues, ok := updates[0].Value.(map[string]any)
 	require.True(t, ok, "expected to be a map")
 	assert.Equal(t, "192.168.122.10", newValues["ipmi_address"])
 }
@@ -875,7 +875,7 @@ func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 		Node(nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: "uuid",
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"ipmi_address":    "192.168.122.1",
 				"ipmi_port":       623,
 				"ipmi_username":   "",
@@ -888,7 +888,7 @@ func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 		nodes.Node{
 			Name: host.Namespace + nameSeparator + host.Name,
 			UUID: "uuid",
-			DriverInfo: map[string]interface{}{
+			DriverInfo: map[string]any{
 				"redfish_address":   "https://192.168.122.1:443",
 				"redfish_username":  "",
 				"redfish_password":  "",
@@ -917,7 +917,7 @@ func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 
 	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
 	assert.Equal(t, "/driver_info", updates[0].Path)
-	newValues, ok := updates[0].Value.(map[string]interface{})
+	newValues, ok := updates[0].Value.(map[string]any)
 	require.True(t, ok, "expected to be a map")
 	assert.Equal(t, "https://192.168.122.1:623", newValues["redfish_address"])
 }
@@ -1271,7 +1271,7 @@ func TestSetExternalURL(t *testing.T) {
 
 	prov.config.externalURL = "XXX"
 
-	driverInfo := make(map[string]interface{}, 0)
+	driverInfo := make(map[string]any, 0)
 	updatedDriverInfo := setExternalURL(prov, driverInfo)
 
 	assert.Equal(t, "XXX", updatedDriverInfo["external_http_url"])
@@ -1301,7 +1301,7 @@ func TestSetExternalURLIPv4(t *testing.T) {
 
 	prov.config.externalURL = "XXX"
 
-	driverInfo := make(map[string]interface{}, 0)
+	driverInfo := make(map[string]any, 0)
 	updatedDriverInfo := setExternalURL(prov, driverInfo)
 
 	assert.Nil(t, updatedDriverInfo["external_http_url"])
@@ -1329,7 +1329,7 @@ func TestSetExternalURLRemoving(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	driverInfo := make(map[string]interface{})
+	driverInfo := make(map[string]any)
 	driverInfo["external_http_url"] = "non-empty"
 	updatedDriverInfo := setExternalURL(prov, driverInfo)
 

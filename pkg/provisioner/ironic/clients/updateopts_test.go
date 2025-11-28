@@ -13,8 +13,8 @@ import (
 func TestOptionValueEqual(t *testing.T) {
 	cases := []struct {
 		Name   string
-		Before interface{}
-		After  interface{}
+		Before any
+		After  any
 		Equal  bool
 	}{
 		{
@@ -103,7 +103,7 @@ func TestOptionValueEqual(t *testing.T) {
 		},
 		{
 			Name:   "map string",
-			Before: map[string]interface{}{"foo": "foo"},
+			Before: map[string]any{"foo": "foo"},
 			After:  "foo",
 			Equal:  false,
 		},
@@ -121,7 +121,7 @@ func TestOptionValueEqual(t *testing.T) {
 		},
 		{
 			Name:   "map list",
-			Before: map[string]interface{}{"foo": "foo"},
+			Before: map[string]any{"foo": "foo"},
 			After:  []string{"foo"},
 			Equal:  false,
 		},
@@ -133,110 +133,110 @@ func TestOptionValueEqual(t *testing.T) {
 		},
 		{
 			Name:   "equal map string-typed",
-			Before: map[string]interface{}{"foo": "bar"},
+			Before: map[string]any{"foo": "bar"},
 			After:  map[string]string{"foo": "bar"},
 			Equal:  true,
 		},
 		{
 			Name:   "unequal map string-typed",
-			Before: map[string]interface{}{"foo": "bar"},
+			Before: map[string]any{"foo": "bar"},
 			After:  map[string]string{"foo": "baz"},
 			Equal:  false,
 		},
 		{
 			Name:   "equal map int-typed",
-			Before: map[string]interface{}{"foo": 42},
+			Before: map[string]any{"foo": 42},
 			After:  map[string]int{"foo": 42},
 			Equal:  true,
 		},
 		{
 			Name:   "unequal map int-typed",
-			Before: map[string]interface{}{"foo": "bar"},
+			Before: map[string]any{"foo": "bar"},
 			After:  map[string]int{"foo": 42},
 			Equal:  false,
 		},
 		{
 			Name:   "equal map",
-			Before: map[string]interface{}{"foo": "bar", "42": 42},
-			After:  map[string]interface{}{"foo": "bar", "42": 42},
+			Before: map[string]any{"foo": "bar", "42": 42},
+			After:  map[string]any{"foo": "bar", "42": 42},
 			Equal:  true,
 		},
 		{
 			Name:   "unequal map",
-			Before: map[string]interface{}{"foo": "bar", "42": 42},
-			After:  map[string]interface{}{"foo": "bar", "42": 27},
+			Before: map[string]any{"foo": "bar", "42": 42},
+			After:  map[string]any{"foo": "bar", "42": 27},
 			Equal:  false,
 		},
 		{
 			Name:   "equal map empty string",
-			Before: map[string]interface{}{"foo": ""},
-			After:  map[string]interface{}{"foo": ""},
+			Before: map[string]any{"foo": ""},
+			After:  map[string]any{"foo": ""},
 			Equal:  true,
 		},
 		{
 			Name:   "unequal map replace empty string",
-			Before: map[string]interface{}{"foo": ""},
-			After:  map[string]interface{}{"foo": "bar"},
+			Before: map[string]any{"foo": ""},
+			After:  map[string]any{"foo": "bar"},
 			Equal:  false,
 		},
 		{
 			Name:   "unequal map replace with empty string",
-			Before: map[string]interface{}{"foo": "bar"},
-			After:  map[string]interface{}{"foo": ""},
+			Before: map[string]any{"foo": "bar"},
+			After:  map[string]any{"foo": ""},
 			Equal:  false,
 		},
 		{
 			Name:   "shorter map",
-			Before: map[string]interface{}{"foo": "bar", "42": 42},
-			After:  map[string]interface{}{"foo": "bar"},
+			Before: map[string]any{"foo": "bar", "42": 42},
+			After:  map[string]any{"foo": "bar"},
 			Equal:  false,
 		},
 		{
 			Name:   "longer map",
-			Before: map[string]interface{}{"foo": "bar"},
-			After:  map[string]interface{}{"foo": "bar", "42": 42},
+			Before: map[string]any{"foo": "bar"},
+			After:  map[string]any{"foo": "bar", "42": 42},
 			Equal:  false,
 		},
 		{
 			Name:   "different map",
-			Before: map[string]interface{}{"foo": "bar"},
-			After:  map[string]interface{}{"baz": "bar"},
+			Before: map[string]any{"foo": "bar"},
+			After:  map[string]any{"baz": "bar"},
 			Equal:  false,
 		},
 		{
 			Name:   "equal list string-typed",
-			Before: []interface{}{"foo", "bar"},
+			Before: []any{"foo", "bar"},
 			After:  []string{"foo", "bar"},
 			Equal:  true,
 		},
 		{
 			Name:   "unequal list string-typed",
-			Before: []interface{}{"foo", "bar"},
+			Before: []any{"foo", "bar"},
 			After:  []string{"foo", "baz"},
 			Equal:  false,
 		},
 		{
 			Name:   "equal list",
-			Before: []interface{}{"foo", 42},
-			After:  []interface{}{"foo", 42},
+			Before: []any{"foo", 42},
+			After:  []any{"foo", 42},
 			Equal:  true,
 		},
 		{
 			Name:   "unequal list",
-			Before: []interface{}{"foo", 42},
-			After:  []interface{}{"foo", 27},
+			Before: []any{"foo", 42},
+			After:  []any{"foo", 27},
 			Equal:  false,
 		},
 		{
 			Name:   "shorter list",
-			Before: []interface{}{"foo", 42},
-			After:  []interface{}{"foo"},
+			Before: []any{"foo", 42},
+			After:  []any{"foo"},
 			Equal:  false,
 		},
 		{
 			Name:   "longer list",
-			Before: []interface{}{"foo"},
-			After:  []interface{}{"foo", 42},
+			Before: []any{"foo"},
+			After:  []any{"foo", 42},
 			Equal:  false,
 		},
 	}
@@ -258,7 +258,7 @@ func TestGetUpdateOperation(t *testing.T) {
 	barExist := "bar"
 	bar := "bar"
 	baz := "baz"
-	existingData := map[string]interface{}{
+	existingData := map[string]any{
 		"foo":  "bar",
 		"foop": &barExist,
 		"nil":  nilp,
@@ -266,7 +266,7 @@ func TestGetUpdateOperation(t *testing.T) {
 	cases := []struct {
 		Name          string
 		Field         string
-		NewValue      interface{}
+		NewValue      any
 		ExpectedOp    nodes.UpdateOp
 		ExpectedValue string
 	}{
@@ -409,7 +409,7 @@ func TestPropertiesUpdateOpts(t *testing.T) {
 		"baz": "quux",
 	}
 	node := nodes.Node{
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			"foo": "bar",
 		},
 	}
@@ -431,7 +431,7 @@ func TestInstanceInfoUpdateOpts(t *testing.T) {
 		"baz": "quux",
 	}
 	node := nodes.Node{
-		InstanceInfo: map[string]interface{}{
+		InstanceInfo: map[string]any{
 			"foo": "bar",
 		},
 	}
@@ -448,26 +448,26 @@ func TestInstanceInfoUpdateOpts(t *testing.T) {
 }
 
 func TestSanitisedValue(t *testing.T) {
-	unchanged := []interface{}{
+	unchanged := []any{
 		"foo",
 		42,
 		true,
 		[]string{"bar", "baz"},
 		map[string]string{"foo": "bar"},
 		map[string][]string{"foo": {"bar", "baz"}},
-		map[string]interface{}{"foo": []string{"bar", "baz"}, "bar": 42},
+		map[string]any{"foo": []string{"bar", "baz"}, "bar": 42},
 	}
 
 	for _, u := range unchanged {
 		assert.Exactly(t, u, sanitisedValue(u))
 	}
 
-	unsafe := map[string]interface{}{
+	unsafe := map[string]any{
 		"foo":           "bar",
 		"password":      "secret",
 		"ipmi_password": "secret",
 	}
-	safe := map[string]interface{}{
+	safe := map[string]any{
 		"foo":           "bar",
 		"password":      "<redacted>",
 		"ipmi_password": "<redacted>",

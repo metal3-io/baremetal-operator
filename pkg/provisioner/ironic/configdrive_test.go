@@ -27,7 +27,7 @@ func TestEmpty(t *testing.T) {
 			name:     "default",
 			hostData: fixture.NewHostConfigData("", "", ""),
 			expected: nodes.ConfigDrive{
-				MetaData: map[string]interface{}{
+				MetaData: map[string]any{
 					"local-hostname":   "myhost",
 					"local_hostname":   "myhost",
 					"metal3-name":      "myhost",
@@ -41,7 +41,7 @@ func TestEmpty(t *testing.T) {
 			hostData:   fixture.NewHostConfigData("", "", ""),
 			diskFormat: "qcow2",
 			expected: nodes.ConfigDrive{
-				MetaData: map[string]interface{}{
+				MetaData: map[string]any{
 					"local-hostname":   "myhost",
 					"local_hostname":   "myhost",
 					"metal3-name":      "myhost",
@@ -54,7 +54,7 @@ func TestEmpty(t *testing.T) {
 			name:     "everything",
 			hostData: fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
 			expected: nodes.ConfigDrive{
-				MetaData: map[string]interface{}{
+				MetaData: map[string]any{
 					"local-hostname":   "myhost",
 					"local_hostname":   "myhost",
 					"metal3-name":      "myhost",
@@ -62,7 +62,7 @@ func TestEmpty(t *testing.T) {
 					"name":             "myhost",
 					"test":             "Meta",
 				},
-				NetworkData: map[string]interface{}{
+				NetworkData: map[string]any{
 					"test": "NetworkData",
 				},
 				UserData: "testUserData",
@@ -72,14 +72,14 @@ func TestEmpty(t *testing.T) {
 			name:     "only network data",
 			hostData: fixture.NewHostConfigData("", "test: NetworkData", ""),
 			expected: nodes.ConfigDrive{
-				MetaData: map[string]interface{}{
+				MetaData: map[string]any{
 					"local-hostname":   "myhost",
 					"local_hostname":   "myhost",
 					"metal3-name":      "myhost",
 					"metal3-namespace": "myns",
 					"name":             "myhost",
 				},
-				NetworkData: map[string]interface{}{
+				NetworkData: map[string]any{
 					"test": "NetworkData",
 				},
 			},
@@ -88,7 +88,7 @@ func TestEmpty(t *testing.T) {
 			name:     "only user data",
 			hostData: fixture.NewHostConfigData("testUserData", "", ""),
 			expected: nodes.ConfigDrive{
-				MetaData: map[string]interface{}{
+				MetaData: map[string]any{
 					"local-hostname":   "myhost",
 					"local_hostname":   "myhost",
 					"metal3-name":      "myhost",
@@ -102,7 +102,7 @@ func TestEmpty(t *testing.T) {
 			name:     "only meta data",
 			hostData: fixture.NewHostConfigData("", "", "test: Meta"),
 			expected: nodes.ConfigDrive{
-				MetaData: map[string]interface{}{
+				MetaData: map[string]any{
 					"local-hostname":   "myhost",
 					"local_hostname":   "myhost",
 					"metal3-name":      "myhost",

@@ -125,6 +125,7 @@ jobs:
   build_bmo:
     permissions:
       contents: read
+      id-token: write
     needs: push_release_tags
     name: Build BMO container image
     if: github.repository == 'metal3-io/baremetal-operator'
@@ -133,6 +134,7 @@ jobs:
       image-name: 'baremetal-operator'
       pushImage: true
       ref: ${{ needs.push_release_tags.outputs.release_tag }}
+      generate-sbom: true
     secrets:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}

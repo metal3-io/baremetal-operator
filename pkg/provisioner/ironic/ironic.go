@@ -398,7 +398,7 @@ func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageForm
 	return formats, nil
 }
 
-func setExternalURL(p *ironicProvisioner, driverInfo map[string]interface{}) map[string]interface{} {
+func setExternalURL(p *ironicProvisioner, driverInfo map[string]any) map[string]any {
 	if _, ok := driverInfo["external_http_url"]; ok {
 		driverInfo["external_http_url"] = nil
 	}
@@ -922,7 +922,7 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 	return sameImage
 }
 
-func (p *ironicProvisioner) getNewFirmwareSettings(actualFirmwareSettings metal3api.SettingsMap, targetFirmwareSettings metal3api.DesiredSettingsMap, fwConfigSettings []map[string]string) (newSettings []map[string]interface{}) {
+func (p *ironicProvisioner) getNewFirmwareSettings(actualFirmwareSettings metal3api.SettingsMap, targetFirmwareSettings metal3api.DesiredSettingsMap, fwConfigSettings []map[string]string) (newSettings []map[string]any) {
 	if actualFirmwareSettings != nil {
 		// If we have the current settings from Ironic, update the settings to contain:
 		// 1. settings converted by BMC drivers that are different than current settings
@@ -997,7 +997,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 			nodes.CleanStep{
 				Interface: nodes.InterfaceBIOS,
 				Step:      "apply_configuration",
-				Args: map[string]interface{}{
+				Args: map[string]any{
 					"settings": newSettings,
 				},
 			},
@@ -1013,7 +1013,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 			nodes.CleanStep{
 				Interface: nodes.InterfaceFirmware,
 				Step:      "update",
-				Args: map[string]interface{}{
+				Args: map[string]any{
 					"settings": newUpdates,
 				},
 			},
@@ -1025,7 +1025,7 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 	return cleanSteps, nil
 }
 
-func buildFirmwareSettings(settings []map[string]interface{}, name string, value intstr.IntOrString) []map[string]interface{} {
+func buildFirmwareSettings(settings []map[string]any, name string, value intstr.IntOrString) []map[string]any {
 	// if name already exists, don't add it
 	for _, setting := range settings {
 		if setting["name"] == name {
@@ -1034,9 +1034,9 @@ func buildFirmwareSettings(settings []map[string]interface{}, name string, value
 	}
 
 	if value.Type == intstr.Int {
-		settings = append(settings, map[string]interface{}{"name": name, "value": value.IntValue()})
+		settings = append(settings, map[string]any{"name": name, "value": value.IntValue()})
 	} else {
-		settings = append(settings, map[string]interface{}{"name": name, "value": value.String()})
+		settings = append(settings, map[string]any{"name": name, "value": value.String()})
 	}
 
 	return settings
@@ -1177,7 +1177,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 		return configDrive, fmt.Errorf("could not retrieve network data: %w", err)
 	}
 	if networkDataRaw != "" {
-		var networkData map[string]interface{}
+		var networkData map[string]any
 		if err = yaml.Unmarshal([]byte(networkDataRaw), &networkData); err != nil {
 			return configDrive, fmt.Errorf("failed to unmarshal network_data.json from secret: %w", err)
 		}
@@ -1185,7 +1185,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	}
 
 	// Retrieve meta data with fallback to defaults from provisioner.
-	configDrive.MetaData = map[string]interface{}{
+	configDrive.MetaData = map[string]any{
 		"uuid":             string(p.objectMeta.UID),
 		"metal3-namespace": p.objectMeta.Namespace,
 		"metal3-name":      p.objectMeta.Name,
@@ -1211,7 +1211,7 @@ func (p *ironicProvisioner) getCustomDeploySteps(customDeploy *metal3api.CustomD
 		deploySteps = append(deploySteps, nodes.DeployStep{
 			Interface: nodes.InterfaceDeploy,
 			Step:      customDeploy.Method,
-			Args:      map[string]interface{}{},
+			Args:      map[string]any{},
 			Priority:  customDeployPriority,
 		})
 	}

@@ -30,12 +30,12 @@ func GetHardwareDetails(data *nodes.InventoryData, logger logr.Logger) *metal3ap
 	return details
 }
 
-func getVLANs(lldp map[string]interface{}) (vlans []metal3api.VLAN, vlanid metal3api.VLANID) {
+func getVLANs(lldp map[string]any) (vlans []metal3api.VLAN, vlanid metal3api.VLANID) {
 	if lldp == nil {
 		return
 	}
 	if spvs, ok := lldp["switch_port_vlans"]; ok {
-		if data, ok := spvs.([]map[string]interface{}); ok {
+		if data, ok := spvs.([]map[string]any); ok {
 			vlans = make([]metal3api.VLAN, len(data))
 			for i, vlan := range data {
 				vid, _ := vlan["id"].(int)
@@ -53,7 +53,7 @@ func getVLANs(lldp map[string]interface{}) (vlans []metal3api.VLAN, vlanid metal
 	return
 }
 
-func getLLDPData(lldp map[string]interface{}) *metal3api.LLDP {
+func getLLDPData(lldp map[string]any) *metal3api.LLDP {
 	if lldp == nil {
 		return nil
 	}

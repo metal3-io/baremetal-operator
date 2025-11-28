@@ -207,8 +207,8 @@ func main() {
 
 	if strings.Contains(watchNamespace, ",") {
 		setupLog.Info("Manager set up with multiple namespaces to watch", "namespaces", watchNamespace)
-		namespaces := strings.Split(watchNamespace, ",")
-		for _, namespace := range namespaces {
+		namespaces := strings.SplitSeq(watchNamespace, ",")
+		for namespace := range namespaces {
 			watchNamespaces[namespace] = cache.Config{}
 		}
 	} else if watchNamespace != "" {
@@ -476,10 +476,9 @@ func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
 
 	// controller-concurrency value is 0 i.e. no values passed via the flag
 	// maxConcurrentReconcile value would be set based on env var or number of CPUs.
-	maxConcurrentReconciles := runtime.NumCPU()
-	if maxConcurrentReconciles > 8 { //nolint:mnd
-		maxConcurrentReconciles = 8
-	}
+	maxConcurrentReconciles := min(runtime.NumCPU(),
+		//nolint:mnd
+		8)
 	if maxConcurrentReconciles < 2 { //nolint:mnd
 		maxConcurrentReconciles = 2
 	}

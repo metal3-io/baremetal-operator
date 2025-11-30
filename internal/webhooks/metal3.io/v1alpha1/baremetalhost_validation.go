@@ -141,11 +141,8 @@ func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetail
 	}
 
 	// Check if bootMACAddress is required
-	requiresMAC := bmcAccess.NeedsMAC()
 	// Virtual media drivers (NeedsMAC() returns false) still require MAC when inspection is disabled
-	if !requiresMAC && host.InspectionDisabled() {
-		requiresMAC = true
-	}
+	requiresMAC := bmcAccess.NeedsMAC() || host.InspectionDisabled()
 
 	if requiresMAC && s.BootMACAddress == "" {
 		errs = append(errs, fmt.Errorf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type()))

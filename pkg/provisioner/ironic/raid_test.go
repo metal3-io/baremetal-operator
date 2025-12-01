@@ -13,7 +13,7 @@ import (
 func TestBuildTargetRAIDCfg(t *testing.T) {
 	var TRUE = true
 	var FALSE = false
-	physicalDisks := make([]interface{}, 0)
+	physicalDisks := make([]any, 0)
 	physicalDisks2 := []string{
 		"Disk-1",
 		"Disk-2",
@@ -162,7 +162,7 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 				{
 					RAIDLevel:  "1",
 					Controller: "software",
-					PhysicalDisks: []interface{}{
+					PhysicalDisks: []any{
 						map[string]string{
 							"size": ">= 100",
 						},

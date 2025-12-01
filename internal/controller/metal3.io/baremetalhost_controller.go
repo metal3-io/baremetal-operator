@@ -659,13 +659,7 @@ func (r *BareMetalHostReconciler) preprovImageAvailable(info *reconcileInfo, ima
 		return false, nil
 	}
 
-	validFormat := false
-	for _, f := range image.Spec.AcceptFormats {
-		if image.Status.Format == f {
-			validFormat = true
-			break
-		}
-	}
+	validFormat := slices.Contains(image.Spec.AcceptFormats, image.Status.Format)
 	if !validFormat {
 		info.log.Info("pre-provisioning image format not accepted",
 			"format", image.Status.Format)

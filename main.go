@@ -476,11 +476,8 @@ func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
 
 	// controller-concurrency value is 0 i.e. no values passed via the flag
 	// maxConcurrentReconcile value would be set based on env var or number of CPUs.
-	maxConcurrentReconciles := runtime.NumCPU()
-	if maxConcurrentReconciles > 8 { //nolint:mnd
-		maxConcurrentReconciles = 8
-	}
-	if maxConcurrentReconciles < 2 { //nolint:mnd
+	maxConcurrentReconciles := min(runtime.NumCPU(), 8) //nolint:mnd
+	if maxConcurrentReconciles < 2 {                    //nolint:mnd
 		maxConcurrentReconciles = 2
 	}
 	if mcrEnv, ok := os.LookupEnv("BMO_CONCURRENCY"); ok {

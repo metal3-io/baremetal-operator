@@ -24,7 +24,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "empty",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "",
 				},
 			},
@@ -34,7 +34,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "not-there",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
@@ -44,7 +44,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "add-secure-boot",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
@@ -54,7 +54,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "uefi-to-uefi",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
@@ -64,7 +64,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "bios-to-bios",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "boot_mode:bios,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
@@ -74,7 +74,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "bios-to-uefi",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "boot_mode:bios,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
@@ -84,7 +84,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "uefi-to-bios",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
@@ -94,7 +94,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "uefi-to-secure",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true",
 				},
 			},
@@ -104,7 +104,7 @@ func TestBuildCapabilitiesValue(t *testing.T) {
 		{
 			Scenario: "secure-to-uefi",
 			Node: nodes.Node{
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"capabilities": "boot_mode:uefi,cpu_vt:true,cpu_aes:true,cpu_hugepages:true,cpu_hugepages_1g:true,secure_boot:true",
 				},
 			},

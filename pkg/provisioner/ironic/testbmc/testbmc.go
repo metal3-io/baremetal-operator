@@ -48,8 +48,8 @@ func (a *testAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials) map[string]interface{} {
-	result := map[string]interface{}{
+func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials) map[string]any {
+	result := map[string]any{
 		"test_port":     "42",
 		"test_username": bmcCreds.Username,
 		"test_password": bmcCreds.Password,

@@ -122,7 +122,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 			}
 		}
 		// Create the physicalDisks slice for logicalDisk struct
-		physicalDisks := make([]interface{}, len(volume.PhysicalDisks))
+		physicalDisks := make([]any, len(volume.PhysicalDisks))
 		for i, physicalDisk := range volume.PhysicalDisks {
 			physicalDisks[i] = physicalDisk
 		}

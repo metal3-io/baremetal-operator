@@ -33,7 +33,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -566,14 +565,13 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 		return actionError{err}
 	}
 
-	info.host.Finalizers = utils.FilterStringFromList(
-		info.host.Finalizers, metal3api.BareMetalHostFinalizer)
-	info.log.Info("cleanup is complete, removed finalizer",
-		"remaining", info.host.Finalizers)
-	if err := r.Update(info.ctx, info.host); err != nil {
-		return actionError{fmt.Errorf("failed to remove finalizer: %w", err)}
+	if controllerutil.RemoveFinalizer(info.host, metal3api.BareMetalHostFinalizer) {
+		info.log.Info("cleanup is complete, removed finalizer",
+			"remaining", info.host.Finalizers)
+		if err := r.Update(info.ctx, info.host); err != nil {
+			return actionError{fmt.Errorf("failed to remove finalizer: %w", err)}
+		}
 	}
-
 	return deleteComplete{}
 }
 

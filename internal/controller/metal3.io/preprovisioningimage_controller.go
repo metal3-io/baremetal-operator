@@ -27,7 +27,6 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -87,11 +87,11 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		if err = r.discardExistingImage(&img, log); err != nil {
 			return ctrl.Result{}, err
 		}
-		img.Finalizers = utils.FilterStringFromList(
-			img.Finalizers, metal3api.PreprovisioningImageFinalizer)
-		err = r.Update(ctx, &img)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+		if controllerutil.RemoveFinalizer(&img, metal3api.PreprovisioningImageFinalizer) {
+			err = r.Update(ctx, &img)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+			}
 		}
 		return ctrl.Result{}, nil
 	}

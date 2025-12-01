@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -321,7 +322,7 @@ func (r *BareMetalHostReconciler) updateHardwareDetails(ctx context.Context, req
 
 func logResult(info *reconcileInfo, result ctrl.Result) {
 	if result.Requeue || result.RequeueAfter != 0 ||
-		!utils.StringInList(info.host.Finalizers,
+		!slices.Contains(info.host.Finalizers,
 			metal3api.BareMetalHostFinalizer) {
 		info.log.Info("done",
 			"requeue", result.Requeue,
@@ -544,7 +545,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 	)
 
 	// no-op if finalizer has been removed.
-	if !utils.StringInList(info.host.Finalizers, metal3api.BareMetalHostFinalizer) {
+	if !slices.Contains(info.host.Finalizers, metal3api.BareMetalHostFinalizer) {
 		info.log.Info("ready to be deleted")
 		return deleteComplete{}
 	}
@@ -2303,7 +2304,7 @@ func (r *BareMetalHostReconciler) hostHasStatus(host *metal3api.BareMetalHost) b
 }
 
 func hostHasFinalizer(host *metal3api.BareMetalHost) bool {
-	return utils.StringInList(host.Finalizers, metal3api.BareMetalHostFinalizer)
+	return slices.Contains(host.Finalizers, metal3api.BareMetalHostFinalizer)
 }
 
 func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {

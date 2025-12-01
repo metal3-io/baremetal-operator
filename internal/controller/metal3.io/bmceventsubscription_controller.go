@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -301,5 +302,5 @@ func (r *BMCEventSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager, maxC
 }
 
 func subscriptionHasFinalizer(subscription *metal3api.BMCEventSubscription) bool {
-	return utils.StringInList(subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer)
+	return slices.Contains(subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer)
 }

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -151,7 +152,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Add finalizer for newly created DataImage
-	if di.DeletionTimestamp.IsZero() && !utils.StringInList(di.Finalizers, metal3api.DataImageFinalizer) {
+	if di.DeletionTimestamp.IsZero() && !slices.Contains(di.Finalizers, metal3api.DataImageFinalizer) {
 		reqLogger.Info("adding finalizer")
 		di.Finalizers = append(di.Finalizers, metal3api.DataImageFinalizer)
 

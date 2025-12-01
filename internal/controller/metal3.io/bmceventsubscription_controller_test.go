@@ -1,11 +1,11 @@
 package controllers
 
 import (
+	"slices"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,7 +105,7 @@ func TestBMCAddFinalizers(t *testing.T) {
 		t.Error(err)
 	}
 	t.Logf("subscription finalizers: %v", subscription.Finalizers)
-	if !utils.StringInList(subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer) {
+	if !slices.Contains(subscription.Finalizers, metal3api.BMCEventSubscriptionFinalizer) {
 		t.Error("Expected finalizers to be added")
 	}
 }

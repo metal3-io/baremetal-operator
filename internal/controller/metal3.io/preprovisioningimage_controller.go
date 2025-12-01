@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -95,7 +96,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if !utils.StringInList(img.Finalizers, metal3api.PreprovisioningImageFinalizer) {
+	if !slices.Contains(img.Finalizers, metal3api.PreprovisioningImageFinalizer) {
 		log.Info("adding finalizer")
 		img.Finalizers = append(img.Finalizers, metal3api.PreprovisioningImageFinalizer)
 		err = r.Update(ctx, &img)

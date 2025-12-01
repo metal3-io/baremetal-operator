@@ -3,6 +3,7 @@ package secretutils
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -99,7 +100,7 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 		}
 	}
 
-	if addFinalizer && !utils.StringInList(secret.Finalizers, SecretsFinalizer) {
+	if addFinalizer && !slices.Contains(secret.Finalizers, SecretsFinalizer) {
 		log.Info("setting secret finalizer")
 		secret.Finalizers = append(secret.Finalizers, SecretsFinalizer)
 		needsUpdate = true
@@ -148,7 +149,7 @@ func (sm *SecretManager) ObtainSecret(key types.NamespacedName) (*corev1.Secret,
 
 // ReleaseSecret removes secrets manager finalizer from specified secret when needed.
 func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
-	if !utils.StringInList(secret.Finalizers, SecretsFinalizer) {
+	if !slices.Contains(secret.Finalizers, SecretsFinalizer) {
 		return nil
 	}
 

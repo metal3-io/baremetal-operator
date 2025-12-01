@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -624,14 +624,14 @@ func TestAddFinalizers(t *testing.T) {
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
 			t.Logf("host finalizers: %v", host.ObjectMeta.Finalizers)
-			if !utils.StringInList(host.ObjectMeta.Finalizers, metal3api.BareMetalHostFinalizer) {
+			if !slices.Contains(host.ObjectMeta.Finalizers, metal3api.BareMetalHostFinalizer) {
 				return false
 			}
 
 			hostSecret := getHostSecret(t, r, host)
 			t.Logf("BMC secret finalizers: %v", hostSecret.ObjectMeta.Finalizers)
 
-			return utils.StringInList(hostSecret.ObjectMeta.Finalizers, secretutils.SecretsFinalizer)
+			return slices.Contains(hostSecret.ObjectMeta.Finalizers, secretutils.SecretsFinalizer)
 		},
 	)
 }
@@ -1710,7 +1710,7 @@ func TestDeleteHost(t *testing.T) {
 
 			tryReconcile(t, r, host,
 				func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
-					return fix.Deleted && host == nil && !utils.StringInList(badSecret.Finalizers, secretutils.SecretsFinalizer)
+					return fix.Deleted && host == nil && !slices.Contains(badSecret.Finalizers, secretutils.SecretsFinalizer)
 				},
 			)
 		})

@@ -58,7 +58,7 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 		errs = append(errs, raidErrors...)
 	}
 
-	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
+	errs = append(errs, validateBMCAccess(host, bmcAccess)...)
 
 	if err := validateBMHName(host.Name); err != nil {
 		errs = append(errs, err)
@@ -120,8 +120,9 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 	return errs
 }
 
-func validateBMCAccess(s metal3api.BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error {
+func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetails) []error {
 	var errs []error
+	s := host.Spec
 
 	if bmcAccess == nil {
 		return errs
@@ -139,7 +140,11 @@ func validateBMCAccess(s metal3api.BareMetalHostSpec, bmcAccess bmc.AccessDetail
 		}
 	}
 
-	if bmcAccess.NeedsMAC() && s.BootMACAddress == "" {
+	// Check if bootMACAddress is required
+	// Virtual media drivers (NeedsMAC() returns false) still require MAC when inspection is disabled
+	requiresMAC := bmcAccess.NeedsMAC() || host.InspectionDisabled()
+
+	if requiresMAC && s.BootMACAddress == "" {
 		errs = append(errs, fmt.Errorf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type()))
 	}
 

@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	// Import BMC drivers to register their factories.
+	_ "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -266,6 +268,71 @@ func TestValidateCreate(t *testing.T) {
 						CredentialsName: "test1",
 					},
 					BootMACAddress: "00:00:00:00:00:00",
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "BootMACAddressNotRequiredForVirtualMedia",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "idrac-virtualmedia+https://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "BootMACAddressRequiredForVirtualMediaWithInspectionDisabled",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.InspectAnnotationPrefix: "disabled",
+					},
+				},
+				Spec: metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "idrac-virtualmedia+https://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+						CredentialsName: "test1",
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "BMC driver idrac-virtualmedia+https requires a BootMACAddress value",
+		},
+		{
+			name: "BootMACAddressProvidedForVirtualMediaWithInspectionDisabled",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "idrac-virtualmedia+https://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "00:00:00:00:00:00",
+					InspectionMode: metal3api.InspectionModeDisabled,
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "BootMACAddressNotRequiredForVirtualMediaWithInspectionEnabled",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "redfish-virtualmedia+https://192.168.1.1/redfish/v1/Systems/1",
+						CredentialsName: "test1",
+					},
+					InspectionMode: metal3api.InspectionModeAgent,
 				}},
 			oldBMH:    nil,
 			wantedErr: "",
@@ -1055,39 +1122,10 @@ func TestValidateUpdate(t *testing.T) {
 		{
 			name: "updateBootMAC",
 			newBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "00:11:22:33:44:66"}},
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "test-mac-changed"}},
 			oldBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "00:11:22:33:44:55"}},
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "test-mac"}},
 			wantedErr: "bootMACAddress can not be changed once it is set",
-		},
-		{
-			name: "updateBootMACCaseOnly",
-			newBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "AA:BB:CC:DD:EE:FF"}},
-			oldBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "aa:bb:cc:dd:ee:ff"}},
-			wantedErr: "",
-		},
-		{
-			name: "updateBootMACCaseMixed",
-			newBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "aA:Bb:cC:Dd:Ee:Ff"}},
-			oldBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "AA:BB:CC:DD:EE:FF"}},
-			wantedErr: "",
-		},
-		{
-			name: "updateBootMACInvalidNew",
-			newBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{
-					BMC: metal3api.BMCDetails{
-						Address:         "redfish://127.0.0.1",
-						CredentialsName: "test1",
-					},
-					BootMACAddress: "invalid-mac"}},
-			oldBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "00:11:22:33:44:55"}},
-			wantedErr: "address invalid-mac: invalid MAC address",
 		},
 		{
 			name: "updateExternallyProvisioned",

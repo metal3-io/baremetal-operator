@@ -613,7 +613,12 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		"image_disk_format": imageData.DiskFormat,
 	}
 
-	if checksumType == "" {
+	// For OCI images without checksum, don't set checksum fields
+	if checksum == "" && checksumType == "" {
+		optValues["image_checksum"] = nil
+		optValues["image_os_hash_algo"] = nil
+		optValues["image_os_hash_value"] = nil
+	} else if checksumType == "" {
 		optValues["image_checksum"] = checksum
 		optValues["image_os_hash_algo"] = nil
 		optValues["image_os_hash_value"] = nil
@@ -900,7 +905,10 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 			"provisionState", ironicNode.ProvisionState)
 	} else {
 		checksum, checksumType, _ := image.GetChecksum()
-		if checksumType == "" {
+		// For OCI images without checksum, only compare the URL
+		if image.IsOCI() && checksum == "" {
+			sameImage = (ironicNode.InstanceInfo["image_source"] == image.URL)
+		} else if checksumType == "" {
 			sameImage = (ironicNode.InstanceInfo["image_source"] == image.URL &&
 				ironicNode.InstanceInfo["image_checksum"] == checksum &&
 				ironicNode.InstanceInfo["image_os_hash_algo"] == nil &&

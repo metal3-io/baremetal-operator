@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -154,8 +153,7 @@ func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
 	}
 
 	// Remove finalizer from secret to allow deletion
-	secret.Finalizers = utils.FilterStringFromList(
-		secret.Finalizers, SecretsFinalizer)
+	controllerutil.RemoveFinalizer(secret, SecretsFinalizer)
 
 	if err := sm.client.Update(sm.ctx, secret); err != nil {
 		return fmt.Errorf("failed to remove finalizer from secret %s in namespace %s: %w",

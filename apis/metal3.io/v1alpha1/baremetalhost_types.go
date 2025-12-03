@@ -542,7 +542,7 @@ type Image struct {
 	URL string `json:"url"`
 
 	// Checksum is the checksum for the image. Required for all formats
-	// except for "live-iso".
+	// except for "live-iso" and OCI images (oci://).
 	Checksum string `json:"checksum,omitempty"`
 
 	// ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
@@ -559,6 +559,10 @@ type Image struct {
 
 func (image *Image) IsLiveISO() bool {
 	return image != nil && image.DiskFormat != nil && *image.DiskFormat == "live-iso"
+}
+
+func (image *Image) IsOCI() bool {
+	return image != nil && strings.HasPrefix(image.URL, "oci://")
 }
 
 // Custom deploy is a description of a customized deploy process.
@@ -1191,7 +1195,11 @@ func (image *Image) GetChecksum() (checksum, checksumType string, err error) {
 		return "", "", nil
 	}
 
-	// FIXME(dtantsur): Ironic supports oci:// images with an embedded checksum
+	// Checksum is not required for OCI images as they have embedded checksums
+	if image.IsOCI() && image.Checksum == "" {
+		return "", "", nil
+	}
+
 	if image.Checksum == "" {
 		// Return empty if checksum is not provided
 		return "", "", errors.New("checksum is required for normal images")

@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestHostNeedsHardwareInspection(t *testing.T) {
@@ -461,6 +462,56 @@ func TestGetImageChecksum(t *testing.T) {
 			},
 			Expected: false,
 		},
+		{
+			Scenario: "OCI image without checksum",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL: "oci://example.com/image:latest",
+					},
+				},
+			},
+			Expected:     true,
+			ExpectedType: "",
+		},
+		{
+			Scenario: "OCI image with checksum",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL:      "oci://example.com/image:latest",
+						Checksum: "sha256hash",
+					},
+				},
+			},
+			Expected:     true,
+			ExpectedType: "",
+		},
+		{
+			Scenario: "live-iso without checksum",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL:        "http://example.com/image.iso",
+						DiskFormat: ptr.To("live-iso"),
+					},
+				},
+			},
+			Expected:     true,
+			ExpectedType: "",
+		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			_, checksumType, actual := tc.Host.Spec.Image.GetChecksum()
@@ -713,6 +764,103 @@ func TestInspectionDisabled(t *testing.T) {
 				},
 			}
 			actual := host.InspectionDisabled()
+			assert.Equal(t, tc.Expected, actual)
+		})
+	}
+}
+
+func TestIsOCI(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario string
+		Image    *Image
+		Expected bool
+	}{
+		{
+			Scenario: "nil image",
+			Image:    nil,
+			Expected: false,
+		},
+		{
+			Scenario: "OCI image",
+			Image: &Image{
+				URL: "oci://example.com/image:latest",
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "OCI image with checksum",
+			Image: &Image{
+				URL:      "oci://registry.io/namespace/image:tag",
+				Checksum: "sha256:abc123",
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "HTTP image",
+			Image: &Image{
+				URL: "http://example.com/image.qcow2",
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "HTTPS image",
+			Image: &Image{
+				URL: "https://example.com/image.qcow2",
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "empty URL",
+			Image: &Image{
+				URL: "",
+			},
+			Expected: false,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Image.IsOCI()
+			assert.Equal(t, tc.Expected, actual)
+		})
+	}
+}
+
+func TestIsLiveISO(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario string
+		Image    *Image
+		Expected bool
+	}{
+		{
+			Scenario: "nil image",
+			Image:    nil,
+			Expected: false,
+		},
+		{
+			Scenario: "live-iso format",
+			Image: &Image{
+				URL:        "http://example.com/image.iso",
+				DiskFormat: ptr.To("live-iso"),
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "raw format",
+			Image: &Image{
+				URL:        "http://example.com/image.qcow2",
+				DiskFormat: ptr.To("raw"),
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "no format specified",
+			Image: &Image{
+				URL: "http://example.com/image.qcow2",
+			},
+			Expected: false,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			actual := tc.Image.IsLiveISO()
 			assert.Equal(t, tc.Expected, actual)
 		})
 	}

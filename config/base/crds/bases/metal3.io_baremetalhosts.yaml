@@ -621,7 +621,7 @@ spec:
             properties:
               errorCount:
                 default: 0
-                description: ErrorCount records how many times the host has encoutered
+                description: ErrorCount records how many times the host has encountered
                   an error since the last successful operation
                 type: integer
               errorMessage:

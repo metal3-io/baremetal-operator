@@ -1391,7 +1391,7 @@ func (m *mockProvisioner) PowerOn(_ bool) (result provisioner.Result, err error)
 	return m.getNextResultByMethod("PowerOn"), err
 }
 
-func (m *mockProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) PowerOff(_ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOff"), err
 }
 

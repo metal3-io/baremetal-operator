@@ -135,6 +135,7 @@ jobs:
       pushImage: true
       ref: ${{ needs.push_release_tags.outputs.release_tag }}
       generate-sbom: true
+      sign-image: true
     secrets:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}

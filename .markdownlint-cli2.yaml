@@ -4,6 +4,9 @@ config:
   ul-indent:
     # Kramdown wanted us to have 3 earlier, tho this CLI recommends 2 or 4
     indent: 3
+  line-length:
+    tables: false
+    code_blocks: false
 
 # Don't autofix anything, we're linting here
 fix: false

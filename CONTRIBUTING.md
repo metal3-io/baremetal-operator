@@ -138,14 +138,10 @@ the ability to backport and release patch versions;
 - The EOL date of each API Version is determined from the last release available
   once a new API version is published.
 
-<!-- markdownlint-disable MD013 -->
-
 | API Version  | Maintained Until                                              |
 | ------------ | ------------------------------------------------------------- |
 | **v1alpha1** | TBD (current latest)                                          |
 | **v1beta1**  | Upcoming (Proposal [PR](https://github.com/metal3-io/metal3-docs/pull/332)) |
-
-<!-- markdownlint-enable MD013 -->
 
 - For the current stable API version (v1alpha1) we support the two most recent
   minor releases; older minor releases are immediately unsupported when a new

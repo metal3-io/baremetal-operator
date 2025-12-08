@@ -88,7 +88,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	} else {
 		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 			Name:              "bmo-e2e",
-			Images:            e2eConfig.Images,
+			Images:            e2eConfig.GetClusterctlImages(),
 			ExtraPortMappings: e2eConfig.KindExtraPortMappings,
 		})
 		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a cluster")

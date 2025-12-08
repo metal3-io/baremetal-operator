@@ -33,6 +33,18 @@ const (
 	ironicString string = "ironic"
 )
 
+// ContainerImage describes an image to load into a cluster.
+// This is a copy of clusterctl.ContainerImage with proper yaml tags for YAML unmarshaling.
+// See: https://github.com/metal3-io/baremetal-operator/issues/2832
+type ContainerImage struct {
+	// Name is the fully qualified name of the image.
+	Name string `yaml:"name"`
+
+	// LoadBehavior may be used to dictate whether a failed load operation
+	// should fail the test run.
+	LoadBehavior clusterctl.LoadImageBehavior `yaml:"loadBehavior,omitempty"`
+}
+
 type BMOIronicUpgradeInput struct {
 	// DeployIronic determines if Ironic should be installed at the beginning of the test.
 	// This should be generally set to `true`, but can be `false` in case Ironic is either pre-installed
@@ -57,13 +69,14 @@ type BMOIronicUpgradeInput struct {
 type Config struct {
 	// Images is a list of container images to load into the Kind cluster.
 	// Note that this not relevant when using an existing cluster.
-	Images []clusterctl.ContainerImage `json:"images,omitempty"`
+	// Uses custom ContainerImage type with yaml tags for proper YAML unmarshaling.
+	Images []ContainerImage `yaml:"images,omitempty"`
 
 	// Variables to be used in the tests.
-	Variables map[string]string `json:"variables,omitempty"`
+	Variables map[string]string `yaml:"variables,omitempty"`
 
 	// Intervals to be used for long operations during tests.
-	Intervals map[string][]string `json:"intervals,omitempty"`
+	Intervals map[string][]string `yaml:"intervals,omitempty"`
 
 	// BMOIronicUpgradeSpecs
 	BMOIronicUpgradeSpecs []BMOIronicUpgradeInput `yaml:"bmoIronicUpgradeSpecs,omitempty"`
@@ -98,6 +111,19 @@ func (c *Config) Defaults() {
 			containerImage.LoadBehavior = clusterctl.MustLoadImage
 		}
 	}
+}
+
+// GetClusterctlImages converts the local ContainerImage slice to clusterctl.ContainerImage
+// for use with the CAPI bootstrap framework.
+func (c *Config) GetClusterctlImages() []clusterctl.ContainerImage {
+	result := make([]clusterctl.ContainerImage, len(c.Images))
+	for i, img := range c.Images {
+		result[i] = clusterctl.ContainerImage{
+			Name:         img.Name,
+			LoadBehavior: img.LoadBehavior,
+		}
+	}
+	return result
 }
 
 // Validate validates the configuration. More specifically:

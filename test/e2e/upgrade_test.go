@@ -365,7 +365,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			upgradeClusterName := fmt.Sprintf("bmo-e2e-upgrade-%d", GinkgoParallelProcess())
 			upgradeClusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 				Name:              upgradeClusterName,
-				Images:            e2eConfig.Images,
+				Images:            e2eConfig.GetClusterctlImages(),
 				ExtraPortMappings: e2eConfig.KindExtraPortMappings,
 			})
 			Expect(upgradeClusterProvider).ToNot(BeNil(), "Failed to create a cluster")

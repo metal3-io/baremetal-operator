@@ -369,7 +369,7 @@ func (p *fixtureProvisioner) PowerOn(_ bool) (result provisioner.Result, err err
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOff(_ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
 
 	if p.state.DisablePowerOff {

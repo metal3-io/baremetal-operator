@@ -196,7 +196,9 @@ type Provisioner interface {
 	// PowerOff ensures the server is powered off independently of any image
 	// provisioning operation. The boolean argument may be used to specify
 	// if a hard reboot (force power off) is required - true if so.
-	PowerOff(rebootMode metal3api.RebootMode, force bool) (result Result, err error)
+	// The automatedCleaningMode indicates the user's current intent regarding
+	// automated cleaning, used to determine if cleaning should be aborted during deletion.
+	PowerOff(rebootMode metal3api.RebootMode, force bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
 
 	// TryInit checks if the provisioning backend is available to accept
 	// all the incoming requests and configures the available features.

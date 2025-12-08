@@ -301,7 +301,7 @@ func (p *demoProvisioner) PowerOn(_ bool) (result provisioner.Result, err error)
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOff(_ metal3api.RebootMode, _ bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOff(_ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("powering off host")
 	return result, nil
 }

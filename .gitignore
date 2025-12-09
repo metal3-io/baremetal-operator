@@ -64,3 +64,6 @@ config/overlays/temp
 
 # VS Code settings
 .vscode/
+
+# ai stuff
+.claude

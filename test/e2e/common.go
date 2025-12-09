@@ -142,6 +142,40 @@ func PatchBMHForProvisioning(ctx context.Context, input PatchBMHForProvisioningI
 	return helper.Patch(ctx, input.bmh)
 }
 
+// WaitForBmhReconciled waits for the BMO controller to process a BMH update.
+// This is used after BMO deployment rollout to ensure the controller is actually
+// processing events before making further changes. It works by adding/updating
+// an annotation and waiting for the status.lastUpdated timestamp to change,
+// which proves the controller reconciled the BMH.
+func WaitForBmhReconciled(ctx context.Context, c client.Client, bmh metal3api.BareMetalHost, intervals ...interface{}) {
+	// Get the current BMH state
+	key := types.NamespacedName{Namespace: bmh.Namespace, Name: bmh.Name}
+	currentBmh := &metal3api.BareMetalHost{}
+	Expect(c.Get(ctx, key, currentBmh)).To(Succeed())
+	initialLastUpdated := currentBmh.Status.LastUpdated
+
+	// Touch the BMH with an annotation update to trigger a reconcile
+	helper, err := patch.NewHelper(currentBmh, c)
+	Expect(err).NotTo(HaveOccurred())
+	if currentBmh.Annotations == nil {
+		currentBmh.Annotations = make(map[string]string)
+	}
+	currentBmh.Annotations["e2e.metal3.io/reconcile-check"] = metav1.Now().Format("2006-01-02T15:04:05Z")
+	Expect(helper.Patch(ctx, currentBmh)).To(Succeed())
+
+	// Wait for lastUpdated to change, proving the controller processed our update
+	Eventually(func(g Gomega) {
+		updatedBmh := &metal3api.BareMetalHost{}
+		g.Expect(c.Get(ctx, key, updatedBmh)).To(Succeed())
+		// Check that lastUpdated has changed (controller reconciled)
+		g.Expect(updatedBmh.Status.LastUpdated).NotTo(BeNil(), "BMH status.lastUpdated should not be nil")
+		if initialLastUpdated != nil {
+			g.Expect(updatedBmh.Status.LastUpdated.Before(initialLastUpdated)).To(BeFalse(),
+				"BMH status.lastUpdated should have been updated by controller")
+		}
+	}, intervals...).Should(Succeed())
+}
+
 // DeleteBmhsInNamespace deletes all BMHs in the given namespace.
 func DeleteBmhsInNamespace(ctx context.Context, deleter client.Client, namespace string) {
 	bmh := metal3api.BareMetalHost{}

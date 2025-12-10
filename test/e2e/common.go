@@ -148,20 +148,44 @@ func PatchBMHForProvisioning(ctx context.Context, input PatchBMHForProvisioningI
 // an annotation and waiting for the status.lastUpdated timestamp to change,
 // which proves the controller reconciled the BMH.
 func WaitForBmhReconciled(ctx context.Context, c client.Client, bmh metal3api.BareMetalHost, intervals ...interface{}) {
-	// Get the current BMH state
 	key := types.NamespacedName{Namespace: bmh.Namespace, Name: bmh.Name}
+
+	// Get the initial lastUpdated timestamp before we trigger a reconcile
 	currentBmh := &metal3api.BareMetalHost{}
 	Expect(c.Get(ctx, key, currentBmh)).To(Succeed())
 	initialLastUpdated := currentBmh.Status.LastUpdated
 
-	// Touch the BMH with an annotation update to trigger a reconcile
-	helper, err := patch.NewHelper(currentBmh, c)
-	Expect(err).NotTo(HaveOccurred())
-	if currentBmh.Annotations == nil {
-		currentBmh.Annotations = make(map[string]string)
-	}
-	currentBmh.Annotations["e2e.metal3.io/reconcile-check"] = metav1.Now().Format("2006-01-02T15:04:05Z")
-	Expect(helper.Patch(ctx, currentBmh)).To(Succeed())
+	// Touch the BMH with an annotation update to trigger a reconcile.
+	// Use Eventually because the webhook may not be ready immediately after
+	// BMO deployment upgrade - it can take time for the webhook service
+	// endpoint to become available.
+	// We delete the annotation first, then add it, to ensure we always trigger
+	// a fresh change even if a previous retry partially succeeded.
+	Eventually(func() error {
+		currentBmh := &metal3api.BareMetalHost{}
+		if err := c.Get(ctx, key, currentBmh); err != nil {
+			return err
+		}
+		helper, err := patch.NewHelper(currentBmh, c)
+		if err != nil {
+			return err
+		}
+		// Delete annotation first to ensure a fresh change on each retry
+		delete(currentBmh.Annotations, "e2e.metal3.io/reconcile-check")
+		if err = helper.Patch(ctx, currentBmh); err != nil {
+			return err
+		}
+		// Now add the annotation to trigger reconcile
+		helper, err = patch.NewHelper(currentBmh, c)
+		if err != nil {
+			return err
+		}
+		if currentBmh.Annotations == nil {
+			currentBmh.Annotations = make(map[string]string)
+		}
+		currentBmh.Annotations["e2e.metal3.io/reconcile-check"] = metav1.Now().Format("2006-01-02T15:04:05Z")
+		return helper.Patch(ctx, currentBmh)
+	}, intervals...).Should(Succeed(), "failed to patch BMH to trigger reconcile (webhook may not be ready)")
 
 	// Wait for lastUpdated to change, proving the controller processed our update
 	Eventually(func(g Gomega) {

@@ -21,6 +21,19 @@ Things you should check before making a release:
    - Verify any other direct or indirect dependency is uplifted to close any public
      vulnerabilities
 
+  Run the script against the release branch you are releasing from, and pass the
+  version tag as an argument, for example:
+
+```shell
+    git checkout release-0.x
+    ./hack/verify-release.sh 0.x.x
+```
+
+Also, after creating the tag and preparing the draft release, run
+`./hack/verify-release.sh` again right before publishing. This script verifies
+that all required release artifacts exist, the release tags are correct, and
+that the container images were built and pushed successfully.
+
 ## Permissions
 
 Creating a release requires repository `write` permissions for:
@@ -61,10 +74,10 @@ This makes sure that all the tags are accessible.
 - Switch to the main branch: `git checkout main`
 
 - Create a new branch for the release notes**:
-  `git checkout -b release-notes-1.x.x origin/main`
+  `git checkout -b release-notes-0.x.x origin/main`
 
-- Generate the release notes: `RELEASE_TAG=v1.x.x make release-notes`
-   - Replace `v1.x.x` with the new release tag you're creating.
+- Generate the release notes: `RELEASE_TAG=v0.x.x make release-notes`
+   - Replace `v0.x.x` with the new release tag you're creating.
    - This command generates the release notes here
      `releasenotes/<RELEASE_TAG>.md` .
 
@@ -80,8 +93,8 @@ This makes sure that all the tags are accessible.
 
 - Commit your changes, push the new branch and create a pull request:
    - The commit and PR title should be 🚀 Release v1.x.y:
-      -`git commit -S -s -m ":rocket: Release v1.x.x"`
-      -`git push -u origin release-notes-1.x.x`
+      -`git commit -S -s -m ":rocket: Release v0.x.x"`
+      -`git push -u origin release-notes-0.x.x`
    - Important! The commit should only contain the release notes file, nothing
      else, otherwise automation will not work.
 

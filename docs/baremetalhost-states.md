@@ -24,6 +24,19 @@ then a host object was created with the externallyProvisioned flag
 set. Hosts in this state are monitored, and only their power status is
 managed.
 
+The externallyProvisioned field can also be set to true after inspection
+is completed (when the host is in Available state). This workflow allows
+collecting hardware information via BMO's inspection process before
+handing off provisioning to an external tool (e.g., Image-based Installer
+for O-RAN deployments).
+
+### Using with Cluster API Provider Metal3 (CAPM3)
+
+When using externallyProvisioned hosts in environments with CAPM3, ensure
+that these hosts are labeled appropriately so that CAPM3's host selector
+can distinguish them from hosts managed by CAPM3. This prevents CAPM3 from
+attempting to claim hosts that are managed by external provisioners.
+
 ## Registering
 
 The host will stay in the Registering state while the BMC access

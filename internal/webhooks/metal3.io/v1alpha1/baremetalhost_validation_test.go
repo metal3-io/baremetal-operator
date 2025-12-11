@@ -1128,12 +1128,65 @@ func TestValidateUpdate(t *testing.T) {
 			wantedErr: "bootMACAddress can not be changed once it is set",
 		},
 		{
-			name: "updateExternallyProvisioned",
+			name: "updateBootMACCaseOnly",
 			newBMH: &metal3api.BareMetalHost{
-				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{}},
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "AA:BB:CC:DD:EE:FF"}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "aa:bb:cc:dd:ee:ff"}},
+			wantedErr: "",
+		},
+		{
+			name: "updateBootMACCaseMixed",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "aA:Bb:cC:Dd:Ee:Ff"}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "AA:BB:CC:DD:EE:FF"}},
+			wantedErr: "",
+		},
+		{
+			name: "updateBootMACInvalidNew",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "redfish://127.0.0.1",
+						CredentialsName: "test1",
+					},
+					BootMACAddress: "invalid-mac"}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{BootMACAddress: "00:11:22:33:44:55"}},
+			wantedErr: "address invalid-mac: invalid MAC address",
+		},
+		{
+			name: "rejectDisablingExternallyProvisioned",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: false}},
 			oldBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
-			wantedErr: "externallyProvisioned can not be changed",
+			wantedErr: "externallyProvisioned can not be changed from true to false",
+		},
+		{
+			name: "rejectEnablingExternallyProvisionedWhenNotInAvailable",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: true},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateInspecting}}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: false},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateInspecting}}},
+			wantedErr: "externallyProvisioned can only be enabled when in Available state, currently in inspecting",
+		},
+		{
+			name: "allowEnablingExternallyProvisionedWhenInAvailable",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: true},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateAvailable}}},
+			oldBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm, ObjectMeta: om,
+				Spec:   metal3api.BareMetalHostSpec{ExternallyProvisioned: false},
+				Status: metal3api.BareMetalHostStatus{Provisioning: metal3api.ProvisionStatus{State: metal3api.StateAvailable}}},
+			wantedErr: "",
 		},
 	}
 

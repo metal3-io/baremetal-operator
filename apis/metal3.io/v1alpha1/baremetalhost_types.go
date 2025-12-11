@@ -471,8 +471,16 @@ type BareMetalHostSpec struct {
 	// ExternallyProvisioned means something else has provisioned the
 	// image running on the host, and the operator should only manage
 	// the power status. This field is used for integration with already
-	// provisioned hosts and when pivoting hosts between clusters. If
-	// unsure, leave this field as false.
+	// provisioned hosts and when pivoting hosts between clusters.
+	//
+	// This field can be set to true either:
+	// 1. During initial host creation (e.g., for pre-provisioned hosts)
+	// 2. After inspection completes when the host reaches Available state
+	//
+	// When used in environments with Cluster API Provider Metal3 (CAPM3),
+	// ensure hosts are labeled appropriately so CAPM3's host selector can
+	// distinguish them from CAPM3-managed hosts. If unsure, leave this
+	// field as false.
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 
 	// When set to disabled, automated cleaning will be skipped

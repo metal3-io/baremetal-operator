@@ -270,7 +270,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 				CredentialsName:                secretName,
 				DisableCertificateVerification: bmc.DisableCertificateVerification,
 			},
-			BootMode:       metal3api.Legacy,
+			BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 			BootMACAddress: bmc.BootMacAddress,
 		},
 	}

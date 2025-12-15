@@ -1,0 +1,27 @@
+# permissions for end users to view hostdeploypolicies.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: hostdeploypolicy-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: baremetal-operator
+    app.kubernetes.io/part-of: baremetal-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: hostdeploypolicy-viewer-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostdeploypolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostdeploypolicies/status
+  verbs:
+  - get

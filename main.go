@@ -353,6 +353,13 @@ func main() {
 			}
 		}
 	}
+	if err = (&metal3iocontroller.HostClaimReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HostClaim")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if err = (&metal3iocontroller.HostFirmwareSettingsReconciler{

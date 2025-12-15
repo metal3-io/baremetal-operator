@@ -1,0 +1,12 @@
+apiVersion: metal3.io/v1alpha1
+kind: HostDeployPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: hostdeploypolicy
+    app.kubernetes.io/instance: hostdeploypolicy-sample
+    app.kubernetes.io/part-of: baremetal-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: baremetal-operator
+  name: hostdeploypolicy-sample
+spec:
+  # TODO(user): Add fields here

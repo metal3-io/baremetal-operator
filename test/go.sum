@@ -165,8 +165,8 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-runewidth v0.0.16 h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6TULQc=
 github.com/mattn/go-runewidth v0.0.16/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
-github.com/metal3-io/ironic-standalone-operator/api v0.6.1 h1:6fjU2kai+xn0DgRuzV2oVsXAXeColUjxJv62M62UC7k=
-github.com/metal3-io/ironic-standalone-operator/api v0.6.1/go.mod h1:hYBSG12khwMnZNoI0IPC3XoKSsKT9bE0rMWgd8/GbPY=
+github.com/metal3-io/ironic-standalone-operator/api v0.7.0 h1:WfismIQl4tBia3eFKV4ErFm7cNHex5/34b0nR2WCrmM=
+github.com/metal3-io/ironic-standalone-operator/api v0.7.0/go.mod h1:Sz6AJvYQwlykXpbTZZiR8oUH/rapJt/OzjS47qF0EfQ=
 github.com/mfridman/tparse v0.18.0 h1:wh6dzOKaIwkUGyKgOntDW4liXSo37qg5AXbIhkMV3vE=
 github.com/mfridman/tparse v0.18.0/go.mod h1:gEvqZTuCgEhPbYk/2lS3Kcxg1GmTxxU7kTC8DvP0i/A=
 github.com/mitchellh/copystructure v1.2.0 h1:vpKXTN4ewci03Vljg/q9QvCGUDttBOGBIa15WveJJGw=

@@ -160,6 +160,7 @@ linters:
     - std-error-handling
     rules:
     - linters:
+      - dupl
       - goconst
       - gosec
       path: test/e2e

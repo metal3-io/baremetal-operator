@@ -56,14 +56,14 @@ updates:
   - "ok-to-test"
 ## Main branch config ends here
 
-## release-0.11 branch config starts here
+## release-0.12 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
     day: "sunday"
     time: "03:30" # 3.30am utc
-  target-branch: release-0.11
+  target-branch: release-0.12
   ## group all action bumps into single PR
   groups:
     github-actions:
@@ -88,7 +88,7 @@ updates:
     interval: "weekly"
     day: "sunday"
     time: "04:00" # 4am utc
-  target-branch: release-0.11
+  target-branch: release-0.12
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
@@ -105,16 +105,16 @@ updates:
   labels:
   - "ok-to-test"
 
-## release-0.11 branch config ends here
+## release-0.12 branch config ends here
 
-## release-0.10 branch config starts here
+## release-0.11 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
     day: "sunday"
     time: "04:30" # 4.30am utc
-  target-branch: release-0.10
+  target-branch: release-0.11
   ## group all action bumps into single PR
   groups:
     github-actions:
@@ -139,7 +139,7 @@ updates:
     interval: "weekly"
     day: "sunday"
     time: "05:00" # 5am utc
-  target-branch: release-0.10
+  target-branch: release-0.11
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
@@ -156,4 +156,4 @@ updates:
   labels:
   - "ok-to-test"
 
-## release-0.10 branch config ends here
+## release-0.11 branch config ends here

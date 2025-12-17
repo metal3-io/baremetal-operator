@@ -1499,7 +1499,21 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 	)
 
 	currentProvState := nodes.ProvisionState(ironicNode.ProvisionState)
-	if currentProvState == nodes.Available || currentProvState == nodes.Manageable {
+
+	// Handle verifying state specially: Ironic holds an exclusive lock during
+	// verification, so we can't set maintenance mode or delete until it completes.
+	// Just wait for the verification to finish (success or timeout).
+	if currentProvState == nodes.Verifying {
+		p.log.Info("node is verifying, waiting for verification to complete before deletion")
+		return operationContinuing(provisionRequeueDelay)
+	}
+
+	// For enroll state, the node can be deleted directly without maintenance mode
+	// since it has no Nova associations and isn't locked.
+	if currentProvState == nodes.Enroll {
+		p.log.Info("node is in enroll state, proceeding to delete directly")
+		// Fall through to deletion
+	} else if currentProvState == nodes.Available || currentProvState == nodes.Manageable {
 		// Make sure we don't have a stale instance UUID
 		if ironicNode.InstanceUUID != "" {
 			var success bool

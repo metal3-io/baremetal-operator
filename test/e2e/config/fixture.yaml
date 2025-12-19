@@ -35,10 +35,7 @@ variables:
   CERT_MANAGER_VERSION: "v1.17.1"
   SSH_CHECK_PROVISIONED: "false"
   FETCH_IRONIC_NODES: "false"
-<<<<<<< HEAD
   IRONIC_PROVISIONING_IP: "192.168.222.2"
-=======
->>>>>>> 38063c5d (E2E: Use UEFI)
   # Boot mode can be legacy, UEFI or UEFISecureBoot
   BOOT_MODE: "UEFI"
 

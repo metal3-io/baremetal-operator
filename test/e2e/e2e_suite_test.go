@@ -93,6 +93,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		})
 		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 		kubeconfigPath = clusterProvider.GetKubeconfigPath()
+
+		// Configure provisioning network for dnsmasq to work properly.
+		// TODO(lentzi90): This is a workaround. Fix it properly and get rid of it.
+		ConfigureProvisioningNetwork(ctx, "bmo-e2e", e2eConfig.GetVariable("IRONIC_PROVISIONING_IP"))
 	}
 	Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 

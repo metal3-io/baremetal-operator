@@ -2646,6 +2646,48 @@ func TestGetPreprovImageNotCurrent(t *testing.T) {
 	assert.Nil(t, imgData)
 }
 
+func TestGetPreprovImageBeingDeleted(t *testing.T) {
+	host := newDefaultHost(t)
+	imageURL := "http://example.test/image.iso"
+	acceptFormats := []metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD}
+	now := metav1.Now()
+	image := &metal3api.PreprovisioningImage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              host.Name,
+			Namespace:         namespace,
+			DeletionTimestamp: &now, // PPI is being deleted
+			Finalizers:        []string{"test-finalizer"},
+		},
+		Spec: metal3api.PreprovisioningImageSpec{
+			Architecture:  "x86_64",
+			AcceptFormats: acceptFormats,
+		},
+		Status: metal3api.PreprovisioningImageStatus{
+			Architecture: "x86_64",
+			Format:       metal3api.ImageFormatISO,
+			ImageUrl:     imageURL,
+			Conditions: []metav1.Condition{
+				{
+					Type:   string(metal3api.ConditionImageReady),
+					Status: metav1.ConditionTrue,
+				},
+				{
+					Type:   string(metal3api.ConditionImageError),
+					Status: metav1.ConditionFalse,
+				},
+			},
+		},
+	}
+	r := newTestReconciler(t, host, image)
+	i := makeReconcileInfo(host)
+
+	// Even though the image is ready, it should be treated as unavailable
+	// because it has a DeletionTimestamp
+	imgData, err := r.getPreprovImage(i, acceptFormats)
+	require.NoError(t, err)
+	assert.Nil(t, imgData)
+}
+
 func TestPreprovImageAvailable(t *testing.T) {
 	host := newDefaultHost(t)
 	r := newTestReconciler(t, host, newSecret("network_secret_1", nil))

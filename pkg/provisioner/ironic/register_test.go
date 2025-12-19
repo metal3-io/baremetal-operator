@@ -1392,3 +1392,77 @@ func TestRegisterDisablePowerOffNotAvail(t *testing.T) {
 	}
 	assert.Equal(t, "current ironic version does not support DisablePowerOff, refusing to manage node", result.ErrorMessage)
 }
+
+func TestRegisterDeprovisioningNeedsPreprovisioningImage(t *testing.T) {
+	// Test that when deprovisioning with cleaning enabled and no
+	// PreprovisioningImage available, ErrNeedsPreprovisioningImage is returned
+	host := makeHost()
+	host.Status.Provisioning.ID = "uuid"
+
+	ironic := testserver.NewIronic(t).
+		WithDrivers().
+		Node(nodes.Node{
+			Name:           host.Namespace + nameSeparator + host.Name,
+			UUID:           host.Status.Provisioning.ID,
+			ProvisionState: string(nodes.Manageable),
+		}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+	// Enable preprov image builder
+	prov.config.havePreprovImgBuilder = true
+
+	// Test StateDeprovisioning with cleaning enabled (not disabled) and no PreprovisioningImage
+	_, _, err = prov.Register(provisioner.ManagementAccessData{
+		State:                 metal3api.StateDeprovisioning,
+		AutomatedCleaningMode: metal3api.CleaningModeMetadata, // Cleaning enabled
+		// No PreprovisioningImage provided
+	}, false, false)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, provisioner.ErrNeedsPreprovisioningImage)
+}
+
+func TestRegisterDeprovisioningCleaningDisabledNoPreprovisioningImage(t *testing.T) {
+	// Test that when deprovisioning with cleaning disabled,
+	// no PreprovisioningImage is required
+	host := makeHost()
+	host.Status.Provisioning.ID = "uuid"
+
+	ironic := testserver.NewIronic(t).
+		WithDrivers().
+		Node(nodes.Node{
+			Name:           host.Namespace + nameSeparator + host.Name,
+			UUID:           host.Status.Provisioning.ID,
+			ProvisionState: string(nodes.Manageable),
+		}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+	// Enable preprov image builder
+	prov.config.havePreprovImgBuilder = true
+
+	// Test StateDeprovisioning with cleaning disabled - should NOT require PreprovisioningImage
+	result, _, err := prov.Register(provisioner.ManagementAccessData{
+		State:                 metal3api.StateDeprovisioning,
+		AutomatedCleaningMode: metal3api.CleaningModeDisabled, // Cleaning disabled
+		// No PreprovisioningImage provided
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+}

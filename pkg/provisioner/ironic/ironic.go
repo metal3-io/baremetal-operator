@@ -360,7 +360,8 @@ func (p *ironicProvisioner) configureNode(data provisioner.ManagementAccessData,
 	}
 
 	switch data.State {
-	case metal3api.StateInspecting,
+	case metal3api.StateDeprovisioning,
+		metal3api.StateInspecting,
 		metal3api.StatePreparing:
 		if deployImageInfo == nil && p.config.havePreprovImgBuilder {
 			result, err = transientError(provisioner.ErrNeedsPreprovisioningImage)

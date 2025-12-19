@@ -770,6 +770,12 @@ func (r *BareMetalHostReconciler) getPreprovImage(info *reconcileInfo, formats [
 		return nil, fmt.Errorf("failed to retrieve pre-provisioning image data: %w", err)
 	}
 
+	// If the PreprovisioningImage is being deleted, treat it as unavailable
+	if !preprovImage.DeletionTimestamp.IsZero() {
+		info.log.Info("PreprovisioningImage is being deleted, waiting for new one")
+		return nil, nil //nolint:nilnil
+	}
+
 	needsUpdate := false
 	if preprovImage.Labels == nil && len(info.host.Labels) > 0 {
 		preprovImage.Labels = make(map[string]string, len(info.host.Labels))

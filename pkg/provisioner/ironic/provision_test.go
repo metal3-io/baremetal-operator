@@ -260,7 +260,7 @@ func TestDeprovision(t *testing.T) {
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},
 		{
@@ -269,7 +269,7 @@ func TestDeprovision(t *testing.T) {
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 0,
 			expectedDirty:        true,
 		},
 		{
@@ -351,7 +351,7 @@ func TestDeprovision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.Deprovision(false)
+			result, err := prov.Deprovision(false, metal3api.CleaningModeMetadata)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage != "")
@@ -360,6 +360,104 @@ func TestDeprovision(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
+			}
+		})
+	}
+}
+
+func TestDeprovisionSyncAutomatedClean(t *testing.T) {
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+	automatedCleanTrue := true
+	automatedCleanFalse := false
+
+	cases := []struct {
+		name                     string
+		automatedCleaningMode    metal3api.AutomatedCleaningMode
+		nodeAutomatedClean       *bool
+		expectSync               bool
+		expectProvisionStateCall bool
+	}{
+		{
+			name:                     "sync needed - disable cleaning",
+			automatedCleaningMode:    metal3api.CleaningModeDisabled,
+			nodeAutomatedClean:       &automatedCleanTrue,
+			expectSync:               true,
+			expectProvisionStateCall: false, // Should requeue before sending TargetDeleted
+		},
+		{
+			name:                     "sync needed - enable cleaning",
+			automatedCleaningMode:    metal3api.CleaningModeMetadata,
+			nodeAutomatedClean:       &automatedCleanFalse,
+			expectSync:               true,
+			expectProvisionStateCall: false, // Should requeue before sending TargetDeleted
+		},
+		{
+			name:                     "already synced - cleaning disabled",
+			automatedCleaningMode:    metal3api.CleaningModeDisabled,
+			nodeAutomatedClean:       &automatedCleanFalse,
+			expectSync:               false,
+			expectProvisionStateCall: true, // Should proceed with TargetDeleted
+		},
+		{
+			name:                     "already synced - cleaning enabled",
+			automatedCleaningMode:    metal3api.CleaningModeMetadata,
+			nodeAutomatedClean:       &automatedCleanTrue,
+			expectSync:               false,
+			expectProvisionStateCall: true, // Should proceed with TargetDeleted
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ironic := testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Active),
+				UUID:           nodeUUID,
+				AutomatedClean: tc.nodeAutomatedClean,
+			})
+			ironic.Start()
+			defer ironic.Stop()
+
+			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
+			publisher := func(reason, message string) {}
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, ironic.Endpoint(), auth)
+			require.NoError(t, err)
+
+			result, err := prov.Deprovision(false, tc.automatedCleaningMode)
+			require.NoError(t, err)
+
+			// Check if automated_clean was updated
+			updates := ironic.GetLastNodeUpdateRequestFor(nodeUUID)
+			if tc.expectSync {
+				// Should have updated automated_clean and requeued
+				assert.True(t, result.Dirty, "should be dirty to requeue after sync")
+				assert.Equal(t, time.Duration(0), result.RequeueAfter)
+				require.NotNil(t, updates, "should have called Update API")
+				// Verify the automated_clean field was updated
+				found := false
+				for _, update := range updates {
+					if update.Path == "/automated_clean" {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "should have updated /automated_clean field")
+			} else if updates != nil {
+				// Should not have updated automated_clean (already matches)
+				for _, update := range updates {
+					assert.NotEqual(t, "/automated_clean", update.Path, "should not update automated_clean if already synced")
+				}
+			}
+
+			// Check if provision state change was called
+			stateUpdate := ironic.GetLastNodeStatesProvisionUpdateRequestFor(nodeUUID)
+			if tc.expectProvisionStateCall {
+				assert.NotEmpty(t, stateUpdate.Target, "should have called provision state API")
+				assert.Equal(t, nodes.TargetDeleted, stateUpdate.Target)
+			} else if tc.expectSync {
+				// If sync was needed, should not have called provision state yet
+				assert.Empty(t, stateUpdate.Target, "should not call provision state if sync was needed")
 			}
 		})
 	}

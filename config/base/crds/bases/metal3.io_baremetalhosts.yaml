@@ -711,6 +711,7 @@ spec:
                         type: object
                     type: object
                   hostname:
+                    description: Name of the host at the inspection time.
                     type: string
                   nics:
                     description: List of network interfaces for the host.

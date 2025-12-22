@@ -167,6 +167,32 @@ func deleteTest(t *testing.T, detach bool) {
 			expectedDirty:        true,
 			expectedRequestAfter: 0,
 		},
+		{
+			name: "verifying-node-waits",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: string(nodes.Verifying),
+					Maintenance:    false,
+				},
+			),
+			// Should wait for verification to complete, not try to set maintenance
+			expectedDirty:        true,
+			expectedRequestAfter: provisionRequeueDelay,
+		},
+		{
+			name: "enroll-node-deletes-directly",
+			ironic: testserver.NewIronic(t).Node(
+				nodes.Node{
+					UUID:           nodeUUID,
+					ProvisionState: string(nodes.Enroll),
+					Maintenance:    false,
+				},
+			).Delete(nodeUUID),
+			// Should delete directly without setting maintenance mode
+			expectedDirty:        true,
+			expectedRequestAfter: 0,
+		},
 	}
 
 	for _, tc := range cases {

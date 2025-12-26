@@ -1375,10 +1375,35 @@ func (p *ironicProvisioner) setMaintenanceFlag(ironicNode *nodes.Node, value boo
 	return
 }
 
+// syncAutomatedClean updates the Ironic node's automated_clean field if it doesn't match the desired state.
+// Returns true if an update was needed and applied.
+func (p *ironicProvisioner) syncAutomatedClean(ironicNode *nodes.Node, automatedCleaningMode metal3api.AutomatedCleaningMode) (updated bool, err error) {
+	desiredAutomatedClean := automatedCleaningMode != metal3api.CleaningModeDisabled
+
+	// Check if update is needed
+	if ironicNode.AutomatedClean != nil && *ironicNode.AutomatedClean == desiredAutomatedClean {
+		return false, nil
+	}
+
+	p.log.Info("synchronizing automatedClean before deprovisioning",
+		"current", ironicNode.AutomatedClean,
+		"desired", automatedCleaningMode)
+
+	updater := clients.UpdateOptsBuilder(p.log)
+	updater.SetTopLevelOpt("automated_clean", desiredAutomatedClean, ironicNode.AutomatedClean)
+
+	_, err = nodes.Update(p.ctx, p.client, ironicNode.UUID, updater.Updates).Extract()
+	if err != nil {
+		return false, fmt.Errorf("failed to update automatedClean: %w", err)
+	}
+
+	return true, nil
+}
+
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision(restartOnFailure bool) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(restartOnFailure bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.getNode()
@@ -1465,6 +1490,17 @@ func (p *ironicProvisioner) Deprovision(restartOnFailure bool) (result provision
 		return operationContinuing(deprovisionRequeueDelay)
 
 	case nodes.Active, nodes.DeployFail, nodes.DeployWait:
+		// Before starting deprovisioning, ensure Ironic's automated_clean matches the BMH spec.
+		// This prevents the PPI deletion race where the spec is changed right before deletion
+		// but Ironic hasn't been updated yet.
+		updated, err := p.syncAutomatedClean(ironicNode, automatedCleaningMode)
+		if err != nil {
+			return transientError(err)
+		}
+		if updated {
+			return operationContinuing(0)
+		}
+
 		p.log.Info("starting deprovisioning", "automatedClean", ironicNode.AutomatedClean)
 		p.publisher("DeprovisioningStarted", "Image deprovisioning started")
 		return p.changeNodeProvisionState(

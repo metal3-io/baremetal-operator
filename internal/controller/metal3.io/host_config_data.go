@@ -90,7 +90,8 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 		"networkData",
 	)
 	if err != nil {
-		if errors.As(err, new(*NoDataInSecretError)) {
+		var noDataErr NoDataInSecretError
+		if errors.As(err, &noDataErr) {
 			hcd.log.Info("NetworkData key is not set, returning empty data")
 			return "", nil
 		}
@@ -109,7 +110,8 @@ func (hcd *hostConfigData) PreprovisioningNetworkData() (string, error) {
 		"networkData",
 	)
 	if err != nil {
-		if errors.As(err, new(*NoDataInSecretError)) {
+		var noDataErr NoDataInSecretError
+		if errors.As(err, &noDataErr) {
 			hcd.log.Info("PreprovisioningNetworkData networkData key is not set, returning empty data")
 			return "", nil
 		}

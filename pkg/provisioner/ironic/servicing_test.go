@@ -151,6 +151,40 @@ func TestService(t *testing.T) {
 			expectedDirty:        false,
 			expectedError:        true,
 		},
+		// Service abort tests - Complete spec removal triggers abort
+		{
+			name: "serviceFail_abort_complete_spec_removal",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.ServiceFail),
+				UUID:           nodeUUID,
+			}),
+			skipConfig:           true, // Complete spec removal triggers abort
+			expectedStarted:      true, // Abort triggers state change
+			expectedRequestAfter: 10,   // Abort returns RequeueAfter: 10s
+			expectedDirty:        true, // Abort returns Dirty: true
+		},
+		{
+			name: "servicing_abort_complete_spec_removal",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.Servicing),
+				UUID:           nodeUUID,
+			}),
+			skipConfig:           true, // Complete spec removal triggers abort
+			expectedStarted:      true, // Abort triggers state change
+			expectedRequestAfter: 10,   // Abort returns RequeueAfter: 10s
+			expectedDirty:        true, // Abort returns Dirty: true
+		},
+		{
+			name: "serviceWait_abort_complete_spec_removal",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.ServiceWait),
+				UUID:           nodeUUID,
+			}),
+			skipConfig:           true, // Complete spec removal triggers abort
+			expectedStarted:      true, // Abort triggers state change
+			expectedRequestAfter: 10,   // Abort returns RequeueAfter: 10s
+			expectedDirty:        true, // Abort returns Dirty: true
+		},
 	}
 
 	for _, tc := range cases {
@@ -164,13 +198,15 @@ func TestService(t *testing.T) {
 			host.Status.Provisioning.ID = nodeUUID
 			prepData := provisioner.ServicingData{}
 			if !tc.skipConfig {
-				host.Spec.BMC.Address = "raid-test://test.bmc/"
+				host.Spec.BMC.Address = "bios-test://test.bmc/"
 				prepData.ActualFirmwareSettings = metal3api.SettingsMap{
 					"Answer": "unknown",
 				}
 				prepData.TargetFirmwareSettings = metal3api.DesiredSettingsMap{
 					"Answer": intstr.FromInt(42),
 				}
+				// Set flags to prevent abort logic from triggering
+				prepData.HasFirmwareSettingsSpec = true
 			}
 
 			publisher := func(reason, message string) {}

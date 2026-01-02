@@ -140,7 +140,7 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 					CredentialsName:                "bmc-credentials",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
-				BootMode:       metal3api.Legacy,
+				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress: bmc.BootMacAddress,
 			},
 		}

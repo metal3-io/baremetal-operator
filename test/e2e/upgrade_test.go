@@ -270,7 +270,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 				CredentialsName:                secretName,
 				DisableCertificateVerification: bmc.DisableCertificateVerification,
 			},
-			BootMode:       metal3api.Legacy,
+			BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 			BootMACAddress: bmc.BootMacAddress,
 		},
 	}
@@ -378,6 +378,10 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			})
 			Expect(upgradeClusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 			kubeconfigPath = upgradeClusterProvider.GetKubeconfigPath()
+
+			// Configure provisioning network for dnsmasq to work properly.
+			// TODO(lentzi90): This is a workaround. Fix it properly and get rid of it.
+			ConfigureProvisioningNetwork(ctx, upgradeClusterName, e2eConfig.GetVariable("IRONIC_PROVISIONING_IP"))
 		}
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 		scheme := runtime.NewScheme()

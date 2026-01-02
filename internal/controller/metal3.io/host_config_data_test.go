@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -14,6 +15,28 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+// TestNoDataInSecretErrorAs verifies that errors.As works correctly with
+// NoDataInSecretError. This test guards against incorrect patterns like
+// errors.As(err, new(*NoDataInSecretError)) which don't work with value types.
+func TestNoDataInSecretErrorAs(t *testing.T) {
+	err := NoDataInSecretError{secret: "test-secret", key: "networkData"}
+
+	// This is the correct pattern - use a variable and pass its address
+	var target NoDataInSecretError
+	if !errors.As(err, &target) {
+		t.Fatal("errors.As should match NoDataInSecretError with &target pattern")
+	}
+	assert.Equal(t, "test-secret", target.secret)
+	assert.Equal(t, "networkData", target.key)
+
+	// Verify the incorrect pattern does NOT work (this is what the bug was)
+	// Note: new(*NoDataInSecretError) creates **NoDataInSecretError, which
+	// doesn't match a value type error
+	if errors.As(err, new(*NoDataInSecretError)) {
+		t.Fatal("errors.As with new(*NoDataInSecretError) should NOT match value type errors - if this passes, the Go behavior changed")
+	}
+}
 
 func TestLabelSecrets(t *testing.T) {
 	testCases := []struct {
@@ -370,6 +393,25 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				}),
 			NetworkDataSecret: newSecretInNamespace("net-data", "other-namespace", map[string]string{"networkData": "key: value"}),
 			ErrNetworkData:    true,
+		},
+		{
+			Scenario: "preprov network data with wrong key returns empty (not error)",
+			Host: newHost("host-preprov-wrong-key",
+				&metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "ipmi://192.168.122.1:6233",
+						CredentialsName: defaultSecretName,
+					},
+					PreprovisioningNetworkDataName: "preprov-net-data",
+				}),
+			// Secret exists but has wrong key - PreprovisioningNetworkData should return empty, not error
+			PreprovNetworkDataSecret:           newSecret("preprov-net-data", map[string]string{"wrongkey": "some: data"}),
+			ExpectedUserData:                   "",
+			ErrUserData:                        false,
+			ExpectedNetworkData:                "",
+			ErrNetworkData:                     false,
+			ExpectedPreprovisioningNetworkData: "",
+			ErrPreprovisioningNetworkData:      false, // Should NOT error, should return empty
 		},
 	}
 

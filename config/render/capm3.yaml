@@ -747,6 +747,9 @@ spec:
                         name:
                           description: The name of the network interface, e.g. "en0"
                           type: string
+                        pciAddress:
+                          description: The NIC PCI address
+                          type: string
                         pxe:
                           description: Whether the NIC is PXE Bootable
                           type: boolean
@@ -1674,6 +1677,9 @@ spec:
                           type: string
                         name:
                           description: The name of the network interface, e.g. "en0"
+                          type: string
+                        pciAddress:
+                          description: The NIC PCI address
                           type: string
                         pxe:
                           description: Whether the NIC is PXE Bootable

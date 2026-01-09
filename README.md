@@ -56,6 +56,15 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
 - **/test metal3-ubuntu-e2e-integration-test-main** runs ansible integration
   tests with CAPM3 main branch and BMO **main** branch on Ubuntu
 
+**Release-0.12 branch:**
+
+- **/test metal3-centos-e2e-integration-test-release-1-12** runs CAPM3 e2e
+  integration tests with CAPM3 release-1.12 branch and BMO **release-0.12**
+  branch on Centos
+- **/test metal3-ubuntu-e2e-integration-test-release-1-12** runs ansible
+  integration tests with CAPM3 release-1.12 branch and BMO **release-0.12**
+  branch on Ubuntu
+
 **Release-0.11 branch:**
 
 - **/test metal3-centos-e2e-integration-test-release-1-11** runs CAPM3 e2e
@@ -72,15 +81,6 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
   branch on Centos
 - **/test metal3-ubuntu-e2e-integration-test-release-1-10** runs ansible
   integration tests with CAPM3 release-1.10 branch and BMO **release-0.10**
-  branch on Ubuntu
-
-**Release-0.9 branch:**
-
-- **/test metal3-centos-e2e-integration-test-release-1-9** runs CAPM3 e2e
-  integration tests with CAPM3 release-1.9 branch and BMO **release-0.9**
-  branch on Centos
-- **/test metal3-ubuntu-e2e-integration-test-release-1-9** runs ansible
-  integration tests with CAPM3 release-1.9 branch and BMO **release-0.9**
   branch on Ubuntu
 
 ### Important Notes

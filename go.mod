@@ -9,7 +9,11 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.10.0
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
+<<<<<<< HEAD
 	github.com/metal3-io/ironic-standalone-operator/api v0.7.1
+=======
+	github.com/metal3-io/ironic-standalone-operator/api v0.7.0
+>>>>>>> d410905e (:seedling: Bump github.com/onsi/gomega from 1.38.3 to 1.39.0)
 	github.com/onsi/gomega v1.39.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1

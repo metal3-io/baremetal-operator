@@ -1997,3 +1997,12 @@ func (p *ironicProvisioner) DetachDataImage() (err error) {
 
 	return nil
 }
+
+func (p *ironicProvisioner) HasPowerFailure() bool {
+	node, err := p.getNode()
+	if err != nil {
+		p.log.Error(err, "Ignored error while checking for Power Failure")
+		return false
+	}
+	return node.Fault == "power failure"
+}

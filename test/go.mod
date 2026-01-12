@@ -7,9 +7,15 @@ require (
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/metal3-io/ironic-standalone-operator/api v0.7.0
+<<<<<<< HEAD
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
 	golang.org/x/crypto v0.47.0
+=======
+	github.com/onsi/ginkgo/v2 v2.27.3
+	github.com/onsi/gomega v1.39.0
+	golang.org/x/crypto v0.46.0
+>>>>>>> 93a46b32 (:seedling: Bump github.com/onsi/gomega from 1.38.3 to 1.39.0 in /test)
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.34.3
 	k8s.io/apiextensions-apiserver v0.34.3

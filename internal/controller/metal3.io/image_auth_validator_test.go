@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -163,8 +164,7 @@ func TestValidate_ValidDockerConfigJSON(t *testing.T) {
 	dockerConfig := map[string]interface{}{
 		"auths": map[string]interface{}{
 			"registry.example.com": map[string]interface{}{
-				"username": "testuser",
-				"password": "testpass",
+				"auth": base64.StdEncoding.EncodeToString([]byte("testuser:testpass")),
 			},
 		},
 	}
@@ -244,8 +244,7 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 	dockerConfig := map[string]interface{}{
 		"auths": map[string]interface{}{
 			"different-registry.com": map[string]interface{}{
-				"username": "testuser",
-				"password": "testpass",
+				"auth": base64.StdEncoding.EncodeToString([]byte("testuser:testpass")),
 			},
 		},
 	}
@@ -299,22 +298,12 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 	// Assert warning event was recorded.
 	select {
 	case event := <-recorder.Events:
-		if !containsSubstring(event, "Warning") || !containsSubstring(event, "ImageAuthParseError") {
+		if !strings.Contains(event, "Warning") || !strings.Contains(event, "ImageAuthParseError") {
 			t.Errorf("expected Warning ImageAuthParseError event, got: %q", event)
 		}
 	default:
 		t.Error("expected warning event to be recorded")
 	}
-}
-
-// Helper function to check substring.
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestValidate_NonOCIImageWithSecret(t *testing.T) {
@@ -325,8 +314,7 @@ func TestValidate_NonOCIImageWithSecret(t *testing.T) {
 	dockerConfig := map[string]interface{}{
 		"auths": map[string]interface{}{
 			"registry.example.com": map[string]interface{}{
-				"username": "testuser",
-				"password": "testpass",
+				"auth": base64.StdEncoding.EncodeToString([]byte("testuser:testpass")),
 			},
 		},
 	}

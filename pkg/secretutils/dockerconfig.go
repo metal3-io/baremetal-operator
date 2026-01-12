@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/cpuguy83/dockercfg"
 	corev1 "k8s.io/api/core/v1"
@@ -72,7 +73,7 @@ func extractRegistryHost(imageURL string) (string, error) {
 		return "", fmt.Errorf("failed to parse image URL: %w", err)
 	}
 
-	if parsed.Scheme != "oci" {
+	if !strings.EqualFold(parsed.Scheme, "oci") {
 		return "", fmt.Errorf("image URL does not have oci:// scheme: %s", imageURL)
 	}
 

@@ -307,20 +307,6 @@ docker-build-all: $(addprefix docker-build-,$(ALL_ARCH))
 docker-build-%:
 	$(MAKE) ARCH=$* docker-build
 
-.PHONY: docker-push-all ## Push all the architecture docker images
-docker-push-all: $(addprefix docker-push-,$(ALL_ARCH))
-	$(MAKE) docker-push-manifest
-
-docker-push-%:
-	$(MAKE) ARCH=$* docker-push
-
-.PHONY: docker-push-manifest
-docker-push-manifest: ## Push the fat manifest docker image.
-	## Minimum docker version 18.06.0 is required for creating and pushing manifest images.
-	docker manifest create --amend ${IMG}:${IMG_TAG} $(shell echo $(ALL_ARCH) | sed -e "s~[^ ]*~${IMG}\-&:${IMG_TAG}~g")
-	@for arch in $(ALL_ARCH); do docker manifest annotate --arch $${arch} ${IMG}:${IMG_TAG} ${IMG}-$${arch}:${IMG_TAG}; done
-	docker manifest push --purge ${IMG}:${IMG_TAG}
-
 ## --------------------------------------
 ## CI Targets
 ## --------------------------------------

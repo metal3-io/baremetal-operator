@@ -778,3 +778,31 @@ type WaitForIronicInput struct {
 	Namespace string
 	Intervals []interface{} // e.g. []interface{}{time.Minute * 15, time.Second * 5}
 }
+
+// ConfigureProvisioningNetwork adds the provisioning IP with /24 netmask to the kind cluster node.
+// TODO(lentzi90): Implement support for this in the keepalived image we use.
+// This is a workaround for the fact that keepalived only adds a /32 address, which causes
+// dnsmasq to fail with "no address range available for DHCP request" because it cannot
+// find a matching subnet for the DHCP range.
+// See https://github.com/metal3-io/baremetal-operator/issues/2792
+func ConfigureProvisioningNetwork(ctx context.Context, clusterName string, provisioningIP string) {
+	containerName := clusterName + "-control-plane"
+	// Add the provisioning IP with /24 netmask to eth0
+	// This allows dnsmasq to see the DHCP range as part of the local subnet
+	ipWithCIDR := provisioningIP + "/24"
+
+	Logf("Configuring provisioning network: adding %s to %s", ipWithCIDR, containerName)
+
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("docker"),
+		testexec.WithArgs("exec", containerName, "ip", "addr", "add", ipWithCIDR, "dev", "eth0"),
+	)
+
+	stdout, stderr, err := cmd.Run(ctx)
+	// Ignore "RTNETLINK answers: File exists" error - the address may already be configured
+	if err != nil && !strings.Contains(string(stderr), "File exists") {
+		Logf("Warning: failed to configure provisioning network: %v\nstdout: %s\nstderr: %s", err, string(stdout), string(stderr))
+	} else {
+		Logf("Provisioning network configured successfully")
+	}
+}

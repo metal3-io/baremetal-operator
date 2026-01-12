@@ -55,6 +55,8 @@ variables:
   IRONIC_PASSWORD: "changeme"
   IRONIC_PROVISIONING_IP: "192.168.222.2"
   IRONIC_PROVISIONING_PORT: "6385"
+  # Boot mode can be legacy, UEFI or UEFISecureBoot
+  BOOT_MODE: "UEFI"
 
   NAMESPACE_SCOPED: "true"
 

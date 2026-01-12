@@ -3,8 +3,11 @@
   <memory unit='KiB'>4194304</memory>
   <currentMemory unit='KiB'>4194304</currentMemory>
   <vcpu placement='static'>2</vcpu>
-  <os>
+  <os firmware="efi">
     <type arch='x86_64' machine='pc-q35-6.2'>hvm</type>
+    <firmware>
+      <feature enabled="no" name="secure-boot"/>
+    </firmware>
     <boot dev='hd'/>
   </os>
   <features>

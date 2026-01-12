@@ -159,7 +159,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 						CredentialsName:                testSecretName,
 						DisableCertificateVerification: bmc.DisableCertificateVerification,
 					},
-					BootMode:              metal3api.Legacy,
+					BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 					BootMACAddress:        bmc.BootMacAddress,
 					ExternallyProvisioned: false, // Start with false to allow inspection
 				},

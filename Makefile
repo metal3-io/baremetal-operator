@@ -91,6 +91,8 @@ REGISTRY ?= quay.io/metal3-io
 IMG_NAME ?= baremetal-operator
 IMG_TAG ?= latest
 IMG ?= $(REGISTRY)/$(IMG_NAME)
+ARCH ?= $(shell go env GOARCH)
+ALL_ARCH = amd64 arm arm64 ppc64le s390x
 
 # Which configuration to use when deploying (from the config directory)
 DEPLOY_CONFIG ?= default
@@ -269,22 +271,55 @@ generate: $(CONTROLLER_GEN) ## Generate code
 ## --------------------------------------
 
 .PHONY: docker
-docker: generate manifests ## Build the docker image
-	docker build . -t ${IMG}:${IMG_TAG} \
+docker: docker-build ## Alias for docker-build (for backwards compatibility)
+docker-build: generate manifests ## Build the docker image for controller-manager
+	docker build --network=host --pull \
+	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
-	--build-arg https_proxy=$(https_proxy)
+	--build-arg https_proxy=$(https_proxy) \
+	. -t ${IMG}-$(ARCH):${IMG_TAG}
+	@# Tag with base image name for backward compatibility (amd64 is the default)
+	@if [ "$(ARCH)" = "amd64" ]; then \
+		docker tag ${IMG}-$(ARCH):${IMG_TAG} ${IMG}:${IMG_TAG}; \
+	fi
 
 .PHONY: docker-debug
 docker-debug: generate manifests ## Build the docker image with debug info
-	docker build . -t ${IMG}:${IMG_TAG} \
+	docker build --network=host --pull \
+	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
-	--build-arg LDFLAGS="-extldflags=-static"
+	--build-arg LDFLAGS="-extldflags=-static" \
+	. -t ${IMG}-$(ARCH):${IMG_TAG}
 
 # Push the docker image
 .PHONY: docker-push
 docker-push:
-	docker push ${IMG}:${IMG_TAG}
+	docker push ${IMG}-$(ARCH):${IMG_TAG}
+
+## --------------------------------------
+## Docker — All ARCH
+## --------------------------------------
+
+.PHONY: docker-build-all ## Build all the architecture docker images
+docker-build-all: $(addprefix docker-build-,$(ALL_ARCH))
+
+docker-build-%:
+	$(MAKE) ARCH=$* docker-build
+
+.PHONY: docker-push-all ## Push all the architecture docker images
+docker-push-all: $(addprefix docker-push-,$(ALL_ARCH))
+	$(MAKE) docker-push-manifest
+
+docker-push-%:
+	$(MAKE) ARCH=$* docker-push
+
+.PHONY: docker-push-manifest
+docker-push-manifest: ## Push the fat manifest docker image.
+	## Minimum docker version 18.06.0 is required for creating and pushing manifest images.
+	docker manifest create --amend ${IMG}:${IMG_TAG} $(shell echo $(ALL_ARCH) | sed -e "s~[^ ]*~${IMG}\-&:${IMG_TAG}~g")
+	@for arch in $(ALL_ARCH); do docker manifest annotate --arch $${arch} ${IMG}:${IMG_TAG} ${IMG}-$${arch}:${IMG_TAG}; done
+	docker manifest push --purge ${IMG}:${IMG_TAG}
 
 ## --------------------------------------
 ## CI Targets

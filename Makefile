@@ -92,7 +92,7 @@ IMG_NAME ?= baremetal-operator
 IMG_TAG ?= latest
 IMG ?= $(REGISTRY)/$(IMG_NAME)
 ARCH ?= $(shell go env GOARCH)
-ALL_ARCH = amd64 arm arm64 ppc64le s390x
+ALL_ARCH = amd64 arm64
 
 # Which configuration to use when deploying (from the config directory)
 DEPLOY_CONFIG ?= default

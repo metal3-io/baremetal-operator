@@ -101,6 +101,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 		"deployRamdiskURL", f.config.deployRamdiskURL,
 		"deployISOURL", f.config.deployISOURL,
 		"liveISOForcePersistentBootDevice", f.config.liveISOForcePersistentBootDevice,
+		"directDeployForcePersistentBootDevice", f.config.directDeployForcePersistentBootDevice,
 		"CACertFile", tlsConf.TrustedCAFile,
 		"ClientCertFile", tlsConf.ClientCertificateFile,
 		"ClientPrivKeyFile", tlsConf.ClientPrivateKeyFile,
@@ -197,11 +198,17 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 		c.maxBusyHosts = value
 	}
 
-	if forcePersistentBootDevice := os.Getenv("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE"); forcePersistentBootDevice != "" {
-		if forcePersistentBootDevice != "Default" && forcePersistentBootDevice != "Always" && forcePersistentBootDevice != "Never" {
+	if liveISOForcePersistentBootDevice := os.Getenv("LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE"); liveISOForcePersistentBootDevice != "" {
+		if liveISOForcePersistentBootDevice != "Default" && liveISOForcePersistentBootDevice != "Always" && liveISOForcePersistentBootDevice != "Never" {
 			return c, errors.New("invalid value for variable LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
 		}
-		c.liveISOForcePersistentBootDevice = forcePersistentBootDevice
+		c.liveISOForcePersistentBootDevice = liveISOForcePersistentBootDevice
+	}
+	if directDeployForcePersistentBootDevice := os.Getenv("DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE"); directDeployForcePersistentBootDevice != "" {
+		if directDeployForcePersistentBootDevice != "Default" && directDeployForcePersistentBootDevice != "Always" && directDeployForcePersistentBootDevice != "Never" {
+			return c, errors.New("invalid value for variable DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE, must be one of Default, Always or Never")
+		}
+		c.directDeployForcePersistentBootDevice = directDeployForcePersistentBootDevice
 	}
 
 	c.externalURL = os.Getenv("IRONIC_EXTERNAL_URL_V6")

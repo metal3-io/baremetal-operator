@@ -179,24 +179,21 @@ const hardwareDetailsRelease04 = `
 //   - If the BMH is successfully provisioned, it means the upgraded BMO/Ironic recognized that BMH, hence the upgrade succeeded.
 //
 // The function returns the namespace object, with its cancelFunc. These can be used to clean up the created resources.
-func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeClusterProxy framework.ClusterProxy) (*corev1.Namespace, context.CancelFunc, string) {
+// The testCaseArtifactFolder parameter specifies where to store test artifacts.
+func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeClusterProxy framework.ClusterProxy, testCaseArtifactFolder string) (*corev1.Namespace, context.CancelFunc) {
 	bmoIronicNamespace := "baremetal-operator-system"
 	initBMOKustomization := input.InitBMOKustomization
 	initIronicKustomization := input.InitIronicKustomization
 	upgradeEntityName := input.UpgradeEntityName
 	specName := "upgrade"
-	var upgradeDeploymentName, upgradeFromKustomization string
+	testCaseName := getUpgradeTestCaseName(input)
+	var upgradeDeploymentName string
 	switch upgradeEntityName {
 	case bmoString:
-		upgradeFromKustomization = initBMOKustomization
 		upgradeDeploymentName = "baremetal-operator-controller-manager"
 	case ironicString:
-		upgradeFromKustomization = initIronicKustomization
 		upgradeDeploymentName = "ironic-service"
 	}
-	upgradeFromKustomizationName := strings.ReplaceAll(filepath.Base(upgradeFromKustomization), ".", "-")
-	testCaseName := fmt.Sprintf("%s-upgrade-from-%s", upgradeEntityName, upgradeFromKustomizationName)
-	testCaseArtifactFolder := filepath.Join(artifactFolder, testCaseName)
 	if input.DeployIronic {
 		// Install Ironic
 		By(fmt.Sprintf("Installing Ironic from kustomization %s on the upgrade cluster", initIronicKustomization))
@@ -344,7 +341,21 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		Bmh:    bmh,
 		State:  metal3api.StateProvisioned,
 	}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
-	return namespace, cancelWatches, testCaseArtifactFolder
+	return namespace, cancelWatches
+}
+
+// getUpgradeTestCaseName returns the test case name for an upgrade test.
+// The name takes the form [upgrade-entity]-upgrade-from-[kustomization-path].
+func getUpgradeTestCaseName(input *BMOIronicUpgradeInput) string {
+	var upgradeFromKustomization string
+	switch input.UpgradeEntityName {
+	case bmoString:
+		upgradeFromKustomization = input.InitBMOKustomization
+	case ironicString:
+		upgradeFromKustomization = input.InitIronicKustomization
+	}
+	upgradeFromKustomizationName := strings.ReplaceAll(filepath.Base(upgradeFromKustomization), ".", "-")
+	return fmt.Sprintf("%s-upgrade-from-%s", input.UpgradeEntityName, upgradeFromKustomizationName)
 }
 
 var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
@@ -418,7 +429,10 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 	DescribeTable("",
 		// Test function that runs for each table entry
 		func(ctx context.Context, input *BMOIronicUpgradeInput) {
-			namespace, cancelWatches, testArtifactFolder = RunUpgradeTest(ctx, input, upgradeClusterProxy)
+			testCaseName := getUpgradeTestCaseName(input)
+			// Set testArtifactFolder before RunUpgradeTest so it's available in AfterEach even if the test fails
+			testArtifactFolder = filepath.Join(artifactFolder, testCaseName)
+			namespace, cancelWatches = RunUpgradeTest(ctx, input, upgradeClusterProxy, testArtifactFolder)
 		},
 		// Description function that generates test descriptions
 		func(ctx context.Context, input *BMOIronicUpgradeInput) string {

@@ -264,7 +264,8 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 			},
 		},
 		Spec: metal3api.BareMetalHostSpec{
-			Online: true,
+			Online:       true,
+			Architecture: "x86_64",
 			BMC: metal3api.BMCDetails{
 				Address:                        bmc.Address,
 				CredentialsName:                secretName,

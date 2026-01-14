@@ -207,7 +207,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 			WatchDeploymentLogs: true,
 			DeploymentName:      "ironic-service",
 			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-ironic"),
+			LogPath:             filepath.Join(artifactFolder, "logs"),
 		})
 		WaitForIronicReady(ctx, WaitForIronicInput{
 			Client:    clusterProxy.GetClient(),
@@ -228,7 +228,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 				WatchDeploymentLogs: true,
 				DeploymentName:      "baremetal-operator-controller-manager",
 				DeploymentNamespace: bmoIronicNamespace,
-				LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "init-bmo"),
+				LogPath:             filepath.Join(artifactFolder, "logs"),
 				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
 			})
 		})
@@ -299,7 +299,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 			WatchDeploymentLogs: true,
 			DeploymentName:      upgradeDeploymentName,
 			DeploymentNamespace: bmoIronicNamespace,
-			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "bmo-upgrade-main"),
+			LogPath:             filepath.Join(artifactFolder, "logs"),
 		})
 	})
 	Expect(err).NotTo(HaveOccurred())

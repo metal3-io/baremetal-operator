@@ -660,6 +660,86 @@ func GetKubeconfigPath() string {
 	return kubeconfigPath
 }
 
+// writeToFile writes the given content to a file at the specified path.
+// It creates any necessary parent directories.
+func writeToFile(filePath string, content string) {
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, filePerm750); err != nil {
+		Logf("Failed to create directory %s: %v", dir, err)
+		return
+	}
+	if err := os.WriteFile(filePath, []byte(content), filePerm600); err != nil {
+		Logf("Failed to write file %s: %v", filePath, err)
+	}
+}
+
+// kubectlDescribe runs kubectl describe for the given resource and returns the output.
+func kubectlDescribe(ctx context.Context, kubeconfigPath, resourceType, name, namespace string) (string, error) {
+	args := []string{"describe", resourceType, name, "-n", namespace, "--kubeconfig", kubeconfigPath}
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(args...),
+	)
+
+	stdout, stderr, err := cmd.Run(ctx)
+	if err != nil {
+		return "", fmt.Errorf("kubectl describe %s %s -n %s --kubeconfig %s failed: %w, stderr: %s", resourceType, name, namespace, kubeconfigPath, err, string(stderr))
+	}
+	return string(stdout), nil
+}
+
+// dumpPodDescriptions dumps kubectl describe output for all pods in a namespace.
+func dumpPodDescriptions(ctx context.Context, kubeconfigPath string, namespace string, artifactFolder string) {
+	args := []string{"get", "pods", "-n", namespace, "-o", "jsonpath={.items[*].metadata.name}", "--kubeconfig", kubeconfigPath}
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(args...),
+	)
+
+	stdout, stderr, err := cmd.Run(ctx)
+	if err != nil {
+		Logf("Failed to list pods in namespace %s: %v, stderr: %s", namespace, err, string(stderr))
+		return
+	}
+
+	podNames := strings.Fields(string(stdout))
+	for _, podName := range podNames {
+		description, err := kubectlDescribe(ctx, kubeconfigPath, "pod", podName, namespace)
+		if err != nil {
+			Logf("Failed to describe pod %s/%s: %v", namespace, podName, err)
+			continue
+		}
+		filePath := filepath.Join(artifactFolder, "pod-descriptions", podName+".txt")
+		writeToFile(filePath, description)
+	}
+}
+
+// dumpDeploymentDescriptions dumps kubectl describe output for all deployments in a namespace.
+func dumpDeploymentDescriptions(ctx context.Context, kubeconfigPath string, namespace string, artifactFolder string) {
+	args := []string{"get", "deployments", "-n", namespace, "-o", "jsonpath={.items[*].metadata.name}", "--kubeconfig", kubeconfigPath}
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(args...),
+	)
+
+	stdout, stderr, err := cmd.Run(ctx)
+	if err != nil {
+		Logf("Failed to list deployments in namespace %s: %v, stderr: %s", namespace, err, string(stderr))
+		return
+	}
+
+	deployNames := strings.Fields(string(stdout))
+	for _, deployName := range deployNames {
+		description, err := kubectlDescribe(ctx, kubeconfigPath, "deployment", deployName, namespace)
+		if err != nil {
+			Logf("Failed to describe deployment %s/%s: %v", namespace, deployName, err)
+			continue
+		}
+		filePath := filepath.Join(artifactFolder, "deployment-descriptions", deployName+".txt")
+		writeToFile(filePath, description)
+	}
+}
+
 // DumpObj tries to dump the given object into a file in YAML format.
 func dumpObj[T any](obj T, name string, path string) {
 	objYaml, err := yaml.Marshal(obj)
@@ -691,9 +771,20 @@ func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
 
 // DumpResources dumps resources related to BMO e2e tests as YAML.
 func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framework.ClusterProxy, artifactFolder string) {
-	dumpCRDS(ctx, clusterProxy.GetClient(), filepath.Join(artifactFolder, "crd"))
+	cli := clusterProxy.GetClient()
+	kubeconfigPath := clusterProxy.GetKubeconfigPath()
+
+	// Dump all CRDs and their instances (includes BMH, Ironic, etc.)
+	dumpCRDS(ctx, cli, filepath.Join(artifactFolder, "crd"))
 	if e2eConfig.GetBoolVariable("FETCH_IRONIC_NODES") {
 		dumpIronicNodes(ctx, e2eConfig, artifactFolder)
+	}
+
+	// Dump pod and deployment descriptions for key namespaces using kubectl describe
+	namespaces := []string{"baremetal-operator-system", "ironic-standalone-operator-system"}
+	for _, ns := range namespaces {
+		dumpPodDescriptions(ctx, kubeconfigPath, ns, filepath.Join(artifactFolder, ns))
+		dumpDeploymentDescriptions(ctx, kubeconfigPath, ns, filepath.Join(artifactFolder, ns))
 	}
 }
 

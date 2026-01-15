@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -206,11 +207,58 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	clusterProxy = framework.NewClusterProxy("bmo-e2e", kubeconfigPath, scheme)
 })
 
+// AfterEach hook to collect VM serial logs per test.
+var _ = AfterEach(func() {
+	// Skip if no BMC assigned to this test (suite-level operations)
+	if bmc.Name == "" {
+		return
+	}
+
+	report := CurrentSpecReport()
+	testName := SanitizeTestName(report)
+
+	// Copy incremental VM serial logs
+	err := CopyIncrementalVMLog(bmc.Name, testName, artifactFolder)
+	if err != nil {
+		Logf("Warning: Failed to copy VM serial log for %s: %v", bmc.Name, err)
+	} else {
+		// Count lines in the per-test log
+		logFile := filepath.Join(artifactFolder, "logs", "qemu", "per-test", testName,
+			bmc.Name+"-serial0.log")
+		lineCount := 0
+		if data, err := os.ReadFile(logFile); err == nil {
+			lineCount = len(strings.Split(string(data), "\n"))
+		}
+
+		// Record metadata
+		status := "passed"
+		if report.Failed() {
+			status = "failed"
+		} else if report.State.String() == "skipped" {
+			status = "skipped"
+		}
+
+		RecordVMTestLog(VMTestLogEntry{
+			TestName:  testName,
+			VMName:    bmc.Name,
+			StartTime: report.StartTime.Format(time.RFC3339),
+			EndTime:   report.EndTime.Format(time.RFC3339),
+			Status:    status,
+			LogFile:   filepath.Join("per-test", testName, bmc.Name+"-serial0.log"),
+			LineCount: lineCount,
+		})
+	}
+})
+
 // Using a SynchronizedAfterSuite for controlling how to delete resources shared across ParallelNodes (~ginkgo threads).
 // The kubernetes cluster is shared across all the tests, so it should be deleted only after all ParallelNodes completes.
 // The artifact folder is preserved.
 var _ = SynchronizedAfterSuite(func() {
-	// After each ParallelNode.
+	// After each ParallelNode - save VM log metadata
+	err := SaveVMLogMetadata(artifactFolder)
+	if err != nil {
+		Logf("Warning: Failed to save VM log metadata: %v", err)
+	}
 }, func() {
 	// After all ParallelNodes.
 

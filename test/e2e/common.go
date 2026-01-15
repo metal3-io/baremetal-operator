@@ -20,10 +20,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
@@ -50,8 +52,161 @@ const (
 	PoweredOff PowerState = "off"
 
 	filePerm600 = 0600
+	filePerm644 = 0644
 	filePerm750 = 0750
+	filePerm755 = 0755
 )
+
+// vmLogPositions tracks the last read position for each VM's serial log.
+// This enables incremental log collection per test.
+var vmLogPositions = make(map[string]int64)
+var vmLogPositionsMu sync.Mutex
+
+// vmLogMetadata contains metadata about VM logs collected during tests.
+var vmLogMetadata = VMLogMetadata{}
+var vmLogMetadataMu sync.Mutex
+
+// VMLogMetadata contains the list of VM test log entries.
+type VMLogMetadata struct {
+	Tests []VMTestLogEntry `yaml:"tests"`
+}
+
+// VMTestLogEntry records metadata about a VM log for a specific test.
+type VMTestLogEntry struct {
+	TestName  string `yaml:"test_name"`  //nolint:tagliatelle
+	VMName    string `yaml:"vm_name"`    //nolint:tagliatelle
+	StartTime string `yaml:"start_time"` //nolint:tagliatelle
+	EndTime   string `yaml:"end_time"`   //nolint:tagliatelle
+	Status    string `yaml:"status"`
+	LogFile   string `yaml:"log_file"`   //nolint:tagliatelle
+	LineCount int    `yaml:"line_count"` //nolint:tagliatelle
+}
+
+// SanitizeTestName creates a filesystem-safe name from a test report.
+// It combines the container hierarchy with the leaf node text and replaces
+// problematic characters to avoid creating nested directory structures.
+func SanitizeTestName(report ginkgotypes.SpecReport) string {
+	// Combine container hierarchy and leaf text
+	parts := append([]string{}, report.ContainerHierarchyTexts...)
+	if report.LeafNodeText != "" {
+		parts = append(parts, report.LeafNodeText)
+	}
+
+	// Join with underscore and sanitize
+	testName := strings.Join(parts, "_")
+
+	// Replace problematic characters for filesystem paths
+	replacements := map[string]string{
+		"/":  "-",
+		"\\": "-",
+		":":  "-",
+		"*":  "-",
+		"?":  "-",
+		"\"": "-",
+		"<":  "-",
+		">":  "-",
+		"|":  "-",
+		" ":  "_",
+		"\t": "_",
+		"\n": "_",
+		"\r": "_",
+	}
+
+	for old, new := range replacements {
+		testName = strings.ReplaceAll(testName, old, new)
+	}
+
+	// Collapse multiple underscores/dashes
+	for strings.Contains(testName, "__") {
+		testName = strings.ReplaceAll(testName, "__", "_")
+	}
+	for strings.Contains(testName, "--") {
+		testName = strings.ReplaceAll(testName, "--", "-")
+	}
+
+	// Trim leading/trailing underscores and dashes
+	testName = strings.Trim(testName, "_-")
+
+	return testName
+}
+
+// CopyIncrementalVMLog copies new content from a VM's serial log since last collection.
+// It tracks the read position per VM to enable per-test log separation.
+func CopyIncrementalVMLog(vmName, testName, artifactFolder string) error {
+	vmLogPositionsMu.Lock()
+	defer vmLogPositionsMu.Unlock()
+
+	sourcePath := fmt.Sprintf("/var/log/libvirt/qemu/%s-serial0.log", vmName)
+	testFolder := filepath.Join(artifactFolder, "logs", "qemu", "per-test", testName)
+	destPath := filepath.Join(testFolder, vmName+"-serial0.log")
+
+	// Create test folder
+	if err := os.MkdirAll(testFolder, filePerm755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
+
+	// Read source file using sudo (VM logs are owned by libvirt-qemu)
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("sudo"),
+		testexec.WithArgs("cat", sourcePath),
+	)
+	stdout, stderr, err := cmd.Run(context.Background())
+	if err != nil {
+		return fmt.Errorf("read source %s (stderr: %s): %w", sourcePath, string(stderr), err)
+	}
+	sourceBytes := stdout
+
+	// Get last position
+	lastPos := vmLogPositions[vmName]
+	currentSize := int64(len(sourceBytes))
+
+	// Extract incremental content
+	var incrementalContent []byte
+	if lastPos < currentSize {
+		incrementalContent = sourceBytes[lastPos:]
+	}
+
+	// Write to destination
+	if len(incrementalContent) > 0 {
+		if err := os.WriteFile(destPath, incrementalContent, filePerm644); err != nil {
+			return fmt.Errorf("write dest: %w", err)
+		}
+	}
+
+	// Update position
+	vmLogPositions[vmName] = currentSize
+
+	return nil
+}
+
+// RecordVMTestLog adds a VM test log entry to the metadata.
+func RecordVMTestLog(entry VMTestLogEntry) {
+	vmLogMetadataMu.Lock()
+	defer vmLogMetadataMu.Unlock()
+	vmLogMetadata.Tests = append(vmLogMetadata.Tests, entry)
+}
+
+// SaveVMLogMetadata writes the VM log metadata to a YAML file.
+func SaveVMLogMetadata(artifactFolder string) error {
+	vmLogMetadataMu.Lock()
+	defer vmLogMetadataMu.Unlock()
+
+	data, err := yaml.Marshal(&vmLogMetadata)
+	if err != nil {
+		return fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	metadataPath := filepath.Join(artifactFolder, "logs", "qemu", "vm-log-index.yaml")
+	if err := os.MkdirAll(filepath.Dir(metadataPath), filePerm755); err != nil {
+		return fmt.Errorf("mkdir for metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, data, filePerm644); err != nil {
+		return fmt.Errorf("write metadata: %w", err)
+	}
+
+	return nil
+}
 
 func isUndesiredState(currentState metal3api.ProvisioningState, undesiredStates []metal3api.ProvisioningState) bool {
 	if undesiredStates == nil {

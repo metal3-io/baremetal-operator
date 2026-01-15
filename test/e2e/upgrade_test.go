@@ -430,7 +430,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			case ironicString:
 				upgradeFromKustomization = input.InitIronicKustomization
 			}
-			return fmt.Sprintf("Should upgrade %s from %s to latest version", input.UpgradeEntityName, upgradeFromKustomization)
+			return fmt.Sprintf("Should upgrade %s from %s to %s", input.UpgradeEntityName, upgradeFromKustomization, input.UpgradeEntityKustomization)
 		},
 		entries,
 	)

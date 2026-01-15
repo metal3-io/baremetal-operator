@@ -83,6 +83,9 @@ type Config struct {
 
 	// Extra port mappings for the kind cluster
 	KindExtraPortMappings []v1alpha4.PortMapping `yaml:"kindExtraPortMappings,omitempty"`
+
+	// Extra port mappings for upgrade test clusters (to avoid conflicts with the main cluster)
+	UpgradeKindExtraPortMappings []v1alpha4.PortMapping `yaml:"upgradeKindExtraPortMappings,omitempty"`
 }
 
 // LoadE2EConfig loads the configuration for the e2e test environment.

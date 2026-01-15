@@ -35,11 +35,10 @@ variables:
   # These settings are for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
   UPGRADE_DEPLOY_IRSO: "true"
-  # We run upgrade tests separately, so they can use the default kind cluster
-  # since there are no other tests running at the same time.
-  # Creating separate upgrade clusters would cause port collisions with the default kind cluster.
-  # We also configure these jobs to not deploy BMO/Ironic so that can be handled by the upgrade test.
-  UPGRADE_USE_EXISTING_CLUSTER: "true"
+  # The upgrade tests deletes the normal kind cluster and creates a new per test when this is false.
+  # This makes sure that we start from a clean state for each test.
+  # Note that this means that the upgrade tests CANNOT be run together with other tests!
+  UPGRADE_USE_EXISTING_CLUSTER: "false"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"

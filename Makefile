@@ -295,11 +295,7 @@ docker-debug: generate manifests ## Build the docker image with debug info
 # Push the docker image
 .PHONY: docker-push
 docker-push:
-	docker push ${IMG}-$(ARCH):${IMG_TAG}
-	@# Also push base image name for backward compatibility when pushing amd64
-	@if [ "$(ARCH)" = "amd64" ] && docker image inspect ${IMG}:${IMG_TAG} >/dev/null 2>&1; then \
-		docker push ${IMG}:${IMG_TAG}; \
-	fi
+	docker push ${IMG}:${IMG_TAG}
 
 ## --------------------------------------
 ## Docker — All ARCH

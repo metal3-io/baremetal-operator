@@ -122,6 +122,7 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 	})
 
 	AfterEach(func() {
+		CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
 			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")

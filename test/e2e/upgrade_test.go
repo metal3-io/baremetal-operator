@@ -303,6 +303,7 @@ var _ = Describe("Upgrade", Ordered, Label("optional", "upgrade"), func() {
 	)
 
 	AfterEach(func() {
+		CollectSerialLogs(bmc.Name, testArtifactFolder)
 		upgradeIronicIP := ""
 		if e2eConfig.HasVariable("UPGRADE_IRONIC_PROVISIONING_IP") {
 			upgradeIronicIP = e2eConfig.GetVariable("UPGRADE_IRONIC_PROVISIONING_IP")

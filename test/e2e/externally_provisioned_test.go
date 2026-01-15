@@ -234,6 +234,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 		})
 
 		AfterEach(func() {
+			CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 			DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 			if !skipCleanup {
 				isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")

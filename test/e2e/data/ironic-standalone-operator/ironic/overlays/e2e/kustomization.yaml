@@ -8,3 +8,7 @@ resources:
 components:
 - ../../../components/tls
 - ../../../components/basic-auth
+
+patches:
+# Use main tag of images
+- path: ironic.yaml

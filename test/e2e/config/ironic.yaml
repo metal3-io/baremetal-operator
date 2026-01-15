@@ -39,7 +39,7 @@ variables:
   # since there are no other tests running at the same time.
   # Creating separate upgrade clusters would cause port collisions with the default kind cluster.
   # We also configure these jobs to not deploy BMO/Ironic so that can be handled by the upgrade test.
-  UPGRADE_USE_EXISTING_CLUSTER: "true"
+  UPGRADE_USE_EXISTING_CLUSTER: "false"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"

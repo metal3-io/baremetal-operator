@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -59,7 +60,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 			LogPath:             filepath.Join(artifactFolder, "logs"),
 		})
 		WaitForIronicReady(ctx, WaitForIronicInput{
-			Client:    clusterProxy.GetClient(),
+			Client:    upgradeClusterProxy.GetClient(),
 			Name:      "ironic",
 			Namespace: bmoIronicNamespace,
 			Intervals: e2eConfig.GetIntervals("ironic", "wait-deployment"),
@@ -159,7 +160,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	).Should(BeTrue())
 	if input.UpgradeEntityName == ironicString {
 		WaitForIronicReady(ctx, WaitForIronicInput{
-			Client:    clusterProxy.GetClient(),
+			Client:    upgradeClusterProxy.GetClient(),
 			Name:      "ironic",
 			Namespace: bmoIronicNamespace,
 			Intervals: e2eConfig.GetIntervals("ironic", "wait-deployment"),
@@ -231,6 +232,11 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
 			kubeconfigPath = GetKubeconfigPath()
 		} else {
+			// Dispose of the previous cluster provider if it exists
+			// WARNING!: This assumes that tests are not run in parallel!
+			if clusterProvider != nil {
+				clusterProvider.Dispose(ctx)
+			}
 			By("Creating a separate cluster for upgrade tests")
 			upgradeClusterName := fmt.Sprintf("bmo-e2e-upgrade-%d", GinkgoParallelProcess())
 			upgradeClusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
@@ -248,8 +254,8 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 		scheme := runtime.NewScheme()
 		framework.TryAddDefaultSchemes(scheme)
-		err := metal3api.AddToScheme(scheme)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(irsov1alpha1.AddToScheme(scheme)).To(Succeed())
+		Expect(metal3api.AddToScheme(scheme)).To(Succeed())
 		upgradeClusterProxy = framework.NewClusterProxy("bmo-e2e-upgrade", kubeconfigPath, scheme)
 
 		if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_CERT_MANAGER") {
@@ -267,7 +273,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_IRSO") {
 			BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
 				Kustomization:       e2eConfig.GetVariable("IRSO_KUSTOMIZATION"),
-				ClusterProxy:        clusterProxy,
+				ClusterProxy:        upgradeClusterProxy,
 				WaitForDeployment:   true,
 				WatchDeploymentLogs: true,
 				DeploymentName:      "ironic-standalone-operator-controller-manager",
@@ -302,8 +308,19 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, upgradeClusterProxy, testArtifactFolder)
 		if !skipCleanup {
-			cleanup(ctx, upgradeClusterProxy, namespace, cancelWatches, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 			if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
+				// Trigger deletion of BMHs before deleting the namespace.
+				// This way there should be no risk of BMO getting stuck trying to progress
+				// and create HardwareDetails or similar, while the namespace is terminating.
+				DeleteBmhsInNamespace(ctx, upgradeClusterProxy.GetClient(), namespace.Name)
+				framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+					Deleter: upgradeClusterProxy.GetClient(),
+					Name:    namespace.Name,
+				})
+				WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
+					Getter:    upgradeClusterProxy.GetClient(),
+					Namespace: *namespace,
+				}, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
 				// Try to clean up as best as we can.
 				// Note that we only delete the "normal" BMO kustomization. There could be small
 				// differences between this and the initial or upgrade kustomization, but this also
@@ -316,6 +333,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 				// We are using a kind cluster for the upgrade tests, so we just delete the cluster.
 				upgradeClusterProvider.Dispose(ctx)
 			}
+			cancelWatches()
 			upgradeClusterProxy.Dispose(ctx)
 		}
 	})

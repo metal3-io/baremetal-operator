@@ -215,6 +215,15 @@ func (c *Config) GetIntervals(spec, key string) []interface{} {
 	return intervalsInterfaces
 }
 
+// HasVariable checks if a variable is defined in environment variables or in the e2e config file.
+func (c *Config) HasVariable(varName string) bool {
+	if _, ok := os.LookupEnv(varName); ok {
+		return true
+	}
+	_, ok := c.Variables[varName]
+	return ok
+}
+
 // GetVariable returns a variable from environment variables or from the e2e config file.
 func (c *Config) GetVariable(varName string) string {
 	if value, ok := os.LookupEnv(varName); ok {

@@ -35,11 +35,11 @@ variables:
   # These settings are for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"
   UPGRADE_DEPLOY_IRSO: "true"
-  # We run upgrade tests separately, so they can use the default kind cluster
-  # since there are no other tests running at the same time.
-  # Creating separate upgrade clusters would cause port collisions with the default kind cluster.
-  # We also configure these jobs to not deploy BMO/Ironic so that can be handled by the upgrade test.
-  UPGRADE_USE_EXISTING_CLUSTER: "true"
+  # When false, upgrade tests use a separate kind cluster.
+  # This allows upgrade tests to run alongside other tests, but requires a separate
+  # provisioning IP (see UPGRADE_IRONIC_PROVISIONING_IP).
+  UPGRADE_USE_EXISTING_CLUSTER: "false"
+  UPGRADE_IRONIC_PROVISIONING_IP: "192.168.222.3"
 
   IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
   ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"
@@ -93,27 +93,28 @@ kindExtraPortMappings:
   protocol: TCP
 
 
+
 bmoIronicUpgradeSpecs:
 # Upgrade BMO 0.9 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.9"
-  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e"
-  upgradeEntityKustomization: "../../config/overlays/e2e"
+  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
+  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
   upgradeEntityName: "bmo"
 # Upgrade BMO 0.10 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.10"
-  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e"
-  upgradeEntityKustomization: "../../config/overlays/e2e"
+  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
+  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
   upgradeEntityName: "bmo"
 # Upgrade BMO 0.11 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
-  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e"
-  upgradeEntityKustomization: "../../config/overlays/e2e"
+  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
+  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
   upgradeEntityName: "bmo"
 # Upgrade Ironic 27.0 -> 29.0 | BMO 0.9
 - deployIronic: true
@@ -135,19 +136,19 @@ bmoIronicUpgradeSpecs:
 #   deployBMO: true
 #   initBMOKustomization: "../../config/overlays/e2e-release-0.10"
 #   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-29.0"
-#   upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e"
+#   upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
 #   upgradeEntityName: "ironic"
 # Upgrade Ironic 30.0 -> latest | BMO 0.11
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-30.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e"
+  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeEntityName: "ironic"
 # Upgrade Ironic 31.0 -> latest | BMO 0.11
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-31.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e"
+  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeEntityName: "ironic"

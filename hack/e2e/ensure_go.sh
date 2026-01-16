@@ -2,7 +2,7 @@
 
 set -eux
 
-MINIMUM_GO_VERSION=go1.24.11
+MINIMUM_GO_VERSION=go1.24.12
 
 # Ensure the go tool exists and is a viable version, or installs it
 verify_go_version()

@@ -1,0 +1,48 @@
+name: Build container image for PR
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+    branches:
+      - 'main'
+      - 'release-*'
+    paths:
+      - 'Dockerfile'
+      - 'Makefile'
+      - '.github/workflows/build-pr.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-amd64:
+    name: Build amd64 container image
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Calculate go version
+        id: vars
+        run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: ${{ steps.vars.outputs.go_version }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build amd64 image using docker-build-all
+        run: make docker-build-all
+        env:
+          IMG_NAME: baremetal-operator
+          IMG_TAG: pr-test
+
+      - name: Verify image was built
+        run: |
+          docker images | grep baremetal-operator
+          docker image inspect quay.io/metal3-io/baremetal-operator-amd64:pr-test >/dev/null
+          docker image inspect quay.io/metal3-io/baremetal-operator:pr-test >/dev/null

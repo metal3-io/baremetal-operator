@@ -11,9 +11,9 @@ verify_yq()
     if ! [[ -x "$(command -v yq)" ]]; then
         if [[ "${OSTYPE}" == "linux-gnu" ]]; then
             echo "yq not found, installing"
-            curl -LO "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz"
-            tar xvf yq_linux_amd64.tar.gz
-            sudo install yq_linux_amd64 "${USR_LOCAL_BIN}/yq"
+            curl --create-dirs -LO --output-dir "${HOME}" "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz"
+            sudo tar -xvf "${HOME}/yq_linux_amd64.tar.gz" -C "${HOME}"
+            sudo install "${HOME}/yq_linux_amd64" "${USR_LOCAL_BIN}/yq"
         else
             echo "Missing required binary in path: yq"
             return 2

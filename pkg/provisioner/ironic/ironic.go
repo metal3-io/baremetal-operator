@@ -1716,6 +1716,20 @@ func (p *ironicProvisioner) abortInspectionOrCleaning(ironicNode *nodes.Node, au
 	case nodes.Inspecting:
 		p.log.Info("inspection in progress, waiting for it to reach inspect wait state")
 		return operationContinuing(provisionRequeueDelay)
+	case nodes.InspectFail:
+		// After aborting inspection, node transitions to InspectFail but Ironic does not
+		// automatically clear TargetProvisionState. We need to explicitly transition to
+		// manageable to clear it, which then allows power changes.
+		if ironicNode.TargetProvisionState != "" {
+			p.log.Info("transitioning from inspect failed to manageable to allow power off",
+				"targetState", ironicNode.TargetProvisionState)
+			return p.changeNodeProvisionState(
+				ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetManage},
+			)
+		}
+		// TargetProvisionState is clear, we can proceed with power off
+		return operationComplete()
 	case nodes.CleanWait:
 		// Abort manual cleaning or automated cleaning if disabled.
 		// Use automatedCleaningMode from BMH spec rather than ironicNode.AutomatedClean
@@ -1777,9 +1791,15 @@ func (p *ironicProvisioner) PowerOff(rebootMode metal3api.RebootMode, force bool
 		}
 		// If the target state is unset while the last error is set,
 		// then the last execution of power off has failed.
+		// However, if the error is from an aborted operation (e.g., inspection abort),
+		// this is expected and we should proceed with power off rather than failing.
 		if targetState == "" && ironicNode.LastError != "" && !force {
-			p.log.Info("power off error", "msg", ironicNode.LastError)
-			return operationFailed(ironicNode.LastError)
+			if !strings.Contains(ironicNode.LastError, "aborted") {
+				p.log.Info("power off error", "msg", ironicNode.LastError)
+				return operationFailed(ironicNode.LastError)
+			}
+			// Error is from an abort operation, not a power-off failure - proceed
+			p.log.Info("ignoring abort error, proceeding with power off", "msg", ironicNode.LastError)
 		}
 
 		if rebootMode == metal3api.RebootModeSoft && !force {

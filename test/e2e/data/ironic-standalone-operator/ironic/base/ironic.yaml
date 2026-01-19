@@ -4,10 +4,6 @@ metadata:
   name: ironic
   namespace: baremetal-operator-system
 spec:
-  images:
-    deployRamdiskDownloader: "quay.io/metal3-io/ironic-ipa-downloader:main"
-    ironic: "quay.io/metal3-io/ironic:main"
-    keepalived: "quay.io/metal3-io/keepalived"
   version: "latest"
   networking:
     dhcp:

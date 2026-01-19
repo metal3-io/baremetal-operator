@@ -43,6 +43,8 @@ rules:
   - hostfirmwarecomponents
   - hostfirmwaresettings
   - preprovisioningimages
+  - hostclaims
+  - hostdeploypolicies
   verbs:
   - create
   - delete
@@ -58,6 +60,7 @@ rules:
   - dataimages/finalizers
   - hardware/finalizers
   - hostfirmwarecomponents/finalizers
+  - hostclaims/finalizers
   verbs:
   - update
 - apiGroups:
@@ -70,6 +73,7 @@ rules:
   - hostfirmwarecomponents/status
   - hostfirmwaresettings/status
   - preprovisioningimages/status
+  - hostclaims/status
   verbs:
   - get
   - patch

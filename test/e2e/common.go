@@ -20,10 +20,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
@@ -50,8 +52,161 @@ const (
 	PoweredOff PowerState = "off"
 
 	filePerm600 = 0600
+	filePerm644 = 0644
 	filePerm750 = 0750
+	filePerm755 = 0755
 )
+
+// vmLogPositions tracks the last read position for each VM's serial log.
+// This enables incremental log collection per test.
+var vmLogPositions = make(map[string]int64)
+var vmLogPositionsMu sync.Mutex
+
+// vmLogMetadata contains metadata about VM logs collected during tests.
+var vmLogMetadata = VMLogMetadata{}
+var vmLogMetadataMu sync.Mutex
+
+// VMLogMetadata contains the list of VM test log entries.
+type VMLogMetadata struct {
+	Tests []VMTestLogEntry `yaml:"tests"`
+}
+
+// VMTestLogEntry records metadata about a VM log for a specific test.
+type VMTestLogEntry struct {
+	TestName  string `yaml:"test_name"`  //nolint:tagliatelle
+	VMName    string `yaml:"vm_name"`    //nolint:tagliatelle
+	StartTime string `yaml:"start_time"` //nolint:tagliatelle
+	EndTime   string `yaml:"end_time"`   //nolint:tagliatelle
+	Status    string `yaml:"status"`
+	LogFile   string `yaml:"log_file"`   //nolint:tagliatelle
+	LineCount int    `yaml:"line_count"` //nolint:tagliatelle
+}
+
+// SanitizeTestName creates a filesystem-safe name from a test report.
+// It combines the container hierarchy with the leaf node text and replaces
+// problematic characters to avoid creating nested directory structures.
+func SanitizeTestName(report ginkgotypes.SpecReport) string {
+	// Combine container hierarchy and leaf text
+	parts := append([]string{}, report.ContainerHierarchyTexts...)
+	if report.LeafNodeText != "" {
+		parts = append(parts, report.LeafNodeText)
+	}
+
+	// Join with underscore and sanitize
+	testName := strings.Join(parts, "_")
+
+	// Replace problematic characters for filesystem paths
+	replacements := map[string]string{
+		"/":  "-",
+		"\\": "-",
+		":":  "-",
+		"*":  "-",
+		"?":  "-",
+		"\"": "-",
+		"<":  "-",
+		">":  "-",
+		"|":  "-",
+		" ":  "_",
+		"\t": "_",
+		"\n": "_",
+		"\r": "_",
+	}
+
+	for old, new := range replacements {
+		testName = strings.ReplaceAll(testName, old, new)
+	}
+
+	// Collapse multiple underscores/dashes
+	for strings.Contains(testName, "__") {
+		testName = strings.ReplaceAll(testName, "__", "_")
+	}
+	for strings.Contains(testName, "--") {
+		testName = strings.ReplaceAll(testName, "--", "-")
+	}
+
+	// Trim leading/trailing underscores and dashes
+	testName = strings.Trim(testName, "_-")
+
+	return testName
+}
+
+// CopyIncrementalVMLog copies new content from a VM's serial log since last collection.
+// It tracks the read position per VM to enable per-test log separation.
+func CopyIncrementalVMLog(vmName, testName, artifactFolder string) error {
+	vmLogPositionsMu.Lock()
+	defer vmLogPositionsMu.Unlock()
+
+	sourcePath := fmt.Sprintf("/var/log/libvirt/qemu/%s-serial0.log", vmName)
+	testFolder := filepath.Join(artifactFolder, "logs", "qemu", "per-test", testName)
+	destPath := filepath.Join(testFolder, vmName+"-serial0.log")
+
+	// Create test folder
+	if err := os.MkdirAll(testFolder, filePerm755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
+
+	// Read source file using sudo (VM logs are owned by libvirt-qemu)
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("sudo"),
+		testexec.WithArgs("cat", sourcePath),
+	)
+	stdout, stderr, err := cmd.Run(context.Background())
+	if err != nil {
+		return fmt.Errorf("read source %s (stderr: %s): %w", sourcePath, string(stderr), err)
+	}
+	sourceBytes := stdout
+
+	// Get last position
+	lastPos := vmLogPositions[vmName]
+	currentSize := int64(len(sourceBytes))
+
+	// Extract incremental content
+	var incrementalContent []byte
+	if lastPos < currentSize {
+		incrementalContent = sourceBytes[lastPos:]
+	}
+
+	// Write to destination
+	if len(incrementalContent) > 0 {
+		if err := os.WriteFile(destPath, incrementalContent, filePerm644); err != nil {
+			return fmt.Errorf("write dest: %w", err)
+		}
+	}
+
+	// Update position
+	vmLogPositions[vmName] = currentSize
+
+	return nil
+}
+
+// RecordVMTestLog adds a VM test log entry to the metadata.
+func RecordVMTestLog(entry VMTestLogEntry) {
+	vmLogMetadataMu.Lock()
+	defer vmLogMetadataMu.Unlock()
+	vmLogMetadata.Tests = append(vmLogMetadata.Tests, entry)
+}
+
+// SaveVMLogMetadata writes the VM log metadata to a YAML file.
+func SaveVMLogMetadata(artifactFolder string) error {
+	vmLogMetadataMu.Lock()
+	defer vmLogMetadataMu.Unlock()
+
+	data, err := yaml.Marshal(&vmLogMetadata)
+	if err != nil {
+		return fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	metadataPath := filepath.Join(artifactFolder, "logs", "qemu", "vm-log-index.yaml")
+	if err := os.MkdirAll(filepath.Dir(metadataPath), filePerm755); err != nil {
+		return fmt.Errorf("mkdir for metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, data, filePerm644); err != nil {
+		return fmt.Errorf("write metadata: %w", err)
+	}
+
+	return nil
+}
 
 func isUndesiredState(currentState metal3api.ProvisioningState, undesiredStates []metal3api.ProvisioningState) bool {
 	if undesiredStates == nil {
@@ -259,22 +414,6 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 		}
 		return k8serrors.IsNotFound(input.Getter.Get(ctx, key, namespace))
 	}, intervals...).Should(BeTrue())
-}
-
-func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, intervals ...interface{}) {
-	// Trigger deletion of BMHs before deleting the namespace.
-	// This way there should be no risk of BMO getting stuck trying to progress
-	// and create HardwareDetails or similar, while the namespace is terminating.
-	DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
-	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
-		Deleter: clusterProxy.GetClient(),
-		Name:    namespace.Name,
-	})
-	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
-		Getter:    clusterProxy.GetClient(),
-		Namespace: *namespace,
-	}, intervals...)
-	cancelWatches()
 }
 
 func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, isNamespaced bool, intervals ...interface{}) {
@@ -660,6 +799,86 @@ func GetKubeconfigPath() string {
 	return kubeconfigPath
 }
 
+// writeToFile writes the given content to a file at the specified path.
+// It creates any necessary parent directories.
+func writeToFile(filePath string, content string) {
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, filePerm750); err != nil {
+		Logf("Failed to create directory %s: %v", dir, err)
+		return
+	}
+	if err := os.WriteFile(filePath, []byte(content), filePerm600); err != nil {
+		Logf("Failed to write file %s: %v", filePath, err)
+	}
+}
+
+// kubectlDescribe runs kubectl describe for the given resource and returns the output.
+func kubectlDescribe(ctx context.Context, kubeconfigPath, resourceType, name, namespace string) (string, error) {
+	args := []string{"describe", resourceType, name, "-n", namespace, "--kubeconfig", kubeconfigPath}
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(args...),
+	)
+
+	stdout, stderr, err := cmd.Run(ctx)
+	if err != nil {
+		return "", fmt.Errorf("kubectl describe failed: %w, stderr: %s", err, string(stderr))
+	}
+	return string(stdout), nil
+}
+
+// dumpPodDescriptions dumps kubectl describe output for all pods in a namespace.
+func dumpPodDescriptions(ctx context.Context, kubeconfigPath string, namespace string, artifactFolder string) {
+	args := []string{"get", "pods", "-n", namespace, "-o", "jsonpath={.items[*].metadata.name}", "--kubeconfig", kubeconfigPath}
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(args...),
+	)
+
+	stdout, stderr, err := cmd.Run(ctx)
+	if err != nil {
+		Logf("Failed to list pods in namespace %s: %v, stderr: %s", namespace, err, string(stderr))
+		return
+	}
+
+	podNames := strings.Fields(string(stdout))
+	for _, podName := range podNames {
+		description, err := kubectlDescribe(ctx, kubeconfigPath, "pod", podName, namespace)
+		if err != nil {
+			Logf("Failed to describe pod %s/%s: %v", namespace, podName, err)
+			continue
+		}
+		filePath := filepath.Join(artifactFolder, "pod-descriptions", podName+".txt")
+		writeToFile(filePath, description)
+	}
+}
+
+// dumpDeploymentDescriptions dumps kubectl describe output for all deployments in a namespace.
+func dumpDeploymentDescriptions(ctx context.Context, kubeconfigPath string, namespace string, artifactFolder string) {
+	args := []string{"get", "deployments", "-n", namespace, "-o", "jsonpath={.items[*].metadata.name}", "--kubeconfig", kubeconfigPath}
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("kubectl"),
+		testexec.WithArgs(args...),
+	)
+
+	stdout, stderr, err := cmd.Run(ctx)
+	if err != nil {
+		Logf("Failed to list deployments in namespace %s: %v, stderr: %s", namespace, err, string(stderr))
+		return
+	}
+
+	deployNames := strings.Fields(string(stdout))
+	for _, deployName := range deployNames {
+		description, err := kubectlDescribe(ctx, kubeconfigPath, "deployment", deployName, namespace)
+		if err != nil {
+			Logf("Failed to describe deployment %s/%s: %v", namespace, deployName, err)
+			continue
+		}
+		filePath := filepath.Join(artifactFolder, "deployment-descriptions", deployName+".txt")
+		writeToFile(filePath, description)
+	}
+}
+
 // DumpObj tries to dump the given object into a file in YAML format.
 func dumpObj[T any](obj T, name string, path string) {
 	objYaml, err := yaml.Marshal(obj)
@@ -691,9 +910,20 @@ func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
 
 // DumpResources dumps resources related to BMO e2e tests as YAML.
 func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framework.ClusterProxy, artifactFolder string) {
-	dumpCRDS(ctx, clusterProxy.GetClient(), filepath.Join(artifactFolder, "crd"))
+	cli := clusterProxy.GetClient()
+	kubeconfigPath := clusterProxy.GetKubeconfigPath()
+
+	// Dump all CRDs and their instances (includes BMH, Ironic, etc.)
+	dumpCRDS(ctx, cli, filepath.Join(artifactFolder, "crd"))
 	if e2eConfig.GetBoolVariable("FETCH_IRONIC_NODES") {
 		dumpIronicNodes(ctx, e2eConfig, artifactFolder)
+	}
+
+	// Dump pod and deployment descriptions for key namespaces using kubectl describe
+	namespaces := []string{"baremetal-operator-system", "ironic-standalone-operator-system"}
+	for _, ns := range namespaces {
+		dumpPodDescriptions(ctx, kubeconfigPath, ns, filepath.Join(artifactFolder, ns))
+		dumpDeploymentDescriptions(ctx, kubeconfigPath, ns, filepath.Join(artifactFolder, ns))
 	}
 }
 

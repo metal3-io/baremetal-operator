@@ -31,7 +31,9 @@ const (
 
 	// BareMetalHostAssociatedReason is the reason used when the HostClaim is successfully associated with a BareMetalHost.
 	BareMetalHostAssociatedReason = "BareMetalHostAssociated"
-	// MissingBareMetalHostReason is a reason used when the associated BareMetalHost is no more found.
+	// MissingBareMetalHostReason is used when the HostClaim was previously
+	// associated with a BareMetalHost that has since disappeared or whose
+	// ConsumerRef no longer points back to the hostclaim.
 	MissingBareMetalHostReason = "MissingBareMetalHost"
 	// NoBareMetalHostReason is a reason used when no BareMetalHost matching the constraints is found.
 	NoBareMetalHostReason = "NoBareMetalHost"

@@ -154,6 +154,7 @@ func patchHostClaim(ctx context.Context, patchHelper *patch.Helper, claim *metal
 			metal3api.SynchronizedCondition,
 			metal3api.ProvisionedCondition,
 			metal3api.AvailableForProvisioningCondition,
+			metal3api.HostReadyCondition,
 		}},
 		patch.WithStatusObservedGeneration{},
 	)

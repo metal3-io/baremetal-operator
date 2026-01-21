@@ -1,0 +1,86 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if .Values.namespaced }}Role{{ else }}ClusterRole{{ end }}
+metadata:
+  name: {{ include "baremetal-operator.fullname" . }}-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ironic.metal3.io
+  resources:
+  - ironics
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts
+  - bmceventsubscriptions
+  - dataimages
+  - firmwareschemas
+  - hardwaredata
+  - hostfirmwarecomponents
+  - hostfirmwaresettings
+  - preprovisioningimages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts/finalizers
+  - dataimages/finalizers
+  - hardware/finalizers
+  - hostfirmwarecomponents/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts/status
+  - bmceventsubscriptions/status
+  - dataimages/status
+  - firmwareschemas/status
+  - hostfirmwarecomponents/status
+  - hostfirmwaresettings/status
+  - preprovisioningimages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostupdatepolicies
+  verbs:
+  - get
+  - list
+  - update
+  - watch

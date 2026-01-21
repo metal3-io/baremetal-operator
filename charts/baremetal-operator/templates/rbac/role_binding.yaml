@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if .Values.namespaced }}RoleBinging{{ else }}ClusterRoleBinding{{ end }}
+metadata:
+  name: {{ include "baremetal-operator.fullname" . }}-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ if .Values.namespaced }}Role{{ else }}ClusterRole{{ end }}
+  name: {{ include "baremetal-operator.fullname" . }}-role
+subjects:
+- kind: ServiceAccount
+  name: {{ include "baremetal-operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}

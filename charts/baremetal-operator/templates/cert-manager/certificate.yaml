@@ -1,0 +1,14 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "baremetal-operator.fullname" . }}
+spec:
+  dnsNames:
+  - {{ printf "%s-%s.%s.svc"  (include "baremetal-operator.fullname" .) "metrics" (.Release.Namespace) }}
+  - {{ printf "%s-%s.%s.svc.cluster.local"  (include "baremetal-operator.fullname" .) "metrics" (.Release.Namespace) }}
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: {{ include "baremetal-operator.fullname" . }}-cert
+{{- end }}

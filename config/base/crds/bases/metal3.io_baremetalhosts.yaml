@@ -132,6 +132,21 @@ spec:
                 - UEFISecureBoot
                 - legacy
                 type: string
+              consumerOverride:
+                description: |-
+                  ConsumerOverride can be used to override some of the field of
+                  the BareMetalHost spec while keeping the original content.
+                  ConsumerOverride can only be used if there is a consumerRef
+                properties:
+                  automatedCleaningMode:
+                    description: |-
+                      Cleaning mode used by this consumer. This field has precedence over
+                      AutomatedCleaningMode.
+                    enum:
+                    - metadata
+                    - disabled
+                    type: string
+                type: object
               consumerRef:
                 description: |-
                   ConsumerRef can be used to store information about something
@@ -624,6 +639,9 @@ spec:
             required:
             - online
             type: object
+            x-kubernetes-validations:
+            - message: consumerOverride can be set only if there is a consumerRef
+              rule: '!has(self.consumerOverride) || has(self.consumerRef)'
           status:
             description: BareMetalHostStatus defines the observed state of BareMetalHost.
             properties:
@@ -1033,6 +1051,14 @@ spec:
                     required:
                     - url
                     type: object
+                  overriddenCleaningPerformed:
+                    description: |-
+                      An indicator of the level of the last cleaning method used on the last provisioned disks
+                      when ConsumerOverride.AutomatedCleaningMode is used.
+                    enum:
+                    - metadata
+                    - disabled
+                    type: string
                   raid:
                     description: The RAID configuration that has been applied.
                     properties:

@@ -14,5 +14,5 @@ spec:
     ipAddress: "192.168.222.2"
     ipAddressManager: "keepalived"
   deployRamdisk:
-    sshKey: "SSH_PUB_KEY_CONTENT"
+    sshKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDC4cgVto+unPhvssj/cBKQJIClIPSVFD+EkRDBLP97V"
     extraKernelParams: "console=ttyS0"

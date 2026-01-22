@@ -13,8 +13,9 @@ spec:
       {{- include "baremetal-operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
@@ -43,8 +44,11 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+          - configMapRef:
+              name: {{ include "baremetal-operator.fullname" . }}
           {{- if or .Values.envs .Values.namespaced }}
           env:
           {{- if .Values.namespaced }}
@@ -95,7 +99,8 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: {{ .Values.webhook.certificate.existingCertificate.secretName | default (printf "%s-cert" (include "baremetal-operator.fullname" .)) }}        {{- end }}
+            secretName: {{ .Values.webhook.certificate.existingCertificate.secretName | default (printf "%s-cert" (include "baremetal-operator.fullname" .)) }}
+        {{- end }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}

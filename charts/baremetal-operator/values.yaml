@@ -5,7 +5,10 @@
 # cert-manager - Official cert-manager chart
 cert-manager:
   # cert-manager - Install cert-manager chart from official repo
-  enabled: false
+  enabled: true
+  crds:
+    enabled: false
+  installCRDs: false
 
 # crd - Controll Custom Resource Definition configuration
 crd:
@@ -34,6 +37,23 @@ webhook:
     port: 443
 
 namespaced: false
+
+ironic:
+  enabled: true
+  tls: true
+  basicAuth:
+    enabled: true
+    username: ""
+    password: ""
+    existingSecret:
+      name: ""
+  external:
+    url:
+    credentials:
+      username: ""
+      password: ""
+      existingSecret:
+        name: ""
 
 # metrics - Configure metrics exposition that can be scraped by promethues
 metrics:
@@ -167,12 +187,12 @@ resources: {}
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:
-    path: /
-    port: http
+    path: /healthz
+    port: 9440
 readinessProbe:
   httpGet:
-    path: /
-    port: http
+    path: /readyz
+    port: 9440
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:

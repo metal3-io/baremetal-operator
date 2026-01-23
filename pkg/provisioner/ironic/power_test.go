@@ -346,6 +346,36 @@ func TestPowerOff(t *testing.T) {
 			expectedDirty:         true,
 			expectedRequestAfter:  10,
 		},
+		{
+			// After aborting inspection, node transitions to InspectFail but Ironic does not
+			// clear TargetProvisionState. We need to explicitly transition to manageable.
+			name: "power-off while in InspectFail with target state set",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				PowerState:           powerOn,
+				ProvisionState:       string(nodes.InspectFail),
+				TargetProvisionState: string(nodes.TargetManage),
+				LastError:            "Inspection was aborted by request.",
+				UUID:                 nodeUUID,
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			rebootMode:           metal3api.RebootModeHard,
+			expectedDirty:        true,
+			expectedRequestAfter: 10,
+		},
+		{
+			// When InspectFail with TargetProvisionState clear and abort error,
+			// we should proceed with power off (ignore the abort error).
+			name: "power-off while in InspectFail after abort completes",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				PowerState:           powerOn,
+				ProvisionState:       string(nodes.InspectFail),
+				TargetProvisionState: "",
+				LastError:            "Inspection was aborted by request.",
+				UUID:                 nodeUUID,
+			}),
+			rebootMode:     metal3api.RebootModeHard,
+			expectedDirty:  true,
+			expectedReason: hardPowerOffReason,
+		},
 	}
 
 	for _, tc := range cases {

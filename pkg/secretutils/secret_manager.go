@@ -134,7 +134,7 @@ func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner cl
 // be a controller reference.
 func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
 	if owner == nil {
-		panic("AcquireSecret called with no owner")
+		return nil, fmt.Errorf("AcquireSecret called with no owner for secret %s/%s", key.Namespace, key.Name)
 	}
 
 	return sm.obtainSecretForOwner(key, owner, addFinalizer)

@@ -3,7 +3,7 @@ package controllers
 import (
 	"errors"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -17,10 +17,6 @@ const (
 	maxBackOffCount = 9
 	defaultBackoff  = 0.5
 )
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 // actionResult is an interface that encapsulates the result of a Reconcile
 // call, as returned by the action corresponding to the current state.

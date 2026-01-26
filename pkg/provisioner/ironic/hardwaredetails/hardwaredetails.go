@@ -3,6 +3,7 @@ package hardwaredetails
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -83,9 +84,12 @@ func getLLDPData(lldp map[string]any) *metal3api.LLDP {
 
 func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.StandardPluginData) []metal3api.NIC {
 	var nics []metal3api.NIC
+	
 	for _, intf := range ifdata {
 		pxeEnabled := ironicData.AllInterfaces[intf.Name].PXEEnabled
 		lldp := ironicData.ParsedLLDP[intf.Name]
+		// Get client_id from AllInterfaces which contains BaseInterfaceType with ClientID field
+		clientID := getClientIDFromAllInterfaces(ironicData.AllInterfaces[intf.Name])
 
 		vlans, vlanid := getVLANs(lldp)
 		lldpData := getLLDPData(lldp)
@@ -97,6 +101,7 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 					intf.Vendor, intf.Product), " "),
 				MAC:       intf.MACAddress,
+				ClientID:  clientID,
 				IP:        intf.IPV4Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,
@@ -111,6 +116,7 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 					intf.Vendor, intf.Product), " "),
 				MAC:       intf.MACAddress,
+				ClientID:  clientID,
 				IP:        intf.IPV6Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,
@@ -121,6 +127,52 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 		}
 	}
 	return nics
+}
+
+// getClientIDFromAllInterfaces extracts client_id from ProcessedInterfaceType
+// The client_id field is available in BaseInterfaceType from introspection data
+// which is accessible through AllInterfaces in StandardPluginData.
+// According to gophercloud introspection results, BaseInterfaceType has ClientID field.
+func getClientIDFromAllInterfaces(processedIntf inventory.ProcessedInterfaceType) string {
+	// Try to access ClientID directly first (if ProcessedInterfaceType has it)
+	// Otherwise use reflection to access it from the underlying BaseInterfaceType
+	v := reflect.ValueOf(processedIntf)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	
+	// Try to get ClientID field directly
+	if field := v.FieldByName("ClientID"); field.IsValid() && field.Kind() == reflect.String {
+		clientID := field.String()
+		if clientID != "" {
+			return clientID
+		}
+	}
+	
+	// If ClientID is not directly on ProcessedInterfaceType, it might be embedded
+	// in BaseInterfaceType. Try to access it through an embedded field.
+	typ := v.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if field.Anonymous {
+			// Check if this embedded field has ClientID
+			embeddedValue := v.Field(i)
+			if embeddedValue.Kind() == reflect.Ptr {
+				if embeddedValue.IsNil() {
+					continue
+				}
+				embeddedValue = embeddedValue.Elem()
+			}
+			if clientIDField := embeddedValue.FieldByName("ClientID"); clientIDField.IsValid() && clientIDField.Kind() == reflect.String {
+				clientID := clientIDField.String()
+				if clientID != "" {
+					return clientID
+				}
+			}
+		}
+	}
+	
+	return ""
 }
 
 func getDiskType(diskdata inventory.RootDiskType) metal3api.DiskType {

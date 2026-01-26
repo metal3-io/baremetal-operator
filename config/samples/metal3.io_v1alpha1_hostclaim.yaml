@@ -1,0 +1,12 @@
+apiVersion: metal3.io/v1alpha1
+kind: HostClaim
+metadata:
+  labels:
+    app.kubernetes.io/name: hostclaim
+    app.kubernetes.io/instance: hostclaim-sample
+    app.kubernetes.io/part-of: baremetal-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: baremetal-operator
+  name: hostclaim-sample
+spec:
+  # TODO(user): Add fields here

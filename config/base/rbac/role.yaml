@@ -18,6 +18,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - delete
@@ -41,6 +49,7 @@ rules:
   - dataimages
   - firmwareschemas
   - hardwaredata
+  - hostclaims
   - hostfirmwarecomponents
   - hostfirmwaresettings
   - preprovisioningimages
@@ -58,6 +67,7 @@ rules:
   - baremetalhosts/finalizers
   - dataimages/finalizers
   - hardware/finalizers
+  - hostclaims/finalizers
   - hostfirmwarecomponents/finalizers
   verbs:
   - update
@@ -68,6 +78,7 @@ rules:
   - bmceventsubscriptions/status
   - dataimages/status
   - firmwareschemas/status
+  - hostclaims/status
   - hostfirmwarecomponents/status
   - hostfirmwaresettings/status
   - preprovisioningimages/status
@@ -75,6 +86,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostdeploypolicies
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - metal3.io
   resources:

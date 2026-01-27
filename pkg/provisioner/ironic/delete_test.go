@@ -217,7 +217,7 @@ func deleteTest(t *testing.T, detach bool) {
 
 			var result provisioner.Result
 			if detach {
-				result, err = prov.Detach(t.Context())
+				result, err = prov.Detach(t.Context(), false)
 			} else {
 				result, err = prov.Delete(t.Context())
 			}

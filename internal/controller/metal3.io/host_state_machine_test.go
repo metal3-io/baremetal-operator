@@ -1379,11 +1379,11 @@ func (m *mockProvisioner) Deprovision(_ context.Context, _ bool, _ metal3api.Aut
 	return m.getNextResultByMethod("Deprovision"), err
 }
 
-func (m *mockProvisioner) Delete(context.Context) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Delete(_ context.Context) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Delete"), err
 }
 
-func (m *mockProvisioner) Detach(context.Context) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Detach(_ context.Context, _ bool) (result provisioner.Result, err error) {
 	res := m.getNextResultByMethod("Detach")
 	return res, err
 }

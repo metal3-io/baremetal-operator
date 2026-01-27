@@ -349,7 +349,7 @@ func (p *fixtureProvisioner) Delete(_ context.Context) (result provisioner.Resul
 // for the target system.  It may be called multiple times,
 // and should return true for its dirty  flag until the
 // deletion operation is completed.
-func (p *fixtureProvisioner) Detach(ctx context.Context) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Detach(ctx context.Context, _ bool) (result provisioner.Result, err error) {
 	return p.Delete(ctx)
 }
 

@@ -56,7 +56,15 @@ func (af AvailableFeatures) HasDisablePowerOff() bool {
 	return af.MaxVersion >= 95 //nolint:mnd
 }
 
+func (af AvailableFeatures) HasDeploymentAbort() bool {
+	return af.MaxVersion >= 110 //nolint:mnd
+}
+
 func (af AvailableFeatures) ChooseMicroversion() string {
+	if af.HasDeploymentAbort() {
+		return "1.110"
+	}
+
 	if af.HasDisablePowerOff() {
 		return "1.95"
 	}

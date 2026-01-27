@@ -1527,23 +1527,27 @@ func (p *ironicProvisioner) Delete(ctx context.Context) (result provisioner.Resu
 		"target", ironicNode.TargetProvisionState,
 		"deploy step", ironicNode.DeployStep,
 	)
+	return p.realDelete(ctx, ironicNode, false)
+}
 
+func (p *ironicProvisioner) realDelete(ctx context.Context, ironicNode *nodes.Node, force bool) (result provisioner.Result, err error) {
 	currentProvState := nodes.ProvisionState(ironicNode.ProvisionState)
 
-	// Handle verifying state specially: Ironic holds an exclusive lock during
-	// verification, so we can't set maintenance mode or delete until it completes.
-	// Just wait for the verification to finish (success or timeout).
-	if currentProvState == nodes.Verifying {
+	switch currentProvState {
+	case nodes.Verifying:
+		// Handle verifying state specially: Ironic holds an exclusive lock during
+		// verification, so we can't set maintenance mode or delete until it completes.
+		// Just wait for the verification to finish (success or timeout).
 		p.log.Info("node is verifying, waiting for verification to complete before deletion")
 		return operationContinuing(provisionRequeueDelay)
-	}
 
-	// For enroll state, the node can be deleted directly without maintenance mode
-	// since it has no Nova associations and isn't locked.
-	if currentProvState == nodes.Enroll {
+	case nodes.Enroll:
+		// For enroll state, the node can be deleted directly without maintenance mode
+		// since it has no Nova associations and isn't locked.
 		p.log.Info("node is in enroll state, proceeding to delete directly")
 		// Fall through to deletion
-	} else if currentProvState == nodes.Available || currentProvState == nodes.Manageable {
+
+	case nodes.Available, nodes.Manageable:
 		// Make sure we don't have a stale instance UUID
 		if ironicNode.InstanceUUID != "" {
 			var success bool
@@ -1555,20 +1559,51 @@ func (p *ironicProvisioner) Delete(ctx context.Context) (result provisioner.Resu
 				return result, err
 			}
 		}
-	} else if !ironicNode.Maintenance {
-		// If we see an active node and the controller doesn't think
-		// we need to deprovision it, that means the node was
-		// ExternallyProvisioned and we should remove it from Ironic
-		// without deprovisioning it.
-		//
-		// If we see a node with an error, we will have to set the
-		// maintenance flag before deleting it.
-		//
-		// Any other state requires us to use maintenance mode to
-		// delete while bypassing Ironic's internal checks related to
-		// Nova.
-		p.log.Info("setting host maintenance flag to force image delete")
-		return p.setMaintenanceFlag(ctx, ironicNode, true, "forcing deletion in baremetal-operator")
+
+	case nodes.Deploying, nodes.Cleaning, nodes.Inspecting, nodes.Servicing, nodes.Deleting:
+		p.log.Info("node is in state that does not allow deletion, waiting", "currentState", currentProvState)
+		return operationContinuing(provisionRequeueDelay)
+
+	case nodes.DeployWait:
+		if force && !p.availableFeatures.HasDeploymentAbort() {
+			p.log.Info("deprovisioning to force deletion")
+			// No new API - fall back to deprovisioning and wait for CLEANWAIT
+			return p.changeNodeProvisionState(ctx, ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetDeleted},
+			)
+		}
+
+		// Otherwise, use the abort API as well
+		fallthrough
+
+	case nodes.InspectWait, nodes.CleanWait, nodes.ServiceWait:
+		if force {
+			p.log.Info("aborting the current operation to force deletion", "currentState", currentProvState)
+			return p.changeNodeProvisionState(ctx, ironicNode,
+				nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+			)
+		}
+
+		// Normal deletion won't work in these states, so wait
+		p.log.Info("node is in state that does not allow deletion, waiting", "currentState", currentProvState)
+		return operationContinuing(provisionRequeueDelay)
+
+	default:
+		if !ironicNode.Maintenance {
+			// If we see an active node and the controller doesn't think
+			// we need to deprovision it, that means the node was
+			// ExternallyProvisioned and we should remove it from Ironic
+			// without deprovisioning it.
+			//
+			// If we see a node with an error, we will have to set the
+			// maintenance flag before deleting it.
+			//
+			// Any other state requires us to use maintenance mode to
+			// delete while bypassing Ironic's internal checks related to
+			// Nova.
+			p.log.Info("setting host maintenance flag to force image delete", "currentState", currentProvState)
+			return p.setMaintenanceFlag(ctx, ironicNode, true, "forcing deletion in baremetal-operator")
+		}
 	}
 
 	p.log.Info("host ready to be removed")
@@ -1592,10 +1627,25 @@ func (p *ironicProvisioner) Delete(ctx context.Context) (result provisioner.Resu
 // for the target system.  It may be called multiple times,
 // and should return true for its dirty  flag until the
 // deletion operation is completed.
-func (p *ironicProvisioner) Detach(ctx context.Context) (result provisioner.Result, err error) {
-	// Currently the same behavior as Delete()
-	p.log.Info("removing the node for detachment", "node", p.nodeID)
-	return p.Delete(ctx)
+func (p *ironicProvisioner) Detach(ctx context.Context, force bool) (result provisioner.Result, err error) {
+	ironicNode, err := p.getNode(ctx)
+	if err != nil {
+		if errors.Is(err, provisioner.ErrNeedsRegistration) {
+			p.log.Info("no node found, already deleted")
+			return operationComplete()
+		}
+		return transientError(err)
+	}
+
+	p.log.Info("deleting host for detachment",
+		"ID", ironicNode.UUID,
+		"lastError", ironicNode.LastError,
+		"current", ironicNode.ProvisionState,
+		"target", ironicNode.TargetProvisionState,
+		"deploy step", ironicNode.DeployStep,
+		"force", force,
+	)
+	return p.realDelete(ctx, ironicNode, force)
 }
 
 // softPowerOffUnsupportedError is returned when the BMC does not

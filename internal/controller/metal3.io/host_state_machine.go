@@ -337,11 +337,17 @@ func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconc
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
 	if hasDetachedAnnotation(hsm.Host) {
-		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
+		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states unless forced
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:
-			return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info)
+			return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info, false)
+		case metal3api.StateDeleting:
+			// No point in detaching a host that is being deleted already
 		default:
+			if hasForceDetachAnnotation(hsm.Host) {
+				info.log.Info("forcing detach of host", "provisioningState", info.host.Status.Provisioning.State)
+				return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info, true)
+			}
 			info.log.Info("host cannot be detached yet, waiting for the current operation to finish", "provisioningState", info.host.Status.Provisioning.State)
 		}
 	}
@@ -361,6 +367,20 @@ func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconc
 		return actionUpdate{}
 	}
 	return nil
+}
+
+func hasForceDetachAnnotation(host *metal3api.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if val, ok := annotations[metal3api.DetachedAnnotation]; ok {
+			args := metal3api.DetachedAnnotationArguments{}
+			if err := json.Unmarshal([]byte(val), &args); err != nil {
+				return false
+			}
+			return args.Force
+		}
+	}
+	return false
 }
 
 func (hsm *hostStateMachine) ensureRegistered(ctx context.Context, info *reconcileInfo) (result actionResult) {

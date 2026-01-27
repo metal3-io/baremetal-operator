@@ -217,9 +217,9 @@ func deleteTest(t *testing.T, detach bool) {
 
 			var result provisioner.Result
 			if detach {
-				result, err = prov.Detach()
+				result, err = prov.Detach(false)
 			} else {
-				result, err = prov.Delete()
+				result, err = prov.Delete(false)
 			}
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

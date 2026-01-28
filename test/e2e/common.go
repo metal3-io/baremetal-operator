@@ -999,6 +999,88 @@ func WaitForIronicReady(ctx context.Context, input WaitForIronicInput) {
 	}, input.Intervals...).Should(Succeed())
 
 	Logf("Ironic %q is Ready", input.Name)
+
+	// Explicit check for dnsmasq container readiness
+	// The Ironic CR can be Ready while dnsmasq is still initializing or has crashed.
+	// This check helps diagnose issues where the IPA ramdisk fails to boot because
+	// dnsmasq is not serving DHCP requests.
+	checkDnsmasqReady(ctx, input.Client, input.Namespace)
+}
+
+// checkDnsmasqReady verifies that the dnsmasq container in the Ironic pod is running.
+// This is an explicit check to catch issues where the Ironic deployment is marked Ready
+// but dnsmasq is not actually serving requests. The check logs warnings but does not fail
+// the test, as it's meant to help diagnose boot failures.
+func checkDnsmasqReady(ctx context.Context, c client.Client, namespace string) {
+	const dnsmasqContainerName = "dnsmasq"
+
+	Logf("Checking dnsmasq container readiness in namespace %q", namespace)
+
+	// List pods with the ironic-service deployment label
+	podList := &corev1.PodList{}
+	err := c.List(ctx, podList, client.InNamespace(namespace), client.MatchingLabels{
+		"app.kubernetes.io/name": "ironic",
+	})
+	if err != nil {
+		Logf("⚠️  WARNING: Failed to list Ironic pods for dnsmasq check: %v", err)
+		return
+	}
+
+	if len(podList.Items) == 0 {
+		Logf("⚠️  WARNING: No Ironic pods found in namespace %q - dnsmasq status unknown!", namespace)
+		return
+	}
+
+	for _, pod := range podList.Items {
+		dnsmasqFound := false
+		dnsmasqReady := false
+		var dnsmasqStatus *corev1.ContainerStatus
+
+		// Check container statuses
+		for i := range pod.Status.ContainerStatuses {
+			cs := &pod.Status.ContainerStatuses[i]
+			if cs.Name == dnsmasqContainerName {
+				dnsmasqFound = true
+				dnsmasqStatus = cs
+				dnsmasqReady = cs.Ready
+				break
+			}
+		}
+
+		if !dnsmasqFound {
+			Logf("⚠️  WARNING: dnsmasq container not found in pod %q - DHCP will not work!", pod.Name)
+			Logf("   Available containers: %v", getContainerNames(pod.Status.ContainerStatuses))
+			continue
+		}
+
+		if !dnsmasqReady {
+			Logf("🚨 CRITICAL: dnsmasq container in pod %q is NOT READY!", pod.Name)
+			Logf("   This may cause PXE boot failures - IPA ramdisk will not receive DHCP responses!")
+			if dnsmasqStatus.State.Waiting != nil {
+				Logf("   Container state: Waiting (Reason: %s, Message: %s)",
+					dnsmasqStatus.State.Waiting.Reason, dnsmasqStatus.State.Waiting.Message)
+			} else if dnsmasqStatus.State.Terminated != nil {
+				Logf("   Container state: Terminated (Reason: %s, ExitCode: %d, Message: %s)",
+					dnsmasqStatus.State.Terminated.Reason,
+					dnsmasqStatus.State.Terminated.ExitCode,
+					dnsmasqStatus.State.Terminated.Message)
+			} else if dnsmasqStatus.State.Running != nil {
+				Logf("   Container state: Running but not Ready (started at %v)", dnsmasqStatus.State.Running.StartedAt)
+			}
+			Logf("   RestartCount: %d", dnsmasqStatus.RestartCount)
+		} else {
+			Logf("✓ dnsmasq container in pod %q is Ready", pod.Name)
+		}
+	}
+}
+
+// getContainerNames returns a slice of container names from container statuses.
+func getContainerNames(statuses []corev1.ContainerStatus) []string {
+	names := make([]string, 0, len(statuses))
+	for _, cs := range statuses {
+		names = append(names, cs.Name)
+	}
+	return names
 }
 
 // WaitForIronicInput bundles the parameters for WaitForIronicReady.

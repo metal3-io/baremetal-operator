@@ -68,7 +68,8 @@ const (
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update
 
 func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("preprovisioningimage", req.NamespacedName)
+	log := r.Log.WithValues(LogFieldPreprovisioningImage, req.NamespacedName)
+	log.V(VerbosityLevelTrace).Info("starting reconciliation")
 
 	result := ctrl.Result{}
 
@@ -76,14 +77,14 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	err := r.Get(ctx, req.NamespacedName, &img)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			log.Info("PreprovisioningImage not found")
+			log.V(VerbosityLevelDebug).Info("preprovisioningimage not found")
 			err = nil
 		}
 		return ctrl.Result{}, err
 	}
 
 	if !img.DeletionTimestamp.IsZero() {
-		log.Info("cleaning up deleted resource")
+		log.V(VerbosityLevelDebug).Info("cleaning up deleted resource")
 		if err = r.discardExistingImage(&img, log); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -97,7 +98,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if !slices.Contains(img.Finalizers, metal3api.PreprovisioningImageFinalizer) {
-		log.Info("adding finalizer")
+		log.V(VerbosityLevelDebug).Info("adding finalizer")
 		img.Finalizers = append(img.Finalizers, metal3api.PreprovisioningImageFinalizer)
 		err = r.Update(ctx, &img)
 		if err != nil {
@@ -110,13 +111,13 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 
 	if k8serrors.IsNotFound(err) {
 		delay := getErrorRetryDelay(img.Status)
-		log.Info("requeuing to check for secret", "after", delay)
+		log.V(VerbosityLevelDebug).Info("requeuing to check for secret", LogFieldRequeueAfter, delay)
 		result.RequeueAfter = delay
 	}
 
 	notReady := imageprovider.ImageNotReadyError{}
 	if errors.As(err, &notReady) {
-		log.Info("image is not ready yet, requeuing", "after", minRetryDelay)
+		log.V(VerbosityLevelDebug).Info("image is not ready yet, requeuing", LogFieldRequeueAfter, minRetryDelay)
 		if setUnready(img.GetGeneration(), &img.Status, err.Error()) {
 			changed = true
 		}
@@ -124,7 +125,7 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if changed {
-		log.Info("updating status")
+		log.V(VerbosityLevelDebug).Info("updating status")
 		err = r.Status().Update(ctx, &img)
 	}
 
@@ -149,7 +150,7 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 	generation := img.GetGeneration()
 
 	if !r.ImageProvider.SupportsArchitecture(img.Spec.Architecture) {
-		log.Info("image architecture not supported", "architecture", img.Spec.Architecture)
+		log.V(VerbosityLevelDebug).Info("image architecture not supported", "architecture", img.Spec.Architecture)
 		return setError(generation, &img.Status, reasonImageConfigurationError, "Architecture not supported"), nil
 	}
 
@@ -162,7 +163,7 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 	networkData, secretStatus, err := getNetworkData(secretManager, img)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			log.Info("network data Secret does not exist")
+			log.V(VerbosityLevelDebug).Info("network data secret does not exist")
 			return setError(generation, &img.Status, reasonImageMissingNetworkData, "NetworkData secret not found"), err
 		}
 		return false, err
@@ -201,12 +202,12 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 	if err != nil {
 		failure := imageprovider.ImageBuildInvalidError{}
 		if errors.As(err, &failure) {
-			log.Info("image build failed", "error", "err")
+			log.V(VerbosityLevelDebug).Info("image build failed", LogFieldError, err)
 			return setError(generation, &img.Status, reasonImageBuildInvalid, failure.Error()), nil
 		}
 		return false, err
 	}
-	log.Info("image URL available", "url", image, "format", format)
+	log.V(VerbosityLevelDebug).Info("image URL available", LogFieldImageURL, image, "format", format)
 
 	return setImage(generation, &img.Status, image, format,
 		secretStatus, img.Spec.Architecture,
@@ -223,7 +224,7 @@ func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3api.Preprovis
 	if len(spec.AcceptFormats) > 0 {
 		log = log.WithValues("preferredFormat", spec.AcceptFormats[0])
 	}
-	log.Info("no acceptable image format supported")
+	log.V(VerbosityLevelDebug).Info("no acceptable image format supported")
 	return
 }
 
@@ -231,7 +232,7 @@ func (r *PreprovisioningImageReconciler) discardExistingImage(img *metal3api.Pre
 	if img.Status.Format == "" {
 		return nil
 	}
-	log.Info("discarding existing image", "image_url", img.Status.ImageUrl)
+	log.V(VerbosityLevelDebug).Info("discarding existing image", LogFieldImageURL, img.Status.ImageUrl)
 	return r.ImageProvider.DiscardImage(imageprovider.ImageData{
 		ImageMetadata:     img.ObjectMeta.DeepCopy(),
 		Format:            img.Status.Format,
@@ -354,7 +355,7 @@ func (r *PreprovisioningImageReconciler) CanStart() bool {
 	if slices.ContainsFunc([]metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD}, r.ImageProvider.SupportsFormat) {
 		return true
 	}
-	r.Log.Info("not starting preprovisioning image controller; no image data available")
+	r.Log.V(VerbosityLevelDebug).Info("not starting preprovisioning image controller; no image data available")
 	return false
 }
 

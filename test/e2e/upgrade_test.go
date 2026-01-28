@@ -30,7 +30,7 @@ import (
 //
 // The function returns the namespace object, with its cancelFunc. These can be used to clean up the created resources.
 // The testCaseArtifactFolder parameter specifies where to store test artifacts.
-func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeClusterProxy framework.ClusterProxy, testCaseArtifactFolder string) (*corev1.Namespace, context.CancelFunc) {
+func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeClusterProxy framework.ClusterProxy, testCaseArtifactFolder string, deployIRSO bool) (*corev1.Namespace, context.CancelFunc) {
 	bmoIronicNamespace := "baremetal-operator-system"
 	initBMOKustomization := input.InitBMOKustomization
 	initIronicKustomization := input.InitIronicKustomization
@@ -44,6 +44,24 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	case ironicString:
 		upgradeDeploymentName = "ironic-service"
 	}
+
+	if deployIRSO {
+		if input.IrsoKustomization == "" {
+			Fail("deployIRSO is enabled but IrsoKustomization is empty; please specify a valid kustomization path in the test config")
+		}
+		err := BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       input.IrsoKustomization,
+			ClusterProxy:        upgradeClusterProxy,
+			WaitForDeployment:   true,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "ironic-standalone-operator-controller-manager",
+			DeploymentNamespace: "ironic-standalone-operator-system",
+			LogPath:             filepath.Join(testCaseArtifactFolder, "logs", "ironic-standalone-operator-system"),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		})
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	if input.DeployIronic {
 		// Install Ironic
 		By(fmt.Sprintf("Installing Ironic from kustomization %s on the upgrade cluster", initIronicKustomization))
@@ -266,26 +284,15 @@ var _ = Describe("Upgrade", Ordered, Label("optional", "upgrade"), func() {
 			err = checkCertManagerAPI(upgradeClusterProxy)
 			Expect(err).NotTo(HaveOccurred())
 		}
-		if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_IRSO") {
-			BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-				Kustomization:       e2eConfig.GetVariable("IRSO_KUSTOMIZATION"),
-				ClusterProxy:        upgradeClusterProxy,
-				WaitForDeployment:   true,
-				WatchDeploymentLogs: true,
-				DeploymentName:      "ironic-standalone-operator-controller-manager",
-				DeploymentNamespace: "ironic-standalone-operator-system",
-				LogPath:             filepath.Join(artifactFolder, "logs", "ironic-standalone-operator-system"),
-				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
-			})
-		}
 	})
 	DescribeTable("",
 		// Test function that runs for each table entry
 		func(ctx context.Context, input *BMOIronicUpgradeInput) {
 			testCaseName := getUpgradeTestCaseName(input)
+			deployIRSO := e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_IRSO")
 			// Set testArtifactFolder before RunUpgradeTest so it's available in AfterEach even if the test fails
 			testArtifactFolder = filepath.Join(artifactFolder, testCaseName)
-			namespace, cancelWatches = RunUpgradeTest(ctx, input, upgradeClusterProxy, testArtifactFolder)
+			namespace, cancelWatches = RunUpgradeTest(ctx, input, upgradeClusterProxy, testArtifactFolder, deployIRSO)
 		},
 		// Description function that generates test descriptions
 		func(ctx context.Context, input *BMOIronicUpgradeInput) string {

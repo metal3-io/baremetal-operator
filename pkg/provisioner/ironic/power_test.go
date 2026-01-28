@@ -8,6 +8,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
@@ -461,4 +462,66 @@ func TestSoftPowerOffFallback(t *testing.T) {
 	_, err = prov.changePower(t.Context(), &node, nodes.SoftPowerOff)
 	require.Error(t, err)
 	assert.ErrorAs(t, err, &softPowerOffUnsupportedError{})
+}
+
+func TestGetHealth(t *testing.T) {
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+	cases := []struct {
+		name           string
+		ironic         *testserver.IronicMock
+		expectedHealth string
+	}{
+		{
+			name: "healthy node",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:   nodeUUID,
+				Health: provisioner.HealthOK,
+			}),
+			expectedHealth: provisioner.HealthOK,
+		},
+		{
+			name: "warning health",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:   nodeUUID,
+				Health: provisioner.HealthWarning,
+			}),
+			expectedHealth: provisioner.HealthWarning,
+		},
+		{
+			name: "critical health",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:   nodeUUID,
+				Health: provisioner.HealthCritical,
+			}),
+			expectedHealth: provisioner.HealthCritical,
+		},
+		{
+			name: "empty health",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID: nodeUUID,
+			}),
+			expectedHealth: "",
+		},
+		{
+			name:           "node not found returns empty",
+			ironic:         testserver.NewIronic(t).NoNode(nodeUUID),
+			expectedHealth: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.ironic.Start()
+			defer tc.ironic.Stop()
+
+			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, tc.ironic.Endpoint(), auth)
+			require.NoError(t, err)
+
+			health := prov.GetHealth(t.Context())
+			assert.Equal(t, tc.expectedHealth, health)
+		})
+	}
 }

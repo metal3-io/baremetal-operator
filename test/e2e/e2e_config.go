@@ -63,6 +63,8 @@ type BMOIronicUpgradeInput struct {
 	UpgradeEntityName string `yaml:"upgradeEntityName,omitempty"`
 	// Path to the kustomization of the entity that should be used in upgrading.
 	UpgradeEntityKustomization string `yaml:"upgradeEntityKustomization,omitempty"`
+	// Path to the Irso kustomization.
+	IrsoKustomization string `yaml:"irsoKustomization,omitempty"`
 }
 
 // Config defines the configuration of an e2e test environment.

@@ -10,7 +10,7 @@ WORKDIR="${WORKDIR:-/workdir}"
 
 # all md files, but ignore .github
 if [ "${IS_CONTAINER}" != "false" ]; then
-    markdownlint-cli2 "**/*.md" "#.github"
+    markdownlint-cli2 "**/*.md" "#.github" "#docs/api.md"
 else
     "${CONTAINER_RUNTIME}" run --rm \
         --env IS_CONTAINER=TRUE \

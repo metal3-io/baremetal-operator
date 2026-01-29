@@ -153,6 +153,11 @@ type NIC struct {
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	MAC string `json:"mac,omitempty"`
 
+	// The client ID (DHCP client identifier) of the network interface, collected
+	// during Ironic discovery (similar to MAC address).
+	// +optional
+	ClientID string `json:"clientID,omitempty"`
+
 	// The IP address of the interface. This will be an IPv4 or IPv6 address
 	// if one is present.  If both IPv4 and IPv6 addresses are present in a
 	// dual-stack environment, two nics will be output, one with each IP.

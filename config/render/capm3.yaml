@@ -718,6 +718,11 @@ spec:
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
+                        clientID:
+                          description: |-
+                            The client ID (DHCP client identifier) of the network interface, collected
+                            during Ironic discovery (similar to MAC address).
+                          type: string
                         ip:
                           description: |-
                             The IP address of the interface. This will be an IPv4 or IPv6 address
@@ -1647,6 +1652,11 @@ spec:
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
+                        clientID:
+                          description: |-
+                            The client ID (DHCP client identifier) of the network interface, collected
+                            during Ironic discovery (similar to MAC address).
+                          type: string
                         ip:
                           description: |-
                             The IP address of the interface. This will be an IPv4 or IPv6 address

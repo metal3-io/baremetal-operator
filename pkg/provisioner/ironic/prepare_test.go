@@ -17,21 +17,21 @@ import (
 
 type RAIDTestBMC struct{}
 
-func (r *RAIDTestBMC) Type() string                                  { return "raid-test" }
-func (r *RAIDTestBMC) NeedsMAC() bool                                { return false }
-func (r *RAIDTestBMC) Driver() string                                { return "raid-test" }
-func (r *RAIDTestBMC) DisableCertificateVerification() bool          { return false }
-func (r *RAIDTestBMC) DriverInfo(bmc.Credentials) (i map[string]any) { return }
-func (r *RAIDTestBMC) SupportsISOPreprovisioningImage() bool         { return false }
-func (r *RAIDTestBMC) BIOSInterface() string                         { return "" }
-func (r *RAIDTestBMC) BootInterface() string                         { return "" }
-func (r *RAIDTestBMC) FirmwareInterface() string                     { return "" }
-func (r *RAIDTestBMC) ManagementInterface() string                   { return "" }
-func (r *RAIDTestBMC) PowerInterface() string                        { return "" }
-func (r *RAIDTestBMC) RAIDInterface() string                         { return "" }
-func (r *RAIDTestBMC) VendorInterface() string                       { return "" }
-func (r *RAIDTestBMC) SupportsSecureBoot() bool                      { return false }
-func (r *RAIDTestBMC) RequiresProvisioningNetwork() bool             { return true }
+func (r *RAIDTestBMC) Type() string                                                  { return "raid-test" }
+func (r *RAIDTestBMC) NeedsMAC() bool                                                { return false }
+func (r *RAIDTestBMC) Driver() string                                                { return "raid-test" }
+func (r *RAIDTestBMC) DisableCertificateVerification() bool                          { return false }
+func (r *RAIDTestBMC) DriverInfo(bmc.Credentials, string) (i map[string]interface{}) { return }
+func (r *RAIDTestBMC) SupportsISOPreprovisioningImage() bool                         { return false }
+func (r *RAIDTestBMC) BIOSInterface() string                                         { return "" }
+func (r *RAIDTestBMC) BootInterface() string                                         { return "" }
+func (r *RAIDTestBMC) FirmwareInterface() string                                     { return "" }
+func (r *RAIDTestBMC) ManagementInterface() string                                   { return "" }
+func (r *RAIDTestBMC) PowerInterface() string                                        { return "" }
+func (r *RAIDTestBMC) RAIDInterface() string                                         { return "" }
+func (r *RAIDTestBMC) VendorInterface() string                                       { return "" }
+func (r *RAIDTestBMC) SupportsSecureBoot() bool                                      { return false }
+func (r *RAIDTestBMC) RequiresProvisioningNetwork() bool                             { return true }
 func (r *RAIDTestBMC) BuildBIOSSettings(_ *bmc.FirmwareConfig) ([]map[string]string, error) {
 	return nil, nil
 }

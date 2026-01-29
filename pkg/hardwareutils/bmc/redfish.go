@@ -83,11 +83,12 @@ func getRedfishAddress(bmcType, host string) string {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+func (a *redfishAccessDetails) DriverInfo(bmcCreds Credentials, preProvExtraKernParams string) map[string]interface{} {
 	result := map[string]interface{}{
-		"redfish_username": bmcCreds.Username,
-		"redfish_password": bmcCreds.Password,
-		"redfish_address":  getRedfishAddress(a.bmcType, a.host),
+		"redfish_username":     bmcCreds.Username,
+		"redfish_password":     bmcCreds.Password,
+		"redfish_address":      getRedfishAddress(a.bmcType, a.host),
+		"kernel_append_params": preProvExtraKernParams,
 	}
 	trimmedPath := strings.Trim(a.path, "/")
 	if trimmedPath != "" && trimmedPath != "redfish/v1" {

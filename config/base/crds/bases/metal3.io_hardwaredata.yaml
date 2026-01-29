@@ -122,6 +122,10 @@ spec:
                         name:
                           description: The name of the network interface, e.g. "en0"
                           type: string
+                        clientID:
+                          description: The client ID (DHCP client identifier) of the
+                            network interface
+                          type: string
                         pxe:
                           description: Whether the NIC is PXE Bootable
                           type: boolean

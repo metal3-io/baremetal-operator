@@ -882,26 +882,44 @@ func dumpDeploymentDescriptions(ctx context.Context, kubeconfigPath string, name
 // DumpObj tries to dump the given object into a file in YAML format.
 func dumpObj[T any](obj T, name string, path string) {
 	objYaml, err := yaml.Marshal(obj)
-	Expect(err).ToNot(HaveOccurred(), "Failed to marshal %s", name)
+	if err != nil {
+		Logf("Failed to marshal %s: %v", name, err)
+		return
+	}
 	fullpath := filepath.Join(path, name)
 	filepath.Clean(fullpath)
-	Expect(os.MkdirAll(filepath.Dir(fullpath), filePerm750)).To(Succeed(), "Failed to create folders on path %s", filepath.Dir(fullpath))
-	f, err := os.OpenFile(fullpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm600)
-	Expect(err).ToNot(HaveOccurred(), "Failed to open file with path %s", fullpath)
+	if err = os.MkdirAll(filepath.Dir(fullpath), filePerm750); err != nil {
+		Logf("Failed to create folders on path %s: %v", filepath.Dir(fullpath), err)
+		return
+	}
+	var f *os.File
+	f, err = os.OpenFile(fullpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm600)
+	if err != nil {
+		Logf("Failed to open file with path %s: %v", fullpath, err)
+		return
+	}
 	defer f.Close()
-	Expect(os.WriteFile(f.Name(), objYaml, filePerm600)).To(Succeed())
+	if err := os.WriteFile(f.Name(), objYaml, filePerm600); err != nil {
+		Logf("Failed to write file %s: %v", f.Name(), err)
+	}
 }
 
 // DumpCRDs fetches all CRDs and filedumps them.
 func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
 	crds := apiextensionsv1.CustomResourceDefinitionList{}
-	Expect(cli.List(ctx, &crds)).To(Succeed())
+	if err := cli.List(ctx, &crds); err != nil {
+		Logf("Failed to list CRDs: %v", err)
+		return
+	}
 	for _, crd := range crds.Items {
 		dumpObj(crd, crd.ObjectMeta.Name, artifactFolder)
 		crGVK, _ := schema.ParseKindArg(crd.Status.AcceptedNames.ListKind + "." + crd.Status.StoredVersions[0] + "." + crd.Spec.Group)
 		crs := &unstructured.UnstructuredList{}
 		crs.SetGroupVersionKind(*crGVK)
-		Expect(cli.List(ctx, crs)).To(Succeed())
+		if err := cli.List(ctx, crs); err != nil {
+			Logf("Failed to list CRs for CRD %s: %v", crd.ObjectMeta.Name, err)
+			continue
+		}
 		for _, cr := range crs.Items {
 			dumpObj(cr, cr.GetName(), path.Join(artifactFolder, crd.Spec.Names.Plural))
 		}
@@ -939,41 +957,60 @@ func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder stri
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true, // #nosec G402 Skip verification as we are using self-signed certificates
 	}
-	client := &http.Client{
+	httpClient := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: tlsConfig},
 	}
 
 	// Create the request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ironicURL, http.NoBody)
-	Expect(err).ToNot(HaveOccurred(), "Failed to create request")
+	if err != nil {
+		Logf("Failed to create request for ironic nodes: %v", err)
+		return
+	}
 
 	// Set basic auth header
 	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	req.Header.Add("Authorization", "Basic "+auth)
 
 	// Make the request
-	resp, err := client.Do(req)
-	Expect(err).ToNot(HaveOccurred(), "Failed to send request")
-	Expect(resp.StatusCode).To(Equal(http.StatusOK), fmt.Sprintf("Unexpected Status Code: %d", resp.StatusCode))
-
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		Logf("Failed to send request for ironic nodes: %v", err)
+		return
+	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		Logf("Unexpected status code when fetching ironic nodes: %d", resp.StatusCode)
+		return
+	}
+
 	// Read and output the response
 	body, err := io.ReadAll(resp.Body)
-	Expect(err).ToNot(HaveOccurred(), "Failed to read response body")
+	if err != nil {
+		Logf("Failed to read ironic nodes response body: %v", err)
+		return
+	}
 
 	var logOutput bytes.Buffer
 
 	// Format the JSON with indentation
-	err = json.Indent(&logOutput, body, "", "    ")
-	Expect(err).ToNot(HaveOccurred(), "Error formatting JSON")
+	if err = json.Indent(&logOutput, body, "", "    "); err != nil {
+		Logf("Error formatting ironic nodes JSON: %v", err)
+		return
+	}
 
 	file, err := os.Create(path.Join(artifactFolder, "ironic-nodes.json"))
-	Expect(err).ToNot(HaveOccurred(), "Error creating file")
+	if err != nil {
+		Logf("Error creating ironic-nodes.json file: %v", err)
+		return
+	}
 	defer file.Close()
 
 	// Write indented JSON to file
-	_, err = file.Write(logOutput.Bytes())
-	Expect(err).ToNot(HaveOccurred(), "Error writing JSON to file")
+	if _, err = file.Write(logOutput.Bytes()); err != nil {
+		Logf("Error writing ironic nodes JSON to file: %v", err)
+	}
 }
 
 // WaitForIronicReady waits until the given Ironic resource has Ready condition = True.

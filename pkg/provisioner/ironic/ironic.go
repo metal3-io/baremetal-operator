@@ -1038,6 +1038,22 @@ func (p *ironicProvisioner) buildManualCleaningSteps(bmcAccess bmc.AccessDetails
 		)
 	}
 
+	if data.RequiredCleaning != nil {
+		var step string
+		switch *data.RequiredCleaning {
+		case metal3api.CleaningModeMetadata:
+			step = "erase_devices_metadata"
+		default:
+			return nil, errors.New("Unknown cleaning mode " + string(*data.RequiredCleaning))
+		}
+		p.log.Info("Adding cleaning step (deploy interface)")
+		cleanSteps = append(
+			cleanSteps,
+			nodes.CleanStep{
+				Interface: nodes.InterfaceDeploy,
+				Step:      step,
+			})
+	}
 	// TODO: Add manual cleaning steps for host configuration
 
 	return cleanSteps, nil

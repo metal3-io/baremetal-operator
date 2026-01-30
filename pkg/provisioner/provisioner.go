@@ -108,6 +108,7 @@ type PrepareData struct {
 	TargetFirmwareSettings   metal3api.DesiredSettingsMap
 	ActualFirmwareSettings   metal3api.SettingsMap
 	TargetFirmwareComponents []metal3api.FirmwareUpdate
+	RequiredCleaning         *metal3api.AutomatedCleaningMode
 }
 
 type ServicingData struct {

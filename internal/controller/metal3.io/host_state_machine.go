@@ -492,6 +492,12 @@ func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 		return actionComplete{}
 	}
 
+	if requiresCleaning(info.host) {
+		hsm.Reconciler.Log.Info("Going to preparing mode for cleaning")
+		hsm.NextState = metal3api.StatePreparing
+		return actionComplete{}
+	}
+
 	// ErrorCount is cleared when appropriate inside actionManageAvailable
 	actResult := hsm.Reconciler.actionManageAvailable(hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {

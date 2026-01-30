@@ -316,12 +316,12 @@ func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result acti
 		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:
-			return hsm.Reconciler.detachHost(hsm.Provisioner, info)
+			return hsm.Reconciler.detachHost(hsm.Provisioner, info, false)
 		default:
 			info.log.Info("host not in allowed detaching state, checking for force annotation")
 			if hasForceDetachAnnotation(hsm.Host) {
 				info.log.Info("forcing detach of host", "host", info.host.Name, "annotation", hsm.Host.GetAnnotations()[metal3api.DetachedAnnotation])
-				return hsm.Reconciler.detachHost(hsm.Provisioner, info)
+				return hsm.Reconciler.detachHost(hsm.Provisioner, info, true)
 			}
 			info.log.Info("host cannot be detached yet, waiting for the current operation to finish", "provisioningState", info.host.Status.Provisioning.State, "annotation", hsm.Host.GetAnnotations()[metal3api.DetachedAnnotation])
 		}
@@ -650,5 +650,5 @@ func (hsm *hostStateMachine) handlePoweringOffBeforeDelete(info *reconcileInfo) 
 }
 
 func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) actionResult {
-	return hsm.Reconciler.actionDeleting(hsm.Provisioner, info)
+	return hsm.Reconciler.actionDeleting(hsm.Provisioner, info, false)
 }

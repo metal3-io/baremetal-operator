@@ -1,8 +1,8 @@
 <domain type='kvm'>
   <name>{{ .Name }}</name>
-  <memory unit='KiB'>4194304</memory>
-  <currentMemory unit='KiB'>4194304</currentMemory>
-  <vcpu placement='static'>2</vcpu>
+  <memory unit='KiB'>{{ .Memory }}</memory>
+  <currentMemory unit='KiB'>{{ .Memory }}</currentMemory>
+  <vcpu placement='static'>{{ .VCPUs }}</vcpu>
   <os firmware="efi">
     <type arch='x86_64' machine='pc-q35-6.2'>hvm</type>
     <firmware>
@@ -25,16 +25,13 @@
       <readonly/>
       <address type='drive' controller='0' bus='0' target='0' unit='1'/>
     </disk>
+    {{- range .Volumes }}
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='{{ .PoolPath }}/{{ .Name }}-1.qcow2'/>
-      <target dev='vda' bus='virtio'/>
+      <source file='{{ .Path }}'/>
+      <target dev='{{ .Device }}' bus='{{ .Bus }}'/>
     </disk>
-    <disk type='file' device='disk'>
-        <driver name='qemu' type='qcow2'/>
-        <source file='{{ .PoolPath }}/{{ .Name }}-2.qcow2'/>
-        <target dev='vdb' bus='virtio'/>
-    </disk>
+    {{- end }}
     <controller type='scsi' index='0' model='virtio-scsi'>
       <address type='pci' domain='0x0000' bus='0x03' slot='0x00' function='0x0'/>
     </controller>
@@ -75,13 +72,13 @@
       <target chassis='6' port='0x15'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x5'/>
     </controller>
-      {{ range .Networks }}
-      <interface type='network'>
-        <mac address='{{ .MacAddress }}'/>
-        <source network='{{ .Name }}'/>
-        <model type='virtio' />
-      </interface>
-      {{ end }}
+    {{- range .Networks }}
+    <interface type='network'>
+      <mac address='{{ .MACAddress }}'/>
+      <source network='{{ .Network }}'/>
+      <model type='virtio' />
+    </interface>
+    {{- end }}
     <serial type='pty'>
       <log file='/var/log/libvirt/qemu/{{ .Name }}-serial0.log' append='on'/>
       <target type='isa-serial' port='0'>

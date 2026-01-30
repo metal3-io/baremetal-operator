@@ -1,243 +1,41 @@
 //go:build vbmctl
 // +build vbmctl
 
+// Package main provides the legacy vbmctl entrypoint for backward compatibility.
+// New users should use the CLI at cmd/vbmctl instead.
 package main
 
 import (
-	"bytes"
-	"embed"
+	"context"
 	"flag"
 	"log"
 	"os"
-	"strconv"
-	"text/template"
 
-	bmoe2e "github.com/metal3-io/baremetal-operator/test/e2e"
-	"libvirt.org/go/libvirt"
+	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
+	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/libvirt"
+	"gopkg.in/yaml.v2"
+	libvirtgo "libvirt.org/go/libvirt"
 )
 
-const (
-	filePerm777 = 0777
-)
-
-var (
-	//go:embed templates/*.tpl
-	templateFiles embed.FS
-)
-
-func RenderTemplate(inputFile string, data interface{}) (string, error) {
-	tmpl, err := template.ParseFS(templateFiles, inputFile)
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-
-	if err = tmpl.Execute(&buf, data); err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+// BMCConfig represents the legacy BMC configuration format for backward compatibility.
+// This mirrors the structure from test/e2e/bmc.go.
+type BMCConfig struct {
+	User                           string    `yaml:"user,omitempty"`
+	Password                       string    `yaml:"password,omitempty"`
+	Address                        string    `yaml:"address,omitempty"`
+	DisableCertificateVerification bool      `yaml:"disableCertificateVerification,omitempty"`
+	BootMacAddress                 string    `yaml:"bootMacAddress,omitempty"`
+	Name                           string    `yaml:"name,omitempty"`
+	IPAddress                      string    `yaml:"ipAddress,omitempty"`
+	Networks                       []Network `yaml:"networks,omitempty"`
 }
 
-// CreateVolumePool creates a volume pool with specified name if a pool with
-// that name does not exist yet.
-func CreateVolumePool(conn *libvirt.Connect, poolName, poolPath string) (*libvirt.StoragePool, error) {
-	pool, err := conn.LookupStoragePoolByName(poolName)
-
-	if err == nil {
-		log.Println("Pool already exists")
-		return pool, nil
-	}
-
-	if err = os.Mkdir(poolPath, filePerm777); err != nil && !os.IsExist(err) {
-		log.Println("Cannot determine the state of the poolPath")
-		return nil, err
-	}
-
-	data := struct {
-		PoolName string
-		PoolPath string
-	}{
-		PoolName: poolName,
-		PoolPath: poolPath,
-	}
-
-	poolCfg, err := RenderTemplate("templates/pool.xml.tpl", data)
-
-	if err != nil {
-		log.Println("Failed to read pool XML file")
-		log.Printf("Error occurred: %v\n", err)
-		return nil, err
-	}
-
-	// Create the volume pool
-	pool, err = conn.StoragePoolDefineXML(poolCfg, 0)
-
-	if err != nil {
-		log.Println("Failed to create volume pool")
-		log.Printf("Error occurred: %v\n", err)
-		return nil, err
-	}
-
-	if err = pool.SetAutostart(true); err != nil {
-		log.Println("Failed to Set the pool autostart")
-		log.Printf("Error occurred: %v\n", err)
-		return nil, err
-	}
-
-	if err = pool.Create(0); err != nil {
-		log.Println("Failed to Start the pool")
-		log.Printf("Error occurred: %v\n", err)
-		return nil, err
-	}
-
-	log.Println("Volume pool created successfully")
-	return pool, nil
-}
-
-func CreateVolume(conn *libvirt.Connect, volumeName, poolName, poolPath string, capacityInGB int) error {
-	pool, err := CreateVolumePool(conn, poolName, poolPath)
-
-	if err != nil {
-		log.Println("Failed to create storage pool")
-		log.Printf("Error occurred: %v\n", err)
-		return err
-	}
-
-	data := struct {
-		VolumeName         string
-		VolumeCapacityInGB int
-	}{
-		VolumeName:         volumeName,
-		VolumeCapacityInGB: capacityInGB,
-	}
-
-	volumeCfg, err := RenderTemplate("templates/volume.xml.tpl", data)
-
-	if err != nil {
-		log.Println("Failed to read volume XML file")
-		log.Printf("Error occurred: %v\n", err)
-		return err
-	}
-
-	// Create the volume
-	_, err = pool.StorageVolCreateXML(volumeCfg, 0)
-
-	if err != nil {
-		log.Println("Failed to create volume")
-		log.Printf("Error occurred: %v\n", err)
-		return err
-	}
-
-	log.Println("Volume created successfully")
-	return nil
-}
-
-// CreateLibvirtVM creates a new virtual machine based on the bmc details.
-// The VM is defined only, not started. Two volumes are also created for the VM.
-func CreateLibvirtVM(conn *libvirt.Connect, bmc *bmoe2e.BMC) error {
-	if err := ReserveIPAddresses(conn, bmc.Name, bmc.Networks); err != nil {
-		log.Printf("Error occurred: %v\n", err)
-		return err
-	}
-	poolName := "baremetal-e2e"
-	poolPath := "/tmp/pool_oo"
-	if err := CreateVolume(conn, bmc.Name+"-1", poolName, poolPath, 20); err != nil { //nolint: mnd
-		return err
-	}
-
-	if err := CreateVolume(conn, bmc.Name+"-2", poolName, poolPath, 20); err != nil { //nolint: mnd
-		return err
-	}
-
-	data := struct {
-		Name     string
-		Networks []bmoe2e.Network
-		PoolPath string
-	}{
-		Name:     bmc.Name,
-		Networks: bmc.Networks,
-		PoolPath: poolPath,
-	}
-
-	vmCfg, err := RenderTemplate("templates/VM.xml.tpl", data)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = conn.DomainDefineXML(vmCfg)
-
-	if err != nil {
-		log.Println("Failed to define domain")
-		log.Printf("Error occurred: %v\n", err)
-		return err
-	}
-
-	log.Println("Domain created successfully")
-	return nil
-}
-
-// updateNetwork is a helper function for CreateLibvirtVMWithReservedIPAddress.
-// It updates the network with a DHCP host entry.
-func updateNetwork(network *libvirt.Network, macAddress, name, ipAddress string) error {
-	xmlTpl, err := template.New("xml").Parse("<host mac='{{ .MacAddress }}' name='{{ .Name }}' ip='{{ .IPAddress }}' />")
-
-	if err != nil {
-		return err
-	}
-
-	data := struct {
-		MacAddress string
-		Name       string
-		IPAddress  string
-	}{
-		MacAddress: macAddress,
-		Name:       name,
-		IPAddress:  ipAddress,
-	}
-
-	var buf bytes.Buffer
-
-	err = xmlTpl.Execute(&buf, data)
-
-	if err != nil {
-		log.Println("Failed to create BMC")
-		log.Printf("Error occurred: %v\n", err)
-		return err
-	}
-
-	if err = network.Update(
-		libvirt.NETWORK_UPDATE_COMMAND_ADD_LAST,
-		libvirt.NETWORK_SECTION_IP_DHCP_HOST,
-		-1,
-		buf.String(),
-		libvirt.NETWORK_UPDATE_AFFECT_LIVE|libvirt.NETWORK_UPDATE_AFFECT_CONFIG,
-	); err != nil {
-		log.Printf("Error occurred: %v\n", err)
-		return err
-	}
-	return nil
-}
-
-// ReserveIPAddresses adds a DHCP host entry for all networks that
-// specify an IP address.
-func ReserveIPAddresses(conn *libvirt.Connect, hostName string, networks []bmoe2e.Network) error {
-	for i, net := range networks {
-		// Checking if this network has IP specified.
-		if net.IPAddress != "" {
-			network, err := conn.LookupNetworkByName(net.Name)
-			if err != nil {
-				return err
-			}
-			err = updateNetwork(network, net.MacAddress, hostName+"-"+strconv.Itoa(i), net.IPAddress)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+// Network represents a network configuration from the legacy format.
+type Network struct {
+	Name       string `yaml:"name,omitempty"`
+	MacAddress string `yaml:"macAddress,omitempty"`
+	IPAddress  string `yaml:"ipAddress,omitempty"`
 }
 
 func main() {
@@ -251,40 +49,121 @@ func main() {
 		"ip-address", "", "IP address of the VM on the network")
 	var configFile = flag.String(
 		"yaml-source-file", "", "yaml file where BMCS are defined. If this is set, ignore all other options")
+	var memory = flag.Int(
+		"memory", config.DefaultVMMemory, "Memory in MB for the VM")
+	var vcpus = flag.Int(
+		"vcpus", config.DefaultVMVCPUs, "Number of vCPUs for the VM")
+	var volumeSize = flag.Int(
+		"volume-size", config.DefaultVolumeSize, "Volume size in GB")
+	var libvirtURI = flag.String(
+		"libvirt-uri", config.DefaultLibvirtURI, "Libvirt connection URI")
+	var poolName = flag.String(
+		"pool-name", config.DefaultPoolName, "Storage pool name")
+	var poolPath = flag.String(
+		"pool-path", config.DefaultPoolPath, "Storage pool path")
+
 	flag.Parse()
-	var err error
-	bmcs := []bmoe2e.BMC{}
+
+	ctx := context.Background()
+
+	// Build list of VMs to create
+	vmConfigs := []api.VMConfig{}
+
 	if *configFile == "" {
-		bmc := bmoe2e.BMC{
-			BootMacAddress: *macAddress,
-			Name:           *name,
-			Networks: []bmoe2e.Network{
+		// Single VM from command-line flags
+		vmCfg := api.VMConfig{
+			Name:   *name,
+			Memory: *memory,
+			VCPUs:  *vcpus,
+			Volumes: []api.VolumeConfig{
+				{Name: "1", Size: *volumeSize},
+				{Name: "2", Size: *volumeSize},
+			},
+			Networks: []api.NetworkAttachment{
 				{
-					Name:       *networkName,
-					MacAddress: *macAddress,
+					Network:    *networkName,
+					MACAddress: *macAddress,
 					IPAddress:  *ipAddress,
 				},
 			},
 		}
-		bmcs = append(bmcs, bmc)
+		vmConfigs = append(vmConfigs, vmCfg)
 	} else {
-		bmcs, err = bmoe2e.LoadBMCConfig(*configFile)
+		// Load from YAML file (legacy format)
+		bmcs, err := loadBMCConfig(*configFile)
 		if err != nil {
-			log.Fatalf("Error occurred: %v\n", err)
+			log.Fatalf("Error loading config: %v\n", err)
+		}
+
+		for _, bmc := range bmcs {
+			vmCfg := convertBMCToVMConfig(bmc, *memory, *vcpus, *volumeSize)
+			vmConfigs = append(vmConfigs, vmCfg)
 		}
 	}
 
-	// Connect to Libvirt
-	conn, err := libvirt.NewConnect("qemu:///system")
+	// Connect to libvirt
+	conn, err := libvirtgo.NewConnect(*libvirtURI)
 	if err != nil {
-		log.Fatalf("Error occurred: %v\n", err)
+		log.Fatalf("Error connecting to libvirt: %v\n", err)
 	}
-	defer conn.Close()
 
-	for _, bmc := range bmcs {
-		if err = CreateLibvirtVM(conn, &bmc); err != nil {
-			log.Printf("Error occurred: %v\n", err)
+	// Create VM manager
+	vmManager, err := libvirt.NewVMManager(conn, libvirt.VMManagerOptions{
+		PoolName: *poolName,
+		PoolPath: *poolPath,
+	})
+	if err != nil {
+		_, _ = conn.Close()
+		log.Fatalf("Error creating VM manager: %v\n", err)
+	}
+
+	// Create each VM
+	for _, vmCfg := range vmConfigs {
+		vm, err := vmManager.Create(ctx, vmCfg)
+		if err != nil {
+			log.Printf("Error creating VM %s: %v\n", vmCfg.Name, err)
 			break
 		}
+		log.Printf("Successfully created VM %s (UUID: %s)\n", vm.Config.Name, vm.UUID)
+	}
+
+	_, _ = conn.Close()
+}
+
+// loadBMCConfig loads BMC configuration from a YAML file.
+func loadBMCConfig(configPath string) ([]BMCConfig, error) {
+	configData, err := os.ReadFile(configPath) //#nosec G304
+	if err != nil {
+		return nil, err
+	}
+
+	var bmcs []BMCConfig
+	if err := yaml.Unmarshal(configData, &bmcs); err != nil {
+		return nil, err
+	}
+
+	return bmcs, nil
+}
+
+// convertBMCToVMConfig converts a legacy BMCConfig to the new api.VMConfig format.
+func convertBMCToVMConfig(bmc BMCConfig, memory, vcpus, volumeSize int) api.VMConfig {
+	networks := make([]api.NetworkAttachment, len(bmc.Networks))
+	for i, net := range bmc.Networks {
+		networks[i] = api.NetworkAttachment{
+			Network:    net.Name,
+			MACAddress: net.MacAddress,
+			IPAddress:  net.IPAddress,
+		}
+	}
+
+	return api.VMConfig{
+		Name:   bmc.Name,
+		Memory: memory,
+		VCPUs:  vcpus,
+		Volumes: []api.VolumeConfig{
+			{Name: "1", Size: volumeSize},
+			{Name: "2", Size: volumeSize},
+		},
+		Networks: networks,
 	}
 }

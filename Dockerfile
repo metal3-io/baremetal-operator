@@ -17,7 +17,8 @@ RUN go mod download
 ARG LDFLAGS=-s -w -extldflags=-static
 
 COPY . .
-RUN CGO_ENABLED=0 GO111MODULE=on go build -a -ldflags "${LDFLAGS}" -o baremetal-operator main.go
+ARG ARCH=amd64
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} GO111MODULE=on go build -a -ldflags "${LDFLAGS}" -o baremetal-operator main.go
 
 # Copy the controller-manager into a thin image
 # BMO has a dependency preventing us to use the static one,

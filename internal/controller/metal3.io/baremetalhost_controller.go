@@ -538,7 +538,7 @@ func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(prov provisioner.
 }
 
 // Manage deletion of the host.
-func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, info *reconcileInfo, force bool) actionResult {
 	info.log.Info(
 		"marked to be deleted",
 		"timestamp", info.host.DeletionTimestamp,
@@ -550,7 +550,7 @@ func (r *BareMetalHostReconciler) actionDeleting(prov provisioner.Provisioner, i
 		return deleteComplete{}
 	}
 
-	provResult, err := prov.Delete()
+	provResult, err := prov.Delete(force)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to delete: %w", err)}
 	}
@@ -616,8 +616,8 @@ func hasCustomDeploy(host *metal3api.BareMetalHost) bool {
 }
 
 // detachHost() detaches the host from the Provisioner.
-func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Detach()
+func (r *BareMetalHostReconciler) detachHost(prov provisioner.Provisioner, info *reconcileInfo, force bool) actionResult {
+	provResult, err := prov.Detach(force)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to detach: %w", err)}
 	}

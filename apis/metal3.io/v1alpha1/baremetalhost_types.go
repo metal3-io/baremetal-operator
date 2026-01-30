@@ -614,6 +614,11 @@ const (
 type DetachedAnnotationArguments struct {
 	// DeleteAction indicates the desired delete logic when the detached annotation is present
 	DeleteAction DetachedDeleteAction `json:"deleteAction,omitempty"`
+
+	// Force indicates if detaching should be forced regardless of the host's state
+	// +optional
+	// +kubebuilder:default:=false
+	Force bool `json:"force,omitempty"`
 }
 
 // Match compares the saved status information with the name and

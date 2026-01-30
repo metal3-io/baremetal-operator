@@ -20,10 +20,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
@@ -50,8 +52,161 @@ const (
 	PoweredOff PowerState = "off"
 
 	filePerm600 = 0600
+	filePerm644 = 0644
 	filePerm750 = 0750
+	filePerm755 = 0755
 )
+
+// vmLogPositions tracks the last read position for each VM's serial log.
+// This enables incremental log collection per test.
+var vmLogPositions = make(map[string]int64)
+var vmLogPositionsMu sync.Mutex
+
+// vmLogMetadata contains metadata about VM logs collected during tests.
+var vmLogMetadata = VMLogMetadata{}
+var vmLogMetadataMu sync.Mutex
+
+// VMLogMetadata contains the list of VM test log entries.
+type VMLogMetadata struct {
+	Tests []VMTestLogEntry `yaml:"tests"`
+}
+
+// VMTestLogEntry records metadata about a VM log for a specific test.
+type VMTestLogEntry struct {
+	TestName  string `yaml:"test_name"`  //nolint:tagliatelle
+	VMName    string `yaml:"vm_name"`    //nolint:tagliatelle
+	StartTime string `yaml:"start_time"` //nolint:tagliatelle
+	EndTime   string `yaml:"end_time"`   //nolint:tagliatelle
+	Status    string `yaml:"status"`
+	LogFile   string `yaml:"log_file"`   //nolint:tagliatelle
+	LineCount int    `yaml:"line_count"` //nolint:tagliatelle
+}
+
+// SanitizeTestName creates a filesystem-safe name from a test report.
+// It combines the container hierarchy with the leaf node text and replaces
+// problematic characters to avoid creating nested directory structures.
+func SanitizeTestName(report ginkgotypes.SpecReport) string {
+	// Combine container hierarchy and leaf text
+	parts := append([]string{}, report.ContainerHierarchyTexts...)
+	if report.LeafNodeText != "" {
+		parts = append(parts, report.LeafNodeText)
+	}
+
+	// Join with underscore and sanitize
+	testName := strings.Join(parts, "_")
+
+	// Replace problematic characters for filesystem paths
+	replacements := map[string]string{
+		"/":  "-",
+		"\\": "-",
+		":":  "-",
+		"*":  "-",
+		"?":  "-",
+		"\"": "-",
+		"<":  "-",
+		">":  "-",
+		"|":  "-",
+		" ":  "_",
+		"\t": "_",
+		"\n": "_",
+		"\r": "_",
+	}
+
+	for old, new := range replacements {
+		testName = strings.ReplaceAll(testName, old, new)
+	}
+
+	// Collapse multiple underscores/dashes
+	for strings.Contains(testName, "__") {
+		testName = strings.ReplaceAll(testName, "__", "_")
+	}
+	for strings.Contains(testName, "--") {
+		testName = strings.ReplaceAll(testName, "--", "-")
+	}
+
+	// Trim leading/trailing underscores and dashes
+	testName = strings.Trim(testName, "_-")
+
+	return testName
+}
+
+// CopyIncrementalVMLog copies new content from a VM's serial log since last collection.
+// It tracks the read position per VM to enable per-test log separation.
+func CopyIncrementalVMLog(vmName, testName, artifactFolder string) error {
+	vmLogPositionsMu.Lock()
+	defer vmLogPositionsMu.Unlock()
+
+	sourcePath := fmt.Sprintf("/var/log/libvirt/qemu/%s-serial0.log", vmName)
+	testFolder := filepath.Join(artifactFolder, "logs", "qemu", "per-test", testName)
+	destPath := filepath.Join(testFolder, vmName+"-serial0.log")
+
+	// Create test folder
+	if err := os.MkdirAll(testFolder, filePerm755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
+
+	// Read source file using sudo (VM logs are owned by libvirt-qemu)
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("sudo"),
+		testexec.WithArgs("cat", sourcePath),
+	)
+	stdout, stderr, err := cmd.Run(context.Background())
+	if err != nil {
+		return fmt.Errorf("read source %s (stderr: %s): %w", sourcePath, string(stderr), err)
+	}
+	sourceBytes := stdout
+
+	// Get last position
+	lastPos := vmLogPositions[vmName]
+	currentSize := int64(len(sourceBytes))
+
+	// Extract incremental content
+	var incrementalContent []byte
+	if lastPos < currentSize {
+		incrementalContent = sourceBytes[lastPos:]
+	}
+
+	// Write to destination
+	if len(incrementalContent) > 0 {
+		if err := os.WriteFile(destPath, incrementalContent, filePerm644); err != nil {
+			return fmt.Errorf("write dest: %w", err)
+		}
+	}
+
+	// Update position
+	vmLogPositions[vmName] = currentSize
+
+	return nil
+}
+
+// RecordVMTestLog adds a VM test log entry to the metadata.
+func RecordVMTestLog(entry VMTestLogEntry) {
+	vmLogMetadataMu.Lock()
+	defer vmLogMetadataMu.Unlock()
+	vmLogMetadata.Tests = append(vmLogMetadata.Tests, entry)
+}
+
+// SaveVMLogMetadata writes the VM log metadata to a YAML file.
+func SaveVMLogMetadata(artifactFolder string) error {
+	vmLogMetadataMu.Lock()
+	defer vmLogMetadataMu.Unlock()
+
+	data, err := yaml.Marshal(&vmLogMetadata)
+	if err != nil {
+		return fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	metadataPath := filepath.Join(artifactFolder, "logs", "qemu", "vm-log-index.yaml")
+	if err := os.MkdirAll(filepath.Dir(metadataPath), filePerm755); err != nil {
+		return fmt.Errorf("mkdir for metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, data, filePerm644); err != nil {
+		return fmt.Errorf("write metadata: %w", err)
+	}
+
+	return nil
+}
 
 func isUndesiredState(currentState metal3api.ProvisioningState, undesiredStates []metal3api.ProvisioningState) bool {
 	if undesiredStates == nil {
@@ -259,22 +414,6 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 		}
 		return k8serrors.IsNotFound(input.Getter.Get(ctx, key, namespace))
 	}, intervals...).Should(BeTrue())
-}
-
-func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, intervals ...interface{}) {
-	// Trigger deletion of BMHs before deleting the namespace.
-	// This way there should be no risk of BMO getting stuck trying to progress
-	// and create HardwareDetails or similar, while the namespace is terminating.
-	DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
-	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
-		Deleter: clusterProxy.GetClient(),
-		Name:    namespace.Name,
-	})
-	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
-		Getter:    clusterProxy.GetClient(),
-		Namespace: *namespace,
-	}, intervals...)
-	cancelWatches()
 }
 
 func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, isNamespaced bool, intervals ...interface{}) {
@@ -743,26 +882,44 @@ func dumpDeploymentDescriptions(ctx context.Context, kubeconfigPath string, name
 // DumpObj tries to dump the given object into a file in YAML format.
 func dumpObj[T any](obj T, name string, path string) {
 	objYaml, err := yaml.Marshal(obj)
-	Expect(err).ToNot(HaveOccurred(), "Failed to marshal %s", name)
+	if err != nil {
+		Logf("Failed to marshal %s: %v", name, err)
+		return
+	}
 	fullpath := filepath.Join(path, name)
 	filepath.Clean(fullpath)
-	Expect(os.MkdirAll(filepath.Dir(fullpath), filePerm750)).To(Succeed(), "Failed to create folders on path %s", filepath.Dir(fullpath))
-	f, err := os.OpenFile(fullpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm600)
-	Expect(err).ToNot(HaveOccurred(), "Failed to open file with path %s", fullpath)
+	if err = os.MkdirAll(filepath.Dir(fullpath), filePerm750); err != nil {
+		Logf("Failed to create folders on path %s: %v", filepath.Dir(fullpath), err)
+		return
+	}
+	var f *os.File
+	f, err = os.OpenFile(fullpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm600)
+	if err != nil {
+		Logf("Failed to open file with path %s: %v", fullpath, err)
+		return
+	}
 	defer f.Close()
-	Expect(os.WriteFile(f.Name(), objYaml, filePerm600)).To(Succeed())
+	if err := os.WriteFile(f.Name(), objYaml, filePerm600); err != nil {
+		Logf("Failed to write file %s: %v", f.Name(), err)
+	}
 }
 
 // DumpCRDs fetches all CRDs and filedumps them.
 func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
 	crds := apiextensionsv1.CustomResourceDefinitionList{}
-	Expect(cli.List(ctx, &crds)).To(Succeed())
+	if err := cli.List(ctx, &crds); err != nil {
+		Logf("Failed to list CRDs: %v", err)
+		return
+	}
 	for _, crd := range crds.Items {
 		dumpObj(crd, crd.ObjectMeta.Name, artifactFolder)
 		crGVK, _ := schema.ParseKindArg(crd.Status.AcceptedNames.ListKind + "." + crd.Status.StoredVersions[0] + "." + crd.Spec.Group)
 		crs := &unstructured.UnstructuredList{}
 		crs.SetGroupVersionKind(*crGVK)
-		Expect(cli.List(ctx, crs)).To(Succeed())
+		if err := cli.List(ctx, crs); err != nil {
+			Logf("Failed to list CRs for CRD %s: %v", crd.ObjectMeta.Name, err)
+			continue
+		}
 		for _, cr := range crs.Items {
 			dumpObj(cr, cr.GetName(), path.Join(artifactFolder, crd.Spec.Names.Plural))
 		}
@@ -800,41 +957,60 @@ func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder stri
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true, // #nosec G402 Skip verification as we are using self-signed certificates
 	}
-	client := &http.Client{
+	httpClient := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: tlsConfig},
 	}
 
 	// Create the request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ironicURL, http.NoBody)
-	Expect(err).ToNot(HaveOccurred(), "Failed to create request")
+	if err != nil {
+		Logf("Failed to create request for ironic nodes: %v", err)
+		return
+	}
 
 	// Set basic auth header
 	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	req.Header.Add("Authorization", "Basic "+auth)
 
 	// Make the request
-	resp, err := client.Do(req)
-	Expect(err).ToNot(HaveOccurred(), "Failed to send request")
-	Expect(resp.StatusCode).To(Equal(http.StatusOK), fmt.Sprintf("Unexpected Status Code: %d", resp.StatusCode))
-
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		Logf("Failed to send request for ironic nodes: %v", err)
+		return
+	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		Logf("Unexpected status code when fetching ironic nodes: %d", resp.StatusCode)
+		return
+	}
+
 	// Read and output the response
 	body, err := io.ReadAll(resp.Body)
-	Expect(err).ToNot(HaveOccurred(), "Failed to read response body")
+	if err != nil {
+		Logf("Failed to read ironic nodes response body: %v", err)
+		return
+	}
 
 	var logOutput bytes.Buffer
 
 	// Format the JSON with indentation
-	err = json.Indent(&logOutput, body, "", "    ")
-	Expect(err).ToNot(HaveOccurred(), "Error formatting JSON")
+	if err = json.Indent(&logOutput, body, "", "    "); err != nil {
+		Logf("Error formatting ironic nodes JSON: %v", err)
+		return
+	}
 
 	file, err := os.Create(path.Join(artifactFolder, "ironic-nodes.json"))
-	Expect(err).ToNot(HaveOccurred(), "Error creating file")
+	if err != nil {
+		Logf("Error creating ironic-nodes.json file: %v", err)
+		return
+	}
 	defer file.Close()
 
 	// Write indented JSON to file
-	_, err = file.Write(logOutput.Bytes())
-	Expect(err).ToNot(HaveOccurred(), "Error writing JSON to file")
+	if _, err = file.Write(logOutput.Bytes()); err != nil {
+		Logf("Error writing ironic nodes JSON to file: %v", err)
+	}
 }
 
 // WaitForIronicReady waits until the given Ironic resource has Ready condition = True.
@@ -860,6 +1036,88 @@ func WaitForIronicReady(ctx context.Context, input WaitForIronicInput) {
 	}, input.Intervals...).Should(Succeed())
 
 	Logf("Ironic %q is Ready", input.Name)
+
+	// Explicit check for dnsmasq container readiness
+	// The Ironic CR can be Ready while dnsmasq is still initializing or has crashed.
+	// This check helps diagnose issues where the IPA ramdisk fails to boot because
+	// dnsmasq is not serving DHCP requests.
+	checkDnsmasqReady(ctx, input.Client, input.Namespace)
+}
+
+// checkDnsmasqReady verifies that the dnsmasq container in the Ironic pod is running.
+// This is an explicit check to catch issues where the Ironic deployment is marked Ready
+// but dnsmasq is not actually serving requests. The check logs warnings but does not fail
+// the test, as it's meant to help diagnose boot failures.
+func checkDnsmasqReady(ctx context.Context, c client.Client, namespace string) {
+	const dnsmasqContainerName = "dnsmasq"
+
+	Logf("Checking dnsmasq container readiness in namespace %q", namespace)
+
+	// List pods with the ironic-service deployment label
+	podList := &corev1.PodList{}
+	err := c.List(ctx, podList, client.InNamespace(namespace), client.MatchingLabels{
+		"app.kubernetes.io/name": "ironic",
+	})
+	if err != nil {
+		Logf("⚠️  WARNING: Failed to list Ironic pods for dnsmasq check: %v", err)
+		return
+	}
+
+	if len(podList.Items) == 0 {
+		Logf("⚠️  WARNING: No Ironic pods found in namespace %q - dnsmasq status unknown!", namespace)
+		return
+	}
+
+	for _, pod := range podList.Items {
+		dnsmasqFound := false
+		dnsmasqReady := false
+		var dnsmasqStatus *corev1.ContainerStatus
+
+		// Check container statuses
+		for i := range pod.Status.ContainerStatuses {
+			cs := &pod.Status.ContainerStatuses[i]
+			if cs.Name == dnsmasqContainerName {
+				dnsmasqFound = true
+				dnsmasqStatus = cs
+				dnsmasqReady = cs.Ready
+				break
+			}
+		}
+
+		if !dnsmasqFound {
+			Logf("⚠️  WARNING: dnsmasq container not found in pod %q - DHCP will not work!", pod.Name)
+			Logf("   Available containers: %v", getContainerNames(pod.Status.ContainerStatuses))
+			continue
+		}
+
+		if !dnsmasqReady {
+			Logf("🚨 CRITICAL: dnsmasq container in pod %q is NOT READY!", pod.Name)
+			Logf("   This may cause PXE boot failures - IPA ramdisk will not receive DHCP responses!")
+			if dnsmasqStatus.State.Waiting != nil {
+				Logf("   Container state: Waiting (Reason: %s, Message: %s)",
+					dnsmasqStatus.State.Waiting.Reason, dnsmasqStatus.State.Waiting.Message)
+			} else if dnsmasqStatus.State.Terminated != nil {
+				Logf("   Container state: Terminated (Reason: %s, ExitCode: %d, Message: %s)",
+					dnsmasqStatus.State.Terminated.Reason,
+					dnsmasqStatus.State.Terminated.ExitCode,
+					dnsmasqStatus.State.Terminated.Message)
+			} else if dnsmasqStatus.State.Running != nil {
+				Logf("   Container state: Running but not Ready (started at %v)", dnsmasqStatus.State.Running.StartedAt)
+			}
+			Logf("   RestartCount: %d", dnsmasqStatus.RestartCount)
+		} else {
+			Logf("✓ dnsmasq container in pod %q is Ready", pod.Name)
+		}
+	}
+}
+
+// getContainerNames returns a slice of container names from container statuses.
+func getContainerNames(statuses []corev1.ContainerStatus) []string {
+	names := make([]string, 0, len(statuses))
+	for _, cs := range statuses {
+		names = append(names, cs.Name)
+	}
+	return names
 }
 
 // WaitForIronicInput bundles the parameters for WaitForIronicReady.

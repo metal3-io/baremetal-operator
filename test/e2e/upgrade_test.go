@@ -43,6 +43,20 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	case ironicString:
 		upgradeDeploymentName = "ironic-service"
 	}
+
+	if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_IRSO") {
+		BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
+			Kustomization:       input.IrsoKustomization,
+			ClusterProxy:        clusterProxy,
+			WaitForDeployment:   true,
+			WatchDeploymentLogs: true,
+			DeploymentName:      "ironic-standalone-operator-controller-manager",
+			DeploymentNamespace: "ironic-standalone-operator-system",
+			LogPath:             filepath.Join(artifactFolder, "logs", "ironic-standalone-operator-system"),
+			WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
+		})
+	}
+
 	if input.DeployIronic {
 		// Install Ironic
 		By(fmt.Sprintf("Installing Ironic from kustomization %s on the upgrade cluster", initIronicKustomization))
@@ -259,18 +273,6 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 			}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
 			err = checkCertManagerAPI(upgradeClusterProxy)
 			Expect(err).NotTo(HaveOccurred())
-		}
-		if e2eConfig.GetBoolVariable("UPGRADE_DEPLOY_IRSO") {
-			BuildAndApplyKustomization(ctx, &BuildAndApplyKustomizationInput{
-				Kustomization:       e2eConfig.GetVariable("IRSO_KUSTOMIZATION"),
-				ClusterProxy:        clusterProxy,
-				WaitForDeployment:   true,
-				WatchDeploymentLogs: true,
-				DeploymentName:      "ironic-standalone-operator-controller-manager",
-				DeploymentNamespace: "ironic-standalone-operator-system",
-				LogPath:             filepath.Join(artifactFolder, "logs", "ironic-standalone-operator-system"),
-				WaitIntervals:       e2eConfig.GetIntervals("default", "wait-deployment"),
-			})
 		}
 	})
 	DescribeTable("",

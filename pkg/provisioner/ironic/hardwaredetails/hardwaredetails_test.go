@@ -284,6 +284,42 @@ func TestGetNICDetails(t *testing.T) {
 	}
 }
 
+func TestGetNICDetailsWithClientID(t *testing.T) {
+	// Test that client_id from Ironic inventory is propagated to NIC.ClientID
+	// (Ironic API: all_interfaces["ibs2"].client_id / inventory.interfaces[].client_id)
+	expectedClientID := "ff:00:00:00:00:00:02:00:00:02:c9:00:b8:83:03:ff:ff:77:03:18"
+	ironicData := inventory.StandardPluginData{
+		AllInterfaces: map[string]inventory.ProcessedInterfaceType{
+			"ibs2": {
+				InterfaceType: inventory.InterfaceType{
+					Name:     "ibs2",
+					ClientID: expectedClientID,
+				},
+				PXEEnabled: true,
+			},
+		},
+		ParsedLLDP: map[string]inventory.ParsedLLDP{},
+	}
+
+	interfaces := []inventory.InterfaceType{
+		{
+			Name:        "ibs2",
+			IPV4Address: "192.0.2.10",
+			MACAddress:  "b8:83:03:77:03:18",
+			ClientID:    expectedClientID,
+		},
+	}
+
+	nics := getNICDetails(interfaces, ironicData)
+
+	assert.Len(t, nics, 1)
+	assert.Equal(t, "ibs2", nics[0].Name)
+	assert.Equal(t, "b8:83:03:77:03:18", nics[0].MAC)
+	assert.Equal(t, "192.0.2.10", nics[0].IP)
+	assert.Equal(t, expectedClientID, nics[0].ClientID, "client_id from Ironic inventory must be propagated to NIC")
+	assert.True(t, nics[0].PXE)
+}
+
 func TestGetFirmwareDetails(t *testing.T) {
 	// Test full (known) firmware payload
 	firmware := getFirmwareDetails(inventory.SystemFirmwareType{

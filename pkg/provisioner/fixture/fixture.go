@@ -329,7 +329,7 @@ func (p *fixtureProvisioner) Deprovision(_ bool, _ metal3api.AutomatedCleaningMo
 // Delete removes the host from the provisioning system. It may be
 // called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) Delete(_ bool) (result provisioner.Result, err error) {
 	p.log.Info("deleting host")
 
 	if !p.state.Deleted {
@@ -347,8 +347,8 @@ func (p *fixtureProvisioner) Delete() (result provisioner.Result, err error) {
 // for the target system.  It may be called multiple times,
 // and should return true for its dirty  flag until the
 // deletion operation is completed.
-func (p *fixtureProvisioner) Detach() (result provisioner.Result, err error) {
-	return p.Delete()
+func (p *fixtureProvisioner) Detach(force bool) (result provisioner.Result, err error) {
+	return p.Delete(force)
 }
 
 // PowerOn ensures the server is powered on independently of any image

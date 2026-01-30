@@ -1523,7 +1523,7 @@ func (p *ironicProvisioner) Deprovision(restartOnFailure bool, automatedCleaning
 // Delete removes the host from the provisioning system. It may be
 // called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Delete(_ bool) (result provisioner.Result, err error) {
 	ironicNode, err := p.getNode()
 	if err != nil {
 		if errors.Is(err, provisioner.ErrNeedsRegistration) {
@@ -1605,10 +1605,10 @@ func (p *ironicProvisioner) Delete() (result provisioner.Result, err error) {
 // for the target system.  It may be called multiple times,
 // and should return true for its dirty  flag until the
 // deletion operation is completed.
-func (p *ironicProvisioner) Detach() (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Detach(force bool) (result provisioner.Result, err error) {
 	// Currently the same behavior as Delete()
 	p.log.Info("removing the node for detachment", "node", p.nodeID)
-	return p.Delete()
+	return p.Delete(force)
 }
 
 // softPowerOffUnsupportedError is returned when the BMC does not

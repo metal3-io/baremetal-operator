@@ -229,15 +229,15 @@ func TestSecretManager_AcquireSecret_AlreadyOwned(t *testing.T) {
 	assert.Len(t, updated.OwnerReferences, 1)
 }
 
-func TestSecretManager_AcquireSecret_PanicsWithNilOwner(t *testing.T) {
+func TestSecretManager_AcquireSecret_ErrorsWithNilOwner(t *testing.T) {
 	scheme := newTestScheme()
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
 
-	assert.Panics(t, func() {
-		_, _ = sm.AcquireSecret(types.NamespacedName{Name: "test", Namespace: "test"}, nil, false)
-	})
+	_, err := sm.AcquireSecret(types.NamespacedName{Name: "test", Namespace: "test"}, nil, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AcquireSecret called with no owner")
 }
 
 func TestSecretManager_FallbackToAPIReader(t *testing.T) {

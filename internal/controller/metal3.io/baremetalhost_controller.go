@@ -575,7 +575,7 @@ func (r *BareMetalHostReconciler) actionDeleting(ctx context.Context, prov provi
 	return deleteComplete{}
 }
 
-func (r *BareMetalHostReconciler) actionUnmanaged(ctx context.Context, _ provisioner.Provisioner, info *reconcileInfo) actionResult {
+func (r *BareMetalHostReconciler) actionUnmanaged(_ context.Context, _ provisioner.Provisioner, info *reconcileInfo) actionResult {
 	if info.host.HasBMCDetails() {
 		return actionComplete{}
 	}
@@ -2241,7 +2241,7 @@ func (r *BareMetalHostReconciler) setErrorCondition(ctx context.Context, request
 	return
 }
 
-func (r *BareMetalHostReconciler) secretManager(ctx context.Context, log logr.Logger) secretutils.SecretManager {
+func (r *BareMetalHostReconciler) secretManager(_ context.Context, log logr.Logger) secretutils.SecretManager {
 	return secretutils.NewSecretManager(log, r.Client, r.APIReader)
 }
 

@@ -1,7 +1,6 @@
 package secretutils
 
 import (
-	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -28,7 +27,7 @@ func TestSecretManager_ObtainSecret_NotFound(t *testing.T) {
 
 	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	_, err := sm.ObtainSecret(context.Background(), types.NamespacedName{Name: "nonexistent", Namespace: "test"})
+	_, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "nonexistent", Namespace: "test"})
 	require.Error(t, err)
 }
 
@@ -52,7 +51,7 @@ func TestSecretManager_ObtainSecret_FoundInCache(t *testing.T) {
 
 	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.ObtainSecret(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test"})
+	result, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"})
 	require.NoError(t, err)
 	assert.Equal(t, "test-secret", result.Name)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
@@ -75,13 +74,13 @@ func TestSecretManager_ObtainSecret_AddsLabel(t *testing.T) {
 
 	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.ObtainSecret(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test"})
+	result, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"})
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
 
 	// Verify the label was persisted
 	var updated corev1.Secret
-	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, &updated)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, &updated)
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, updated.Labels[LabelEnvironmentName])
 }
@@ -111,13 +110,13 @@ func TestSecretManager_AcquireSecret_WithOwner(t *testing.T) {
 
 	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.AcquireSecret(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
+	result, err := sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
 
 	// Verify owner reference was added
 	var updated corev1.Secret
-	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, &updated)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, &updated)
 	require.NoError(t, err)
 	assert.Len(t, updated.OwnerReferences, 1)
 	assert.Equal(t, owner.UID, updated.OwnerReferences[0].UID)
@@ -147,7 +146,7 @@ func TestSecretManager_AcquireSecret_WithFinalizer(t *testing.T) {
 
 	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.AcquireSecret(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, true)
+	result, err := sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, true)
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
 

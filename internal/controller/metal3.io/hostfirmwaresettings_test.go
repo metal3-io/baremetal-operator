@@ -497,15 +497,14 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 				// Create an existing schema with different hfs owner
 				firmwareSchema := getSchema()
 				firmwareSchema.Spec.Schema = getCurrentSchemaSettings()
-
 				err := r.Client.Create(ctx, firmwareSchema)
 				require.NoError(t, err)
 			}
 
-			currentSettings, schema, err := prov.GetFirmwareSettings(true)
+			currentSettings, schema, err := prov.GetFirmwareSettings(ctx, true)
 			require.NoError(t, err)
 
-			err = r.updateHostFirmwareSettings(currentSettings, schema, info)
+			err = r.updateHostFirmwareSettings(ctx, currentSettings, schema, info)
 			require.NoError(t, err)
 
 			// Check that resources get created or updated

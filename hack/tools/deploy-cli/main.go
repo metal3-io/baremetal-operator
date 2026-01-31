@@ -71,8 +71,8 @@ AVAILABLE ENVIRONMENT VARIABLES:
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 	dc := DeployContext{
-		Context:                   context.Background(),
 		BMOPath:                   getBMOPath(),
 		KubeconfigPath:            GetKubeconfigPath(),
 		DeployBasicAuth:           deployBasicAuthFlag,
@@ -125,14 +125,14 @@ func main() {
 		if dc.IronicHostIP == "" {
 			log.Fatalf("ERROR: Environment Variable IRONIC_HOST_IP is required to install ironic")
 		}
-		err = dc.deployIronic()
+		err = dc.deployIronic(ctx)
 		if err != nil {
 			log.Fatalf("Failed to deploy Ironic: %v", err)
 		}
 	}
 
 	if deployBMOFlag {
-		err = dc.deployBMO()
+		err = dc.deployBMO(ctx)
 		if err != nil {
 			log.Fatalf("Failed to deploy BMO: %v", err)
 		}

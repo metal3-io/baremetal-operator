@@ -104,7 +104,7 @@ func TestHasCapacity(t *testing.T) {
 			}
 			prov.config.maxBusyHosts = tc.provisioningLimit
 
-			result, err := prov.HasCapacity()
+			result, err := prov.HasCapacity(t.Context())
 
 			assert.Equal(t, tc.expectedHasCapacity, result)
 

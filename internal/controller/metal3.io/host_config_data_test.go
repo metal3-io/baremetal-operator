@@ -89,7 +89,7 @@ func TestLabelSecrets(t *testing.T) {
 			hcd := &hostConfigData{
 				host:          host,
 				log:           baselog.WithName("host_config_data"),
-				secretManager: secretutils.NewSecretManager(t.Context(), baselog, c, c),
+				secretManager: secretutils.NewSecretManager(baselog, c, c),
 			}
 
 			secret := newSecret(tc.name, map[string]string{"value": "somedata"})
@@ -432,7 +432,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 			hcd := &hostConfigData{
 				host:          tc.Host,
 				log:           baselog.WithName("host_config_data"),
-				secretManager: secretutils.NewSecretManager(t.Context(), baselog, c, c),
+				secretManager: secretutils.NewSecretManager(baselog, c, c),
 			}
 
 			actualUserData, err := hcd.UserData()

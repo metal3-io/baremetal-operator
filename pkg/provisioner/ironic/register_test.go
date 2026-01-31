@@ -34,7 +34,7 @@ func TestRegisterNoMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -65,7 +65,7 @@ func TestRegisterMACOptional(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -97,7 +97,7 @@ func TestRegisterCreateNode(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -135,7 +135,7 @@ func TestRegisterExistingNode(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -170,7 +170,7 @@ func TestRegisterExistingNodeNameUpdate(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -244,7 +244,7 @@ func TestRegisterExistingNodeContinue(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+			result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 			if err != nil {
 				t.Fatalf("error from Register: %s", err)
 			}
@@ -425,7 +425,7 @@ func TestRegisterExistingSteadyStateNoUpdate(t *testing.T) {
 			}
 
 			data := provisioner.ManagementAccessData{CurrentImage: imageType.Image, HasCustomDeploy: imageType.HasCustomDeploy}
-			result, _, err := prov.Register(data, false, false)
+			result, _, err := prov.Register(t.Context(), data, false, false)
 			if err != nil {
 				t.Fatalf("error from Register: %s", err)
 			}
@@ -482,7 +482,7 @@ func TestRegisterExistingNodeWaiting(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+			result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 			if err != nil {
 				t.Fatalf("error from Register: %s", err)
 			}
@@ -538,7 +538,7 @@ func TestRegisterNewCredentials(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, true, false)
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, true, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -586,7 +586,7 @@ func TestRegisterLinkExistingIronicNodeByMAC(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -628,7 +628,7 @@ func TestRegisterExistingPortWithWrongUUID(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, _, err = prov.Register(provisioner.ManagementAccessData{}, false, false)
+	_, _, err = prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	expected := "failed to find existing host: port 11:11:11:11:11:11 exists but linked node random-wrong-id doesn't:"
 	assert.ErrorContains(t, err, expected)
 }
@@ -670,7 +670,7 @@ func TestRegisterExistingPortButHasName(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	res, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	res, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	require.NoError(t, err)
 	assert.Equal(t, "MAC address 11:11:11:11:11:11 conflicts with existing node wrong-name", res.ErrorMessage)
 }
@@ -708,7 +708,7 @@ func TestRegisterAddTwoHostsWithSameMAC(t *testing.T) {
 	}
 
 	// MAC address value is different than the port that actually exists
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -732,7 +732,7 @@ func TestRegisterUnsupportedSecureBoot(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{BootMode: metal3api.UEFISecureBoot}, false, false)
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{BootMode: metal3api.UEFISecureBoot}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -754,7 +754,7 @@ func TestRegisterUnsupportedDriverWithoutProvNet(t *testing.T) {
 	}
 	prov.config.provNetDisabled = true
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -775,7 +775,7 @@ func TestRegisterNoBMCDetails(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -798,7 +798,7 @@ func TestRegisterMalformedBMCAddress(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -846,7 +846,7 @@ func TestRegisterUpdateBMCAddressIP(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -908,7 +908,7 @@ func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{}, false, false)
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -1357,8 +1357,8 @@ func TestRegisterDisablePowerOff(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	prov.TryInit()
-	result, _, err := prov.Register(provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
+	prov.TryInit(t.Context())
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -1385,8 +1385,8 @@ func TestRegisterDisablePowerOffNotAvail(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	prov.TryInit()
-	result, _, err := prov.Register(provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
+	prov.TryInit(t.Context())
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
 	}
@@ -1420,7 +1420,7 @@ func TestRegisterDeprovisioningNeedsPreprovisioningImage(t *testing.T) {
 	prov.config.havePreprovImgBuilder = true
 
 	// Test StateDeprovisioning with cleaning enabled (not disabled) and no PreprovisioningImage
-	_, _, err = prov.Register(provisioner.ManagementAccessData{
+	_, _, err = prov.Register(t.Context(), provisioner.ManagementAccessData{
 		State:                 metal3api.StateDeprovisioning,
 		AutomatedCleaningMode: metal3api.CleaningModeMetadata, // Cleaning enabled
 		// No PreprovisioningImage provided
@@ -1457,7 +1457,7 @@ func TestRegisterDeprovisioningCleaningDisabledNoPreprovisioningImage(t *testing
 	prov.config.havePreprovImgBuilder = true
 
 	// Test StateDeprovisioning with cleaning disabled - should NOT require PreprovisioningImage
-	result, _, err := prov.Register(provisioner.ManagementAccessData{
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
 		State:                 metal3api.StateDeprovisioning,
 		AutomatedCleaningMode: metal3api.CleaningModeDisabled, // Cleaning disabled
 		// No PreprovisioningImage provided

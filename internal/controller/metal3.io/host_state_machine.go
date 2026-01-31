@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -39,7 +40,7 @@ func newHostStateMachine(host *metal3api.BareMetalHost,
 	return &r
 }
 
-type stateHandler func(*reconcileInfo) actionResult
+type stateHandler func(context.Context, *reconcileInfo) actionResult
 
 func (hsm *hostStateMachine) handlers() map[metal3api.ProvisioningState]stateHandler {
 	return map[metal3api.ProvisioningState]stateHandler{
@@ -84,8 +85,8 @@ func recordStateEnd(info *reconcileInfo, host *metal3api.BareMetalHost, state me
 	return
 }
 
-func (hsm *hostStateMachine) ensureCapacity(info *reconcileInfo, state metal3api.ProvisioningState) actionResult {
-	hasCapacity, err := hsm.Provisioner.HasCapacity()
+func (hsm *hostStateMachine) ensureCapacity(ctx context.Context, info *reconcileInfo, state metal3api.ProvisioningState) actionResult {
+	hasCapacity, err := hsm.Provisioner.HasCapacity(ctx)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to determine current provisioner capacity: %w", err)}
 	}
@@ -97,7 +98,7 @@ func (hsm *hostStateMachine) ensureCapacity(info *reconcileInfo, state metal3api
 	return nil
 }
 
-func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3api.ProvisioningState,
+func (hsm *hostStateMachine) updateHostStateFrom(ctx context.Context, initialState metal3api.ProvisioningState,
 	info *reconcileInfo) actionResult {
 	if hsm.NextState != initialState {
 		// Check if there is a free slot available when trying to
@@ -107,7 +108,7 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3api.Provisio
 		switch hsm.NextState {
 		case metal3api.StateInspecting, metal3api.StateProvisioning,
 			metal3api.StateDeprovisioning:
-			if actionRes := hsm.ensureCapacity(info, hsm.NextState); actionRes != nil {
+			if actionRes := hsm.ensureCapacity(ctx, info, hsm.NextState); actionRes != nil {
 				return actionRes
 			}
 		default:
@@ -148,10 +149,10 @@ func (hsm *hostStateMachine) updateHostStateFrom(initialState metal3api.Provisio
 	return nil
 }
 
-func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) checkDelayedHost(ctx context.Context, info *reconcileInfo) actionResult {
 	// Check if there's a free slot for hosts that have been previously delayed
 	if info.host.Status.OperationalStatus == metal3api.OperationalStatusDelayed {
-		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
+		if actionRes := hsm.ensureCapacity(ctx, info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}
 
@@ -165,7 +166,7 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 	switch info.host.Status.Provisioning.State {
 	case metal3api.StateInspecting, metal3api.StateProvisioning,
 		metal3api.StateDeprovisioning:
-		if actionRes := hsm.ensureCapacity(info, info.host.Status.Provisioning.State); actionRes != nil {
+		if actionRes := hsm.ensureCapacity(ctx, info, info.host.Status.Provisioning.State); actionRes != nil {
 			return actionRes
 		}
 	default:
@@ -174,16 +175,16 @@ func (hsm *hostStateMachine) checkDelayedHost(info *reconcileInfo) actionResult 
 	return nil
 }
 
-func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes actionResult) {
+func (hsm *hostStateMachine) ReconcileState(ctx context.Context, info *reconcileInfo) (actionRes actionResult) {
 	initialState := hsm.Host.Status.Provisioning.State
 
 	defer func() {
-		if overrideAction := hsm.updateHostStateFrom(initialState, info); overrideAction != nil {
+		if overrideAction := hsm.updateHostStateFrom(ctx, initialState, info); overrideAction != nil {
 			actionRes = overrideAction
 		}
 	}()
 
-	if delayedResult := hsm.checkDelayedHost(info); delayedResult != nil {
+	if delayedResult := hsm.checkDelayedHost(ctx, info); delayedResult != nil {
 		return delayedResult
 	}
 
@@ -192,17 +193,17 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 		return actionComplete{}
 	}
 
-	if detachedResult := hsm.checkDetachedHost(info); detachedResult != nil {
+	if detachedResult := hsm.checkDetachedHost(ctx, info); detachedResult != nil {
 		return detachedResult
 	}
 
-	if registerResult := hsm.ensureRegistered(info); registerResult != nil {
+	if registerResult := hsm.ensureRegistered(ctx, info); registerResult != nil {
 		hostRegistrationRequired.Inc()
 		return registerResult
 	}
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
-		return stateHandler(info)
+		return stateHandler(ctx, info)
 	}
 
 	info.log.Info("No handler found for state", "state", initialState)
@@ -308,7 +309,7 @@ func delayDeleteForDetachedHost(host *metal3api.BareMetalHost) bool {
 	return args.DeleteAction == metal3api.DetachedDeleteActionDelay
 }
 
-func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result actionResult) {
+func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconcileInfo) (result actionResult) {
 	// If the detached annotation is set we remove any host from the
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
@@ -316,7 +317,7 @@ func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result acti
 		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:
-			return hsm.Reconciler.detachHost(hsm.Provisioner, info)
+			return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info)
 		default:
 			info.log.Info("host cannot be detached yet, waiting for the current operation to finish", "provisioningState", info.host.Status.Provisioning.State)
 		}
@@ -339,7 +340,7 @@ func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result acti
 	return nil
 }
 
-func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actionResult) {
+func (hsm *hostStateMachine) ensureRegistered(ctx context.Context, info *reconcileInfo) (result actionResult) {
 	if !hsm.haveCreds {
 		// If we are in the process of deletion (which may start with
 		// deprovisioning) and we have been unable to obtain any credentials,
@@ -367,7 +368,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 		}
 	}
 
-	result = hsm.Reconciler.registerHost(hsm.Provisioner, info)
+	result = hsm.Reconciler.registerHost(ctx, hsm.Provisioner, info)
 	_, complete := result.(actionComplete)
 	if (result == nil || complete) &&
 		hsm.NextState != metal3api.StateRegistering {
@@ -381,7 +382,7 @@ func (hsm *hostStateMachine) ensureRegistered(info *reconcileInfo) (result actio
 	return result
 }
 
-func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleNone(_ context.Context, info *reconcileInfo) actionResult {
 	// No state is set, so immediately move to either Registering or Unmanaged
 	if hsm.Host.HasBMCDetails() {
 		hsm.NextState = metal3api.StateRegistering
@@ -394,15 +395,15 @@ func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
 	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleUnmanaged(info *reconcileInfo) actionResult {
-	actResult := hsm.Reconciler.actionUnmanaged(hsm.Provisioner, info)
+func (hsm *hostStateMachine) handleUnmanaged(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionUnmanaged(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3api.StateRegistering
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleRegistering(_ *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleRegistering(_ context.Context, info *reconcileInfo) actionResult {
 	// Getting to the state handler at all means we have successfully
 	// registered using the current BMC credentials, so we can move to the
 	// next state. We will not return to the Registering state, even
@@ -418,8 +419,8 @@ func (hsm *hostStateMachine) handleRegistering(_ *reconcileInfo) actionResult {
 	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult {
-	actResult := hsm.Reconciler.actionInspecting(hsm.Provisioner, info)
+func (hsm *hostStateMachine) handleInspecting(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionInspecting(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3api.StatePreparing
 		hsm.Host.Status.ErrorCount = 0
@@ -427,17 +428,17 @@ func (hsm *hostStateMachine) handleInspecting(info *reconcileInfo) actionResult 
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleMatchProfile(_ *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleMatchProfile(_ context.Context, info *reconcileInfo) actionResult {
 	// Backward compatibility, remove eventually
 	hsm.NextState = metal3api.StatePreparing
 	hsm.Host.Status.ErrorCount = 0
 	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleExternallyProvisioned(ctx context.Context, info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
 		// ErrorCount is cleared when appropriate inside actionManageSteadyState
-		return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+		return hsm.Reconciler.actionManageSteadyState(ctx, hsm.Provisioner, info)
 	}
 
 	if hsm.Host.NeedsHardwareInspection() {
@@ -448,8 +449,8 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(info *reconcileInfo) ac
 	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handlePreparing(info *reconcileInfo) actionResult {
-	actResult := hsm.Reconciler.actionPreparing(hsm.Provisioner, info)
+func (hsm *hostStateMachine) handlePreparing(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionPreparing(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.Host.Status.ErrorCount = 0
 		hsm.NextState = metal3api.StateAvailable
@@ -457,7 +458,7 @@ func (hsm *hostStateMachine) handlePreparing(info *reconcileInfo) actionResult {
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcileInfo) actionResult {
 	if hsm.Host.Spec.ExternallyProvisioned {
 		hsm.NextState = metal3api.StateExternallyProvisioned
 		clearHostProvisioningSettings(info.host)
@@ -477,7 +478,7 @@ func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 	}
 
 	// Check if hostFirmwareSettings have changed
-	if dirty, _, err := hsm.Reconciler.getHostFirmwareSettings(info); err != nil {
+	if dirty, _, err := hsm.Reconciler.getHostFirmwareSettings(ctx, info); err != nil {
 		return actionError{err}
 	} else if dirty {
 		hsm.NextState = metal3api.StatePreparing
@@ -485,7 +486,7 @@ func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 	}
 
 	// Check if hostFirmwareComponents have changed
-	if dirty, _, err := hsm.Reconciler.getHostFirmwareComponents(info); err != nil {
+	if dirty, _, err := hsm.Reconciler.getHostFirmwareComponents(ctx, info); err != nil {
 		return actionError{err}
 	} else if dirty {
 		hsm.NextState = metal3api.StatePreparing
@@ -493,7 +494,7 @@ func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 	}
 
 	// ErrorCount is cleared when appropriate inside actionManageAvailable
-	actResult := hsm.Reconciler.actionManageAvailable(hsm.Provisioner, info)
+	actResult := hsm.Reconciler.actionManageAvailable(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3api.StateProvisioning
 	}
@@ -538,13 +539,13 @@ func (hsm *hostStateMachine) imageProvisioningCancelled() bool {
 	return false
 }
 
-func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *reconcileInfo) actionResult {
 	if hsm.Host.Status.ErrorType != "" || hsm.provisioningCancelled() {
 		hsm.NextState = metal3api.StateDeprovisioning
 		return actionComplete{}
 	}
 
-	actResult := hsm.Reconciler.actionProvisioning(hsm.Provisioner, info)
+	actResult := hsm.Reconciler.actionProvisioning(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3api.StateProvisioned
 		hsm.Host.Status.ErrorCount = 0
@@ -552,18 +553,18 @@ func (hsm *hostStateMachine) handleProvisioning(info *reconcileInfo) actionResul
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleProvisioned(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleProvisioned(ctx context.Context, info *reconcileInfo) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.NextState = metal3api.StateDeprovisioning
 		return actionComplete{}
 	}
 
 	// ErrorCount is cleared when appropriate inside actionManageSteadyState
-	return hsm.Reconciler.actionManageSteadyState(hsm.Provisioner, info)
+	return hsm.Reconciler.actionManageSteadyState(ctx, hsm.Provisioner, info)
 }
 
-func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionResult {
-	actResult := hsm.Reconciler.actionDeprovisioning(hsm.Provisioner, info)
+func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionDeprovisioning(ctx, hsm.Provisioner, info)
 
 	if hsm.Host.DeletionTimestamp.IsZero() {
 		if _, complete := actResult.(actionComplete); complete {
@@ -599,8 +600,8 @@ func (hsm *hostStateMachine) handleDeprovisioning(info *reconcileInfo) actionRes
 	return actResult
 }
 
-func (hsm *hostStateMachine) handlePoweringOffBeforeDelete(info *reconcileInfo) actionResult {
-	actResult := hsm.Reconciler.actionPowerOffBeforeDeleting(hsm.Provisioner, info)
+func (hsm *hostStateMachine) handlePoweringOffBeforeDelete(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.Reconciler.actionPowerOffBeforeDeleting(ctx, hsm.Provisioner, info)
 	skipToDelete := func() actionResult {
 		hsm.NextState = metal3api.StateDeleting
 		info.postSaveCallbacks = append(info.postSaveCallbacks, deleteWithoutPowerOff.Inc)
@@ -630,6 +631,6 @@ func (hsm *hostStateMachine) handlePoweringOffBeforeDelete(info *reconcileInfo) 
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleDeleting(info *reconcileInfo) actionResult {
-	return hsm.Reconciler.actionDeleting(hsm.Provisioner, info)
+func (hsm *hostStateMachine) handleDeleting(ctx context.Context, info *reconcileInfo) actionResult {
+	return hsm.Reconciler.actionDeleting(ctx, hsm.Provisioner, info)
 }

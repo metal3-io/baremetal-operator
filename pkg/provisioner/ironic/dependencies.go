@@ -9,10 +9,10 @@ import (
 )
 
 // TryInit checks if the provisioning backend is available.
-func (p *ironicProvisioner) TryInit() (ready bool, err error) {
+func (p *ironicProvisioner) TryInit(ctx context.Context) (ready bool, err error) {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
 
-	p.availableFeatures, err = clients.GetAvailableFeatures(p.ctx, p.client)
+	p.availableFeatures, err = clients.GetAvailableFeatures(ctx, p.client)
 	if err != nil {
 		p.log.Info("error caught while checking endpoint, will retry", "endpoint", p.client.Endpoint, "error", err)
 		return false, nil
@@ -21,10 +21,10 @@ func (p *ironicProvisioner) TryInit() (ready bool, err error) {
 	p.client.Microversion = p.availableFeatures.ChooseMicroversion()
 	p.availableFeatures.Log(p.debugLog)
 
-	return p.checkIronicConductor()
+	return p.checkIronicConductor(ctx)
 }
 
-func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {
+func (p *ironicProvisioner) checkIronicConductor(ctx context.Context) (ready bool, err error) {
 	pager := drivers.ListDrivers(p.client, drivers.ListDriversOpts{
 		Detail: false,
 	})
@@ -35,7 +35,7 @@ func (p *ironicProvisioner) checkIronicConductor() (ready bool, err error) {
 	}
 
 	driverCount := 0
-	_ = pager.EachPage(p.ctx, func(_ context.Context, page pagination.Page) (bool, error) {
+	_ = pager.EachPage(ctx, func(_ context.Context, page pagination.Page) (bool, error) {
 		actual, driverErr := drivers.ExtractDrivers(page)
 		if driverErr != nil {
 			return false, driverErr

@@ -117,7 +117,7 @@ func TestPowerOn(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.PowerOn(tc.force)
+			result, err := prov.PowerOn(t.Context(), tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
@@ -398,7 +398,7 @@ func TestPowerOff(t *testing.T) {
 			}
 
 			// We pass the RebootMode type here to define the reboot action
-			result, err := prov.PowerOff(tc.rebootMode, tc.force, tc.automatedCleaningMode)
+			result, err := prov.PowerOff(t.Context(), tc.rebootMode, tc.force, tc.automatedCleaningMode)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
@@ -450,15 +450,15 @@ func TestSoftPowerOffFallback(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	_, err = prov.PowerOff(metal3api.RebootModeSoft, false, metal3api.CleaningModeMetadata)
+	_, err = prov.PowerOff(t.Context(), metal3api.RebootModeSoft, false, metal3api.CleaningModeMetadata)
 	require.Error(t, err)
 	assert.NotErrorAs(t, err, &softPowerOffUnsupportedError{})
 
-	_, err = prov.changePower(&node, nodes.PowerOff)
+	_, err = prov.changePower(t.Context(), &node, nodes.PowerOff)
 	require.Error(t, err)
 	assert.NotErrorAs(t, err, &softPowerOffUnsupportedError{})
 
-	_, err = prov.changePower(&node, nodes.SoftPowerOff)
+	_, err = prov.changePower(t.Context(), &node, nodes.SoftPowerOff)
 	require.Error(t, err)
 	assert.ErrorAs(t, err, &softPowerOffUnsupportedError{})
 }

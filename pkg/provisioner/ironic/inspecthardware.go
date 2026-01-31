@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -13,18 +14,20 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
-func (p *ironicProvisioner) abortInspection(ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (p *ironicProvisioner) abortInspection(ctx context.Context, ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	// Set started to let the controller know about the change
 	p.log.Info("aborting inspection to force reboot of preprovisioning image")
 	started, result, err = p.tryChangeNodeProvisionState(
+		ctx,
 		ironicNode,
 		nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
 	)
 	return
 }
 
-func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
+func (p *ironicProvisioner) startInspection(ctx context.Context, data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
 	_, started, result, err = p.tryUpdateNode(
+		ctx,
 		ironicNode,
 		clients.UpdateOptsBuilder(p.log).
 			SetPropertiesOpts(clients.UpdateOptsData{
@@ -37,6 +40,7 @@ func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironic
 
 	p.log.Info("starting new hardware inspection")
 	started, result, err = p.tryChangeNodeProvisionState(
+		ctx,
 		ironicNode,
 		nodes.ProvisionStateOpts{Target: nodes.TargetInspect},
 	)
@@ -50,10 +54,10 @@ func (p *ironicProvisioner) startInspection(data provisioner.InspectData, ironic
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisioner.InspectData, restartOnFailure, refresh, forceReboot bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	p.log.Info("inspecting hardware")
 
-	ironicNode, err := p.getNode()
+	ironicNode, err := p.getNode(ctx)
 	if err != nil {
 		result, err = transientError(err)
 		return result, started, details, err
@@ -68,13 +72,14 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.Available:
 		result, err = p.changeNodeProvisionState(
+			ctx,
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
 		return result, started, details, err
 	case nodes.InspectWait:
 		if forceReboot {
-			return p.abortInspection(ironicNode)
+			return p.abortInspection(ctx, ironicNode)
 		}
 
 		fallthrough
@@ -96,7 +101,7 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 		fallthrough
 	case nodes.Manageable:
 		if refresh {
-			result, started, err = p.startInspection(data, ironicNode)
+			result, started, err = p.startInspection(ctx, data, ironicNode)
 			return result, started, details, err
 		}
 	default:
@@ -107,12 +112,12 @@ func (p *ironicProvisioner) InspectHardware(data provisioner.InspectData, restar
 	}
 
 	p.log.Info("getting hardware details from inspection")
-	response := nodes.GetInventory(p.ctx, p.client, ironicNode.UUID)
+	response := nodes.GetInventory(ctx, p.client, ironicNode.UUID)
 	introData, err := response.Extract()
 	if err != nil {
 		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
 			// The node has just been enrolled, inspection hasn't been started yet.
-			result, started, err = p.startInspection(data, ironicNode)
+			result, started, err = p.startInspection(ctx, data, ironicNode)
 			return result, started, details, err
 		}
 		result, err = transientError(fmt.Errorf("failed to retrieve hardware introspection data: %w", err))

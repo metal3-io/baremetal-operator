@@ -158,8 +158,8 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 		return setError(generation, &img.Status, reasonImageConfigurationError, "No acceptable image format supported"), nil
 	}
 
-	secretManager := secretutils.NewSecretManager(ctx, log, r.Client, r.APIReader)
-	networkData, secretStatus, err := getNetworkData(secretManager, img)
+	secretManager := secretutils.NewSecretManager(log, r.Client, r.APIReader)
+	networkData, secretStatus, err := getNetworkData(ctx, secretManager, img)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.Info("network data Secret does not exist")
@@ -255,7 +255,7 @@ func getErrorRetryDelay(status metal3api.PreprovisioningImageStatus) time.Durati
 	return delay
 }
 
-func getNetworkData(secretManager secretutils.SecretManager, img *metal3api.PreprovisioningImage) (*corev1.Secret, metal3api.SecretStatus, error) {
+func getNetworkData(ctx context.Context, secretManager secretutils.SecretManager, img *metal3api.PreprovisioningImage) (*corev1.Secret, metal3api.SecretStatus, error) {
 	networkDataSecret := img.Spec.NetworkDataName
 	if networkDataSecret == "" {
 		return nil, metal3api.SecretStatus{}, nil
@@ -265,7 +265,7 @@ func getNetworkData(secretManager secretutils.SecretManager, img *metal3api.Prep
 		Name:      networkDataSecret,
 		Namespace: img.ObjectMeta.Namespace,
 	}
-	secret, err := secretManager.AcquireSecret(secretKey, img, false)
+	secret, err := secretManager.AcquireSecret(ctx, secretKey, img, false)
 	if err != nil {
 		return nil, metal3api.SecretStatus{}, err
 	}

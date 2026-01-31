@@ -217,7 +217,7 @@ func TestInspectHardware(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, started, details, err := prov.InspectHardware(
+			result, started, details, err := prov.InspectHardware(t.Context(),
 				provisioner.InspectData{BootMode: metal3api.DefaultBootMode},
 				tc.restartOnFailure, tc.refresh, tc.forceReboot)
 

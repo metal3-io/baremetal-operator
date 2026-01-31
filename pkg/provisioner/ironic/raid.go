@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -18,7 +19,7 @@ const (
 )
 
 // setTargetRAIDCfg set the RAID settings to the ironic Node for RAID configuration steps.
-func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (provisioner.Result, error) {
+func setTargetRAIDCfg(ctx context.Context, p *ironicProvisioner, raidInterface string, ironicNode *nodes.Node, data provisioner.PrepareData) (provisioner.Result, error) {
 	targetRaidInterface, err := CheckRAIDInterface(raidInterface, data.TargetRAIDConfig, data.ActualRAIDConfig)
 	if err != nil {
 		return operationFailed(err.Error())
@@ -45,14 +46,14 @@ func setTargetRAIDCfg(p *ironicProvisioner, raidInterface string, ironicNode *no
 
 	updater := clients.UpdateOptsBuilder(p.log)
 	updater.SetTopLevelOpt("raid_interface", targetRaidInterface, ironicNode.RAIDInterface)
-	ironicNode, success, result, err := p.tryUpdateNode(ironicNode, updater)
+	ironicNode, success, result, err := p.tryUpdateNode(ctx, ironicNode, updater)
 	if !success {
 		return result, err
 	}
 
 	// Set target for RAID configuration steps
 	err = nodes.SetRAIDConfig(
-		p.ctx,
+		ctx,
 		p.client,
 		ironicNode.UUID,
 		nodes.RAIDConfigOpts{LogicalDisks: logicalDisks},

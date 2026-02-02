@@ -67,16 +67,16 @@ intervals:
 bmoIronicUpgradeSpecs:
 - deployIronic: false
   deployBMO: true
-  initBMOKustomization: "../../config/overlays/fixture-release-0.9"
-  upgradeEntityKustomization: "../../config/overlays/fixture"
-  upgradeEntityName: "bmo"
-- deployIronic: false
-  deployBMO: true
   initBMOKustomization: "../../config/overlays/fixture-release-0.10"
   upgradeEntityKustomization: "../../config/overlays/fixture"
   upgradeEntityName: "bmo"
 - deployIronic: false
   deployBMO: true
   initBMOKustomization: "../../config/overlays/fixture-release-0.11"
+  upgradeEntityKustomization: "../../config/overlays/fixture"
+  upgradeEntityName: "bmo"
+- deployIronic: false
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/fixture-release-0.12"
   upgradeEntityKustomization: "../../config/overlays/fixture"
   upgradeEntityName: "bmo"

@@ -6,7 +6,7 @@ require (
 	github.com/cert-manager/cert-manager v1.18.4
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
-	github.com/metal3-io/ironic-standalone-operator/api v0.6.1
+	github.com/metal3-io/ironic-standalone-operator/api v0.6.2
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.38.3
 	golang.org/x/crypto v0.45.0

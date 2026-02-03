@@ -2100,6 +2100,31 @@ func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(info *reconcileInfo) (
 	return hup, nil
 }
 
+// Check if an HFS/HFC has changes and is valid.
+func hostObjectHasChanges(conditions []metav1.Condition, changedCondition, validCondition string, expectedGeneration int64) (changed bool, valid bool, err error) {
+	readyCond := meta.FindStatusCondition(conditions, changedCondition)
+	if readyCond == nil {
+		return false, false, nil
+	}
+
+	// Check if the condition matches the current Generation to know if the data is not out of date.
+	if readyCond.ObservedGeneration != expectedGeneration {
+		// Retry, otherwise we may miss updates
+		return false, false, fmt.Errorf("generation %d != observed generation %d", expectedGeneration, readyCond.ObservedGeneration)
+	}
+
+	// Valid condition must be present and set to true.
+	if !meta.IsStatusConditionTrue(conditions, validCondition) {
+		return false, false, nil
+	}
+
+	if readyCond.Status == metav1.ConditionTrue {
+		return true, true, nil
+	}
+
+	return false, true, nil
+}
+
 // Get the stored firmware settings if there are valid changes.
 func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (dirty bool, hfs *metal3api.HostFirmwareSettings, err error) {
 	hfs = &metal3api.HostFirmwareSettings{}
@@ -2114,20 +2139,23 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 		return false, nil, nil
 	}
 
-	// Check if there are settings in the Spec that are different than the Status
-	if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3api.FirmwareSettingsChangeDetected)) {
+	changed, valid, err := hostObjectHasChanges(hfs.Status.Conditions, string(metal3api.FirmwareSettingsChangeDetected), string(metal3api.FirmwareSettingsValid), hfs.GetGeneration())
+	if err != nil {
+		return false, nil, fmt.Errorf("hostFirmwareSettings not ready yet: %w", err)
+	}
+	if !valid {
+		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
+		return false, nil, nil
+	}
+
+	if changed {
 		// Check if the status settings have been populated
 		if len(hfs.Status.Settings) == 0 {
 			return false, nil, errors.New("host firmware status settings not available")
 		}
 
-		if meta.IsStatusConditionTrue(hfs.Status.Conditions, string(metal3api.FirmwareSettingsValid)) {
-			info.log.Info("hostFirmwareSettings indicating ChangeDetected", "namespacename", info.request.NamespacedName)
-			return true, hfs, nil
-		}
-
-		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
-		return false, nil, nil
+		info.log.Info("hostFirmwareSettings indicating ChangeDetected", "namespacename", info.request.NamespacedName)
+		return true, hfs, nil
 	}
 
 	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)
@@ -2135,7 +2163,6 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(info *reconcileInfo) (
 }
 
 // Get the stored firmware settings if there are valid changes.
-
 func (r *BareMetalHostReconciler) getHostFirmwareComponents(info *reconcileInfo) (dirty bool, hfc *metal3api.HostFirmwareComponents, err error) {
 	hfc = &metal3api.HostFirmwareComponents{}
 	if err = r.Get(info.ctx, info.request.NamespacedName, hfc); err != nil {
@@ -2149,21 +2176,17 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(info *reconcileInfo)
 		return false, nil, nil
 	}
 
-	if readyCond := meta.FindStatusCondition(hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsChangeDetected)); readyCond != nil {
-		// Check if the condition matches the current Generation to know if the data is not out of date.
-		if readyCond.ObservedGeneration != hfc.GetGeneration() {
-			return false, nil, fmt.Errorf("host firmware components not ready yet: generation %d != observed generation %d", hfc.GetGeneration(), readyCond.ObservedGeneration)
-		}
-
-		if meta.IsStatusConditionFalse(hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsValid)) {
-			info.log.Info("hostFirmwareComponents not valid", "namespacename", info.request.NamespacedName)
-			return false, nil, nil
-		}
-
-		if readyCond.Status == metav1.ConditionTrue {
-			info.log.Info("hostFirmwareComponents indicating ChangeDetected", "namespacename", info.request.NamespacedName)
-			return true, hfc, nil
-		}
+	changed, valid, err := hostObjectHasChanges(hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsChangeDetected), string(metal3api.HostFirmwareComponentsValid), hfc.GetGeneration())
+	if err != nil {
+		return false, nil, fmt.Errorf("hostFirmwareComponents not ready yet: %w", err)
+	}
+	if !valid {
+		info.log.Info("hostFirmwareComponents not valid", "namespacename", info.request.NamespacedName)
+		return false, nil, nil
+	}
+	if changed {
+		info.log.Info("hostFirmwareComponents indicating ChangeDetected", "namespacename", info.request.NamespacedName)
+		return true, hfc, nil
 	}
 
 	info.log.Info("hostFirmwareComponents no updates", "namespacename", info.request.NamespacedName)

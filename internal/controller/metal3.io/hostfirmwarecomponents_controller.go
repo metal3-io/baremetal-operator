@@ -197,7 +197,7 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 	newStatus.Components = components
 
 	if updatesMismatch {
-		if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionTrue, reason, "") {
+		if setUpdatesCondition(generation, newStatus, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
 
@@ -205,17 +205,17 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 		if err != nil {
 			info.publishEvent("ValidationFailed", fmt.Sprintf("Invalid Firmware Components: %s", err))
 			reason = reasonInvalidComponent
-			if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionFalse, reason, fmt.Sprintf("Invalid Firmware Components: %s", err)) {
+			if setUpdatesCondition(generation, newStatus, metal3api.HostFirmwareComponentsValid, metav1.ConditionFalse, reason, fmt.Sprintf("Invalid Firmware Components: %s", err)) {
 				dirty = true
 			}
-		} else if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
+		} else if setUpdatesCondition(generation, newStatus, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
 	} else {
-		if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
+		if setUpdatesCondition(generation, newStatus, metal3api.HostFirmwareComponentsValid, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
-		if setUpdatesCondition(generation, newStatus, info, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionFalse, reason, "") {
+		if setUpdatesCondition(generation, newStatus, metal3api.HostFirmwareComponentsChangeDetected, metav1.ConditionFalse, reason, "") {
 			dirty = true
 		}
 	}
@@ -275,7 +275,7 @@ func (r *HostFirmwareComponentsReconciler) publishEvent(ctx context.Context, req
 	}
 }
 
-func setUpdatesCondition(generation int64, status *metal3api.HostFirmwareComponentsStatus, info *rhfcInfo,
+func setUpdatesCondition(generation int64, status *metal3api.HostFirmwareComponentsStatus,
 	cond metal3api.UpdatesConditionType, newStatus metav1.ConditionStatus,
 	reason conditionReasonHFC, message string) bool {
 	newCondition := metav1.Condition{
@@ -286,11 +286,5 @@ func setUpdatesCondition(generation int64, status *metal3api.HostFirmwareCompone
 		Message:            message,
 	}
 
-	meta.SetStatusCondition(&status.Conditions, newCondition)
-	currCond := meta.FindStatusCondition(info.hfc.Status.Conditions, string(cond))
-
-	if currCond == nil || currCond.Status != newStatus {
-		return true
-	}
-	return false
+	return meta.SetStatusCondition(&status.Conditions, newCondition)
 }

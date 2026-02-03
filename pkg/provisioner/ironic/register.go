@@ -153,6 +153,15 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		// The updater only updates disable_power_off if it has changed
 		updater.SetTopLevelOpt("disable_power_off", data.DisablePowerOff, ironicNode.DisablePowerOff)
 
+		// Update cpu_arch in Properties if specified.
+		// This is important for multi-arch deployments to ensure the correct
+		// architecture-specific IPA kernel/ramdisk is used via deploy_kernel_by_arch.
+		if data.CPUArchitecture != "" {
+			updater.SetPropertiesOpts(clients.UpdateOptsData{
+				"cpu_arch": data.CPUArchitecture,
+			}, ironicNode)
+		}
+
 		// We don't return here because we also have to set the
 		// target provision state to manageable, which happens
 		// below.

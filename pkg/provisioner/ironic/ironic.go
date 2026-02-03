@@ -325,7 +325,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 func (p *ironicProvisioner) configureNode(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
 	updater := clients.UpdateOptsBuilder(p.log)
 
-	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
+	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage, data.CPUArchitecture)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 
 	updater.SetTopLevelOpt("automated_clean",
@@ -445,9 +445,23 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]any) map[string]
 	return driverInfo
 }
 
+// getArchSpecificURL modifies a URL to use architecture-specific images.
+// For aarch64, it replaces "ironic-python-agent" with "ironic-python-agent_aarch64".
+// For x86_64 or empty architecture, it returns the URL unchanged (uses default symlinks).
+func getArchSpecificURL(baseURL string, arch string) string {
+	if baseURL == "" {
+		return ""
+	}
+	if arch == "aarch64" || arch == "arm64" {
+		return strings.Replace(baseURL, "ironic-python-agent", "ironic-python-agent_aarch64", 1)
+	}
+	return baseURL
+}
+
 // setDeployImage configures the IPA ramdisk parameters in the Node's DriverInfo.
 // It can use either the provided PreprovisioningImage or the global configuration from ironicConfig.
-func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) clients.UpdateOptsData {
+// For multi-architecture support, the kernel URL is made architecture-specific using getArchSpecificURL.
+func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage, arch string) clients.UpdateOptsData {
 	deployImageInfo := clients.UpdateOptsData{
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
@@ -457,6 +471,7 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 
 	allowISO := accessDetails.SupportsISOPreprovisioningImage()
 
+	// Use PreprovisioningImage if available
 	if hostImage != nil {
 		switch hostImage.Format {
 		case metal3api.ImageFormatISO:
@@ -465,34 +480,40 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 				return deployImageInfo
 			}
 		case metal3api.ImageFormatInitRD:
+			// For PXE/initrd boot, use the customized ramdisk from PreprovisioningImage
+			// (which has embedded ignition to start IPA).
 			if hostImage.KernelURL != "" {
 				deployImageInfo[deployKernelKey] = hostImage.KernelURL
-			} else if config.deployKernelURL == "" {
-				return nil
+			} else if config.deployKernelURL != "" {
+				// Use architecture-specific kernel from static config
+				deployImageInfo[deployKernelKey] = getArchSpecificURL(config.deployKernelURL, arch)
 			} else {
-				deployImageInfo[deployKernelKey] = config.deployKernelURL
+				// No kernel URL available
+				return nil
 			}
 			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
 			if hostImage.ExtraKernelParams != "" {
-				// Using %default% prevents overriding the config in ironic-image
 				deployImageInfo[kernelParamsKey] = "%default% " + hostImage.ExtraKernelParams
 			}
 			return deployImageInfo
 		}
 	}
 
+	// Fallback to static configuration only for ISO when PreprovisioningImage controller doesn't exist
 	if !config.havePreprovImgBuilder {
 		if allowISO && config.deployISOURL != "" {
 			deployImageInfo[deployISOKey] = config.deployISOURL
 			return deployImageInfo
 		}
 		if config.deployKernelURL != "" && config.deployRamdiskURL != "" {
-			deployImageInfo[deployKernelKey] = config.deployKernelURL
-			deployImageInfo[deployRamdiskKey] = config.deployRamdiskURL
+			deployImageInfo[deployKernelKey] = getArchSpecificURL(config.deployKernelURL, arch)
+			deployImageInfo[deployRamdiskKey] = getArchSpecificURL(config.deployRamdiskURL, arch)
 			return deployImageInfo
 		}
+		return nil
 	}
 
+	// PreprovisioningImage builder is enabled but no valid image is available yet.
 	return nil
 }
 

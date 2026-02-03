@@ -803,7 +803,7 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 			}
 		}
 		componentsInfo = append(componentsInfo, component)
-		p.log.Info("firmware component added for node", "component", fwc.Component, "node", ironicNode.UUID)
+		p.log.V(1).Info("firmware component found for node", "component", fwc.Component, "node", ironicNode.UUID)
 	}
 
 	return componentsInfo, componentListErr

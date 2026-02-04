@@ -27,6 +27,7 @@ patches:
         spec:
           containers:
             - name: manager
+              image: quay.io/metal3-io/ironic-standalone-operator:main
               envFrom:
                 - configMapRef:
                     name: ironic-operator-config

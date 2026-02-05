@@ -82,7 +82,7 @@ func init() {
 
 func printVersion() {
 	setupLog.Info("Go Version: " + runtime.Version())
-	setupLog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	setupLog.Info("Go OS/Arch", "goos", runtime.GOOS, "goarch", runtime.GOARCH)
 	setupLog.Info("Git commit: " + version.Commit)
 	setupLog.Info("Build time: " + version.BuildTime)
 	setupLog.Info("Component: " + version.String)
@@ -461,7 +461,7 @@ func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) 
 		for _, cipher := range tlsCipherSuites {
 			for _, insecureCipherName := range insecureCipherValues {
 				if insecureCipherName == cipher {
-					setupLog.Info(fmt.Sprintf("warning: use of insecure cipher '%s' detected.", cipher))
+					setupLog.Info("warning: use of insecure cipher detected", "cipher", cipher)
 				}
 			}
 		}
@@ -475,7 +475,7 @@ func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) 
 
 func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
 	if controllerConcurrency > 0 {
-		ctrl.Log.Info(fmt.Sprintf("controller concurrency will be set to %d according to command line flag", controllerConcurrency))
+		ctrl.Log.Info("controller concurrency set from command line flag", "concurrency", controllerConcurrency)
 		return controllerConcurrency, nil
 	} else if controllerConcurrency < 0 {
 		return 0, fmt.Errorf("controller concurrency value: %d is invalid", controllerConcurrency)
@@ -493,13 +493,13 @@ func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
 			return 0, fmt.Errorf("BMO_CONCURRENCY value: %s is invalid: %w", mcrEnv, err)
 		}
 		if mcr > 0 {
-			ctrl.Log.Info(fmt.Sprintf("BMO_CONCURRENCY of %d is set via an environment variable", mcr))
+			ctrl.Log.Info("controller concurrency set from environment variable", "concurrency", mcr)
 			maxConcurrentReconciles = mcr
 		} else {
-			ctrl.Log.Info(fmt.Sprintf("Invalid BMO_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+			ctrl.Log.Info("invalid BMO_CONCURRENCY value, using default", "default", maxConcurrentReconciles)
 		}
 	} else {
-		ctrl.Log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+		ctrl.Log.Info("using default controller concurrency", "concurrency", maxConcurrentReconciles)
 	}
 	return maxConcurrentReconciles, nil
 }

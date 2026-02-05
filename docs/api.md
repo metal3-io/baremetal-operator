@@ -23,6 +23,43 @@ Several conditions must be met in order to initiate provisioning.
 
 To initiate deprovisioning, clear the image URL from the host spec.
 
+## OCI Image Authentication
+
+When using OCI images (URLs with the `oci://` scheme), you can optionally
+provide per-host registry credentials using the `spec.image.authSecretName`
+field. This allows provisioning from private OCI registries on a per-host
+basis.
+
+```yaml
+spec:
+  image:
+    url: oci://registry.example.com/repo/image:tag
+    authSecretName: my-registry-secret  # optional
+```
+
+The referenced Secret must:
+
+1. Be in the same namespace as the BareMetalHost
+1. Have type `kubernetes.io/dockerconfigjson` or `kubernetes.io/dockercfg`
+1. Contain credentials for the registry host specified in the image URL
+
+Example Secret:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-registry-secret
+  namespace: metal3
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <base64-encoded-docker-config>
+```
+
+The controller extracts only the credentials for the matching registry
+(supporting exact host and host:port matching) and passes them to Ironic
+during provisioning. Public OCI images work without credentials.
+
 ## Unmanaged Hosts
 
 Hosts created without BMC details will be left in the `unmanaged`

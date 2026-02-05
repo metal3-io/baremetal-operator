@@ -221,6 +221,9 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 	}
 
 	if componentInfoMismatch {
+		for _, fwc := range components {
+			r.Log.Info("firmware component added for host", "component", fwc.Component)
+		}
 		dirty = true
 	}
 

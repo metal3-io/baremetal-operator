@@ -1992,8 +1992,14 @@ func (r *BareMetalHostReconciler) saveHostFirmwareComponents(prov provisioner.Pr
 		info.log.Error(err, "failed to get new information for firmware components in ironic")
 		return dirty, err
 	}
-	hfc.Status.Components = components
 	dirty = true
+
+	if !reflect.DeepEqual(hfc.Status.Components, components) {
+		hfc.Status.Components = components
+		for _, fwc := range components {
+			r.Log.Info("firmware component added for host", "component", fwc.Component)
+		}
+	}
 
 	return dirty, nil
 }

@@ -375,6 +375,7 @@ type FirmwareConfig struct {
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost.
+// +kubebuilder:validation:XValidation:rule="!has(self.consumerOverride) || has(self.consumerRef)",message="consumerOverride can be set only if there is a consumerRef"
 type BareMetalHostSpec struct {
 	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
@@ -438,6 +439,11 @@ type BareMetalHostSpec struct {
 	// considered "in use". The common use case is a link to a Machine
 	// resource when the host is used by Cluster API.
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
+
+	// ConsumerOverride can be used to override some of the field of
+	// the BareMetalHost spec while keeping the original content.
+	// ConsumerOverride can only be used if there is a consumerRef
+	ConsumerOverride *ConsumerOverride `json:"consumerOverride,omitempty"`
 
 	// Image holds the details of the image to be provisioned. Populating
 	// the image will cause the host to start provisioning.
@@ -542,6 +548,13 @@ const (
 	// Automatically detect.
 	AutoChecksum ChecksumType = "auto"
 )
+
+type ConsumerOverride struct {
+	// Cleaning mode used by this consumer. This field has precedence over
+	// AutomatedCleaningMode.
+	// +optional
+	AutomatedCleaningMode *AutomatedCleaningMode `json:"automatedCleaningMode,omitempty"`
+}
 
 // Image holds the details of an image either to provisioned or that
 // has been provisioned.
@@ -716,6 +729,10 @@ type BareMetalHostStatus struct {
 type ProvisionStatus struct {
 	// An indicator for what the provisioner is doing with the host.
 	State ProvisioningState `json:"state"`
+
+	// An indicator of the level of the last cleaning method used on the last provisioned disks
+	// when ConsumerOverride.AutomatedCleaningMode is used.
+	OverriddenCleaningPerformed *AutomatedCleaningMode `json:"overriddenCleaningPerformed,omitempty"`
 
 	// The hosts's ID from the underlying provisioning tool (e.g. the
 	// Ironic node UUID).

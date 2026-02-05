@@ -3,6 +3,7 @@ module github.com/metal3-io/baremetal-operator
 go 1.24.0
 
 require (
+	github.com/cpuguy83/dockercfg v0.3.2
 	github.com/go-logr/logr v1.4.3
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/google/uuid v1.6.0

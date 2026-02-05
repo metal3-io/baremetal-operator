@@ -28,7 +28,6 @@ const (
 
 // DeployContext defines the context of the deploy run.
 type DeployContext struct {
-	Context context.Context
 	// OPTIONAL: Path to BMO repository.
 	BMOPath string
 	// Path to Kubeconfig file
@@ -118,7 +117,7 @@ func (d *DeployContext) determineIronicAuth() error {
 
 // deployIronic configures the kustomize overlay for ironic
 // based on the configuration, then install ironic with that overlay.
-func (d *DeployContext) deployIronic() error {
+func (d *DeployContext) deployIronic(ctx context.Context) error {
 	ironicDataDir, err := d.GetEnvOrDefault("IRONIC_DATA_DIR")
 	if err != nil {
 		return err
@@ -186,12 +185,12 @@ func (d *DeployContext) deployIronic() error {
 		}
 	}
 
-	return BuildAndApplyKustomization(d.Context, d.KubeconfigPath, d.IronicOverlay)
+	return BuildAndApplyKustomization(ctx, d.KubeconfigPath, d.IronicOverlay)
 }
 
 // deployBMO generates the YAML for the Bare Metal Operator using Kustomize
 // and applies it to the Kubernetes cluster.
-func (d *DeployContext) deployBMO() error {
+func (d *DeployContext) deployBMO(ctx context.Context) error {
 	var err error
 	ironicDataDir, err := d.GetEnvOrDefault("IRONIC_DATA_DIR")
 	if err != nil {
@@ -252,7 +251,7 @@ func (d *DeployContext) deployBMO() error {
 		}
 	}
 
-	return BuildAndApplyKustomization(d.Context, d.KubeconfigPath, d.BMOOverlay)
+	return BuildAndApplyKustomization(ctx, d.KubeconfigPath, d.BMOOverlay)
 }
 
 // GetEnvOrDefault returns the value of the environment variable key if it exists

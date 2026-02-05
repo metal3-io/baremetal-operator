@@ -128,7 +128,7 @@ func TestUpdateHardwareState(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			hwStatus, err := prov.UpdateHardwareState()
+			hwStatus, err := prov.UpdateHardwareState(t.Context())
 
 			assert.Equal(t, tc.expectUnreadablePower, hwStatus.PoweredOn == nil)
 

@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
@@ -53,7 +54,7 @@ func (p *ironicProvisioner) buildServiceSteps(bmcAccess bmc.AccessDetails, data 
 	return serviceSteps, nil
 }
 
-func (p *ironicProvisioner) startServicing(bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.ServicingData) (success bool, result provisioner.Result, err error) {
+func (p *ironicProvisioner) startServicing(ctx context.Context, bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.ServicingData) (success bool, result provisioner.Result, err error) {
 	// Build service steps
 	serviceSteps, err := p.buildServiceSteps(bmcAccess, data)
 	if err != nil {
@@ -65,6 +66,7 @@ func (p *ironicProvisioner) startServicing(bmcAccess bmc.AccessDetails, ironicNo
 	if len(serviceSteps) != 0 {
 		p.log.Info("remove existing configuration and set new configuration", "serviceSteps", serviceSteps)
 		return p.tryChangeNodeProvisionState(
+			ctx,
 			ironicNode,
 			nodes.ProvisionStateOpts{
 				Target:       nodes.TargetService,
@@ -76,14 +78,14 @@ func (p *ironicProvisioner) startServicing(bmcAccess bmc.AccessDetails, ironicNo
 	return
 }
 
-func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
+func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.ServicingData, unprepared, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = transientError(err)
 		return result, started, err
 	}
 
-	ironicNode, err := p.getNode()
+	ironicNode, err := p.getNode(ctx)
 	if err != nil {
 		result, err = transientError(err)
 		return result, started, err
@@ -100,7 +102,7 @@ func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, 
 
 		if ironicNode.Maintenance {
 			p.log.Info("clearing maintenance flag after a servicing failure")
-			result, err = p.setMaintenanceFlag(ironicNode, false, "")
+			result, err = p.setMaintenanceFlag(ctx, ironicNode, false, "")
 			return result, started, err
 		}
 
@@ -109,7 +111,7 @@ func (p *ironicProvisioner) Service(data provisioner.ServicingData, unprepared, 
 		fallthrough
 	case nodes.Active:
 		if unprepared {
-			started, result, err = p.startServicing(bmcAccess, ironicNode, data)
+			started, result, err = p.startServicing(ctx, bmcAccess, ironicNode, data)
 			if started || result.Dirty || result.ErrorMessage != "" || err != nil {
 				return result, started, err
 			}

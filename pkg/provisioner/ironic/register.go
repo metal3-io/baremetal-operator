@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -46,7 +47,7 @@ func bmcAddressMatches(ironicNode *nodes.Node, driverInfo map[string]any) bool {
 // current set of credentials it has are different from the credentials
 // it has previously been using, without implying that either set of
 // credentials is correct.
-func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, credentialsChanged, restartOnFailure bool) (result provisioner.Result, provID string, err error) {
+func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.ManagementAccessData, credentialsChanged, restartOnFailure bool) (result provisioner.Result, provID string, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = operationFailed(err.Error())
@@ -81,7 +82,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 
 	p.debugLog.Info("validating management access")
 
-	ironicNode, err = p.findExistingHost(p.bootMACAddress)
+	ironicNode, err = p.findExistingHost(ctx, p.bootMACAddress)
 	if err != nil {
 		var target macAddressConflictError
 		if errors.As(err, &target) {
@@ -108,7 +109,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 	if ironicNode == nil {
 		p.log.Info("registering host in ironic")
 		var retry bool
-		ironicNode, retry, err = p.enrollNode(data, bmcAccess, driverInfo)
+		ironicNode, retry, err = p.enrollNode(ctx, data, bmcAccess, driverInfo)
 		if err != nil {
 			result, err = transientError(err)
 			return result, "", err
@@ -132,7 +133,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		// When node exists but has no assigned port to it by Ironic and actuall address (MAC) is present
 		// in host config and is not allocated to different node lets try to create port for this node.
 		if p.bootMACAddress != "" {
-			err = p.ensurePort(ironicNode)
+			err = p.ensurePort(ctx, ironicNode)
 			if err != nil {
 				result, err = transientError(err)
 				return result, provID, err
@@ -177,7 +178,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		}
 	}
 
-	ironicNode, success, result, err := p.tryUpdateNode(ironicNode, updater)
+	ironicNode, success, result, err := p.tryUpdateNode(ctx, ironicNode, updater)
 	if !success {
 		return result, provID, err
 	}
@@ -206,6 +207,7 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		}
 
 		result, err = p.changeNodeProvisionState(
+			ctx,
 			ironicNode,
 			nodes.ProvisionStateOpts{Target: nodes.TargetManage},
 		)
@@ -233,12 +235,12 @@ func (p *ironicProvisioner) Register(data provisioner.ManagementAccessData, cred
 		fallthrough
 
 	default:
-		result, err = p.configureNode(data, ironicNode, bmcAccess)
+		result, err = p.configureNode(ctx, data, ironicNode, bmcAccess)
 		return result, provID, err
 	}
 }
 
-func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails, driverInfo map[string]any) (ironicNode *nodes.Node, retry bool, err error) {
+func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails, driverInfo map[string]any) (ironicNode *nodes.Node, retry bool, err error) {
 	nodeCreateOpts := nodes.CreateOpts{
 		Driver:              bmcAccess.Driver(),
 		BIOSInterface:       bmcAccess.BIOSInterface(),
@@ -259,7 +261,7 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 		},
 	}
 
-	ironicNode, err = nodes.Create(p.ctx, p.client, nodeCreateOpts).Extract()
+	ironicNode, err = nodes.Create(ctx, p.client, nodeCreateOpts).Extract()
 	if err == nil {
 		p.publisher("Registered", "Registered new host")
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
@@ -272,7 +274,7 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 	// If we know the MAC, create a port. Otherwise we will have
 	// to do this after we run the introspection step.
 	if p.bootMACAddress != "" {
-		err = p.createPXEEnabledNodePort(ironicNode.UUID, p.bootMACAddress)
+		err = p.createPXEEnabledNodePort(ctx, ironicNode.UUID, p.bootMACAddress)
 		if err != nil {
 			return nil, true, err
 		}
@@ -281,20 +283,20 @@ func (p *ironicProvisioner) enrollNode(data provisioner.ManagementAccessData, bm
 	return ironicNode, false, nil
 }
 
-func (p *ironicProvisioner) ensurePort(ironicNode *nodes.Node) error {
-	nodeHasAssignedPort, err := p.nodeHasAssignedPort(ironicNode)
+func (p *ironicProvisioner) ensurePort(ctx context.Context, ironicNode *nodes.Node) error {
+	nodeHasAssignedPort, err := p.nodeHasAssignedPort(ctx, ironicNode)
 	if err != nil {
 		return err
 	}
 
 	if !nodeHasAssignedPort {
-		addressIsAllocatedToPort, err := p.isAddressAllocatedToPort(p.bootMACAddress)
+		addressIsAllocatedToPort, err := p.isAddressAllocatedToPort(ctx, p.bootMACAddress)
 		if err != nil {
 			return err
 		}
 
 		if !addressIsAllocatedToPort {
-			err = p.createPXEEnabledNodePort(ironicNode.UUID, p.bootMACAddress)
+			err = p.createPXEEnabledNodePort(ctx, ironicNode.UUID, p.bootMACAddress)
 			if err != nil {
 				return err
 			}

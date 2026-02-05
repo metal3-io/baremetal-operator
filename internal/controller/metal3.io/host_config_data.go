@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -32,7 +33,7 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (strin
 		Namespace: namespace,
 	}
 
-	secret, err := hcd.secretManager.ObtainSecret(key)
+	secret, err := hcd.secretManager.ObtainSecret(context.Background(), key)
 	if err != nil {
 		return "", err
 	}

@@ -68,7 +68,7 @@ func TestFindExistingHost(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			node, err := prov.findExistingHost("")
+			node, err := prov.findExistingHost(t.Context(), "")
 			t.Logf("requests: %s", tc.ironic.Requests)
 			if err != nil {
 				t.Fatalf("could not look up host: %s", err)
@@ -139,7 +139,7 @@ func TestFindExistingHostEmptyMAC(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			node, err := prov.findExistingHost(tc.bootMAC)
+			node, err := prov.findExistingHost(t.Context(), tc.bootMAC)
 
 			// Verify no port queries were made when MAC is empty
 			if tc.bootMAC == "" {

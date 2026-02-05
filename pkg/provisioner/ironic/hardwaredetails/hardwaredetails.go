@@ -83,9 +83,16 @@ func getLLDPData(lldp map[string]any) *metal3api.LLDP {
 
 func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.StandardPluginData) []metal3api.NIC {
 	var nics []metal3api.NIC
+
 	for _, intf := range ifdata {
 		pxeEnabled := ironicData.AllInterfaces[intf.Name].PXEEnabled
 		lldp := ironicData.ParsedLLDP[intf.Name]
+		// client_id from Ironic inventory (InterfaceType has ClientID with json:"client_id");
+		// same value appears in plugin_data.standard.all_interfaces[ifname], use that as fallback
+		clientID := intf.ClientID
+		if clientID == "" && ironicData.AllInterfaces[intf.Name].ClientID != "" {
+			clientID = ironicData.AllInterfaces[intf.Name].ClientID
+		}
 
 		vlans, vlanid := getVLANs(lldp)
 		lldpData := getLLDPData(lldp)
@@ -97,6 +104,7 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 					intf.Vendor, intf.Product), " "),
 				MAC:       intf.MACAddress,
+				ClientID:  clientID,
 				IP:        intf.IPV4Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,
@@ -111,6 +119,7 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 					intf.Vendor, intf.Product), " "),
 				MAC:       intf.MACAddress,
+				ClientID:  clientID,
 				IP:        intf.IPV6Address,
 				VLANs:     vlans,
 				VLANID:    vlanid,

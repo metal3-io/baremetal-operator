@@ -2494,7 +2494,8 @@ func TestGetHardwareProfileName(t *testing.T) {
 
 func TestGetHostArchitecture(t *testing.T) {
 	host := newDefaultHost(t)
-	assert.Equal(t, "x86_64", getHostArchitecture(host))
+	// The default architecture comes from the runtime when not specified
+	assert.Equal(t, getControllerArchitecture(), getHostArchitecture(host))
 
 	host.Spec.Architecture = "aarch64"
 	assert.Equal(t, "aarch64", getHostArchitecture(host))
@@ -2550,7 +2551,7 @@ func TestGetPreprovImageCreateUpdate(t *testing.T) {
 		Namespace: host.Namespace,
 	},
 		&img))
-	assert.Equal(t, "x86_64", img.Spec.Architecture)
+	assert.Equal(t, getControllerArchitecture(), img.Spec.Architecture)
 	assert.Equal(t, secretName, img.Spec.NetworkDataName)
 	assert.Equal(t, "42", img.Labels["answer.metal3.io"])
 
@@ -2576,17 +2577,18 @@ func TestGetPreprovImage(t *testing.T) {
 	host := newDefaultHost(t)
 	imageURL := "http://example.test/image.iso"
 	acceptFormats := []metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD}
+	arch := getControllerArchitecture()
 	image := &metal3api.PreprovisioningImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: namespace,
 		},
 		Spec: metal3api.PreprovisioningImageSpec{
-			Architecture:  "x86_64",
+			Architecture:  arch,
 			AcceptFormats: acceptFormats,
 		},
 		Status: metal3api.PreprovisioningImageStatus{
-			Architecture: "x86_64",
+			Architecture: arch,
 			Format:       metal3api.ImageFormatISO,
 			ImageUrl:     imageURL,
 			Conditions: []metav1.Condition{
@@ -2614,16 +2616,17 @@ func TestGetPreprovImage(t *testing.T) {
 func TestGetPreprovImageNotCurrent(t *testing.T) {
 	host := newDefaultHost(t)
 	imageURL := "http://example.test/image.iso"
+	arch := getControllerArchitecture()
 	image := &metal3api.PreprovisioningImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: namespace,
 		},
 		Spec: metal3api.PreprovisioningImageSpec{
-			Architecture: "x86_64",
+			Architecture: arch,
 		},
 		Status: metal3api.PreprovisioningImageStatus{
-			Architecture: "x86_64",
+			Architecture: arch,
 			Format:       metal3api.ImageFormatISO,
 			ImageUrl:     imageURL,
 			Conditions: []metav1.Condition{
@@ -2651,6 +2654,7 @@ func TestGetPreprovImageBeingDeleted(t *testing.T) {
 	imageURL := "http://example.test/image.iso"
 	acceptFormats := []metal3api.ImageFormat{metal3api.ImageFormatISO, metal3api.ImageFormatInitRD}
 	now := metav1.Now()
+	arch := getControllerArchitecture()
 	image := &metal3api.PreprovisioningImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              host.Name,
@@ -2659,11 +2663,11 @@ func TestGetPreprovImageBeingDeleted(t *testing.T) {
 			Finalizers:        []string{"test-finalizer"},
 		},
 		Spec: metal3api.PreprovisioningImageSpec{
-			Architecture:  "x86_64",
+			Architecture:  arch,
 			AcceptFormats: acceptFormats,
 		},
 		Status: metal3api.PreprovisioningImageStatus{
-			Architecture: "x86_64",
+			Architecture: arch,
 			Format:       metal3api.ImageFormatISO,
 			ImageUrl:     imageURL,
 			Conditions: []metav1.Condition{

@@ -57,15 +57,15 @@ type Factory interface {
 type HostConfigData interface {
 	// UserData is the interface for a function to retrieve user
 	// data for a host being provisioned.
-	UserData() (string, error)
+	UserData(ctx context.Context) (string, error)
 
 	// NetworkData is the interface for a function to retrieve netwok
 	// configuration for a host.
-	NetworkData() (string, error)
+	NetworkData(ctx context.Context) (string, error)
 
 	// MetaData is the interface for a function to retrieve metadata
 	// configuration for a host.
-	MetaData() (string, error)
+	MetaData(ctx context.Context) (string, error)
 }
 
 type PreprovisioningImage struct {

@@ -1165,7 +1165,7 @@ func (p *ironicProvisioner) Prepare(ctx context.Context, data provisioner.Prepar
 	return result, started, err
 }
 
-func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (configDrive nodes.ConfigDrive, err error) {
+func (p *ironicProvisioner) getConfigDrive(ctx context.Context, data provisioner.ProvisionData) (configDrive nodes.ConfigDrive, err error) {
 	// In theory, Ironic can support configdrive with live ISO by attaching
 	// it to another virtual media slot. However, some hardware does not
 	// support two virtual media devices at the same time, so we shouldn't
@@ -1176,7 +1176,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	}
 
 	// Retrieve instance specific user data (cloud-init, ignition, etc).
-	userData, err := data.HostConfig.UserData()
+	userData, err := data.HostConfig.UserData(ctx)
 	if err != nil {
 		return configDrive, fmt.Errorf("could not retrieve user data: %w", err)
 	}
@@ -1185,7 +1185,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 	}
 
 	// Retrieve OpenStack network_data. Default value is empty.
-	networkDataRaw, err := data.HostConfig.NetworkData()
+	networkDataRaw, err := data.HostConfig.NetworkData(ctx)
 	if err != nil {
 		return configDrive, fmt.Errorf("could not retrieve network data: %w", err)
 	}
@@ -1206,7 +1206,7 @@ func (p *ironicProvisioner) getConfigDrive(data provisioner.ProvisionData) (conf
 		"local_hostname":   p.objectMeta.Name,
 		"name":             p.objectMeta.Name,
 	}
-	metaDataRaw, err := data.HostConfig.MetaData()
+	metaDataRaw, err := data.HostConfig.MetaData(ctx)
 	if err != nil {
 		return configDrive, fmt.Errorf("could not retrieve metadata: %w", err)
 	}
@@ -1275,7 +1275,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 			return provResult, err
 		}
 
-		configDrive, err = p.getConfigDrive(data)
+		configDrive, err = p.getConfigDrive(ctx, data)
 		if err != nil {
 			return transientError(err)
 		}
@@ -1312,7 +1312,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 		// After it is available, we need to start provisioning by
 		// setting the state to "active".
 
-		configDrive, err = p.getConfigDrive(data)
+		configDrive, err = p.getConfigDrive(ctx, data)
 		if err != nil {
 			return transientError(err)
 		}

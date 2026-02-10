@@ -832,17 +832,6 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 	}
 
 	switch info.host.Status.Provisioning.State {
-	case metal3api.StateInspecting, metal3api.StateProvisioning:
-		// In these states we need the PreprovisioningImage to be ready
-		// before we can proceed with registration
-		if preprovImgFormats != nil {
-			info.log.Info("waiting for PreprovisioningImage to be ready before registering")
-			return actionContinue{preprovImageRetryDelay}
-		}
-	default:
-	}
-
-	switch info.host.Status.Provisioning.State {
 	case metal3api.StateRegistering, metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
 		// No need to create PreprovisioningImage if host is not yet registered
 		preprovImgFormats = nil
@@ -872,7 +861,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		log:           info.log.WithName("host_config_data"),
 		secretManager: r.secretManager(ctx, info.log),
 	}
-	preprovisioningNetworkData, err := hostConf.PreprovisioningNetworkData()
+	preprovisioningNetworkData, err := hostConf.PreprovisioningNetworkData(ctx)
 	if err != nil {
 		return recordActionFailure(info, metal3api.RegistrationError, "failed to read preprovisioningNetworkData")
 	}

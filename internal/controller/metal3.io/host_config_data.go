@@ -23,7 +23,7 @@ type hostConfigData struct {
 // Generic method for data extraction from a Secret. Function uses dataKey
 // parameter to detirmine which data to return in case secret contins multiple
 // keys.
-func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (string, error) {
+func (hcd *hostConfigData) getSecretData(ctx context.Context, name, namespace, dataKey string) (string, error) {
 	if namespace != hcd.host.Namespace {
 		return "", fmt.Errorf("%s secret must be in same namespace as host %s/%s", dataKey, hcd.host.Namespace, hcd.host.Name)
 	}
@@ -33,7 +33,7 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (strin
 		Namespace: namespace,
 	}
 
-	secret, err := hcd.secretManager.ObtainSecret(context.Background(), key)
+	secret, err := hcd.secretManager.ObtainSecret(ctx, key)
 	if err != nil {
 		return "", err
 	}
@@ -53,7 +53,7 @@ func (hcd *hostConfigData) getSecretData(name, namespace, dataKey string) (strin
 }
 
 // UserData get Operating System configuration data.
-func (hcd *hostConfigData) UserData() (string, error) {
+func (hcd *hostConfigData) UserData(ctx context.Context) (string, error) {
 	if hcd.host.Spec.UserData == nil {
 		hcd.log.Info("UserData is not set return empty string")
 		return "", nil
@@ -63,6 +63,7 @@ func (hcd *hostConfigData) UserData() (string, error) {
 		namespace = hcd.host.Namespace
 	}
 	return hcd.getSecretData(
+		ctx,
 		hcd.host.Spec.UserData.Name,
 		namespace,
 		"userData",
@@ -70,7 +71,7 @@ func (hcd *hostConfigData) UserData() (string, error) {
 }
 
 // NetworkData get network configuration.
-func (hcd *hostConfigData) NetworkData() (string, error) {
+func (hcd *hostConfigData) NetworkData(ctx context.Context) (string, error) {
 	networkData := hcd.host.Spec.NetworkData
 	if networkData == nil && hcd.host.Spec.PreprovisioningNetworkDataName != "" {
 		networkData = &corev1.SecretReference{
@@ -86,6 +87,7 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 		namespace = hcd.host.Namespace
 	}
 	networkDataRaw, err := hcd.getSecretData(
+		ctx,
 		networkData.Name,
 		namespace,
 		"networkData",
@@ -101,11 +103,12 @@ func (hcd *hostConfigData) NetworkData() (string, error) {
 }
 
 // PreprovisioningNetworkData get preprovisioning network configuration.
-func (hcd *hostConfigData) PreprovisioningNetworkData() (string, error) {
+func (hcd *hostConfigData) PreprovisioningNetworkData(ctx context.Context) (string, error) {
 	if hcd.host.Spec.PreprovisioningNetworkDataName == "" {
 		return "", nil
 	}
 	networkDataRaw, err := hcd.getSecretData(
+		ctx,
 		hcd.host.Spec.PreprovisioningNetworkDataName,
 		hcd.host.Namespace,
 		"networkData",
@@ -121,7 +124,7 @@ func (hcd *hostConfigData) PreprovisioningNetworkData() (string, error) {
 }
 
 // MetaData get host metatdata.
-func (hcd *hostConfigData) MetaData() (string, error) {
+func (hcd *hostConfigData) MetaData(ctx context.Context) (string, error) {
 	if hcd.host.Spec.MetaData == nil {
 		hcd.log.Info("MetaData is not set returning empty(nil) data")
 		return "", nil
@@ -131,6 +134,7 @@ func (hcd *hostConfigData) MetaData() (string, error) {
 		namespace = hcd.host.Namespace
 	}
 	return hcd.getSecretData(
+		ctx,
 		hcd.host.Spec.MetaData.Name,
 		namespace,
 		"metaData",

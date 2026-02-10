@@ -39,15 +39,15 @@ func NewHostConfigData(userData string, networkData string, metaData string) pro
 	}
 }
 
-func (cd *fixtureHostConfigData) UserData() (string, error) {
+func (cd *fixtureHostConfigData) UserData(_ context.Context) (string, error) {
 	return cd.userData, nil
 }
 
-func (cd *fixtureHostConfigData) NetworkData() (string, error) {
+func (cd *fixtureHostConfigData) NetworkData(_ context.Context) (string, error) {
 	return cd.networkData, nil
 }
 
-func (cd *fixtureHostConfigData) MetaData() (string, error) {
+func (cd *fixtureHostConfigData) MetaData(_ context.Context) (string, error) {
 	return cd.metaData, nil
 }
 
@@ -347,8 +347,8 @@ func (p *fixtureProvisioner) Delete(_ context.Context) (result provisioner.Resul
 // for the target system.  It may be called multiple times,
 // and should return true for its dirty  flag until the
 // deletion operation is completed.
-func (p *fixtureProvisioner) Detach(_ context.Context) (result provisioner.Result, err error) {
-	return p.Delete(context.TODO())
+func (p *fixtureProvisioner) Detach(ctx context.Context) (result provisioner.Result, err error) {
+	return p.Delete(ctx)
 }
 
 // PowerOn ensures the server is powered on independently of any image

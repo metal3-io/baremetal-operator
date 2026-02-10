@@ -47,7 +47,7 @@ func TestLabelSecrets(t *testing.T) {
 		{
 			name: "user-data",
 			getter: func(hcd *hostConfigData) (string, error) {
-				return hcd.UserData()
+				return hcd.UserData(t.Context())
 			},
 			hostSpec: &metal3api.BareMetalHostSpec{
 				UserData: &corev1.SecretReference{
@@ -59,7 +59,7 @@ func TestLabelSecrets(t *testing.T) {
 		{
 			name: "meta-data",
 			getter: func(hcd *hostConfigData) (string, error) {
-				return hcd.MetaData()
+				return hcd.MetaData(t.Context())
 			},
 			hostSpec: &metal3api.BareMetalHostSpec{
 				MetaData: &corev1.SecretReference{
@@ -71,7 +71,7 @@ func TestLabelSecrets(t *testing.T) {
 		{
 			name: "network-data",
 			getter: func(hcd *hostConfigData) (string, error) {
-				return hcd.NetworkData()
+				return hcd.NetworkData(t.Context())
 			},
 			hostSpec: &metal3api.BareMetalHostSpec{
 				NetworkData: &corev1.SecretReference{
@@ -435,7 +435,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				secretManager: secretutils.NewSecretManager(baselog, c, c),
 			}
 
-			actualUserData, err := hcd.UserData()
+			actualUserData, err := hcd.UserData(t.Context())
 			if err != nil && !tc.ErrUserData {
 				t.Fatal(err)
 			}
@@ -444,7 +444,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				t.Fatal(fmt.Errorf("Failed to assert UserData. Expected '%s' got '%s'", tc.ExpectedUserData, actualUserData))
 			}
 
-			actualNetworkData, err := hcd.NetworkData()
+			actualNetworkData, err := hcd.NetworkData(t.Context())
 			if err != nil && !tc.ErrNetworkData {
 				t.Fatal(err)
 			}
@@ -453,7 +453,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				t.Fatal(fmt.Errorf("Failed to assert NetworkData. Expected '%s' got '%s'", tc.ExpectedNetworkData, actualNetworkData))
 			}
 
-			actualPreprovisioningNetworkData, err := hcd.PreprovisioningNetworkData()
+			actualPreprovisioningNetworkData, err := hcd.PreprovisioningNetworkData(t.Context())
 			if err != nil && !tc.ErrPreprovisioningNetworkData {
 				t.Fatal(err)
 			}
@@ -462,7 +462,7 @@ func TestProvisionWithHostConfig(t *testing.T) {
 				t.Fatal(fmt.Errorf("Failed to assert PreprovisioningNetworkData. Expected '%s' got '%s'", tc.ExpectedPreprovisioningNetworkData, actualPreprovisioningNetworkData))
 			}
 
-			actualMetaData, err := hcd.MetaData()
+			actualMetaData, err := hcd.MetaData(t.Context())
 			if err != nil && !tc.ErrMetaData {
 				t.Fatal(err)
 			}

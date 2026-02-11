@@ -47,6 +47,24 @@ const (
 	kernelParamsKey  = "kernel_append_params"
 )
 
+// AllowedHostProvisionerProperties defines which properties users can override
+// via the BareMetalHost spec.hostProvisionerProperties field.
+var AllowedHostProvisionerProperties = map[string]bool{
+	"vendor": true,
+}
+
+// applyHostProvisionerProperties applies allowed host provisioner properties to the
+// given properties map, logging a warning for any unsupported properties.
+func (p *ironicProvisioner) applyHostProvisionerProperties(properties map[string]any, hostProps map[string]string) {
+	for key, value := range hostProps {
+		if AllowedHostProvisionerProperties[key] {
+			properties[key] = value
+		} else {
+			p.log.Info("ignoring unsupported host provisioner property", "key", key, "value", value)
+		}
+	}
+}
+
 type macAddressConflictError struct {
 	Address      string
 	ExistingNode string
@@ -336,6 +354,7 @@ func (p *ironicProvisioner) configureNode(ctx context.Context, data provisioner.
 	if data.CPUArchitecture != "" {
 		opts["cpu_arch"] = data.CPUArchitecture
 	}
+	p.applyHostProvisionerProperties(opts, data.HostProvisionerProperties)
 	updater.SetPropertiesOpts(opts, ironicNode)
 
 	_, success, result, err := p.tryUpdateNode(ctx, ironicNode, updater)

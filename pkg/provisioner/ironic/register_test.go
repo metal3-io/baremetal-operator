@@ -1466,3 +1466,141 @@ func TestRegisterDeprovisioningCleaningDisabledNoPreprovisioningImage(t *testing
 	require.NoError(t, err)
 	assert.Empty(t, result.ErrorMessage)
 }
+
+func TestRegisterCreateNodeWithHostProvisionerProperties(t *testing.T) {
+	// Test that HostProvisionerProperties are applied when creating a new node
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Spec.Image = nil
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{
+		HostProvisionerProperties: map[string]string{
+			"vendor": "ami",
+		},
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
+	assert.Equal(t, createdNode.UUID, provID)
+
+	// Verify that the vendor property was set
+	assert.Equal(t, "ami", createdNode.Properties["vendor"])
+}
+
+func TestRegisterCreateNodeWithDisallowedHostProvisionerProperties(t *testing.T) {
+	// Test that disallowed HostProvisionerProperties are NOT applied when creating a node
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Spec.Image = nil
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(provisioner.ManagementAccessData{
+		HostProvisionerProperties: map[string]string{
+			"disallowed_key": "some_value",
+		},
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
+	assert.Equal(t, createdNode.UUID, provID)
+
+	// Verify that the disallowed property was NOT set
+	_, exists := createdNode.Properties["disallowed_key"]
+	assert.False(t, exists, "disallowed property should not be set")
+}
+
+func TestRegisterExistingNodeWithHostProvisionerProperties(t *testing.T) {
+	// Test that HostProvisionerProperties are applied when updating an existing node
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = "uuid"
+
+	ironic := testserver.NewIronic(t).
+		Node(nodes.Node{
+			Name:           host.Namespace + nameSeparator + host.Name,
+			UUID:           "uuid",
+			ProvisionState: string(nodes.Manageable),
+			DriverInfo: map[string]any{
+				"deploy_kernel":  "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+				"test_address":   "test.bmc",
+				"test_username":  "",
+				"test_password":  "******",
+				"test_port":      "42",
+			},
+			Properties: map[string]any{"capabilities": ""},
+		}).NodeUpdate(nodes.Node{
+		UUID: "uuid",
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, _, err := prov.Register(provisioner.ManagementAccessData{
+		HostProvisionerProperties: map[string]string{
+			"vendor": "ami",
+		},
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+
+	// Verify that the vendor property was included in the update
+	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
+	require.NotEmpty(t, updates, "expected node updates")
+
+	// Check that vendor was added to properties
+	foundVendorUpdate := false
+	for _, update := range updates {
+		if update.Path == "/properties/vendor" && update.Value == "ami" {
+			foundVendorUpdate = true
+			break
+		}
+	}
+	assert.True(t, foundVendorUpdate, "vendor property should be in /properties/vendor update; got updates: %+v", updates)
+}

@@ -241,6 +241,12 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 }
 
 func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails, driverInfo map[string]any) (ironicNode *nodes.Node, retry bool, err error) {
+	properties := map[string]any{
+		"capabilities": buildCapabilitiesValue(nil, data.BootMode),
+		"cpu_arch":     data.CPUArchitecture,
+	}
+	p.applyHostProvisionerProperties(properties, data.HostProvisionerProperties)
+
 	nodeCreateOpts := nodes.CreateOpts{
 		Driver:              bmcAccess.Driver(),
 		BIOSInterface:       bmcAccess.BIOSInterface(),
@@ -255,10 +261,7 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 		RAIDInterface:       bmcAccess.RAIDInterface(),
 		VendorInterface:     bmcAccess.VendorInterface(),
 		DisablePowerOff:     &data.DisablePowerOff,
-		Properties: map[string]any{
-			"capabilities": buildCapabilitiesValue(nil, data.BootMode),
-			"cpu_arch":     data.CPUArchitecture,
-		},
+		Properties:          properties,
 	}
 
 	ironicNode, err = nodes.Create(ctx, p.client, nodeCreateOpts).Extract()

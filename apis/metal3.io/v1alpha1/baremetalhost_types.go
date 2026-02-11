@@ -584,6 +584,12 @@ type BareMetalHostSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=disabled;agent
 	InspectionMode InspectionMode `json:"inspectionMode,omitempty"`
+
+	// HostProvisionerProperties allows users to set specific properties
+	// on the provisioner's host representation (e.g., Ironic node properties).
+	// Only properties in the provisioner's allowlist can be set.
+	// +optional
+	HostProvisionerProperties map[string]string `json:"hostProvisionerProperties,omitempty"`
 }
 
 // AutomatedCleaningMode is the interface to enable/disable automated cleaning

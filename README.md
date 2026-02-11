@@ -27,6 +27,7 @@ components, see the [Metal³ docs](https://github.com/metal3-io/metal3-docs).
 
 ## Resources
 
+- [API overview](docs/api.md)
 - [API documentation](docs/api.md)
 - [Setup Development Environment](docs/dev-setup.md)
 - [Configuration](docs/configuration.md)

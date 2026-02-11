@@ -225,6 +225,10 @@ manifests-generate: $(CONTROLLER_GEN)
 	cd apis; $(abspath $<) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:webhook:dir=../config/base/webhook/ output:crd:artifacts:config=../config/base/crds/bases
 	$< rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/base/rbac
 
+.PHONY: generate-api-docs
+generate-api-docs: manifests
+	./hack/gen-api-doc.sh
+
 .PHONY: manifests-kustomize
 manifests-kustomize: $(KUSTOMIZE)
 	$< build config/default > config/render/capm3.yaml

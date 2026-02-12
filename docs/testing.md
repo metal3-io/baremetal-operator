@@ -41,7 +41,7 @@ of ``podman``. This you can edit to ``docker`` as well.
     export CONTAINER_RUNTIME=docker
     ```
 
-2. From the operator parent dir, you can invoke the hack scripts
+1. From the operator parent dir, you can invoke the hack scripts
 
     ```bash
     ./hack/golint.sh
@@ -55,7 +55,7 @@ of ``podman``. This you can edit to ``docker`` as well.
     sh: 0: Can't open /go/src/github.com/metal3-io/baremetal-operator/hack/golint.sh
     ```
 
-3. Upon successful execution, you should see the following output. I already
+1. Upon successful execution, you should see the following output. I already
     had all the images available from a previous run, you might see the images
     getting downloaded if you're running for the very first time.
 

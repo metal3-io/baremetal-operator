@@ -17,9 +17,9 @@ Several conditions must be met in order to initiate provisioning.
 1. The host `spec.image.url` field must contain a URL for a valid
    image file that is visible from within the cluster and from the
    host receiving the image.
-2. The host must have `online` set to `true` so that the operator will
+1. The host must have `online` set to `true` so that the operator will
    keep the host powered on.
-3. The host must have all of the BMC details.
+1. The host must have all of the BMC details.
 
 To initiate deprovisioning, clear the image URL from the host spec.
 

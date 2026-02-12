@@ -57,8 +57,8 @@ It is possible to deploy ```baremetal-operator``` with three different operator
 configurations, namely:
 
 1. operator with ironic
-2. operator without ironic
-3. ironic without operator
+1. operator without ironic
+1. ironic without operator
 
 A detailed overview of the configuration is presented in [Bare Metal Operator
 and Ironic Configuration](https://book.metal3.io/bmo/install_baremetal_operator)

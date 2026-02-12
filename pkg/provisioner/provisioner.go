@@ -124,6 +124,7 @@ type ProvisionData struct {
 	HardwareProfile profile.Profile
 	RootDeviceHints *metal3api.RootDeviceHints
 	CustomDeploy    *metal3api.CustomDeploy
+	ImagePullSecret string
 }
 
 type HTTPHeaders []map[string]string

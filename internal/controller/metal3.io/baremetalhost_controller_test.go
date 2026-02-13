@@ -3231,7 +3231,7 @@ func TestComputeConditions(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			computeConditions(tc.BareMetalHost, nil)
+			computeConditions(t.Context(), tc.BareMetalHost, nil)
 			if tc.isManageable {
 				assert.True(t, conditions.IsTrue(tc.BareMetalHost, metal3api.ManageableCondition))
 			} else {

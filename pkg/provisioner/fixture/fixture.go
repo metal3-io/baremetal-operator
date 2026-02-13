@@ -432,6 +432,6 @@ func (p *fixtureProvisioner) DetachDataImage(_ context.Context) (err error) {
 	return nil
 }
 
-func (p *fixtureProvisioner) HasPowerFailure() bool {
+func (p *fixtureProvisioner) HasPowerFailure(_ context.Context) bool {
 	return p.state != nil && p.state.PowerFailed
 }

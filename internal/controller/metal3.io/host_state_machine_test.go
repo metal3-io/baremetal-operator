@@ -1428,7 +1428,7 @@ func (p *mockProvisioner) DetachDataImage(context.Context) (err error) {
 	return nil
 }
 
-func (p *mockProvisioner) HasPowerFailure() bool {
+func (p *mockProvisioner) HasPowerFailure(_ context.Context) bool {
 	return false
 }
 

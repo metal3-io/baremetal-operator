@@ -340,6 +340,6 @@ func (p *demoProvisioner) DetachDataImage(_ context.Context) (err error) {
 	return nil
 }
 
-func (p *demoProvisioner) HasPowerFailure() bool {
+func (p *demoProvisioner) HasPowerFailure(_ context.Context) bool {
 	return false
 }

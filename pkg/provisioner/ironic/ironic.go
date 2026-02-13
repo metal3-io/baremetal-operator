@@ -1982,8 +1982,8 @@ func (p *ironicProvisioner) DetachDataImage(ctx context.Context) (err error) {
 	return nil
 }
 
-func (p *ironicProvisioner) HasPowerFailure() bool {
-	node, err := p.getNode()
+func (p *ironicProvisioner) HasPowerFailure(ctx context.Context) bool {
+	node, err := p.getNode(ctx)
 	if err != nil {
 		p.log.Error(err, "Ignored error while checking for Power Failure")
 		return false

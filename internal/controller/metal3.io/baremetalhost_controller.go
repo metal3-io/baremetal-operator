@@ -249,7 +249,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
 			"provisioning state", host.Status.Provisioning.State)
-		computeConditions(host, prov)
+		computeConditions(ctx, host, prov)
 		err = r.saveHostStatus(ctx, host)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to save host status after %q: %w", initialState, err)
@@ -2223,7 +2223,7 @@ func setConditionsProgressing(host *metal3api.BareMetalHost, progressingReason s
 	setConditionTrue(host, metal3api.ProgressingCondition, progressingReason)
 }
 
-func computeConditions(host *metal3api.BareMetalHost, prov provisioner.Provisioner) {
+func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov provisioner.Provisioner) {
 	switch host.Status.Provisioning.State {
 	case metal3api.StateNone, metal3api.StateUnmanaged:
 		setConditionFalse(host, metal3api.ManageableCondition, metal3api.NotManagedReason)
@@ -2277,7 +2277,7 @@ func computeConditions(host *metal3api.BareMetalHost, prov provisioner.Provision
 		setConditionFalse(host, metal3api.ProgressingCondition, metal3api.DetachedReason)
 	default:
 	}
-	if prov != nil && prov.HasPowerFailure() {
+	if prov != nil && prov.HasPowerFailure(ctx) {
 		setConditionFalse(host, metal3api.ManageableCondition, metal3api.PowerFailureReason)
 	}
 }

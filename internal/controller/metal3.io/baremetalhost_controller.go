@@ -39,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -250,6 +251,7 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
 			"provisioning state", host.Status.Provisioning.State)
+		computeConditions(host, prov)
 		err = r.saveHostStatus(ctx, host)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to save host status after %q: %w", initialState, err)
@@ -2197,6 +2199,81 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(info *reconcileInfo)
 
 	info.log.Info("hostFirmwareComponents no updates", "namespacename", info.request.NamespacedName)
 	return false, nil, nil
+}
+
+func setConditionTrue(host *metal3api.BareMetalHost, typ, reason string) {
+	conditions.Set(host, metav1.Condition{Type: typ, Status: metav1.ConditionTrue, Reason: reason})
+}
+
+func setConditionFalse(host *metal3api.BareMetalHost, typ, reason string) {
+	conditions.Set(host, metav1.Condition{Type: typ, Status: metav1.ConditionFalse, Reason: reason})
+}
+
+func setConditionsProgressing(host *metal3api.BareMetalHost, progressingReason string) {
+	setConditionTrue(host, metal3api.ManageableCondition, metal3api.ManageableReason)
+	setConditionFalse(host, metal3api.AvailableForProvisioningCondition, metal3api.NotAvailableReason)
+	setConditionFalse(host, metal3api.ProvisionedCondition, metal3api.NotProvisionedReason)
+	setConditionFalse(host, metal3api.ReadyCondition, metal3api.NotProvisionedReason)
+	setConditionTrue(host, metal3api.ProgressingCondition, progressingReason)
+}
+
+func computeConditions(host *metal3api.BareMetalHost, prov provisioner.Provisioner) {
+	switch host.Status.Provisioning.State {
+	case metal3api.StateNone, metal3api.StateUnmanaged:
+		setConditionFalse(host, metal3api.ManageableCondition, metal3api.NotManagedReason)
+		setConditionFalse(host, metal3api.AvailableForProvisioningCondition, metal3api.NotAvailableReason)
+		setConditionFalse(host, metal3api.ProvisionedCondition, metal3api.NotProvisionedReason)
+		setConditionFalse(host, metal3api.ReadyCondition, metal3api.NotProvisionedReason)
+		setConditionFalse(host, metal3api.ProgressingCondition, metal3api.NotProgressingReason)
+	case metal3api.StateRegistering:
+		if host.Status.OperationalStatus == metal3api.OperationalStatusError {
+			setConditionFalse(host, metal3api.ManageableCondition, metal3api.RegistrationFailedReason)
+		} else {
+			setConditionFalse(host, metal3api.ManageableCondition, metal3api.RegisteringReason)
+		}
+		setConditionFalse(host, metal3api.AvailableForProvisioningCondition, metal3api.NotAvailableReason)
+		setConditionFalse(host, metal3api.ProvisionedCondition, metal3api.NotProvisionedReason)
+		setConditionFalse(host, metal3api.ReadyCondition, metal3api.NotProvisionedReason)
+		setConditionTrue(host, metal3api.ProgressingCondition, metal3api.RegisteringReason)
+	case metal3api.StatePreparing:
+		setConditionsProgressing(host, metal3api.PreparingReason)
+	case metal3api.StateReady, metal3api.StateAvailable:
+		setConditionTrue(host, metal3api.ManageableCondition, metal3api.ManageableReason)
+		setConditionTrue(host, metal3api.AvailableForProvisioningCondition, metal3api.AvailableReason)
+		setConditionFalse(host, metal3api.ProvisionedCondition, metal3api.NotProvisionedReason)
+		setConditionFalse(host, metal3api.ReadyCondition, metal3api.NotProvisionedReason)
+		setConditionFalse(host, metal3api.ProgressingCondition, metal3api.NotProgressingReason)
+	case metal3api.StateProvisioning:
+		setConditionsProgressing(host, metal3api.ProvisioningReason)
+	case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned:
+		setConditionTrue(host, metal3api.ManageableCondition, metal3api.ManageableReason)
+		setConditionFalse(host, metal3api.AvailableForProvisioningCondition, metal3api.NotAvailableReason)
+		setConditionTrue(host, metal3api.ProvisionedCondition, metal3api.ProvisionedReason)
+		setConditionTrue(host, metal3api.ReadyCondition, metal3api.ProvisionedReason)
+		setConditionFalse(host, metal3api.ProgressingCondition, metal3api.NotProgressingReason)
+	case metal3api.StateDeprovisioning:
+		setConditionsProgressing(host, metal3api.DeprovisioningReason)
+	// StateMatchProfile should not be set anymore.
+	case metal3api.StateInspecting, metal3api.StateMatchProfile:
+		setConditionsProgressing(host, metal3api.InspectingReason)
+	case metal3api.StatePoweringOffBeforeDelete:
+		setConditionsProgressing(host, metal3api.PoweringOffBeforeDeleteReason)
+	case metal3api.StateDeleting:
+		setConditionsProgressing(host, metal3api.DeletingReason)
+	}
+	switch host.Status.OperationalStatus {
+	case metal3api.OperationalStatusError:
+		setConditionFalse(host, metal3api.ReadyCondition, metal3api.ErrorReason)
+	case metal3api.OperationalStatusServicing:
+		setConditionFalse(host, metal3api.ReadyCondition, metal3api.ServicingReason)
+	case metal3api.OperationalStatusDetached:
+		setConditionFalse(host, metal3api.ReadyCondition, metal3api.DetachedReason)
+		setConditionFalse(host, metal3api.ProgressingCondition, metal3api.DetachedReason)
+	default:
+	}
+	if prov != nil && prov.HasPowerFailure() {
+		setConditionFalse(host, metal3api.ManageableCondition, metal3api.PowerFailureReason)
+	}
 }
 
 func (r *BareMetalHostReconciler) saveHostStatus(ctx context.Context, host *metal3api.BareMetalHost) error {

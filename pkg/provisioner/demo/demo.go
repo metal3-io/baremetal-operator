@@ -277,7 +277,7 @@ func (p *demoProvisioner) Deprovision(_ bool, _ metal3api.AutomatedCleaningMode)
 // Delete removes the host from the provisioning system. It may be
 // called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
+func (p *demoProvisioner) Delete(_ bool) (result provisioner.Result, err error) {
 	p.log.Info("deleting host")
 	return result, nil
 }
@@ -287,7 +287,7 @@ func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
 // for the target system.  It may be called multiple times,
 // and should return true for its dirty  flag until the
 // deletion operation is completed.
-func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
+func (p *demoProvisioner) Detach(_ bool) (result provisioner.Result, err error) {
 	p.log.Info("detaching host")
 	return result, nil
 }

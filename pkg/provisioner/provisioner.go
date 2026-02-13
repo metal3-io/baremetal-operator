@@ -91,7 +91,8 @@ type AdoptData struct {
 }
 
 type InspectData struct {
-	BootMode metal3api.BootMode
+	BootMode        metal3api.BootMode
+	CPUArchitecture string
 }
 
 // FirmwareConfig and FirmwareSettings are used for implementation of similar functionality

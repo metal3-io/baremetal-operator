@@ -229,6 +229,8 @@ type Provisioner interface {
 
 	// Detach DataImage
 	DetachDataImage(ctx context.Context) (err error)
+
+	HasPowerFailure() bool
 }
 
 // Result holds the response from a call in the Provsioner API.

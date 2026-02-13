@@ -339,3 +339,7 @@ func (p *demoProvisioner) AttachDataImage(_ context.Context, _ string) (err erro
 func (p *demoProvisioner) DetachDataImage(_ context.Context) (err error) {
 	return nil
 }
+
+func (p *demoProvisioner) HasPowerFailure() bool {
+	return false
+}

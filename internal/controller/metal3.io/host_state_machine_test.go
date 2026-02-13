@@ -1428,6 +1428,10 @@ func (p *mockProvisioner) DetachDataImage(context.Context) (err error) {
 	return nil
 }
 
+func (p *mockProvisioner) HasPowerFailure() bool {
+	return false
+}
+
 func TestUpdateBootModeStatus(t *testing.T) {
 	testCases := []struct {
 		Scenario       string

@@ -4,6 +4,8 @@ config:
   ul-indent:
     # Kramdown wanted us to have 3 earlier, tho this CLI recommends 2 or 4
     indent: 3
+  ol-prefix:
+    style: "one"
   line-length:
     tables: false
     code_blocks: false

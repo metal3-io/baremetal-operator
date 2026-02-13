@@ -801,7 +801,7 @@ func (p *ironicProvisioner) GetFirmwareComponents(ctx context.Context) ([]metal3
 			}
 		}
 		componentsInfo = append(componentsInfo, component)
-		p.log.Info("firmware component added for node", "component", fwc.Component, "node", ironicNode.UUID)
+		p.log.V(1).Info("firmware component found for node", "component", fwc.Component, "node", ironicNode.UUID)
 	}
 
 	return componentsInfo, componentListErr
@@ -1980,4 +1980,13 @@ func (p *ironicProvisioner) DetachDataImage(ctx context.Context) (err error) {
 	}
 
 	return nil
+}
+
+func (p *ironicProvisioner) HasPowerFailure() bool {
+	node, err := p.getNode()
+	if err != nil {
+		p.log.Error(err, "Ignored error while checking for Power Failure")
+		return false
+	}
+	return node.Fault == "power failure"
 }

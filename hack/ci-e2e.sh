@@ -103,7 +103,7 @@ sudo iptables -L FORWARD -n -v
 IP_ADDRESS="192.168.222.1"
 
 # Build vbmctl
-make build-vbmctl
+make build-legacy-vbmctl
 # Create VMs to act as BMHs in the tests.
 ./bin/vbmctl --yaml-source-file "${E2E_BMCS_CONF_FILE}"
 

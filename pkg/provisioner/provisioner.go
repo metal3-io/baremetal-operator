@@ -84,6 +84,7 @@ type ManagementAccessData struct {
 	HasCustomDeploy            bool
 	DisablePowerOff            bool
 	CPUArchitecture            string
+	HostProvisionerProperties  map[string]string
 }
 
 type AdoptData struct {

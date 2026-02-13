@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# This component patches the Ironic CR to use a different provisioning IP.
+# This allows upgrade tests to run on a separate kind cluster without
+# conflicting with the main e2e cluster, while keeping the default ports.
+
+patches:
+- target:
+    kind: Ironic
+    name: ironic
+  patch: |-
+    - op: replace
+      path: /spec/networking/ipAddress
+      value: "192.168.222.3"
+- target:
+    kind: Certificate
+    name: ironic-cert
+  patch: |-
+    - op: replace
+      path: /spec/ipAddresses/0
+      value: "192.168.222.3"

@@ -57,15 +57,15 @@ type Factory interface {
 type HostConfigData interface {
 	// UserData is the interface for a function to retrieve user
 	// data for a host being provisioned.
-	UserData() (string, error)
+	UserData(ctx context.Context) (string, error)
 
 	// NetworkData is the interface for a function to retrieve netwok
 	// configuration for a host.
-	NetworkData() (string, error)
+	NetworkData(ctx context.Context) (string, error)
 
 	// MetaData is the interface for a function to retrieve metadata
 	// configuration for a host.
-	MetaData() (string, error)
+	MetaData(ctx context.Context) (string, error)
 }
 
 type PreprovisioningImage struct {
@@ -138,7 +138,7 @@ type Provisioner interface {
 	// current set of credentials it has are different from the credentials
 	// it has previously been using, without implying that either set of
 	// credentials is correct.
-	Register(data ManagementAccessData, credentialsChanged, restartOnFailure bool) (result Result, provID string, err error)
+	Register(ctx context.Context, data ManagementAccessData, credentialsChanged, restartOnFailure bool) (result Result, provID string, err error)
 
 	// PreprovisioningImageFormats returns a list of acceptable formats for a
 	// pre-provisioning image to be built by a PreprovisioningImage object. The
@@ -149,89 +149,88 @@ type Provisioner interface {
 	// details of devices discovered on the hardware. It may be called
 	// multiple times, and should return true for its dirty flag until the
 	// inspection is completed.
-	InspectHardware(data InspectData, restartOnFailure, refresh, forceReboot bool) (result Result, started bool, details *metal3api.HardwareDetails, err error)
+	InspectHardware(ctx context.Context, data InspectData, restartOnFailure, refresh, forceReboot bool) (result Result, started bool, details *metal3api.HardwareDetails, err error)
 
 	// UpdateHardwareState fetches the latest hardware state of the
 	// server and updates the HardwareDetails field of the host with
 	// details. It is expected to do this in the least expensive way
 	// possible, such as reading from a cache.
-	UpdateHardwareState() (hwState HardwareState, err error)
+	UpdateHardwareState(ctx context.Context) (hwState HardwareState, err error)
 
 	// Adopt brings an externally-provisioned host under management by
 	// the provisioner.
-	Adopt(data AdoptData, restartOnFailure bool) (result Result, err error)
+	Adopt(ctx context.Context, data AdoptData, restartOnFailure bool) (result Result, err error)
 
 	// Prepare remove existing configuration and set new configuration
-	Prepare(data PrepareData, unprepared bool, restartOnFailure bool) (result Result, started bool, err error)
+	Prepare(ctx context.Context, data PrepareData, unprepared bool, restartOnFailure bool) (result Result, started bool, err error)
 
 	// Servicing updates configuration for a provisioned host.
-	Service(data ServicingData, unprepared, restartOnFailure bool) (result Result, started bool, err error)
+	Service(ctx context.Context, data ServicingData, unprepared, restartOnFailure bool) (result Result, started bool, err error)
 
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the provisioning operation is completed.
-	Provision(data ProvisionData, forceReboot bool) (result Result, err error)
+	Provision(ctx context.Context, data ProvisionData, forceReboot bool) (result Result, err error)
 
 	// Deprovision removes the host from the image. It may be called
 	// multiple times, and should return true for its dirty flag until
 	// the deprovisioning operation is completed.
 	// The automatedCleaningMode parameter is used to ensure the Ironic node's
 	// automated_clean setting is synchronized before deprovisioning starts.
-	Deprovision(restartOnFailure bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
+	Deprovision(ctx context.Context, restartOnFailure bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
 
 	// Delete removes the host from the provisioning system. It may be
 	// called multiple times, and should return true for its dirty
 	// flag until the deletion operation is completed.
-	Delete() (result Result, err error)
+	Delete(ctx context.Context) (result Result, err error)
 
 	// Detach removes the host from the provisioning system.
 	// Similar to Delete, but ensures non-interruptive behavior
 	// for the target system.  It may be called multiple times,
 	// and should return true for its dirty  flag until the
 	// deletion operation is completed.
-	Detach() (result Result, err error)
+	Detach(ctx context.Context) (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image
 	// provisioning operation.
-	PowerOn(force bool) (result Result, err error)
+	PowerOn(ctx context.Context, force bool) (result Result, err error)
 
 	// PowerOff ensures the server is powered off independently of any image
 	// provisioning operation. The boolean argument may be used to specify
 	// if a hard reboot (force power off) is required - true if so.
 	// The automatedCleaningMode indicates the user's current intent regarding
 	// automated cleaning, used to determine if cleaning should be aborted during deletion.
-	PowerOff(rebootMode metal3api.RebootMode, force bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
+	PowerOff(ctx context.Context, rebootMode metal3api.RebootMode, force bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
 
 	// TryInit checks if the provisioning backend is available to accept
 	// all the incoming requests and configures the available features.
-	TryInit() (ready bool, err error)
+	TryInit(ctx context.Context) (ready bool, err error)
 
 	// HasCapacity checks if the backend has a free (de)provisioning slot for the current host
-	HasCapacity() (result bool, err error)
+	HasCapacity(ctx context.Context) (result bool, err error)
 
 	// GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
-	GetFirmwareSettings(includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error)
+	GetFirmwareSettings(ctx context.Context, includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error)
 
 	// AddBMCEventSubscriptionForNode creates the subscription, and updates Status.SubscriptionID
-	AddBMCEventSubscriptionForNode(subscription *metal3api.BMCEventSubscription, httpHeaders HTTPHeaders) (result Result, err error)
+	AddBMCEventSubscriptionForNode(ctx context.Context, subscription *metal3api.BMCEventSubscription, httpHeaders HTTPHeaders) (result Result, err error)
 
 	// RemoveBMCEventSubscriptionForNode delete the subscription
-	RemoveBMCEventSubscriptionForNode(subscription metal3api.BMCEventSubscription) (result Result, err error)
+	RemoveBMCEventSubscriptionForNode(ctx context.Context, subscription metal3api.BMCEventSubscription) (result Result, err error)
 
 	// GetFirmwareComponents gets all firmware components available from a note
-	GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error)
+	GetFirmwareComponents(ctx context.Context) (components []metal3api.FirmwareComponentStatus, err error)
 
 	// Get DataImage
-	GetDataImageStatus() (isImageAttached bool, err error)
+	GetDataImageStatus(ctx context.Context) (isImageAttached bool, err error)
 
 	// Attach DataImage
-	AttachDataImage(URL string) (err error)
+	AttachDataImage(ctx context.Context, URL string) (err error)
 
 	// Detach DataImage
-	DetachDataImage() (err error)
+	DetachDataImage(ctx context.Context) (err error)
 
-	// Check if Ironic node is experiencing a power failure
-	HasPowerFailure() bool
+	HasPowerFailure(ctx context.Context) bool
 }
 
 // Result holds the response from a call in the Provsioner API.

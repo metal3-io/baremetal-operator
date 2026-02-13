@@ -144,7 +144,7 @@ func TestEmpty(t *testing.T) {
 				diskFormat = &dFormat
 			}
 
-			result, err := prov.getConfigDrive(provisioner.ProvisionData{
+			result, err := prov.getConfigDrive(t.Context(), provisioner.ProvisionData{
 				HostConfig: tc.hostData,
 				BootMode:   metal3api.DefaultBootMode,
 				Image: metal3api.Image{

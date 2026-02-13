@@ -23,16 +23,14 @@ const (
 // client cache, labelling so that they will be included in the client cache,
 // and optionally setting an owner reference.
 type SecretManager struct {
-	ctx       context.Context
 	log       logr.Logger
 	client    client.Client
 	apiReader client.Reader
 }
 
 // NewSecretManager returns a new SecretManager.
-func NewSecretManager(ctx context.Context, log logr.Logger, cacheClient client.Client, apiReader client.Reader) SecretManager {
+func NewSecretManager(log logr.Logger, cacheClient client.Client, apiReader client.Reader) SecretManager {
 	return SecretManager{
-		ctx:       ctx,
 		log:       log.WithName("secret_manager"),
 		client:    cacheClient,
 		apiReader: apiReader,
@@ -41,11 +39,11 @@ func NewSecretManager(ctx context.Context, log logr.Logger, cacheClient client.C
 
 // findSecret retrieves a Secret from the cache if it is available, and from the
 // k8s API if not.
-func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Secret, err error) {
+func (sm *SecretManager) findSecret(ctx context.Context, key types.NamespacedName) (secret *corev1.Secret, err error) {
 	secret = &corev1.Secret{}
 
 	// Look for secret in the filtered cache
-	err = sm.client.Get(sm.ctx, key, secret)
+	err = sm.client.Get(ctx, key, secret)
 	if err == nil {
 		return secret, nil
 	}
@@ -54,7 +52,7 @@ func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Se
 	}
 
 	// Secret not in cache; check API directly for unlabelled Secret
-	err = sm.apiReader.Get(sm.ctx, key, secret)
+	err = sm.apiReader.Get(ctx, key, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +63,7 @@ func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Se
 // claimSecret ensures that the Secret has a label that will ensure it is
 // present in the cache (and that we can watch for changes), and optionally
 // that it has a particular owner reference.
-func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object, addFinalizer bool) error {
+func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret, owner client.Object, addFinalizer bool) error {
 	log := sm.log.WithValues("secret", secret.Name, "secretNamespace", secret.Namespace)
 	needsUpdate := false
 	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
@@ -106,7 +104,7 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 	}
 
 	if needsUpdate {
-		if err := sm.client.Update(sm.ctx, secret); err != nil {
+		if err := sm.client.Update(ctx, secret); err != nil {
 			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
 		}
 	}
@@ -118,12 +116,12 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 // will ensure it is present in the cache (and that we can watch for changes),
 // and optionally that it has a particular owner reference. The owner reference
 // may optionally be a controller reference.
-func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
-	secret, err := sm.findSecret(key)
+func (sm *SecretManager) obtainSecretForOwner(ctx context.Context, key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
+	secret, err := sm.findSecret(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secret %s in namespace %s: %w", key.Name, key.Namespace, err)
 	}
-	err = sm.claimSecret(secret, owner, addFinalizer)
+	err = sm.claimSecret(ctx, secret, owner, addFinalizer)
 
 	return secret, err
 }
@@ -132,22 +130,22 @@ func (sm *SecretManager) obtainSecretForOwner(key types.NamespacedName, owner cl
 // ensure it is present in the cache (and that we can watch for changes), and
 // that it has a particular owner reference. The owner reference may optionally
 // be a controller reference.
-func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
+func (sm *SecretManager) AcquireSecret(ctx context.Context, key types.NamespacedName, owner client.Object, addFinalizer bool) (*corev1.Secret, error) {
 	if owner == nil {
 		panic("AcquireSecret called with no owner")
 	}
 
-	return sm.obtainSecretForOwner(key, owner, addFinalizer)
+	return sm.obtainSecretForOwner(ctx, key, owner, addFinalizer)
 }
 
 // ObtainSecret retrieves a Secret and ensures that it has a label that will
 // ensure it is present in the cache (and that we can watch for changes).
-func (sm *SecretManager) ObtainSecret(key types.NamespacedName) (*corev1.Secret, error) {
-	return sm.obtainSecretForOwner(key, nil, false)
+func (sm *SecretManager) ObtainSecret(ctx context.Context, key types.NamespacedName) (*corev1.Secret, error) {
+	return sm.obtainSecretForOwner(ctx, key, nil, false)
 }
 
 // ReleaseSecret removes secrets manager finalizer from specified secret when needed.
-func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
+func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secret) error {
 	if !slices.Contains(secret.Finalizers, SecretsFinalizer) {
 		return nil
 	}
@@ -155,7 +153,7 @@ func (sm *SecretManager) ReleaseSecret(secret *corev1.Secret) error {
 	// Remove finalizer from secret to allow deletion
 	controllerutil.RemoveFinalizer(secret, SecretsFinalizer)
 
-	if err := sm.client.Update(sm.ctx, secret); err != nil {
+	if err := sm.client.Update(ctx, secret); err != nil {
 		return fmt.Errorf("failed to remove finalizer from secret %s in namespace %s: %w",
 			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
 	}

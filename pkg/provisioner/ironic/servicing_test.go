@@ -181,7 +181,7 @@ func TestService(t *testing.T) {
 			}
 			prov.availableFeatures = clients.AvailableFeatures{MaxVersion: 87}
 
-			result, started, err := prov.Service(prepData, tc.unprepared, tc.unprepared)
+			result, started, err := prov.Service(t.Context(), prepData, tc.unprepared, tc.unprepared)
 
 			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

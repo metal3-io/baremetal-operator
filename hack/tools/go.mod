@@ -11,7 +11,7 @@ require (
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/kustomize/api v0.21.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.8.0
-	sigs.k8s.io/kustomize/kyaml v0.21.0
+	sigs.k8s.io/kustomize/kyaml v0.21.1
 )
 
 require (

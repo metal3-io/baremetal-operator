@@ -15,10 +15,14 @@ permissions:
   contents: read
 
 jobs:
-  build-amd64:
-    name: Build amd64 container image
+  build:
+    name: Build ${{ matrix.arch }} container image
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch:
+        - amd64
     steps:
     - name: Checkout code
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -32,11 +36,8 @@ jobs:
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build amd64 image using docker-build-all
-      run: make docker-build-all
+    - name: Build ${{ matrix.arch }} image
+      run: ARCH=${{ matrix.arch }} make docker-build
       env:
         IMG_NAME: baremetal-operator
         IMG_TAG: pr-test
@@ -44,5 +45,7 @@ jobs:
     - name: Verify image was built
       run: |
         docker images | grep baremetal-operator
-        docker image inspect quay.io/metal3-io/baremetal-operator-amd64:pr-test >/dev/null
-        docker image inspect quay.io/metal3-io/baremetal-operator:pr-test >/dev/null
+        docker image inspect quay.io/metal3-io/baremetal-operator-${{ matrix.arch }}:pr-test >/dev/null
+        if [ "${{ matrix.arch }}" = "amd64" ]; then
+          docker image inspect quay.io/metal3-io/baremetal-operator:pr-test >/dev/null
+        fi

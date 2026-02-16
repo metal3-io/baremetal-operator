@@ -273,7 +273,7 @@ generate: $(CONTROLLER_GEN) ## Generate code
 .PHONY: docker
 docker: docker-build ## Alias for docker-build (for backwards compatibility)
 docker-build: generate manifests ## Build the docker image for controller-manager
-	docker build --network=host --pull \
+	docker build \
 	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
@@ -285,7 +285,7 @@ docker-build: generate manifests ## Build the docker image for controller-manage
 
 .PHONY: docker-debug
 docker-debug: generate manifests ## Build the docker image with debug info
-	docker build --network=host --pull \
+	docker build \
 	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \

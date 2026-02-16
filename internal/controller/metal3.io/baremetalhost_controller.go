@@ -844,7 +844,8 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 		}
 	case metal3api.StateDeprovisioning:
 		// PreprovisioningImage is not required for deprovisioning when cleaning is disabled
-		if info.host.Spec.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
+		// or handled manually (override)
+		if currentCleaningMode(info.host) == metal3api.CleaningModeDisabled {
 			preprovImgFormats = nil
 		}
 	default:
@@ -871,7 +872,7 @@ func (r *BareMetalHostReconciler) registerHost(prov provisioner.Provisioner, inf
 	provResult, provID, err := prov.Register(
 		provisioner.ManagementAccessData{
 			BootMode:                   info.host.Status.Provisioning.BootMode,
-			AutomatedCleaningMode:      info.host.Spec.AutomatedCleaningMode,
+			AutomatedCleaningMode:      currentCleaningMode(info.host),
 			State:                      info.host.Status.Provisioning.State,
 			OperationalStatus:          info.host.Status.OperationalStatus,
 			CurrentImage:               getCurrentImage(info.host),
@@ -1182,6 +1183,35 @@ func getUpdatesDifference(specUpdates []metal3api.FirmwareUpdate, statusUpdates 
 
 func (r *BareMetalHostReconciler) actionPreparing(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.Info("preparing")
+	// Setup cleaning
+	var manualCleaning = requiresCleaning(info.host)
+	if manualCleaning {
+		r.Log.Info(
+			"re-running cleaning because the current mode is stricter than the last applied",
+			"currentMode", info.host.Spec.AutomatedCleaningMode,
+			"lastAppliedMode", info.host.Status.Provisioning.OverriddenCleaningPerformed)
+		prepareData := provisioner.PrepareData{
+			CleaningRequested: true,
+		}
+		provResult, started, err := prov.Prepare(prepareData, true,
+			info.host.Status.ErrorType == metal3api.PreparationError)
+
+		if err != nil {
+			return actionError{fmt.Errorf("error preparing host: %w", err)}
+		}
+
+		if provResult.ErrorMessage != "" {
+			return recordActionFailure(info, metal3api.PreparationError, provResult.ErrorMessage)
+		}
+
+		if started {
+			info.host.Status.Provisioning.OverriddenCleaningPerformed = nil
+		}
+		if provResult.Dirty {
+			return actionUpdate{actionContinue{provResult.RequeueAfter}}
+		}
+		return actionComplete{}
+	}
 
 	bmhDirty, newStatus, err := getHostProvisioningSettings(info.host, info)
 	if err != nil {
@@ -1359,6 +1389,8 @@ func (r *BareMetalHostReconciler) actionProvisioning(prov provisioner.Provisione
 		info.host.Status.Provisioning.CustomDeploy = info.host.Spec.CustomDeploy.DeepCopy()
 	}
 
+	// New OS provisionned. Forget the previous cleaning status if there was one.
+	info.host.Status.Provisioning.OverriddenCleaningPerformed = nil
 	// After provisioning we always requeue to ensure we enter the
 	// "provisioned" state and start monitoring power status.
 	return actionComplete{}
@@ -1402,7 +1434,7 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 
 	provResult, err := prov.Deprovision(
 		info.host.Status.ErrorType == metal3api.ProvisioningError,
-		info.host.Spec.AutomatedCleaningMode)
+		currentCleaningMode(info.host))
 	if err != nil {
 		return actionError{fmt.Errorf("failed to deprovision: %w", err)}
 	}
@@ -1430,6 +1462,11 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(prov provisioner.Provisio
 	// so we transition to the next state.
 	info.host.Status.Provisioning.Image = metal3api.Image{}
 	info.host.Status.Provisioning.CustomDeploy = nil
+	if info.host.Spec.ConsumerOverride != nil && info.host.Spec.ConsumerOverride.AutomatedCleaningMode != nil {
+		info.host.Status.Provisioning.OverriddenCleaningPerformed = info.host.Spec.ConsumerOverride.AutomatedCleaningMode
+	} else {
+		info.host.Status.Provisioning.OverriddenCleaningPerformed = nil
+	}
 	clearHostProvisioningSettings(info.host)
 
 	return actionComplete{}
@@ -1650,7 +1687,7 @@ func (r *BareMetalHostReconciler) manageHostPower(prov provisioner.Provisioner, 
 		if info.host.Status.ErrorCount > 0 {
 			desiredRebootMode = metal3api.RebootModeHard
 		}
-		provResult, err = prov.PowerOff(desiredRebootMode, info.host.Status.ErrorType == metal3api.PowerManagementError, info.host.Spec.AutomatedCleaningMode)
+		provResult, err = prov.PowerOff(desiredRebootMode, info.host.Status.ErrorType == metal3api.PowerManagementError, currentCleaningMode(info.host))
 	}
 	if err != nil {
 		return actionError{fmt.Errorf("failed setting owner reference on hostUpdatePolicy: %w", err)}
@@ -1914,6 +1951,13 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(prov provisioner.Provi
 // use Adopt() because we don't want Ironic to treat the host as
 // having been provisioned. Then we monitor its power status.
 func (r *BareMetalHostReconciler) actionManageAvailable(prov provisioner.Provisioner, info *reconcileInfo) actionResult {
+	// Cleanup status
+	if info.host.Spec.ConsumerOverride == nil && info.host.Status.Provisioning.OverriddenCleaningPerformed != nil {
+		info.host.Status.Provisioning.OverriddenCleaningPerformed = nil
+		if err := r.Update(info.ctx, info.host); err != nil {
+			return actionError{fmt.Errorf("failed to clear cleaningStatus %w", err)}
+		}
+	}
 	if info.host.NeedsProvisioning() {
 		clearError(info.host)
 		return actionComplete{}
@@ -2541,4 +2585,37 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
+}
+
+func currentCleaningMode(bmh *metal3api.BareMetalHost) metal3api.AutomatedCleaningMode {
+	cleaningMode := bmh.Spec.AutomatedCleaningMode
+	if bmh.Spec.ConsumerOverride != nil && bmh.Spec.ConsumerOverride.AutomatedCleaningMode != nil {
+		cleaningMode = *bmh.Spec.ConsumerOverride.AutomatedCleaningMode
+	}
+	return cleaningMode
+}
+
+func modeWeight(mode *metal3api.AutomatedCleaningMode) int {
+	if mode == nil {
+		return 0
+	}
+	switch *mode {
+	case metal3api.CleaningModeDisabled:
+		return 0
+	case metal3api.CleaningModeMetadata:
+		return 1
+	default:
+		// should not occur
+		return -1
+	}
+}
+
+// Check if manual cleaning is required.
+// Manual cleaning is only trigerred when we leave overriding and the last cleaningStatus
+// is weaker than the current automatedCleaningMode.
+func requiresCleaning(bmh *metal3api.BareMetalHost) bool {
+	if bmh.Spec.ConsumerOverride != nil || bmh.Status.Provisioning.OverriddenCleaningPerformed == nil {
+		return false
+	}
+	return modeWeight(&bmh.Spec.AutomatedCleaningMode) > modeWeight(bmh.Status.Provisioning.OverriddenCleaningPerformed)
 }

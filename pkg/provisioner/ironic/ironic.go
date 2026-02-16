@@ -41,10 +41,11 @@ const (
 	nameSeparator        = "~"
 	customDeployPriority = 80
 
-	deployKernelKey  = "deploy_kernel"
-	deployRamdiskKey = "deploy_ramdisk"
-	deployISOKey     = "deploy_iso"
-	kernelParamsKey  = "kernel_append_params"
+	deployKernelKey    = "deploy_kernel"
+	deployRamdiskKey   = "deploy_ramdisk"
+	deployISOKey       = "deploy_iso"
+	kernelParamsKey    = "kernel_append_params"
+	defaultKernelParam = "%default%"
 )
 
 type macAddressConflictError struct {
@@ -318,6 +319,15 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 	return nil
 }
 
+func fmtPreprovExtraKernParams(params string) string {
+	trimmedParams := strings.TrimSpace(params)
+	if trimmedParams == "" {
+		return defaultKernelParam
+	}
+	// spaceing matters for kernel params
+	return defaultKernelParam + " " + params
+}
+
 // configureNode configures Node properties that are not related to any specific provisioning phase.
 // It populates the AutomatedClean field, as well as capabilities and architecture in Properties.
 // It also calls setDeployImage to populate IPA parameters in DriverInfo and
@@ -325,7 +335,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(uuid, macAddress string) er
 func (p *ironicProvisioner) configureNode(data provisioner.ManagementAccessData, ironicNode *nodes.Node, bmcAccess bmc.AccessDetails) (result provisioner.Result, err error) {
 	updater := clients.UpdateOptsBuilder(p.log)
 
-	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage)
+	deployImageInfo := setDeployImage(p.config, bmcAccess, data.PreprovisioningImage, data)
 	updater.SetDriverInfoOpts(deployImageInfo, ironicNode)
 
 	updater.SetTopLevelOpt("automated_clean",
@@ -447,7 +457,7 @@ func setExternalURL(p *ironicProvisioner, driverInfo map[string]any) map[string]
 
 // setDeployImage configures the IPA ramdisk parameters in the Node's DriverInfo.
 // It can use either the provided PreprovisioningImage or the global configuration from ironicConfig.
-func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage) clients.UpdateOptsData {
+func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostImage *provisioner.PreprovisioningImage, data provisioner.ManagementAccessData) clients.UpdateOptsData {
 	deployImageInfo := clients.UpdateOptsData{
 		deployKernelKey:  nil,
 		deployRamdiskKey: nil,
@@ -473,9 +483,22 @@ func setDeployImage(config ironicConfig, accessDetails bmc.AccessDetails, hostIm
 				deployImageInfo[deployKernelKey] = config.deployKernelURL
 			}
 			deployImageInfo[deployRamdiskKey] = hostImage.ImageURL
+			// Extra params from the kernel have been already posted to
+			// Ironic node API in the Register function, so extra kernel args in driver info need
+			// update only if the dynamically generated preprov image requires it
 			if hostImage.ExtraKernelParams != "" {
-				// Using %default% prevents overriding the config in ironic-image
-				deployImageInfo[kernelParamsKey] = "%default% " + hostImage.ExtraKernelParams
+				// Combine the default ironic node kernel params with the extra
+				// params from the BMH and the dynamically generated preprov image
+				comExtraKernelParams := defaultKernelParam
+				trimDataKParams := strings.TrimSpace(data.PreprovisioningExtraKernelParams)
+				trimPreprovImgKParams := strings.TrimSpace(hostImage.ExtraKernelParams)
+				if trimDataKParams != "" {
+					comExtraKernelParams += " " + data.PreprovisioningExtraKernelParams
+				}
+				if trimPreprovImgKParams != "" {
+					comExtraKernelParams += " " + hostImage.ExtraKernelParams
+				}
+				deployImageInfo[kernelParamsKey] = comExtraKernelParams
 			}
 			return deployImageInfo
 		}
@@ -691,8 +714,8 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 		SetTopLevelOpt("deploy_interface", "custom-agent", ironicNode.DeployInterface)
 }
 
-// getInstanceUpdateOpts constructs InstanceInfo options required to provision a Node in Ironic.
-func (p *ironicProvisioner) getInstanceUpdateOpts(ironicNode *nodes.Node, data provisioner.ProvisionData) *clients.NodeUpdater {
+// getProvisioningInstanceUpdateOptsForNode constructs InstanceInfo and DriverInfo options required to provision a Node in Ironic.
+func (p *ironicProvisioner) getProvisioningInstanceUpdateOptsForNode(ironicNode *nodes.Node, data provisioner.ProvisionData) *clients.NodeUpdater {
 	updater := clients.UpdateOptsBuilder(p.log)
 
 	hasCustomDeploy := data.CustomDeploy != nil && data.CustomDeploy.Method != ""
@@ -715,6 +738,41 @@ func (p *ironicProvisioner) getInstanceUpdateOpts(ironicNode *nodes.Node, data p
 		// Set deploy_interface direct options when not booting a live-iso
 		p.setDirectDeployUpdateOptsForNode(ironicNode, &data.Image, updater)
 	}
+
+	driverOpts := clients.UpdateOptsData{
+		"kernel_append_params": fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams),
+	}
+	updater.SetDriverInfoOpts(driverOpts, ironicNode)
+
+	return updater
+}
+
+func (p *ironicProvisioner) getPrepareOptsForNode(ironicNode *nodes.Node, data provisioner.PrepareData) *clients.NodeUpdater {
+	updater := clients.UpdateOptsBuilder(p.log)
+	driverOpts := clients.UpdateOptsData{
+		"kernel_append_params": fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams),
+	}
+	updater.SetDriverInfoOpts(driverOpts, ironicNode)
+
+	return updater
+}
+
+func (p *ironicProvisioner) getDeprovisionOptsForNode(ironicNode *nodes.Node, data provisioner.DeprovisionData) *clients.NodeUpdater {
+	updater := clients.UpdateOptsBuilder(p.log)
+	driverOpts := clients.UpdateOptsData{
+		"kernel_append_params": fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams),
+	}
+	updater.SetDriverInfoOpts(driverOpts, ironicNode)
+
+	return updater
+}
+
+func (p *ironicProvisioner) getServicingOptsForNode(ironicNode *nodes.Node, data provisioner.ServicingData) *clients.NodeUpdater {
+	updater := clients.UpdateOptsBuilder(p.log)
+	driverOpts := clients.UpdateOptsData{
+		"kernel_append_params": fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams),
+	}
+	updater.SetDriverInfoOpts(driverOpts, ironicNode)
 
 	return updater
 }
@@ -811,9 +869,8 @@ func (p *ironicProvisioner) GetFirmwareComponents() ([]metal3api.FirmwareCompone
 
 func (p *ironicProvisioner) setUpForProvisioning(ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {
 	p.log.Info("starting provisioning", "node properties", ironicNode.Properties)
-
 	ironicNode, success, result, err := p.tryUpdateNode(ironicNode,
-		p.getInstanceUpdateOpts(ironicNode, data))
+		p.getProvisioningInstanceUpdateOptsForNode(ironicNode, data))
 	if !success {
 		return result, err
 	}
@@ -1064,14 +1121,22 @@ func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, iro
 	// Set raid configuration
 	result, err = setTargetRAIDCfg(p, bmcAccess.RAIDInterface(), ironicNode, data)
 	if result.Dirty || result.ErrorMessage != "" || err != nil {
-		return
+		return success, result, err
 	}
 
 	// Build manual clean steps
 	cleanSteps, err := p.buildManualCleaningSteps(bmcAccess, data)
 	if err != nil {
 		result, err = operationFailed(err.Error())
-		return
+		return success, result, err
+	}
+
+	// Updating the kernel_append_params field of the Ironic node's
+	// API drive_info endpoint
+	_, updateSuccess, updateResult, updateErr := p.tryUpdateNode(ironicNode,
+		p.getPrepareOptsForNode(ironicNode, data))
+	if !updateSuccess {
+		return updateSuccess, updateResult, updateErr
 	}
 
 	// Start manual clean
@@ -1086,7 +1151,7 @@ func (p *ironicProvisioner) startManualCleaning(bmcAccess bmc.AccessDetails, iro
 		)
 	}
 	result, err = operationComplete()
-	return
+	return success, result, err
 }
 
 // Prepare remove existing configuration and set new configuration.
@@ -1409,12 +1474,19 @@ func (p *ironicProvisioner) syncAutomatedClean(ironicNode *nodes.Node, automated
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *ironicProvisioner) Deprovision(restartOnFailure bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
+func (p *ironicProvisioner) Deprovision(data provisioner.DeprovisionData, restartOnFailure bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning")
 
 	ironicNode, err := p.getNode()
 	if err != nil {
 		return transientError(err)
+	}
+
+	// Updating the kernel_append_params field of the Ironic node's
+	// API drive_info endpoint
+	_, updateSuccess, result, err := p.tryUpdateNode(ironicNode, p.getDeprovisionOptsForNode(ironicNode, data))
+	if !updateSuccess {
+		return result, err
 	}
 
 	p.log.Info("deprovisioning host",

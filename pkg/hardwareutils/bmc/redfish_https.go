@@ -51,12 +51,13 @@ func (a *redfishHTTPBootMediaAccessDetails) DisableCertificateVerification() boo
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *redfishHTTPBootMediaAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+func (a *redfishHTTPBootMediaAccessDetails) DriverInfo(bmcCreds Credentials, preProvExtraKernParams string) map[string]interface{} {
 	result := map[string]interface{}{
-		"redfish_system_id": a.path,
-		"redfish_username":  bmcCreds.Username,
-		"redfish_password":  bmcCreds.Password,
-		"redfish_address":   getRedfishAddress(a.bmcType, a.host),
+		"redfish_system_id":    a.path,
+		"redfish_username":     bmcCreds.Username,
+		"redfish_password":     bmcCreds.Password,
+		"redfish_address":      getRedfishAddress(a.bmcType, a.host),
+		"kernel_append_params": preProvExtraKernParams,
 	}
 
 	if a.disableCertificateVerification {

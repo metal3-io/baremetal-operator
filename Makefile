@@ -122,6 +122,18 @@ unit-cover: ## Run unit tests with code coverage
 unit-verbose: ## Run unit tests with verbose output
 	TEST_FLAGS=-v make unit
 
+FUZZ_TIME ?= 30s
+FUZZ_TARGET ?= .
+
+.PHONY: fuzz
+fuzz: ## Run fuzz tests with seed corpus (no fuzzing, regression test only)
+	cd test/fuzz && go test -v ./...
+
+.PHONY: fuzz-run
+fuzz-run: ## Run fuzz tests with fuzzing enabled (use FUZZ_TIME=duration FUZZ_TARGET=FuzzName)
+	@echo "Running fuzz tests for $(FUZZ_TIME)..."
+	cd test/fuzz && go test -fuzz=$(FUZZ_TARGET) -fuzztime=$(FUZZ_TIME)
+
 ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
 
 .PHONY: test-e2e

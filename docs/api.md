@@ -115,3 +115,21 @@ See [PreprovisioningImage
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/PreprovisioningImage/v1alpha1)
 or check the source code at `apis/metal3.io/v1alpha1/preprovisioningimage_types.go`
 for a detailed API description.
+
+## BareMetalSwitch
+
+A **BareMetalSwitch** resource represents a Top-of-Rack network switch
+that can be accessed to manage the switch ports connecting BareMetalHosts to
+the network. When the BareMetalSwitch controller is enabled, the operator
+watches BareMetalSwitch resources and generates an INI-format configuration file
+that is written to a Kubernetes secret. This secret is expected to be mounted
+into the Ironic networking service, which in turn reads it to know how
+to connect to each switch and configure port VLANs during bare metal
+provisioning. Each BareMetalSwitch references a credentials secret containing
+the authentication details needed to access the switch. If a switch's
+credential secret is missing or misconfigured, the controller skips that switch
+and continues generating config for the remaining healthy switches.
+
+See [BareMetalSwitch
+CR](../apis/metal3.io/v1alpha1/baremetalswitch_types.go)
+for a detailed API description.

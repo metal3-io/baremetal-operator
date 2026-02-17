@@ -32,6 +32,7 @@ rules:
   - metal3.io
   resources:
   - baremetalhosts
+  - baremetalswitches
   - bmceventsubscriptions
   - dataimages
   - firmwareschemas
@@ -63,6 +64,7 @@ rules:
   - metal3.io
   resources:
   - baremetalhosts/status
+  - baremetalswitches/status
   - bmceventsubscriptions/status
   - dataimages/status
   - firmwareschemas/status

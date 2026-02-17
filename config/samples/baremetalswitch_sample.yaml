@@ -1,0 +1,40 @@
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalSwitch
+metadata:
+  name: tor-switch-1
+  namespace: baremetal-operator-system
+spec:
+  # Switch address (hostname or IP)
+  address: "192.168.1.10"
+
+  # Device type determines which driver to use
+  # Options: netmiko_cisco_ios, netmiko_dell_os10, netmiko_arista_eos, etc.
+  deviceType: "netmiko_cisco_ios"
+
+  # Optional: Driver type (defaults to "generic-switch")
+  driver: "generic-switch"
+
+  # Optional: Switch management port (defaults based on device type)
+  port: 22
+
+  # MAC address of the switch management interface (required).
+  # Used to correlate LLDP data and as the key filename for publickey auth.
+  macAddress: "aa:bb:cc:dd:ee:ff"
+
+  # Optional: Disable certificate verification (defaults to false)
+  disableCertificateVerification: false
+
+  # Credentials secret reference
+  credentials:
+    type: password
+    secretName: "tor-switch-1-credentials"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tor-switch-1-credentials
+  namespace: baremetal-operator-system
+type: Opaque
+stringData:
+  username: "admin"
+  password: "switch-password"

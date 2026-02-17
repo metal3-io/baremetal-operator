@@ -36,6 +36,7 @@ rules:
   - metal3.io
   resources:
   - baremetalhosts
+  - baremetalswitches
   - bmceventsubscriptions
   - dataimages
   - firmwareschemas

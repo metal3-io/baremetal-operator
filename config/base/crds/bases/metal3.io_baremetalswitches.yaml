@@ -1,0 +1,136 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: baremetalswitches.metal3.io
+spec:
+  group: metal3.io
+  names:
+    kind: BareMetalSwitch
+    listKind: BareMetalSwitchList
+    plural: baremetalswitches
+    shortNames:
+    - bms
+    singular: baremetalswitch
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Switch driver type
+      jsonPath: .spec.driver
+      name: Driver
+      type: string
+    - description: Switch device type
+      jsonPath: .spec.deviceType
+      name: Device Type
+      type: string
+    - description: Switch address
+      jsonPath: .spec.address
+      name: Address
+      type: string
+    - description: Credential Type
+      jsonPath: .spec.credentials.type
+      name: Credential Type
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: BareMetalSwitch represents a Top-of-Rack switch managed by Ironic
+          Networking.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BareMetalSwitchSpec defines the desired state of BareMetalSwitch.
+            properties:
+              address:
+                description: Address is the network address of the switch (IP address
+                  or hostname).
+                type: string
+              credentials:
+                description: Credentials references the secret containing switch authentication
+                  credentials.
+                properties:
+                  secretName:
+                    description: |-
+                      The name of the secret containing the switch credentials.
+                      For password authentication, requires keys "username" and "password"
+                      For SSH key authentication, requires keys "username" and "ssh-privatekey".
+                      In both cases, an optional "enable-secret" key can be provided if needed
+                      to enable privileged mode.
+                    minLength: 1
+                    type: string
+                  type:
+                    default: password
+                    description: |-
+                      Type is the type of switch credentials.
+                      This is currently limited to "password", but will be expanded to others.
+                    enum:
+                    - password
+                    - publickey
+                    type: string
+                required:
+                - secretName
+                - type
+                type: object
+              deviceType:
+                description: |-
+                  DeviceType specifies the device type for the generic-switch driver.
+                  Must be one of the device types supported by networking-generic-switch.
+                  Examples: netmiko_cisco_ios, netmiko_dell_force10, netmiko_dell_os10,
+                    netmiko_juniper_junos, netmiko_arista_eos
+                  See https://github.com/openstack/networking-generic-switch/blob/master/setup.cfg
+                type: string
+              disableCertificateVerification:
+                description: |-
+                  DisableCertificateVerification disables TLS certificate verification when using
+                  HTTPS to connect to the switch. This is required for self-signed certificates,
+                  but is insecure as it allows man-in-the-middle attacks.
+                type: boolean
+              driver:
+                default: generic-switch
+                description: Driver specifies the driver to use. Currently only "generic-switch"
+                  is supported.
+                enum:
+                - generic-switch
+                type: string
+              macAddress:
+                description: |-
+                  MACAddress is the MAC address of the switch management interface.
+                  Used to correlate LLDP information from nodes to identify which switch they're connected to.
+                pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
+                type: string
+              port:
+                description: |-
+                  Port specifies the management port to connect to (e.g., SSH port 22, HTTPS port 443).
+                  If not specified, the driver will use its default port based on the device type.
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+            required:
+            - address
+            - credentials
+            - deviceType
+            - macAddress
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}

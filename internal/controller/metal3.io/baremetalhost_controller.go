@@ -913,6 +913,14 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		dirty = true
 	}
 
+	if provResult.AppliedHostProvisionerProperties != nil || provResult.IgnoredHostProvisionerProperties != nil {
+		info.host.Status.Provisioning.HostProvisionerProperties = &metal3api.HostProvisionerPropertyStatus{
+			Applied: provResult.AppliedHostProvisionerProperties,
+			Ignored: provResult.IgnoredHostProvisionerProperties,
+		}
+		dirty = true
+	}
+
 	if provResult.Dirty {
 		info.log.Info("host not ready", "wait", provResult.RequeueAfter)
 		result := actionContinue{provResult.RequeueAfter}

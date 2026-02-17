@@ -1063,6 +1063,22 @@ spec:
                         - false
                         type: boolean
                     type: object
+                  hostProvisionerProperties:
+                    description: Status of host provisioner properties from the spec.
+                    properties:
+                      applied:
+                        description: Properties that were applied by the provisioner.
+                        items:
+                          type: string
+                        type: array
+                      ignored:
+                        description: |-
+                          Properties that were ignored because they are not
+                          in the provisioner's allowlist.
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   image:
                     description: |-
                       Image holds the details of the last image successfully

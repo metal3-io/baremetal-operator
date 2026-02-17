@@ -1491,7 +1491,7 @@ func TestRegisterCreateNodeWithHostProvisionerProperties(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
 		HostProvisionerProperties: map[string]string{
 			"vendor": "ami",
 		},
@@ -1505,6 +1505,10 @@ func TestRegisterCreateNodeWithHostProvisionerProperties(t *testing.T) {
 
 	// Verify that the vendor property was set
 	assert.Equal(t, "ami", createdNode.Properties["vendor"])
+
+	// Verify allowed/denied status
+	assert.Equal(t, []string{"vendor"}, result.AppliedHostProvisionerProperties)
+	assert.Empty(t, result.IgnoredHostProvisionerProperties)
 }
 
 func TestRegisterCreateNodeWithDisallowedHostProvisionerProperties(t *testing.T) {
@@ -1531,7 +1535,7 @@ func TestRegisterCreateNodeWithDisallowedHostProvisionerProperties(t *testing.T)
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, provID, err := prov.Register(provisioner.ManagementAccessData{
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
 		HostProvisionerProperties: map[string]string{
 			"disallowed_key": "some_value",
 		},
@@ -1546,6 +1550,57 @@ func TestRegisterCreateNodeWithDisallowedHostProvisionerProperties(t *testing.T)
 	// Verify that the disallowed property was NOT set
 	_, exists := createdNode.Properties["disallowed_key"]
 	assert.False(t, exists, "disallowed property should not be set")
+
+	// Verify allowed/denied status
+	assert.Empty(t, result.AppliedHostProvisionerProperties)
+	assert.Equal(t, []string{"disallowed_key"}, result.IgnoredHostProvisionerProperties)
+}
+
+func TestRegisterCreateNodeWithMixedHostProvisionerProperties(t *testing.T) {
+	// Test that a mix of allowed and disallowed properties is handled correctly
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Spec.Image = nil
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HostProvisionerProperties: map[string]string{
+			"vendor":         "ami",
+			"disallowed_key": "some_value",
+		},
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
+	assert.Equal(t, createdNode.UUID, provID)
+
+	// Verify that only the allowed property was set
+	assert.Equal(t, "ami", createdNode.Properties["vendor"])
+	_, exists := createdNode.Properties["disallowed_key"]
+	assert.False(t, exists, "disallowed property should not be set")
+
+	// Verify allowed/denied status
+	assert.Equal(t, []string{"vendor"}, result.AppliedHostProvisionerProperties)
+	assert.Equal(t, []string{"disallowed_key"}, result.IgnoredHostProvisionerProperties)
 }
 
 func TestRegisterExistingNodeWithHostProvisionerProperties(t *testing.T) {
@@ -1580,7 +1635,7 @@ func TestRegisterExistingNodeWithHostProvisionerProperties(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	result, _, err := prov.Register(provisioner.ManagementAccessData{
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
 		HostProvisionerProperties: map[string]string{
 			"vendor": "ami",
 		},
@@ -1603,4 +1658,8 @@ func TestRegisterExistingNodeWithHostProvisionerProperties(t *testing.T) {
 		}
 	}
 	assert.True(t, foundVendorUpdate, "vendor property should be in /properties/vendor update; got updates: %+v", updates)
+
+	// Verify allowed/denied status
+	assert.Equal(t, []string{"vendor"}, result.AppliedHostProvisionerProperties)
+	assert.Empty(t, result.IgnoredHostProvisionerProperties)
 }

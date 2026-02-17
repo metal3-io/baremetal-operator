@@ -122,6 +122,21 @@ unit-cover: ## Run unit tests with code coverage
 unit-verbose: ## Run unit tests with verbose output
 	TEST_FLAGS=-v make unit
 
+FUZZ_TIME ?= 30s
+
+.PHONY: fuzz
+fuzz: ## Run fuzz tests with seed corpus (no fuzzing, regression test only)
+	cd test/fuzz && go test --race -v ./...
+
+.PHONY: fuzz-run
+fuzz-run: ## Run all fuzz tests sequentially with fuzzing enabled (use FUZZ_TIME=duration)
+	@echo "Discovering fuzz tests..."
+	@cd test/fuzz && go test -list='Fuzz.*' | grep '^Fuzz' | while read -r fuzz_test; do \
+		echo "Running $$fuzz_test for $(FUZZ_TIME)..."; \
+		go test -fuzz=$$fuzz_test -fuzztime=$(FUZZ_TIME) || exit 1; \
+	done
+	@echo "All fuzz tests completed successfully!"
+
 ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
 
 .PHONY: test-e2e

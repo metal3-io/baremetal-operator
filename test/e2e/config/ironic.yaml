@@ -89,6 +89,7 @@ intervals:
   default/wait-servicing: [ "1m", "100ms" ]
   default/wait-firmware-settings: [ "15m", "1s" ]
   default/wait-reconcile: [ "1s", "10ms" ]
+  baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
 
 kindExtraPortMappings:
 # Expose Ironic ports so they are reachable outside of kind

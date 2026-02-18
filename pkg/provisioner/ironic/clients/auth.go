@@ -23,7 +23,7 @@ const (
 type AuthConfig struct {
 	Type     AuthType
 	Username string
-	Password string
+	Password string //nolint:gosec
 }
 
 func authRoot() string {

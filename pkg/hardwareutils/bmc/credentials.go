@@ -3,7 +3,7 @@ package bmc
 // Credentials holds the information for authenticating with the BMC.
 type Credentials struct {
 	Username string
-	Password string
+	Password string //nolint:gosec
 }
 
 // Validate returns an error if the credentials are invalid.

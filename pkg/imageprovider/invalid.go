@@ -17,6 +17,7 @@ func BuildInvalidError(err error) ImageBuildInvalidError {
 }
 
 // ImageBuildInvalid has been deprecated in favor of ImageBuildInvalidError
+//
 // Deprecated: Use ImageBuildInvalidError instead.
 type ImageBuildInvalid = ImageBuildInvalidError //nolint:errname
 
@@ -27,5 +28,6 @@ func (inr ImageNotReadyError) Error() string {
 }
 
 // ImageNotReady has been deprecated in favor of ImageNotReadyError
+//
 // Deprecated: Use ImageNotReadyError instead.
 type ImageNotReady = ImageNotReadyError //nolint:errname

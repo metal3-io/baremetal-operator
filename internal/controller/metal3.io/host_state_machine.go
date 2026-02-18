@@ -187,13 +187,16 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 		return delayedResult
 	}
 
+	// Moved checkDetachedHost before checkInitiateDelete to update the detached
+	// OperationalStatus, as having the detached annotation has impact on how
+	// checkInitiateDelete behaves
+	if detachedResult := hsm.checkDetachedHost(info); detachedResult != nil {
+		return detachedResult
+	}
+
 	if hsm.checkInitiateDelete(info.log) {
 		info.log.Info("Initiating host deletion")
 		return actionComplete{}
-	}
-
-	if detachedResult := hsm.checkDetachedHost(info); detachedResult != nil {
-		return detachedResult
 	}
 
 	if registerResult := hsm.ensureRegistered(info); registerResult != nil {
@@ -313,6 +316,12 @@ func (hsm *hostStateMachine) checkDetachedHost(info *reconcileInfo) (result acti
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
 	if hasDetachedAnnotation(hsm.Host) {
+		// If the OperationalStatus is already updated, return nil to indicate
+		// we need not do anything so that we don't end up in a loop trying to
+		// update the OperationalStatus
+		if info.host.OperationalStatus() == metal3api.OperationalStatusDetached {
+			return nil
+		}
 		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:

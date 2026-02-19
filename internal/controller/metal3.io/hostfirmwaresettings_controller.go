@@ -58,7 +58,6 @@ type HostFirmwareSettingsReconciler struct {
 }
 
 type rInfo struct {
-	ctx    context.Context
 	log    logr.Logger
 	hfs    *metal3api.HostFirmwareSettings
 	bmh    *metal3api.BareMetalHost
@@ -132,7 +131,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the HostFirmwareSettings
 	hfs := &metal3api.HostFirmwareSettings{}
-	info := &rInfo{ctx: ctx, log: reqLogger, hfs: hfs, bmh: bmh}
+	info := &rInfo{log: reqLogger, hfs: hfs, bmh: bmh}
 	if err = r.Get(ctx, req.NamespacedName, hfs); err != nil {
 		// The HFS resource may have been deleted
 		if k8serrors.IsNotFound(err) {
@@ -149,7 +148,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
-	ready, err := prov.TryInit()
+	ready, err := prov.TryInit(ctx)
 	if err != nil || !ready {
 		var msg string
 		if err == nil {
@@ -164,13 +163,13 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	info.log.V(1).Info("retrieving firmware settings and saving to resource", "Node", bmh.Status.Provisioning.ID)
 
 	// Get the current settings and schema, retry if provisioner returns error
-	currentSettings, schema, err := prov.GetFirmwareSettings(true)
+	currentSettings, schema, err := prov.GetFirmwareSettings(ctx, true)
 	if err != nil {
 		reqLogger.Info("provisioner returns error", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
-	if err = r.updateHostFirmwareSettings(currentSettings, schema, info); err != nil {
+	if err = r.updateHostFirmwareSettings(ctx, currentSettings, schema, info); err != nil {
 		return ctrl.Result{}, fmt.Errorf("could not update hostFirmwareSettings: %w", err)
 	}
 
@@ -187,14 +186,14 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 }
 
 // Get the firmware settings from the provisioner and update hostFirmwareSettings.
-func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSettings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, info *rInfo) (err error) {
+func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(ctx context.Context, currentSettings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, info *rInfo) (err error) {
 	// get or create a firmwareSchema to hold schema
-	firmwareSchema, err := r.getOrCreateFirmwareSchema(info, schema)
+	firmwareSchema, err := r.getOrCreateFirmwareSchema(ctx, info, schema)
 	if err != nil {
 		return fmt.Errorf("could not get/create firmware schema: %w", err)
 	}
 
-	if err = r.updateStatus(info, currentSettings, firmwareSchema); err != nil {
+	if err = r.updateStatus(ctx, info, currentSettings, firmwareSchema); err != nil {
 		return fmt.Errorf("could not update hostFirmwareSettings: %w", err)
 	}
 
@@ -202,7 +201,7 @@ func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(currentSetti
 }
 
 // Update the HostFirmwareSettings resource using the settings and schema from provisioner.
-func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings metal3api.SettingsMap, schema *metal3api.FirmwareSchema) (err error) {
+func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info *rInfo, settings metal3api.SettingsMap, schema *metal3api.FirmwareSchema) (err error) {
 	dirty := false
 	var newStatus metal3api.HostFirmwareSettingsStatus
 	newStatus.Settings = make(metal3api.SettingsMap)
@@ -285,20 +284,20 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(info *rInfo, settings meta
 
 		t := metav1.Now()
 		info.hfs.Status.LastUpdated = &t
-		return r.Status().Update(info.ctx, info.hfs)
+		return r.Status().Update(ctx, info.hfs)
 	}
 	return nil
 }
 
 // Get a firmware schema that matches the host vendor or create one if it doesn't exist.
-func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, schema map[string]metal3api.SettingSchema) (fSchema *metal3api.FirmwareSchema, err error) {
+func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(ctx context.Context, info *rInfo, schema map[string]metal3api.SettingSchema) (fSchema *metal3api.FirmwareSchema, err error) {
 	info.log.V(1).Info("getting firmwareSchema")
 
 	schemaName := GetSchemaName(schema)
 	firmwareSchema := &metal3api.FirmwareSchema{}
 
 	// If a schema exists that matches, use that, otherwise create a new one
-	if err = r.Get(info.ctx, client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
+	if err = r.Get(ctx, client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
 		firmwareSchema); err == nil {
 		info.log.V(1).Info("found existing firmwareSchema resource")
 
@@ -306,7 +305,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 		if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
 			return nil, fmt.Errorf("could not set owner of existing firmwareSchema: %w", err)
 		}
-		if err = r.Update(info.ctx, firmwareSchema); err != nil {
+		if err = r.Update(ctx, firmwareSchema); err != nil {
 			return nil, err
 		}
 
@@ -348,7 +347,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(info *rInfo, 
 		return nil, fmt.Errorf("could not set owner of firmwareSchema: %w", err)
 	}
 
-	if err = r.Create(info.ctx, firmwareSchema); err != nil {
+	if err = r.Create(ctx, firmwareSchema); err != nil {
 		return nil, err
 	}
 

@@ -199,7 +199,7 @@ func TestPrepare(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, started, err := prov.Prepare(prepData, tc.unprepared, tc.unprepared)
+			result, started, err := prov.Prepare(t.Context(), prepData, tc.unprepared, tc.unprepared)
 
 			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)

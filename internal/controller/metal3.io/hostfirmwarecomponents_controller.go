@@ -45,7 +45,6 @@ type HostFirmwareComponentsReconciler struct {
 
 // rhfcInfo is used to simplify the pass or arguments.
 type rhfcInfo struct {
-	ctx    context.Context
 	log    logr.Logger
 	hfc    *metal3api.HostFirmwareComponents
 	bmh    *metal3api.BareMetalHost
@@ -133,13 +132,13 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	// Create a provisioner to access Ironic API
-	info := &rhfcInfo{ctx: ctx, log: reqLogger, hfc: hfc, bmh: bmh}
+	info := &rhfcInfo{log: reqLogger, hfc: hfc, bmh: bmh}
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
-	ready, err := prov.TryInit()
+	ready, err := prov.TryInit(ctx)
 	if err != nil || !ready {
 		var msg string
 		if err == nil {
@@ -153,7 +152,7 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 
 	info.log.V(1).Info("retrieving firmware components and saving to resource", "Node", bmh.Status.Provisioning.ID)
 	// Check ironic for the components information if possible
-	components, err := prov.GetFirmwareComponents()
+	components, err := prov.GetFirmwareComponents(ctx)
 
 	if err != nil {
 		if errors.Is(err, provisioner.ErrFirmwareUpdateUnsupported) {
@@ -163,13 +162,13 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, err
 	}
 
-	if err = r.updateHostFirmware(info, components); err != nil {
+	if err = r.updateHostFirmware(ctx, info, components); err != nil {
 		info.log.Info("updateHostFirmware returned error")
 		return ctrl.Result{}, fmt.Errorf("could not update hostfirmwarecomponents: %w", err)
 	}
 
 	for _, e := range info.events {
-		r.publishEvent(info.ctx, req, e)
+		r.publishEvent(ctx, req, e)
 	}
 
 	if meta.IsStatusConditionTrue(info.hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsChangeDetected)) {
@@ -179,7 +178,7 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 }
 
 // Update the HostFirmwareComponents resource using the components from provisioner.
-func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, components []metal3api.FirmwareComponentStatus) (err error) {
+func (r *HostFirmwareComponentsReconciler) updateHostFirmware(ctx context.Context, info *rhfcInfo, components []metal3api.FirmwareComponentStatus) (err error) {
 	dirty := false
 
 	// Check if the updates in the Spec are different than Status
@@ -234,7 +233,7 @@ func (r *HostFirmwareComponentsReconciler) updateHostFirmware(info *rhfcInfo, co
 
 		t := metav1.Now()
 		info.hfc.Status.LastUpdated = &t
-		return r.Status().Update(info.ctx, info.hfc)
+		return r.Status().Update(ctx, info.hfc)
 	}
 	return nil
 }

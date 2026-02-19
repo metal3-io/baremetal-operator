@@ -400,10 +400,10 @@ func TestStoreHostFirmwareComponents(t *testing.T) {
 				bmh: bmh,
 			}
 
-			components, err := prov.GetFirmwareComponents()
+			components, err := prov.GetFirmwareComponents(ctx)
 			require.NoError(t, err)
 
-			err = r.updateHostFirmware(info, components)
+			err = r.updateHostFirmware(ctx, info, components)
 			require.NoError(t, err)
 
 			// Check that resources get created or updated
@@ -512,11 +512,9 @@ func TestValidadeHostFirmwareComponents(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			ctx := t.Context()
 			hfc := getHFC(tc.SpecUpdates)
 			r := getTestHFCReconciler(hfc)
 			info := rhfcInfo{
-				ctx: ctx,
 				log: logf.Log.WithName("controllers").WithName("HostFirmwareComponents"),
 				hfc: hfc,
 			}

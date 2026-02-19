@@ -25,9 +25,9 @@ func TestSecretManager_ObtainSecret_NotFound(t *testing.T) {
 	scheme := newTestScheme()
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	_, err := sm.ObtainSecret(types.NamespacedName{Name: "nonexistent", Namespace: "test"})
+	_, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "nonexistent", Namespace: "test"})
 	require.Error(t, err)
 }
 
@@ -49,9 +49,9 @@ func TestSecretManager_ObtainSecret_FoundInCache(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.ObtainSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"})
+	result, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"})
 	require.NoError(t, err)
 	assert.Equal(t, "test-secret", result.Name)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
@@ -72,9 +72,9 @@ func TestSecretManager_ObtainSecret_AddsLabel(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.ObtainSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"})
+	result, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"})
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
 
@@ -108,9 +108,9 @@ func TestSecretManager_AcquireSecret_WithOwner(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, owner).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.AcquireSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
+	result, err := sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
 
@@ -144,9 +144,9 @@ func TestSecretManager_AcquireSecret_WithFinalizer(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, owner).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.AcquireSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, true)
+	result, err := sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, true)
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
 
@@ -174,9 +174,9 @@ func TestSecretManager_AcquireSecret_AlreadyLabeled(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.ObtainSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"})
+	result, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"})
 	require.NoError(t, err)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
 }
@@ -216,9 +216,9 @@ func TestSecretManager_AcquireSecret_AlreadyOwned(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, owner).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.AcquireSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
+	result, err := sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
 	require.NoError(t, err)
 	assert.Equal(t, "test-secret", result.Name)
 
@@ -233,10 +233,10 @@ func TestSecretManager_AcquireSecret_PanicsWithNilOwner(t *testing.T) {
 	scheme := newTestScheme()
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
 	assert.Panics(t, func() {
-		_, _ = sm.AcquireSecret(types.NamespacedName{Name: "test", Namespace: "test"}, nil, false)
+		_, _ = sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test", Namespace: "test"}, nil, false)
 	})
 }
 
@@ -257,9 +257,9 @@ func TestSecretManager_FallbackToAPIReader(t *testing.T) {
 	cacheClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 	apiReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), cacheClient, apiReader)
+	sm := NewSecretManager(logr.Discard(), cacheClient, apiReader)
 
-	result, err := sm.ObtainSecret(types.NamespacedName{Name: "uncached-secret", Namespace: "test"})
+	result, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "uncached-secret", Namespace: "test"})
 	require.NoError(t, err)
 	assert.Equal(t, "uncached-secret", result.Name)
 	assert.Equal(t, LabelEnvironmentValue, result.Labels[LabelEnvironmentName])
@@ -283,11 +283,11 @@ func TestSecretManager_NotInCacheButInAPI(t *testing.T) {
 	cacheClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	apiReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), cacheClient, apiReader)
+	sm := NewSecretManager(logr.Discard(), cacheClient, apiReader)
 
 	// findSecret should find it via API fallback, but claimSecret will fail
 	// because the secret doesn't exist in the cache client for update
-	_, err := sm.ObtainSecret(types.NamespacedName{Name: "api-only-secret", Namespace: "test"})
+	_, err := sm.ObtainSecret(t.Context(), types.NamespacedName{Name: "api-only-secret", Namespace: "test"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -307,9 +307,9 @@ func TestSecretManager_ReleaseSecret(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	err := sm.ReleaseSecret(secret)
+	err := sm.ReleaseSecret(t.Context(), secret)
 	require.NoError(t, err)
 
 	// Verify finalizer was removed
@@ -334,10 +334,10 @@ func TestSecretManager_ReleaseSecret_NoFinalizer(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
 	// Should return nil (no-op) when finalizer is not present
-	err := sm.ReleaseSecret(secret)
+	err := sm.ReleaseSecret(t.Context(), secret)
 	require.NoError(t, err)
 }
 

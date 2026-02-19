@@ -185,7 +185,7 @@ func (r *BMCEventSubscriptionReconciler) createSubscription(ctx context.Context,
 		return err
 	}
 
-	if _, err := prov.AddBMCEventSubscriptionForNode(subscription, headers); err != nil {
+	if _, err := prov.AddBMCEventSubscriptionForNode(ctx, subscription, headers); err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
 	}
 
@@ -197,7 +197,7 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context,
 	reqLogger.Info("deleting subscription")
 
 	if subscriptionHasFinalizer(subscription) {
-		if _, err := prov.RemoveBMCEventSubscriptionForNode(*subscription); err != nil {
+		if _, err := prov.RemoveBMCEventSubscriptionForNode(ctx, *subscription); err != nil {
 			return fmt.Errorf("failed to remove a subscription: %w", err)
 		}
 
@@ -222,7 +222,7 @@ func (r *BMCEventSubscriptionReconciler) getProvisioner(ctx context.Context, req
 		return prov, ready, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
-	ready, err = prov.TryInit()
+	ready, err = prov.TryInit(ctx)
 	if err != nil || !ready {
 		var msg string
 		if err == nil {

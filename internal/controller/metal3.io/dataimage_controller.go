@@ -51,7 +51,6 @@ type DataImageReconciler struct {
 }
 
 type rdiInfo struct {
-	ctx     context.Context
 	log     logr.Logger
 	request ctrl.Request
 	di      *metal3api.DataImage
@@ -130,7 +129,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load baremetalhost, %w", err)
 	}
 
-	info := &rdiInfo{ctx: ctx, log: reqLogger, request: req, di: di, bmh: bmh}
+	info := &rdiInfo{log: reqLogger, request: req, di: di, bmh: bmh}
 
 	// If the reconciliation is paused, requeue
 	annotations := bmh.GetAnnotations()
@@ -188,7 +187,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner, %w", err)
 	}
 
-	ready, err := prov.TryInit()
+	ready, err := prov.TryInit(ctx)
 	if err != nil || !ready {
 		var msg string
 		if err == nil {
@@ -201,7 +200,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Check if any attach/detach action is pending or failed to attach
-	isImageAttached, vmediaGetError := prov.GetDataImageStatus()
+	isImageAttached, vmediaGetError := prov.GetDataImageStatus(ctx)
 
 	// In case there was an error fetching vmedia details
 	// upadate message and counter
@@ -213,7 +212,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			di.Status.Error.Count++
 
 			// Update dataImage status and requeue
-			if err := r.updateStatus(info); err != nil {
+			if err := r.updateStatus(ctx, info); err != nil {
 				return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource status, %w", err)
 			}
 		}
@@ -242,7 +241,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Update the latest status fetched from the Node
-	if err := r.updateStatus(info); err != nil {
+	if err := r.updateStatus(ctx, info); err != nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource statu, %w", err)
 	}
 
@@ -254,10 +253,10 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // Update the DataImage status after fetching current status from provisioner.
-func (r *DataImageReconciler) updateStatus(info *rdiInfo) (err error) {
+func (r *DataImageReconciler) updateStatus(ctx context.Context, info *rdiInfo) (err error) {
 	dataImage := info.di
 
-	if err := r.Status().Update(info.ctx, dataImage); err != nil {
+	if err := r.Status().Update(ctx, dataImage); err != nil {
 		return fmt.Errorf("failed to update DataImage status, %w", err)
 	}
 	info.log.Info("Updating DataImage Status", "Updated DataImage is", dataImage)

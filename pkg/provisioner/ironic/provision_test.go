@@ -222,7 +222,7 @@ func TestProvision(t *testing.T) {
 			if image == nil {
 				image = &testImage
 			}
-			result, err := prov.Provision(provisioner.ProvisionData{
+			result, err := prov.Provision(t.Context(), provisioner.ProvisionData{
 				Image:        *image,
 				CustomDeploy: tc.customDeploy,
 				HostConfig:   fixture.NewHostConfigData("testUserData", "test: NetworkData", "test: Meta"),
@@ -351,7 +351,7 @@ func TestDeprovision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.Deprovision(false, metal3api.CleaningModeMetadata)
+			result, err := prov.Deprovision(t.Context(), false, metal3api.CleaningModeMetadata)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage != "")
@@ -424,7 +424,7 @@ func TestDeprovisionSyncAutomatedClean(t *testing.T) {
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, ironic.Endpoint(), auth)
 			require.NoError(t, err)
 
-			result, err := prov.Deprovision(false, tc.automatedCleaningMode)
+			result, err := prov.Deprovision(t.Context(), false, tc.automatedCleaningMode)
 			require.NoError(t, err)
 
 			// Check if automated_clean was updated

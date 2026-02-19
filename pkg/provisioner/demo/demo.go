@@ -77,13 +77,13 @@ func (d Demo) NewProvisioner(_ context.Context, hostData provisioner.HostData, p
 	return p, nil
 }
 
-func (p *demoProvisioner) HasCapacity() (result bool, err error) {
+func (p *demoProvisioner) HasCapacity(_ context.Context) (result bool, err error) {
 	return true, nil
 }
 
 // Register tests the connection information for the
 // host to verify that the location and credentials work.
-func (p *demoProvisioner) Register(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
+func (p *demoProvisioner) Register(_ context.Context, _ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	p.log.Info("testing management access")
 
 	hostName := p.objectMeta.Name
@@ -119,7 +119,7 @@ func (p *demoProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat
 // details of devices discovered on the hardware. It may be called
 // multiple times, and should return true for its dirty flag until the
 // inspection is completed.
-func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (p *demoProvisioner) InspectHardware(_ context.Context, _ provisioner.InspectData, _, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	started = true
 	hostName := p.objectMeta.Name
 
@@ -184,13 +184,13 @@ func (p *demoProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ boo
 // and updates the HardwareDetails field of the host with details. It
 // is expected to do this in the least expensive way possible, such as
 // reading from a cache.
-func (p *demoProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
+func (p *demoProvisioner) UpdateHardwareState(_ context.Context) (hwState provisioner.HardwareState, err error) {
 	p.log.Info("updating hardware state")
 	return
 }
 
 // Prepare remove existing configuration and set new configuration.
-func (p *demoProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
+func (p *demoProvisioner) Prepare(_ context.Context, _ provisioner.PrepareData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
 	hostName := p.objectMeta.Name
 
 	switch hostName {
@@ -212,7 +212,7 @@ func (p *demoProvisioner) Prepare(_ provisioner.PrepareData, unprepared bool, _ 
 	return
 }
 
-func (p *demoProvisioner) Service(_ provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
+func (p *demoProvisioner) Service(_ context.Context, _ provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
 	hostName := p.objectMeta.Name
 
 	switch hostName {
@@ -236,7 +236,7 @@ func (p *demoProvisioner) Service(_ provisioner.ServicingData, unprepared bool, 
 
 // Adopt notifies the provisioner that the state machine believes the host
 // to be currently provisioned, and that it should be managed as such.
-func (p *demoProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Adopt(_ context.Context, _ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
 	p.log.Info("adopting host")
 	result.Dirty = false
 	return
@@ -245,7 +245,7 @@ func (p *demoProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisi
 // Provision writes the image from the host spec to the host. It may
 // be called multiple times, and should return true for its dirty flag
 // until the provisioning operation is completed.
-func (p *demoProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Provision(_ context.Context, _ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
 	hostName := p.objectMeta.Name
 	p.log.Info("provisioning image to host")
 
@@ -269,7 +269,7 @@ func (p *demoProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result
 // Deprovision removes the host from the image. It may be called
 // multiple times, and should return true for its dirty flag until the
 // deprovisioning operation is completed.
-func (p *demoProvisioner) Deprovision(_ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
+func (p *demoProvisioner) Deprovision(_ context.Context, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("deprovisioning host")
 	return result, nil
 }
@@ -277,7 +277,7 @@ func (p *demoProvisioner) Deprovision(_ bool, _ metal3api.AutomatedCleaningMode)
 // Delete removes the host from the provisioning system. It may be
 // called multiple times, and should return true for its dirty flag
 // until the deprovisioning operation is completed.
-func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
+func (p *demoProvisioner) Delete(_ context.Context) (result provisioner.Result, err error) {
 	p.log.Info("deleting host")
 	return result, nil
 }
@@ -287,59 +287,59 @@ func (p *demoProvisioner) Delete() (result provisioner.Result, err error) {
 // for the target system.  It may be called multiple times,
 // and should return true for its dirty  flag until the
 // deletion operation is completed.
-func (p *demoProvisioner) Detach() (result provisioner.Result, err error) {
+func (p *demoProvisioner) Detach(_ context.Context) (result provisioner.Result, err error) {
 	p.log.Info("detaching host")
 	return result, nil
 }
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOn(_ context.Context, _ bool) (result provisioner.Result, err error) {
 	p.log.Info("powering on host")
 	return result, nil
 }
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *demoProvisioner) PowerOff(_ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
+func (p *demoProvisioner) PowerOff(_ context.Context, _ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("powering off host")
 	return result, nil
 }
 
 // TryInit always returns true for the demo provisioner.
-func (p *demoProvisioner) TryInit() (result bool, err error) {
+func (p *demoProvisioner) TryInit(_ context.Context) (result bool, err error) {
 	return true, nil
 }
 
-func (p *demoProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
+func (p *demoProvisioner) GetFirmwareSettings(_ context.Context, _ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	p.log.Info("getting BIOS settings")
 	return
 }
 
-func (p *demoProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (p *demoProvisioner) AddBMCEventSubscriptionForNode(_ context.Context, _ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (p *demoProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
+func (p *demoProvisioner) RemoveBMCEventSubscriptionForNode(_ context.Context, _ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (p *demoProvisioner) GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error) {
+func (p *demoProvisioner) GetFirmwareComponents(_ context.Context) (components []metal3api.FirmwareComponentStatus, err error) {
 	return components, nil
 }
 
-func (p *demoProvisioner) GetDataImageStatus() (isImageAttached bool, err error) {
+func (p *demoProvisioner) GetDataImageStatus(_ context.Context) (isImageAttached bool, err error) {
 	return false, nil
 }
 
-func (p *demoProvisioner) AttachDataImage(_ string) (err error) {
+func (p *demoProvisioner) AttachDataImage(_ context.Context, _ string) (err error) {
 	return nil
 }
 
-func (p *demoProvisioner) DetachDataImage() (err error) {
+func (p *demoProvisioner) DetachDataImage(_ context.Context) (err error) {
 	return nil
 }
 
-func (p *demoProvisioner) HasPowerFailure() bool {
+func (p *demoProvisioner) HasPowerFailure(_ context.Context) bool {
 	return false
 }

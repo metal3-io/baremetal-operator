@@ -157,7 +157,6 @@ func (f ironicProvisionerFactory) ironicProvisioner(ctx context.Context, hostDat
 		log:                     provisionerLogger,
 		debugLog:                provisionerLogger.V(1),
 		publisher:               publisher,
-		ctx:                     ctx,
 	}
 
 	return p, nil
@@ -279,7 +278,7 @@ func ironicUnreadyReason(ironic *ironicv1alpha1.Ironic) string {
 }
 
 func (f *ironicProvisionerFactory) loadConfigFromIronicCR(ctx context.Context) (endpoint string, auth clients.AuthConfig, tlsConfig clients.TLSConfig, err error) {
-	sm := secretutils.NewSecretManager(ctx, f.log, f.k8sClient, f.apiReader)
+	sm := secretutils.NewSecretManager(f.log, f.k8sClient, f.apiReader)
 
 	// Get the Ironic CR
 	ironicCR := &ironicv1alpha1.Ironic{}
@@ -303,14 +302,14 @@ func (f *ironicProvisionerFactory) loadConfigFromIronicCR(ctx context.Context) (
 	// Handle TLS
 	if ironicCR.Spec.TLS.CertificateName != "" {
 		endpoint = fmt.Sprintf("https://%s.%s.svc", f.ironicName, f.ironicNamespace)
-		tlsConfig, err = f.loadTLSConfigFromIronicCR(&sm, ironicCR)
+		tlsConfig, err = f.loadTLSConfigFromIronicCR(ctx, &sm, ironicCR)
 		if err != nil {
 			return "", clients.AuthConfig{}, clients.TLSConfig{}, err
 		}
 	}
 
 	// Handle authentication
-	auth, err = f.loadAuthConfigFromIronicCR(&sm, ironicCR)
+	auth, err = f.loadAuthConfigFromIronicCR(ctx, &sm, ironicCR)
 	if err != nil {
 		return "", clients.AuthConfig{}, clients.TLSConfig{}, err
 	}
@@ -318,13 +317,13 @@ func (f *ironicProvisionerFactory) loadConfigFromIronicCR(ctx context.Context) (
 	return endpoint, auth, tlsConfig, nil
 }
 
-func (f *ironicProvisionerFactory) loadAuthConfigFromIronicCR(sm *secretutils.SecretManager, ironicCR *ironicv1alpha1.Ironic) (clients.AuthConfig, error) {
+func (f *ironicProvisionerFactory) loadAuthConfigFromIronicCR(ctx context.Context, sm *secretutils.SecretManager, ironicCR *ironicv1alpha1.Ironic) (clients.AuthConfig, error) {
 	key := types.NamespacedName{
 		Name:      ironicCR.Spec.APICredentialsName,
 		Namespace: ironicCR.Namespace,
 	}
 
-	secret, err := sm.ObtainSecret(key)
+	secret, err := sm.ObtainSecret(ctx, key)
 	if err != nil {
 		return clients.AuthConfig{}, fmt.Errorf("failed to get auth secret %s/%s: %w", key.Namespace, key.Name, err)
 	}
@@ -343,7 +342,7 @@ func (f *ironicProvisionerFactory) loadAuthConfigFromIronicCR(sm *secretutils.Se
 	}, nil
 }
 
-func (f *ironicProvisionerFactory) loadTLSConfigFromIronicCR(sm *secretutils.SecretManager, ironicCR *ironicv1alpha1.Ironic) (clients.TLSConfig, error) {
+func (f *ironicProvisionerFactory) loadTLSConfigFromIronicCR(ctx context.Context, sm *secretutils.SecretManager, ironicCR *ironicv1alpha1.Ironic) (clients.TLSConfig, error) {
 	// Allow client TLS configuration from the environment
 	tlsConfig := loadTLSConfigFromEnv()
 
@@ -352,7 +351,7 @@ func (f *ironicProvisionerFactory) loadTLSConfigFromIronicCR(sm *secretutils.Sec
 		Namespace: ironicCR.Namespace,
 	}
 
-	secret, err := sm.ObtainSecret(key)
+	secret, err := sm.ObtainSecret(ctx, key)
 	if err != nil {
 		return clients.TLSConfig{}, fmt.Errorf("failed to get TLS secret %s/%s: %w", ironicCR.Namespace, ironicCR.Spec.TLS.CertificateName, err)
 	}

@@ -136,7 +136,7 @@ func TestAdopt(t *testing.T) {
 			}
 
 			adoptData := provisioner.AdoptData{State: host.Status.Provisioning.State}
-			result, err := prov.Adopt(adoptData, tc.force)
+			result, err := prov.Adopt(t.Context(), adoptData, tc.force)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)

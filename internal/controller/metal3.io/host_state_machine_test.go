@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -148,7 +149,7 @@ func TestProvisioningCapacity(t *testing.T) {
 			info := makeDefaultReconcileInfo(tc.Host)
 			delayedProvisioningHostCounters.Reset()
 
-			result := hsm.ReconcileState(info)
+			result := hsm.ReconcileState(t.Context(), info)
 
 			assert.Equal(t, tc.ExpectedProvisioningState, tc.Host.Status.Provisioning.State)
 			assert.Equal(t, tc.ExpectedDelayed, metal3api.OperationalStatusDelayed == tc.Host.Status.OperationalStatus, "Expected OperationalStatusDelayed")
@@ -196,7 +197,7 @@ func TestDeprovisioningCapacity(t *testing.T) {
 			info := makeDefaultReconcileInfo(tc.Host)
 			delayedDeprovisioningHostCounters.Reset()
 
-			result := hsm.ReconcileState(info)
+			result := hsm.ReconcileState(t.Context(), info)
 
 			assert.Equal(t, tc.ExpectedDeprovisioningState, tc.Host.Status.Provisioning.State)
 			assert.Equal(t, tc.ExpectedDelayed, metal3api.OperationalStatusDelayed == tc.Host.Status.OperationalStatus, "Expected OperationalStatusDelayed")
@@ -426,7 +427,7 @@ func TestDetach(t *testing.T) {
 			reconciler := testNewReconciler(tc.Host)
 			hsm := newHostStateMachine(tc.Host, reconciler, prov, true)
 			info := makeDefaultReconcileInfo(tc.Host)
-			result := hsm.ReconcileState(info)
+			result := hsm.ReconcileState(t.Context(), info)
 
 			assert.Equal(t, tc.ExpectedDetach, prov.calledNoError("Detach"), "ExpectedDetach mismatch")
 			assert.Equal(t, tc.ExpectedDirty, result.Dirty(), "ExpectedDirty mismatch")
@@ -471,7 +472,7 @@ func TestDetachError(t *testing.T) {
 			info := makeDefaultReconcileInfo(tc.Host)
 
 			prov.setNextError("Detach", "some error")
-			result := hsm.ReconcileState(info)
+			result := hsm.ReconcileState(t.Context(), info)
 			assert.True(t, result.Dirty())
 			assert.Equal(t, 1, tc.Host.Status.ErrorCount)
 			assert.Equal(t, metal3api.OperationalStatusError, info.host.OperationalStatus())
@@ -484,7 +485,7 @@ func TestDetachError(t *testing.T) {
 			if tc.RemoveAnnotation {
 				tc.Host.Annotations = map[string]string{}
 			}
-			result = hsm.ReconcileState(info)
+			result = hsm.ReconcileState(t.Context(), info)
 			assert.Equal(t, 0, tc.Host.Status.ErrorCount)
 			assert.True(t, result.Dirty())
 			assert.Equal(t, tc.ExpectedOperationalStatus, info.host.OperationalStatus())
@@ -954,7 +955,7 @@ func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			prov.setNextError(tt.ProvisionerErrorOn, tt.originalError)
-			result := hsm.ReconcileState(info)
+			result := hsm.ReconcileState(t.Context(), info)
 
 			assert.Equal(t, 1, tt.Host.Status.ErrorCount)
 			assert.Equal(t, tt.ExpectedError, tt.Host.Status.ErrorMessage)
@@ -1024,7 +1025,7 @@ func TestErrorCountClearedOnStateTransition(t *testing.T) {
 			info := makeDefaultReconcileInfo(tt.Host)
 
 			info.host.Status.ErrorCount = 1
-			hsm.ReconcileState(info)
+			hsm.ReconcileState(t.Context(), info)
 
 			assert.Equal(t, tt.TargetState, info.host.Status.Provisioning.State)
 			assert.Equal(t, 0, info.host.Status.ErrorCount)
@@ -1065,7 +1066,7 @@ func TestErrorClean(t *testing.T) {
 				info.bmcCredsSecret.Name = tt.SecretName
 			}
 
-			hsm.ReconcileState(info)
+			hsm.ReconcileState(t.Context(), info)
 
 			if tt.ExpectError {
 				assert.Equal(t, metal3api.ProvisionedRegistrationError, tt.Host.Status.ErrorType)
@@ -1142,7 +1143,7 @@ func TestDeleteWaitsForDetach(t *testing.T) {
 			}, prov, true)
 
 			info := makeDefaultReconcileInfo(tt.Host)
-			hsm.ReconcileState(info)
+			hsm.ReconcileState(t.Context(), info)
 
 			assert.Equal(t, tt.ExpectedState, tt.Host.Status.Provisioning.State)
 			assert.Equal(t, tt.ExpectedOperationalStatus, tt.Host.Status.OperationalStatus)
@@ -1323,7 +1324,7 @@ func (m *mockProvisioner) setHasCapacity(hasCapacity bool) {
 	m.hasCapacity = hasCapacity
 }
 
-func (m *mockProvisioner) HasCapacity() (result bool, err error) {
+func (m *mockProvisioner) HasCapacity(context.Context) (result bool, err error) {
 	return m.hasCapacity, nil
 }
 
@@ -1341,7 +1342,7 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 	return m.callsNoError[methodName]
 }
 
-func (m *mockProvisioner) Register(_ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
+func (m *mockProvisioner) Register(_ context.Context, _ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
@@ -1349,85 +1350,85 @@ func (m *mockProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat
 	return nil, nil
 }
 
-func (m *mockProvisioner) InspectHardware(_ provisioner.InspectData, _, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (m *mockProvisioner) InspectHardware(_ context.Context, _ provisioner.InspectData, _, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
 	details = &metal3api.HardwareDetails{}
 	return m.getNextResultByMethod("InspectHardware"), true, details, err
 }
 
-func (m *mockProvisioner) UpdateHardwareState() (hwState provisioner.HardwareState, err error) {
+func (m *mockProvisioner) UpdateHardwareState(context.Context) (hwState provisioner.HardwareState, err error) {
 	return
 }
 
-func (m *mockProvisioner) Prepare(_ provisioner.PrepareData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
+func (m *mockProvisioner) Prepare(_ context.Context, _ provisioner.PrepareData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
 	return m.getNextResultByMethod("Prepare"), m.nextResults["Prepare"].Dirty, err
 }
 
-func (m *mockProvisioner) Service(_ provisioner.ServicingData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
+func (m *mockProvisioner) Service(_ context.Context, _ provisioner.ServicingData, _ bool, _ bool) (result provisioner.Result, started bool, err error) {
 	return m.getNextResultByMethod("Service"), m.nextResults["Service"].Dirty, err
 }
 
-func (m *mockProvisioner) Adopt(_ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Adopt(_ context.Context, _ provisioner.AdoptData, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Adopt"), err
 }
 
-func (m *mockProvisioner) Provision(_ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Provision(_ context.Context, _ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Provision"), err
 }
 
-func (m *mockProvisioner) Deprovision(_ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
+func (m *mockProvisioner) Deprovision(_ context.Context, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Deprovision"), err
 }
 
-func (m *mockProvisioner) Delete() (result provisioner.Result, err error) {
+func (m *mockProvisioner) Delete(context.Context) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("Delete"), err
 }
 
-func (m *mockProvisioner) Detach() (result provisioner.Result, err error) {
+func (m *mockProvisioner) Detach(context.Context) (result provisioner.Result, err error) {
 	res := m.getNextResultByMethod("Detach")
 	return res, err
 }
 
-func (m *mockProvisioner) PowerOn(_ bool) (result provisioner.Result, err error) {
+func (m *mockProvisioner) PowerOn(_ context.Context, _ bool) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOn"), err
 }
 
-func (m *mockProvisioner) PowerOff(_ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
+func (m *mockProvisioner) PowerOff(_ context.Context, _ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	return m.getNextResultByMethod("PowerOff"), err
 }
 
-func (m *mockProvisioner) TryInit() (result bool, err error) {
+func (m *mockProvisioner) TryInit(context.Context) (result bool, err error) {
 	return
 }
 
-func (m *mockProvisioner) GetFirmwareSettings(_ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
+func (m *mockProvisioner) GetFirmwareSettings(_ context.Context, _ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	return
 }
 
-func (m *mockProvisioner) AddBMCEventSubscriptionForNode(_ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
+func (m *mockProvisioner) AddBMCEventSubscriptionForNode(_ context.Context, _ *metal3api.BMCEventSubscription, _ provisioner.HTTPHeaders) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(_ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
+func (m *mockProvisioner) RemoveBMCEventSubscriptionForNode(_ context.Context, _ metal3api.BMCEventSubscription) (result provisioner.Result, err error) {
 	return result, nil
 }
 
-func (p *mockProvisioner) GetFirmwareComponents() (components []metal3api.FirmwareComponentStatus, err error) {
+func (p *mockProvisioner) GetFirmwareComponents(context.Context) (components []metal3api.FirmwareComponentStatus, err error) {
 	return components, nil
 }
 
-func (p *mockProvisioner) GetDataImageStatus() (isImageAttached bool, err error) {
+func (p *mockProvisioner) GetDataImageStatus(context.Context) (isImageAttached bool, err error) {
 	return false, nil
 }
 
-func (p *mockProvisioner) AttachDataImage(url string) (err error) {
+func (p *mockProvisioner) AttachDataImage(_ context.Context, url string) (err error) {
 	return nil
 }
 
-func (p *mockProvisioner) DetachDataImage() (err error) {
+func (p *mockProvisioner) DetachDataImage(context.Context) (err error) {
 	return nil
 }
 
-func (p *mockProvisioner) HasPowerFailure() bool {
+func (p *mockProvisioner) HasPowerFailure(_ context.Context) bool {
 	return false
 }
 

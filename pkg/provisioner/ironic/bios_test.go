@@ -109,7 +109,7 @@ func TestGetFirmwareSettings(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			settingsMap, schemaMap, err := prov.GetFirmwareSettings(tc.includeSchema)
+			settingsMap, schemaMap, err := prov.GetFirmwareSettings(t.Context(), tc.includeSchema)
 
 			assert.Equal(t, tc.expectedSettingsMap, settingsMap)
 			assert.Equal(t, tc.expectedSchemaMap, schemaMap)

@@ -1,5 +1,5 @@
 // Package version includes the version information.
-package version
+package version //nolint:revive
 
 var (
 	// Raw is the string representation of the version. This will be replaced

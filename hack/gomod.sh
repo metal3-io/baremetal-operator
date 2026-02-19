@@ -42,6 +42,6 @@ else
         --volume "${PWD}:${WORKDIR}:ro,z" \
         --entrypoint sh \
         --workdir "${WORKDIR}" \
-        quay.io/metal3-io/basic-checks:golang-1.24 \
+        quay.io/metal3-io/basic-checks:golang-1.25 \
         "${WORKDIR}"/hack/gomod.sh "$@"
 fi

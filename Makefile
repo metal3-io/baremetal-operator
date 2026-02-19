@@ -215,6 +215,10 @@ build-e2e:
 
 .PHONY: build-vbmctl
 build-vbmctl:
+	cd test; go build --tags=e2e,vbmctl -ldflags $(LDFLAGS) -o $(abspath $(BIN_DIR)/vbmctl) ./vbmctl/cmd/vbmctl
+
+.PHONY: build-legacy-vbmctl
+build-legacy-vbmctl:
 	cd test; go build --tags=e2e,vbmctl -ldflags $(LDFLAGS) -o $(abspath $(BIN_DIR)/vbmctl) ./vbmctl/main.go
 
 .PHONY: manifests

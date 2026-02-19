@@ -81,11 +81,13 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 		for _, ref := range secret.GetOwnerReferences() {
 			// We used to add controller references to BMC
 			// secrets. This was wrong, update.
-			if ref.UID == ownerUID && ref.Controller == nil {
-				alreadyOwned = true
+			if ref.UID == ownerUID {
+				if ref.Controller == nil {
+					alreadyOwned = true
+				} else if *ref.Controller {
+					ownerLog.Info("updating secret to no longer have an owner of type controller")
+				}
 				break
-			} else if ref.Controller != nil && *ref.Controller {
-				ownerLog.Info("updating secret to no longer have an owner of type controller")
 			}
 		}
 		if !alreadyOwned {

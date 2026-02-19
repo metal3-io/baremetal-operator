@@ -27,6 +27,7 @@ KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
 GINKGO = tools/bin/ginkgo
 DEPLOY_CLI = tools/bin/deploy-cli
+CONTAINER_RUNTIME = docker
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
@@ -270,13 +271,13 @@ generate: $(CONTROLLER_GEN) ## Generate code
 
 .PHONY: docker
 docker: generate manifests ## Build the docker image
-	docker build . -t ${IMG}:${IMG_TAG} \
+	$(CONTAINER_RUNTIME) build . -t ${IMG}:${IMG_TAG} \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy)
 
 .PHONY: docker-debug
 docker-debug: generate manifests ## Build the docker image with debug info
-	docker build . -t ${IMG}:${IMG_TAG} \
+	$(CONTAINER_RUNTIME) build . -t ${IMG}:${IMG_TAG} \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
 	--build-arg LDFLAGS="-extldflags=-static"
@@ -284,7 +285,7 @@ docker-debug: generate manifests ## Build the docker image with debug info
 # Push the docker image
 .PHONY: docker-push
 docker-push:
-	docker push ${IMG}:${IMG_TAG}
+	$(CONTAINER_RUNTIME) push ${IMG}:${IMG_TAG}
 
 ## --------------------------------------
 ## CI Targets

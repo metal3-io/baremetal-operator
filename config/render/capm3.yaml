@@ -257,6 +257,14 @@ spec:
                   Set to "empty" to prepare for the future version of the API
                   without hardware profiles.
                 type: string
+              hostProvisionerProperties:
+                additionalProperties:
+                  type: string
+                description: |-
+                  HostProvisionerProperties allows users to set specific properties
+                  on the provisioner's host representation (e.g., Ironic node properties).
+                  Only properties in the provisioner's allowlist can be set.
+                type: object
               image:
                 description: |-
                   Image holds the details of the image to be provisioned. Populating
@@ -1054,6 +1062,22 @@ spec:
                         - true
                         - false
                         type: boolean
+                    type: object
+                  hostProvisionerProperties:
+                    description: Status of host provisioner properties from the spec.
+                    properties:
+                      applied:
+                        description: Properties that were applied by the provisioner.
+                        items:
+                          type: string
+                        type: array
+                      ignored:
+                        description: |-
+                          Properties that were ignored because they are not
+                          in the provisioner's allowlist.
+                        items:
+                          type: string
+                        type: array
                     type: object
                   image:
                     description: |-

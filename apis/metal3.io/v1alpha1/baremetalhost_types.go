@@ -584,6 +584,12 @@ type BareMetalHostSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=disabled;agent
 	InspectionMode InspectionMode `json:"inspectionMode,omitempty"`
+
+	// HostProvisionerProperties allows users to set specific properties
+	// on the provisioner's host representation (e.g., Ironic node properties).
+	// Only properties in the provisioner's allowlist can be set.
+	// +optional
+	HostProvisionerProperties map[string]string `json:"hostProvisionerProperties,omitempty"`
 }
 
 // AutomatedCleaningMode is the interface to enable/disable automated cleaning
@@ -790,6 +796,19 @@ type BareMetalHostStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
+// HostProvisionerPropertyStatus holds the status of host provisioner
+// properties that were applied or ignored by the provisioner.
+type HostProvisionerPropertyStatus struct {
+	// Properties that were applied by the provisioner.
+	// +optional
+	Applied []string `json:"applied,omitempty"`
+
+	// Properties that were ignored because they are not
+	// in the provisioner's allowlist.
+	// +optional
+	Ignored []string `json:"ignored,omitempty"`
+}
+
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
 	// An indicator for what the provisioner is doing with the host.
@@ -818,6 +837,10 @@ type ProvisionStatus struct {
 
 	// Custom deploy procedure applied to the host.
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
+
+	// Status of host provisioner properties from the spec.
+	// +optional
+	HostProvisionerProperties *HostProvisionerPropertyStatus `json:"hostProvisionerProperties,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

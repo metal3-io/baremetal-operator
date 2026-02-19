@@ -84,6 +84,7 @@ type ManagementAccessData struct {
 	HasCustomDeploy            bool
 	DisablePowerOff            bool
 	CPUArchitecture            string
+	HostProvisionerProperties  map[string]string
 }
 
 type AdoptData struct {
@@ -243,6 +244,10 @@ type Result struct {
 	RequeueAfter time.Duration
 	// Any error message produced by the provisioner.
 	ErrorMessage string
+	// Host provisioner properties that were applied by the provisioner.
+	AppliedHostProvisionerProperties []string
+	// Host provisioner properties that were ignored by the provisioner.
+	IgnoredHostProvisionerProperties []string
 }
 
 // HardwareState holds the response from an UpdateHardwareState call.

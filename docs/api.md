@@ -115,3 +115,32 @@ See [PreprovisioningImage
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/PreprovisioningImage/v1alpha1)
 or check the source code at `apis/metal3.io/v1alpha1/preprovisioningimage_types.go`
 for a detailed API description.
+
+## Host Provisioner Properties
+
+The **BareMetalHost** resource supports setting custom properties on the
+provisioner's host representation (e.g., Ironic node properties) via the
+`spec.hostProvisionerProperties` field.
+
+Each provisioner maintains its own allowlist of properties that can be set.
+Properties not in the allowlist are silently ignored. For the Ironic
+provisioner, the currently allowed properties are:
+
+- `vendor` - Override the vendor identifier for the host
+
+### Example Usage
+
+```yaml
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: gpu-server-01
+spec:
+  online: true
+  bootMACAddress: "00:11:22:33:44:55"
+  bmc:
+    address: redfish-virtualmedia://192.168.1.100/redfish/v1/Systems/1
+    credentialsName: bmc-secret
+  hostProvisionerProperties:
+    vendor: "ami"
+```

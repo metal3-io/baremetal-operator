@@ -91,6 +91,8 @@ REGISTRY ?= quay.io/metal3-io
 IMG_NAME ?= baremetal-operator
 IMG_TAG ?= latest
 IMG ?= $(REGISTRY)/$(IMG_NAME)
+ARCH ?= $(shell go env GOARCH)
+ALL_ARCH = amd64
 
 # Which configuration to use when deploying (from the config directory)
 DEPLOY_CONFIG ?= default
@@ -269,22 +271,41 @@ generate: $(CONTROLLER_GEN) ## Generate code
 ## --------------------------------------
 
 .PHONY: docker
-docker: generate manifests ## Build the docker image
-	docker build . -t ${IMG}:${IMG_TAG} \
+docker: docker-build ## Alias for docker-build (for backwards compatibility)
+docker-build: generate manifests ## Build the docker image for controller-manager
+	docker build \
+	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
-	--build-arg https_proxy=$(https_proxy)
+	--build-arg https_proxy=$(https_proxy) \
+	. -t ${IMG}-$(ARCH):${IMG_TAG}
+	@# Tag with base image name for backward compatibility (amd64 is the default)
+	@if [ "$(ARCH)" = "amd64" ]; then \
+		docker tag ${IMG}-$(ARCH):${IMG_TAG} ${IMG}:${IMG_TAG}; \
+	fi
 
 .PHONY: docker-debug
 docker-debug: generate manifests ## Build the docker image with debug info
-	docker build . -t ${IMG}:${IMG_TAG} \
+	docker build \
+	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
-	--build-arg LDFLAGS="-extldflags=-static"
+	--build-arg LDFLAGS="-extldflags=-static" \
+	. -t ${IMG}-$(ARCH):${IMG_TAG}
 
 # Push the docker image
 .PHONY: docker-push
 docker-push:
 	docker push ${IMG}:${IMG_TAG}
+
+## --------------------------------------
+## Docker — All ARCH
+## --------------------------------------
+
+.PHONY: docker-build-all ## Build all the architecture docker images
+docker-build-all: $(addprefix docker-build-,$(ALL_ARCH))
+
+docker-build-%:
+	$(MAKE) ARCH=$* docker-build
 
 ## --------------------------------------
 ## CI Targets

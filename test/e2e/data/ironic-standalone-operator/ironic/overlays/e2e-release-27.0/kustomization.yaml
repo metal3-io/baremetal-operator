@@ -8,6 +8,7 @@ resources:
 components:
 - ../../../components/tls
 - ../../../components/basic-auth
+- ../../../components/upgrade-ip
 
 patches:
 - target:

@@ -261,22 +261,6 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 	}, intervals...).Should(BeTrue())
 }
 
-func cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, intervals ...interface{}) {
-	// Trigger deletion of BMHs before deleting the namespace.
-	// This way there should be no risk of BMO getting stuck trying to progress
-	// and create HardwareDetails or similar, while the namespace is terminating.
-	DeleteBmhsInNamespace(ctx, clusterProxy.GetClient(), namespace.Name)
-	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
-		Deleter: clusterProxy.GetClient(),
-		Name:    namespace.Name,
-	})
-	WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
-		Getter:    clusterProxy.GetClient(),
-		Namespace: *namespace,
-	}, intervals...)
-	cancelWatches()
-}
-
 func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, isNamespaced bool, intervals ...interface{}) {
 	// Due to limitation in controller runtime watched namespaces cannot be deleted
 	if !isNamespaced {
@@ -788,14 +772,18 @@ func dumpCRDS(ctx context.Context, cli client.Client, artifactFolder string) {
 }
 
 // DumpResources dumps resources related to BMO e2e tests as YAML.
-func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framework.ClusterProxy, artifactFolder string) {
+func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framework.ClusterProxy, artifactFolder string, ironicIP ...string) {
 	cli := clusterProxy.GetClient()
 	kubeconfigPath := clusterProxy.GetKubeconfigPath()
 
 	// Dump all CRDs and their instances (includes BMH, Ironic, etc.)
 	dumpCRDS(ctx, cli, filepath.Join(artifactFolder, "crd"))
 	if e2eConfig.GetBoolVariable("FETCH_IRONIC_NODES") {
-		dumpIronicNodes(ctx, e2eConfig, artifactFolder)
+		ip := e2eConfig.GetVariable("IRONIC_PROVISIONING_IP")
+		if len(ironicIP) > 0 && ironicIP[0] != "" {
+			ip = ironicIP[0]
+		}
+		dumpIronicNodes(ctx, e2eConfig, artifactFolder, ip)
 	}
 
 	// Dump pod and deployment descriptions for key namespaces using kubectl describe
@@ -807,8 +795,7 @@ func DumpResources(ctx context.Context, e2eConfig *Config, clusterProxy framewor
 }
 
 // dumpIronicNodes dumps the nodes in ironic's view into json file inside the provided artifactFolder.
-func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder string) {
-	ironicProvisioningIP := e2eConfig.GetVariable("IRONIC_PROVISIONING_IP")
+func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder string, ironicProvisioningIP string) {
 	ironicProvisioningPort := e2eConfig.GetVariable("IRONIC_PROVISIONING_PORT")
 	ironicURL := fmt.Sprintf("https://%s/v1/nodes", net.JoinHostPort(ironicProvisioningIP, ironicProvisioningPort))
 	username := e2eConfig.GetVariable("IRONIC_USERNAME")

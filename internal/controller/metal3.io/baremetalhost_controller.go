@@ -1462,6 +1462,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 			servicingData.FirmwareConfig = info.host.Spec.Firmware
 			fwDirty = true
 		}
+		servicingData.HasFirmwareSpec = fwDirty && info.host.Spec.Firmware != nil
+
 		// handling HFS based FirmwareSettings here
 		var hfs *metal3api.HostFirmwareSettings
 		var err error
@@ -1473,6 +1475,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 			servicingData.ActualFirmwareSettings = hfs.Status.Settings
 			servicingData.TargetFirmwareSettings = hfs.Spec.Settings
 		}
+
+		servicingData.HasFirmwareSpec = servicingData.HasFirmwareSpec || (hfs != nil && len(hfs.Spec.Settings) > 0)
 	}
 
 	if liveFirmwareUpdatesAllowed {
@@ -1489,6 +1493,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 				servicingData.TargetFirmwareComponents = hfc.Spec.Updates
 			}
 		}
+
+		servicingData.HasFirmwareSpec = servicingData.HasFirmwareSpec || (hfc != nil && len(hfc.Spec.Updates) > 0)
 	}
 
 	hasChanges := fwDirty || hfsDirty || hfcDirty
@@ -2138,7 +2144,8 @@ func hostObjectHasChanges(conditions []metav1.Condition, changedCondition, valid
 	return false, true, nil
 }
 
-// Get the stored firmware settings if there are valid changes.
+// Get the stored firmware settings. Returns dirty=true if there are valid pending changes.
+// The hfs object is returned when available regardless of validity, so callers can inspect spec contents.
 func (r *BareMetalHostReconciler) getHostFirmwareSettings(ctx context.Context, info *reconcileInfo) (dirty bool, hfs *metal3api.HostFirmwareSettings, err error) {
 	hfs = &metal3api.HostFirmwareSettings{}
 	if err = r.Get(ctx, info.request.NamespacedName, hfs); err != nil {
@@ -2158,7 +2165,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(ctx context.Context, i
 	}
 	if !valid {
 		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
-		return false, nil, nil
+		return false, hfs, nil
 	}
 
 	if changed {
@@ -2172,11 +2179,11 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(ctx context.Context, i
 	}
 
 	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)
-	return false, nil, nil
+	return false, hfs, nil
 }
 
-// Get the stored firmware settings if there are valid changes.
-
+// Get the stored firmware components. Returns dirty=true if there are valid pending changes.
+// The hfc object is returned when available regardless of validity, so callers can inspect spec contents.
 func (r *BareMetalHostReconciler) getHostFirmwareComponents(ctx context.Context, info *reconcileInfo) (dirty bool, hfc *metal3api.HostFirmwareComponents, err error) {
 	hfc = &metal3api.HostFirmwareComponents{}
 	if err = r.Get(ctx, info.request.NamespacedName, hfc); err != nil {
@@ -2196,7 +2203,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(ctx context.Context,
 	}
 	if !valid {
 		info.log.Info("hostFirmwareComponents not valid", "namespacename", info.request.NamespacedName)
-		return false, nil, nil
+		return false, hfc, nil
 	}
 	if changed {
 		info.log.Info("hostFirmwareComponents indicating ChangeDetected", "namespacename", info.request.NamespacedName)
@@ -2204,7 +2211,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(ctx context.Context,
 	}
 
 	info.log.Info("hostFirmwareComponents no updates", "namespacename", info.request.NamespacedName)
-	return false, nil, nil
+	return false, hfc, nil
 }
 
 func setConditionTrue(host *metal3api.BareMetalHost, typ, reason string) {

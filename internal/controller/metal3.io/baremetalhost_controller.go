@@ -1473,6 +1473,9 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 			servicingData.ActualFirmwareSettings = hfs.Status.Settings
 			servicingData.TargetFirmwareSettings = hfs.Spec.Settings
 		}
+
+		// Track if HFS spec has actual settings
+		servicingData.HasFirmwareSettingsSpec = (hfs != nil && len(hfs.Spec.Settings) > 0)
 	}
 
 	if liveFirmwareUpdatesAllowed {
@@ -1489,6 +1492,9 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 				servicingData.TargetFirmwareComponents = hfc.Spec.Updates
 			}
 		}
+
+		// Track if HFC spec has actual updates
+		servicingData.HasFirmwareComponentsSpec = (hfc != nil && len(hfc.Spec.Updates) > 0)
 	}
 
 	hasChanges := fwDirty || hfsDirty || hfcDirty
@@ -1497,6 +1503,30 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 	if !hasChanges && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
 		// If nothing is going on, return control to the power management.
 		return nil
+	}
+
+	// If we're in a servicing error state and updates were removed from spec,
+	// let the provisioner handle the transition back to active
+	if info.host.Status.ErrorType == metal3api.ServicingError && !hasChanges {
+		info.log.Info("updates removed from spec while in servicing error state, attempting recovery")
+		provResult, _, err := prov.Service(ctx, servicingData, false, false)
+		if err != nil {
+			return actionError{fmt.Errorf("failed to recover from servicing error: %w", err)}
+		}
+		if provResult.ErrorMessage != "" {
+			info.log.Info("failed to recover from servicing error", "error", provResult.ErrorMessage)
+			return actionError{fmt.Errorf("failed to recover from servicing error: %s", provResult.ErrorMessage)}
+		}
+		if provResult.Dirty {
+			info.log.Info("abort operation in progress, checking back later")
+			return actionContinue{provResult.RequeueAfter}
+		}
+		// If abort completed and no error, we've successfully recovered
+		info.log.Info("successfully recovered from servicing error")
+		info.host.Status.ErrorType = ""
+		info.host.Status.ErrorMessage = ""
+		info.host.Status.OperationalStatus = metal3api.OperationalStatusOK
+		return actionComplete{}
 	}
 
 	// FIXME(janders/dtantsur): this implementation may lead to a scenario where if we never actually
@@ -2158,7 +2188,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(ctx context.Context, i
 	}
 	if !valid {
 		info.log.Info("hostFirmwareSettings not valid", "namespacename", info.request.NamespacedName)
-		return false, nil, nil
+		return false, hfs, nil
 	}
 
 	if changed {
@@ -2172,7 +2202,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(ctx context.Context, i
 	}
 
 	info.log.Info("hostFirmwareSettings no updates", "namespacename", info.request.NamespacedName)
-	return false, nil, nil
+	return false, hfs, nil
 }
 
 // Get the stored firmware settings if there are valid changes.
@@ -2196,7 +2226,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(ctx context.Context,
 	}
 	if !valid {
 		info.log.Info("hostFirmwareComponents not valid", "namespacename", info.request.NamespacedName)
-		return false, nil, nil
+		return false, hfc, nil
 	}
 	if changed {
 		info.log.Info("hostFirmwareComponents indicating ChangeDetected", "namespacename", info.request.NamespacedName)
@@ -2204,7 +2234,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(ctx context.Context,
 	}
 
 	info.log.Info("hostFirmwareComponents no updates", "namespacename", info.request.NamespacedName)
-	return false, nil, nil
+	return false, hfc, nil
 }
 
 func setConditionTrue(host *metal3api.BareMetalHost, typ, reason string) {

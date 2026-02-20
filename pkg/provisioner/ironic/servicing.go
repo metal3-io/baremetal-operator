@@ -78,6 +78,24 @@ func (p *ironicProvisioner) startServicing(ctx context.Context, bmcAccess bmc.Ac
 	return
 }
 
+func (p *ironicProvisioner) abortServicing(ctx context.Context, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
+	// Clear maintenance flag first if it's set
+	if ironicNode.Maintenance {
+		p.log.Info("clearing maintenance flag before aborting servicing")
+		result, err = p.setMaintenanceFlag(ctx, ironicNode, false, "")
+		return result, started, err
+	}
+
+	// Set started to let the controller know about the change
+	p.log.Info("aborting servicing due to removal of spec.updates/spec.settings")
+	started, result, err = p.tryChangeNodeProvisionState(
+		ctx,
+		ironicNode,
+		nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
+	)
+	return
+}
+
 func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.ServicingData, unprepared, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
@@ -93,7 +111,14 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
 	case nodes.ServiceFail:
-		// When servicing failed, we need to clean host provisioning settings.
+		// When servicing failed and user actually removed the specs (not just no updates calculated),
+		// we need to abort the servicing operation to back out
+		if !data.HasFirmwareSettingsSpec && !data.HasFirmwareComponentsSpec {
+			p.log.Info("aborting servicing because spec.updates/spec.settings was removed")
+			return p.abortServicing(ctx, ironicNode)
+		}
+
+		// When servicing failed and there are pending updates, we need to clean host provisioning settings
 		// If restartOnFailure is false, it means the settings aren't cleared.
 		if !restartOnFailure {
 			result, err = operationFailed(ironicNode.LastError)
@@ -121,7 +146,19 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 		// Servicing finished
 		p.log.Info("servicing finished on the host")
 		result, err = operationComplete()
-	case nodes.Servicing, nodes.ServiceWait:
+	case nodes.Servicing:
+		p.log.Info("waiting for host to finish servicing",
+			"state", ironicNode.ProvisionState,
+			"serviceStep", ironicNode.ServiceStep)
+		result, err = operationContinuing(provisionRequeueDelay)
+
+	case nodes.ServiceWait:
+		// If user removed spec.updates/spec.settings while in ServiceWait, abort
+		if !data.HasFirmwareSettingsSpec && !data.HasFirmwareComponentsSpec {
+			p.log.Info("aborting servicing because spec.updates/spec.settings was removed")
+			return p.abortServicing(ctx, ironicNode)
+		}
+
 		p.log.Info("waiting for host to become active",
 			"state", ironicNode.ProvisionState,
 			"serviceStep", ironicNode.ServiceStep)

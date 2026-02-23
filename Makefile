@@ -273,7 +273,7 @@ generate: $(CONTROLLER_GEN) ## Generate code
 .PHONY: docker
 docker: docker-build ## Alias for docker-build (for backwards compatibility)
 docker-build: generate manifests ## Build the docker image for controller-manager
-	docker build \
+	docker build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
@@ -285,7 +285,7 @@ docker-build: generate manifests ## Build the docker image for controller-manage
 
 .PHONY: docker-debug
 docker-debug: generate manifests ## Build the docker image with debug info
-	docker build \
+	docker build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
@@ -295,14 +295,18 @@ docker-debug: generate manifests ## Build the docker image with debug info
 # Push the docker image
 .PHONY: docker-push
 docker-push:
-	docker push ${IMG}:${IMG_TAG}
+	docker push ${IMG}-$(ARCH):${IMG_TAG}
+	@# Push base image tag for backward compatibility (amd64 is the default)
+	@if [ "$(ARCH)" = "amd64" ]; then \
+		docker push ${IMG}:${IMG_TAG}; \
+	fi
 
 ## --------------------------------------
 ## Docker — All ARCH
 ## --------------------------------------
 
-.PHONY: docker-build-all ## Build all the architecture docker images
-docker-build-all: $(addprefix docker-build-,$(ALL_ARCH))
+.PHONY: docker-build-all
+docker-build-all: $(addprefix docker-build-,$(ALL_ARCH)) ## Build all the architecture docker images
 
 docker-build-%:
 	$(MAKE) ARCH=$* docker-build

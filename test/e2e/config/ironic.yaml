@@ -5,10 +5,6 @@ images:
 # - name: quay.io/metal3-io/ironic:local
 #   loadBehavior: tryLoad
 # Save some time and network by using cached images if available
-- name: quay.io/metal3-io/baremetal-operator:release-0.6
-  loadBehavior: tryLoad
-- name: quay.io/metal3-io/baremetal-operator:release-0.8
-  loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.9
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.17.1

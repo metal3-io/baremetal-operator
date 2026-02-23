@@ -154,6 +154,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	} else {
 		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 			Name:              "bmo-e2e",
+			KubernetesVersion: "v1.34.0",
 			Images:            e2eConfig.Images,
 			ExtraPortMappings: e2eConfig.KindExtraPortMappings,
 		})

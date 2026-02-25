@@ -107,8 +107,7 @@ func (m *HostManager) SetConditionHostToTrue(
 }
 
 func (m *HostManager) Associate(ctx context.Context) error {
-	// Parallel attempts to associate is problematic since the same BMH
-	// could be selected for multiple M3Ms. Therefore we use a mutex lock here.
+	// Parallel attempts to reconcile a given HostClaim is problematic because different choices of BMH can be made.
 	associateBMHMutex.Lock()
 	defer associateBMHMutex.Unlock()
 
@@ -320,7 +319,7 @@ func (m *HostManager) pickHost(availableHosts []*metal3api.BareMetalHost) (*meta
 // match the namespace of the claim. overridesCleaningPolicy specifies whether the hostclaim
 // defines the automatedCleaningPolicy field or not.
 func (m *HostManager) acceptableNamespaces(ctx context.Context, namespace string) (Set[string], error) {
-	m.Log.Info("Searching for suitable namespaces")
+	m.Log.V(1).Info("Searching for suitable namespaces")
 	hostdeploypolicies := metal3api.HostDeployPolicyList{}
 	options := []client.ListOption{}
 	if namespace != "" {
@@ -342,7 +341,6 @@ func (m *HostManager) acceptableNamespaces(ctx context.Context, namespace string
 	if nsLabels == nil {
 		nsLabels = map[string]string{}
 	}
-	m.Log.Info("labels of the NS of hostclaim", "labels", nsLabels)
 	namespaces := NewSet[string]()
 LOOP_POLICY:
 	for _, hostDeployPolicy := range hostdeploypolicies.Items {
@@ -353,72 +351,66 @@ LOOP_POLICY:
 		}
 		constraints := hostDeployPolicy.Spec.HostClaimNamespaces
 		if constraints == nil {
-			log.Info("Rejecting hostdeploypolicy without constraint")
+			log.V(1).Info("Ignoring HostDeployPolicy without constraint")
 			continue
 		}
 		if constraints.Names != nil && !slices.Contains(constraints.Names, hostNs) {
-			log.Info("Rejecting hostdeploypolicy because claim namespace not in names", "names", constraints.Names)
+			log.V(1).Info("Ignoring HostDeployPolicy because claim namespace not in names", "names", constraints.Names)
 			continue
 		}
 		if constraints.NameMatches != "" {
 			b, err := regexp.MatchString(constraints.NameMatches, hostNs)
 			if err != nil {
 				log.Error(
-					err, "Error during regexp matching on hostclaim namespace (bad regexp)",
+					err, "Error during regexp matching on HostClaim namespace (bad regexp)",
 					"regexp", constraints.NameMatches)
 				return nil, err
 			}
 			if !b {
-				log.Info("Rejecting hostdeploypolicy because claim namespace does not match regex")
+				log.V(1).Info("Ignoring HostDeployPolicy because claim namespace does not match regex")
 				continue
 			}
 		}
-		if constraints.HasLabels != nil {
-			// Behaves as a 'forall' on labels
-			for _, pair := range constraints.HasLabels {
-				m.Log.Info("checking label", "name", pair.Name, "value", pair.Value)
-				if v, ok := nsLabels[pair.Name]; ok {
-					if pair.Value != "" && v != pair.Value {
-						log.Info("Rejecting hostdeploypolicy because claim namespace labels does not have correct value", "label", pair.Name)
-						continue LOOP_POLICY
-					}
-				} else {
-					log.Info("Rejecting hostdeploypolicy because claim namespace labels does not have a required label", "label", pair.Name)
+		// Behaves as a 'forall' on labels
+		for _, pair := range constraints.HasLabels {
+			if v, ok := nsLabels[pair.Name]; ok {
+				if pair.Value != "" && v != pair.Value {
+					log.V(1).Info(
+						"Ignoring HostDeployPolicy because claim namespace labels does not have correct value",
+						"label", pair.Name, "value", v, "expected", pair.Value)
 					continue LOOP_POLICY
 				}
+			} else {
+				log.V(1).Info(
+					"Ignoring HostDeployPolicy because claim namespace labels does not have a required label",
+					"label", pair.Name)
+				continue LOOP_POLICY
 			}
 		}
-		log.Info("Accepting namespace because of HostDeployPolicy")
+		log.V(1).Info("Accepting namespace because of HostDeployPolicy", "namespace", hostDeployPolicy.Namespace)
 		AddSet(namespaces, hostDeployPolicy.Namespace)
 	}
 	m.Log.Info("Acceptable namespaces", "namespaces", namespaces)
 	return namespaces, nil
 }
 
-func hostLabelSelectorForHostClaim(hostClaim *metal3api.HostClaim, log logr.Logger) (labels.Selector, error) {
+func (m *HostManager) hostLabelSelectorForHostClaim() (labels.Selector, error) {
 	labelSelector := labels.NewSelector()
 
-	for labelKey, labelVal := range hostClaim.Spec.HostSelector.MatchLabels {
-		log.Info("Adding requirement to match label",
-			"label key", labelKey,
-			"label value", labelVal)
+	for labelKey, labelVal := range m.HostClaim.Spec.HostSelector.MatchLabels {
 		r, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal})
 		if err != nil {
-			log.Error(err, "Failed to create MatchLabel requirement, not choosing host")
+			m.Log.Error(err, "Failed to create MatchLabel requirement, not choosing host")
 			return nil, err
 		}
 		labelSelector = labelSelector.Add(*r)
 	}
 
-	for _, req := range hostClaim.Spec.HostSelector.MatchExpressions {
-		log.Info("Adding requirement to match label",
-			"label key", req.Key,
-			"label operator", req.Operator,
-			"label value", req.Values)
+	for _, req := range m.HostClaim.Spec.HostSelector.MatchExpressions {
 		lowercaseOperator := selection.Operator(strings.ToLower(string(req.Operator)))
 		r, err := labels.NewRequirement(req.Key, lowercaseOperator, req.Values)
 		if err != nil {
-			log.Error(err, "Failed to create MatchExpression requirement, not choosing host")
+			m.Log.Error(err, "Failed to create MatchExpression requirement, not choosing host")
 			return nil, err
 		}
 		labelSelector = labelSelector.Add(*r)
@@ -435,12 +427,12 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 		return nil, nil, err
 	}
 	// get list of BMH.
-	labelSelector, err := hostLabelSelectorForHostClaim(m.HostClaim, m.Log)
+	labelSelector, err := m.hostLabelSelectorForHostClaim()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Different from M3M: We do not restrict to a namespace
+	// Different from M3M: We do not restrict to a single namespace (namespace of Metal3Machine)
 
 	availableHosts := []*metal3api.BareMetalHost{}
 
@@ -452,25 +444,20 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 			return nil, nil, err
 		}
 		for i, bmh := range bmhs.Items {
-			m.Log.Info("Testing host", "name", bmh.Name, "namespace", bmh.Namespace)
 			if bmh.Spec.ConsumerRef != nil && consumerRefMatches(bmh.Spec.ConsumerRef, m.HostClaim) {
 				m.Log.Info("Found host with existing ConsumerRef", "host", bmh.Name)
-				helper, err2 := patch.NewHelper(&bmhs.Items[i], m.client)
-				return &bmhs.Items[i], helper, err2
+				helper, err2 := patch.NewHelper(&bmh, m.client)
+				return &bmh, helper, err2
 			}
 
 			// nodeReuse is not handled at the level of HostClaims but we still
-			// honor nodeReuse labels of others.
+			// honor nodeReuse labels put by metal3machine controller.
 			if bmh.Spec.ConsumerRef != nil || nodeReuseLabelExists(&bmh) {
 				continue
 			}
 			if bmh.GetDeletionTimestamp() != nil {
 				continue
 			}
-			if bmh.Status.ErrorMessage != "" {
-				continue
-			}
-
 			// continue if BaremetalHost is paused or marked with UnhealthyAnnotation.
 			annotations := bmh.GetAnnotations()
 			if annotations != nil {
@@ -487,6 +474,13 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 			default:
 				continue
 			}
+
+			if bmh.Status.ErrorMessage != "" {
+				m.Log.Info("Found an available host with an error message (should not occur)",
+					"bmh", bmh.Name, "bmhNamespace", bmh.Namespace)
+				continue
+			}
+
 			m.Log.Info("Host matched hostSelector for Host, adding it to availableHosts list",
 				"host", bmh.Name)
 			availableHosts = append(availableHosts, &bmhs.Items[i])

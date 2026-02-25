@@ -79,7 +79,7 @@ var _ = Describe("HostClaim manager", func() {
 		bmhns1BadLabel          = NewBaremetalhost("nolabel-bmh1", "ns1", metal3api.StateAvailable).Build()
 		bmhns1NotAvail          = NewBaremetalhost("notavail-bmh1", "ns1", metal3api.StateRegistering).SetLabels(defaultBmhLabels).Build()
 		bmhns1Paused            = NewBaremetalhost("paused-bmh1", "ns1", metal3api.StateRegistering).SetLabels(defaultBmhLabels).
-					SetAnnotations(map[string]string{metal3api.PausedAnnotation: PausedAnnotationKey}).Build()
+					SetAnnotations(map[string]string{metal3api.PausedAnnotation: PausedAnnotationValue}).Build()
 		bmhns1Unhealthy = NewBaremetalhost("unhealthy-bmh1", "ns1", metal3api.StateRegistering).SetLabels(defaultBmhLabels).
 				SetAnnotations(map[string]string{UnhealthyAnnotation: ""}).Build()
 		bmhns1Consumed = NewBaremetalhost(
@@ -335,6 +335,15 @@ var _ = Describe("HostClaim manager", func() {
 				return
 			}
 			Expect(err).NotTo(HaveOccurred())
+			updatedBmh := &metal3api.BareMetalHost{}
+			err = fakeClient.Get(context.TODO(), client.ObjectKeyFromObject(bmh), updatedBmh)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedBmh.Spec.ConsumerRef).ToNot(BeNil())
+			Expect(updatedBmh.Spec.ConsumerRef.Name).To(Equal(tc.HostClaim.Name))
+			Expect(updatedBmh.Spec.ConsumerRef.Namespace).To(Equal(tc.HostClaim.Namespace))
+			Expect(tc.HostClaim.Status.BareMetalHost).ToNot(BeNil())
+			Expect(tc.HostClaim.Status.BareMetalHost.Name).To(Equal(bmh.Name))
+			Expect(tc.HostClaim.Status.BareMetalHost.Namespace).To(Equal(bmh.Namespace))
 		},
 		Entry("Regular case", testCaseAssociate{
 			HostClaim: NewHostclaim(HostclaimName).SetImage(defaultImage).SetUserData("sec-user-data").Build(),

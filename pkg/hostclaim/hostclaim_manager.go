@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/cache"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -51,11 +50,9 @@ type HostManager struct {
 }
 
 const (
-	// PausedAnnotationKey is an annotation to be used for pausing a hostclaim.
-	PausedAnnotationKey = "metal3.io/hostmgr"
-	// BareMetalHostAnnotation is the key for an annotation that should go on a Host to
-	// reference what BareMetalHost it corresponds to.
-	BareMetalHostAnnotation = "metal3.io/BareMetalHost"
+	// PausedAnnotationValue is the value used to mark a BareMetalHost as paused by
+	// a HostClaim.
+	PausedAnnotationValue = "metal3.io/hostclaim"
 	// UnhealthyAnnotation is the annotation used by the Metal3Health
 	// that sets unhealthy status of BMH.
 	UnhealthyAnnotation = "capi.metal3.io/unhealthy"
@@ -140,7 +137,7 @@ func (m *HostManager) Associate(ctx context.Context) error {
 			"No available host found: requeuing.")
 		return &RequeueAfterError{RequeueAfter: HostClaimRequeueDelay}
 	}
-	m.Log.Info("Associating machine with host", "BareMetalHost", bmh.Name)
+	m.Log.Info("Associating hostClaim with host", "BareMetalHost", bmh.Name)
 
 	// First we record the association in the BMH. If we fail, we must redo the
 	// whole selection process and remove the annotation.
@@ -148,7 +145,7 @@ func (m *HostManager) Associate(ctx context.Context) error {
 
 	if err = helper.Patch(ctx, bmh); err != nil {
 		m.Log.Error(err, "Error while patching the consumerRef on BMH")
-		delete(m.HostClaim.Annotations, BareMetalHostAnnotation)
+		m.HostClaim.Status.BareMetalHost = nil
 		m.SetConditionHostToFalse(
 			metal3api.AssociatedCondition, metal3api.BareMetalHostNotSynchronizedReason,
 			"Failed to set consumer Reference on BareMetalHost")
@@ -156,7 +153,7 @@ func (m *HostManager) Associate(ctx context.Context) error {
 	}
 
 	// Then we record the commitment to this given BMH.
-	err = m.ensureAnnotation(ctx, bmh)
+	err = m.ensureCommitment(ctx, bmh)
 	if err != nil {
 		m.SetConditionHostToFalse(
 			metal3api.AssociatedCondition, metal3api.HostClaimAnnotationNotSetReason,
@@ -225,21 +222,18 @@ func hideConflictError(err error) error {
 	return err
 }
 
-// ensureAnnotation makes sure the machine has an annotation that references the
-// host and uses the API to update the machine if necessary.
-func (m *HostManager) ensureAnnotation(ctx context.Context, bmh *metal3api.BareMetalHost) error {
-	annotations := m.HostClaim.Annotations
-	if annotations == nil {
-		annotations = map[string]string{}
-		m.HostClaim.Annotations = annotations
+// ensureCommitment makes sure the hostClaim has an annotation that references the
+// host and uses the API to update the hostClaim if necessary.
+func (m *HostManager) ensureCommitment(ctx context.Context, bmh *metal3api.BareMetalHost) error {
+	m.HostClaim.Status.BareMetalHost = &metal3api.ObjectReference{
+		Namespace: bmh.Namespace,
+		Name:      bmh.Name,
 	}
-	bmhKey := cache.MetaObjectToName(bmh).String()
-	annotations[BareMetalHostAnnotation] = bmhKey
 	return m.PatchHost(ctx)
 }
 
 // consumerRefMatches returns a boolean based on whether the consumer
-// reference and bare metal machine metadata match.
+// reference and bareMetalHost metadata match.
 func consumerRefMatches(consumer *corev1.ObjectReference, host *metal3api.HostClaim) bool {
 	if consumer == nil || host == nil {
 		return false

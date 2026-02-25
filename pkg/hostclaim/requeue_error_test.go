@@ -17,11 +17,12 @@ limitations under the License.
 package hostclaim
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
 )
 
 var _ = Describe("Requeue After Error tests", func() {
@@ -35,14 +36,14 @@ var _ = Describe("Requeue After Error tests", func() {
 	It("Check it is catched even if behind wrapper", func() {
 		duration := 30 * time.Second
 		var err error = &RequeueAfterError{RequeueAfter: duration}
-		err = errors.Wrap(err, "Wrapped error")
+		err = fmt.Errorf("Wrapped error: %w", err)
 		ok, t := IsRequeueAfterError(err)
 		Expect(ok).To(BeTrue())
 		Expect(t).To(Equal(duration))
 	})
 	It("Other errors are not catched", func() {
 		var err error = errors.New("other")
-		err = errors.Wrap(err, "Wrapped error")
+		err = fmt.Errorf("Wrapped error: %w", err)
 		ok, _ := IsRequeueAfterError(err)
 		Expect(ok).To(BeFalse())
 	})

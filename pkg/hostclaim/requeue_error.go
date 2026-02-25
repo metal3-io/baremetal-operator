@@ -17,10 +17,9 @@ limitations under the License.
 package hostclaim
 
 import (
+	"errors"
 	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // HasRequeueAfterError represents that an actuator managed object should

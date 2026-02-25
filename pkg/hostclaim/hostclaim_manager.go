@@ -19,6 +19,7 @@ package hostclaim
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"math/big"
 	"regexp"
 	"slices"
@@ -28,7 +29,6 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

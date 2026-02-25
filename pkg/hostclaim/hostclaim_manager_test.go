@@ -1,5 +1,3 @@
-//go:build unit
-
 /*
 Copyright 2025 The Metal3 Authors.
 

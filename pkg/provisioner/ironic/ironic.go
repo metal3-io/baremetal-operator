@@ -336,6 +336,9 @@ func (p *ironicProvisioner) configureNode(ctx context.Context, data provisioner.
 	if data.CPUArchitecture != "" {
 		opts["cpu_arch"] = data.CPUArchitecture
 	}
+	if data.Vendor != "" {
+		opts["vendor"] = data.Vendor
+	}
 	updater.SetPropertiesOpts(opts, ironicNode)
 
 	_, success, result, err := p.tryUpdateNode(ctx, ironicNode, updater)

@@ -215,6 +215,7 @@ var _ = SynchronizedAfterSuite(func() {
 	// After all ParallelNodes.
 
 	cancelWatches()
+	logWatchers.StopAll()
 
 	By("Tearing down the management cluster")
 	if !skipCleanup {

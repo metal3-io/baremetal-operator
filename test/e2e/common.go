@@ -129,6 +129,54 @@ func CopyIncrementalVMLog(vmName, destFolder string) error {
 	return nil
 }
 
+// logWatcherManager manages deployment log watchers, allowing per-watcher
+// cancellation and preventing duplicates. Each watcher gets its own child
+// context so it can be individually stopped without affecting others.
+type logWatcherManager struct {
+	mu       sync.Mutex
+	watchers map[string]context.CancelFunc
+}
+
+// logWatchers is the package-level instance used to track all deployment log watchers.
+var logWatchers = &logWatcherManager{
+	watchers: make(map[string]context.CancelFunc),
+}
+
+// Start creates a log watcher for the given key if one doesn't already exist.
+// It creates a child context from the provided ctx so the watcher can be
+// individually cancelled without affecting others.
+func (m *logWatcherManager) Start(ctx context.Context, key string, startFunc func(ctx context.Context)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, exists := m.watchers[key]; exists {
+		Logf("Log watcher already active for %s, skipping", key)
+		return
+	}
+	watcherCtx, cancel := context.WithCancel(ctx)
+	m.watchers[key] = cancel
+	startFunc(watcherCtx)
+}
+
+// Stop cancels and removes the watcher for the given key.
+func (m *logWatcherManager) Stop(key string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if cancel, exists := m.watchers[key]; exists {
+		cancel()
+		delete(m.watchers, key)
+	}
+}
+
+// StopAll cancels and removes all active watchers.
+func (m *logWatcherManager) StopAll() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for key, cancel := range m.watchers {
+		cancel()
+		delete(m.watchers, key)
+	}
+}
+
 func isUndesiredState(currentState metal3api.ProvisioningState, undesiredStates []metal3api.ProvisioningState) bool {
 	if undesiredStates == nil {
 		return false
@@ -621,13 +669,15 @@ func BuildAndApplyKustomization(ctx context.Context, input *BuildAndApplyKustomi
 	}
 
 	if input.WatchDeploymentLogs {
-		// Set up log watcher
-		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
-			GetLister:  clusterProxy.GetClient(),
-			Cache:      clusterProxy.GetCache(ctx),
-			ClientSet:  clusterProxy.GetClientSet(),
-			Deployment: deployment,
-			LogPath:    input.LogPath,
+		watcherKey := input.DeploymentNamespace + "/" + input.DeploymentName
+		logWatchers.Start(ctx, watcherKey, func(watcherCtx context.Context) {
+			framework.WatchDeploymentLogsByName(watcherCtx, framework.WatchDeploymentLogsByNameInput{
+				GetLister:  clusterProxy.GetClient(),
+				Cache:      clusterProxy.GetCache(watcherCtx),
+				ClientSet:  clusterProxy.GetClientSet(),
+				Deployment: deployment,
+				LogPath:    input.LogPath,
+			})
 		})
 	}
 	return nil

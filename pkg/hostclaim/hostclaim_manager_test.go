@@ -115,7 +115,7 @@ var _ = Describe("HostClaim manager", func() {
 			fakeClient := fake.NewClientBuilder().WithScheme(setupScheme()).WithObjects(objects...).Build()
 			hostMgr, err := NewHostManager(fakeClient, GinkgoLogr, tc.HostClaim, fakeClient)
 			Expect(err).NotTo(HaveOccurred())
-			bmh, _, err := hostMgr.chooseBMH(context.TODO())
+			bmh, err := hostMgr.chooseBMH(context.TODO())
 			if tc.ExpectedBmhName == "" {
 				Expect(bmh).To(BeNil())
 				if tc.ExpectFail {

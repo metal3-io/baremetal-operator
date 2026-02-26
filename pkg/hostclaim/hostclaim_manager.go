@@ -24,7 +24,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -71,10 +70,6 @@ const (
 	HostClaimKind = "HostClaim"
 )
 
-var (
-	associateBMHMutex sync.Mutex
-)
-
 func NewHostManager(client client.Client, log logr.Logger, host *metal3api.HostClaim, apireader client.Reader) (*HostManager, error) {
 	patchHelper, err := patch.NewHelper(host, client)
 	if err != nil {
@@ -107,10 +102,6 @@ func (m *HostManager) SetConditionHostToTrue(
 }
 
 func (m *HostManager) Associate(ctx context.Context) error {
-	// Parallel attempts to reconcile a given HostClaim is problematic because different choices of BMH can be made.
-	associateBMHMutex.Lock()
-	defer associateBMHMutex.Unlock()
-
 	m.Log.Info("Associating host")
 
 	// load and validate the config
@@ -120,7 +111,7 @@ func (m *HostManager) Associate(ctx context.Context) error {
 		return nil
 	}
 
-	bmh, helper, err := m.chooseBMH(ctx)
+	bmh, err := m.chooseBMH(ctx)
 	if err != nil {
 		if ok, _ := IsRequeueAfterError(err); !ok {
 			m.SetConditionHostToFalse(
@@ -142,8 +133,8 @@ func (m *HostManager) Associate(ctx context.Context) error {
 	// whole selection process and remove the annotation.
 	m.setBmhConsumerRef(bmh)
 
-	if err = helper.Patch(ctx, bmh); err != nil {
-		m.Log.Error(err, "Error while patching the consumerRef on BMH")
+	if err = m.client.Update(ctx, bmh); err != nil {
+		m.Log.Error(err, "Error while updating the consumerRef on BMH")
 		m.HostClaim.Status.BareMetalHost = nil
 		m.SetConditionHostToFalse(
 			metal3api.AssociatedCondition, metal3api.BareMetalHostNotSynchronizedReason,
@@ -421,15 +412,15 @@ func (m *HostManager) hostLabelSelectorForHostClaim() (labels.Selector, error) {
 // chooseBMH iterates through known bare-metal hosts and returns one that can be
 // associated with the HostClaim. It searches all hosts in case one already has an
 // association with this HostClaim.
-func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, *patch.Helper, error) {
+func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, error) {
 	namespaces, err := m.acceptableNamespaces(ctx, m.HostClaim.Spec.HostSelector.InNamespace)
 	if err != nil || len(namespaces) == 0 {
-		return nil, nil, err
+		return nil, err
 	}
 	// get list of BMH.
 	labelSelector, err := m.hostLabelSelectorForHostClaim()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Different from M3M: We do not restrict to a single namespace (namespace of Metal3Machine)
@@ -441,13 +432,12 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 		m.Log.Info("Testing in namespace", "namespace", namespace)
 		err = m.client.List(ctx, &bmhs, client.MatchingLabelsSelector{Selector: labelSelector}, client.InNamespace(namespace))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		for i, bmh := range bmhs.Items {
 			if bmh.Spec.ConsumerRef != nil && consumerRefMatches(bmh.Spec.ConsumerRef, m.HostClaim) {
 				m.Log.Info("Found host with existing ConsumerRef", "host", bmh.Name)
-				helper, err2 := patch.NewHelper(&bmh, m.client)
-				return &bmh, helper, err2
+				return &bmh, nil
 			}
 
 			// nodeReuse is not handled at the level of HostClaims but we still
@@ -489,17 +479,16 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 
 	m.Log.Info("Host count available while choosing host for HostClaim", "hostcount", len(availableHosts))
 	if len(availableHosts) == 0 {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	chosenHost, err := m.selectBMH(availableHosts)
 	if err != nil {
 		m.Log.Error(err, "Failed to select a Host")
-		return nil, nil, err
+		return nil, err
 	}
 
-	helper, err := patch.NewHelper(chosenHost, m.client)
-	return chosenHost, helper, err
+	return chosenHost, err
 }
 
 // nodeReuseLabelExists returns true if host contains nodeReuseLabelName label.

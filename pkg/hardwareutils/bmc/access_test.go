@@ -1,7 +1,6 @@
 package bmc
 
 import (
-	"reflect"
 	"testing"
 )
 
@@ -135,36 +134,6 @@ func TestParse(t *testing.T) {
 			Port:     "6233",
 			Host:     "192.168.122.1",
 			Hostname: "192.168.122.1:6233",
-			Path:     "",
-		},
-
-		{
-			Scenario: "irmc url",
-			Address:  "irmc://192.168.122.1",
-			Type:     "irmc",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
-			Path:     "",
-		},
-
-		{
-			Scenario: "irmc url, ipv6",
-			Address:  "irmc://[fe80::fc33:62ff:fe83:8a76]",
-			Type:     "irmc",
-			Port:     "",
-			Host:     "fe80::fc33:62ff:fe83:8a76",
-			Hostname: "[fe80::fc33:62ff:fe83:8a76]",
-			Path:     "",
-		},
-
-		{
-			Scenario: "irmc url, no sep",
-			Address:  "irmc:192.168.122.1",
-			Type:     "irmc",
-			Port:     "",
-			Host:     "192.168.122.1",
-			Hostname: "192.168.122.1",
 			Path:     "",
 		},
 
@@ -305,18 +274,6 @@ func TestStaticDriverInfo(t *testing.T) {
 			input:      "libvirt://192.168.122.1",
 			needsMac:   true,
 			driver:     "ipmi",
-			bios:       "",
-			boot:       "ipxe",
-			firmware:   "",
-			management: "",
-			power:      "",
-		},
-
-		{
-			Scenario:   "irmc",
-			input:      "irmc://192.168.122.1",
-			needsMac:   true,
-			driver:     "irmc",
 			bios:       "",
 			boot:       "ipxe",
 			firmware:   "",
@@ -530,64 +487,6 @@ func TestDriverInfo(t *testing.T) {
 		},
 
 		{
-			Scenario: "irmc",
-			input:    "irmc://192.168.122.1",
-			expects: map[string]interface{}{
-				"irmc_address":   "192.168.122.1",
-				"irmc_password":  "",
-				"irmc_username":  "",
-				"ipmi_address":   "192.168.122.1",
-				"ipmi_password":  "",
-				"ipmi_username":  "",
-				"irmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "irmc port",
-			input:    "irmc://192.168.122.1:8080",
-			expects: map[string]interface{}{
-				"irmc_address":   "192.168.122.1",
-				"irmc_port":      "8080",
-				"irmc_password":  "",
-				"irmc_username":  "",
-				"ipmi_address":   "192.168.122.1",
-				"ipmi_password":  "",
-				"ipmi_username":  "",
-				"irmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "irmc ipv6",
-			input:    "irmc://[fe80::fc33:62ff:fe83:8a76]",
-			expects: map[string]interface{}{
-				"irmc_address":   "fe80::fc33:62ff:fe83:8a76",
-				"irmc_password":  "",
-				"irmc_username":  "",
-				"ipmi_address":   "fe80::fc33:62ff:fe83:8a76",
-				"ipmi_password":  "",
-				"ipmi_username":  "",
-				"irmc_verify_ca": false,
-			},
-		},
-
-		{
-			Scenario: "irmc ipv6 port",
-			input:    "irmc://[fe80::fc33:62ff:fe83:8a76]:8080",
-			expects: map[string]interface{}{
-				"irmc_address":   "fe80::fc33:62ff:fe83:8a76",
-				"irmc_port":      "8080",
-				"irmc_password":  "",
-				"irmc_username":  "",
-				"ipmi_address":   "fe80::fc33:62ff:fe83:8a76",
-				"ipmi_password":  "",
-				"ipmi_username":  "",
-				"irmc_verify_ca": false,
-			},
-		},
-
-		{
 			Scenario: "Redfish",
 			input:    "redfish://192.168.122.1/redfish/v1/foo/bar",
 			expects: map[string]interface{}{
@@ -777,68 +676,5 @@ func TestUnknownType(t *testing.T) {
 	acc, err := NewAccessDetails("foo://192.168.122.1", false)
 	if err == nil || acc != nil {
 		t.Fatalf("unexpected parse success")
-	}
-}
-
-func TestBuildBIOSCleanSteps(t *testing.T) {
-	var True = true
-	var False = false
-
-	cases := []struct {
-		name          string
-		address       string
-		firmware      *FirmwareConfig
-		expected      []map[string]string
-		expectedError bool
-	}{
-		// irmc
-		{
-			name:    "irmc",
-			address: "irmc://192.168.122.1",
-			firmware: &FirmwareConfig{
-				VirtualizationEnabled:             &True,
-				SimultaneousMultithreadingEnabled: &False,
-			},
-			expected: []map[string]string{
-				{
-					"name":  "cpu_vt_enabled",
-					"value": "True",
-				},
-				{
-					"name":  "hyper_threading_enabled",
-					"value": "False",
-				},
-			},
-		},
-		{
-			name:     "irmc, firmware is nil",
-			address:  "irmc://192.168.122.1",
-			firmware: nil,
-			expected: nil,
-		},
-		{
-			name:     "irmc, firmware is empty",
-			address:  "irmc://192.168.122.1",
-			firmware: &FirmwareConfig{},
-			expected: nil,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			acc, err := NewAccessDetails(c.address, false)
-			if err != nil {
-				t.Fatalf("new AccessDetails failed: %v", err)
-			}
-
-			settings, err := acc.BuildBIOSSettings(c.firmware)
-			if (err != nil) != c.expectedError {
-				t.Fatalf("got unexpected error: %v", err)
-			}
-
-			if !reflect.DeepEqual(c.expected, settings) {
-				t.Errorf("expected settings: %v, got: %v", c.expected, settings)
-			}
-		})
 	}
 }

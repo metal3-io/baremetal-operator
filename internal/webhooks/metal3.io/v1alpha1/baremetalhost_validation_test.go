@@ -104,7 +104,7 @@ func TestValidateCreate(t *testing.T) {
 				Spec: metal3api.BareMetalHostSpec{
 					BootMACAddress: "01:02:03:04:05:06",
 					BMC: metal3api.BMCDetails{
-						Address:         "irmc:127.0.1.1",
+						Address:         "redfish://bmc.example.com",
 						CredentialsName: "test1",
 					},
 					RAID: &metal3api.RAIDConfig{
@@ -136,7 +136,7 @@ func TestValidateCreate(t *testing.T) {
 				Spec: metal3api.BareMetalHostSpec{
 					BootMACAddress: "01:02:03:04:05:06",
 					BMC: metal3api.BMCDetails{
-						Address:         "irmc:127.0.1.1",
+						Address:         "redfish://bmc.example.com",
 						CredentialsName: "test1",
 					},
 				}},
@@ -176,7 +176,7 @@ func TestValidateCreate(t *testing.T) {
 					},
 					BootMACAddress: "01:02:03:04:05:06",
 					BMC: metal3api.BMCDetails{
-						Address:         "irmc://127.0.1.1",
+						Address:         "redfish://bmc.example.com",
 						CredentialsName: "test1",
 					},
 				}},
@@ -207,24 +207,6 @@ func TestValidateCreate(t *testing.T) {
 				}},
 			oldBMH:    nil,
 			wantedErr: "BMC driver ipmi does not support configuring RAID",
-		},
-		{
-			name: "FirmwareWithSupportBMC",
-			newBMH: &metal3api.BareMetalHost{
-				TypeMeta:   tm,
-				ObjectMeta: om,
-				Spec: metal3api.BareMetalHostSpec{
-					Firmware: &metal3api.FirmwareConfig{
-						VirtualizationEnabled: &enable,
-					},
-					BootMACAddress: "01:02:03:04:05:06",
-					BMC: metal3api.BMCDetails{
-						Address:         "irmc://127.0.1.1",
-						CredentialsName: "test1",
-					},
-				}},
-			oldBMH:    nil,
-			wantedErr: "",
 		},
 		{
 			name: "FirmwareWithUnsupportBMC",
@@ -360,7 +342,7 @@ func TestValidateCreate(t *testing.T) {
 				ObjectMeta: om,
 				Spec: metal3api.BareMetalHostSpec{
 					BMC: metal3api.BMCDetails{
-						Address:         "irmc://127.0.1.1",
+						Address:         "redfish://bmc.example.com",
 						CredentialsName: "test1",
 					},
 					BootMACAddress: "00:00:00:00:00",
@@ -376,7 +358,7 @@ func TestValidateCreate(t *testing.T) {
 				ObjectMeta: om,
 				Spec: metal3api.BareMetalHostSpec{
 					BMC: metal3api.BMCDetails{
-						Address:         "irmc://127.0.1.1",
+						Address:         "redfish://bmc.example.com",
 						CredentialsName: "test1",
 					},
 					BootMACAddress: "00:00:00:00:00:00",

@@ -2,8 +2,8 @@ header:
   schema-version: 2.2.0
   last-updated: '2026-02-24'
   last-reviewed: '2026-02-24'
-  url: https://raw.githubusercontent.com/metal3-io/baremetal-operator/main/SECURITY_INSIGHTS.yml
-  project-si-source: https://raw.githubusercontent.com/metal3-io/community/main/SECURITY_INSIGHTS.yml
+  url: https://raw.githubusercontent.com/metal3-io/baremetal-operator/main/.github/security-insights.yml
+  project-si-source: https://raw.githubusercontent.com/metal3-io/community/main/.github/security-insights.yml
 repository:
   url: https://github.com/metal3-io/baremetal-operator
   status: active

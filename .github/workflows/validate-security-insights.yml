@@ -1,23 +1,19 @@
-name: Validate SECURITY_INSIGHTS.yml
+name: Validate security-insights.yml
 on:
   pull_request:
     paths:
-    - SECURITY_INSIGHTS.yml
+    - .github/security-insights.yml
+
+permissions: {}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
 
-    - name: Install CUE
-      uses: cue-lang/setup-cue@a93fa358375740cd8b0078f76355512b9208acb1 # v1.0.1
-
-    - name: Fetch Security Insights schema
-      run: |
-        mkdir -p /tmp/si-spec
-        curl -sSfL -o /tmp/si-spec/schema.cue \
-          https://raw.githubusercontent.com/ossf/security-insights/v2.2.0/spec/schema.cue
-
-    - name: Validate schema
-      run: cue vet -d '#SecurityInsights' /tmp/si-spec/schema.cue SECURITY_INSIGHTS.yml
+    - uses: revanite-io/security-insights-action@85c35a5b75f2772e0462323d7b4fcbab5fc1aff2 # v1.0.0

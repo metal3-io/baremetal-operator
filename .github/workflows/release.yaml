@@ -28,12 +28,15 @@ jobs:
       uses: tj-actions/changed-files@7dee1b0c1557f278e5c7dc244927139d78c0e22a # v47.0.4
     - name: Get release version
       id: release-version
+      env:
+        STEPS_CHANGED_FILES_OUTPUTS_ALL_CHANGED_FILES_COUNT: ${{ steps.changed-files.outputs.all_changed_files_count }}
+        STEPS_CHANGED_FILES_OUTPUTS_ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
       run: |
-        if [[ ${{ steps.changed-files.outputs.all_changed_files_count }} != 1 ]]; then
-          echo "1 release notes file should be changed to create a release tag, found ${{ steps.changed-files.outputs.all_changed_files_count }}"
+        if [[ "${STEPS_CHANGED_FILES_OUTPUTS_ALL_CHANGED_FILES_COUNT}" != "1" ]]; then
+          echo "1 release notes file should be changed to create a release tag, found ${STEPS_CHANGED_FILES_OUTPUTS_ALL_CHANGED_FILES_COUNT}"
           exit 1
         fi
-        for changed_file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+        for changed_file in ${STEPS_CHANGED_FILES_OUTPUTS_ALL_CHANGED_FILES}; do
           export RELEASE_VERSION=$(echo "${changed_file}" | grep -oP '(?<=/)[^/]+(?=\.md)')
           echo "RELEASE_VERSION=${RELEASE_VERSION}" >> ${GITHUB_ENV}
           echo "RELEASE_VERSION=${RELEASE_VERSION}" >> ${GITHUB_OUTPUT}
@@ -100,21 +103,23 @@ jobs:
       with:
         fetch-depth: 0
         ref: ${{ env.RELEASE_TAG }}
+        persist-credentials: false
     - name: Calculate go version
       run: echo "go_version=$(make go-version)" >> ${GITHUB_ENV}
     - name: Set up Go
       uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
       with:
         go-version: ${{ env.go_version }}
+        cache: false
     - name: generate release artifacts
-      run: |
-        make release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        make release
     - name: get release notes
       run: |
-        curl -L "https://raw.githubusercontent.com/${{ github.repository }}/main/releasenotes/${{ env.RELEASE_TAG }}.md" \
-        -o "${{ env.RELEASE_TAG }}.md"
+        curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/releasenotes/${RELEASE_TAG}.md" \
+        -o "${RELEASE_TAG}.md"
     - name: Release
       uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
       with:
@@ -129,7 +134,7 @@ jobs:
     needs: push_release_tags
     name: Build BMO container image
     if: github.repository == 'metal3-io/baremetal-operator'
-    uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
+    uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main # zizmor: ignore[unpinned-uses]
     with:
       image-name: 'baremetal-operator'
       pushImage: true

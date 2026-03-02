@@ -10,6 +10,6 @@ on:
 jobs:
   yamllint-check:
     name: yaml-lint
-    uses: metal3-io/project-infra/.github/workflows/yamllint.yaml@main
+    uses: metal3-io/project-infra/.github/workflows/yamllint.yaml@main # zizmor: ignore[unpinned-uses]
     with:
       ref: ${{ github.event.pull_request.head.sha }}

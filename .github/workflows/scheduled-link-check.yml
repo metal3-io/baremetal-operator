@@ -16,4 +16,4 @@ permissions:
 # links found but not broken despite no access should be added to a .lycheeignore file
 jobs:
   check-links:
-    uses: metal3-io/project-infra/.github/workflows/scheduled-link-check.yml@main
+    uses: metal3-io/project-infra/.github/workflows/scheduled-link-check.yml@main # zizmor: ignore[unpinned-uses]

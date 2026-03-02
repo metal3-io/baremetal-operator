@@ -9,6 +9,6 @@ permissions:
 
 jobs:
   check-pr-links:
-    uses: metal3-io/project-infra/.github/workflows/pr-link-check.yml@main
+    uses: metal3-io/project-infra/.github/workflows/pr-link-check.yml@main # zizmor: ignore[unpinned-uses]
     with:
       upstream: https://github.com/metal3-io/baremetal-operator.git

@@ -27,6 +27,7 @@ KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
 GINKGO = tools/bin/ginkgo
 DEPLOY_CLI = tools/bin/deploy-cli
+CONTAINER_RUNTIME = docker
 
 # See pkg/version.go for details
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
@@ -273,19 +274,19 @@ generate: $(CONTROLLER_GEN) ## Generate code
 .PHONY: docker
 docker: docker-build ## Alias for docker-build (for backwards compatibility)
 docker-build: generate manifests ## Build the docker image for controller-manager
-	docker build --platform=linux/$(ARCH) \
+	$(CONTAINER_RUNTIME) build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
 	. -t ${IMG}-$(ARCH):${IMG_TAG}
 	@# Tag with base image name for backward compatibility (amd64 is the default)
 	@if [ "$(ARCH)" = "amd64" ]; then \
-		docker tag ${IMG}-$(ARCH):${IMG_TAG} ${IMG}:${IMG_TAG}; \
+		$(CONTAINER_RUNTIME) tag ${IMG}-$(ARCH):${IMG_TAG} ${IMG}:${IMG_TAG}; \
 	fi
 
 .PHONY: docker-debug
 docker-debug: generate manifests ## Build the docker image with debug info
-	docker build --platform=linux/$(ARCH) \
+	$(CONTAINER_RUNTIME) build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
@@ -295,10 +296,10 @@ docker-debug: generate manifests ## Build the docker image with debug info
 # Push the docker image
 .PHONY: docker-push
 docker-push:
-	docker push ${IMG}-$(ARCH):${IMG_TAG}
+	$(CONTAINER_RUNTIME) push ${IMG}-$(ARCH):${IMG_TAG}
 	@# Push base image tag for backward compatibility (amd64 is the default)
 	@if [ "$(ARCH)" = "amd64" ]; then \
-		docker push ${IMG}:${IMG_TAG}; \
+		$(CONTAINER_RUNTIME) push ${IMG}:${IMG_TAG}; \
 	fi
 
 ## --------------------------------------

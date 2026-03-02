@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -50,8 +51,83 @@ const (
 	PoweredOff PowerState = "off"
 
 	filePerm600 = 0600
+	filePerm644 = 0644
 	filePerm750 = 0750
+	filePerm755 = 0755
 )
+
+// vmLogPositions tracks the last read position for each VM's serial log.
+// This enables incremental log collection per test.
+var vmLogPositions = make(map[string]int64)
+var vmLogPositionsMu sync.Mutex
+
+// CollectSerialLogs copies incremental VM serial log content for the current test.
+// It appends to the log file so that multiple It blocks within the same specName
+// accumulate their logs in one place. The logs are written to destFolder.
+func CollectSerialLogs(vmName, destFolder string) {
+	if vmName == "" {
+		return
+	}
+	err := CopyIncrementalVMLog(vmName, destFolder)
+	if err != nil {
+		Logf("Warning: Failed to copy VM serial log for %s: %v", vmName, err)
+	}
+}
+
+// CopyIncrementalVMLog copies new content from a VM's serial log since last collection.
+// It tracks the read position per VM to enable per-test log separation.
+// New content is appended to the destination file so that sequential It blocks
+// within the same test accumulate their logs.
+func CopyIncrementalVMLog(vmName, destFolder string) error {
+	vmLogPositionsMu.Lock()
+	defer vmLogPositionsMu.Unlock()
+
+	sourcePath := fmt.Sprintf("/var/log/libvirt/qemu/%s-serial0.log", vmName)
+	destPath := filepath.Join(destFolder, vmName+"-serial0.log")
+
+	// Create destination folder
+	if err := os.MkdirAll(destFolder, filePerm755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
+
+	// Read source file using sudo (VM logs are owned by libvirt-qemu)
+	cmd := testexec.NewCommand(
+		testexec.WithCommand("sudo"),
+		testexec.WithArgs("cat", sourcePath),
+	)
+	stdout, stderr, err := cmd.Run(context.Background())
+	if err != nil {
+		return fmt.Errorf("read source %s (stderr: %s): %w", sourcePath, string(stderr), err)
+	}
+	sourceBytes := stdout
+
+	// Get last position
+	lastPos := vmLogPositions[vmName]
+	currentSize := int64(len(sourceBytes))
+
+	// Extract incremental content
+	var incrementalContent []byte
+	if lastPos < currentSize {
+		incrementalContent = sourceBytes[lastPos:]
+	}
+
+	// Append to destination
+	if len(incrementalContent) > 0 {
+		f, err := os.OpenFile(destPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm644)
+		if err != nil {
+			return fmt.Errorf("open dest: %w", err)
+		}
+		defer f.Close()
+		if _, err := f.Write(incrementalContent); err != nil {
+			return fmt.Errorf("write dest: %w", err)
+		}
+	}
+
+	// Update position
+	vmLogPositions[vmName] = currentSize
+
+	return nil
+}
 
 func isUndesiredState(currentState metal3api.ProvisioningState, undesiredStates []metal3api.ProvisioningState) bool {
 	if undesiredStates == nil {

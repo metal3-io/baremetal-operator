@@ -211,6 +211,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 	AfterEach(func() {
+		CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
 			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")

@@ -10,6 +10,10 @@ spec:
       rangeBegin: "192.168.222.100"
       rangeEnd: "192.168.222.200"
       networkCIDR: "192.168.222.0/24"
+      # Reserve IP addresses so we have a predictable IP, e.g. for the Live-ISO test.
+      hosts:
+      - "00:60:2f:31:81:01,192.168.222.122"
+      - "00:60:2f:31:81:02,192.168.222.123"
     interface: "eth0"
     ipAddress: "192.168.222.2"
     ipAddressManager: "keepalived"

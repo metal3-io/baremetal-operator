@@ -226,6 +226,12 @@ linters:
       - staticcheck
       path: .*(api|types)\/.*\/conversion.*\.go$
       text: 'ST1016: methods on the same type should have the same receiver name'
+    # The package name "api" is a well-understood convention (e.g. k8s.io/api)
+    # and is meaningful in the context of vbmctl.
+    - linters:
+      - revive
+      path: test/vbmctl/pkg/api
+      text: 'var-naming: avoid meaningless package names'
     - linters:
       - tagliatelle
       text: RAID|MAC|BMO

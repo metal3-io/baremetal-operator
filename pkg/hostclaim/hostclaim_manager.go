@@ -52,12 +52,6 @@ const (
 	// PausedAnnotationValue is the value used to mark a BareMetalHost as paused by
 	// a HostClaim.
 	PausedAnnotationValue = "metal3.io/hostclaim"
-	// UnhealthyAnnotation is the annotation used by the Metal3Health
-	// that sets unhealthy status of BMH.
-	UnhealthyAnnotation = "capi.metal3.io/unhealthy"
-	// nodeReuseLabelName is the label set on BMH when node reuse feature is enabled.
-	// and the label set on HostClaim as target for reuse.
-	nodeReuseLabelName = "infrastructure.cluster.x-k8s.io/node-reuse"
 	// Requeueing after 0 is in fact not requeuing.
 	TerminalReueueDelay time.Duration = 0
 	// Standard delay when waiting for other to settle.
@@ -440,9 +434,7 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 				return &bmh, nil
 			}
 
-			// nodeReuse is not handled at the level of HostClaims but we still
-			// honor nodeReuse labels put by metal3machine controller.
-			if bmh.Spec.ConsumerRef != nil || nodeReuseLabelExists(&bmh) {
+			if bmh.Spec.ConsumerRef != nil {
 				continue
 			}
 			if bmh.GetDeletionTimestamp() != nil {
@@ -452,9 +444,6 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 			annotations := bmh.GetAnnotations()
 			if annotations != nil {
 				if _, ok := annotations[metal3api.PausedAnnotation]; ok {
-					continue
-				}
-				if _, ok := annotations[UnhealthyAnnotation]; ok {
 					continue
 				}
 			}
@@ -489,18 +478,6 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 	}
 
 	return chosenHost, err
-}
-
-// nodeReuseLabelExists returns true if host contains nodeReuseLabelName label.
-func nodeReuseLabelExists(bmh *metal3api.BareMetalHost) bool {
-	if bmh == nil {
-		return false
-	}
-	if bmh.Labels == nil {
-		return false
-	}
-	_, ok := bmh.Labels[nodeReuseLabelName]
-	return ok
 }
 
 type Set[T comparable] = map[T]struct{}

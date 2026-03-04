@@ -71,17 +71,13 @@ var _ = Describe("HostClaim manager", func() {
 		hcNsLabelled            = NewNamespace(HostclaimNamespace).SetLabels(map[string]string{"l": "v"}).Build()
 		defaultBmhLabels        = map[string]string{"default-selector": "default-value"}
 		defaultFailureBmhLabels = map[string]string{"default-selector": "default-value", "infrastructure.cluster.x-k8s.io/failure-domain": "zone"}
-		nodeReuseOtherLabels    = map[string]string{"default-selector": "default-value", nodeReuseLabelName: "hcNs.mdOther"}
 		bmhns1                  = NewBaremetalhost("bmh1", "ns1", metal3api.StateAvailable).SetLabels(defaultBmhLabels).Build()
 		bmhns2                  = NewBaremetalhost("bmh2", "ns2", metal3api.StateAvailable).SetLabels(defaultBmhLabels).Build()
-		bmh4ns1                 = NewBaremetalhost("bmh4", "ns1", metal3api.StateAvailable).SetLabels(nodeReuseOtherLabels).Build()
 		bmh2ns1FailureDomain    = NewBaremetalhost("bmh2", "ns1", metal3api.StateAvailable).SetLabels(defaultFailureBmhLabels).Build()
 		bmhns1BadLabel          = NewBaremetalhost("nolabel-bmh1", "ns1", metal3api.StateAvailable).Build()
 		bmhns1NotAvail          = NewBaremetalhost("notavail-bmh1", "ns1", metal3api.StateRegistering).SetLabels(defaultBmhLabels).Build()
 		bmhns1Paused            = NewBaremetalhost("paused-bmh1", "ns1", metal3api.StateRegistering).SetLabels(defaultBmhLabels).
 					SetAnnotations(map[string]string{metal3api.PausedAnnotation: PausedAnnotationValue}).Build()
-		bmhns1Unhealthy = NewBaremetalhost("unhealthy-bmh1", "ns1", metal3api.StateRegistering).SetLabels(defaultBmhLabels).
-				SetAnnotations(map[string]string{UnhealthyAnnotation: ""}).Build()
 		bmhns1Consumed = NewBaremetalhost(
 			"bmh-consumed", "ns1", metal3api.StateAvailable).SetLabels(defaultBmhLabels).
 			SetConsumerRef(corev1.ObjectReference{Kind: HostClaimKind, Namespace: HostclaimNamespace,
@@ -177,7 +173,7 @@ var _ = Describe("HostClaim manager", func() {
 			Namespaces: []*corev1.Namespace{hcNs, ns1},
 			HostDeployPolicies: []*metal3api.HostDeployPolicy{
 				NewHostdeploypolicy("hdp", "ns1").AcceptNames([]string{HostclaimNamespace}).Build()},
-			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1, bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused, bmhns1Unhealthy, bmh4ns1},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1, bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused},
 			ExpectedBmhName: "bmh1",
 		}),
 		Entry("with criteriums (negative)", testCaseChooseBMH{
@@ -185,14 +181,14 @@ var _ = Describe("HostClaim manager", func() {
 			Namespaces: []*corev1.Namespace{hcNs, ns1},
 			HostDeployPolicies: []*metal3api.HostDeployPolicy{
 				NewHostdeploypolicy("hdp", "ns1").AcceptNames([]string{HostclaimNamespace}).Build()},
-			BareMetalHosts: []*metal3api.BareMetalHost{bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused, bmhns1Unhealthy, bmh4ns1},
+			BareMetalHosts: []*metal3api.BareMetalHost{bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused},
 		}),
 		Entry("with bad label value", testCaseChooseBMH{
 			HostClaim:  NewHostclaim(HostclaimName).SetLabelSelector(map[string]string{"default-selector": "other-value"}).Build(),
 			Namespaces: []*corev1.Namespace{hcNs, ns1},
 			HostDeployPolicies: []*metal3api.HostDeployPolicy{
 				NewHostdeploypolicy("hdp", "ns1").AcceptNames([]string{HostclaimNamespace}).Build()},
-			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1, bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused, bmhns1Unhealthy},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1, bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused},
 			ExpectedBmhName: "",
 		}),
 		Entry("with eroneous labels", testCaseChooseBMH{
@@ -200,7 +196,7 @@ var _ = Describe("HostClaim manager", func() {
 			Namespaces: []*corev1.Namespace{hcNs, ns1},
 			HostDeployPolicies: []*metal3api.HostDeployPolicy{
 				NewHostdeploypolicy("hdp", "ns1").AcceptNames([]string{HostclaimNamespace}).Build()},
-			BareMetalHosts: []*metal3api.BareMetalHost{bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused, bmhns1Unhealthy},
+			BareMetalHosts: []*metal3api.BareMetalHost{bmhns1BadLabel, bmhns1ConsOther, bmhns1NotAvail, bmhns1Paused},
 			ExpectFail:     true,
 		}),
 		Entry("with consumerRef", testCaseChooseBMH{

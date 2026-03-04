@@ -3,10 +3,10 @@ name: PR Verifier
 permissions: {}
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, edited, reopened, synchronize, ready_for_review]
 
 jobs:
   verify:
     name: verify PR contents
-    uses: metal3-io/project-infra/.github/workflows/pr-verifier.yaml@main
+    uses: metal3-io/project-infra/.github/workflows/pr-verifier.yaml@main # zizmor: ignore[unpinned-uses]

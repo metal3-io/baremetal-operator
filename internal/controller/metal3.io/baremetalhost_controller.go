@@ -1733,9 +1733,25 @@ func (r *BareMetalHostReconciler) handleDataImageActions(ctx context.Context, pr
 	// a longer wait ?
 	isImageAttached, getVmediaError := prov.GetDataImageStatus(ctx)
 	if getVmediaError != nil {
-		info.log.Error(getVmediaError, "Error fetching Virtual Media details")
-
-		if !errors.Is(getVmediaError, provisioner.ErrNodeIsBusy) {
+		if errors.Is(getVmediaError, provisioner.ErrNodeIsBusy) {
+			// When the node is busy (e.g. reservation held by another
+			// operation), we cannot query virtual media status. If the
+			// DataImage is already in the desired state according to our
+			// status, don't block power-on -- let it proceed and verify
+			// attachment on a future reconciliation.
+			deleteDataImage := !dataImage.DeletionTimestamp.IsZero()
+			if !deleteDataImage && dataImage.Spec.URL == dataImage.Status.AttachedImage.URL {
+				info.log.Info("node is busy but DataImage already in desired state, proceeding with power on")
+				dataImage.Status.Error.Message = ""
+				dataImage.Status.Error.Count = 0
+				if err := r.Status().Update(ctx, dataImage); err != nil {
+					return actionError{fmt.Errorf("failed to update DataImage status, %w", err)}
+				}
+				return nil
+			}
+			info.log.Info("node is busy, will retry fetching Virtual Media details")
+		} else {
+			info.log.Error(getVmediaError, "Error fetching Virtual Media details")
 			dataImage.Status.Error.Message = getVmediaError.Error()
 			dataImage.Status.Error.Count++
 

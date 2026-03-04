@@ -56,6 +56,12 @@ export PATH="/usr/local/go/bin:${PATH}"
 sudo apt-get update
 sudo apt-get install -y libvirt-dev pkg-config
 
+# Increase inotify limits to prevent "too many open files" errors.
+# Kind nodes (Docker containers running systemd) consume inotify resources heavily.
+# See: https://cluster-api.sigs.k8s.io/user/troubleshooting#cluster-api-with-docker----too-many-open-files
+sudo sysctl fs.inotify.max_user_watches=1048576
+sudo sysctl fs.inotify.max_user_instances=8192
+
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
 

@@ -226,6 +226,17 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		return false
 	}
 
+	if hsm.NextState != metal3api.StateDeleting && hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
+		if delayDeleteForDetachedHost(hsm.Host) {
+			log.Info("delaying detached host deletion")
+			deleteDelayedForDetached.Inc()
+			return false
+		}
+		log.Info("requested deletion of a detached host, skipping power off and deprovisioning", "currentState", hsm.NextState)
+		hsm.NextState = metal3api.StateDeleting
+		return true
+	}
+
 	switch hsm.NextState {
 	default:
 		hsm.NextState = metal3api.StatePoweringOffBeforeDelete
@@ -233,29 +244,7 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		// Skip the power off before delete
 		hsm.NextState = metal3api.StateDeleting
 	case metal3api.StateProvisioning, metal3api.StateProvisioned:
-		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
-			if delayDeleteForDetachedHost(hsm.Host) {
-				log.Info("Delaying detached host deletion")
-				deleteDelayedForDetached.Inc()
-				return false
-			}
-			// We cannot power off a detached host.  Skip to delete.
-			hsm.NextState = metal3api.StateDeleting
-		} else {
-			hsm.NextState = metal3api.StateDeprovisioning
-		}
-	case metal3api.StateExternallyProvisioned:
-		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
-			if delayDeleteForDetachedHost(hsm.Host) {
-				log.Info("Delaying detached host deletion")
-				deleteDelayedForDetached.Inc()
-				return false
-			}
-			// We cannot power off a detached host.  Skip to delete.
-			hsm.NextState = metal3api.StateDeleting
-		} else {
-			hsm.NextState = metal3api.StatePoweringOffBeforeDelete
-		}
+		hsm.NextState = metal3api.StateDeprovisioning
 	case metal3api.StateDeprovisioning:
 		if hsm.Host.Status.ErrorType == metal3api.RegistrationError && hsm.Host.Status.ErrorCount > 3 {
 			hsm.NextState = metal3api.StateDeleting

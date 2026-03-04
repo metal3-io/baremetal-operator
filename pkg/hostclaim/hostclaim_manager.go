@@ -64,6 +64,9 @@ const (
 	HostClaimKind = "HostClaim"
 )
 
+// An error used when there is no BMH satisfying the constraints.
+var ErrNoAvailableBMH = errors.New("no available BMH")
+
 func NewHostManager(client client.Client, log logr.Logger, host *metal3api.HostClaim, apireader client.Reader) (*HostManager, error) {
 	patchHelper, err := patch.NewHelper(host, client)
 	if err != nil {
@@ -112,14 +115,14 @@ func (m *HostManager) Associate(ctx context.Context) error {
 				metal3api.AssociatedCondition, metal3api.NoBareMetalHostReason,
 				"Failed to pick a BaremetalHost for the Host")
 		}
+		if errors.Is(err, ErrNoAvailableBMH) {
+			m.Log.Info("No available host found. Requeuing.")
+			m.SetConditionHostToFalse(
+				metal3api.AssociatedCondition, metal3api.NoBareMetalHostReason,
+				"No available host found: requeuing.")
+			return &RequeueAfterError{RequeueAfter: HostClaimRequeueDelay}
+		}
 		return err
-	}
-	if bmh == nil {
-		m.Log.Info("No available host found. Requeuing.")
-		m.SetConditionHostToFalse(
-			metal3api.AssociatedCondition, metal3api.NoBareMetalHostReason,
-			"No available host found: requeuing.")
-		return &RequeueAfterError{RequeueAfter: HostClaimRequeueDelay}
 	}
 	m.Log.Info("Associating hostClaim with host", "BareMetalHost", bmh.Name)
 
@@ -408,8 +411,11 @@ func (m *HostManager) hostLabelSelectorForHostClaim() (labels.Selector, error) {
 // association with this HostClaim.
 func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, error) {
 	namespaces, err := m.acceptableNamespaces(ctx, m.HostClaim.Spec.HostSelector.InNamespace)
-	if err != nil || len(namespaces) == 0 {
+	if err != nil {
 		return nil, err
+	}
+	if len(namespaces) == 0 {
+		return nil, ErrNoAvailableBMH
 	}
 	// get list of BMH.
 	labelSelector, err := m.hostLabelSelectorForHostClaim()
@@ -468,7 +474,7 @@ func (m *HostManager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, 
 
 	m.Log.Info("Host count available while choosing host for HostClaim", "hostcount", len(availableHosts))
 	if len(availableHosts) == 0 {
-		return nil, nil
+		return nil, ErrNoAvailableBMH
 	}
 
 	chosenHost, err := m.selectBMH(availableHosts)

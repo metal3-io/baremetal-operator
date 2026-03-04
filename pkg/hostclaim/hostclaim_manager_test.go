@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	. "github.com/metal3-io/baremetal-operator/internal/testing"
+	. "github.com/metal3-io/baremetal-operator/internal/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -123,7 +123,7 @@ var _ = Describe("HostClaim manager", func() {
 					var requeueAfterError HasRequeueAfterError
 					Expect(errors.As(err, &requeueAfterError)).To(BeTrue())
 				} else {
-					Expect(err).NotTo(HaveOccurred())
+					Expect(errors.Is(err, ErrNoAvailableBMH)).To(BeTrue())
 				}
 			} else {
 				Expect(err).NotTo(HaveOccurred())

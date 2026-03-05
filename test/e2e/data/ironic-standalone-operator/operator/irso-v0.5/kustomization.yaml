@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: ironic-standalone-operator-system
 
 resources:
-- https://github.com/metal3-io/ironic-standalone-operator/releases/download/v0.5.2/install.yaml
+- https://github.com/metal3-io/ironic-standalone-operator/releases/download/v0.5.3/install.yaml
 
 generatorOptions:
   disableNameSuffixHash: true

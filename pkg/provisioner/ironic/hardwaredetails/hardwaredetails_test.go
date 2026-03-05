@@ -217,7 +217,8 @@ func TestGetNICDetails(t *testing.T) {
 		{
 			Name:        "eth0",
 			IPV4Address: "192.0.2.1",
-			MACAddress:  "00:11:22:33:44:55"},
+			MACAddress:  "00:11:22:33:44:55",
+			PCIAddress:  "0000:00:00.0"},
 		{
 			Name:        "eth1",
 			IPV6Address: "2001:db8::1",
@@ -238,10 +239,11 @@ func TestGetNICDetails(t *testing.T) {
 	// 5 expected because eth46 results in two items
 	assert.Len(t, nics, 5)
 	if (!reflect.DeepEqual(nics[0], metal3api.NIC{
-		Name: "eth0",
-		MAC:  "00:11:22:33:44:55",
-		IP:   "192.0.2.1",
-		PXE:  true,
+		Name:       "eth0",
+		MAC:        "00:11:22:33:44:55",
+		IP:         "192.0.2.1",
+		PCIAddress: "0000:00:00.0",
+		PXE:        true,
 		VLANs: []metal3api.VLAN{
 			{ID: 1},
 		},

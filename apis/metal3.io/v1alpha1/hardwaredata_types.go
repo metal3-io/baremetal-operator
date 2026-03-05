@@ -174,6 +174,10 @@ type NIC struct {
 	// LLDP data for this interface
 	// +optional
 	LLDP *LLDP `json:"lldp,omitempty"`
+
+	// The NIC PCI address
+	// +optional
+	PCIAddress string `json:"pciAddress,omitempty"`
 }
 
 // Firmware describes the firmware on the host.

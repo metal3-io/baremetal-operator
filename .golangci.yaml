@@ -229,11 +229,6 @@ linters:
     - linters:
       - tagliatelle
       text: RAID|MAC|BMO
-    # Exclude for now to get linters green. We may consider a different package name in the future.
-    - linters:
-      - revive
-      path: test/vbmctl/pkg/api
-      text: 'var-naming: avoid meaningless package names'
     paths:
     - zz_generated.*\.go$
     - .*conversion.*\.go$

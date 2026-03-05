@@ -61,10 +61,10 @@ type Spec struct {
 	Libvirt LibvirtConfig `json:"libvirt,omitempty" yaml:"libvirt,omitempty"`
 
 	// Pool contains storage pool configuration.
-	Pool api.PoolConfig `json:"pool,omitempty" yaml:"pool,omitempty"`
+	Pool vbmctlapi.PoolConfig `json:"pool,omitempty" yaml:"pool,omitempty"`
 
 	// VMs is a list of VM configurations to create.
-	VMs []api.VMConfig `json:"vms,omitempty" yaml:"vms,omitempty"`
+	VMs []vbmctlapi.VMConfig `json:"vms,omitempty" yaml:"vms,omitempty"`
 }
 
 // LibvirtConfig contains libvirt connection settings.
@@ -83,7 +83,7 @@ func Default() *Config {
 			Libvirt: LibvirtConfig{
 				URI: DefaultLibvirtURI,
 			},
-			Pool: api.PoolConfig{
+			Pool: vbmctlapi.PoolConfig{
 				Name: DefaultPoolName,
 				Path: DefaultPoolPath,
 			},
@@ -220,7 +220,7 @@ func (c *Config) ApplyDefaults() {
 }
 
 // WithVMs returns a copy of the config with the specified VMs.
-func (c *Config) WithVMs(vms ...api.VMConfig) *Config {
+func (c *Config) WithVMs(vms ...vbmctlapi.VMConfig) *Config {
 	cfg := *c
 	cfg.Spec.VMs = vms
 	return &cfg

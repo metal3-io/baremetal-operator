@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"libvirt.org/go/libvirt"
 )
 
@@ -38,7 +38,7 @@ func NewPoolManager(conn *libvirt.Connect) (*PoolManager, error) {
 }
 
 // EnsurePool ensures a storage pool exists, creating it if necessary.
-func (m *PoolManager) EnsurePool(_ context.Context, cfg api.PoolConfig) (*api.Pool, error) {
+func (m *PoolManager) EnsurePool(_ context.Context, cfg vbmctlapi.PoolConfig) (*vbmctlapi.Pool, error) {
 	// Check if pool already exists
 	existingPool, err := m.conn.LookupStoragePoolByName(cfg.Name)
 	if err == nil {
@@ -82,7 +82,7 @@ func (m *PoolManager) EnsurePool(_ context.Context, cfg api.PoolConfig) (*api.Po
 }
 
 // ensurePoolActive ensures an existing pool is active and returns its info.
-func (m *PoolManager) ensurePoolActive(existingPool *libvirt.StoragePool, cfg api.PoolConfig) (*api.Pool, error) {
+func (m *PoolManager) ensurePoolActive(existingPool *libvirt.StoragePool, cfg vbmctlapi.PoolConfig) (*vbmctlapi.Pool, error) {
 	defer func() { _ = existingPool.Free() }()
 
 	active, err := existingPool.IsActive()
@@ -182,7 +182,7 @@ func (m *PoolManager) tryDeleteVolume(pool *libvirt.StoragePool, poolName, volum
 }
 
 // ListVolumes lists all volumes in a storage pool.
-func (m *PoolManager) ListVolumes(_ context.Context, poolName string) ([]*api.Volume, error) {
+func (m *PoolManager) ListVolumes(_ context.Context, poolName string) ([]*vbmctlapi.Volume, error) {
 	pool, err := m.conn.LookupStoragePoolByName(poolName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup pool %s: %w", poolName, err)
@@ -194,7 +194,7 @@ func (m *PoolManager) ListVolumes(_ context.Context, poolName string) ([]*api.Vo
 		return nil, fmt.Errorf("failed to list volumes: %w", err)
 	}
 
-	result := make([]*api.Volume, 0, len(volumes))
+	result := make([]*vbmctlapi.Volume, 0, len(volumes))
 	for _, vol := range volumes {
 		name, err := vol.GetName()
 		if err != nil {
@@ -205,8 +205,8 @@ func (m *PoolManager) ListVolumes(_ context.Context, poolName string) ([]*api.Vo
 		path, _ := vol.GetPath()
 		info, _ := vol.GetInfo()
 
-		result = append(result, &api.Volume{
-			Config: api.VolumeConfig{
+		result = append(result, &vbmctlapi.Volume{
+			Config: vbmctlapi.VolumeConfig{
 				Name: name,
 			},
 			Path:       path,
@@ -221,7 +221,7 @@ func (m *PoolManager) ListVolumes(_ context.Context, poolName string) ([]*api.Vo
 }
 
 // getPoolInfo extracts pool information from a libvirt pool.
-func (m *PoolManager) getPoolInfo(pool *libvirt.StoragePool, cfg api.PoolConfig) (*api.Pool, error) {
+func (m *PoolManager) getPoolInfo(pool *libvirt.StoragePool, cfg vbmctlapi.PoolConfig) (*vbmctlapi.Pool, error) {
 	uuid, err := pool.GetUUIDString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pool UUID: %w", err)
@@ -237,7 +237,7 @@ func (m *PoolManager) getPoolInfo(pool *libvirt.StoragePool, cfg api.PoolConfig)
 		return nil, fmt.Errorf("failed to get pool info: %w", err)
 	}
 
-	return &api.Pool{
+	return &vbmctlapi.Pool{
 		Config:    cfg,
 		UUID:      uuid,
 		Active:    active,

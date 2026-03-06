@@ -11,7 +11,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/libvirt"
 	"gopkg.in/yaml.v2"
@@ -67,19 +67,19 @@ func main() {
 	ctx := context.Background()
 
 	// Build list of VMs to create
-	vmConfigs := []api.VMConfig{}
+	vmConfigs := []vbmctlapi.VMConfig{}
 
 	if *configFile == "" {
 		// Single VM from command-line flags
-		vmCfg := api.VMConfig{
+		vmCfg := vbmctlapi.VMConfig{
 			Name:   *name,
 			Memory: *memory,
 			VCPUs:  *vcpus,
-			Volumes: []api.VolumeConfig{
+			Volumes: []vbmctlapi.VolumeConfig{
 				{Name: "1", Size: *volumeSize},
 				{Name: "2", Size: *volumeSize},
 			},
-			Networks: []api.NetworkAttachment{
+			Networks: []vbmctlapi.NetworkAttachment{
 				{
 					Network:    *networkName,
 					MACAddress: *macAddress,
@@ -146,21 +146,21 @@ func loadBMCConfig(configPath string) ([]BMCConfig, error) {
 }
 
 // convertBMCToVMConfig converts a legacy BMCConfig to the new api.VMConfig format.
-func convertBMCToVMConfig(bmc BMCConfig, memory, vcpus, volumeSize int) api.VMConfig {
-	networks := make([]api.NetworkAttachment, len(bmc.Networks))
+func convertBMCToVMConfig(bmc BMCConfig, memory, vcpus, volumeSize int) vbmctlapi.VMConfig {
+	networks := make([]vbmctlapi.NetworkAttachment, len(bmc.Networks))
 	for i, net := range bmc.Networks {
-		networks[i] = api.NetworkAttachment{
+		networks[i] = vbmctlapi.NetworkAttachment{
 			Network:    net.Name,
 			MACAddress: net.MacAddress,
 			IPAddress:  net.IPAddress,
 		}
 	}
 
-	return api.VMConfig{
+	return vbmctlapi.VMConfig{
 		Name:   bmc.Name,
 		Memory: memory,
 		VCPUs:  vcpus,
-		Volumes: []api.VolumeConfig{
+		Volumes: []vbmctlapi.VolumeConfig{
 			{Name: "1", Size: volumeSize},
 			{Name: "2", Size: volumeSize},
 		},

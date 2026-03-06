@@ -1,6 +1,6 @@
 // Package api defines the core types used by vbmctl for managing virtual
 // bare metal environments.
-package api
+package vbmctlapi
 
 // VMConfig represents the configuration for a virtual machine.
 type VMConfig struct {

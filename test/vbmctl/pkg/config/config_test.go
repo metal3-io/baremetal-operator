@@ -76,7 +76,7 @@ func TestLoadAndSave(t *testing.T) {
 
 	// Create a config
 	cfg := Default()
-	cfg.Spec.VMs = []api.VMConfig{
+	cfg.Spec.VMs = []vbmctlapi.VMConfig{
 		{Name: "saved-vm", Memory: 2048, VCPUs: 1},
 	}
 
@@ -162,7 +162,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "VM without name",
 			modify: func(c *Config) {
-				c.Spec.VMs = []api.VMConfig{{Memory: 1024}}
+				c.Spec.VMs = []vbmctlapi.VMConfig{{Memory: 1024}}
 			},
 			wantErr: true,
 		},
@@ -195,7 +195,7 @@ func TestApplyDefaults(t *testing.T) {
 
 func TestWithVMs(t *testing.T) {
 	cfg := Default()
-	vms := []api.VMConfig{
+	vms := []vbmctlapi.VMConfig{
 		{Name: "vm1", Memory: 1024},
 		{Name: "vm2", Memory: 2048},
 	}

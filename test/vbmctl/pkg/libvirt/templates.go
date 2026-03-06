@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 )
 
 const (
@@ -138,7 +138,7 @@ func RenderTemplate(inputFile string, data interface{}) (string, error) {
 }
 
 // VMConfigToTemplateData converts a VMConfig to VMTemplateData.
-func VMConfigToTemplateData(cfg api.VMConfig, poolPath string) VMTemplateData {
+func VMConfigToTemplateData(cfg vbmctlapi.VMConfig, poolPath string) VMTemplateData {
 	// Apply defaults
 	cfg = cfg.Defaults()
 
@@ -181,7 +181,7 @@ func VMConfigToTemplateData(cfg api.VMConfig, poolPath string) VMTemplateData {
 }
 
 // PoolConfigToTemplateData converts a PoolConfig to PoolTemplateData.
-func PoolConfigToTemplateData(cfg api.PoolConfig) PoolTemplateData {
+func PoolConfigToTemplateData(cfg vbmctlapi.PoolConfig) PoolTemplateData {
 	return PoolTemplateData{
 		PoolName: cfg.Name,
 		PoolPath: cfg.Path,
@@ -189,7 +189,7 @@ func PoolConfigToTemplateData(cfg api.PoolConfig) PoolTemplateData {
 }
 
 // VolumeConfigToTemplateData converts a VolumeConfig to VolumeTemplateData.
-func VolumeConfigToTemplateData(cfg api.VolumeConfig) VolumeTemplateData {
+func VolumeConfigToTemplateData(cfg vbmctlapi.VolumeConfig) VolumeTemplateData {
 	cfg = cfg.Defaults()
 	return VolumeTemplateData{
 		VolumeName:         cfg.Name,

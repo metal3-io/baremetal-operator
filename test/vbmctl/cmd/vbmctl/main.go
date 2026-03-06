@@ -12,7 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/libvirt"
 	"github.com/spf13/cobra"
@@ -128,18 +128,18 @@ func newCreateVMCmd() *cobra.Command {
 				return fmt.Errorf("failed to create VM manager: %w", err)
 			}
 
-			vmCfg := api.VMConfig{
+			vmCfg := vbmctlapi.VMConfig{
 				Name:   name,
 				Memory: memory,
 				VCPUs:  vcpus,
-				Volumes: []api.VolumeConfig{
+				Volumes: []vbmctlapi.VolumeConfig{
 					{Name: "1", Size: volumeSize},
 					{Name: "2", Size: volumeSize},
 				},
 			}
 
 			if network != "" {
-				vmCfg.Networks = []api.NetworkAttachment{
+				vmCfg.Networks = []vbmctlapi.NetworkAttachment{
 					{
 						Network:    network,
 						MACAddress: macAddress,

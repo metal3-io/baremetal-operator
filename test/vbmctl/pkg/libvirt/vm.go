@@ -10,7 +10,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"libvirt.org/go/libvirt"
 )
 
@@ -66,12 +66,12 @@ func NewVMManager(conn *libvirt.Connect, opts VMManagerOptions) (*VMManager, err
 
 // Create creates a new virtual machine from the given configuration.
 // The VM is defined but not started.
-func (m *VMManager) Create(ctx context.Context, cfg api.VMConfig) (*api.VM, error) {
+func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctlapi.VM, error) {
 	// Apply defaults
 	cfg = cfg.Defaults()
 
 	// Ensure storage pool exists
-	if _, err := m.pool.EnsurePool(ctx, api.PoolConfig{
+	if _, err := m.pool.EnsurePool(ctx, vbmctlapi.PoolConfig{
 		Name: m.opts.PoolName,
 		Path: m.opts.PoolPath,
 	}); err != nil {
@@ -116,10 +116,10 @@ func (m *VMManager) Create(ctx context.Context, cfg api.VMConfig) (*api.VM, erro
 
 	log.Printf("Created VM %s with UUID %s\n", cfg.Name, uuid)
 
-	return &api.VM{
+	return &vbmctlapi.VM{
 		Config: cfg,
 		UUID:   uuid,
-		State:  api.VMStateStopped,
+		State:  vbmctlapi.VMStateStopped,
 	}, nil
 }
 
@@ -204,8 +204,8 @@ func (m *VMManager) deleteVMVolumes(ctx context.Context, vmName string) error {
 
 // CreateAll creates multiple VMs from a list of configurations.
 // If VM creation fails midway, previously created VMs and their volumes are cleaned up.
-func (m *VMManager) CreateAll(ctx context.Context, configs []api.VMConfig) ([]*api.VM, error) {
-	vms := make([]*api.VM, 0, len(configs))
+func (m *VMManager) CreateAll(ctx context.Context, configs []vbmctlapi.VMConfig) ([]*vbmctlapi.VM, error) {
+	vms := make([]*vbmctlapi.VM, 0, len(configs))
 
 	for _, cfg := range configs {
 		vm, err := m.Create(ctx, cfg)
@@ -238,13 +238,13 @@ func (m *VMManager) DeleteAll(ctx context.Context, names []string, deleteVolumes
 }
 
 // List returns all virtual machines.
-func (m *VMManager) List(_ context.Context) ([]*api.VM, error) {
+func (m *VMManager) List(_ context.Context) ([]*vbmctlapi.VM, error) {
 	domains, err := m.conn.ListAllDomains(0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list domains: %w", err)
 	}
 
-	vms := make([]*api.VM, 0, len(domains))
+	vms := make([]*vbmctlapi.VM, 0, len(domains))
 	for _, domain := range domains {
 		name, err := domain.GetName()
 		if err != nil {
@@ -275,8 +275,8 @@ func (m *VMManager) List(_ context.Context) ([]*api.VM, error) {
 			vcpus = int(info.NrVirtCpu)            //nolint:gosec // vCPU count from libvirt is always reasonable
 		}
 
-		vms = append(vms, &api.VM{
-			Config: api.VMConfig{
+		vms = append(vms, &vbmctlapi.VM{
+			Config: vbmctlapi.VMConfig{
 				Name:   name,
 				Memory: memoryMB,
 				VCPUs:  vcpus,
@@ -292,26 +292,26 @@ func (m *VMManager) List(_ context.Context) ([]*api.VM, error) {
 }
 
 // getDomainState converts libvirt domain state to api.VMState.
-func (m *VMManager) getDomainState(domain *libvirt.Domain) (api.VMState, error) {
+func (m *VMManager) getDomainState(domain *libvirt.Domain) (vbmctlapi.VMState, error) {
 	state, _, err := domain.GetState()
 	if err != nil {
-		return api.VMStateUnknown, fmt.Errorf("failed to get domain state: %w", err)
+		return vbmctlapi.VMStateUnknown, fmt.Errorf("failed to get domain state: %w", err)
 	}
 
 	switch state {
 	case libvirt.DOMAIN_RUNNING:
-		return api.VMStateRunning, nil
+		return vbmctlapi.VMStateRunning, nil
 	case libvirt.DOMAIN_PAUSED:
-		return api.VMStatePaused, nil
+		return vbmctlapi.VMStatePaused, nil
 	case libvirt.DOMAIN_SHUTDOWN, libvirt.DOMAIN_SHUTOFF:
-		return api.VMStateStopped, nil
+		return vbmctlapi.VMStateStopped, nil
 	default:
-		return api.VMStateUnknown, nil
+		return vbmctlapi.VMStateUnknown, nil
 	}
 }
 
 // reserveIPAddresses reserves IP addresses in DHCP for the VM's network interfaces.
-func (m *VMManager) reserveIPAddresses(cfg api.VMConfig) error {
+func (m *VMManager) reserveIPAddresses(cfg vbmctlapi.VMConfig) error {
 	for i, net := range cfg.Networks {
 		if net.IPAddress == "" {
 			continue
@@ -326,7 +326,7 @@ func (m *VMManager) reserveIPAddresses(cfg api.VMConfig) error {
 }
 
 // reserveIPAddress reserves a single IP address in DHCP for a network interface.
-func (m *VMManager) reserveIPAddress(vmName string, index int, net api.NetworkAttachment) error {
+func (m *VMManager) reserveIPAddress(vmName string, index int, net vbmctlapi.NetworkAttachment) error {
 	network, err := m.conn.LookupNetworkByName(net.Network)
 	if err != nil {
 		return fmt.Errorf("failed to lookup network %s: %w", net.Network, err)

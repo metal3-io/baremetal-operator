@@ -1,4 +1,4 @@
-package api
+package vbmctlapi
 
 import (
 	"testing"

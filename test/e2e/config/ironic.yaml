@@ -80,6 +80,7 @@ intervals:
   default/wait-bmh-deleted: ["6m", "10s"]
   default/wait-detached: ["20s", "10ms"]
   default/wait-secret-deletion: ["1m", "1s"]
+  baremetalswitch/wait-secret-updated: ["30s", "500ms"]
   default/wait-connect-ssh: ["2m", "10s"]
   default/wait-externally-provisioned: ["1m", "10ms"]
 

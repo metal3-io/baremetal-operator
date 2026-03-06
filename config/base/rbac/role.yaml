@@ -89,6 +89,7 @@ rules:
 - apiGroups:
   - metal3.io
   resources:
+  - baremetalswitches
   - hostdeploypolicies
   verbs:
   - get

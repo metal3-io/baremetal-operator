@@ -189,7 +189,7 @@ type Provisioner interface {
 	// for the target system.  It may be called multiple times,
 	// and should return true for its dirty  flag until the
 	// deletion operation is completed.
-	Detach(ctx context.Context) (result Result, err error)
+	Detach(ctx context.Context, force bool) (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image
 	// provisioning operation.

@@ -103,6 +103,8 @@ type Fixture struct {
 	HostFirmwareComponents HostFirmwareComponentsMock
 
 	PowerFailed bool
+
+	Health string
 }
 
 // NewProvisioner returns a new Fixture Provisioner.
@@ -434,4 +436,11 @@ func (p *fixtureProvisioner) DetachDataImage(_ context.Context) (err error) {
 
 func (p *fixtureProvisioner) HasPowerFailure(_ context.Context) bool {
 	return p.state != nil && p.state.PowerFailed
+}
+
+func (p *fixtureProvisioner) GetHealth(_ context.Context) string {
+	if p.state == nil {
+		return ""
+	}
+	return p.state.Health
 }

@@ -343,3 +343,7 @@ func (p *demoProvisioner) DetachDataImage(_ context.Context) (err error) {
 func (p *demoProvisioner) HasPowerFailure(_ context.Context) bool {
 	return false
 }
+
+func (p *demoProvisioner) GetHealth(_ context.Context) string {
+	return ""
+}

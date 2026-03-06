@@ -241,17 +241,17 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 	}{
 		{
 			name:          "keep hardware RAID",
-			raidInterface: "irmc",
+			raidInterface: "redfish",
 			target:        nil,
 		},
 		{
 			name:          "keep hardware RAID",
-			raidInterface: "irmc",
+			raidInterface: "redfish",
 			target:        &metal3api.RAIDConfig{},
 		},
 		{
 			name:          "configure hardware RAID",
-			raidInterface: "irmc",
+			raidInterface: "redfish",
 			target: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
@@ -273,7 +273,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		},
 		{
 			name:          "have same hardware RAID",
-			raidInterface: "irmc",
+			raidInterface: "redfish",
 			target: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
@@ -293,7 +293,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		},
 		{
 			name:          "clear hardware RAID",
-			raidInterface: "irmc",
+			raidInterface: "redfish",
 			target: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
 			},

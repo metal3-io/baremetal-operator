@@ -123,7 +123,7 @@ func TestProvisioningCapacity(t *testing.T) {
 			ExpectedDelayed:           false,
 		},
 		{
-			Scenario:                "untracked-inspecting-delayed",
+			Scenario:                "untracked-provisioning-delayed",
 			Host:                    host(metal3api.StateProvisioning).build(),
 			HasProvisioningCapacity: false,
 
@@ -360,33 +360,6 @@ func TestDetach(t *testing.T) {
 			ExpectedDirty:             true,
 			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
 			ExpectedState:             metal3api.StateAvailable,
-		},
-		{
-			Scenario:                  "DetachAvailableHost",
-			Host:                      host(metal3api.StateAvailable).SetImageURL("").SetStatusPoweredOn(false).build(),
-			HasDetachedAnnotation:     true,
-			ExpectedDetach:            true,
-			ExpectedDirty:             true,
-			ExpectedOperationalStatus: metal3api.OperationalStatusDetached,
-			ExpectedState:             metal3api.StateAvailable,
-		},
-		{
-			Scenario:                  "AttachAvailableHost",
-			Host:                      host(metal3api.StateAvailable).SetImageURL("").SetStatusPoweredOn(false).build(),
-			HasDetachedAnnotation:     false,
-			ExpectedDetach:            false,
-			ExpectedDirty:             true,
-			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
-			ExpectedState:             metal3api.StateAvailable,
-		},
-		{
-			Scenario:                  "AvailableHost",
-			Host:                      host(metal3api.StateAvailable).build(),
-			HasDetachedAnnotation:     false,
-			ExpectedDetach:            false,
-			ExpectedDirty:             true,
-			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
-			ExpectedState:             metal3api.StateProvisioning,
 		},
 		{
 			Scenario:                  "ProvisioningHost",

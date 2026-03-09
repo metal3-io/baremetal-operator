@@ -224,7 +224,8 @@ spec:
                 description: |-
                   Firmware (BIOS) configuration for bare metal server. If set, the
                   requested settings will be applied before the host is provisioned.
-                  Only some vendor drivers support this field. An alternative is to
+
+                  Deprecated: no longer supported by any driver. An alternative is to
                   use HostFirmwareSettings resources that allow changing arbitrary
                   values and support the generic Redfish-based drivers.
                 properties:

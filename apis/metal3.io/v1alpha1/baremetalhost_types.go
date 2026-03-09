@@ -431,6 +431,8 @@ type RAIDConfig struct {
 }
 
 // FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server.
+//
+// Deprecated: no longer supported by any driver.
 type FirmwareConfig struct {
 	// Supports the virtualization of platform hardware.
 	// +kubebuilder:validation:Enum=true;false
@@ -469,7 +471,8 @@ type BareMetalHostSpec struct {
 
 	// Firmware (BIOS) configuration for bare metal server. If set, the
 	// requested settings will be applied before the host is provisioned.
-	// Only some vendor drivers support this field. An alternative is to
+	//
+	// Deprecated: no longer supported by any driver. An alternative is to
 	// use HostFirmwareSettings resources that allow changing arbitrary
 	// values and support the generic Redfish-based drivers.
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`

@@ -17,6 +17,8 @@ REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
 cd "${REPO_ROOT}" || exit 1
 
+"${REPO_ROOT}"/hack/check-e2e.sh
+
 BMC_PROTOCOL="${BMC_PROTOCOL:-"redfish-virtualmedia"}"
 if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "redfish-virtualmedia" ]]; then
   BMO_E2E_EMULATOR="sushy-tools"

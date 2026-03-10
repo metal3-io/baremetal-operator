@@ -83,15 +83,6 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 				AutomatedCleaningMode: metal3api.CleaningModeDisabled,
 			},
 		}
-		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
-			userDataSecretName := "user-data"
-			sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-			createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
-			bmh.Spec.UserData = &corev1.SecretReference{
-				Name:      userDataSecretName,
-				Namespace: namespace.Name,
-			}
-		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -109,7 +100,10 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 			State:  metal3api.StateProvisioned,
 		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
 
-		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
+		// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped.
+		// For live ISO boots, userdata is not delivered by Ironic, so we cannot inject a
+		// static IP via userdata. Instead, the VM gets a predictable IP via dnsmasq DHCP
+		// host reservation configured in the Ironic CR (spec.networking.dhcp.hosts).
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			By("Verifying the node booted from live ISO image")
 			PerformSSHBootCheck(e2eConfig, "memory", bmc.IPAddress)

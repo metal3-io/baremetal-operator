@@ -11,6 +11,7 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
@@ -3179,6 +3180,9 @@ func bmhWithStatus(operStatus metal3api.OperationalStatus, provStatus metal3api.
 	}
 }
 func TestComputeConditions(t *testing.T) {
+	fix := fixture.Fixture{PowerFailed: true}
+	provisionerWithPowerFailure, err := fix.NewProvisioner(t.Context(), provisioner.HostData{}, nil)
+	require.NoError(t, err)
 	testCases := []struct {
 		Scenario      string
 		BareMetalHost *metal3api.BareMetalHost
@@ -3187,6 +3191,7 @@ func TestComputeConditions(t *testing.T) {
 		isProvisioned bool
 		isProgressing bool
 		isReady       bool
+		provisioner   provisioner.Provisioner
 	}{
 		{
 			Scenario:      "before registration",
@@ -3228,10 +3233,23 @@ func TestComputeConditions(t *testing.T) {
 			isManageable:  true,
 			isProvisioned: true,
 		},
+		{
+			Scenario:      "power failure in provisioned state",
+			BareMetalHost: bmhWithStatus(metal3api.OperationalStatusError, metal3api.StateProvisioned),
+			isProvisioned: true,
+			provisioner:   provisionerWithPowerFailure,
+		},
+		{
+			Scenario:      "power failure in deleting state",
+			BareMetalHost: bmhWithStatus(metal3api.OperationalStatusOK, metal3api.StateDeleting),
+			isManageable:  true,
+			isProgressing: true,
+			provisioner:   provisionerWithPowerFailure,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			computeConditions(t.Context(), tc.BareMetalHost, nil)
+			computeConditions(t.Context(), tc.BareMetalHost, tc.provisioner)
 			if tc.isManageable {
 				assert.True(t, conditions.IsTrue(tc.BareMetalHost, metal3api.ManageableCondition))
 			} else {

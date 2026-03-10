@@ -2231,6 +2231,7 @@ func setConditionsProgressing(host *metal3api.BareMetalHost, progressingReason s
 }
 
 func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov provisioner.Provisioner) {
+	var powerFailureCheck = true
 	switch host.Status.Provisioning.State {
 	case metal3api.StateNone, metal3api.StateUnmanaged:
 		setConditionFalse(host, metal3api.ManageableCondition, metal3api.NotManagedReason)
@@ -2238,6 +2239,7 @@ func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov 
 		setConditionFalse(host, metal3api.ProvisionedCondition, metal3api.NotProvisionedReason)
 		setConditionFalse(host, metal3api.ReadyCondition, metal3api.NotProvisionedReason)
 		setConditionFalse(host, metal3api.ProgressingCondition, metal3api.NotProgressingReason)
+		powerFailureCheck = false
 	case metal3api.StateRegistering:
 		if host.Status.OperationalStatus == metal3api.OperationalStatusError {
 			setConditionFalse(host, metal3api.ManageableCondition, metal3api.RegistrationFailedReason)
@@ -2248,6 +2250,7 @@ func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov 
 		setConditionFalse(host, metal3api.ProvisionedCondition, metal3api.NotProvisionedReason)
 		setConditionFalse(host, metal3api.ReadyCondition, metal3api.NotProvisionedReason)
 		setConditionTrue(host, metal3api.ProgressingCondition, metal3api.RegisteringReason)
+		powerFailureCheck = false
 	case metal3api.StatePreparing:
 		setConditionsProgressing(host, metal3api.PreparingReason)
 	case metal3api.StateReady, metal3api.StateAvailable:
@@ -2272,6 +2275,7 @@ func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov 
 	case metal3api.StatePoweringOffBeforeDelete:
 		setConditionsProgressing(host, metal3api.PoweringOffBeforeDeleteReason)
 	case metal3api.StateDeleting:
+		powerFailureCheck = false
 		setConditionsProgressing(host, metal3api.DeletingReason)
 	}
 	switch host.Status.OperationalStatus {
@@ -2280,11 +2284,12 @@ func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov 
 	case metal3api.OperationalStatusServicing:
 		setConditionFalse(host, metal3api.ReadyCondition, metal3api.ServicingReason)
 	case metal3api.OperationalStatusDetached:
+		powerFailureCheck = false
 		setConditionFalse(host, metal3api.ReadyCondition, metal3api.DetachedReason)
 		setConditionFalse(host, metal3api.ProgressingCondition, metal3api.DetachedReason)
 	default:
 	}
-	if prov != nil && prov.HasPowerFailure(ctx) {
+	if powerFailureCheck && prov != nil && prov.HasPowerFailure(ctx) {
 		setConditionFalse(host, metal3api.ManageableCondition, metal3api.PowerFailureReason)
 	}
 }

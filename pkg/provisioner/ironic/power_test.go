@@ -88,7 +88,7 @@ func TestPowerOn(t *testing.T) {
 			expectedErrorResult:  true,
 		},
 		{
-			name:  "power-on with LastError",
+			name:  "power-on with LastError and force",
 			force: true,
 			ironic: testserver.NewIronic(t).Node(nodes.Node{
 				PowerState:       powerOff,

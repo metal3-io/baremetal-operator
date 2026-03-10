@@ -2230,7 +2230,7 @@ func TestUpdateRAID(t *testing.T) {
 		expected *metal3api.RAIDConfig
 	}{
 		{
-			name:  "keep current hardware RAID, clear current software RAID",
+			name:  "keep current hardware RAID, clear current software RAID on nil",
 			raid:  nil,
 			dirty: true,
 			expected: &metal3api.RAIDConfig{
@@ -2238,7 +2238,7 @@ func TestUpdateRAID(t *testing.T) {
 			},
 		},
 		{
-			name:  "keep current hardware RAID, clear current software RAID",
+			name:  "keep current hardware RAID, clear current software RAID on empty config",
 			raid:  &metal3api.RAIDConfig{},
 			dirty: false,
 			expected: &metal3api.RAIDConfig{
@@ -2264,7 +2264,7 @@ func TestUpdateRAID(t *testing.T) {
 			},
 		},
 		{
-			name: "Configure hardwareRAIDVolumes",
+			name: "Configure hardwareRAIDVolumes and softwareRAIDVolumes",
 			raid: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
 					{
@@ -2302,7 +2302,7 @@ func TestUpdateRAID(t *testing.T) {
 			},
 		},
 		{
-			name: "Clear hardwareRAIDVolumes",
+			name: "Clear hardwareRAIDVolumes and softwareRAIDVolumes",
 			raid: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{},
 				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},

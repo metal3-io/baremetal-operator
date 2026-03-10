@@ -240,12 +240,12 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "keep hardware RAID",
+			name:          "keep hardware RAID on nil",
 			raidInterface: "redfish",
 			target:        nil,
 		},
 		{
-			name:          "keep hardware RAID",
+			name:          "keep hardware RAID on empty config",
 			raidInterface: "redfish",
 			target:        &metal3api.RAIDConfig{},
 		},
@@ -411,6 +411,7 @@ func TestBuildRAIDCleanSteps(t *testing.T) {
 
 func TestCheckRAIDConfigure(t *testing.T) {
 	cases := []struct {
+		name                 string
 		raidInterface        string
 		RAID                 *metal3api.RAIDConfig
 		expectedError        bool
@@ -418,13 +419,16 @@ func TestCheckRAIDConfigure(t *testing.T) {
 		currentRAID          *metal3api.RAIDConfig
 	}{
 		{
+			name:          "no-raid with nil config",
 			raidInterface: "no-raid",
 		},
 		{
+			name:          "no-raid with empty config",
 			raidInterface: "no-raid",
 			RAID:          &metal3api.RAIDConfig{},
 		},
 		{
+			name:          "no-raid with hardware RAID",
 			raidInterface: "no-raid",
 			RAID: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
@@ -437,6 +441,7 @@ func TestCheckRAIDConfigure(t *testing.T) {
 			expectedError: true,
 		},
 		{
+			name:          "no-raid with software RAID",
 			raidInterface: "no-raid",
 			RAID: &metal3api.RAIDConfig{
 				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
@@ -448,13 +453,16 @@ func TestCheckRAIDConfigure(t *testing.T) {
 			expectedNewInterface: "agent",
 		},
 		{
+			name:          "agent with nil config",
 			raidInterface: "agent",
 		},
 		{
+			name:          "agent with empty config",
 			raidInterface: "agent",
 			RAID:          &metal3api.RAIDConfig{},
 		},
 		{
+			name:          "agent with hardware RAID",
 			raidInterface: "agent",
 			RAID: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
@@ -467,6 +475,7 @@ func TestCheckRAIDConfigure(t *testing.T) {
 			expectedError: true,
 		},
 		{
+			name:          "agent with software RAID",
 			raidInterface: "agent",
 			RAID: &metal3api.RAIDConfig{
 				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
@@ -477,13 +486,16 @@ func TestCheckRAIDConfigure(t *testing.T) {
 			},
 		},
 		{
+			name:          "hardware with nil config",
 			raidInterface: "hardware",
 		},
 		{
+			name:          "hardware with empty config",
 			raidInterface: "hardware",
 			RAID:          &metal3api.RAIDConfig{},
 		},
 		{
+			name:          "hardware with hardware RAID",
 			raidInterface: "hardware",
 			RAID: &metal3api.RAIDConfig{
 				HardwareRAIDVolumes: []metal3api.HardwareRAIDVolume{
@@ -495,6 +507,7 @@ func TestCheckRAIDConfigure(t *testing.T) {
 			},
 		},
 		{
+			name:          "hardware with software RAID",
 			raidInterface: "hardware",
 			RAID: &metal3api.RAIDConfig{
 				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
@@ -506,6 +519,7 @@ func TestCheckRAIDConfigure(t *testing.T) {
 			expectedNewInterface: "agent",
 		},
 		{
+			name:          "hardware with empty software RAID clearing current",
 			raidInterface: "hardware",
 			RAID: &metal3api.RAIDConfig{
 				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{},
@@ -522,7 +536,7 @@ func TestCheckRAIDConfigure(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.raidInterface, func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			newInterface, err := CheckRAIDInterface(c.raidInterface, c.RAID, c.currentRAID)
 			if (err != nil) != c.expectedError {
 				t.Errorf("Got unexpected error: %v", err)

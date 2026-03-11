@@ -103,6 +103,8 @@ type Fixture struct {
 	HostFirmwareComponents HostFirmwareComponentsMock
 
 	PowerFailed bool
+
+	GetDataImageStatusError error
 }
 
 // NewProvisioner returns a new Fixture Provisioner.
@@ -421,6 +423,9 @@ func (p *fixtureProvisioner) GetFirmwareComponents(_ context.Context) (component
 }
 
 func (p *fixtureProvisioner) GetDataImageStatus(_ context.Context) (isImageAttached bool, err error) {
+	if p.state.GetDataImageStatusError != nil {
+		return false, p.state.GetDataImageStatusError
+	}
 	return false, nil
 }
 

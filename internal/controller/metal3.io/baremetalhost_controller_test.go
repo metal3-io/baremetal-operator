@@ -1617,6 +1617,51 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 	})
 }
 
+// TestPowerOnWithDataImageNodeBusy verifies that power-on proceeds when the
+// Ironic node is busy but the DataImage is already in the desired state. This
+// covers a race condition where concurrent deployments cause repeated
+// ErrNodeIsBusy from GetDataImageStatus, indefinitely blocking power-on.
+func TestPowerOnWithDataImageNodeBusy(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Status.Provisioning.Image = metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Status.PoweredOn = false
+
+	dataImageURL := "http://example.test/dataimage.iso"
+	dataImage := &metal3api.DataImage{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "DataImage",
+			APIVersion: "metal3.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		Spec: metal3api.DataImageSpec{
+			URL: dataImageURL,
+		},
+		Status: metal3api.DataImageStatus{
+			AttachedImage: metal3api.AttachedImageReference{
+				URL: dataImageURL,
+			},
+		},
+	}
+
+	fix := fixture.Fixture{
+		GetDataImageStatusError: provisioner.ErrNodeIsBusy,
+	}
+	r := newTestReconcilerWithFixture(t, &fix, host, dataImage)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			t.Logf("power status: %v, state: %v", host.Status.PoweredOn, host.Status.Provisioning.State)
+			return host.Status.PoweredOn
+		},
+	)
+}
+
 // TestPowerOn verifies that the controller turns the host on when it
 // should.
 func TestPowerOn(t *testing.T) {

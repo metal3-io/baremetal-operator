@@ -116,11 +116,11 @@ var _ = Describe("HostClaim manager", func() {
 				Expect(bmh).To(BeNil())
 				if tc.ExpectFail {
 					Expect(err).To(HaveOccurred())
-					var requeueAfterError HasRequeueAfterError
+					var requeueAfterError RequeueAfterError
 					Expect(errors.As(err, &requeueAfterError)).To(BeFalse())
 				} else if tc.ExpectRequeue {
 					Expect(err).To(HaveOccurred())
-					var requeueAfterError HasRequeueAfterError
+					var requeueAfterError RequeueAfterError
 					Expect(errors.As(err, &requeueAfterError)).To(BeTrue())
 				} else {
 					Expect(errors.Is(err, ErrNoAvailableBMH)).To(BeTrue())
@@ -306,7 +306,7 @@ var _ = Describe("HostClaim manager", func() {
 			oldBmh.Spec.Description = "v2"
 			err = hideConflictError(helper.Patch(ctx, oldBmh))
 			Expect(err).To(HaveOccurred(), "Conflict error becomes requeue")
-			var requeueAfterError HasRequeueAfterError
+			var requeueAfterError RequeueAfterError
 			Expect(errors.As(err, &requeueAfterError)).To(BeTrue())
 		})
 
@@ -326,7 +326,7 @@ var _ = Describe("HostClaim manager", func() {
 			err = hostMgr.Associate(context.TODO())
 			if tc.ExpectFails {
 				Expect(err).To(HaveOccurred())
-				var requeueAfterError HasRequeueAfterError
+				var requeueAfterError RequeueAfterError
 				Expect(errors.As(err, &requeueAfterError)).To(Equal(tc.ExpectRequeue))
 				return
 			}

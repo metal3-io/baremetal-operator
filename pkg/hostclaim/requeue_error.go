@@ -22,15 +22,6 @@ import (
 	"time"
 )
 
-// HasRequeueAfterError represents that an actuator managed object should
-// be requeued for further processing after the given RequeueAfter time has
-// passed.
-type HasRequeueAfterError interface {
-	// GetRequeueAfter gets the duration to wait until the managed object is
-	// requeued for further processing.
-	GetRequeueAfter() time.Duration
-}
-
 // RequeueAfterError represents that an actuator managed object should be
 // requeued for further processing after the given RequeueAfter time has
 // passed.
@@ -39,7 +30,7 @@ type RequeueAfterError struct {
 }
 
 // Error implements the error interface.
-func (e *RequeueAfterError) Error() string {
+func (e RequeueAfterError) Error() string {
 	if e.RequeueAfter == 0 {
 		return "terminal error"
 	}
@@ -48,12 +39,12 @@ func (e *RequeueAfterError) Error() string {
 
 // GetRequeueAfter gets the duration to wait until the managed object is
 // requeued for further processing.
-func (e *RequeueAfterError) GetRequeueAfter() time.Duration {
+func (e RequeueAfterError) GetRequeueAfter() time.Duration {
 	return e.RequeueAfter
 }
 
 func IsRequeueAfterError(err error) (bool, time.Duration) {
-	var requeueAfterError HasRequeueAfterError
+	var requeueAfterError RequeueAfterError
 	if errors.As(err, &requeueAfterError) {
 		return true, requeueAfterError.GetRequeueAfter()
 	}

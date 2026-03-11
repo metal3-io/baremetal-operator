@@ -119,7 +119,7 @@ func (m *HostManager) Associate(ctx context.Context) error {
 			m.SetConditionHostToFalse(
 				metal3api.AssociatedCondition, metal3api.NoBareMetalHostReason,
 				"No available host found: requeuing.")
-			return &RequeueAfterError{RequeueAfter: HostClaimRequeueDelay}
+			return RequeueAfterError{RequeueAfter: HostClaimRequeueDelay}
 		}
 		return err
 	}
@@ -158,7 +158,7 @@ func hideConflictError(err error) error {
 	var aggr kerrors.Aggregate
 	if ok := errors.As(err, &aggr); ok {
 		if slices.ContainsFunc(aggr.Errors(), k8serrors.IsConflict) {
-			return &RequeueAfterError{RequeueAfter: ConflictRequeueDelay}
+			return RequeueAfterError{RequeueAfter: ConflictRequeueDelay}
 		}
 	}
 	return err

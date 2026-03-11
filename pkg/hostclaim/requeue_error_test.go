@@ -28,14 +28,14 @@ import (
 var _ = Describe("Requeue After Error tests", func() {
 	It("Check a requeue error is catched", func() {
 		duration := 20 * time.Second
-		var err = &RequeueAfterError{RequeueAfter: duration}
+		var err = RequeueAfterError{RequeueAfter: duration}
 		ok, t := IsRequeueAfterError(err)
 		Expect(ok).To(BeTrue())
 		Expect(t).To(Equal(duration))
 	})
 	It("Check it is catched even if behind wrapper", func() {
 		duration := 30 * time.Second
-		var err error = &RequeueAfterError{RequeueAfter: duration}
+		var err error = RequeueAfterError{RequeueAfter: duration}
 		err = fmt.Errorf("Wrapped error: %w", err)
 		ok, t := IsRequeueAfterError(err)
 		Expect(ok).To(BeTrue())

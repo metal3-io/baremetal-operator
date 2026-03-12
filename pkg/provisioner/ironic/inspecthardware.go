@@ -26,13 +26,17 @@ func (p *ironicProvisioner) abortInspection(ctx context.Context, ironicNode *nod
 }
 
 func (p *ironicProvisioner) startInspection(ctx context.Context, data provisioner.InspectData, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
+	opts := clients.UpdateOptsData{
+		"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
+	}
+	if data.CPUArchitecture != "" {
+		opts["cpu_arch"] = data.CPUArchitecture
+	}
 	_, started, result, err = p.tryUpdateNode(
 		ctx,
 		ironicNode,
 		clients.UpdateOptsBuilder(p.log).
-			SetPropertiesOpts(clients.UpdateOptsData{
-				"capabilities": buildCapabilitiesValue(ironicNode, data.BootMode),
-			}, ironicNode),
+			SetPropertiesOpts(opts, ironicNode),
 	)
 	if !started {
 		return

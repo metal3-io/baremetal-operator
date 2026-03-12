@@ -1021,7 +1021,8 @@ func (r *BareMetalHostReconciler) actionInspecting(ctx context.Context, prov pro
 	provResult, started, details, err := prov.InspectHardware(
 		ctx,
 		provisioner.InspectData{
-			BootMode: info.host.Status.Provisioning.BootMode,
+			BootMode:        info.host.Status.Provisioning.BootMode,
+			CPUArchitecture: getHostArchitecture(info.host),
 		},
 		info.host.Status.ErrorType == metal3api.InspectionError,
 		refresh,

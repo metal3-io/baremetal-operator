@@ -1990,3 +1990,15 @@ func (p *ironicProvisioner) HasPowerFailure(ctx context.Context) bool {
 	}
 	return node.Fault == "power failure"
 }
+
+// TODO(jacobanders): GetHealth calls getNode() which makes an additional HTTP
+// request to Ironic on every reconcile. Consider passing the node object through
+// computeConditions or caching it per reconcile cycle to avoid redundant calls.
+func (p *ironicProvisioner) GetHealth(ctx context.Context) string {
+	node, err := p.getNode(ctx)
+	if err != nil {
+		p.log.Error(err, "ignored error while checking health status")
+		return ""
+	}
+	return node.Health
+}

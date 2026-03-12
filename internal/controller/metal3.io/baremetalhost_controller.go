@@ -2222,6 +2222,10 @@ func setConditionFalse(host *metal3api.BareMetalHost, typ, reason string) {
 	conditions.Set(host, metav1.Condition{Type: typ, Status: metav1.ConditionFalse, Reason: reason})
 }
 
+func setConditionUnknown(host *metal3api.BareMetalHost, typ, reason string) {
+	conditions.Set(host, metav1.Condition{Type: typ, Status: metav1.ConditionUnknown, Reason: reason})
+}
+
 func setConditionsProgressing(host *metal3api.BareMetalHost, progressingReason string) {
 	setConditionTrue(host, metal3api.ManageableCondition, metal3api.ManageableReason)
 	setConditionFalse(host, metal3api.AvailableForProvisioningCondition, metal3api.NotAvailableReason)
@@ -2291,6 +2295,20 @@ func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov 
 	}
 	if powerFailureCheck && prov != nil && prov.HasPowerFailure(ctx) {
 		setConditionFalse(host, metal3api.ManageableCondition, metal3api.PowerFailureReason)
+	}
+	if prov == nil {
+		setConditionUnknown(host, metal3api.HealthyCondition, metal3api.UnknownHealthReason)
+		return
+	}
+	switch prov.GetHealth(ctx) {
+	case provisioner.HealthOK:
+		setConditionTrue(host, metal3api.HealthyCondition, metal3api.HealthyReason)
+	case provisioner.HealthWarning:
+		setConditionFalse(host, metal3api.HealthyCondition, metal3api.WarningHealthReason)
+	case provisioner.HealthCritical:
+		setConditionFalse(host, metal3api.HealthyCondition, metal3api.CriticalHealthReason)
+	default:
+		setConditionUnknown(host, metal3api.HealthyCondition, metal3api.UnknownHealthReason)
 	}
 }
 

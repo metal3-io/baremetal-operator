@@ -234,9 +234,21 @@ type Provisioner interface {
 	DetachDataImage(ctx context.Context) (err error)
 
 	HasPowerFailure(ctx context.Context) bool
+
+	// GetHealth returns the health status of the node from the provisioner.
+	// Possible values are HealthOK, HealthWarning, HealthCritical, or
+	// empty string if unavailable.
+	GetHealth(ctx context.Context) string
 }
 
-// Result holds the response from a call in the Provsioner API.
+// Health status values returned by GetHealth().
+const (
+	HealthOK       = "OK"
+	HealthWarning  = "Warning"
+	HealthCritical = "Critical"
+)
+
+// Result holds the response from a call in the Provisioner API.
 type Result struct {
 	// Dirty indicates whether the host object needs to be saved.
 	Dirty bool

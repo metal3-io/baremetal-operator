@@ -208,6 +208,17 @@ const (
 	// NotProgressingReason is the reason used when the BareMetalHost is in
 	// a stable state.
 	NotProgressingReason = "NotProgressing"
+
+	// HealthyCondition documents the health of the BareMetalHost as reported by its BMC.
+	HealthyCondition = "Healthy"
+	// HealthyReason is the reason used when the BareMetalHost is healthy.
+	HealthyReason = "Healthy"
+	// UnknownHealthReason is the reason used when health status is not available.
+	UnknownHealthReason = "Unknown"
+	// WarningHealthReason is the reason used when BMC reports warnings.
+	WarningHealthReason = "Warning"
+	// CriticalHealthReason is the reason used when BMC reports critical errors.
+	CriticalHealthReason = "CriticalError"
 )
 
 // OperationalStatus represents the state of the host.

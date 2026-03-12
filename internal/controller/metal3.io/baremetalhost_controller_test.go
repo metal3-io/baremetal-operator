@@ -3179,6 +3179,61 @@ func bmhWithStatus(operStatus metal3api.OperationalStatus, provStatus metal3api.
 		},
 	}
 }
+
+func TestComputeHealthyCondition(t *testing.T) {
+	testCases := []struct {
+		Scenario       string
+		Health         string
+		ExpectedStatus metav1.ConditionStatus
+		ExpectedReason string
+	}{
+		{
+			Scenario:       "empty health reports unknown",
+			Health:         "",
+			ExpectedStatus: metav1.ConditionUnknown,
+			ExpectedReason: metal3api.UnknownHealthReason,
+		},
+		{
+			Scenario:       "OK health",
+			Health:         provisioner.HealthOK,
+			ExpectedStatus: metav1.ConditionTrue,
+			ExpectedReason: metal3api.HealthyReason,
+		},
+		{
+			Scenario:       "Warning health",
+			Health:         provisioner.HealthWarning,
+			ExpectedStatus: metav1.ConditionFalse,
+			ExpectedReason: metal3api.WarningHealthReason,
+		},
+		{
+			Scenario:       "Critical health",
+			Health:         provisioner.HealthCritical,
+			ExpectedStatus: metav1.ConditionFalse,
+			ExpectedReason: metal3api.CriticalHealthReason,
+		},
+		{
+			Scenario:       "unexpected value reports unknown",
+			Health:         "SomeUnexpectedValue",
+			ExpectedStatus: metav1.ConditionUnknown,
+			ExpectedReason: metal3api.UnknownHealthReason,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := bmhWithStatus(metal3api.OperationalStatusOK, metal3api.StateAvailable)
+			fix := &fixture.Fixture{Health: tc.Health}
+			prov, err := fix.NewProvisioner(t.Context(), provisioner.BuildHostData(*host, bmc.Credentials{}), nil)
+			require.NoError(t, err)
+			computeConditions(t.Context(), host, prov)
+
+			cond := conditions.Get(host, metal3api.HealthyCondition)
+			require.NotNil(t, cond)
+			assert.Equal(t, tc.ExpectedStatus, cond.Status)
+			assert.Equal(t, tc.ExpectedReason, cond.Reason)
+		})
+	}
+}
+
 func TestComputeConditions(t *testing.T) {
 	fix := fixture.Fixture{PowerFailed: true}
 	provisionerWithPowerFailure, err := fix.NewProvisioner(t.Context(), provisioner.HostData{}, nil)
@@ -3275,6 +3330,9 @@ func TestComputeConditions(t *testing.T) {
 			} else {
 				assert.True(t, conditions.IsFalse(tc.BareMetalHost, metal3api.ReadyCondition))
 			}
+			cond := conditions.Get(tc.BareMetalHost, metal3api.HealthyCondition)
+			require.NotNil(t, cond, "Healthy condition should always be set")
+			assert.Equal(t, metav1.ConditionUnknown, cond.Status, "Healthy should be Unknown when health is not reported")
 		})
 	}
 }

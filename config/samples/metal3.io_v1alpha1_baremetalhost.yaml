@@ -5,3 +5,11 @@ metadata:
 spec:
   # Add fields here
   foo: bar
+  # Network configuration using attachment if Ironic networking enabled (optional)
+  networkInterfaces:
+  - name: ens3f0
+    hostNetworkAttachment:
+      name: mgmt-access-config
+  - name: ens3f1
+    hostNetworkAttachment:
+      name: storage-trunk-config

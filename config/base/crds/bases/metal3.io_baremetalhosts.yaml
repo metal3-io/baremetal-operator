@@ -345,6 +345,72 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              networkInterfaces:
+                description: |-
+                  NetworkInterfaces defines the network configuration for each interface.
+                  This will be used to configure switch ports for the host.  Interface
+                  names must correspond to actual NICs discovered in hardware details by
+                  the hardware inspection process.  They are referenced by either the name
+                  or MAC address of the NIC.
+                  This field is immutable unless the host is in an early lifecycle states
+                  (registering, inspecting, preparing, available).
+                items:
+                  description: NetworkInterface defines the network configuration
+                    for a specific interface.
+                  properties:
+                    hostNetworkAttachment:
+                      description: HostNetworkAttachment references the HostNetworkAttachment
+                        for this interface
+                      properties:
+                        name:
+                          description: Name of the HostNetworkAttachment resource
+                          maxLength: 253
+                          type: string
+                        namespace:
+                          description: Namespace of the HostNetworkAttachment (defaults
+                            to BMH namespace)
+                          maxLength: 63
+                          type: string
+                      type: object
+                    macAddress:
+                      description: |-
+                        MAC address of the network interface.  This must match the MAC address
+                        of the network interface in status.hardware.nics.
+                      pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                      type: string
+                    name:
+                      description: |-
+                        Name of the network interface (e.g., "eth0", "ens1f0")
+                        This must match the name of a NIC in status.hardware.nics.
+                        If MACAddress is set then this field is ignored.
+                      pattern: ^[a-zA-Z0-9._-]+$
+                      type: string
+                    switchPort:
+                      description: |-
+                        SwitchPort defines the switch port on which this interface is attached.
+                        This is intended to be a replacement for LLDP information if
+                        LLDP is not enabled on the neighboring switches or if inspection is not
+                        used on the BMH.  If LLDP information is acquired during inspection and
+                        this field is provided then it will override the LLDP provided
+                        information; therefore, caution must be exercised when supplying this
+                        value.
+                      properties:
+                        portID:
+                          description: |-
+                            PortID is expected to be the configuration name of the port in the
+                            switch management system.
+                          type: string
+                        switchID:
+                          description: SwitchID is expected to be the management MAC
+                            address of the switch
+                          pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                          type: string
+                      required:
+                      - portID
+                      - switchID
+                      type: object
+                  type: object
+                type: array
               online:
                 description: |-
                   Should the host be powered on? If the host is currently in a stable

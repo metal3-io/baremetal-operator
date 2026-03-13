@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -90,6 +91,12 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 		errs = append(errs, err)
 	}
 
+	if len(host.Spec.NetworkInterfaces) > 0 {
+		if ifaceErrors := validateNetworkInterfaces(host.Spec.NetworkInterfaces); ifaceErrors != nil {
+			errs = append(errs, ifaceErrors...)
+		}
+	}
+
 	return errs
 }
 
@@ -113,6 +120,10 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 
 	if oldObj.Spec.BootMACAddress != "" && !strings.EqualFold(newObj.Spec.BootMACAddress, oldObj.Spec.BootMACAddress) {
 		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
+	}
+
+	if err := validateNetworkInterfaceChanges(oldObj, newObj); err != nil {
+		errs = append(errs, err)
 	}
 
 	// Only allow enabling externallyProvisioned from Available state.
@@ -426,4 +437,55 @@ func validatePowerStatus(host *metal3api.BareMetalHost) error {
 		return errors.New("node can't simultaneously have online set to false and have power off disabled")
 	}
 	return nil
+}
+
+// networkInterfacesMutableStates lists the states in which networkInterfaces
+// can be added, modified, or removed. All other states are considered
+// immutable to prevent disruption to provisioned or in-progress hosts.
+var networkInterfacesMutableStates = map[metal3api.ProvisioningState]bool{
+	metal3api.StateNone:         true,
+	metal3api.StateUnmanaged:    true,
+	metal3api.StateRegistering:  true,
+	metal3api.StateInspecting:   true,
+	metal3api.StatePreparing:    true,
+	metal3api.StateAvailable:    true,
+	metal3api.StateMatchProfile: true,
+}
+
+// validateNetworkInterfaceChanges blocks networkInterfaces modifications when
+// the host is past the available state (e.g., provisioning, provisioned,
+// deprovisioning). Changes are only allowed in early lifecycle states.
+func validateNetworkInterfaceChanges(oldObj, newObj *metal3api.BareMetalHost) error {
+	if reflect.DeepEqual(oldObj.Spec.NetworkInterfaces, newObj.Spec.NetworkInterfaces) {
+		return nil
+	}
+
+	state := newObj.Status.Provisioning.State
+	if networkInterfacesMutableStates[state] {
+		return nil
+	}
+
+	return fmt.Errorf("networkInterfaces can not be changed in the %q state", state)
+}
+
+// validateNetworkInterfaces validates NetworkInterface specifications.
+func validateNetworkInterfaces(networkInterfaces []metal3api.NetworkInterface) []error {
+	var errs []error
+	seen := make(map[string]bool)
+
+	for i, iface := range networkInterfaces {
+		// At least one identifier (Name or MACAddress) must be specified
+		if !iface.IsValid() {
+			errs = append(errs, fmt.Errorf("networkInterfaces[%d]: must specify either name or macAddress", i))
+			continue
+		}
+
+		key := strings.ToLower(iface.GetKey())
+		if seen[key] {
+			errs = append(errs, fmt.Errorf("networkInterfaces[%d]: duplicate interface selector for %q", i, iface.GetKey()))
+		}
+		seen[key] = true
+	}
+
+	return errs
 }

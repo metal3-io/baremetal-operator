@@ -5,6 +5,7 @@ resources:
 - ./automated-cleaning
 - ./baremetalswitch
 - ./basic-ops
+- ./networking
 - ./external-inspection
 - ./externally-provisioned
 - ./firmware-components

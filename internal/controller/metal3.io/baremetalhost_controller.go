@@ -67,10 +67,11 @@ const (
 // BareMetalHostReconciler reconciles a BareMetalHost object.
 type BareMetalHostReconciler struct {
 	client.Client
-	Log                logr.Logger
-	ProvisionerFactory provisioner.Factory
-	APIReader          client.Reader
-	Recorder           record.EventRecorder
+	Log                  logr.Logger
+	ProvisionerFactory   provisioner.Factory
+	APIReader            client.Reader
+	Recorder             record.EventRecorder
+	AllowedHNANamespaces []string
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -84,6 +85,7 @@ type reconcileInfo struct {
 	preprovisioningNetworkDataSecret *corev1.Secret
 	events                           []corev1.Event
 	postSaveCallbacks                []func()
+	portConfigs                      map[string]*provisioner.PortConfig
 }
 
 // match the provisioner.EventPublisher interface.
@@ -97,6 +99,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups=metal3.io,resources=preprovisioningimages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=metal3.io,resources=hardwaredata,verbs=get;list;watch;create;delete;patch;update
 // +kubebuilder:rbac:groups=metal3.io,resources=hardware/finalizers,verbs=update
+// +kubebuilder:rbac:groups=metal3.io,resources=hostnetworkattachments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
@@ -238,7 +241,27 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		preprovisioningNetworkDataSecret: preprovisioningNetworkDataSecret,
 	}
 
-	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
+	// Build host data with all necessary information
+	provisionerHostData := provisioner.BuildHostData(*host, *bmcCreds)
+
+	// Resolve port configs early so they are available to the provisioner
+	// throughout the reconcile loop.  Needed in port registration code and
+	// in the reconciler.
+	if len(host.Spec.NetworkInterfaces) > 0 {
+		var portConfigs map[string]*provisioner.PortConfig
+		var nics []metal3api.NIC
+		if hardwareData != nil && hardwareData.Spec.HardwareDetails != nil {
+			nics = hardwareData.Spec.HardwareDetails.NIC
+		}
+		portConfigs, err = r.resolvePortConfigs(ctx, host, nics)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to resolve port configs: %w", err)
+		}
+		provisionerHostData.PortConfigs = portConfigs
+		info.portConfigs = portConfigs
+	}
+
+	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisionerHostData, info.publishEvent)
 	if err != nil {
 		if errors.Is(err, provisioner.ErrNotReady) {
 			provisionerNotReady.Inc()
@@ -1279,6 +1302,13 @@ func getUpdatesDifference(specUpdates []metal3api.FirmwareUpdate, statusUpdates 
 
 func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.V(VerbosityLevelTrace).Info("actionPreparing started")
+
+	// Update switch port configs before other actions
+	if actResult := r.managePortConfigs(ctx, prov, info); actResult != nil {
+		if _, isContinue := actResult.(actionContinue); !isContinue {
+			return actResult
+		}
+	}
 
 	bmhDirty, newStatus, err := getHostProvisioningSettings(info.host, info)
 	if err != nil {

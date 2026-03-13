@@ -39,6 +39,7 @@ rules:
   - hardwaredata
   - hostfirmwarecomponents
   - hostfirmwaresettings
+  - hostnetworkattachments
   - preprovisioningimages
   - hostclaims
   - hostdeploypolicies

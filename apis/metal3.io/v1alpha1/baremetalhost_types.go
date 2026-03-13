@@ -219,6 +219,9 @@ const (
 	WarningHealthReason = "Warning"
 	// CriticalHealthReason is the reason used when BMC reports critical errors.
 	CriticalHealthReason = "CriticalError"
+
+	// NetworkInterfacesValidCondition documents the validity of the network interfaces.
+	NetworkInterfacesValidCondition string = "NetworkInterfacesValid"
 )
 
 // OperationalStatus represents the state of the host.
@@ -831,6 +834,16 @@ type OperationHistory struct {
 	Deprovision OperationMetric `json:"deprovision,omitempty"`
 }
 
+// AppliedPortConfig records the port configuration that was last successfully
+// applied to an Ironic port for a network interface.
+type AppliedPortConfig struct {
+	// Name is the network interface name (e.g., "eno1np0")
+	Name             string           `json:"name"`
+	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
+	// +optional
+	LocalLinkConnection *SwitchPortIdentifier `json:"localLinkConnection,omitempty"`
+}
+
 // BareMetalHostStatus defines the observed state of BareMetalHost.
 type BareMetalHostStatus struct {
 	// Important: Run "make generate manifests" to regenerate code
@@ -889,6 +902,13 @@ type BareMetalHostStatus struct {
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=32
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// AppliedPortConfigs stores the resolved port configurations that were
+	// last successfully applied to Ironic ports. This records the actual
+	// VLAN/MTU/mode values (not HNA references) so that drift detection
+	// can identify changes to HostNetworkAttachment specs or deletions.
+	// +optional
+	AppliedPortConfigs []AppliedPortConfig `json:"appliedPortConfigs,omitempty"`
 }
 
 // ProvisionStatus holds the state information for a single target.
@@ -1230,9 +1250,10 @@ func (iface *NetworkInterface) IsValid() bool {
 }
 
 // GetKey returns the key to use for the network interface.
+// MAC addresses are normalized to lowercase for consistent lookups.
 func (iface *NetworkInterface) GetKey() string {
 	if iface.MACAddress != "" {
-		return iface.MACAddress
+		return strings.ToLower(iface.MACAddress)
 	}
 	return iface.Name
 }

@@ -92,6 +92,7 @@ intervals:
   default/wait-reconcile: [ "1s", "10ms" ]
   baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
   default/wait-user-data: [ "5s", "1s" ]
+  networking/wait-hna-deleted: [ "30s", "500ms" ]
 
 kindExtraPortMappings:
 # Expose Ironic ports so they are reachable outside of kind

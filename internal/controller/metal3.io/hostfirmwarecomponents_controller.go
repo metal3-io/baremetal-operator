@@ -108,15 +108,9 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, err
 	}
 
-	if hasDetachedAnnotation(bmh) {
-		reqLogger.Info("the host is detached, not running hostfirmwarecomponents reconciler")
-		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
-	}
-	// If the reconciliation is paused, requeue
-	annotations := bmh.GetAnnotations()
-
-	if _, ok := annotations[metal3api.PausedAnnotation]; ok {
-		reqLogger.Info("host is paused, no work to do")
+	if skipReconcileSubresource(bmh, reqLogger) {
+		// FIXME(dtantsur): we should not need to reconcile here (definitely not often),
+		// but the controller is currently not listening to BMH events.
 		return ctrl.Result{Requeue: true, RequeueAfter: subResourceNotReadyRetryDelay}, nil
 	}
 

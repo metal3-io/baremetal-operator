@@ -125,9 +125,10 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 	}
 
-	if hasDetachedAnnotation(bmh) {
-		reqLogger.Info("the host is detached, not running reconciler")
-		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
+	if skipReconcileSubresource(bmh, reqLogger) {
+		// FIXME(dtantsur): we should not need to reconcile here (definitely not often),
+		// but the controller is currently not listening to BMH events.
+		return ctrl.Result{Requeue: true, RequeueAfter: subResourceNotReadyRetryDelay}, nil
 	}
 
 	// Fetch the HostFirmwareSettings

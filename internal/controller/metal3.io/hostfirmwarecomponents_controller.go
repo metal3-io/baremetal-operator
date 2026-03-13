@@ -156,10 +156,10 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 
 	if err != nil {
 		if errors.Is(err, provisioner.ErrFirmwareUpdateUnsupported) {
-			return ctrl.Result{Requeue: false}, err
+			return ctrl.Result{}, nil
 		}
 		reqLogger.Info("provisioner returns error", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
-		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
 	if err = r.updateHostFirmware(ctx, info, components); err != nil {

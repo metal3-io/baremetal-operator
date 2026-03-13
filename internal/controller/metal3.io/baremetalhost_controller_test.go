@@ -3336,3 +3336,205 @@ func TestComputeConditions(t *testing.T) {
 		})
 	}
 }
+
+// TestGetImageAuthSecret_OCIImageWithValidSecret tests that credentials are extracted
+// successfully when an OCI image has a valid auth secret configured.
+func TestGetImageAuthSecret_OCIImageWithValidSecret(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	ociAuthSecretName := "oci-auth-secret"
+	host.Spec.Image = &metal3api.Image{
+		URL:               "oci://registry.example.com/repo/image:tag",
+		OCIAuthSecretName: &ociAuthSecretName,
+	}
+
+	// Create the OCI auth secret
+	ociSecret := createDockerConfigJSONSecretForTest(t, ociAuthSecretName, namespace, map[string]map[string]string{
+		"registry.example.com": {
+			"username": "testuser",
+			"password": "testpass",
+		},
+	})
+
+	r := newTestReconciler(t, host, ociSecret)
+
+	// Manually call getImageAuthSecret to test the function directly
+	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, credentials, "expected non-empty credentials")
+
+	// Verify credentials are base64 encoded and in correct format
+	decoded, err := base64.StdEncoding.DecodeString(credentials)
+	require.NoError(t, err)
+	assert.Equal(t, "testuser:testpass", string(decoded))
+}
+
+// TestGetImageAuthSecret_OCIImageWithoutSecret tests that no error occurs
+// when an OCI image does not have an auth secret configured.
+func TestGetImageAuthSecret_OCIImageWithoutSecret(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{
+		URL: "oci://registry.example.com/repo/image:tag",
+		// No OCIAuthSecretName set
+	}
+
+	r := newTestReconciler(t, host)
+
+	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
+
+	require.NoError(t, err)
+	assert.Empty(t, credentials, "expected empty credentials when no auth secret is configured")
+}
+
+// TestGetImageAuthSecret_OCIImageWithInvalidSecret tests the behavior when
+// the configured auth secret cannot be parsed or doesn't have valid credentials.
+func TestGetImageAuthSecret_OCIImageWithInvalidSecret(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	ociAuthSecretName := "invalid-auth-secret"
+	host.Spec.Image = &metal3api.Image{
+		URL:               "oci://registry.example.com/repo/image:tag",
+		OCIAuthSecretName: &ociAuthSecretName,
+	}
+
+	// Create an invalid secret (wrong format)
+	invalidSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ociAuthSecretName,
+			Namespace: namespace,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			// Missing proper dockerconfigjson format
+			corev1.DockerConfigJsonKey: []byte(`{"invalid": "json"}`),
+		},
+	}
+
+	r := newTestReconciler(t, host, invalidSecret)
+
+	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
+
+	require.Error(t, err, "expected error for invalid secret")
+	assert.Empty(t, credentials, "expected empty credentials for invalid secret")
+}
+
+// TestGetImageAuthSecret_OCIImageWithMissingSecret tests the behavior when
+// the configured auth secret doesn't exist.
+func TestGetImageAuthSecret_OCIImageWithMissingSecret(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	ociAuthSecretName := "nonexistent-secret"
+	host.Spec.Image = &metal3api.Image{
+		URL:               "oci://registry.example.com/repo/image:tag",
+		OCIAuthSecretName: &ociAuthSecretName,
+	}
+
+	r := newTestReconciler(t, host)
+
+	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
+
+	require.Error(t, err, "expected error for missing secret")
+	assert.Empty(t, credentials, "expected empty credentials for missing secret")
+}
+
+// TestGetImageAuthSecret_NonOCIImageWithAuthSecret tests that auth secrets
+// are ignored for non-OCI images.
+func TestGetImageAuthSecret_NonOCIImageWithAuthSecret(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	ociAuthSecretName := "oci-auth-secret"
+	host.Spec.Image = &metal3api.Image{
+		URL:               "http://example.com/image.qcow2", // Non-OCI URL
+		OCIAuthSecretName: &ociAuthSecretName,
+	}
+
+	// Create the auth secret even though it shouldn't be used
+	ociSecret := createDockerConfigJSONSecretForTest(t, ociAuthSecretName, namespace, map[string]map[string]string{
+		"registry.example.com": {
+			"username": "testuser",
+			"password": "testpass",
+		},
+	})
+
+	r := newTestReconciler(t, host, ociSecret)
+
+	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
+
+	require.NoError(t, err)
+	assert.Empty(t, credentials, "expected empty credentials for non-OCI image")
+}
+
+// TestGetImageAuthSecret_NilImage tests that the function handles nil image gracefully.
+func TestGetImageAuthSecret_NilImage(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	host.Spec.Image = nil
+
+	r := newTestReconciler(t, host)
+
+	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
+
+	require.NoError(t, err)
+	assert.Empty(t, credentials, "expected empty credentials for nil image")
+}
+
+// TestGetImageAuthSecret_RegistryMismatch tests the behavior when the auth secret
+// doesn't contain credentials for the image's registry.
+func TestGetImageAuthSecret_RegistryMismatch(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Spec.Online = true
+	ociAuthSecretName := "oci-auth-secret"
+	host.Spec.Image = &metal3api.Image{
+		URL:               "oci://registry.example.com/repo/image:tag",
+		OCIAuthSecretName: &ociAuthSecretName,
+	}
+
+	// Create secret with credentials for a different registry
+	ociSecret := createDockerConfigJSONSecretForTest(t, ociAuthSecretName, namespace, map[string]map[string]string{
+		"different-registry.com": {
+			"username": "testuser",
+			"password": "testpass",
+		},
+	})
+
+	r := newTestReconciler(t, host, ociSecret)
+
+	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
+
+	require.Error(t, err, "expected error when registry doesn't match")
+	assert.Empty(t, credentials, "expected empty credentials when registry doesn't match")
+}
+
+// Helper function to create a dockerconfigjson secret for testing.
+func createDockerConfigJSONSecretForTest(t *testing.T, name, ns string, auths map[string]map[string]string) *corev1.Secret {
+	t.Helper()
+	dockerAuths := make(map[string]interface{})
+	for registry, creds := range auths {
+		username := creds["username"]
+		password := creds["password"]
+		// Encode credentials as base64("username:password") in the Auth field
+		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+		dockerAuths[registry] = map[string]string{
+			"auth": auth,
+		}
+	}
+
+	dockerConfig := map[string]interface{}{
+		"auths": dockerAuths,
+	}
+	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	require.NoError(t, err)
+
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: dockerConfigJSON,
+		},
+	}
+}

@@ -226,6 +226,17 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		return false
 	}
 
+	if hsm.NextState != metal3api.StateDeleting && hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
+		if delayDeleteForDetachedHost(hsm.Host) {
+			log.Info("delaying detached host deletion")
+			deleteDelayedForDetached.Inc()
+			return false
+		}
+		log.Info("requested deletion of a detached host, skipping power off and deprovisioning", "currentState", hsm.NextState)
+		hsm.NextState = metal3api.StateDeleting
+		return true
+	}
+
 	switch hsm.NextState {
 	default:
 		hsm.NextState = metal3api.StatePoweringOffBeforeDelete
@@ -233,29 +244,7 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		// Skip the power off before delete
 		hsm.NextState = metal3api.StateDeleting
 	case metal3api.StateProvisioning, metal3api.StateProvisioned:
-		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
-			if delayDeleteForDetachedHost(hsm.Host) {
-				log.Info("Delaying detached host deletion")
-				deleteDelayedForDetached.Inc()
-				return false
-			}
-			// We cannot power off a detached host.  Skip to delete.
-			hsm.NextState = metal3api.StateDeleting
-		} else {
-			hsm.NextState = metal3api.StateDeprovisioning
-		}
-	case metal3api.StateExternallyProvisioned:
-		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
-			if delayDeleteForDetachedHost(hsm.Host) {
-				log.Info("Delaying detached host deletion")
-				deleteDelayedForDetached.Inc()
-				return false
-			}
-			// We cannot power off a detached host.  Skip to delete.
-			hsm.NextState = metal3api.StateDeleting
-		} else {
-			hsm.NextState = metal3api.StatePoweringOffBeforeDelete
-		}
+		hsm.NextState = metal3api.StateDeprovisioning
 	case metal3api.StateDeprovisioning:
 		if hsm.Host.Status.ErrorType == metal3api.RegistrationError && hsm.Host.Status.ErrorCount > 3 {
 			hsm.NextState = metal3api.StateDeleting
@@ -314,11 +303,17 @@ func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconc
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
 	if hasDetachedAnnotation(hsm.Host) {
-		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
+		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states unless forced
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:
-			return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info)
+			return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info, false)
+		case metal3api.StateDeleting:
+			// No point in detaching a host that is being deleted already
 		default:
+			if hasForceDetachAnnotation(hsm.Host) {
+				info.log.Info("forcing detach of host", "provisioningState", info.host.Status.Provisioning.State)
+				return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info, true)
+			}
 			info.log.Info("host cannot be detached yet, waiting for the current operation to finish", "provisioningState", info.host.Status.Provisioning.State)
 		}
 	}
@@ -338,6 +333,20 @@ func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconc
 		return actionUpdate{}
 	}
 	return nil
+}
+
+func hasForceDetachAnnotation(host *metal3api.BareMetalHost) bool {
+	annotations := host.GetAnnotations()
+	if annotations != nil {
+		if val, ok := annotations[metal3api.DetachedAnnotation]; ok {
+			args := metal3api.DetachedAnnotationArguments{}
+			if err := json.Unmarshal([]byte(val), &args); err != nil {
+				return false
+			}
+			return args.Force
+		}
+	}
+	return false
 }
 
 func (hsm *hostStateMachine) ensureRegistered(ctx context.Context, info *reconcileInfo) (result actionResult) {

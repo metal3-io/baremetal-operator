@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -227,6 +228,116 @@ func TestSecretManager_AcquireSecret_AlreadyOwned(t *testing.T) {
 	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, &updated)
 	require.NoError(t, err)
 	assert.Len(t, updated.OwnerReferences, 1)
+}
+
+func TestSecretManager_AcquireSecret_DeletesController(t *testing.T) {
+	scheme := newTestScheme()
+
+	owner := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-host",
+			Namespace: "test",
+			UID:       "test-uid-12345",
+		},
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "test",
+			Labels: map[string]string{
+				LabelEnvironmentName: LabelEnvironmentValue,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "metal3.io/v1alpha1",
+					Kind:       "BareMetalHost",
+					Name:       owner.Name,
+					UID:        owner.UID,
+					Controller: ptr.To(true),
+				},
+			},
+		},
+		Data: map[string][]byte{
+			"username": []byte("admin"),
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, owner).Build()
+
+	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+
+	result, err := sm.AcquireSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
+	require.NoError(t, err)
+	assert.Equal(t, "test-secret", result.Name)
+
+	// Should still have exactly one owner reference
+	var updated corev1.Secret
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, &updated)
+	require.NoError(t, err)
+	assert.Len(t, updated.OwnerReferences, 1)
+	assert.Nil(t, updated.OwnerReferences[0].Controller)
+}
+
+func TestSecretManager_AcquireSecret_KeepsOtherOwners(t *testing.T) {
+	scheme := newTestScheme()
+
+	owner := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-host",
+			Namespace: "test",
+			UID:       "test-uid-12345",
+		},
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "test",
+			Labels: map[string]string{
+				LabelEnvironmentName: LabelEnvironmentValue,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "metal3.io/v1alpha1",
+					Kind:       "BareMetalHost",
+					Name:       owner.Name,
+					UID:        owner.UID,
+					// Note: Controller should be nil for BMO secrets
+				},
+				{
+					APIVersion: "example.com",
+					Kind:       "NewController",
+					Name:       owner.Name,
+					UID:        owner.UID,
+					Controller: ptr.To(true),
+				},
+			},
+		},
+		Data: map[string][]byte{
+			"username": []byte("admin"),
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, owner).Build()
+
+	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+
+	result, err := sm.AcquireSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
+	require.NoError(t, err)
+	assert.Equal(t, "test-secret", result.Name)
+
+	var updated corev1.Secret
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, &updated)
+	require.NoError(t, err)
+	assert.Len(t, updated.OwnerReferences, 2)
+	for _, owner := range updated.OwnerReferences {
+		if owner.APIVersion == "example.com" {
+			assert.True(t, *owner.Controller)
+		} else {
+			assert.Equal(t, "metal3.io/v1alpha1", owner.APIVersion)
+		}
+	}
 }
 
 func TestSecretManager_AcquireSecret_PanicsWithNilOwner(t *testing.T) {

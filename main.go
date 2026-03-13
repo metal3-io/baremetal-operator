@@ -398,6 +398,38 @@ func main() {
 		os.Exit(1)
 	}
 
+	networkingEnabled, _ := strconv.ParseBool(os.Getenv("IRONIC_NETWORKING_ENABLED"))
+	if networkingEnabled {
+		switchConfigsSecretName := os.Getenv("IRONIC_SWITCH_CONFIGS_SECRET")
+		if switchConfigsSecretName == "" {
+			setupLog.Error(fmt.Errorf("IRONIC_SWITCH_CONFIGS_SECRET must be set when IRONIC_NETWORKING_ENABLED=true"), "missing required environment variable")
+			os.Exit(1)
+		}
+
+		switchCredentialSecretName := os.Getenv("IRONIC_SWITCH_CREDENTIALS_SECRET")
+		if switchCredentialSecretName == "" {
+			setupLog.Error(fmt.Errorf("IRONIC_SWITCH_CREDENTIALS_SECRET must be set when IRONIC_NETWORKING_ENABLED=true"), "missing required environment variable")
+			os.Exit(1)
+		}
+
+		switchCredentialPath := os.Getenv("IRONIC_SWITCH_CREDENTIALS_PATH")
+		if switchCredentialPath == "" {
+			setupLog.Error(fmt.Errorf("IRONIC_SWITCH_CREDENTIALS_PATH must be set when IRONIC_NETWORKING_ENABLED=true"), "missing required environment variable")
+			os.Exit(1)
+		}
+
+		if err = (&metal3iocontroller.BareMetalSwitchReconciler{
+			Client:                     mgr.GetClient(),
+			Log:                        ctrl.Log.WithName("controllers").WithName("BareMetalSwitch"),
+			SwitchConfigsSecretName:    switchConfigsSecretName,
+			SwitchCredentialSecretName: switchCredentialSecretName,
+			SwitchCredentialPath:       switchCredentialPath,
+		}).SetupWithManager(mgr, maxConcurrency); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "BareMetalSwitch")
+			os.Exit(1)
+		}
+	}
+
 	setupChecks(mgr)
 
 	if enableWebhook {

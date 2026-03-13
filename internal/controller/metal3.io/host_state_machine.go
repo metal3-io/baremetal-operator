@@ -314,6 +314,12 @@ func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconc
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
 	if hasDetachedAnnotation(hsm.Host) {
+		// If the OperationalStatus is already updated, return nil to indicate
+		// we need not do anything so that we don't end up in a loop trying to
+		// update the OperationalStatus
+		if info.host.OperationalStatus() == metal3api.OperationalStatusDetached {
+			return nil
+		}
 		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:

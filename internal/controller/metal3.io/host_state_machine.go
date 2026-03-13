@@ -287,6 +287,29 @@ func hasDetachedAnnotation(host *metal3api.BareMetalHost) bool {
 	return false
 }
 
+// skipReconcileSubresource checks if the applied annotations and status
+// prevent a subresource (HFS/HFC) from being reconciled.
+func skipReconcileSubresource(host *metal3api.BareMetalHost, logger logr.Logger) bool {
+	switch host.Status.Provisioning.State {
+	case "", metal3api.StateUnmanaged:
+		logger.Info("host is unmanaged or not yet enrolled, skipping reconcile")
+		return true
+	default:
+	}
+
+	if host.Status.OperationalStatus == metal3api.OperationalStatusDetached || hasDetachedAnnotation(host) {
+		logger.Info("host is currently detached, skipping reconcile")
+		return true
+	}
+
+	if _, ok := host.Annotations[metal3api.PausedAnnotation]; ok {
+		logger.Info("host is currently paused, skipping reconcile")
+		return true
+	}
+
+	return false
+}
+
 func delayDeleteForDetachedHost(host *metal3api.BareMetalHost) bool {
 	annotations := host.GetAnnotations()
 	args := metal3api.DetachedAnnotationArguments{}

@@ -30,9 +30,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -109,9 +111,8 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	if skipReconcileSubresource(bmh, reqLogger) {
-		// FIXME(dtantsur): we should not need to reconcile here (definitely not often),
-		// but the controller is currently not listening to BMH events.
-		return ctrl.Result{Requeue: true, RequeueAfter: subResourceNotReadyRetryDelay}, nil
+		// We'll get notified on BMH changes, no need to reconcile soon
+		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
 	}
 
 	// Fetch the HostFirmwareComponents
@@ -239,6 +240,7 @@ func (r *HostFirmwareComponentsReconciler) SetupWithManager(mgr ctrl.Manager, ma
 			predicate.Funcs{
 				UpdateFunc: r.updateEventHandler,
 			}).
+		Watches(&metal3api.BareMetalHost{}, &handler.EnqueueRequestForObject{}, builder.Predicates{}).
 		Complete(r)
 }
 

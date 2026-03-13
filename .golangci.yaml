@@ -228,7 +228,7 @@ linters:
       text: 'ST1016: methods on the same type should have the same receiver name'
     - linters:
       - tagliatelle
-      text: RAID|MAC|BMO
+      text: RAID|MAC|BMO|VLAN
     paths:
     - zz_generated.*\.go$
     - .*conversion.*\.go$

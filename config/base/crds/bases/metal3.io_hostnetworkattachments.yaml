@@ -1,0 +1,106 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: hostnetworkattachments.metal3.io
+spec:
+  group: metal3.io
+  names:
+    kind: HostNetworkAttachment
+    listKind: HostNetworkAttachmentList
+    plural: hostnetworkattachments
+    singular: hostnetworkattachment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Switchport mode
+      jsonPath: .spec.mode
+      name: Mode
+      type: string
+    - description: Native VLAN ID
+      jsonPath: .spec.nativeVLAN
+      name: Native VLAN
+      type: integer
+    - description: Maximum Transmission Unit
+      jsonPath: .spec.mtu
+      name: MTU
+      type: integer
+    - description: Time duration since creation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          HostNetworkAttachment defines switchport configuration for BMH network interfaces.
+          Spec fields are mutable when no BMH references the attachment, immutable when in use.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HostNetworkAttachmentSpec defines the desired switchport
+              configuration.
+            properties:
+              allowedVLANs:
+                description: |-
+                  AllowedVLANs specifies a list of VLAN IDs that are allowed on this network attachment.
+                  This is typically used in trunk or hybrid mode to specify which tagged VLANs can be carried on the interface.
+                items:
+                  maximum: 4094
+                  minimum: 1
+                  type: integer
+                type: array
+              mode:
+                allOf:
+                - enum:
+                  - access
+                  - trunk
+                  - hybrid
+                - enum:
+                  - access
+                  - hybrid
+                  - trunk
+                default: access
+                description: Mode specifies the network attachment mode.
+                type: string
+              mtu:
+                description: |-
+                  MTU specifies the Maximum Transmission Unit size for the network attachment.
+                  If not specified, the default MTU for the underlying network will be used.
+                maximum: 9216
+                minimum: 68
+                type: integer
+              nativeVLAN:
+                description: |-
+                  NativeVLAN specifies the native VLAN ID for the network attachment.
+                  This is the untagged VLAN used on the interface.
+                maximum: 4094
+                minimum: 1
+                type: integer
+            required:
+            - mode
+            - nativeVLAN
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

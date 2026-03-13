@@ -345,6 +345,72 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              networkInterfaces:
+                description: |-
+                  NetworkInterfaces defines the network configuration for each interface.
+                  This will be used to configure switch ports for the host.  Interface
+                  names must correspond to actual NICs discovered in hardware details by
+                  the hardware inspection process.  They are referenced by either the name
+                  or MAC address of the NIC.
+                  This field is immutable unless the host is in an early lifecycle states
+                  (registering, inspecting, preparing, available).
+                items:
+                  description: NetworkInterface defines the network configuration
+                    for a specific interface.
+                  properties:
+                    hostNetworkAttachment:
+                      description: HostNetworkAttachment references the HostNetworkAttachment
+                        for this interface
+                      properties:
+                        name:
+                          description: Name of the HostNetworkAttachment resource
+                          maxLength: 253
+                          type: string
+                        namespace:
+                          description: Namespace of the HostNetworkAttachment (defaults
+                            to BMH namespace)
+                          maxLength: 63
+                          type: string
+                      type: object
+                    macAddress:
+                      description: |-
+                        MAC address of the network interface.  This must match the MAC address
+                        of the network interface in status.hardware.nics.
+                      pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                      type: string
+                    name:
+                      description: |-
+                        Name of the network interface (e.g., "eth0", "ens1f0")
+                        This must match the name of a NIC in status.hardware.nics.
+                        If MACAddress is set then this field is ignored.
+                      pattern: ^[a-zA-Z0-9._-]+$
+                      type: string
+                    switchPort:
+                      description: |-
+                        SwitchPort defines the switch port on which this interface is attached.
+                        This is intended to be a replacement for LLDP information if
+                        LLDP is not enabled on the neighboring switches or if inspection is not
+                        used on the BMH.  If LLDP information is acquired during inspection and
+                        this field is provided then it will override the LLDP provided
+                        information; therefore, caution must be exercised when supplying this
+                        value.
+                      properties:
+                        portID:
+                          description: |-
+                            PortID is expected to be the configuration name of the port in the
+                            switch management system.
+                          type: string
+                        switchID:
+                          description: SwitchID is expected to be the management MAC
+                            address of the switch
+                          pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                          type: string
+                      required:
+                      - portID
+                      - switchID
+                      type: object
+                  type: object
+                type: array
               online:
                 description: |-
                   Should the host be powered on? If the host is currently in a stable
@@ -2837,6 +2903,112 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.5
+  name: hostnetworkattachments.metal3.io
+spec:
+  group: metal3.io
+  names:
+    kind: HostNetworkAttachment
+    listKind: HostNetworkAttachmentList
+    plural: hostnetworkattachments
+    singular: hostnetworkattachment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Switchport mode
+      jsonPath: .spec.mode
+      name: Mode
+      type: string
+    - description: Native VLAN ID
+      jsonPath: .spec.nativeVLAN
+      name: Native VLAN
+      type: integer
+    - description: Maximum Transmission Unit
+      jsonPath: .spec.mtu
+      name: MTU
+      type: integer
+    - description: Time duration since creation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          HostNetworkAttachment defines switchport configuration for BMH network interfaces.
+          Spec fields are mutable when no BMH references the attachment, immutable when in use.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HostNetworkAttachmentSpec defines the desired switchport
+              configuration.
+            properties:
+              allowedVLANs:
+                description: |-
+                  AllowedVLANs specifies a list of VLAN IDs that are allowed on this network attachment.
+                  This is typically used in trunk or hybrid mode to specify which tagged VLANs can be carried on the interface.
+                items:
+                  maximum: 4094
+                  minimum: 1
+                  type: integer
+                type: array
+              mode:
+                allOf:
+                - enum:
+                  - access
+                  - trunk
+                  - hybrid
+                - enum:
+                  - access
+                  - hybrid
+                  - trunk
+                default: access
+                description: Mode specifies the network attachment mode.
+                type: string
+              mtu:
+                description: |-
+                  MTU specifies the Maximum Transmission Unit size for the network attachment.
+                  If not specified, the default MTU for the underlying network will be used.
+                maximum: 9216
+                minimum: 68
+                type: integer
+              nativeVLAN:
+                description: |-
+                  NativeVLAN specifies the native VLAN ID for the network attachment.
+                  This is the untagged VLAN used on the interface.
+                maximum: 4094
+                minimum: 1
+                type: integer
+            required:
+            - mode
+            - nativeVLAN
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: hostupdatepolicies.metal3.io
 spec:
   group: metal3.io
@@ -3507,4 +3679,25 @@ webhooks:
     - UPDATE
     resources:
     - hostclaims
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: baremetal-operator-webhook-service
+      namespace: baremetal-operator-system
+      path: /validate-metal3-io-v1alpha1-hostnetworkattachment
+  failurePolicy: Fail
+  name: hostnetworkattachment.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - hostnetworkattachments
   sideEffects: None

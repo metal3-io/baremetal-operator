@@ -2106,6 +2106,19 @@ spec:
           status:
             description: HostClaimStatus defines the observed state of HostClaim.
             properties:
+              bareMetalHost:
+                description: BareMetalHost is a pointer to the name of the bound BareMetalHost
+                properties:
+                  name:
+                    description: '`name` is the name of the object bound'
+                    type: string
+                  namespace:
+                    description: '`namespace` is the namespace of the object bound'
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
               conditions:
                 description: Conditions defines current service state of the HostClaim.
                 items:
@@ -2169,11 +2182,10 @@ spec:
                   structure.
                 properties:
                   name:
-                    description: '`name` is the name of the HardwareData bound'
+                    description: '`name` is the name of the object bound'
                     type: string
                   namespace:
-                    description: '`namespace` is the namespace of the HardwareData
-                      bound'
+                    description: '`namespace` is the namespace of the object bound'
                     type: string
                 required:
                 - name

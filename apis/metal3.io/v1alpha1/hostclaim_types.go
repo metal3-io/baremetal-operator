@@ -154,10 +154,13 @@ type HostClaimStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// BareMetalHost is a pointer to the name of the bound BareMetalHost
+	// +optional
+	BareMetalHost *ObjectReference `json:"bareMetalHost,omitempty"`
 	// HardwareData is a pointer to the name of the bound HardwareData
 	// structure.
 	// +optional
-	HardwareData *HardwareReference `json:"hardwareData,omitempty"`
+	HardwareData *ObjectReference `json:"hardwareData,omitempty"`
 
 	// The currently detected power state of the host. This field may get
 	// briefly out of sync with the actual state of the hardware while
@@ -175,10 +178,10 @@ func (h *HostClaim) SetConditions(conditions []metav1.Condition) {
 	h.Status.Conditions = conditions
 }
 
-type HardwareReference struct {
-	// `namespace` is the namespace of the HardwareData bound
+type ObjectReference struct {
+	// `namespace` is the namespace of the object bound
 	Namespace string `json:"namespace"`
-	// `name` is the name of the HardwareData bound
+	// `name` is the name of the object bound
 	Name string `json:"name"`
 }
 

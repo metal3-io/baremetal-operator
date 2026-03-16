@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
@@ -147,8 +148,10 @@ func main() {
 		log.Printf("net: %s domain: %s\n", *provisionNet, virshDomain)
 	}
 
+	ctx := context.Background()
+
 	// Figure out the MAC for the VM
-	virshOut, err := exec.Command("sudo", "virsh", "dumpxml", virshDomain).Output() // #nosec
+	virshOut, err := exec.CommandContext(ctx, "sudo", "virsh", "dumpxml", virshDomain).Output() // #nosec
 	if err != nil {
 		log.Fatalf("ERROR: Could not get details of domain %s: %s\n",
 			virshDomain, err)
@@ -186,7 +189,7 @@ func main() {
 			virshDomain, *provisionNet)
 	}
 
-	vbmcOut, err := exec.Command(
+	vbmcOut, err := exec.CommandContext(ctx,
 		"vbmc", "list", "-f", "json", "-c", "Domain name", "-c", "Port",
 	).Output()
 	if err != nil {

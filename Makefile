@@ -313,15 +313,6 @@ docker-debug: generate manifests ## Build the docker image with debug info
 	--build-arg LDFLAGS="-extldflags=-static" \
 	. -t ${IMG}-$(ARCH):${IMG_TAG}
 
-# Push the docker image
-.PHONY: docker-push
-docker-push:
-	$(CONTAINER_RUNTIME) push ${IMG}-$(ARCH):${IMG_TAG}
-	@# Push base image tag for backward compatibility (amd64 is the default)
-	@if [ "$(ARCH)" = "amd64" ]; then \
-		$(CONTAINER_RUNTIME) push ${IMG}:${IMG_TAG}; \
-	fi
-
 ## --------------------------------------
 ## Docker — All ARCH
 ## --------------------------------------

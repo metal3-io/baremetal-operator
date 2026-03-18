@@ -265,9 +265,9 @@ func TestSecretManager_AcquireSecret_DeletesController(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, owner).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.AcquireSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
+	result, err := sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
 	require.NoError(t, err)
 	assert.Equal(t, "test-secret", result.Name)
 
@@ -321,9 +321,9 @@ func TestSecretManager_AcquireSecret_KeepsOtherOwners(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, owner).Build()
 
-	sm := NewSecretManager(t.Context(), logr.Discard(), fakeClient, fakeClient)
+	sm := NewSecretManager(logr.Discard(), fakeClient, fakeClient)
 
-	result, err := sm.AcquireSecret(types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
+	result, err := sm.AcquireSecret(t.Context(), types.NamespacedName{Name: "test-secret", Namespace: "test"}, owner, false)
 	require.NoError(t, err)
 	assert.Equal(t, "test-secret", result.Name)
 

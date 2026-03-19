@@ -240,16 +240,21 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		return result, err
 	}
 
+	// Always compute conditions since some (e.g. Healthy) can change
+	// based on external state from Ironic regardless of state machine
+	// transitions.
+	conditionsBefore := slices.Clone(host.GetConditions())
+	computeConditions(ctx, host, prov)
+	conditionsChanged := !reflect.DeepEqual(conditionsBefore, host.GetConditions())
+
 	// Only save status when we're told to, otherwise we
 	// introduce an infinite loop reconciling the same object over and
 	// over when there is an unrecoverable error (tracked through the
 	// error state of the host).
-	if actResult.Dirty() {
-		// Save Host
+	if actResult.Dirty() || conditionsChanged {
 		info.log.Info("saving host status",
 			"operational status", host.OperationalStatus(),
 			"provisioning state", host.Status.Provisioning.State)
-		computeConditions(ctx, host, prov)
 		err = r.saveHostStatus(ctx, host)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to save host status after %q: %w", initialState, err)
@@ -2301,7 +2306,11 @@ func computeConditions(ctx context.Context, host *metal3api.BareMetalHost, prov 
 		setConditionUnknown(host, metal3api.HealthyCondition, metal3api.UnknownHealthReason)
 		return
 	}
-	switch prov.GetHealth(ctx) {
+	switch health := prov.GetHealth(ctx); health {
+	case "":
+		if meta.FindStatusCondition(host.Status.Conditions, string(metal3api.HealthyCondition)) == nil {
+			setConditionUnknown(host, metal3api.HealthyCondition, metal3api.UnknownHealthReason)
+		}
 	case provisioner.HealthOK:
 		setConditionTrue(host, metal3api.HealthyCondition, metal3api.HealthyReason)
 	case provisioner.HealthWarning:

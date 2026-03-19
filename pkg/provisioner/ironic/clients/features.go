@@ -45,7 +45,8 @@ func (af AvailableFeatures) Log(logger logr.Logger) {
 		"maxVersion", fmt.Sprintf("1.%d", af.MaxVersion),
 		"chosenVersion", af.ChooseMicroversion(),
 		"virtualMediaGET", af.HasVirtualMediaGetAPI(),
-		"disablePowerOff", af.HasDisablePowerOff())
+		"disablePowerOff", af.HasDisablePowerOff(),
+		"healthAPI", af.HasHealthAPI())
 }
 
 func (af AvailableFeatures) HasVirtualMediaGetAPI() bool {
@@ -56,7 +57,15 @@ func (af AvailableFeatures) HasDisablePowerOff() bool {
 	return af.MaxVersion >= 95 //nolint:mnd
 }
 
+func (af AvailableFeatures) HasHealthAPI() bool {
+	return af.MaxVersion >= 109 //nolint:mnd
+}
+
 func (af AvailableFeatures) ChooseMicroversion() string {
+	if af.HasHealthAPI() {
+		return "1.109"
+	}
+
 	if af.HasDisablePowerOff() {
 		return "1.95"
 	}

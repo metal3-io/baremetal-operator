@@ -1,558 +1,374 @@
 package controllers
 
 import (
-	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// Test support for HostFirmwareComponents in the HostFirmwareComponentsReconciler.
-func getTestHFCReconciler(host *metal3api.HostFirmwareComponents) *HostFirmwareComponentsReconciler {
-	c := fakeclient.NewClientBuilder().WithRuntimeObjects(host).WithStatusSubresource(host).Build()
+func TestHFCReconcile(t *testing.T) {
 
-	reconciler := &HostFirmwareComponentsReconciler{
-		Client: c,
-		Log:    ctrl.Log.WithName("test_reconciler").WithName("HostFirmwareComponents"),
-	}
-
-	return reconciler
-}
-
-func getMockHFCProvisioner(host *metal3api.BareMetalHost, components []metal3api.FirmwareComponentStatus) provisioner.Provisioner {
-	state := fixture.Fixture{
-		HostFirmwareComponents: fixture.HostFirmwareComponentsMock{
-			Components: components,
-		},
-	}
-	p, _ := state.NewProvisioner(context.TODO(), provisioner.BuildHostData(*host, bmc.Credentials{}),
-		func(reason, message string) {})
-	return p
-}
-
-// Mock components to return from provisioner.
-func getCurrentComponents(updatedComponents string) []metal3api.FirmwareComponentStatus {
-	var components []metal3api.FirmwareComponentStatus
-	switch updatedComponents {
-	case "bmc":
-		components = []metal3api.FirmwareComponentStatus{
-			{
-				Component:          "bmc",
-				InitialVersion:     "1.0.0",
-				CurrentVersion:     "1.1.0",
-				LastVersionFlashed: "1.1.0",
-			},
-			{
-				Component:      "bios",
-				InitialVersion: "1.0.1",
-				CurrentVersion: "1.0.1",
-			},
-		}
-	case "bios":
-		components = []metal3api.FirmwareComponentStatus{
-			{
-				Component:      "bmc",
-				InitialVersion: "1.0.0",
-				CurrentVersion: "1.0.0",
-			},
-			{
-				Component:          "bios",
-				InitialVersion:     "1.0.1",
-				CurrentVersion:     "1.1.10",
-				LastVersionFlashed: "1.1.10",
-			},
-		}
-	default:
-		components = []metal3api.FirmwareComponentStatus{
-			{
-				Component:          "bmc",
-				InitialVersion:     "1.0.0",
-				CurrentVersion:     "1.1.0",
-				LastVersionFlashed: "1.1.0",
-			},
-			{
-				Component:          "bios",
-				InitialVersion:     "1.0.1",
-				CurrentVersion:     "1.1.10",
-				LastVersionFlashed: "1.1.10",
-			},
-		}
-	}
-
-	return components
-}
-
-// Create the baremetalhost reconciler and use that to create bmh in same namespace.
-func createBaremetalHostHFC() *metal3api.BareMetalHost {
-	bmh := &metal3api.BareMetalHost{}
-	bmh.ObjectMeta = metav1.ObjectMeta{Name: hostName, Namespace: hostNamespace}
-	c := fakeclient.NewFakeClient(bmh)
-
-	reconciler := &BareMetalHostReconciler{
-		Client:             c,
-		ProvisionerFactory: nil,
-		Log:                ctrl.Log.WithName("bmh_reconciler").WithName("BareMetalHost"),
-	}
-	_ = reconciler.Create(context.TODO(), bmh)
-
-	return bmh
-}
-
-// Create and HFC with input spec components.
-func getHFC(spec metal3api.HostFirmwareComponentsSpec) *metal3api.HostFirmwareComponents {
-	hfc := &metal3api.HostFirmwareComponents{}
-
-	hfc.Status = metal3api.HostFirmwareComponentsStatus{
-		Components: []metal3api.FirmwareComponentStatus{
-			{
-				Component:      "bmc",
-				InitialVersion: "1.0.0",
-				CurrentVersion: "1.0.0",
-			},
-			{
-				Component:      "bios",
-				InitialVersion: "1.0.1",
-				CurrentVersion: "1.0.1",
-			},
-		},
-	}
-
-	hfc.TypeMeta = metav1.TypeMeta{
-		Kind:       "HostFirmwareComponents",
-		APIVersion: "metal3.io/v1alpha1"}
-	hfc.ObjectMeta = metav1.ObjectMeta{
-		Name:      hostName,
-		Namespace: hostNamespace}
-
-	hfc.Spec = spec
-	return hfc
-}
-
-// Test the hostfirmwarecomponents reconciler functions.
-func TestStoreHostFirmwareComponents(t *testing.T) {
-	testCases := []struct {
-		Scenario           string
-		UpdatedComponents  string
-		CurrentHFCResource *metal3api.HostFirmwareComponents
-		ExpectedComponents *metal3api.HostFirmwareComponents
-	}{
-		{
-			Scenario:          "update bmc",
-			UpdatedComponents: "bmc",
-			CurrentHFCResource: &metal3api.HostFirmwareComponents{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "HostFirmwareComponents",
-					APIVersion: "metal3.io/v1alpha1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "hostName",
-					Namespace:       "hostNamespace",
-					ResourceVersion: "1"},
-				Spec: metal3api.HostFirmwareComponentsSpec{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bmc",
-							URL:       "https://myurl/newbmcfirmware",
-						},
-					},
-				},
-				Status: metal3api.HostFirmwareComponentsStatus{
-					Components: []metal3api.FirmwareComponentStatus{
-						{
-							Component:          "bmc",
-							InitialVersion:     "1.0.0",
-							CurrentVersion:     "1.1.0",
-							LastVersionFlashed: "1.1.0",
-						},
-						{
-							Component:      "bios",
-							InitialVersion: "1.0.1",
-							CurrentVersion: "1.0.1",
-						},
-					},
-				},
-			},
-			ExpectedComponents: &metal3api.HostFirmwareComponents{
-				Spec: metal3api.HostFirmwareComponentsSpec{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bmc",
-							URL:       "https://myurl/newbmcfirmware",
-						},
-					},
-				},
-				Status: metal3api.HostFirmwareComponentsStatus{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bmc",
-							URL:       "https://myurl/newbmcfirmware",
-						},
-					},
-					Components: []metal3api.FirmwareComponentStatus{
-						{
-							Component:          "bmc",
-							InitialVersion:     "1.0.0",
-							CurrentVersion:     "1.1.0",
-							LastVersionFlashed: "1.1.0",
-						},
-						{
-							Component:      "bios",
-							InitialVersion: "1.0.1",
-							CurrentVersion: "1.0.1",
-						},
-					},
-					Conditions: []metav1.Condition{
-						{Type: "ChangeDetected", Status: "True", Reason: "OK"},
-						{Type: "Valid", Status: "True", Reason: "OK"},
-					},
-				},
-			},
-		},
-		{
-			Scenario:          "update bios",
-			UpdatedComponents: "bios",
-			CurrentHFCResource: &metal3api.HostFirmwareComponents{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "HostFirmwareComponents",
-					APIVersion: "metal3.io/v1alpha1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "hostName",
-					Namespace:       "hostNamespace",
-					ResourceVersion: "1"},
-				Spec: metal3api.HostFirmwareComponentsSpec{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bios",
-							URL:       "https://myurl/newbiosfirmware",
-						},
-					},
-				},
-				Status: metal3api.HostFirmwareComponentsStatus{
-					Components: []metal3api.FirmwareComponentStatus{
-						{
-							Component:      "bmc",
-							InitialVersion: "1.0.0",
-							CurrentVersion: "1.0.0",
-						},
-						{
-							Component:          "bios",
-							InitialVersion:     "1.0.1",
-							CurrentVersion:     "1.1.10",
-							LastVersionFlashed: "1.1.10",
-						},
-					},
-				},
-			},
-			ExpectedComponents: &metal3api.HostFirmwareComponents{
-				Spec: metal3api.HostFirmwareComponentsSpec{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bios",
-							URL:       "https://myurl/newbiosfirmware",
-						},
-					},
-				},
-				Status: metal3api.HostFirmwareComponentsStatus{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bios",
-							URL:       "https://myurl/newbiosfirmware",
-						},
-					},
-					Components: []metal3api.FirmwareComponentStatus{
-						{
-							Component:      "bmc",
-							InitialVersion: "1.0.0",
-							CurrentVersion: "1.0.0",
-						},
-						{
-							Component:          "bios",
-							InitialVersion:     "1.0.1",
-							CurrentVersion:     "1.1.10",
-							LastVersionFlashed: "1.1.10",
-						},
-					},
-					Conditions: []metav1.Condition{
-						{Type: "ChangeDetected", Status: "True", Reason: "OK"},
-						{Type: "Valid", Status: "True", Reason: "OK"},
-					},
-				},
-			},
-		},
-		{
-			Scenario:          "update all",
-			UpdatedComponents: "all",
-			CurrentHFCResource: &metal3api.HostFirmwareComponents{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "HostFirmwareComponents",
-					APIVersion: "metal3.io/v1alpha1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "hostName",
-					Namespace:       "hostNamespace",
-					ResourceVersion: "1"},
-				Spec: metal3api.HostFirmwareComponentsSpec{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bmc",
-							URL:       "https://myurl/newbmcfirmware",
-						},
-						{
-							Component: "bios",
-							URL:       "https://myurl/newbiosfirmware",
-						},
-					},
-				},
-				Status: metal3api.HostFirmwareComponentsStatus{
-					Components: []metal3api.FirmwareComponentStatus{
-						{
-							Component:          "bmc",
-							InitialVersion:     "1.0.0",
-							CurrentVersion:     "1.1.0",
-							LastVersionFlashed: "1.1.0",
-						},
-						{
-							Component:          "bios",
-							InitialVersion:     "1.0.1",
-							CurrentVersion:     "1.1.10",
-							LastVersionFlashed: "1.1.10",
-						},
-					},
-				},
-			},
-			ExpectedComponents: &metal3api.HostFirmwareComponents{
-				Spec: metal3api.HostFirmwareComponentsSpec{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bmc",
-							URL:       "https://myurl/newbmcfirmware",
-						},
-						{
-							Component: "bios",
-							URL:       "https://myurl/newbiosfirmware",
-						},
-					},
-				},
-				Status: metal3api.HostFirmwareComponentsStatus{
-					Updates: []metal3api.FirmwareUpdate{
-						{
-							Component: "bmc",
-							URL:       "https://myurl/newbmcfirmware",
-						},
-						{
-							Component: "bios",
-							URL:       "https://myurl/newbiosfirmware",
-						},
-					},
-					Components: []metal3api.FirmwareComponentStatus{
-						{
-							Component:          "bmc",
-							InitialVersion:     "1.0.0",
-							CurrentVersion:     "1.1.0",
-							LastVersionFlashed: "1.1.0",
-						},
-						{
-							Component:          "bios",
-							InitialVersion:     "1.0.1",
-							CurrentVersion:     "1.1.10",
-							LastVersionFlashed: "1.1.10",
-						},
-					},
-					Conditions: []metav1.Condition{
-						{Type: "ChangeDetected", Status: "True", Reason: "OK"},
-						{Type: "Valid", Status: "True", Reason: "OK"},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.Scenario, func(t *testing.T) {
-			ctx := t.Context()
-
-			tc.ExpectedComponents.TypeMeta = metav1.TypeMeta{
-				Kind:       "HostFirmwareComponents",
-				APIVersion: "metal3.io/v1alpha1"}
-			tc.ExpectedComponents.ObjectMeta = metav1.ObjectMeta{
-				Name:            hostName,
-				Namespace:       hostNamespace,
-				ResourceVersion: "2"}
-
-			hfc := tc.CurrentHFCResource
-			r := getTestHFCReconciler(hfc)
-			// Create a bmh resource needed by hfc reconciler
-			bmh := createBaremetalHostHFC()
-
-			prov := getMockHFCProvisioner(bmh, getCurrentComponents(tc.UpdatedComponents))
-
-			info := &rhfcInfo{
-				log: logf.Log.WithName("controllers").WithName("HostFirmwareComponents"),
-				hfc: tc.CurrentHFCResource,
-				bmh: bmh,
-			}
-
-			components, err := prov.GetFirmwareComponents(ctx)
-			require.NoError(t, err)
-
-			err = r.updateHostFirmware(ctx, info, components)
-			require.NoError(t, err)
-
-			// Check that resources get created or updated
-			key := client.ObjectKey{
-				Namespace: hfc.ObjectMeta.Namespace, Name: hfc.ObjectMeta.Name}
-			actual := &metal3api.HostFirmwareComponents{}
-			err = r.Client.Get(ctx, key, actual)
-			require.NoError(t, err)
-
-			assert.Equal(t, tc.ExpectedComponents.Spec.Updates, actual.Spec.Updates)
-			assert.Equal(t, tc.ExpectedComponents.Status.Components, actual.Status.Components)
-
-			currentTime := metav1.Now()
-			tc.ExpectedComponents.Status.LastUpdated = &currentTime
-			actual.Status.LastUpdated = &currentTime
-			for i := range tc.ExpectedComponents.Status.Conditions {
-				tc.ExpectedComponents.Status.Conditions[i].LastTransitionTime = currentTime
-				actual.Status.Conditions[i].LastTransitionTime = currentTime
-			}
-			assert.Equal(t, tc.ExpectedComponents.Status.LastUpdated, actual.Status.LastUpdated)
-			assert.Equal(t, tc.ExpectedComponents.Status.Conditions, actual.Status.Conditions)
-		})
-	}
-}
-
-// Test that the reconciler does not return an error when the HFC resource
-// has been deleted but the BMH still exists (e.g. during namespace deletion).
-func TestHFCReconcileDeletedHFC(t *testing.T) {
-	bmh := &metal3api.BareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hostName,
-			Namespace: hostNamespace,
-		},
+	testBMH := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{Name: hostName, Namespace: hostNamespace},
 		Status: metal3api.BareMetalHostStatus{
 			Provisioning: metal3api.ProvisionStatus{
-				State: metal3api.StateDeprovisioning,
+				State: metal3api.StateAvailable,
 			},
 		},
 	}
-	// Build a client with only the BMH, no HFC
-	c := fakeclient.NewClientBuilder().WithRuntimeObjects(bmh).Build()
 
-	reconciler := &HostFirmwareComponentsReconciler{
-		Client: c,
-		Log:    ctrl.Log.WithName("test_reconciler").WithName("HostFirmwareComponents"),
-	}
-
-	request := ctrl.Request{NamespacedName: client.ObjectKey{Name: hostName, Namespace: hostNamespace}}
-	result, err := reconciler.Reconcile(t.Context(), request)
-
-	require.NoError(t, err)
-	assert.Equal(t, ctrl.Result{}, result)
-}
-
-// Test the function to validate the components in the Spec.
-func TestValidadeHostFirmwareComponents(t *testing.T) {
-	testCases := []struct {
-		Scenario       string
-		SpecUpdates    metal3api.HostFirmwareComponentsSpec
-		ExpectedErrors []string
+	testCases := map[string]struct {
+		apiObjects []client.Object                   // Objects to seed in the mock Kubernetes API, before reconcile
+		want       *metal3api.HostFirmwareComponents // Expected HFC after reconciliation
+		retResult  ctrl.Result                       // Expected reconcile return result
 	}{
-		{
-			Scenario: "valid spec - all components",
-			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{
-					{Component: "bmc", URL: "https://myurl/mybmcfw"},
-					{Component: "bios", URL: "https://myurl/mybiosfw"},
+		"update bmc": {
+			apiObjects: []client.Object{
+				&metal3api.HostFirmwareComponents{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hostName,
+						Namespace: hostNamespace,
+					},
+					Spec: metal3api.HostFirmwareComponentsSpec{
+						Updates: []metal3api.FirmwareUpdate{
+							{
+								Component: "bmc",
+								URL:       "https://myurl/newbmcfirmware",
+							},
+						},
+					},
+				},
+				testBMH,
+			},
+			want: &metal3api.HostFirmwareComponents{
+				ObjectMeta: metav1.ObjectMeta{Name: hostName, Namespace: hostNamespace},
+				Spec: metal3api.HostFirmwareComponentsSpec{
+					Updates: []metal3api.FirmwareUpdate{
+						{
+							Component: "bmc",
+							URL:       "https://myurl/newbmcfirmware",
+						},
+					},
+				},
+				Status: metal3api.HostFirmwareComponentsStatus{
+					Components: []metal3api.FirmwareComponentStatus{}, // Overwritten by mockComponents
+					Conditions: []metav1.Condition{
+						{Type: "ChangeDetected", Status: "True", Reason: "OK", Message: ""},
+						{Type: "Valid", Status: "True", Reason: "OK", Message: ""},
+					},
 				},
 			},
-			ExpectedErrors: []string{""},
+			retResult: ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected},
 		},
-		{
-			Scenario: "valid spec - only bios",
-			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{
-					{Component: "bios", URL: "https://myurl/mybiosfw"},
+		"update bios": {
+			apiObjects: []client.Object{
+				&metal3api.HostFirmwareComponents{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hostName,
+						Namespace: hostNamespace,
+					},
+					Spec: metal3api.HostFirmwareComponentsSpec{
+						Updates: []metal3api.FirmwareUpdate{
+							{
+								Component: "bios",
+								URL:       "https://myurl/newbiosfirmware",
+							},
+						},
+					},
+				},
+				testBMH,
+			},
+			want: &metal3api.HostFirmwareComponents{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hostName,
+					Namespace: hostNamespace,
+				},
+				Spec: metal3api.HostFirmwareComponentsSpec{
+					Updates: []metal3api.FirmwareUpdate{
+						{
+							Component: "bios",
+							URL:       "https://myurl/newbiosfirmware",
+						},
+					},
+				},
+				Status: metal3api.HostFirmwareComponentsStatus{
+					Components: []metal3api.FirmwareComponentStatus{}, // Overwritten by mockComponents
+					Conditions: []metav1.Condition{
+						{Type: "ChangeDetected", Status: "True", Reason: "OK", Message: ""},
+						{Type: "Valid", Status: "True", Reason: "OK", Message: ""},
+					},
 				},
 			},
-			ExpectedErrors: []string{""},
+			retResult: ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected},
 		},
-		{
-			Scenario: "valid spec - only bmc",
-			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{
-					{Component: "bmc", URL: "https://myurl/mybmcfw"},
+		"update nic": {
+			apiObjects: []client.Object{
+				&metal3api.HostFirmwareComponents{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            hostName,
+						Namespace:       hostNamespace,
+						ResourceVersion: "1"},
+					Spec: metal3api.HostFirmwareComponentsSpec{
+						Updates: []metal3api.FirmwareUpdate{
+							{
+								Component: "nic:identifier",
+								URL:       "https://myurl/newnicfirmware",
+							},
+						},
+					},
+				},
+				testBMH,
+			},
+			want: &metal3api.HostFirmwareComponents{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hostName,
+					Namespace: hostNamespace,
+				},
+				Spec: metal3api.HostFirmwareComponentsSpec{
+					Updates: []metal3api.FirmwareUpdate{
+						{
+							Component: "nic:identifier",
+							URL:       "https://myurl/newnicfirmware",
+						},
+					},
+				},
+				Status: metal3api.HostFirmwareComponentsStatus{
+					Updates: []metal3api.FirmwareUpdate{
+						{
+							Component: "nic:identifier",
+							URL:       "https://myurl/newnicfirmware",
+						},
+					},
+					Components: []metal3api.FirmwareComponentStatus{}, //overwrite
+					Conditions: []metav1.Condition{
+						{Type: "ChangeDetected", Status: "True", Reason: "OK", Message: ""},
+						{Type: "Valid", Status: "True", Reason: "OK", Message: ""},
+					},
 				},
 			},
-			ExpectedErrors: []string{""},
+			retResult: ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected},
 		},
-		{
-			Scenario: "valid spec - with nic components",
-			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{
-					{Component: "bmc", URL: "https://myurl/mybmcfw"},
-					{Component: "nic:NIC.1", URL: "https://myurl/mynicfw"},
-					{Component: "nic:AD007", URL: "https://myurl/mynic2fw"},
+		"update all": {
+			apiObjects: []client.Object{
+				&metal3api.HostFirmwareComponents{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hostName,
+						Namespace: hostNamespace,
+					},
+					Spec: metal3api.HostFirmwareComponentsSpec{
+						Updates: []metal3api.FirmwareUpdate{
+							{
+								Component: "bmc",
+								URL:       "https://myurl/newbmcfirmware",
+							},
+							{
+								Component: "bios",
+								URL:       "https://myurl/newbiosfirmware",
+							},
+							{
+								Component: "nic:identifier",
+								URL:       "https://myurl/newnicfirmware",
+							},
+						},
+					},
+				},
+				testBMH,
+			},
+			want: &metal3api.HostFirmwareComponents{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hostName,
+					Namespace: hostNamespace,
+				},
+				Spec: metal3api.HostFirmwareComponentsSpec{
+					Updates: []metal3api.FirmwareUpdate{
+						{
+							Component: "bmc",
+							URL:       "https://myurl/newbmcfirmware",
+						},
+						{
+							Component: "bios",
+							URL:       "https://myurl/newbiosfirmware",
+						},
+						{
+							Component: "nic:identifier",
+							URL:       "https://myurl/newnicfirmware",
+						},
+					},
+				},
+				Status: metal3api.HostFirmwareComponentsStatus{
+					Updates: []metal3api.FirmwareUpdate{
+						{
+							Component: "bmc",
+							URL:       "https://myurl/newbmcfirmware",
+						},
+						{
+							Component: "bios",
+							URL:       "https://myurl/newbiosfirmware",
+						},
+						{
+							Component: "nic:identifier",
+							URL:       "https://myurl/newnicfirmware",
+						},
+					},
+					Components: []metal3api.FirmwareComponentStatus{}, // Overwritten by mockComponents
+					Conditions: []metav1.Condition{
+						{Type: "ChangeDetected", Status: "True", Reason: "OK", Message: ""},
+						{Type: "Valid", Status: "True", Reason: "OK", Message: ""},
+					},
 				},
 			},
-			ExpectedErrors: []string{""},
+			retResult: ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected},
 		},
-		{
-			Scenario: "invalid something component",
-			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{
-					{Component: "something", URL: "https://myurl/myfw"},
+		"invalid component": {
+			apiObjects: []client.Object{
+				&metal3api.HostFirmwareComponents{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hostName,
+						Namespace: hostNamespace,
+					},
+					Spec: metal3api.HostFirmwareComponentsSpec{
+						Updates: []metal3api.FirmwareUpdate{
+							{
+								Component: "something",
+								URL:       "https://myurl/myfw",
+							},
+						},
+					},
+				},
+				testBMH,
+			},
+			want: &metal3api.HostFirmwareComponents{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hostName,
+					Namespace: hostNamespace,
+				},
+				Spec: metal3api.HostFirmwareComponentsSpec{
+					Updates: []metal3api.FirmwareUpdate{
+						{
+							Component: "something",
+							URL:       "https://myurl/myfw",
+						},
+					},
+				},
+				Status: metal3api.HostFirmwareComponentsStatus{
+					Components: []metal3api.FirmwareComponentStatus{}, // Overwritten by mockComponents
+					Conditions: []metav1.Condition{
+						{Type: "ChangeDetected", Status: "True", Reason: "OK", Message: ""},
+						{Type: "Valid", Status: "False", Reason: "InvalidComponent", Message: "Invalid Firmware Components: ['something' is not a valid component name, allowed: 'bmc', 'bios', 'nic', or names starting with 'nic:']"},
+					},
 				},
 			},
-			ExpectedErrors: []string{"component something is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names"},
+			retResult: ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected},
 		},
-		{
-			Scenario: "invalid something component with other valid components",
-			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{
-					{Component: "bmc", URL: "https://myurl/mybmcfw"},
-					{Component: "bios", URL: "https://myurl/mybiosfw"},
-					{Component: "something", URL: "https://myurl/myfw"},
+		"bmh not found": {
+			apiObjects: []client.Object{
+				&metal3api.HostFirmwareComponents{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hostName,
+						Namespace: hostNamespace,
+					},
+					Spec: metal3api.HostFirmwareComponentsSpec{
+						Updates: []metal3api.FirmwareUpdate{
+							{
+								Component: "bmc",
+								URL:       "https://myurl/newbmcfirmware",
+							},
+						},
+					},
 				},
 			},
-			ExpectedErrors: []string{"component something is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names"},
+			retResult: ctrl.Result{},
 		},
-		{
-			Scenario: "component not in lowercase",
-			SpecUpdates: metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{
-					{Component: "BMC", URL: "https://myurl/mybmcfw"},
-					{Component: "BIOS", URL: "https://myurl/mybiosfw"},
+		"hfc deleted": {
+			// BMH exists (deprovisioning), HFC has been deleted — reconciler must not error
+			apiObjects: []client.Object{
+				&metal3api.BareMetalHost{
+					ObjectMeta: metav1.ObjectMeta{Name: hostName, Namespace: hostNamespace},
+					Status: metal3api.BareMetalHostStatus{
+						Provisioning: metal3api.ProvisionStatus{
+							State: metal3api.StateDeprovisioning,
+						},
+					},
 				},
 			},
-			ExpectedErrors: []string{
-				"component BMC is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names",
-				"component BIOS is invalid, only 'bmc', 'bios', or names starting with 'nic:' are allowed as update names",
-			},
+			want:      nil,
+			retResult: ctrl.Result{},
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.Scenario, func(t *testing.T) {
-			hfc := getHFC(tc.SpecUpdates)
-			r := getTestHFCReconciler(hfc)
-			info := rhfcInfo{
-				log: logf.Log.WithName("controllers").WithName("HostFirmwareComponents"),
-				hfc: hfc,
+	for scenario, tc := range testCases {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := t.Context()
+
+			builder := fakeclient.NewClientBuilder().WithScheme(scheme.Scheme)
+			for _, o := range tc.apiObjects {
+				builder = builder.WithRuntimeObjects(o).WithStatusSubresource(o)
 			}
-			errors := r.validateHostFirmwareComponents(&info)
-			if len(errors) == 0 {
-				assert.Empty(t, tc.ExpectedErrors[0])
-			} else {
-				for i := range errors {
-					assert.Equal(t, tc.ExpectedErrors[i], errors[i].Error())
+			fakeClient := builder.Build()
+
+			// mockComponents is arbitrary - the test verifies that whatever the provisioner
+			// returns gets copied to Status.Components, not the specific values
+			mockComponents := []metal3api.FirmwareComponentStatus{
+				{
+					Component:          "any",
+					InitialVersion:     "1.0.0",
+					CurrentVersion:     "1.2.0",
+					LastVersionFlashed: "1.2.0",
+				},
+			}
+			fakeProvisioner := &fixture.Fixture{
+				HostFirmwareComponents: fixture.HostFirmwareComponentsMock{
+					Components: mockComponents,
+				},
+			}
+			if tc.want != nil {
+				tc.want.Status.Components = mockComponents
+			}
+
+			r := &HostFirmwareComponentsReconciler{
+				Client:             fakeClient,
+				ProvisionerFactory: fakeProvisioner,
+				Log:                logr.Discard(),
+			}
+
+			request := ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Namespace: hostNamespace,
+					Name:      hostName,
+				},
+			}
+
+			result, err := r.Reconcile(ctx, request)
+			require.NoError(t, err)
+
+			if diff := cmp.Diff(tc.retResult, result); diff != "" {
+				t.Errorf("Reconcile result mismatch (-want +got):\n%s", diff)
+			}
+
+			if tc.want != nil {
+				key := client.ObjectKey{Namespace: hostNamespace, Name: hostName}
+				got := &metal3api.HostFirmwareComponents{}
+				err = r.Get(ctx, key, got)
+				require.NoError(t, err)
+
+				diff := cmp.Diff(tc.want, got,
+					cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion"),
+					cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime"),
+					cmpopts.IgnoreFields(metal3api.HostFirmwareComponentsStatus{}, "LastUpdated"),
+					cmpopts.IgnoreFields(metal3api.HostFirmwareComponentsStatus{}, "Updates"),
+				)
+				if diff != "" {
+					t.Errorf("HostFirmwareComponents mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})

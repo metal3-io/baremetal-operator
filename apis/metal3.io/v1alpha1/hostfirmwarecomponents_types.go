@@ -109,7 +109,7 @@ func (host *HostFirmwareComponents) ValidateHostFirmwareComponents() error {
 	for _, update := range host.Spec.Updates {
 		componentName := update.Component
 		if _, ok := allowedNames[componentName]; !ok && !strings.HasPrefix(componentName, NICComponentPrefix) {
-			return fmt.Errorf("component %s is invalid, only 'bmc', 'bios', or names starting with '%s' are allowed as update names", update.Component, NICComponentPrefix)
+			return fmt.Errorf("'%s' is not a valid component name, allowed: 'bmc', 'bios', 'nic', or names starting with 'nic:'", update.Component)
 		}
 	}
 

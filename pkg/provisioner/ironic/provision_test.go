@@ -1607,6 +1607,52 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	}
 }
 
+func TestGetFirmwareComponentsUpdates(t *testing.T) {
+	cases := map[string]struct {
+		input    []metal3api.FirmwareUpdate
+		expected []map[string]string
+	}{
+		"empty input": {
+			input:    nil,
+			expected: nil,
+		},
+		"single url": {
+			input: []metal3api.FirmwareUpdate{
+				{Component: "bmc", URL: "https://bmc.bin"},
+			},
+			expected: []map[string]string{
+				{"component": "bmc", "url": "https://bmc.bin"},
+			},
+		},
+		"multiple urls": {
+			input: []metal3api.FirmwareUpdate{
+				{Component: "nic", URLs: []string{"https://fw1.bin", "https://fw2.bin"}},
+			},
+			expected: []map[string]string{
+				{"component": "nic", "url": "https://fw1.bin"},
+				{"component": "nic", "url": "https://fw2.bin"},
+			},
+		},
+		"urls takes priority over url": {
+			input: []metal3api.FirmwareUpdate{
+				{Component: "nic", URL: "https://single.bin", URLs: []string{"https://fw1.bin", "https://fw2.bin"}},
+			},
+			expected: []map[string]string{
+				{"component": "nic", "url": "https://fw1.bin"},
+				{"component": "nic", "url": "https://fw2.bin"},
+			},
+		},
+	}
+
+	p := &ironicProvisioner{}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			result := p.getFirmwareComponentsUpdates(tc.input)
+			assert.ElementsMatch(t, tc.expected, result)
+		})
+	}
+}
+
 func TestBuildCleanStepsForUpdateFirmware(t *testing.T) {
 	nodeUUID := "eec38659-4c68-7431-9535-d10766f07a58"
 	cases := []struct {
@@ -1686,6 +1732,51 @@ func TestBuildCleanStepsForUpdateFirmware(t *testing.T) {
 				{
 					"component": "bios",
 					"url":       "https://mybios.newfirmware",
+				},
+			},
+		},
+		{
+			name: "nic update single url",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+			}),
+			targetFirmwareComponents: []metal3api.FirmwareUpdate{
+				{
+					Component: "nic:identifier",
+					URL:       "https://mynic.newfirmware",
+				},
+			},
+			expectedFirmwareUpdates: []map[string]string{
+				{
+					"component": "nic:identifier",
+					"url":       "https://mynic.newfirmware",
+				},
+			},
+		},
+		{
+			name: "nic update multiple urls",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+			}),
+			targetFirmwareComponents: []metal3api.FirmwareUpdate{
+				{
+					Component: "nic",
+					URLs: []string{
+						"https://mynic.newfirmware",
+						"https://mynic2.newfirmware",
+					},
+				},
+			},
+			expectedFirmwareUpdates: []map[string]string{
+				{
+					"component": "nic",
+					"url":       "https://mynic.newfirmware",
+				},
+				{
+					"component": "nic",
+					"url":       "https://mynic2.newfirmware",
 				},
 			},
 		},

@@ -76,7 +76,49 @@ func TestValidateHostFirmwareComponents(t *testing.T) {
 					},
 				},
 			},
-			ExpectedError: fmt.Errorf("'nic' is not a valid component name, allowed: 'bmc', 'bios', 'nic', or names starting with 'nic:'"),
+			ExpectedError: fmt.Errorf("component nic requires 'urls' field, not 'url'"),
+		},
+		"ValidNICWithURLs": {
+			hfc: &HostFirmwareComponents{
+				ObjectMeta: objectMeta,
+				Spec: HostFirmwareComponentsSpec{
+					Updates: []FirmwareUpdate{
+						{
+							Component: "nic",
+							URLs:      []string{"https://example.com/fw1.bin", "https://example.com/fw2.bin"},
+						},
+					},
+				},
+			},
+			ExpectedError: nil,
+		},
+		"InvalidBMCWithURLs": {
+			hfc: &HostFirmwareComponents{
+				ObjectMeta: objectMeta,
+				Spec: HostFirmwareComponentsSpec{
+					Updates: []FirmwareUpdate{
+						{
+							Component: "bmc",
+							URLs:      []string{"https://example.com/fw1.bin"},
+						},
+					},
+				},
+			},
+			ExpectedError: fmt.Errorf("component bmc requires 'url' field, not 'urls'"),
+		},
+		"InvalidNICPrefixWithURLs": {
+			hfc: &HostFirmwareComponents{
+				ObjectMeta: objectMeta,
+				Spec: HostFirmwareComponentsSpec{
+					Updates: []FirmwareUpdate{
+						{
+							Component: "nic:NIC.1",
+							URLs:      []string{"https://example.com/fw1.bin"},
+						},
+					},
+				},
+			},
+			ExpectedError: fmt.Errorf("component nic:NIC.1 requires 'url' field, not 'urls'"),
 		},
 		"InvalidNICEmptyIdentifier": {
 			hfc: &HostFirmwareComponents{

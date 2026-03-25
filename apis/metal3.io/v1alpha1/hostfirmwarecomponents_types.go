@@ -25,8 +25,9 @@ import (
 
 // FirmwareUpdate defines a firmware update specification.
 type FirmwareUpdate struct {
-	Component string `json:"component"`
-	URL       string `json:"url"`
+	Component string   `json:"component"`
+	URL       string   `json:"url,omitempty"`
+	URLs      []string `json:"urls,omitempty"`
 }
 
 // FirmwareComponentStatus defines the status of a firmware component.
@@ -52,6 +53,8 @@ const (
 const (
 	// NICComponentPrefix is the prefix for NIC firmware components.
 	NICComponentPrefix = "nic:"
+	// NICComponent is the component name for NIC firmware updates with multiple URLs.
+	NICComponent = "nic"
 )
 
 // HostFirmwareComponentsSpec defines the desired state of HostFirmwareComponents.
@@ -108,8 +111,17 @@ func (host *HostFirmwareComponents) ValidateHostFirmwareComponents() error {
 	allowedNames := map[string]struct{}{"bmc": {}, "bios": {}}
 	for _, update := range host.Spec.Updates {
 		componentName := update.Component
+		if componentName == NICComponent {
+			if len(update.URLs) == 0 {
+				return fmt.Errorf("component %s requires 'urls' field, not 'url'", componentName)
+			}
+			continue
+		}
 		if _, ok := allowedNames[componentName]; !ok && !strings.HasPrefix(componentName, NICComponentPrefix) {
 			return fmt.Errorf("'%s' is not a valid component name, allowed: 'bmc', 'bios', 'nic', or names starting with 'nic:'", update.Component)
+		}
+		if len(update.URLs) > 0 {
+			return fmt.Errorf("component %s requires 'url' field, not 'urls'", componentName)
 		}
 	}
 

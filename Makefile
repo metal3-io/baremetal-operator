@@ -236,6 +236,10 @@ build-e2e:
 build-vbmctl:
 	cd test; go build --tags=e2e,vbmctl -ldflags $(LDFLAGS) -o $(abspath $(BIN_DIR)/vbmctl) ./vbmctl/cmd/vbmctl
 
+.PHONY: unit-vbmctl
+unit-vbmctl: ## Run vbmctl unit tests
+	cd test && go test --tags=e2e,vbmctl $(GO_TEST_FLAGS) ./vbmctl/...
+
 .PHONY: build-legacy-vbmctl
 build-legacy-vbmctl:
 	cd test; go build --tags=e2e,vbmctl -ldflags $(LDFLAGS) -o $(abspath $(BIN_DIR)/vbmctl) ./vbmctl/main.go

@@ -25,3 +25,9 @@ jobs:
       run: make -e unit-cover
       env:
         TEST_FLAGS: "-v"
+    - name: Install libvirt-dev
+      run: sudo apt-get update && sudo apt-get install -y libvirt-dev
+    - name: Run vbmctl unit tests
+      run: make -e unit-vbmctl
+      env:
+        TEST_FLAGS: "-v"

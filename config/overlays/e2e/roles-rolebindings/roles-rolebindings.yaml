@@ -9,17 +9,13 @@ rules:
   - events
   verbs:
   - create
-  - get
-  - list
   - patch
   - update
-  - watch
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
-  - delete
   - get
   - list
   - update

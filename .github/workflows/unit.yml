@@ -21,7 +21,13 @@ jobs:
       uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
+    - name: Install libvirt-dev
+      run: sudo apt-get update && sudo apt-get install -y libvirt-dev
     - name: Run unit tests
       run: make -e unit-cover
+      env:
+        TEST_FLAGS: "-v"
+    - name: Run vbmctl unit tests
+      run: make -e unit-vbmctl
       env:
         TEST_FLAGS: "-v"

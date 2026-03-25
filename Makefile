@@ -121,6 +121,10 @@ unit-cover: ## Run unit tests with code coverage
 	cd pkg/hardwareutils/ && go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) ./...
 	cd pkg/hardwareutils/ && go tool cover -func=$(COVER_PROFILE)
 
+.PHONY: unit-vbmctl
+unit-vbmctl: ## Run vbmctl unit tests
+	go test -coverprofile=$(COVER_PROFILE) $(GO_TEST_FLAGS) --tags=vbmctl ./test/vbmctl/...
+
 .PHONY: unit-verbose
 unit-verbose: ## Run unit tests with verbose output
 	TEST_FLAGS=-v make unit

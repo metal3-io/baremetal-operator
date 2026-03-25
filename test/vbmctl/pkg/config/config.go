@@ -7,11 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"gopkg.in/yaml.v2"
 )
 
 const (
+	// Version is set at build time.
+	Version = "dev"
+
 	// DefaultConfigFileName is the default name for the config file.
 	DefaultConfigFileName = "vbmctl.yaml"
 
@@ -50,6 +53,24 @@ const (
 
 	// filePermissions is the default permission for config files.
 	filePermissions = 0600
+
+	// DefaultImageServerPort is the default host port for the image server.
+	DefaultImageServerPort = 8080
+
+	// DefaultImageServerContainerPort is the default container port for the image server.
+	DefaultImageServerContainerPort = 8080
+
+	// DefaultImageServerDataDir is the default data directory for the image server.
+	DefaultImageServerDataDir = "/var/lib/vbmctl/images"
+
+	// DefaultContainerDataDir is the default directory inside the container to mount the data volume to.
+	DefaultContainerDataDir = "/usr/share/nginx/html"
+
+	// DefaultImageServerImage is the default container image for the image server.
+	DefaultImageServerImage = "nginxinc/nginx-unprivileged"
+
+	// DefaultImageServerContainerName is the default container name for the image server.
+	DefaultImageServerContainerName = "vbmctl-image-server"
 )
 
 // Config is the top-level configuration for vbmctl.
@@ -75,7 +96,11 @@ type Spec struct {
 	// VMs is a list of VM configurations to create.
 	VMs []vbmctlapi.VMConfig `json:"vms,omitempty" yaml:"vms,omitempty"`
 
+	// Networks is a list of network configurations to create.
 	Networks []vbmctlapi.NetworkConfig `json:"networks,omitempty" yaml:"networks,omitempty"`
+
+	// ImageServer contains configuration for the image server.
+	ImageServer *vbmctlapi.ImageServerConfig `json:"imageServer,omitempty" yaml:"imageServer,omitempty"`
 }
 
 // LibvirtConfig contains libvirt connection settings.
@@ -206,6 +231,28 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate image server config
+	if c.Spec.ImageServer != nil {
+		if c.Spec.ImageServer.Port == 0 {
+			return errors.New("image server port is required")
+		}
+		if c.Spec.ImageServer.ContainerPort == 0 {
+			return errors.New("image server container port is required")
+		}
+		if c.Spec.ImageServer.DataDir == "" {
+			return errors.New("image server data directory is required")
+		}
+		if c.Spec.ImageServer.ContainerDataDir == "" {
+			return errors.New("image server container data directory is required")
+		}
+		if c.Spec.ImageServer.Image == "" {
+			return errors.New("image server container image is required")
+		}
+		if c.Spec.ImageServer.ContainerName == "" {
+			return errors.New("image server container name is required")
+		}
+	}
+
 	return nil
 }
 
@@ -227,6 +274,28 @@ func (c *Config) ApplyDefaults() {
 	// Apply VM defaults
 	for i := range c.Spec.VMs {
 		c.Spec.VMs[i] = c.Spec.VMs[i].Defaults()
+	}
+
+	// Apply image server defaults
+	if c.Spec.ImageServer != nil {
+		if c.Spec.ImageServer.Port == 0 {
+			c.Spec.ImageServer.Port = DefaultImageServerPort
+		}
+		if c.Spec.ImageServer.ContainerPort == 0 {
+			c.Spec.ImageServer.ContainerPort = DefaultImageServerContainerPort
+		}
+		if c.Spec.ImageServer.DataDir == "" {
+			c.Spec.ImageServer.DataDir = DefaultImageServerDataDir
+		}
+		if c.Spec.ImageServer.ContainerDataDir == "" {
+			c.Spec.ImageServer.ContainerDataDir = DefaultContainerDataDir
+		}
+		if c.Spec.ImageServer.Image == "" {
+			c.Spec.ImageServer.Image = DefaultImageServerImage
+		}
+		if c.Spec.ImageServer.ContainerName == "" {
+			c.Spec.ImageServer.ContainerName = DefaultImageServerContainerName
+		}
 	}
 }
 

@@ -16,10 +16,10 @@ This tool is under active development.
 | VM management (create/delete/list) | ✅ Implemented |
 | `vbmctl create bml` / `vbmctl delete bml` | ✅ Implemented |
 | `vbmctl status` | ✅ Implemented (basic) |
-| Configurable volumes | ❌ TODO (hard-coded to two per VM) |
+| Configurable volumes |  ✅ Implemented |
 | Network management | ⚠️ Partially implemented (only libvirt networks) |
 | BMC emulator support | ❌ TODO |
-| Image server | ❌ TODO |
+| Image server | ✅ Implemented (basic) |
 | State management (persistent state) | ❌ TODO |
 
 ## Features
@@ -30,6 +30,7 @@ This tool is under active development.
    libvirt networks
 - **Library Support**: Can be imported as a Go module for programmatic use
 - **Libvirt network management**: create and delete libvirt networks
+- **Image Server Management**: Create, delete, list image server
 
 ## Build Tags
 
@@ -77,6 +78,10 @@ vbmctl create vm \
 # Create a bare metal lab (all VMs and networks defined in spec.vms of the config file)
 vbmctl create bml
 
+# Create an image server with default settings. Please note that if
+# a name is specified, vbmctl will automatically add the prefix `vbmctl-`.
+vbmctl create image-server
+
 # Check status
 vbmctl status
 
@@ -88,6 +93,9 @@ vbmctl delete bml
 
 # Create network with default values
 vbmctl delete network
+
+# Delete the image server
+vbmctl delete image-server
 
 # Show help
 vbmctl --help
@@ -157,6 +165,9 @@ spec:
     bridge: metal3
     address: 192.168.222.1
     netmask: 255.255.255.0
+  imageServer:
+    dataDir: "/tmp"
+    port: 80
 ```
 
 The `spec.vms` section defines the VMs that will be created when you run `vbmctl
@@ -175,6 +186,7 @@ import (
 
     "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
     "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/libvirt"
+    "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/containers"
     libvirtgo "libvirt.org/go/libvirt"
 )
 
@@ -228,6 +240,19 @@ func main() {
                 MACAddress: "00:60:2f:31:81:01",
             },
         },
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Create an Image Server
+    err = containers.CreateImageServerInstance(ctx, &api.ImageServerConfig{
+        Image:         "nginx:latest",
+        ContainerName: "image-server",
+        DataDir:       "/var/lib/vbmctl/images",
+        ContainerDataDir: "/usr/share/nginx/html",
+        Port:          8080,
+        ContainerPort: 80,
     })
     if err != nil {
         log.Fatal(err)

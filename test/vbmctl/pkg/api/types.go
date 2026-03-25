@@ -29,6 +29,27 @@ type VolumeConfig struct {
 	Size int `json:"size" yaml:"size"`
 }
 
+// ImageServerConfig represents the configuration for the image server.
+type ImageServerConfig struct {
+	// Port is the host port to bind the image server to.
+	Port uint16 `json:"port" yaml:"port"`
+
+	// ContainerPort is the container port that the image server listens on.
+	ContainerPort uint16 `json:"containerPort" yaml:"containerPort"`
+
+	// DataDir is the host directory to mount as a volume for the image server.
+	DataDir string `json:"dataDir" yaml:"dataDir"`
+
+	// ContainerDataDir is the directory inside the container to mount the data volume to.
+	ContainerDataDir string `json:"containerDataDir" yaml:"containerDataDir"`
+
+	// Image is the container image to use for the image server.
+	Image string `json:"image" yaml:"image"`
+
+	// ContainerName is the name of the container to create for the image server.
+	ContainerName string `json:"containerName" yaml:"containerName"`
+}
+
 // NetworkAttachment represents a network interface attached to a VM.
 type NetworkAttachment struct {
 	// Network is the name of the libvirt network to attach to.

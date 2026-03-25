@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 )
 
 func TestDefault(t *testing.T) {
@@ -42,6 +42,13 @@ spec:
     - name: "test-vm"
       memory: 8192
       vcpus: 4
+  imageServer:
+    image: "test/image-server:latest"
+    port: 81
+    containerPort: 8081
+    dataDir: "/var/lib/vbmctl/images-test"
+    containerDataDir: "/usr/share/nginx/html"
+    containerName: "vbmctl-image-server-test"
 `)
 
 	cfg, err := Parse(yamlData)
@@ -68,6 +75,34 @@ spec:
 	if cfg.Spec.VMs[0].Memory != 8192 {
 		t.Errorf("expected VM memory 8192, got %d", cfg.Spec.VMs[0].Memory)
 	}
+
+	if cfg.Spec.ImageServer == nil {
+		t.Fatal("expected image server config, got nil")
+	}
+
+	if cfg.Spec.ImageServer.Image != "test/image-server:latest" {
+		t.Errorf("expected image server image 'test/image-server:latest', got %s", cfg.Spec.ImageServer.Image)
+	}
+
+	if cfg.Spec.ImageServer.Port != 81 {
+		t.Errorf("expected image server port 81, got %d", cfg.Spec.ImageServer.Port)
+	}
+
+	if cfg.Spec.ImageServer.ContainerPort != 8081 {
+		t.Errorf("expected image server container port 8081, got %d", cfg.Spec.ImageServer.ContainerPort)
+	}
+
+	if cfg.Spec.ImageServer.DataDir != "/var/lib/vbmctl/images-test" {
+		t.Errorf("expected image server data dir '/var/lib/vbmctl/images-test', got %s", cfg.Spec.ImageServer.DataDir)
+	}
+
+	if cfg.Spec.ImageServer.ContainerDataDir != "/usr/share/nginx/html" {
+		t.Errorf("expected image server container data dir '/usr/share/nginx/html', got %s", cfg.Spec.ImageServer.ContainerDataDir)
+	}
+
+	if cfg.Spec.ImageServer.ContainerName != "vbmctl-image-server-test" {
+		t.Errorf("expected image server container name 'vbmctl-image-server-test', got %s", cfg.Spec.ImageServer.ContainerName)
+	}
 }
 
 func TestLoadAndSave(t *testing.T) {
@@ -78,6 +113,14 @@ func TestLoadAndSave(t *testing.T) {
 	cfg := Default()
 	cfg.Spec.VMs = []vbmctlapi.VMConfig{
 		{Name: "saved-vm", Memory: 2048, VCPUs: 1},
+	}
+	cfg.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+		Image:            "test/image-server:latest",
+		Port:             81,
+		ContainerPort:    8081,
+		DataDir:          "/var/lib/vbmctl/images-test",
+		ContainerDataDir: "/usr/share/nginx/html",
+		ContainerName:    "vbmctl-image-server",
 	}
 
 	// Save it
@@ -102,6 +145,34 @@ func TestLoadAndSave(t *testing.T) {
 
 	if loadedCfg.Spec.VMs[0].Name != "saved-vm" {
 		t.Errorf("expected VM name 'saved-vm', got %s", loadedCfg.Spec.VMs[0].Name)
+	}
+
+	if loadedCfg.Spec.ImageServer == nil {
+		t.Fatal("expected image server config, got nil")
+	}
+
+	if loadedCfg.Spec.ImageServer.Image != "test/image-server:latest" {
+		t.Errorf("expected image server image 'test/image-server:latest', got %s", loadedCfg.Spec.ImageServer.Image)
+	}
+
+	if loadedCfg.Spec.ImageServer.DataDir != "/var/lib/vbmctl/images-test" {
+		t.Errorf("expected image server data dir '/var/lib/vbmctl/images-test', got %s", loadedCfg.Spec.ImageServer.DataDir)
+	}
+
+	if loadedCfg.Spec.ImageServer.ContainerDataDir != "/usr/share/nginx/html" {
+		t.Errorf("expected image server container data dir '/usr/share/nginx/html', got %s", loadedCfg.Spec.ImageServer.ContainerDataDir)
+	}
+
+	if loadedCfg.Spec.ImageServer.ContainerName != "vbmctl-image-server" {
+		t.Errorf("expected image server container name 'vbmctl-image-server', got %s", loadedCfg.Spec.ImageServer.ContainerName)
+	}
+
+	if loadedCfg.Spec.ImageServer.Port != 81 {
+		t.Errorf("expected image server port %d, got %d", 81, loadedCfg.Spec.ImageServer.Port)
+	}
+
+	if loadedCfg.Spec.ImageServer.ContainerPort != 8081 {
+		t.Errorf("expected image server container port %d, got %d", 8081, loadedCfg.Spec.ImageServer.ContainerPort)
 	}
 }
 
@@ -163,6 +234,98 @@ func TestValidate(t *testing.T) {
 			name: "VM without name",
 			modify: func(c *Config) {
 				c.Spec.VMs = []vbmctlapi.VMConfig{{Memory: 1024}}
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid image server config",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid image server config - missing port",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - missing container port",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - missing data dir",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - missing container data dir",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:         "test/image-server:latest",
+					Port:          80,
+					ContainerPort: 8080,
+					DataDir:       "/var/lib/vbmctl/images-test",
+					ContainerName: "vbmctl-image-server",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - missing image",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - missing container name",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+				}
 			},
 			wantErr: true,
 		},

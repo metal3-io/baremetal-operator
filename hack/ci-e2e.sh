@@ -167,9 +167,7 @@ if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
 fi
 
 ## Start the image server
-docker start image-server-e2e || docker run --name image-server-e2e -d \
-  -p 80:8080 \
-  -v "${IMAGE_DIR}:/usr/share/nginx/html" nginxinc/nginx-unprivileged
+./bin/vbmctl create image-server --host-port 80 --image-dir "${IMAGE_DIR}" --name "vbmctl-image-server-e2e"
 
 # Generate ssh key pair for verifying provisioned BMHs
 if [[ ! -f "${IMAGE_DIR}/ssh_testkey" ]]; then

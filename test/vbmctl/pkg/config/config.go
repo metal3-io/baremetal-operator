@@ -36,6 +36,15 @@ const (
 	// DefaultVolumeSize is the default volume size in GB.
 	DefaultVolumeSize = 20
 
+	// DefaultNetworkBridge is the default network interface name.
+	DefaultNetworkBridge = "metal3"
+
+	// DefaultNetworkAddress is the default address for the bridge interface.
+	DefaultNetworkAddress = "192.168.222.1"
+
+	// DefaultNetworkNetmask is the default netmask for the network.
+	DefaultNetworkNetmask = "255.255.255.0"
+
 	// dirPermissions is the default permission for directories.
 	dirPermissions = 0750
 
@@ -65,6 +74,8 @@ type Spec struct {
 
 	// VMs is a list of VM configurations to create.
 	VMs []vbmctlapi.VMConfig `json:"vms,omitempty" yaml:"vms,omitempty"`
+
+	Networks []vbmctlapi.NetworkConfig `json:"networks,omitempty" yaml:"networks,omitempty"`
 }
 
 // LibvirtConfig contains libvirt connection settings.

@@ -15,7 +15,7 @@ spec:
       size: 20
     - name: "2"
       size: 20
-    networks:
+    networkAttachments:
     - network: baremetal-e2e
       macAddress: "00:60:2f:31:81:01"
   - name: bmo-e2e-1
@@ -26,6 +26,11 @@ spec:
       size: 20
     - name: "2"
       size: 20
-    networks:
+    networkAttachments:
     - network: baremetal-e2e
       macAddress: "00:60:2f:31:81:02"
+  networks:
+  - name: baremetal-e2e
+    bridge: metal3
+    address: 192.168.222.1
+    netmask: 255.255.255.0

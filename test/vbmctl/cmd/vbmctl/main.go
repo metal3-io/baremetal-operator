@@ -44,10 +44,10 @@ func newRootCmd() *cobra.Command {
 for testing and development purposes. It currently provides functionality for:
 
   - Creating and managing virtual machines using libvirt
+  - Creating and managing libvirt networks
   - Reserving IP addresses for VMs via DHCP on existing libvirt networks
 
 Planned features (not yet implemented):
-  - Network management (create/delete libvirt networks)
   - BMC emulator support (sushy-tools, vbmc)
   - Image server for provisioning
 
@@ -88,6 +88,7 @@ func newCreateCmd() *cobra.Command {
 
 	cmd.AddCommand(newCreateVMCmd())
 	cmd.AddCommand(newCreateBMLCmd())
+	cmd.AddCommand(newCreateNetworkCmd())
 	return cmd
 }
 
@@ -185,8 +186,9 @@ func newCreateBMLCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bml",
 		Short: "Create a bare metal lab from configuration file",
-		Long: `Create a bare metal lab (bml) with all VMs defined in the spec.vms section
-of the configuration file.
+		Long: `Create a bare metal lab (bml) with all VMs and networks defined in the spec.vms
+and spec.networks sections of the configuration file. Note that network block can
+be omitted and VMs can be connected to existing networks as well.
 
 Example configuration:
   spec:
@@ -197,9 +199,12 @@ Example configuration:
         volumes:
           - name: "root"
             size: 20
-        networks:
+        networkAttachments:
           - network: "baremetal-e2e"
-            macAddress: "00:60:2f:31:81:01"`,
+            macAddress: "00:60:2f:31:81:01"
+	networks:
+      - name: "baremetal-e2e"
+	  - bridge: "metal3"`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx, cancel := contextWithSignal()
 			defer cancel()
@@ -218,6 +223,22 @@ Example configuration:
 				return fmt.Errorf("failed to connect to libvirt: %w", err)
 			}
 			defer func() { _, _ = conn.Close() }()
+
+			// Create networks before VMs
+			networkManager, err := libvirt.NewNetworkManager(conn)
+			if err != nil {
+				return fmt.Errorf("failed to create Network manager: %w", err)
+			}
+			networks, err := networkManager.CreateNetworks(ctx, cfg.Spec.Networks)
+			if err != nil {
+				return err
+			}
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Println("\nCreated networks:")
+			for _, network := range networks {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("  - %s (UUID: %s)\n", network.Name, network.UUID)
+			}
 
 			vmManager, err := libvirt.NewVMManager(conn, libvirt.VMManagerOptions{
 				PoolName: cfg.Spec.Pool.Name,
@@ -249,6 +270,63 @@ Example configuration:
 	return cmd
 }
 
+func newCreateNetworkCmd() *cobra.Command {
+	var (
+		name    string
+		bridge  string
+		address string
+		netmask string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "network",
+		Short: "Create a network",
+		Long:  "Create a new network with the specified configuration.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+
+			conn, err := libvirtgo.NewConnect(cfg.Spec.Libvirt.URI)
+			if err != nil {
+				return fmt.Errorf("failed to connect to libvirt: %w", err)
+			}
+			defer func() { _, _ = conn.Close() }()
+
+			networkManager, err := libvirt.NewNetworkManager(conn)
+			if err != nil {
+				return fmt.Errorf("failed to create Network manager: %w", err)
+			}
+
+			networkCfg := vbmctlapi.NetworkConfig{
+				Name:    name,
+				Bridge:  bridge,
+				Address: address,
+				Netmask: netmask,
+			}
+
+			network, err := networkManager.CreateNetwork(ctx, networkCfg)
+			if err != nil {
+				return err
+			}
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Printf("Created network: %s (UUID: %s)\n", network.Name, network.UUID)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", config.DefaultNetworkName, "name of the network")
+	cmd.Flags().StringVar(&bridge, "bridge", config.DefaultNetworkBridge, "name of the bridge interface")
+	cmd.Flags().StringVar(&address, "address", config.DefaultNetworkAddress, "address of bridge")
+	cmd.Flags().StringVar(&netmask, "netmask", config.DefaultNetworkNetmask, "netmask for network")
+
+	return cmd
+}
+
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
@@ -258,6 +336,7 @@ func newDeleteCmd() *cobra.Command {
 
 	cmd.AddCommand(newDeleteVMCmd())
 	cmd.AddCommand(newDeleteBMLCmd())
+	cmd.AddCommand(newDeleteNetworkCmd())
 	return cmd
 }
 
@@ -344,8 +423,8 @@ func newDeleteBMLCmd() *cobra.Command {
 
 			//nolint:forbidigo // CLI output is intentional
 			fmt.Printf("Deleting bare metal lab (%d VMs)...\n", len(names))
-
-			if err := vmManager.DeleteAll(ctx, names, true); err != nil {
+			err = vmManager.DeleteAll(ctx, names, true)
+			if err != nil {
 				return err
 			}
 
@@ -356,6 +435,70 @@ func newDeleteBMLCmd() *cobra.Command {
 				fmt.Printf("  - %s\n", name)
 			}
 
+			networkManager, err := libvirt.NewNetworkManager(conn)
+			if err != nil {
+				return fmt.Errorf("failed to create Network manager: %w", err)
+			}
+
+			networks := make([]string, len(cfg.Spec.Networks))
+			for i, network := range cfg.Spec.Networks {
+				networks[i] = network.Name
+			}
+
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Printf("Deleting networks (%d networks)...\n", len(networks))
+
+			if err := networkManager.DeleteNetworks(ctx, networks); err != nil {
+				return err
+			}
+
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Println("Deleted networks:")
+			for _, name := range networks {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("  - %s\n", name)
+			}
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func newDeleteNetworkCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "network [name]",
+		Short: "Delete a network",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			name := args[0]
+
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+
+			conn, err := libvirtgo.NewConnect(cfg.Spec.Libvirt.URI)
+			if err != nil {
+				return fmt.Errorf("failed to connect to libvirt: %w", err)
+			}
+			defer func() { _, _ = conn.Close() }()
+
+			networkManager, err := libvirt.NewNetworkManager(conn)
+			if err != nil {
+				return fmt.Errorf("failed to create Network manager: %w", err)
+			}
+
+			if err := networkManager.DeleteNetwork(ctx, name); err != nil {
+				return fmt.Errorf("failed to delete network: %w", err)
+			}
+
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Printf("Deleted network %s\n", name)
 			return nil
 		},
 	}

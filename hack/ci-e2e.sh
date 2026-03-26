@@ -67,15 +67,15 @@ sudo sysctl fs.inotify.max_user_instances=8192
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
 
-if ! sudo virsh net-list --all | grep baremetal-e2e; then
-    virsh -c qemu:///system net-define "${REPO_ROOT}/hack/e2e/net.xml"
-    virsh -c qemu:///system net-start baremetal-e2e
-fi
+# Build vbmctl
+make build-vbmctl
+# Create VMs to act as BMHs in the tests and the libvirt network
+./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 
-# We need to create veth pair to connect metal3 net (defined above) and kind
-# docker subnet. Let us start by creating a docker network with pre-defined
-# name for bridge, so that we can configure the veth pair correctly.
-# Also assume that if kind net exists, it is created by us.
+# We need to create veth pair to connect metal3 net (defined above with vbmctl)
+# and kind docker subnet. Let us start by creating a docker network with
+# pre-defined name for bridge, so that we can configure the veth pair
+# correctly. Also assume that if kind net exists, it is created by us.
 if ! docker network list | grep kind; then
     # These options are used by kind itself. It uses docker default mtu and
     # generates ipv6 subnet ULA, but we can fix the ULA. Only addition to kind
@@ -109,11 +109,6 @@ sudo iptables -L FORWARD -n -v
 # This IP is defined by the network we created above. It is sushy-tools / image
 # server endpoint, not ironic.
 IP_ADDRESS="192.168.222.1"
-
-# Build vbmctl
-make build-vbmctl
-# Create VMs to act as BMHs in the tests.
-./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   # Start VBMC

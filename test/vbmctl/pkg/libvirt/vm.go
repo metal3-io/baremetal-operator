@@ -96,8 +96,7 @@ func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctl
 	}
 
 	// Render VM XML
-	templateData := VMConfigToTemplateData(cfg, m.opts.PoolPath)
-	vmXML, err := m.renderer.RenderVM(templateData)
+	vmXML, err := m.renderer.RenderVM(cfg, m.opts.PoolPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render VM template: %w", err)
 	}
@@ -336,11 +335,7 @@ func (m *VMManager) reserveIPAddress(vmName string, index int, net vbmctlapi.Net
 	// Generate host name for DHCP entry
 	hostName := fmt.Sprintf("%s-%d", vmName, index)
 
-	dhcpXML, err := m.renderer.RenderDHCPHost(DHCPHostData{
-		MACAddress: net.MACAddress,
-		Name:       hostName,
-		IPAddress:  net.IPAddress,
-	})
+	dhcpXML, err := m.renderer.RenderDHCPHost(net, hostName)
 	if err != nil {
 		return fmt.Errorf("failed to render DHCP host entry: %w", err)
 	}

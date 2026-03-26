@@ -1,7 +1,7 @@
 <pool type='dir'>
-  <name>{{ .PoolName }}</name>
+  <name>{{ .Name }}</name>
   <target>
-    <path>{{ .PoolPath }}</path>
+    <path>{{ .Path }}</path>
     <permissions>
       <mode>0755</mode>
       <owner>-1</owner>

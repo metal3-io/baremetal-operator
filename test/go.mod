@@ -20,7 +20,7 @@ require (
 	libvirt.org/go/libvirt v1.12001.0
 	sigs.k8s.io/cluster-api v1.12.4
 	sigs.k8s.io/cluster-api/test v1.12.4
-	sigs.k8s.io/controller-runtime v0.23.1
+	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/kind v0.31.0
 	sigs.k8s.io/kustomize/api v0.21.1
 	sigs.k8s.io/kustomize/kyaml v0.21.1

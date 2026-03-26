@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -92,13 +93,13 @@ func newCreateCmd() *cobra.Command {
 
 func newCreateVMCmd() *cobra.Command {
 	var (
-		name       string
-		memory     int
-		vcpus      int
-		network    string
-		macAddress string
-		ipAddress  string
-		volumeSize int
+		name        string
+		memory      int
+		vcpus       int
+		network     string
+		macAddress  string
+		ipAddress   string
+		volumeSizes []int
 	)
 
 	cmd := &cobra.Command{
@@ -128,14 +129,22 @@ func newCreateVMCmd() *cobra.Command {
 				return fmt.Errorf("failed to create VM manager: %w", err)
 			}
 
+			if len(volumeSizes) == 0 {
+				volumeSizes = []int{config.DefaultVolumeSize}
+			}
+			volumes := make([]vbmctlapi.VolumeConfig, len(volumeSizes))
+			for i, sz := range volumeSizes {
+				volumes[i] = vbmctlapi.VolumeConfig{
+					Name: "p" + strconv.Itoa(i+1),
+					Size: sz,
+				}
+			}
+
 			vmCfg := vbmctlapi.VMConfig{
-				Name:   name,
-				Memory: memory,
-				VCPUs:  vcpus,
-				Volumes: []vbmctlapi.VolumeConfig{
-					{Name: "1", Size: volumeSize},
-					{Name: "2", Size: volumeSize},
-				},
+				Name:    name,
+				Memory:  memory,
+				VCPUs:   vcpus,
+				Volumes: volumes,
 			}
 
 			if network != "" {
@@ -165,7 +174,9 @@ func newCreateVMCmd() *cobra.Command {
 	cmd.Flags().StringVar(&network, "network", config.DefaultNetworkName, "network to attach to")
 	cmd.Flags().StringVar(&macAddress, "mac-address", "00:60:2f:31:81:01", "MAC address for the network interface")
 	cmd.Flags().StringVar(&ipAddress, "ip-address", "", "IP address to reserve (optional)")
-	cmd.Flags().IntVar(&volumeSize, "volume-size", config.DefaultVolumeSize, "volume size in GB")
+	cmd.Flags().IntSliceVar(&volumeSizes, "volume-size", nil,
+		"volume size in GB (default a single "+strconv.Itoa(config.DefaultVolumeSize)+
+			" GB volume, repeat flag to add multiple volumes or use comma-separated values)")
 
 	return cmd
 }

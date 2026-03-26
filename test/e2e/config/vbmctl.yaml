@@ -1,0 +1,31 @@
+apiVersion: vbmctl.metal3.io/v1alpha1
+kind: Config
+spec:
+  libvirt:
+    uri: qemu:///system
+  pool:
+    name: baremetal-e2e
+    path: /tmp/pool_oo
+  vms:
+  - name: bmo-e2e-0
+    memory: 4096
+    vcpus: 2
+    volumes:
+    - name: "1"
+      size: 20
+    - name: "2"
+      size: 20
+    networks:
+    - network: baremetal-e2e
+      macAddress: "00:60:2f:31:81:01"
+  - name: bmo-e2e-1
+    memory: 4096
+    vcpus: 2
+    volumes:
+    - name: "1"
+      size: 20
+    - name: "2"
+      size: 20
+    networks:
+    - network: baremetal-e2e
+      macAddress: "00:60:2f:31:81:02"

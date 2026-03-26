@@ -111,9 +111,9 @@ sudo iptables -L FORWARD -n -v
 IP_ADDRESS="192.168.222.1"
 
 # Build vbmctl
-make build-legacy-vbmctl
+make build-vbmctl
 # Create VMs to act as BMHs in the tests.
-./bin/vbmctl --yaml-source-file "${E2E_BMCS_CONF_FILE}"
+./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   # Start VBMC

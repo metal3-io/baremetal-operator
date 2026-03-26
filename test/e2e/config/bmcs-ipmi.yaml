@@ -6,9 +6,6 @@
   ipAddress: "192.168.222.122"
   rootDeviceHints:
     deviceName: "/dev/vda"
-  networks:
-  - name: baremetal-e2e
-    macAddress: "00:60:2f:31:81:01"
 - user: admin
   password: password
   address: "ipmi://192.168.222.1:16231"
@@ -17,6 +14,3 @@
   ipAddress: "192.168.222.123"
   rootDeviceHints:
     deviceName: "/dev/vda"
-  networks:
-  - name: baremetal-e2e
-    macAddress: "00:60:2f:31:81:02"

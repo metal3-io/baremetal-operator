@@ -41,6 +41,7 @@ require (
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
@@ -57,9 +58,9 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.34.5 // indirect
-	k8s.io/apiextensions-apiserver v0.34.5 // indirect
-	k8s.io/apimachinery v0.34.5 // indirect
+	k8s.io/api v0.34.6 // indirect
+	k8s.io/apiextensions-apiserver v0.34.6 // indirect
+	k8s.io/apimachinery v0.34.6 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 // indirect

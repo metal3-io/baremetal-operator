@@ -121,7 +121,7 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 		// The HFC resource may have been deleted
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("HostFirmwareComponents not found")
-			return ctrl.Result{Requeue: false}, err
+			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, fmt.Errorf("could not load hostFirmwareComponents: %w", err)

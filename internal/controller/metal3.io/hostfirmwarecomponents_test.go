@@ -429,6 +429,35 @@ func TestStoreHostFirmwareComponents(t *testing.T) {
 	}
 }
 
+// Test that the reconciler does not return an error when the HFC resource
+// has been deleted but the BMH still exists (e.g. during namespace deletion).
+func TestHFCReconcileDeletedHFC(t *testing.T) {
+	bmh := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hostName,
+			Namespace: hostNamespace,
+		},
+		Status: metal3api.BareMetalHostStatus{
+			Provisioning: metal3api.ProvisionStatus{
+				State: metal3api.StateDeprovisioning,
+			},
+		},
+	}
+	// Build a client with only the BMH, no HFC
+	c := fakeclient.NewClientBuilder().WithRuntimeObjects(bmh).Build()
+
+	reconciler := &HostFirmwareComponentsReconciler{
+		Client: c,
+		Log:    ctrl.Log.WithName("test_reconciler").WithName("HostFirmwareComponents"),
+	}
+
+	request := ctrl.Request{NamespacedName: client.ObjectKey{Name: hostName, Namespace: hostNamespace}}
+	result, err := reconciler.Reconcile(t.Context(), request)
+
+	require.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+}
+
 // Test the function to validate the components in the Spec.
 func TestValidadeHostFirmwareComponents(t *testing.T) {
 	testCases := []struct {

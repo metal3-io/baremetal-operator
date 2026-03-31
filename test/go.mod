@@ -6,7 +6,7 @@ require (
 	github.com/cert-manager/cert-manager v1.20.1
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
-	github.com/metal3-io/ironic-standalone-operator/api v0.8.0
+	github.com/metal3-io/ironic-standalone-operator/api v0.8.1
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/spf13/cobra v1.10.2

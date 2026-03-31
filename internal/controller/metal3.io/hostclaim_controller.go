@@ -35,7 +35,7 @@ type HostClaimReconciler struct {
 //+kubebuilder:rbac:groups=metal3.io,resources=hostclaims/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=metal3.io,resources=hostclaims/finalizers,verbs=update
 //+kubebuilder:rbac:groups=metal3.io,resources=hostdeploypolicies,verbs=get;list;watch
-//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get
 
 func (r *HostClaimReconciler) Reconcile(_ context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil

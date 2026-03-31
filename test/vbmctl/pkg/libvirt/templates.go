@@ -37,22 +37,6 @@ func NewTemplateRenderer() (*TemplateRenderer, error) {
 	}, nil
 }
 
-// VMTemplateData contains data for rendering VM templates.
-type VMTemplateData struct {
-	Name     string
-	Memory   int // in KiB
-	VCPUs    int
-	PoolPath string
-	Networks []NetworkInterfaceData
-	Volumes  []VolumeAttachmentData
-}
-
-// NetworkInterfaceData contains data for a network interface in VM templates.
-type NetworkInterfaceData struct {
-	Network    string
-	MACAddress string
-}
-
 // VolumeAttachmentData contains data for a volume attachment in VM templates.
 type VolumeAttachmentData struct {
 	Name   string
@@ -61,42 +45,68 @@ type VolumeAttachmentData struct {
 	Bus    string // e.g., "virtio"
 }
 
-// PoolTemplateData contains data for rendering storage pool templates.
-type PoolTemplateData struct {
-	PoolName string
-	PoolPath string
-}
-
-// VolumeTemplateData contains data for rendering volume templates.
-type VolumeTemplateData struct {
-	VolumeName         string
-	VolumeCapacityInGB int
-}
-
-// DHCPHostData contains data for a DHCP host entry.
-type DHCPHostData struct {
-	MACAddress string
-	Name       string
-	IPAddress  string
-}
-
 // RenderVM renders the VM XML template with the given data.
-func (r *TemplateRenderer) RenderVM(data VMTemplateData) (string, error) {
+func (r *TemplateRenderer) RenderVM(cfg vbmctlapi.VMConfig, poolPath string) (string, error) {
+	// Apply defaults
+	cfg = cfg.Defaults()
+
+	// Convert memory from MB to KiB
+	memoryKiB := cfg.Memory * kiBPerMiB
+
+	// Check and convert volumes to attachments
+	devices := []string{"vda", "vdb", "vdc", "vdd", "vde", "vdf", "vdg", "vdh"}
+	if len(cfg.Volumes) > len(devices) {
+		return "", fmt.Errorf("configuration has %d volumes but only %d are supported", len(cfg.Volumes), len(devices))
+	}
+	volumes := make([]VolumeAttachmentData, len(cfg.Volumes))
+	for i, vol := range cfg.Volumes {
+		volumes[i] = VolumeAttachmentData{
+			Name:   vol.Name,
+			Path:   fmt.Sprintf("%s/%s-%s.qcow2", poolPath, cfg.Name, vol.Name),
+			Device: devices[i],
+			Bus:    "virtio",
+		}
+	}
+
+	data := struct {
+		Name     string
+		Memory   int // in KiB
+		VCPUs    int
+		PoolPath string
+		Networks []vbmctlapi.NetworkAttachment
+		Volumes  []VolumeAttachmentData
+	}{
+		Name:     cfg.Name,
+		Memory:   memoryKiB,
+		VCPUs:    cfg.VCPUs,
+		PoolPath: poolPath,
+		Networks: cfg.Networks,
+		Volumes:  volumes,
+	}
 	return r.render("VM.xml.tpl", data)
 }
 
 // RenderPool renders the storage pool XML template with the given data.
-func (r *TemplateRenderer) RenderPool(data PoolTemplateData) (string, error) {
-	return r.render("pool.xml.tpl", data)
+func (r *TemplateRenderer) RenderPool(cfg vbmctlapi.PoolConfig) (string, error) {
+	return r.render("pool.xml.tpl", cfg)
 }
 
 // RenderVolume renders the volume XML template with the given data.
-func (r *TemplateRenderer) RenderVolume(data VolumeTemplateData) (string, error) {
-	return r.render("volume.xml.tpl", data)
+func (r *TemplateRenderer) RenderVolume(cfg vbmctlapi.VolumeConfig) (string, error) {
+	return r.render("volume.xml.tpl", cfg)
 }
 
 // RenderDHCPHost renders XML for a DHCP host entry.
-func (r *TemplateRenderer) RenderDHCPHost(data DHCPHostData) (string, error) {
+func (r *TemplateRenderer) RenderDHCPHost(net vbmctlapi.NetworkAttachment, hostName string) (string, error) {
+	data := struct {
+		MACAddress string
+		Name       string
+		IPAddress  string
+	}{
+		MACAddress: net.MACAddress,
+		Name:       hostName,
+		IPAddress:  net.IPAddress,
+	}
 	tmpl, err := template.New("dhcp-host").Parse(
 		"<host mac='{{ .MACAddress }}' name='{{ .Name }}' ip='{{ .IPAddress }}' />",
 	)
@@ -135,64 +145,4 @@ func RenderTemplate(inputFile string, data interface{}) (string, error) {
 	}
 
 	return buf.String(), nil
-}
-
-// VMConfigToTemplateData converts a VMConfig to VMTemplateData.
-func VMConfigToTemplateData(cfg vbmctlapi.VMConfig, poolPath string) VMTemplateData {
-	// Apply defaults
-	cfg = cfg.Defaults()
-
-	// Convert memory from MB to KiB
-	memoryKiB := cfg.Memory * kiBPerMiB
-
-	// Convert networks
-	networks := make([]NetworkInterfaceData, len(cfg.Networks))
-	for i, net := range cfg.Networks {
-		networks[i] = NetworkInterfaceData{
-			Network:    net.Network,
-			MACAddress: net.MACAddress,
-		}
-	}
-
-	// Convert volumes to attachments
-	volumes := make([]VolumeAttachmentData, len(cfg.Volumes))
-	devices := []string{"vda", "vdb", "vdc", "vdd", "vde", "vdf", "vdg", "vdh"}
-	for i, vol := range cfg.Volumes {
-		device := "vda"
-		if i < len(devices) {
-			device = devices[i]
-		}
-		volumes[i] = VolumeAttachmentData{
-			Name:   vol.Name,
-			Path:   fmt.Sprintf("%s/%s-%s.qcow2", poolPath, cfg.Name, vol.Name),
-			Device: device,
-			Bus:    "virtio",
-		}
-	}
-
-	return VMTemplateData{
-		Name:     cfg.Name,
-		Memory:   memoryKiB,
-		VCPUs:    cfg.VCPUs,
-		PoolPath: poolPath,
-		Networks: networks,
-		Volumes:  volumes,
-	}
-}
-
-// PoolConfigToTemplateData converts a PoolConfig to PoolTemplateData.
-func PoolConfigToTemplateData(cfg vbmctlapi.PoolConfig) PoolTemplateData {
-	return PoolTemplateData{
-		PoolName: cfg.Name,
-		PoolPath: cfg.Path,
-	}
-}
-
-// VolumeConfigToTemplateData converts a VolumeConfig to VolumeTemplateData.
-func VolumeConfigToTemplateData(cfg vbmctlapi.VolumeConfig) VolumeTemplateData {
-	cfg = cfg.Defaults()
-	return VolumeTemplateData{
-		VolumeName:         cfg.Name,
-		VolumeCapacityInGB: cfg.Size,
-	}
 }

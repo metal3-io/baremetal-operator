@@ -52,10 +52,7 @@ func (m *PoolManager) EnsurePool(_ context.Context, cfg vbmctlapi.PoolConfig) (*
 	}
 
 	// Render pool XML
-	poolXML, err := m.renderer.RenderPool(PoolTemplateData{
-		PoolName: cfg.Name,
-		PoolPath: cfg.Path,
-	})
+	poolXML, err := m.renderer.RenderPool(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render pool template: %w", err)
 	}
@@ -117,9 +114,9 @@ func (m *PoolManager) CreateVolume(_ context.Context, poolName, volumeName strin
 	}
 
 	// Render volume XML
-	volumeXML, err := m.renderer.RenderVolume(VolumeTemplateData{
-		VolumeName:         volumeName,
-		VolumeCapacityInGB: sizeGB,
+	volumeXML, err := m.renderer.RenderVolume(vbmctlapi.VolumeConfig{
+		Name: volumeName,
+		Size: sizeGB,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to render volume template: %w", err)

@@ -466,11 +466,14 @@ func setCondition(generation int64, status *metal3api.HostFirmwareSettingsStatus
 	}
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 
+	// newStatus is built from scratch on every reconcile, so compare against
+	// the stored conditions to decide whether a status update is needed.
 	currCond := meta.FindStatusCondition(info.hfs.Status.Conditions, string(cond))
-	if currCond == nil || currCond.Status != newStatus {
-		return true
-	}
-	return false
+	return currCond == nil ||
+		currCond.Status != newStatus ||
+		currCond.ObservedGeneration != generation ||
+		currCond.Reason != string(reason) ||
+		currCond.Message != message
 }
 
 // Generate a name based on the schema key and values which should be the same for similar hardware.

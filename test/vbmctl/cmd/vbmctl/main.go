@@ -17,6 +17,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	containers "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/containers"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/libvirt"
+	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/network"
 	"github.com/spf13/cobra"
 	libvirtgo "libvirt.org/go/libvirt"
 )
@@ -201,16 +202,21 @@ Example configuration:
         networkAttachments:
           - network: "baremetal-e2e"
             macAddress: "00:60:2f:31:81:01"
-	networks:
+    networks:
       - name: "baremetal-e2e"
-	  - bridge: "metal3"
+        bridge: "metal3"
     imageServer:
       image: "nginxinc/nginx-unprivileged"
       port: 8080
       containerPort: 8080
       dataDir: "/var/lib/vbmctl/images"
       containerDataDir: "/usr/share/nginx/html",
-      containerName: "vbmctl-image-server"`,
+      containerName: "vbmctl-image-server"
+    vethPairs:
+      - master1: "metal3"
+        master2: "kind-bridge"
+        veth1: "metalend"
+        veth2: "kindend"`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx, cancel := contextWithSignal()
 			defer cancel()
@@ -254,6 +260,18 @@ Example configuration:
 			for _, network := range networks {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Printf("  - %s (UUID: %s)\n", network.Name, network.UUID)
+			}
+
+			// Connect the specified networks
+			err = network.ConnectAllWithVeth(ctx, cfg.Spec.VethPairs)
+			if err != nil {
+				return fmt.Errorf("failed to create veth pairs: %w", err)
+			}
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Println("\nCreated veth pairs:")
+			for _, pair := range cfg.Spec.VethPairs {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("  - between %s and %s\n", pair.Master1, pair.Master2)
 			}
 
 			vmManager, err := libvirt.NewVMManager(conn, libvirt.VMManagerOptions{
@@ -529,9 +547,24 @@ func newDeleteBMLCmd() *cobra.Command {
 				fmt.Printf("  - %s\n", name)
 			}
 
+			// Delete veth pairs
+			err = network.DeleteAllVeth(ctx, cfg.Spec.VethPairs)
+			if err != nil {
+				// Don't fail whole command if veth deletion fails
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("failed to delete veth pairs: %v\n", err)
+			} else {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("Deleted veth pairs:")
+				for _, pair := range cfg.Spec.VethPairs {
+					//nolint:forbidigo // CLI output is intentional
+					fmt.Printf("  - between %s and %s\n", pair.Master1, pair.Master2)
+				}
+			}
+
 			networkManager, err := libvirt.NewNetworkManager(conn)
 			if err != nil {
-				return fmt.Errorf("failed to create Network manager: %w", err)
+				return fmt.Errorf("failed to create libvirt network manager: %w", err)
 			}
 
 			networks := make([]string, len(cfg.Spec.Networks))
@@ -540,7 +573,7 @@ func newDeleteBMLCmd() *cobra.Command {
 			}
 
 			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleting networks (%d networks)...\n", len(networks))
+			fmt.Printf("Deleting libvirt networks (%d networks)...\n", len(networks))
 
 			if err := networkManager.DeleteNetworks(ctx, networks); err != nil {
 				return err

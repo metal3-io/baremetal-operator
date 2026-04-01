@@ -69,10 +69,6 @@ sudo sysctl fs.inotify.max_user_instances=8192
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
 
-# Build vbmctl
-make build-vbmctl
-# Create VMs to act as BMHs in the tests and the libvirt network
-./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 
 # We need to create veth pair to connect metal3 net (defined above with vbmctl)
 # and kind docker subnet. Let us start by creating a docker network with
@@ -91,22 +87,11 @@ if ! docker network list | grep kind; then
 fi
 docker network list
 
-# Next create the veth pair
-if ! ip a | grep metalend; then
-    sudo ip link add metalend type veth peer name kindend
-    sudo ip link set metalend master metal3
-    sudo ip link set kindend master kind-bridge
-    sudo ip link set metalend up
-    sudo ip link set kindend up
-fi
-ip a
-
-# Then we need to set routing rules as well
-if ! sudo iptables -L FORWARD -v -n | grep kind-bridge; then
-    sudo iptables -I FORWARD -i kind-bridge -o metal3 -j ACCEPT
-    sudo iptables -I FORWARD -i metal3 -o kind-bridge -j ACCEPT
-fi
-sudo iptables -L FORWARD -n -v
+# Build vbmctl
+make build-vbmctl
+sudo setcap cap_net_admin+epi ./bin/vbmctl
+# Create VMs to act as BMHs in the tests and the libvirt network
+./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 
 # This IP is defined by the network we created above. It is sushy-tools / image
 # server endpoint, not ironic.

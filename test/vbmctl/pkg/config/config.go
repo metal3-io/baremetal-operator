@@ -101,6 +101,9 @@ type Spec struct {
 
 	// ImageServer contains configuration for the image server.
 	ImageServer *vbmctlapi.ImageServerConfig `json:"imageServer,omitempty" yaml:"imageServer,omitempty"`
+
+	// VethPairs is a list of interfaces that should be connected with a veth-pair.
+	VethPairs []vbmctlapi.VethPair `json:"vethPairs,omitempty" yaml:"vethPairs,omitempty"`
 }
 
 // LibvirtConfig contains libvirt connection settings.

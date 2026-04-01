@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -1457,6 +1458,42 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 		liveFirmwareUpdatesAllowed = (hup.Spec.FirmwareUpdates == metal3api.HostUpdatePolicyOnReboot)
 	}
 
+	// Fast-path: when recovering from a servicing error, check if specs are
+	// cleared before calling getHostFirmwareSettings/Components. Those
+	// functions fail on generation mismatch (sub-controller hasn't reconciled
+	// yet), which would block the abort/recovery path indefinitely.
+	if info.host.Status.ErrorType == metal3api.ServicingError {
+		specsExist := false
+		if liveFirmwareSettingsAllowed {
+			hfsCheck := &metal3api.HostFirmwareSettings{}
+			if err := r.Get(ctx, info.request.NamespacedName, hfsCheck); err == nil && len(hfsCheck.Spec.Settings) > 0 {
+				specsExist = true
+			}
+		}
+		if liveFirmwareUpdatesAllowed && !specsExist {
+			hfcCheck := &metal3api.HostFirmwareComponents{}
+			if err := r.Get(ctx, info.request.NamespacedName, hfcCheck); err == nil && len(hfcCheck.Spec.Updates) > 0 {
+				specsExist = true
+			}
+		}
+		if !specsExist {
+			info.log.Info("specs cleared while in servicing error state, attempting abort")
+			provResult, _, err := prov.Service(ctx, servicingData, false, false)
+			if err != nil {
+				return actionError{fmt.Errorf("failed to abort servicing: %w", err)}
+			}
+			if provResult.ErrorMessage != "" {
+				return actionError{fmt.Errorf("failed to abort servicing: %s", provResult.ErrorMessage)}
+			}
+			if provResult.Dirty {
+				return actionContinue{provResult.RequeueAfter}
+			}
+			info.log.Info("successfully recovered from servicing error")
+			clearErrorWithStatus(info.host, metal3api.OperationalStatusOK)
+			return actionComplete{}
+		}
+	}
+
 	if liveFirmwareSettingsAllowed {
 		// handling pre-HFS FirmwareSettings here
 		if !reflect.DeepEqual(info.host.Status.Provisioning.Firmware, info.host.Spec.Firmware) {
@@ -2497,6 +2534,22 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 		// need to pass MatchEveryOwner
 		controller.Owns(&metal3api.PreprovisioningImage{})
 	}
+
+	// Watch HFC/HFS for spec changes (generation bumps) so that the BMH
+	// controller reconciles promptly when a user clears firmware specs,
+	// rather than waiting for error-state exponential backoff to expire.
+	firmwareEventHandler := handler.EnqueueRequestsFromMapFunc(
+		func(_ context.Context, obj client.Object) []ctrl.Request {
+			return []ctrl.Request{{NamespacedName: client.ObjectKey{
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
+			}}}
+		},
+	)
+	controller.Watches(&metal3api.HostFirmwareSettings{}, firmwareEventHandler,
+		builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+	controller.Watches(&metal3api.HostFirmwareComponents{}, firmwareEventHandler,
+		builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return controller.Complete(r)
 }

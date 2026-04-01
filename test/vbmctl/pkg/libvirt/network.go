@@ -5,6 +5,7 @@ package libvirt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -43,7 +44,6 @@ func (m *NetworkManager) CreateNetwork(_ context.Context, cfg vbmctlapi.NetworkC
 
 	// Check if network exists, define a new if it does not
 	network, err := m.conn.LookupNetworkByName(cfg.Name)
-	defer func() { _ = network.Free() }()
 	if err == nil {
 		log.Printf("network %s already exists, continuing with existing network", cfg.Name)
 	} else {
@@ -75,6 +75,9 @@ func (m *NetworkManager) CreateNetwork(_ context.Context, cfg vbmctlapi.NetworkC
 	if err != nil {
 		return nil, fmt.Errorf("could not get UUID for network: %w", err)
 	}
+	if err := network.Free(); err != nil {
+		return nil, fmt.Errorf("failed to free network object %s after creation: %w", name, err)
+	}
 
 	return &Network{
 		Name:   name,
@@ -104,7 +107,10 @@ func (m *NetworkManager) CreateNetworks(ctx context.Context, configs []vbmctlapi
 
 func (m *NetworkManager) DeleteNetwork(_ context.Context, name string) error {
 	network, err := m.conn.LookupNetworkByName(name)
-	defer func() { _ = network.Free() }()
+	if errors.Is(err, libvirt.ERR_NO_NETWORK) {
+		log.Printf("Cannot delete libvirt network %s, does not exist.\n", name)
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to lookup network %s: %w", name, err)
 	}
@@ -113,6 +119,9 @@ func (m *NetworkManager) DeleteNetwork(_ context.Context, name string) error {
 	}
 	if err := network.Undefine(); err != nil {
 		return fmt.Errorf("failed to undefine network %s (was it transient?): %w", name, err)
+	}
+	if err := network.Free(); err != nil {
+		return fmt.Errorf("failed to free network object %s after deletion: %w", name, err)
 	}
 	return nil
 }

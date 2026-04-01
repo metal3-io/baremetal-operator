@@ -17,7 +17,7 @@ This tool is under active development.
 | `vbmctl create bml` / `vbmctl delete bml` | ✅ Implemented |
 | `vbmctl status` | ✅ Implemented (basic) |
 | Configurable volumes |  ✅ Implemented |
-| Network management | ⚠️ Partially implemented (only libvirt networks) |
+| Network management | ⚠️ Partially implemented (container networking missing) |
 | BMC emulator support | ✅ Implemented (basic) |
 | Image server | ✅ Implemented (basic) |
 | State management (persistent state) | ❌ TODO |
@@ -32,6 +32,8 @@ This tool is under active development.
 - **Libvirt network management**: create and delete libvirt networks
 - **Image Server Management**: Create, delete, list image server
 - **BMC Emulator Management**: Create, delete, and check status of BMC emulator servers
+- **Creating/deleting veth pairs**: create and delete veth-pairs to connect
+  virtual networks. Works only with config file.
 
 ## Build Tags
 
@@ -179,6 +181,11 @@ spec:
     type: "sushy-tools"
     configFile: "vbmc-emulator-file"
     image: "bmc-emulator:latest"
+  vethPairs:
+  - link1: metal3
+    link2: kind-bridge
+    veth1: metalend
+    veth2: kindend
 ```
 
 The `spec.vms` section defines the VMs that will be created when you run `vbmctl

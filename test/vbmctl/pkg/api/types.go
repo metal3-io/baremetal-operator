@@ -113,6 +113,20 @@ type NetworkConfig struct {
 	Netmask string `json:"netmask,omitempty" yaml:"netmask,omitempty"`
 }
 
+type VethPair struct {
+	// Link 1 is the name of the first network interface to be connected
+	Link1 string `json:"link1" yaml:"link1"`
+
+	// Link 2 is the name of the second network interface to be connected
+	Link2 string `json:"link2" yaml:"link2"`
+
+	// Veth1 is the name of the veth interface to be pushed under Link1
+	Veth1 string `json:"veth1" yaml:"veth1"`
+
+	// Veth2 is the name of the veth interface to be pushed under Link2
+	Veth2 string `json:"veth2" yaml:"veth2"`
+}
+
 // PoolConfig represents the configuration for a storage pool.
 type PoolConfig struct {
 	// Name is the name of the storage pool.

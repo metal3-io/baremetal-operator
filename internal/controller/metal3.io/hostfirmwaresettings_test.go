@@ -540,6 +540,32 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 	}
 }
 
+func TestSetConditionObservedGeneration(t *testing.T) {
+	status := &metal3api.HostFirmwareSettingsStatus{}
+
+	changed := setCondition(1, status,
+		metal3api.FirmwareSettingsValid, metav1.ConditionTrue,
+		reasonSuccess, "")
+	assert.True(t, changed, "first call should report a change")
+
+	cond := status.Conditions[0]
+	assert.Equal(t, int64(1), cond.ObservedGeneration)
+
+	changed = setCondition(1, status,
+		metal3api.FirmwareSettingsValid, metav1.ConditionTrue,
+		reasonSuccess, "")
+	assert.False(t, changed, "same generation and status should not report a change")
+
+	// This is the scenario that was broken: generation bumps but status
+	// stays the same. The old code compared only Status and missed the
+	// ObservedGeneration difference, returning false.
+	changed = setCondition(2, status,
+		metal3api.FirmwareSettingsValid, metav1.ConditionTrue,
+		reasonSuccess, "")
+	assert.True(t, changed, "generation change alone must report a change")
+	assert.Equal(t, int64(2), status.Conditions[0].ObservedGeneration)
+}
+
 // Test the function to validate hostFirmwareSettings.
 func TestValidateHostFirmwareSettings(t *testing.T) {
 	testCases := []struct {

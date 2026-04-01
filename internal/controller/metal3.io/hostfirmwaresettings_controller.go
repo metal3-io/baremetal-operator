@@ -247,7 +247,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 	generation := info.hfs.GetGeneration()
 
 	if specMismatch {
-		if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsChangeDetected, metav1.ConditionTrue, reason, "") {
+		if setCondition(generation, &newStatus, metal3api.FirmwareSettingsChangeDetected, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
 
@@ -255,7 +255,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 		// Eventually this will be handled by a webhook
 		errors := r.validateHostFirmwareSettings(info, &newStatus, schema)
 		if len(errors) == 0 {
-			if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
+			if setCondition(generation, &newStatus, metal3api.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
 				dirty = true
 			}
 		} else {
@@ -266,15 +266,15 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 				}
 			}
 			reason = reasonConfigurationError
-			if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsValid, metav1.ConditionFalse, reason, "Invalid BIOS setting") {
+			if setCondition(generation, &newStatus, metal3api.FirmwareSettingsValid, metav1.ConditionFalse, reason, "Invalid BIOS setting") {
 				dirty = true
 			}
 		}
 	} else {
-		if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
+		if setCondition(generation, &newStatus, metal3api.FirmwareSettingsValid, metav1.ConditionTrue, reason, "") {
 			dirty = true
 		}
-		if setCondition(generation, &newStatus, info, metal3api.FirmwareSettingsChangeDetected, metav1.ConditionFalse, reason, "") {
+		if setCondition(generation, &newStatus, metal3api.FirmwareSettingsChangeDetected, metav1.ConditionFalse, reason, "") {
 			dirty = true
 		}
 	}
@@ -425,7 +425,7 @@ func (r *HostFirmwareSettingsReconciler) publishEvent(ctx context.Context, reque
 	}
 }
 
-func setCondition(generation int64, status *metal3api.HostFirmwareSettingsStatus, info *rInfo,
+func setCondition(generation int64, status *metal3api.HostFirmwareSettingsStatus,
 	cond metal3api.SettingsConditionType, newStatus metav1.ConditionStatus,
 	reason conditionReason, message string) bool {
 	newCondition := metav1.Condition{
@@ -435,13 +435,8 @@ func setCondition(generation int64, status *metal3api.HostFirmwareSettingsStatus
 		Reason:             string(reason),
 		Message:            message,
 	}
-	meta.SetStatusCondition(&status.Conditions, newCondition)
 
-	currCond := meta.FindStatusCondition(info.hfs.Status.Conditions, string(cond))
-	if currCond == nil || currCond.Status != newStatus {
-		return true
-	}
-	return false
+	return meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
 // Generate a name based on the schema key and values which should be the same for similar hardware.

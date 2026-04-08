@@ -15,6 +15,25 @@ as BMC. Ironic runs in the "host network" of the kind cluster in the test. The
 kind cluster is then configured to expose the relevant ports on the actual host
 so that they can be reached from the BareMetalHost VMs.
 
+However, before running the script ensure the environment is setup correctly:
+
+```bash
+make verify-e2e-prerequisites
+```
+
+This check uses a script that currently runs only on Ubuntu. If any required
+components are missing, run the same script to install them:
+
+```bash
+# After running the script, you may need to log out/in (or start a new shell)
+# before docker works without sudo.
+./hack/e2e/ensure_e2e_prerequisites.sh
+```
+
+Please note that the script installs Go in `/usr/local/go`. If you want to invoke
+the e2e Makefile target directly with `make test-e2e`, you may need to adjust your
+`PATH` accordingly.
+
 Currently there are two sets of tests, which cannot be ran together in the same
 cluster. One is the "optional" set, currently consists of only the
 [upgrade tests](upgrade_test.go), and the "main" set, which are the ones
@@ -67,7 +86,7 @@ Skipping tests works otherwise similiarly to adding focus, but in the Makefile
 test-specific words with it or you can add another `--skip=` with a longer
 string to the `test-e2e` target.
 
-`BMC_PROTOCOL` can also be set manually. By default the [ci-e2e.sh](https://github.com/metal3-io/baremetal-operator/blob/main/hack/ci-e2e.sh)
+`BMC_PROTOCOL` can also be set manually. By default the [ci-e2e.sh](../../hack/ci-e2e.sh)
 script runs it as `redfish`, but it can also be set to `redfish-virtualmedia`,
 `redfish`, or `ipmi`. Ipmi uses `vbmc` as the BMO e2e emulator, whereas the
 others use `sushy-tools`.
@@ -77,9 +96,13 @@ The due process for ensuring all is clean for the next run is (in the
 root directory):
 
 ```bash
-./hack/clean-e2e.sh
-make clean
-sudo rm -rf ./test/e2e/images
+make clean-e2e
+```
+
+If you want to keep the image directory, run the following command instead:
+
+```bash
+make KEEP_E2E_IMAGES=true clean-e2e
 ```
 
 In addition, make sure related docker containers are removed as well.

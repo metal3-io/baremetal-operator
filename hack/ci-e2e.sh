@@ -35,6 +35,8 @@ echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
 export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
+GINKGO_FOCUS="${GINKGO_FOCUS:-}"
+
 case "${GINKGO_FOCUS,,}" in
   *upgrade*)
     export DEPLOY_IRONIC="false"

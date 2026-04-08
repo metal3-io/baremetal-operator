@@ -2329,9 +2329,12 @@ spec:
                       type: string
                     url:
                       type: string
+                    urls:
+                      items:
+                        type: string
+                      type: array
                   required:
                   - component
-                  - url
                   type: object
                 type: array
             required:
@@ -2440,9 +2443,12 @@ spec:
                       type: string
                     url:
                       type: string
+                    urls:
+                      items:
+                        type: string
+                      type: array
                   required:
                   - component
-                  - url
                   type: object
                 type: array
             type: object

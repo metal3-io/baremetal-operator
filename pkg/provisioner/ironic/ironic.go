@@ -974,12 +974,15 @@ func (p *ironicProvisioner) getNewFirmwareSettings(actualFirmwareSettings metal3
 
 // getFirmwareComponentsUpdates extract the updates in a format that ironic accepts  [{"component":"...", "url":"..."}, {"component":"...","url":".."}].
 func (p *ironicProvisioner) getFirmwareComponentsUpdates(targetFirmwareComponents []metal3api.FirmwareUpdate) (newUpdates []map[string]string) {
-	for _, update := range targetFirmwareComponents {
-		newComponentUpdate := map[string]string{
-			"component": update.Component,
-			"url":       update.URL,
+	for _, u := range targetFirmwareComponents {
+		urls := u.URLs
+		if len(urls) == 0 {
+			newUpdates = append(newUpdates, map[string]string{"component": u.Component, "url": u.URL})
+			continue
 		}
-		newUpdates = append(newUpdates, newComponentUpdate)
+		for _, i := range urls {
+			newUpdates = append(newUpdates, map[string]string{"component": u.Component, "url": i})
+		}
 	}
 	return newUpdates
 }

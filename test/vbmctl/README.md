@@ -17,7 +17,7 @@ This tool is under active development.
 | `vbmctl create bml` / `vbmctl delete bml` | ✅ Implemented |
 | `vbmctl status` | ✅ Implemented (basic) |
 | Configurable volumes | ❌ TODO (hard-coded to two per VM) |
-| Network management | ❌ TODO (uses existing libvirt networks) |
+| Network management | ⚠️ Partially implemented (only libvirt networks) |
 | BMC emulator support | ❌ TODO |
 | Image server | ❌ TODO |
 | State management (persistent state) | ❌ TODO |
@@ -29,6 +29,7 @@ This tool is under active development.
 - **DHCP Reservation**: Reserve IP addresses for VMs via DHCP on existing
    libvirt networks
 - **Library Support**: Can be imported as a Go module for programmatic use
+- **Libvirt network management**: create and delete libvirt networks
 
 ## Build Tags
 
@@ -60,6 +61,9 @@ vbmctl config view
 # Create a single virtual machine
 vbmctl create vm --name test-vm --memory 4096 --vcpus 2
 
+# Create network with default values (default name: baremetal-e2e)
+vbmctl create network
+
 # Create VM with custom options
 vbmctl create vm \
   --name bmo-e2e-0 \
@@ -70,7 +74,7 @@ vbmctl create vm \
   --mac-address 00:60:2f:31:81:01 \
   --ip-address 192.168.222.100
 
-# Create a bare metal lab (all VMs defined in spec.vms of the config file)
+# Create a bare metal lab (all VMs and networks defined in spec.vms of the config file)
 vbmctl create bml
 
 # Check status
@@ -81,6 +85,9 @@ vbmctl delete vm test-vm
 
 # Delete the bare metal lab (all VMs defined in spec.vms of the config file)
 vbmctl delete bml
+
+# Create network with default values
+vbmctl delete network
 
 # Show help
 vbmctl --help
@@ -141,10 +148,15 @@ spec:
       size: 20
     - name: "data"
       size: 10
-    networks:
+    networkAttachments:
     - network: "baremetal-e2e"
       macAddress: "00:60:2f:31:81:02"
       ipAddress: "192.168.222.101"
+  networks:
+  - name: baremetal-e2e
+    bridge: metal3
+    address: 192.168.222.1
+    netmask: 255.255.255.0
 ```
 
 The `spec.vms` section defines the VMs that will be created when you run `vbmctl
@@ -176,6 +188,23 @@ func main() {
     }
     defer conn.Close()
 
+    // Create network manager
+    networkManager, err := libvirt.NewNetworkManager(conn)
+    if err != nil {
+        return fmt.Errorf("failed to create Network manager: %w", err)
+    }
+
+    // Create a network
+    network, err := networkManager.CreateNetwork(ctx, vbmctlapi.NetworkConfig{
+        Name:    "baremetal-e2e",
+        Bridge:  "metal3",
+        Address: "192.168.222.1",
+        Netmask: "255.255.255.0",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
     // Create VM manager
     vmManager, err := libvirt.NewVMManager(conn, libvirt.VMManagerOptions{
         PoolName: "baremetal-e2e",
@@ -195,7 +224,7 @@ func main() {
         },
         Networks: []api.NetworkAttachment{
             {
-                Network:    "baremetal-e2e",
+                Network:    "baremetal-e2e", // refers to network created above
                 MACAddress: "00:60:2f:31:81:01",
             },
         },

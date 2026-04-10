@@ -96,6 +96,12 @@ func (r *TemplateRenderer) RenderVolume(cfg vbmctlapi.VolumeConfig) (string, err
 	return r.render("volume.xml.tpl", cfg)
 }
 
+// RenderNetwork renders the network XML template with the given data.
+func (r *TemplateRenderer) RenderNetwork(cfg vbmctlapi.NetworkConfig) (string, error) {
+	cfg = cfg.Defaults()
+	return r.render("network.xml.tpl", cfg)
+}
+
 // RenderDHCPHost renders XML for a DHCP host entry.
 func (r *TemplateRenderer) RenderDHCPHost(net vbmctlapi.NetworkAttachment, hostName string) (string, error) {
 	data := struct {

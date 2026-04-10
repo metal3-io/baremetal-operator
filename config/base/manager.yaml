@@ -23,7 +23,6 @@ spec:
         - /baremetal-operator
         args:
         - --enable-leader-election
-        - --tls-min-version=TLS13
         ports:
         - containerPort: 8443
           protocol: TCP

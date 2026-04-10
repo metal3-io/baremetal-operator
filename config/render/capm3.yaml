@@ -3139,7 +3139,6 @@ spec:
       containers:
       - args:
         - --enable-leader-election
-        - --tls-min-version=TLS13
         command:
         - /baremetal-operator
         env:

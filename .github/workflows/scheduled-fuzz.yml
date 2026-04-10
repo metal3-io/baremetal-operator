@@ -1,0 +1,26 @@
+---
+name: Scheduled Fuzz Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      fuzz_time:
+        description: 'Fuzzing duration per test (e.g., 30s, 1m, 1h)'
+        required: false
+        default: '1m'
+        type: string
+  schedule:
+  # Run every Monday at 4:42 AM UTC
+  - cron: "42 4 * * 1"
+
+permissions: {}
+
+jobs:
+  fuzz-tests:
+    uses: metal3-io/project-infra/.github/workflows/scheduled-fuzz.yml@main # zizmor: ignore[unpinned-uses]
+    permissions:
+      contents: read
+      issues: write
+    with:
+      fuzz_time: ${{ inputs.fuzz_time || '1m' }}
+      create_issue: true

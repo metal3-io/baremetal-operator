@@ -136,7 +136,7 @@ fuzz-run: ## Run all fuzz tests sequentially with fuzzing enabled (use FUZZ_TIME
 	@echo "Discovering fuzz tests..."
 	@cd test/fuzz && go test -list='Fuzz.*' | grep '^Fuzz' | while read -r fuzz_test; do \
 		echo "Running $$fuzz_test for $(FUZZ_TIME)..."; \
-		go test -fuzz=$$fuzz_test -fuzztime=$(FUZZ_TIME) || exit 1; \
+		go test -fuzz=$$fuzz_test -fuzztime='$(FUZZ_TIME)' || exit 1; \
 	done
 	@echo "All fuzz tests completed successfully!"
 

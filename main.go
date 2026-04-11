@@ -33,6 +33,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
+	starlarkprov "github.com/metal3-io/baremetal-operator/pkg/provisioner/starlark"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/version"
 	ironicv1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -133,6 +134,7 @@ func main() {
 	var devLogging bool
 	var runInTestMode bool
 	var runInDemoMode bool
+	var starlarkScript string
 	var webhookPort int
 	var restConfigQPS float64
 	var restConfigBurst int
@@ -157,6 +159,8 @@ func main() {
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
 	flag.BoolVar(&runInDemoMode, "demo-mode", false,
 		"use the demo provisioner to set host states")
+	flag.StringVar(&starlarkScript, "starlark-provisioner-script", os.Getenv("STARLARK_PROVISIONER_SCRIPT"),
+		"path to a Starlark script implementing the provisioner interface")
 	flag.StringVar(&healthAddr, "health-addr", ":9440",
 		"The address the health endpoint binds to.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, //nolint:mnd
@@ -200,6 +204,23 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 
 	printVersion()
+
+	// At most one provisioner mode may be selected. Silently picking the
+	// first true mode (the previous behavior) hides a misconfiguration
+	// that would otherwise surface much later as confusing reconcile
+	// behavior. Run this guard before any expensive setup so the operator
+	// fails fast at startup. Enumerating the three pairwise conflicts
+	// covers every "two or more true" combination (the all-three case
+	// matches all three disjuncts).
+	if (runInTestMode && runInDemoMode) ||
+		(runInTestMode && starlarkScript != "") ||
+		(runInDemoMode && starlarkScript != "") {
+		setupLog.Error(nil, "only one provisioner mode may be set",
+			"test-mode", runInTestMode,
+			"demo-mode", runInDemoMode,
+			"starlark-provisioner-script", starlarkScript)
+		os.Exit(1)
+	}
 
 	enableWebhook := webhookPort != 0
 
@@ -320,6 +341,13 @@ func main() {
 	} else if runInDemoMode {
 		ctrl.Log.Info("using demo provisioner")
 		provisionerFactory = &demo.Demo{}
+	} else if starlarkScript != "" {
+		ctrl.Log.Info("using starlark provisioner", "script", starlarkScript)
+		provisionerFactory, err = starlarkprov.NewProvisionerFactory(starlarkScript)
+		if err != nil {
+			setupLog.Error(err, "cannot start starlark provisioner")
+			os.Exit(1)
+		}
 	} else {
 		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
 		// Check if we should use Ironic CR integration

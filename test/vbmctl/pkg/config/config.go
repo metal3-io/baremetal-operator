@@ -71,6 +71,27 @@ const (
 
 	// DefaultImageServerContainerName is the default container name for the image server.
 	DefaultImageServerContainerName = "vbmctl-image-server"
+
+	// DefaultBMCEmulatorType is the default BMC emulator type.
+	DefaultBMCEmulatorType = BMCEmulatorTypeVBMC
+
+	// DefaultBMCEmulatorSushyToolsConfigFile is the default BMC emulator config file (used for sushy-tools).
+	DefaultBMCEmulatorSushyToolsConfigFile = "sushy-emulator.conf"
+
+	// DefaultBMCEmulatorVBMCImage is the default container image for the VBMC BMC emulator.
+	DefaultBMCEmulatorVBMCImage = "quay.io/metal3-io/vbmc"
+
+	// DefaultBMCEmulatorSushyToolsImage is the default container image for the sushy-tools BMC emulator.
+	DefaultBMCEmulatorSushyToolsImage = "quay.io/metal3-io/sushy-tools:latest"
+)
+
+// BMC emulator types.
+const (
+	// BMC emulator type: vbmc.
+	BMCEmulatorTypeVBMC = "vbmc"
+
+	// BMC emulator type: sushy-tools.
+	BMCEmulatorTypeSushyTools = "sushy-tools"
 )
 
 // Config is the top-level configuration for vbmctl.
@@ -101,6 +122,9 @@ type Spec struct {
 
 	// ImageServer contains configuration for the image server.
 	ImageServer *vbmctlapi.ImageServerConfig `json:"imageServer,omitempty" yaml:"imageServer,omitempty"`
+
+	// BMCEmulator contains configuration for the BMC emulator.
+	BMCEmulator *vbmctlapi.BMCEmulatorConfig `json:"bmcEmulator,omitempty" yaml:"bmcEmulator,omitempty"`
 }
 
 // LibvirtConfig contains libvirt connection settings.
@@ -253,6 +277,22 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate BMC emulator config
+	if c.Spec.BMCEmulator != nil {
+		if c.Spec.BMCEmulator.Type == "" {
+			return errors.New("BMC emulator type is required")
+		}
+		if c.Spec.BMCEmulator.Type != BMCEmulatorTypeVBMC && c.Spec.BMCEmulator.Type != BMCEmulatorTypeSushyTools {
+			return fmt.Errorf("unsupported BMC emulator type: %s", c.Spec.BMCEmulator.Type)
+		}
+		if c.Spec.BMCEmulator.Image == "" {
+			return errors.New("BMC emulator container image is required")
+		}
+		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools && c.Spec.BMCEmulator.ConfigFile == "" {
+			return fmt.Errorf("BMC emulator config file is required for %s type", BMCEmulatorTypeSushyTools)
+		}
+	}
+
 	return nil
 }
 
@@ -295,6 +335,26 @@ func (c *Config) ApplyDefaults() {
 		}
 		if c.Spec.ImageServer.ContainerName == "" {
 			c.Spec.ImageServer.ContainerName = DefaultImageServerContainerName
+		}
+	}
+
+	// Apply BMC emulator defaults
+	if c.Spec.BMCEmulator != nil {
+		if c.Spec.BMCEmulator.Type == "" {
+			c.Spec.BMCEmulator.Type = DefaultBMCEmulatorType
+		}
+		if c.Spec.BMCEmulator.Image == "" {
+			switch c.Spec.BMCEmulator.Type {
+			case BMCEmulatorTypeVBMC:
+				c.Spec.BMCEmulator.Image = DefaultBMCEmulatorVBMCImage
+			case BMCEmulatorTypeSushyTools:
+				c.Spec.BMCEmulator.Image = DefaultBMCEmulatorSushyToolsImage
+			default:
+				// If the type is unrecognized, we won't set a default image.
+			}
+		}
+		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools && c.Spec.BMCEmulator.ConfigFile == "" {
+			c.Spec.BMCEmulator.ConfigFile = DefaultBMCEmulatorSushyToolsConfigFile
 		}
 	}
 }

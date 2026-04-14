@@ -5,6 +5,7 @@ build/_test
 _artifacts
 artifacts*.tar.gz
 test/e2e/images
+test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml
 out
 
 # Created by https://www.gitignore.io/api/go

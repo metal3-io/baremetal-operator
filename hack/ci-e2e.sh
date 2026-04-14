@@ -58,7 +58,7 @@ export PATH="/usr/local/go/bin:${PATH}"
 "${REPO_ROOT}/hack/e2e/ensure_yq.sh"
 
 sudo apt-get update
-sudo apt-get install -y libvirt-dev pkg-config
+sudo apt-get install -y libvirt-dev pkg-config gettext-base
 
 # Increase inotify limits to prevent "too many open files" errors.
 # Kind nodes (Docker containers running systemd) consume inotify resources heavily.
@@ -225,7 +225,10 @@ IRSO_IRONIC_AUTH_DIR="${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/comp
 echo "${IRONIC_USERNAME}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-username"
 echo "${IRONIC_PASSWORD}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-password"
 
-sed -i "s|SSH_PUB_KEY_CONTENT|${pub_ssh_key}|" "${REPO_ROOT}"/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml
+# shellcheck disable=SC2016
+SSH_PUB_KEY_CONTENT="${pub_ssh_key}" envsubst '${SSH_PUB_KEY_CONTENT}' < \
+  "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml.tmpl" > \
+  "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml"
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e

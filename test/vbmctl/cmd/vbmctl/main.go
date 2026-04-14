@@ -15,15 +15,13 @@ import (
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
+	containers "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/containers"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/libvirt"
 	"github.com/spf13/cobra"
 	libvirtgo "libvirt.org/go/libvirt"
 )
 
 var (
-	// Version is set at build time.
-	Version = "dev"
-
 	// Global flags.
 	cfgFile     string
 	libvirtURI  string
@@ -45,11 +43,11 @@ for testing and development purposes. It currently provides functionality for:
 
   - Creating and managing virtual machines using libvirt
   - Creating and managing libvirt networks
+  - Image server for provisioning
   - Reserving IP addresses for VMs via DHCP on existing libvirt networks
 
 Planned features (not yet implemented):
   - BMC emulator support (sushy-tools, vbmc)
-  - Image server for provisioning
 
 vbmctl is designed to be as simple to use as 'kind' for creating
 test environments for the Bare Metal Operator (BMO) and CAPM3.`,
@@ -57,7 +55,7 @@ test environments for the Bare Metal Operator (BMO) and CAPM3.`,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			if showVersion {
 				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("vbmctl version %s\n", Version)
+				fmt.Printf("vbmctl version %s\n", config.Version)
 				os.Exit(0)
 			}
 			return nil
@@ -89,6 +87,7 @@ func newCreateCmd() *cobra.Command {
 	cmd.AddCommand(newCreateVMCmd())
 	cmd.AddCommand(newCreateBMLCmd())
 	cmd.AddCommand(newCreateNetworkCmd())
+	cmd.AddCommand(newCreateImageServerCmd())
 	return cmd
 }
 
@@ -204,7 +203,14 @@ Example configuration:
             macAddress: "00:60:2f:31:81:01"
 	networks:
       - name: "baremetal-e2e"
-	  - bridge: "metal3"`,
+	  - bridge: "metal3"
+    imageServer:
+      image: "nginxinc/nginx-unprivileged"
+      port: 8080
+      containerPort: 8080
+      dataDir: "/var/lib/vbmctl/images"
+      containerDataDir: "/usr/share/nginx/html",
+      containerName: "vbmctl-image-server"`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx, cancel := contextWithSignal()
 			defer cancel()
@@ -216,6 +222,16 @@ Example configuration:
 
 			if len(cfg.Spec.VMs) == 0 {
 				return errors.New("no VMs defined in configuration (spec.vms is empty)")
+			}
+
+			if cfg.Spec.ImageServer != nil {
+				err = containers.CreateImageServerInstance(ctx, cfg.Spec.ImageServer)
+				if err != nil {
+					return err
+				}
+			} else {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("No image server configuration found in the config file.")
 			}
 
 			conn, err := libvirtgo.NewConnect(cfg.Spec.Libvirt.URI)
@@ -327,6 +343,83 @@ func newCreateNetworkCmd() *cobra.Command {
 	return cmd
 }
 
+func newCreateImageServerCmd() *cobra.Command {
+	var (
+		containerName               string
+		image                       string
+		imageServerPort             uint16
+		imageServerContainerPort    uint16
+		imageServerDataDir          string
+		imageServerContainerDataDir string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "image-server",
+		Short: "Create an image server instance",
+		Long:  "Create an image server instance to be used for provisioning.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+
+			// Resolve effective image server config: config file values, falling back to defaults.
+			// Command-line flags take precedence over both.
+			effective := &vbmctlapi.ImageServerConfig{
+				Image:            config.DefaultImageServerImage,
+				Port:             config.DefaultImageServerPort,
+				ContainerPort:    config.DefaultImageServerContainerPort,
+				DataDir:          config.DefaultImageServerDataDir,
+				ContainerDataDir: config.DefaultContainerDataDir,
+				ContainerName:    config.DefaultImageServerContainerName,
+			}
+			if cfg.Spec.ImageServer != nil {
+				effective = cfg.Spec.ImageServer
+			}
+
+			if image == "" {
+				image = effective.Image
+			}
+			if imageServerPort == 0 {
+				imageServerPort = effective.Port
+			}
+			if imageServerContainerPort == 0 {
+				imageServerContainerPort = effective.ContainerPort
+			}
+			if imageServerDataDir == "" {
+				imageServerDataDir = effective.DataDir
+			}
+			if imageServerContainerDataDir == "" {
+				imageServerContainerDataDir = effective.ContainerDataDir
+			}
+			if containerName == "" {
+				containerName = effective.ContainerName
+			}
+
+			return containers.CreateImageServerInstance(ctx, &vbmctlapi.ImageServerConfig{
+				Image:            image,
+				Port:             imageServerPort,
+				ContainerPort:    imageServerContainerPort,
+				DataDir:          imageServerDataDir,
+				ContainerDataDir: imageServerContainerDataDir,
+				ContainerName:    containerName,
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&containerName, "name", "", "name of the image server container (default is "+config.DefaultImageServerContainerName+" if not set in config file)")
+	cmd.Flags().StringVar(&image, "image", "", "container image to use for the image server (default is "+config.DefaultImageServerImage+" if not set in config file)")
+	cmd.Flags().Uint16Var(&imageServerPort, "host-port", 0, "host port to bind the image server to (default is "+strconv.Itoa(int(config.DefaultImageServerPort))+" if not set in config file)")
+	cmd.Flags().Uint16Var(&imageServerContainerPort, "container-port", 0, "container port that the image server listens on (default is "+strconv.Itoa(int(config.DefaultImageServerContainerPort))+" if not set in config file)")
+	cmd.Flags().StringVar(&imageServerDataDir, "image-dir", "", "host directory to mount as a volume for the image server (default is "+config.DefaultImageServerDataDir+" if not set in config file)")
+	cmd.Flags().StringVar(&imageServerContainerDataDir, "container-dir", "", "directory inside the container to mount the data volume to (default is "+config.DefaultContainerDataDir+" if not set in config file)")
+
+	return cmd
+}
+
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
@@ -337,6 +430,7 @@ func newDeleteCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteVMCmd())
 	cmd.AddCommand(newDeleteBMLCmd())
 	cmd.AddCommand(newDeleteNetworkCmd())
+	cmd.AddCommand(newDeleteImageServerCmd())
 	return cmd
 }
 
@@ -459,6 +553,18 @@ func newDeleteBMLCmd() *cobra.Command {
 				fmt.Printf("  - %s\n", name)
 			}
 
+			if cfg.Spec.ImageServer != nil {
+				err := containers.DeleteImageServerInstance(ctx, cfg.Spec.ImageServer.ContainerName)
+				// don't fail the whole command if image server deletion fails, just log the error
+				if err != nil {
+					//nolint:forbidigo // CLI output is intentional
+					fmt.Printf("%v\n", err)
+				}
+			} else {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("No image server configuration found in the config file.")
+			}
+
 			return nil
 		},
 	}
@@ -506,7 +612,43 @@ func newDeleteNetworkCmd() *cobra.Command {
 	return cmd
 }
 
+func newDeleteImageServerCmd() *cobra.Command {
+	var containerName string
+
+	cmd := &cobra.Command{
+		Use:   "image-server",
+		Short: "Delete the image server instance",
+		Long:  "Delete the image server instance used for provisioning.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+
+			// command-line flag takes precedence over config file value
+			if containerName == "" {
+				if cfg.Spec.ImageServer != nil {
+					containerName = cfg.Spec.ImageServer.ContainerName
+				} else {
+					containerName = config.DefaultImageServerContainerName
+				}
+			}
+
+			return containers.DeleteImageServerInstance(ctx, containerName)
+		},
+	}
+
+	cmd.Flags().StringVar(&containerName, "name", "", "name of the image server container to delete (default is "+config.DefaultImageServerContainerName+" if not set in config file)")
+
+	return cmd
+}
+
 func newStatusCmd() *cobra.Command {
+	var containerName string
+
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show status of the environment",
@@ -539,6 +681,22 @@ func newStatusCmd() *cobra.Command {
 				return fmt.Errorf("failed to list VMs: %w", err)
 			}
 
+			// command-line flag takes precedence over config file value
+			if containerName == "" {
+				if cfg.Spec.ImageServer != nil {
+					containerName = cfg.Spec.ImageServer.ContainerName
+				} else {
+					containerName = config.DefaultImageServerContainerName
+				}
+			}
+			// check if the image server is present
+			containerInfo, err := containers.GetImageServerInfo(ctx, containerName)
+			if err != nil {
+				return err
+			}
+
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Printf("Image Server container: %s\n", containerInfo)
 			//nolint:forbidigo // CLI output is intentional
 			fmt.Println("Virtual Machines:")
 			//nolint:forbidigo // CLI output is intentional
@@ -552,6 +710,8 @@ func newStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&containerName, "name", "", "name of the image server container (default is "+config.DefaultImageServerContainerName+" if not set in config file)")
 
 	return cmd
 }
@@ -623,6 +783,16 @@ func newConfigViewCmd() *cobra.Command {
 				}
 			}
 
+			if cfg.Spec.ImageServer != nil {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("Image Server:\n  Image: %s\n  Host Port: %d\n  Container Port: %d\n  Data Dir: %s\n  Container Name: %s\n",
+					cfg.Spec.ImageServer.Image,
+					cfg.Spec.ImageServer.Port,
+					cfg.Spec.ImageServer.ContainerPort,
+					cfg.Spec.ImageServer.DataDir,
+					cfg.Spec.ImageServer.ContainerName)
+			}
+
 			return nil
 		},
 	}
@@ -637,7 +807,7 @@ func newVersionCmd() *cobra.Command {
 		Long:  "Print the version of vbmctl.",
 		Run: func(_ *cobra.Command, _ []string) {
 			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("vbmctl version %s\n", Version)
+			fmt.Printf("vbmctl version %s\n", config.Version)
 		},
 	}
 }

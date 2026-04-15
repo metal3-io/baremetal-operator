@@ -147,7 +147,7 @@ type Provisioner interface {
 	// PreprovisioningImageFormats returns a list of acceptable formats for a
 	// pre-provisioning image to be built by a PreprovisioningImage object. The
 	// list should be nil if no image build is requested.
-	PreprovisioningImageFormats() ([]metal3api.ImageFormat, error)
+	PreprovisioningImageFormats(ctx context.Context) ([]metal3api.ImageFormat, error)
 
 	// InspectHardware updates the HardwareDetails field of the host with
 	// details of devices discovered on the hardware. It may be called

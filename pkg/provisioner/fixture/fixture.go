@@ -149,7 +149,7 @@ func (p *fixtureProvisioner) Register(_ context.Context, _ provisioner.Managemen
 	return
 }
 
-func (p *fixtureProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat, error) {
+func (p *fixtureProvisioner) PreprovisioningImageFormats(_ context.Context) ([]metal3api.ImageFormat, error) {
 	return nil, nil
 }
 

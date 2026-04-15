@@ -833,7 +833,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		dirty = true
 	}
 
-	preprovImgFormats, err := prov.PreprovisioningImageFormats()
+	preprovImgFormats, err := prov.PreprovisioningImageFormats(ctx)
 	if err != nil {
 		return actionError{err}
 	}

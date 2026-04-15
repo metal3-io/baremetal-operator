@@ -262,6 +262,14 @@ type Result struct {
 	RequeueAfter time.Duration
 	// Any error message produced by the provisioner.
 	ErrorMessage string
+	// CurrentActivity indicates what the provisioner is currently doing.
+	CurrentActivity string
+	// Progress is a string reporting the progress, e.g., "3/5 Steps Completed".
+	Progress string
+	// CurrentStepIndex is the index of the currently executing step.
+	CurrentStepIndex int
+	// AllSteps contains a list of all step names involved in the current operation.
+	AllSteps []metal3api.ProvisioningStep
 }
 
 // HardwareState holds the response from an UpdateHardwareState call.

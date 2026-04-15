@@ -1029,6 +1029,10 @@ spec:
                     - UEFISecureBoot
                     - legacy
                     type: string
+                  currentActivity:
+                    description: An indicator of what action is being executed by
+                      the provisioner.
+                    type: string
                   customDeploy:
                     description: Custom deploy procedure applied to the host.
                     properties:
@@ -1112,6 +1116,10 @@ spec:
                     required:
                     - url
                     type: object
+                  progress:
+                    description: A string representing the progress of the current
+                      operation (e.g., "3/5 Steps Completed").
+                    type: string
                   raid:
                     description: The RAID configuration that has been applied.
                     properties:
@@ -1331,6 +1339,24 @@ spec:
                     description: An indicator for what the provisioner is doing with
                       the host.
                     type: string
+                  steps:
+                    description: The detailed history of operations performed
+                    items:
+                      description: ProvisioningStep represents a single step in the
+                        provisioning or deprovisioning process.
+                      properties:
+                        name:
+                          description: The name of the provisioning step (e.g. write_image).
+                          type: string
+                        state:
+                          description: The state of the step (in progress, completed,
+                            failed).
+                          type: string
+                      required:
+                      - name
+                      - state
+                      type: object
+                    type: array
                 required:
                 - ID
                 - state

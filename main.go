@@ -100,6 +100,19 @@ func setupChecks(mgr ctrl.Manager) {
 	}
 }
 
+// setupWebhookReadinessCheck adds a readiness check that blocks the pod from
+// entering "Ready" state (and thus from being added to the Service's endpoints)
+// until the webhook server is actually listening. This prevents a race where
+// the Kubernetes API server tries to route admission webhook calls to this pod
+// before the webhook TLS server is up, which would cause "no endpoints
+// available" errors for BareMetalHost operations.
+func setupWebhookReadinessCheck(mgr ctrl.Manager) {
+	if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+		setupLog.Error(err, "unable to create ready check for webhook server")
+		os.Exit(1)
+	}
+}
+
 func setupWebhooks(mgr ctrl.Manager) {
 	if err := (&webhooks.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
@@ -401,6 +414,7 @@ func main() {
 	setupChecks(mgr)
 
 	if enableWebhook {
+		setupWebhookReadinessCheck(mgr)
 		setupWebhooks(mgr)
 	}
 

@@ -34,11 +34,13 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -47,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -58,6 +61,15 @@ const (
 	clarifySoftPoweroffFailure    = "Continuing with hard poweroff after soft poweroff fails. More details: "
 	hardwareDataFinalizer         = metal3api.BareMetalHostFinalizer + "/hardwareData"
 	NotReady                      = "Not ready"
+
+	// rateLimiterBaseDelay is the initial delay for the exponential backoff rate limiter.
+	rateLimiterBaseDelay = 5 * time.Millisecond
+	// rateLimiterMaxDelay caps the exponential backoff to avoid long reconciliation lockouts.
+	rateLimiterMaxDelay = 30 * time.Second
+	// rateLimiterBursts is the token bucket burst size for the rate limiter.
+	rateLimiterBursts = 100
+	// rateLimiterRequestsPerSecond is the steady-state rate (requests per second) for the token bucket rate limiter.
+	rateLimiterRequestsPerSecond = 10
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object.
@@ -2483,13 +2495,27 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 
 // SetupWithManager registers the reconciler to be run by the manager.
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgEnable bool, maxConcurrentReconcile int) error {
+	// Cap the exponential backoff at 30 seconds instead of the default 1000 seconds.
+	// Without this cap, transient "no endpoints available" errors on the BMO validating
+	// webhook (which occur during the brief window between BMO becoming ready and its
+	// Service endpoint being propagated) can push the rate limiter to its maximum delay.
+	// At the 1000s cap a single such burst locks out BareMetalHost reconciliation for
+	// up to ~16 minutes after the webhook becomes reachable.
+	rateLimiter := workqueue.NewTypedMaxOfRateLimiter(
+		workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](rateLimiterBaseDelay, rateLimiterMaxDelay),
+		&workqueue.TypedBucketRateLimiter[reconcile.Request]{Limiter: rate.NewLimiter(rate.Limit(rateLimiterRequestsPerSecond), rateLimiterBursts)},
+	)
+
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.BareMetalHost{}).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: r.updateEventHandler,
 			}).
-		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: maxConcurrentReconcile,
+			RateLimiter:             rateLimiter,
+		}).
 		Owns(&corev1.Secret{}, builder.MatchEveryOwner)
 
 	if preprovImgEnable {

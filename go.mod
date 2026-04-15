@@ -16,6 +16,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	go.etcd.io/etcd/client/pkg/v3 v3.6.10
 	go.uber.org/zap v1.27.1
+	golang.org/x/time v0.9.0
 	k8s.io/api v0.34.6
 	k8s.io/apimachinery v0.34.6
 	k8s.io/client-go v0.34.6
@@ -92,7 +93,6 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
-	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409 // indirect

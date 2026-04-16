@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"cmp"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -30,9 +31,7 @@ import (
 	webhooks "github.com/metal3-io/baremetal-operator/internal/webhooks/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/version"
 	ironicv1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -72,6 +71,9 @@ var (
 )
 
 const leaderElectionID = "baremetal-operator"
+
+// defaultIronicPluginPath is where the BMO image bakes the ironic provisioner plugin.
+const defaultIronicPluginPath = "/plugins/ironic-provisioner.so"
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
@@ -132,7 +134,7 @@ func main() {
 	var preprovImgEnable bool
 	var devLogging bool
 	var runInTestMode bool
-	var runInDemoMode bool
+	var provisionerPlugin string
 	var webhookPort int
 	var restConfigQPS float64
 	var restConfigBurst int
@@ -155,8 +157,8 @@ func main() {
 	flag.BoolVar(&preprovImgEnable, "build-preprov-image", false, "enable integration with the PreprovisioningImage API")
 	flag.BoolVar(&devLogging, "dev", false, "enable developer logging")
 	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
-	flag.BoolVar(&runInDemoMode, "demo-mode", false,
-		"use the demo provisioner to set host states")
+	flag.StringVar(&provisionerPlugin, "provisioner-plugin", os.Getenv("PROVISIONER_PLUGIN"),
+		"Path to a Go plugin .so implementing the provisioner Factory. Defaults to "+defaultIronicPluginPath+".")
 	flag.StringVar(&healthAddr, "health-addr", ":9440",
 		"The address the health endpoint binds to.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, //nolint:mnd
@@ -317,22 +319,25 @@ func main() {
 	if runInTestMode {
 		ctrl.Log.Info("using test provisioner")
 		provisionerFactory = &fixture.Fixture{}
-	} else if runInDemoMode {
-		ctrl.Log.Info("using demo provisioner")
-		provisionerFactory = &demo.Demo{}
 	} else {
+		pluginPath := cmp.Or(provisionerPlugin, defaultIronicPluginPath)
 		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
-		// Check if we should use Ironic CR integration
-		if ironicName != "" && ironicNamespace != "" {
-			provisionerFactory, err = ironic.NewProvisionerFactoryWithClient(provLog, preprovImgEnable,
-				mgr.GetClient(), mgr.GetAPIReader(), ironicName, ironicNamespace)
-		} else {
-			provisionerFactory, err = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
+		var hostFeatures []provisioner.HostFeature
+		if preprovImgEnable {
+			hostFeatures = append(hostFeatures, provisioner.FeaturePreprovImg)
 		}
+		var pluginName string
+		provisionerFactory, pluginName, err = provisioner.LoadProvisionerPlugin(pluginPath, provisioner.PluginConfig{
+			Logger:    provLog,
+			Features:  hostFeatures,
+			K8sClient: mgr.GetClient(),
+			APIReader: mgr.GetAPIReader(),
+		})
 		if err != nil {
-			setupLog.Error(err, "cannot start ironic provisioner")
+			setupLog.Error(err, "cannot load provisioner plugin", "path", pluginPath)
 			os.Exit(1)
 		}
+		ctrl.Log.Info("loaded provisioner plugin", "name", pluginName, "path", pluginPath)
 	}
 
 	maxConcurrency, err := getMaxConcurrentReconciles(controllerConcurrency)

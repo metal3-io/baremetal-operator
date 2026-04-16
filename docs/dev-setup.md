@@ -1,5 +1,24 @@
 # Setup Development Environment
 
+## Toolchain prerequisites
+
+BMO ships its provisioners as Go plugins (`.so` files), so building the
+manager and the bundled plugins locally requires:
+
+- A C compiler (`gcc` on Debian/Ubuntu, `cc` on Fedora/Arch). `make manager`
+  builds the ironic and demo plugins via `go build -buildmode=plugin`, which
+  needs `CGO_ENABLED=1` and a working C toolchain.
+- The Go version printed by `make go-version`. Plugins must be built with
+  the same Go toolchain as the host binary, so version mismatches surface
+  as "plugin was built with a different version of package …" errors at
+  load time.
+
+`make run` and `make demo` build the relevant plugin into `bin/` and run the
+manager with `PROVISIONER_PLUGIN_DIR=$PWD/bin`. `make run-test-mode` runs the
+manager with `-provisioner=fixture`, which skips plugin loading entirely
+because the fixture provisioner is compiled into the manager binary — this
+is the easiest way to iterate without installing a C toolchain.
+
 ## With minikube
 
 1. Install and launch minikube
@@ -62,8 +81,8 @@
 
 In environments where Ironic is not available, and the only real need
 is to be able to have some test data, use the test fixture provisioner
-instead of the real Ironic provisioner by passing `-test-mode` to the
-operator when launching it.
+instead of the real Ironic provisioner by passing `-provisioner=fixture`
+to the operator when launching it.
 
 ```bash
 make run-test-mode

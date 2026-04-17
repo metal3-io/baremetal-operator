@@ -1997,7 +1997,9 @@ func (p *ironicProvisioner) HasPowerFailure(ctx context.Context) bool {
 func (p *ironicProvisioner) GetHealth(ctx context.Context) string {
 	node, err := p.getNode(ctx)
 	if err != nil {
-		p.log.Error(err, "ignored error while checking health status")
+		if !errors.Is(err, provisioner.ErrNeedsRegistration) {
+			p.log.Error(err, "ignored error while checking health status")
+		}
 		return ""
 	}
 	return node.Health

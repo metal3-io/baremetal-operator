@@ -1103,8 +1103,10 @@ func (image *Image) GetChecksum() (checksum, checksumType string, err error) {
 		return "", "", nil
 	}
 
-	// Checksum is not required for OCI images as they have embedded checksums
-	if image.IsOCI() && image.Checksum == "" {
+	if image.IsOCI() {
+		if image.Checksum != "" {
+			return "", "", errors.New("checksum must be empty for OCI images")
+		}
 		return "", "", nil
 	}
 

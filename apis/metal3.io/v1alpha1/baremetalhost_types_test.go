@@ -492,7 +492,7 @@ func TestGetImageChecksum(t *testing.T) {
 					},
 				},
 			},
-			Expected:     true,
+			Expected:     false,
 			ExpectedType: "",
 		},
 		{

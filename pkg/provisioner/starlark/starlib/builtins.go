@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,7 +60,40 @@ func Builtins() starlark.StringDict {
 		"read_file":        starlark.NewBuiltin("read_file", builtinReadFile),
 		"yaml_decode":      starlark.NewBuiltin("yaml_decode", builtinYAMLDecode),
 		"yaml_encode":      starlark.NewBuiltin("yaml_encode", builtinYAMLEncode),
+		"base64_encode":    starlark.NewBuiltin("base64_encode", builtinBase64Encode),
+		"base64_decode":    starlark.NewBuiltin("base64_decode", builtinBase64Decode),
+		"read_host_secret": starlark.NewBuiltin("read_host_secret", builtinReadHostSecret),
+		"read_host_spec":   starlark.NewBuiltin("read_host_spec", builtinReadHostSpec),
 	}
+}
+
+// Starlark base64_encode(string): return standard base64 of the input (UTF-8 / byte string).
+func builtinBase64Encode(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+	var s starlark.String
+
+	err := starlark.UnpackPositionalArgs("base64_encode", args, nil, 1, &s)
+	if err != nil {
+		return starlark.None, err
+	}
+
+	return starlark.String(base64.StdEncoding.EncodeToString([]byte(string(s)))), nil
+}
+
+// Starlark base64_decode(string): return the raw bytes as a Starlark string; errors on invalid input.
+func builtinBase64Decode(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+	var s starlark.String
+
+	err := starlark.UnpackPositionalArgs("base64_decode", args, nil, 1, &s)
+	if err != nil {
+		return starlark.None, err
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(string(s))
+	if err != nil {
+		return starlark.None, fmt.Errorf("base64_decode: %w", err)
+	}
+
+	return starlark.String(string(decoded)), nil
 }
 
 // Starlark yaml_decode(string): parse YAML/JSON into a Starlark value.

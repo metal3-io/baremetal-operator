@@ -343,6 +343,21 @@ def parse_bmc_address(bmc_addr):
         "redfish_system_id": system_id,
     }
 
+def resolve_ironic_network_data():
+    """Resolve Ironic node.network_data for IPA ramdisk: preprov secret first, then Spec.NetworkData."""
+    nd_raw = read_host_secret("preprovisioningNetworkData")
+    if not nd_raw:
+        nd_raw = read_host_secret("networkData")
+    if not nd_raw:
+        return None
+    nd = yaml_decode(nd_raw)
+
+    # Ironic schema requires network_id on each network entry; CAPM3 omits it.
+    for net in nd.get("networks", []):
+        if "network_id" not in net:
+            net["network_id"] = net.get("id", "")
+    return nd
+
 def create_node(bmc_addr, bmc_user, bmc_password, boot_mac, data):
     """Creates a new node in Ironic via POST /v1/nodes."""
     bmc = parse_bmc_address(bmc_addr)
@@ -373,9 +388,9 @@ def create_node(bmc_addr, bmc_user, bmc_password, boot_mac, data):
             "cpu_arch": cpu_arch,
         },
     }
-    nd_raw = data.get("PreprovisioningNetworkData", "")
-    if nd_raw:
-        body["network_data"] = yaml_decode(nd_raw)
+    nd = resolve_ironic_network_data()
+    if nd:
+        body["network_data"] = nd
     node, status = http_post("/v1/nodes", body)
     if status == 409:
         return None, status
@@ -432,11 +447,9 @@ def build_register_patch(node, data, _creds_changed):
         ops.append(patch_op("add", "/driver_info/deploy_ramdisk", DEPLOY_RAMDISK_URL))
 
     # Network data for IPA (so it can reach Ironic callback endpoint)
-    nd_raw = data.get("PreprovisioningNetworkData", "")
-    if nd_raw:
-        nd = yaml_decode(nd_raw)
-        if nd != node.get("network_data"):
-            ops.append(patch_op("add", "/network_data", nd))
+    nd = resolve_ironic_network_data()
+    if nd and nd != node.get("network_data"):
+        ops.append(patch_op("add", "/network_data", nd))
 
     return ops
 
@@ -759,9 +772,18 @@ def adopt(host, data, restart_on_failure):
     return {}
 
 def prepare(host, data, _unprepared, _restart_on_failure):
-    """Reject RAID; prepare itself is not implemented."""
+    """Reject RAID; sync network_data on the Ironic node for cleaning boots."""
     require_redfish_virtualmedia(host)
     require_no_raid(data)
+
+    prov_id = host[HOST_PROVISIONER_ID]
+    if prov_id:
+        nd = resolve_ironic_network_data()
+        if nd:
+            node, status = http_get("/v1/nodes/" + prov_id, ignore_statuses = [404])
+            if status == 200 and node and nd != node.get("network_data"):
+                http_patch("/v1/nodes/" + prov_id, [patch_op("add", "/network_data", nd)])
+
     return {"started": False}
 
 def service(host, _data, _unprepared, _restart_on_failure):
@@ -777,6 +799,11 @@ def provision(host, data, force_reboot):
     node, status = http_get("/v1/nodes/" + prov_id)
     if status != 200 or not node:
         return {"dirty": True, "error": "provision: cannot get node"}
+
+    # Sync network_data so the deploy ramdisk boots with network config.
+    nd = resolve_ironic_network_data()
+    if nd and nd != node.get("network_data"):
+        http_patch("/v1/nodes/" + prov_id, [patch_op("add", "/network_data", nd)])
 
     state = node.get("provision_state", "")
 
@@ -926,6 +953,11 @@ def deprovision(host, restart_on_failure, automated_cleaning_mode):
     if status != 200 or not node:
         return {"dirty": True, "error": "deprovision: cannot get node"}
 
+    # Sync network_data so the cleaning ramdisk boots with network config.
+    nd = resolve_ironic_network_data()
+    if nd and nd != node.get("network_data"):
+        http_patch("/v1/nodes/" + prov_id, [patch_op("add", "/network_data", nd)])
+
     state = node.get("provision_state", "")
 
     # Sync automated_clean setting
@@ -979,6 +1011,11 @@ def delete(host):
         return {}
     if status != 200 or not node:
         return {"dirty": True, "error": "delete: cannot get node"}
+
+    # Sync network_data so any cleaning triggered by delete has network config.
+    nd = resolve_ironic_network_data()
+    if nd and nd != node.get("network_data"):
+        http_patch("/v1/nodes/" + prov_id, [patch_op("add", "/network_data", nd)])
 
     state = node.get("provision_state", "")
 

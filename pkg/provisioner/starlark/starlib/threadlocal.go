@@ -23,4 +23,10 @@ const (
 	CtxThreadLocal = "metal3-context"
 	// Carries the per-host logr.Logger for log_info/log_debug/log_error.
 	LoggerThreadLocal = "metal3-logger"
+	// Carries the HostResolver for read_host_secret and read_host_spec.
+	HostResolverThreadLocal = "metal3-host-resolver"
+	// Carries the BMH namespace string (coordinates for HostResolver calls).
+	HostNamespaceThreadLocal = "metal3-host-namespace"
+	// Carries the BMH name string (coordinates for HostResolver calls).
+	HostNameThreadLocal = "metal3-host-name"
 )

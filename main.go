@@ -343,7 +343,15 @@ func main() {
 		provisionerFactory = &demo.Demo{}
 	} else if starlarkScript != "" {
 		ctrl.Log.Info("using starlark provisioner", "script", starlarkScript)
-		provisionerFactory, err = starlarkprov.NewProvisionerFactory(starlarkScript)
+		hostResolver := &starlarkprov.KubeHostResolver{
+			Client: mgr.GetClient(),
+			SecretManager: secretutils.NewSecretManager(
+				ctrl.Log.WithName("starlark-host-resolver"),
+				mgr.GetClient(),
+				mgr.GetAPIReader(),
+			),
+		}
+		provisionerFactory, err = starlarkprov.NewProvisionerFactory(starlarkScript, hostResolver)
 		if err != nil {
 			setupLog.Error(err, "cannot start starlark provisioner")
 			os.Exit(1)

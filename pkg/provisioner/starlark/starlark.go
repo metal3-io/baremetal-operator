@@ -42,21 +42,23 @@ var log = logf.Log.WithName("provisioner").WithName("starlark")
 
 // Frozen script globals shared across per-host provisioner instances.
 type starlarkProvisionerFactory struct {
-	globals    starlark.StringDict
-	scriptPath string
-	log        logr.Logger
+	globals        starlark.StringDict
+	scriptPath     string
+	log            logr.Logger
+	secretResolver starlib.HostResolver
 }
 
 // Per-host state shared by every provisioner.Provisioner method (defined in provisioner.go).
 type starlarkProvisioner struct {
-	globals   starlark.StringDict
-	publisher provisioner.EventPublisher
-	hostData  provisioner.HostData
-	log       logr.Logger
+	globals        starlark.StringDict
+	publisher      provisioner.EventPublisher
+	hostData       provisioner.HostData
+	log            logr.Logger
+	secretResolver starlib.HostResolver
 }
 
 // NewProvisionerFactory loads the Starlark script and validates that every required function is callable.
-func NewProvisionerFactory(scriptPath string) (provisioner.Factory, error) {
+func NewProvisionerFactory(scriptPath string, secretResolver starlib.HostResolver) (provisioner.Factory, error) {
 	globals, err := starscript.LoadScript(scriptPath, starlib.Builtins())
 	if err != nil {
 		return nil, fmt.Errorf("starlark provisioner: %w", err)
@@ -67,9 +69,10 @@ func NewProvisionerFactory(scriptPath string) (provisioner.Factory, error) {
 	}
 
 	return &starlarkProvisionerFactory{
-		globals:    globals,
-		scriptPath: scriptPath,
-		log:        log,
+		globals:        globals,
+		scriptPath:     scriptPath,
+		log:            log,
+		secretResolver: secretResolver,
 	}, nil
 }
 
@@ -80,10 +83,11 @@ func (f *starlarkProvisionerFactory) NewProvisioner(
 	publisher provisioner.EventPublisher,
 ) (provisioner.Provisioner, error) {
 	return &starlarkProvisioner{
-		globals:   f.globals,
-		hostData:  hostData,
-		log:       f.log.WithValues("host", hostData.ObjectMeta.Name),
-		publisher: publisher,
+		globals:        f.globals,
+		hostData:       hostData,
+		log:            f.log.WithValues("host", hostData.ObjectMeta.Name),
+		publisher:      publisher,
+		secretResolver: f.secretResolver,
 	}, nil
 }
 
@@ -94,6 +98,11 @@ func (p *starlarkProvisioner) CallScriptWithPublisher(ctx context.Context, name 
 		thread.SetLocal(starlib.PublisherThreadLocal, p.publisher)
 	}
 	thread.SetLocal(starlib.LoggerThreadLocal, p.log)
+	if p.secretResolver != nil {
+		thread.SetLocal(starlib.HostResolverThreadLocal, p.secretResolver)
+	}
+	thread.SetLocal(starlib.HostNamespaceThreadLocal, p.hostData.ObjectMeta.Namespace)
+	thread.SetLocal(starlib.HostNameThreadLocal, p.hostData.ObjectMeta.Name)
 
 	// Per-call ctx so the watcher goroutine exits whenever the call returns.
 	callCtx, cancel := context.WithCancel(ctx)

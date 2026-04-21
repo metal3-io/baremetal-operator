@@ -49,9 +49,12 @@ export GOFLAGS=
 #
 # Ginkgo configuration.
 #
+# We default to fixture tests, since they are fast and require little
+# both in terms of resources and tooling.
+# Note that some tests may not make sense for fixture, so we skip them.
 GINKGO_FOCUS ?=
 GINKGO_SKIP ?=
-GINKGO_SKIP_LABELS ?=
+GINKGO_SKIP_LABELS ?= automated-cleaning
 GINKGO_NODES ?= 2
 GINKGO_TIMEOUT ?= 3h
 GINKGO_POLL_PROGRESS_AFTER ?= 60m
@@ -444,6 +447,7 @@ clean: ## Remove all temporary files, directories and tools
 	rm -rf ironic-deployment/overlays/temp
 	rm -rf config/overlays/temp
 	rm -rf $(TOOLS_BIN_DIR)
+	rm -rf tools/bin
 
 .PHONY: clean-e2e
 clean-e2e: ## Remove everything related to e2e tests

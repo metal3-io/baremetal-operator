@@ -35,6 +35,9 @@ echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
 export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
+# make test-e2e runs the fixture tests by default and skips some tests
+# that don't make sense in that context. We need to override.
+export GINKGO_SKIP_LABELS="${GINKGO_SKIP_LABELS:-}"
 GINKGO_FOCUS="${GINKGO_FOCUS:-}"
 
 case "${GINKGO_FOCUS,,}" in

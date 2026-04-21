@@ -464,11 +464,17 @@ func (hsm *hostStateMachine) handleExternallyProvisioned(ctx context.Context, in
 		return hsm.Reconciler.actionManageSteadyState(ctx, hsm.Provisioner, info)
 	}
 
-	if hsm.Host.NeedsHardwareInspection() {
-		hsm.NextState = metal3api.StateInspecting
-	} else {
-		hsm.NextState = metal3api.StatePreparing
+	// The host is exiting externally provisioned at this point.
+	// Set image and customDeploy in status to prevent unconditional deprovisioning.
+	if hsm.Host.Spec.Image != nil {
+		hsm.Host.Status.Provisioning.Image = *hsm.Host.Spec.Image
 	}
+	if hsm.Host.Spec.CustomDeploy != nil {
+		hsm.Host.Status.Provisioning.CustomDeploy = hsm.Host.Spec.CustomDeploy.DeepCopy()
+	}
+
+	// Move to Provisioned. If image and customDeploy are not set, deprovisioning will start on the next reconciliation.
+	hsm.NextState = metal3api.StateProvisioned
 	return actionComplete{}
 }
 

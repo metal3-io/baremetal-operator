@@ -1581,7 +1581,56 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
 	})
 
-	t.Run("externally provisioned to inspecting", func(t *testing.T) {
+	t.Run("externally provisioned to provisioned", func(t *testing.T) {
+		host := newDefaultHost(t)
+		host.Spec.Online = true
+		host.Spec.ExternallyProvisioned = true
+		host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+		r := newTestReconciler(t, host)
+
+		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
+
+		host.Spec.ExternallyProvisioned = false
+		err := r.Update(t.Context(), host)
+		require.NoError(t, err)
+		t.Log("set externally provisioned to false")
+
+		tryReconcile(t, r, host,
+			func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+				return host.Status.Provisioning.State == metal3api.StateProvisioned &&
+					host.Status.Provisioning.Image.URL == "foo"
+			},
+		)
+		assert.Equal(t, "foo", host.Status.Provisioning.Image.URL)
+		assert.Equal(t, "123", host.Status.Provisioning.Image.Checksum)
+		assert.Nil(t, host.Status.Provisioning.CustomDeploy)
+	})
+
+	t.Run("externally provisioned to provisioned copies customDeploy to status", func(t *testing.T) {
+		host := newDefaultHost(t)
+		host.Spec.Online = true
+		host.Spec.ExternallyProvisioned = true
+		host.Spec.CustomDeploy = &metal3api.CustomDeploy{Method: "install_everything"}
+		r := newTestReconciler(t, host)
+
+		waitForProvisioningState(t, r, host, metal3api.StateExternallyProvisioned)
+
+		host.Spec.ExternallyProvisioned = false
+		err := r.Update(t.Context(), host)
+		require.NoError(t, err)
+
+		tryReconcile(t, r, host,
+			func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+				return host.Status.Provisioning.State == metal3api.StateProvisioned &&
+					host.Status.Provisioning.CustomDeploy != nil &&
+					host.Status.Provisioning.CustomDeploy.Method == "install_everything"
+			},
+		)
+		assert.Equal(t, "install_everything", host.Status.Provisioning.CustomDeploy.Method)
+		assert.Empty(t, host.Status.Provisioning.Image)
+	})
+
+	t.Run("externally provisioned without image deprovisions", func(t *testing.T) {
 		host := newDefaultHost(t)
 		host.Spec.Online = true
 		host.Spec.ExternallyProvisioned = true
@@ -1591,12 +1640,9 @@ func TestExternallyProvisionedTransitions(t *testing.T) {
 
 		host.Spec.ExternallyProvisioned = false
 		err := r.Update(t.Context(), host)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Log("set externally provisioned to false")
+		require.NoError(t, err)
 
-		waitForProvisioningState(t, r, host, metal3api.StateInspecting)
+		waitForProvisioningState(t, r, host, metal3api.StateDeprovisioning)
 	})
 
 	t.Run("preparing to externally provisioned", func(t *testing.T) {

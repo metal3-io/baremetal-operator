@@ -113,11 +113,6 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
 	}
 
-	// Disallow disabling externallyProvisioned.
-	if oldObj.Spec.ExternallyProvisioned && !newObj.Spec.ExternallyProvisioned {
-		errs = append(errs, errors.New("externallyProvisioned can not be changed from true to false"))
-	}
-
 	// Only allow enabling externallyProvisioned from Available state.
 	if !oldObj.Spec.ExternallyProvisioned && newObj.Spec.ExternallyProvisioned &&
 		newObj.Status.Provisioning.State != metal3api.StateAvailable {

@@ -37,7 +37,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			})
 		})
 
-		It("provisions a BMH as externally provisioned, validates state immutability, then deprovisions", func() {
+		It("provisions a BMH as externally provisioned, then removes the flag to deprovision", func() {
 			secretName := "bmc-credentials-external"
 			By("Creating a secret with BMH credentials")
 			bmcCredentialsData := map[string]string{
@@ -86,7 +86,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			Expect(bmh.Status.OperationHistory.Inspect.Start.IsZero()).To(BeTrue())
 			Expect(bmh.Status.OperationHistory.Provision.Start.IsZero()).To(BeTrue())
 
-			By("Attempting to set ExternallyProvisioned to false (should be blocked by webhook)")
+			By("Setting ExternallyProvisioned to false to trigger deprovisioning")
 			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 				Name:      bmh.Name,
 				Namespace: bmh.Namespace,
@@ -96,18 +96,99 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			patch := client.MergeFrom(bmh.DeepCopy())
 			bmh.Spec.ExternallyProvisioned = false
 			err = clusterProxy.GetClient().Patch(ctx, &bmh, patch)
-			Expect(err).To(HaveOccurred(), "Webhook should reject transition from true to false")
-			Expect(err.Error()).To(ContainSubstring("externallyProvisioned can not be changed from true to false"))
+			Expect(err).NotTo(HaveOccurred())
 
-			By("Verifying BMH remains in ExternallyProvisioned state")
+			By("Waiting for the BMH to reach Available state after deprovisioning")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.StateAvailable,
+			}, e2eConfig.GetIntervals(specName, "wait-available")...)
+		})
+
+		It("provisions a BMH as externally provisioned, then removes the flag but stays provisioned", func() {
+			secretName := "bmc-credentials-stay-provisioned"
+			By("Creating a secret with BMH credentials")
+			bmcCredentialsData := map[string]string{
+				"username": bmc.User,
+				"password": bmc.Password,
+			}
+			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			toCleanup = append(toCleanup, secret)
+
+			By("Creating a BMH as externally provisioned with image")
+			bmh := metal3api.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      specName + "-external",
+					Namespace: namespace.Name,
+				},
+				Spec: metal3api.BareMetalHostSpec{
+					Online: true,
+					BMC: metal3api.BMCDetails{
+						Address:                        bmc.Address,
+						CredentialsName:                secretName,
+						DisableCertificateVerification: bmc.DisableCertificateVerification,
+					},
+					BootMACAddress:        bmc.BootMacAddress,
+					ExternallyProvisioned: true,
+					Image: &metal3api.Image{
+						URL:      e2eConfig.GetVariable("IMAGE_URL"),
+						Checksum: e2eConfig.GetVariable("IMAGE_CHECKSUM"),
+					},
+				},
+			}
+			err := clusterProxy.GetClient().Create(ctx, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
+
+			By("Waiting for the BMH to become externally provisioned")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.StateExternallyProvisioned,
+			}, e2eConfig.GetIntervals(specName, "wait-externally-provisioned")...)
+
+			By("Retrieving the latest BMH object")
 			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 				Name:      bmh.Name,
 				Namespace: bmh.Namespace,
 			}, &bmh)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(bmh.Spec.ExternallyProvisioned).To(BeTrue(), "ExternallyProvisioned should still be true")
-			Expect(bmh.Status.Provisioning.State).To(Equal(metal3api.StateExternallyProvisioned))
 
+			By("Checking that the BMH was not inspected or deployed")
+			Expect(bmh.Status.OperationHistory.Inspect.Start.IsZero()).To(BeTrue())
+			Expect(bmh.Status.OperationHistory.Provision.Start.IsZero()).To(BeTrue())
+
+			By("Setting ExternallyProvisioned to false to transition to provisioned")
+			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmh.Name,
+				Namespace: bmh.Namespace,
+			}, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+
+			patch := client.MergeFrom(bmh.DeepCopy())
+			bmh.Spec.ExternallyProvisioned = false
+			err = clusterProxy.GetClient().Patch(ctx, &bmh, patch)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Waiting for the BMH to become provisioned")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.StateExternallyProvisioned,
+				// NOTE(dtantsur): using the smaller externally-provisioned interval on purpose since a real provisioning is not expected
+			}, e2eConfig.GetIntervals(specName, "wait-externally-provisioned")...)
+
+			By("Retrieving the latest BMH object")
+			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmh.Name,
+				Namespace: bmh.Namespace,
+			}, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking that the BMH was not inspected or deployed")
+			Expect(bmh.Status.OperationHistory.Inspect.Start.IsZero()).To(BeTrue())
+			Expect(bmh.Status.OperationHistory.Provision.Start.IsZero()).To(BeTrue())
 		})
 
 		It("transitions from Available to ExternallyProvisioned", func() {

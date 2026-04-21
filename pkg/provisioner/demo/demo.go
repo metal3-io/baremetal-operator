@@ -111,7 +111,7 @@ func (p *demoProvisioner) Register(_ context.Context, _ provisioner.ManagementAc
 	return
 }
 
-func (p *demoProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat, error) {
+func (p *demoProvisioner) PreprovisioningImageFormats(_ context.Context) ([]metal3api.ImageFormat, error) {
 	return nil, nil
 }
 

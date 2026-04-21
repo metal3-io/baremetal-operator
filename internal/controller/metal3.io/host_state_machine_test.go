@@ -1319,7 +1319,7 @@ func (m *mockProvisioner) Register(_ context.Context, _ provisioner.ManagementAc
 	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
 }
 
-func (m *mockProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat, error) {
+func (m *mockProvisioner) PreprovisioningImageFormats(_ context.Context) ([]metal3api.ImageFormat, error) {
 	return nil, nil
 }
 

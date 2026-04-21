@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -964,7 +965,7 @@ func TestPreprovisioningImageFormats(t *testing.T) {
 			prov, _ := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironicEndpoint, auth)
 			prov.config.havePreprovImgBuilder = tc.PreprovImgEnabled
 
-			fmts, err := prov.PreprovisioningImageFormats()
+			fmts, err := prov.PreprovisioningImageFormats(context.Background())
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.Expected, fmts)

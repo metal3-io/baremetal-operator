@@ -382,7 +382,7 @@ func (p *ironicProvisioner) configureNode(ctx context.Context, data provisioner.
 // PreprovisioningImageFormats returns a list of acceptable formats for a
 // pre-provisioning image to be built by a PreprovisioningImage object. The
 // list should be nil if no image build is requested.
-func (p *ironicProvisioner) PreprovisioningImageFormats() ([]metal3api.ImageFormat, error) {
+func (p *ironicProvisioner) PreprovisioningImageFormats(_ context.Context) ([]metal3api.ImageFormat, error) {
 	if !p.config.havePreprovImgBuilder {
 		return nil, nil
 	}

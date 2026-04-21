@@ -211,7 +211,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 				defer tc.env.TearDown()
 				tc.env.SetUp()
 				imgBuild := tt != ""
-				config, err := loadConfigFromEnv(imgBuild)
+				config, err := loadConfigFromEnv(imgBuild, false)
 				expectedError := tc.expectedError
 				if imgBuild {
 					expectedError = tc.expectedImgBuildError

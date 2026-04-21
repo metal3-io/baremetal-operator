@@ -71,6 +71,7 @@ type ironicConfig struct {
 	maxBusyHosts                          int
 	externalURL                           string
 	provNetDisabled                       bool
+	useFailureDomainAsConductorGroup      bool
 }
 
 // Provisioner implements the provisioning.Provisioner interface

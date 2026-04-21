@@ -140,6 +140,7 @@ func main() {
 	var leaseDurationSeconds string
 	var renewDeadlineSeconds string
 	var retryPeriodSeconds string
+	var useFailureDomainAsConductorGroup bool
 
 	// From CAPI point of view, BMO should be able to watch all namespaces
 	// in case of a deployment that is not multi-tenant. If the deployment
@@ -187,6 +188,8 @@ func main() {
 	flag.StringVar(&leaseDurationSeconds, "lease-duration-seconds", os.Getenv("LEASE_DURATION_SECONDS"), "Leader election duration in seconds.")
 	flag.StringVar(&renewDeadlineSeconds, "renew-deadline-seconds", os.Getenv("RENEW_DEADLINE_SECONDS"), "Leader election renew deadline duration in seconds.")
 	flag.StringVar(&retryPeriodSeconds, "retry-period-seconds", os.Getenv("RETRY_PERIOD_SECONDS"), "Leader election retry period in seconds.")
+	flag.BoolVar(&useFailureDomainAsConductorGroup, "use-failure-domain-as-conductor-group", false,
+		"Use failure domain label as Ironic conductor group")
 
 	flag.Parse()
 
@@ -324,10 +327,10 @@ func main() {
 		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
 		// Check if we should use Ironic CR integration
 		if ironicName != "" && ironicNamespace != "" {
-			provisionerFactory, err = ironic.NewProvisionerFactoryWithClient(provLog, preprovImgEnable,
+			provisionerFactory, err = ironic.NewProvisionerFactoryWithClient(provLog, preprovImgEnable, useFailureDomainAsConductorGroup,
 				mgr.GetClient(), mgr.GetAPIReader(), ironicName, ironicNamespace)
 		} else {
-			provisionerFactory, err = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
+			provisionerFactory, err = ironic.NewProvisionerFactory(provLog, preprovImgEnable, useFailureDomainAsConductorGroup)
 		}
 		if err != nil {
 			setupLog.Error(err, "cannot start ironic provisioner")

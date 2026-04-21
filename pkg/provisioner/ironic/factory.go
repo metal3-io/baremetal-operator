@@ -38,16 +38,16 @@ type ironicProvisionerFactory struct {
 	ironicNamespace string
 }
 
-func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder bool) (provisioner.Factory, error) {
+func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder, useFailureDomainAsConductorGroup bool) (provisioner.Factory, error) {
 	factory := ironicProvisionerFactory{
 		log: logger.WithName("ironic"),
 	}
 
-	err := factory.init(havePreprovImgBuilder)
+	err := factory.init(havePreprovImgBuilder, useFailureDomainAsConductorGroup)
 	return factory, err
 }
 
-func NewProvisionerFactoryWithClient(logger logr.Logger, havePreprovImgBuilder bool, k8sClient client.Client, apiReader client.Reader, ironicName, ironicNamespace string) (provisioner.Factory, error) {
+func NewProvisionerFactoryWithClient(logger logr.Logger, havePreprovImgBuilder, useFailureDomainAsConductorGroup bool, k8sClient client.Client, apiReader client.Reader, ironicName, ironicNamespace string) (provisioner.Factory, error) {
 	factory := ironicProvisionerFactory{
 		log:             logger.WithName("ironic"),
 		k8sClient:       k8sClient,
@@ -56,13 +56,13 @@ func NewProvisionerFactoryWithClient(logger logr.Logger, havePreprovImgBuilder b
 		ironicNamespace: ironicNamespace,
 	}
 
-	err := factory.init(havePreprovImgBuilder)
+	err := factory.init(havePreprovImgBuilder, useFailureDomainAsConductorGroup)
 	return factory, err
 }
 
-func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
+func (f *ironicProvisionerFactory) init(havePreprovImgBuilder, useFailureDomainAsConductorGroup bool) error {
 	var err error
-	f.config, err = loadConfigFromEnv(havePreprovImgBuilder)
+	f.config, err = loadConfigFromEnv(havePreprovImgBuilder, useFailureDomainAsConductorGroup)
 	if err != nil {
 		return err
 	}
@@ -75,6 +75,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 			"deployRamdiskURL", f.config.deployRamdiskURL,
 			"deployISOURL", f.config.deployISOURL,
 			"liveISOForcePersistentBootDevice", f.config.liveISOForcePersistentBootDevice,
+			"useFailureDomainAsConductorGroup", f.config.useFailureDomainAsConductorGroup,
 		)
 		// NOTE(dtantsur): the Ironic object will be loaded from the client cache on each reconciliation, so exiting here.
 		return nil
@@ -102,6 +103,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 		"deployISOURL", f.config.deployISOURL,
 		"liveISOForcePersistentBootDevice", f.config.liveISOForcePersistentBootDevice,
 		"directDeployForcePersistentBootDevice", f.config.directDeployForcePersistentBootDevice,
+		"useFailureDomainAsConductorGroup", f.config.useFailureDomainAsConductorGroup,
 		"CACertFile", tlsConf.TrustedCAFile,
 		"ClientCertFile", tlsConf.ClientCertificateFile,
 		"ClientPrivKeyFile", tlsConf.ClientPrivateKeyFile,
@@ -168,9 +170,10 @@ func (f ironicProvisionerFactory) NewProvisioner(ctx context.Context, hostData p
 	return f.ironicProvisioner(ctx, hostData, publisher)
 }
 
-func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
+func loadConfigFromEnv(havePreprovImgBuilder, useFailureDomainAsConductorGroup bool) (ironicConfig, error) {
 	c := ironicConfig{
-		havePreprovImgBuilder: havePreprovImgBuilder,
+		havePreprovImgBuilder:            havePreprovImgBuilder,
+		useFailureDomainAsConductorGroup: useFailureDomainAsConductorGroup,
 	}
 
 	c.deployKernelURL = os.Getenv("DEPLOY_KERNEL_URL")

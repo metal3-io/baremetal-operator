@@ -12,6 +12,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hostclaim"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"sigs.k8s.io/yaml"
@@ -154,6 +155,12 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// The updater only updates disable_power_off if it has changed
 		updater.SetTopLevelOpt("disable_power_off", data.DisablePowerOff, ironicNode.DisablePowerOff)
 
+		if p.config.useFailureDomainAsConductorGroup {
+			if labelValue, ok := p.objectMeta.Labels[hostclaim.FailureDomainLabelName]; ok {
+				updater.SetTopLevelOpt("conductor_group", labelValue, ironicNode.ConductorGroup)
+			}
+		}
+
 		// Update cpu_arch in Properties if specified.
 		// This is important for multi-arch deployments to ensure the correct
 		// architecture-specific IPA kernel/ramdisk is used via deploy_kernel_by_arch.
@@ -268,6 +275,12 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 			"capabilities": buildCapabilitiesValue(nil, data.BootMode),
 			"cpu_arch":     data.CPUArchitecture,
 		},
+	}
+
+	if p.config.useFailureDomainAsConductorGroup {
+		if labelValue, ok := p.objectMeta.Labels[hostclaim.FailureDomainLabelName]; ok {
+			nodeCreateOpts.ConductorGroup = labelValue
+		}
 	}
 
 	ironicNode, err = nodes.Create(ctx, p.client, nodeCreateOpts).Extract()

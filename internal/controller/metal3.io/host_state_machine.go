@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -266,17 +265,6 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 	return true
 }
 
-// hasDetachedAnnotation checks for existence of baremetalhost.metal3.io/detached.
-func hasDetachedAnnotation(host *metal3api.BareMetalHost) bool {
-	annotations := host.GetAnnotations()
-	if annotations != nil {
-		if _, ok := annotations[metal3api.DetachedAnnotation]; ok {
-			return true
-		}
-	}
-	return false
-}
-
 // skipReconcileSubresource checks if the applied annotations and status
 // prevent a subresource (HFS/HFC) from being reconciled.
 func skipReconcileSubresource(host *metal3api.BareMetalHost, logger logr.Logger) bool {
@@ -300,27 +288,6 @@ func skipReconcileSubresource(host *metal3api.BareMetalHost, logger logr.Logger)
 	return false
 }
 
-func delayDeleteForDetachedHost(host *metal3api.BareMetalHost) bool {
-	annotations := host.GetAnnotations()
-	args := metal3api.DetachedAnnotationArguments{}
-	val, present := annotations[metal3api.DetachedAnnotation]
-
-	// if the host is detached, but missing the annotation, also delay delete
-	// to allow for the host to be re-attached
-	if !present && host.OperationalStatus() == metal3api.OperationalStatusDetached {
-		return true
-	}
-
-	if present {
-		if err := json.Unmarshal([]byte(val), &args); err != nil {
-			// default behavior if these are missing or not json is to not delay
-			return false
-		}
-	}
-
-	return args.DeleteAction == metal3api.DetachedDeleteActionDelay
-}
-
 func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconcileInfo) (result actionResult) {
 	// If the detached annotation is set we remove any host from the
 	// provisioner and take no further action
@@ -333,7 +300,14 @@ func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconc
 		case metal3api.StateDeleting:
 			// No point in detaching a host that is being deleted already
 		default:
-			if hasForceDetachAnnotation(hsm.Host) {
+			annotation, err := getDetachedAnnotation(hsm.Host)
+			if err != nil {
+				// FIXME(dtantsur): ignoring errors is not great and can cause a lot of confusion.
+				// However, we even document (in https://book.metal3.io/bmo/detached_annotation.html)
+				// that the value can be anything, so starting failing is a breaking change.
+				info.log.Error(err, "ignoring detached annotation value")
+			}
+			if annotation != nil && annotation.Force {
 				info.log.Info("forcing detach of host", "provisioningState", info.host.Status.Provisioning.State)
 				return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info, true)
 			}
@@ -356,20 +330,6 @@ func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconc
 		return actionUpdate{}
 	}
 	return nil
-}
-
-func hasForceDetachAnnotation(host *metal3api.BareMetalHost) bool {
-	annotations := host.GetAnnotations()
-	if annotations != nil {
-		if val, ok := annotations[metal3api.DetachedAnnotation]; ok {
-			args := metal3api.DetachedAnnotationArguments{}
-			if err := json.Unmarshal([]byte(val), &args); err != nil {
-				return false
-			}
-			return args.Force
-		}
-	}
-	return false
 }
 
 func (hsm *hostStateMachine) ensureRegistered(ctx context.Context, info *reconcileInfo) (result actionResult) {

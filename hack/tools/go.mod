@@ -7,7 +7,7 @@ require (
 	github.com/google/go-github v17.0.0+incompatible
 	golang.org/x/crypto v0.47.0
 	golang.org/x/oauth2 v0.34.0
-	sigs.k8s.io/cluster-api/test v1.11.8
+	sigs.k8s.io/cluster-api/test v1.11.10
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kustomize/v5 v5.7.1

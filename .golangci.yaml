@@ -218,6 +218,10 @@ linters:
       path: .*(api|types)\/.*\/conversion.*\.go$
       text: 'receiver-naming: receiver name'
     - linters:
+      - revive
+      path: pkg/utils/
+      text: 'var-naming: avoid meaningless package names'
+    - linters:
       - staticcheck
       path: .*(api|types)\/.*\/conversion.*\.go$
       text: 'ST1003: should not use underscores in Go names;'

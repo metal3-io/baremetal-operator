@@ -360,3 +360,8 @@ func (hb *HostDeployPolicyBuilder) AcceptRegexp(re string) *HostDeployPolicyBuil
 	spec.HostClaimNamespaces.NameMatches = re
 	return hb
 }
+
+func (hb *HostDeployPolicyBuilder) AllowsDetachedMode() *HostDeployPolicyBuilder {
+	hb.hostDeployPolicy.Spec.AllowsDetachedMode = true
+	return hb
+}

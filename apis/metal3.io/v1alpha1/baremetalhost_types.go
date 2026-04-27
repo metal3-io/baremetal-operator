@@ -699,6 +699,10 @@ const (
 type DetachedAnnotationArguments struct {
 	// DeleteAction indicates the desired delete logic when the detached annotation is present
 	DeleteAction DetachedDeleteAction `json:"deleteAction,omitempty"`
+	// Manager is an informal flag that tells that the annotation was set by an administrator.
+	// HostClaim controller will always set it to false and will never delete an annotation with
+	// manager set to true.
+	Manager bool `json:"manager,omitempty"`
 }
 
 // Match compares the saved status information with the name and

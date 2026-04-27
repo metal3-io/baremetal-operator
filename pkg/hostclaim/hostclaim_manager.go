@@ -19,6 +19,7 @@ package hostclaim
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"regexp"
@@ -54,8 +55,6 @@ const (
 	// PausedAnnotationValue is the value used to mark a BareMetalHost as paused by
 	// a HostClaim.
 	PausedAnnotationValue = "metal3.io/hostclaim"
-	// rebootDomain is the domain of metal3 reboot annotations.
-	rebootDomain = "reboot.metal3.io"
 	// Requeueing after 0 is in fact not requeuing.
 	TerminalReueueDelay time.Duration = 0
 	// Standard delay when waiting for other to settle.
@@ -200,6 +199,11 @@ func (m *HostManager) Update(ctx context.Context) error {
 	if syncReboot(m.HostClaim.Annotations, bmh.Annotations) {
 		updated = true
 	}
+	if upd, err2 := m.syncDetached(ctx, bmh.Namespace, m.HostClaim.Annotations, bmh.Annotations); err2 != nil {
+		return err2
+	} else if upd {
+		updated = true
+	}
 	if updated {
 		m.Log.Info("Update the BareMetalHost spec: changes detected.")
 		err = m.client.Update(ctx, bmh)
@@ -217,7 +221,7 @@ func (m *HostManager) Update(ctx context.Context) error {
 	}
 
 	// transient rebootAnnotation was successfully transmitted. We can delete it on HostClaim.
-	delete(m.HostClaim.Annotations, rebootDomain)
+	delete(m.HostClaim.Annotations, metal3api.RebootAnnotationPrefix)
 
 	m.updateHostClaimStatus(bmh)
 
@@ -363,6 +367,9 @@ func (m *HostManager) synchronizeDataSecret(
 	hostName string,
 ) (*corev1.SecretReference, error) {
 	if namespace == bmh.Namespace {
+		if sourceRef == nil {
+			return nil, ErrNoSecret
+		}
 		return sourceRef.DeepCopy(), nil
 	}
 	log := m.Log.WithValues("hostclaimName", hostName, "hostclaimNamespace", namespace, "secret-type", role)
@@ -535,56 +542,59 @@ func (m *HostManager) acceptableNamespaces(ctx context.Context, namespace string
 		nsLabels = map[string]string{}
 	}
 	namespaces := NewSet[string]()
-LOOP_POLICY:
 	for _, hostDeployPolicy := range hostdeploypolicies.Items {
-		log := m.Log.WithValues("policyNamespace", hostDeployPolicy.Namespace, "policyName", hostDeployPolicy.Name)
-		if SetContains(namespaces, hostDeployPolicy.Namespace) {
-			// namespace already added, no reason to check this hdp.
-			continue
+		if accept, err := m.checkPolicy(&hostDeployPolicy, hostNs, nsLabels); err != nil {
+			return nil, err
+		} else if accept {
+			AddSet(namespaces, hostDeployPolicy.Namespace)
 		}
-		constraints := hostDeployPolicy.Spec.HostClaimNamespaces
-		if constraints == nil {
-			log.V(1).Info("Ignoring HostDeployPolicy without constraint")
-			continue
-		}
-		if constraints.Names != nil && !slices.Contains(constraints.Names, hostNs) {
-			log.V(1).Info("Ignoring HostDeployPolicy because claim namespace not in names", "names", constraints.Names)
-			continue
-		}
-		if constraints.NameMatches != "" {
-			b, err := regexp.MatchString(constraints.NameMatches, hostNs)
-			if err != nil {
-				log.Error(
-					err, "Error during regexp matching on HostClaim namespace (bad regexp)",
-					"regexp", constraints.NameMatches)
-				return nil, err
-			}
-			if !b {
-				log.V(1).Info("Ignoring HostDeployPolicy because claim namespace does not match regex")
-				continue
-			}
-		}
-		// Behaves as a 'forall' on labels
-		for _, pair := range constraints.HasLabels {
-			if v, ok := nsLabels[pair.Name]; ok {
-				if pair.Value != "" && v != pair.Value {
-					log.V(1).Info(
-						"Ignoring HostDeployPolicy because claim namespace labels does not have correct value",
-						"label", pair.Name, "value", v, "expected", pair.Value)
-					continue LOOP_POLICY
-				}
-			} else {
-				log.V(1).Info(
-					"Ignoring HostDeployPolicy because claim namespace labels does not have a required label",
-					"label", pair.Name)
-				continue LOOP_POLICY
-			}
-		}
-		log.V(1).Info("Accepting namespace because of HostDeployPolicy", "namespace", hostDeployPolicy.Namespace)
-		AddSet(namespaces, hostDeployPolicy.Namespace)
 	}
 	m.Log.Info("Acceptable namespaces", "namespaces", namespaces)
 	return namespaces, nil
+}
+
+func (m *HostManager) checkPolicy(hostDeployPolicy *metal3api.HostDeployPolicy, hostNs string, hostNsLabels map[string]string) (bool, error) {
+	log := m.Log.WithValues("policyNamespace", hostDeployPolicy.Namespace, "policyName", hostDeployPolicy.Name)
+	constraints := hostDeployPolicy.Spec.HostClaimNamespaces
+	if constraints == nil {
+		log.V(1).Info("Ignoring HostDeployPolicy without constraint")
+		return false, nil
+	}
+	if constraints.Names != nil && !slices.Contains(constraints.Names, hostNs) {
+		log.V(1).Info("Ignoring HostDeployPolicy because claim namespace not in names", "names", constraints.Names)
+		return false, nil
+	}
+	if constraints.NameMatches != "" {
+		b, err := regexp.MatchString(constraints.NameMatches, hostNs)
+		if err != nil {
+			log.Error(
+				err, "Error during regexp matching on HostClaim namespace (bad regexp)",
+				"regexp", constraints.NameMatches)
+			return false, err
+		}
+		if !b {
+			log.V(1).Info("Ignoring HostDeployPolicy because claim namespace does not match regex")
+			return false, nil
+		}
+	}
+	// Behaves as a 'forall' on labels
+	for _, pair := range constraints.HasLabels {
+		if v, ok := hostNsLabels[pair.Name]; ok {
+			if pair.Value != "" && v != pair.Value {
+				log.V(1).Info(
+					"Ignoring HostDeployPolicy because claim namespace labels does not have correct value",
+					"label", pair.Name, "value", v, "expected", pair.Value)
+				return false, nil
+			}
+		} else {
+			log.V(1).Info(
+				"Ignoring HostDeployPolicy because claim namespace labels does not have a required label",
+				"label", pair.Name)
+			return false, nil
+		}
+	}
+	log.V(1).Info("Accepting namespace because of HostDeployPolicy", "namespace", hostDeployPolicy.Namespace)
+	return true, nil
 }
 
 func (m *HostManager) hostLabelSelectorForHostClaim() (labels.Selector, error) {
@@ -719,7 +729,7 @@ func syncReboot(hostMap, bmhMap map[string]string) bool {
 	for key := range bmhMap {
 		elts := strings.Split(key, "/")
 		// Propagates down unless it is just reboot and already propagated.
-		if elts[0] == rebootDomain && len(elts) == 2 {
+		if elts[0] == metal3api.RebootAnnotationPrefix && len(elts) == 2 {
 			if _, ok := hostMap[key]; !ok {
 				updated = true
 				delete(bmhMap, key)
@@ -730,7 +740,7 @@ func syncReboot(hostMap, bmhMap map[string]string) bool {
 	// We propagate reboot annotations to the bmh when it appears.
 	for key, v := range hostMap {
 		elts := strings.Split(key, "/")
-		if elts[0] == rebootDomain {
+		if elts[0] == metal3api.RebootAnnotationPrefix {
 			if bmhMap[key] != v {
 				updated = true
 				bmhMap[key] = v
@@ -738,6 +748,43 @@ func syncReboot(hostMap, bmhMap map[string]string) bool {
 		}
 	}
 	return updated
+}
+
+// synchronize detached annotation from hostMap to bmhMap.
+func (m *HostManager) syncDetached(ctx context.Context, bmhNs string, hostMap, bmhMap map[string]string) (bool, error) {
+	if annotValue, ok := hostMap[metal3api.DetachedAnnotation]; ok {
+		if _, ok := bmhMap[metal3api.DetachedAnnotation]; ok {
+			return false, nil
+		}
+		if compatiblePolicies, err := m.GetCompatiblePolicies(ctx, bmhNs); err != nil {
+			return false, err
+		} else if !slices.ContainsFunc(
+			compatiblePolicies,
+			func(hdp *metal3api.HostDeployPolicy) bool {
+				return hdp.Spec.AllowsDetachedMode
+			},
+		) {
+			m.Log.Info("HostClaim not allowed to detach underlying BareMetalHost")
+			return false, err
+		}
+		inputArgs := metal3api.DetachedAnnotationArguments{}
+		_ = json.Unmarshal([]byte(annotValue), &inputArgs)
+		args := metal3api.DetachedAnnotationArguments{DeleteAction: inputArgs.DeleteAction}
+		annot, err := json.Marshal(args)
+		if err != nil {
+			return false, err
+		}
+		bmhMap[metal3api.DetachedAnnotation] = string(annot)
+		return true, nil
+	} else if annotValue, ok := bmhMap[metal3api.DetachedAnnotation]; ok {
+		args := metal3api.DetachedAnnotationArguments{}
+		if err := json.Unmarshal([]byte(annotValue), &args); err != nil || args.Manager {
+			return false, nil //nolint:nilerr // arbitrary value of annotation mean they are not handled by hostclaim
+		}
+		delete(bmhMap, metal3api.DetachedAnnotation)
+		return true, nil
+	}
+	return false, nil
 }
 
 type Set[T comparable] = map[T]struct{}
@@ -753,4 +800,35 @@ func AddSet[T comparable](m Set[T], s T) {
 func SetContains[T comparable](m Set[T], s T) bool {
 	_, ok := m[s]
 	return ok
+}
+
+// GetCompatiblePolicies find all the HostDeployPolicies in the namespace of the bareMetalHost that
+// accept the namespace of the current HostClaim.
+func (m *HostManager) GetCompatiblePolicies(ctx context.Context, bmhNs string) ([]*metal3api.HostDeployPolicy, error) {
+	policiesInNs := &metal3api.HostDeployPolicyList{}
+	if err := m.client.List(ctx, policiesInNs, client.InNamespace(bmhNs)); err != nil {
+		m.Log.Error(err, "Cannot access HostDeployPolicies", "bmhNamespace", bmhNs)
+		return nil, err
+	}
+	hostNs := m.HostClaim.Namespace
+	hostNsResource := &corev1.Namespace{}
+	if err := m.client.Get(ctx, client.ObjectKey{Name: hostNs}, hostNsResource); err != nil {
+		m.Log.Error(err, "cannot access the namespace of the claim")
+		return nil, err
+	}
+	nsLabels := hostNsResource.Labels
+	if nsLabels == nil {
+		nsLabels = map[string]string{}
+	}
+
+	var compatiblePolicies []*metal3api.HostDeployPolicy
+	for i := range policiesInNs.Items {
+		hdp := &policiesInNs.Items[i]
+		if accept, err := m.checkPolicy(hdp, hostNs, nsLabels); err != nil {
+			return nil, err
+		} else if accept {
+			compatiblePolicies = append(compatiblePolicies, hdp)
+		}
+	}
+	return compatiblePolicies, nil
 }

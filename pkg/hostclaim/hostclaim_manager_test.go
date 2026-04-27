@@ -430,7 +430,7 @@ var _ = Describe("HostClaim manager", func() {
 			}
 			bmh := bmhBuilder.Build()
 			objects = append(objects, hostClaim, bmh)
-			// Add secrets if they exists
+			// Add secrets if they exist
 			fakeClient := fake.NewClientBuilder().WithScheme(setupScheme()).WithObjects(objects...).Build()
 			hostMgr, err := NewHostManager(fakeClient, GinkgoLogr, hostClaim, fakeClient)
 			Expect(err).NotTo(HaveOccurred())
@@ -491,13 +491,13 @@ var _ = Describe("HostClaim manager", func() {
 			MetaData:    NewSecret("s1", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("mdt")}).Build(),
 			NetworkData: NewSecret("s2", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("nwdt")}).Build(),
 		}),
-		Entry("set meta-data/network-data (overide)", testCaseSetBMHSpec{
+		Entry("set meta-data/network-data (override)", testCaseSetBMHSpec{
 			MetaData:       NewSecret("s1", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("mdt")}).Build(),
 			NetworkData:    NewSecret("s2", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("nwdt")}).Build(),
 			BMHMetaData:    NewSecret("bmh-metadata", "ns").SetData(map[string][]byte{"f": []byte("other")}).Build(),
 			BMHNetworkData: NewSecret("bmh-networkdata", "ns").SetData(map[string][]byte{"f": []byte("other")}).Build(),
 		}),
-		Entry("reset meta-data/network-data (overide)", testCaseSetBMHSpec{
+		Entry("reset meta-data/network-data (override)", testCaseSetBMHSpec{
 			BMHMetaData:    NewSecret("bmh-metadata", "ns").SetData(map[string][]byte{"f": []byte("other")}).Build(),
 			BMHNetworkData: NewSecret("bmh-networkdata", "ns").SetData(map[string][]byte{"f": []byte("other")}).Build(),
 		}),
@@ -537,7 +537,7 @@ var _ = Describe("HostClaim manager", func() {
 			opt := map[string]string{"a": "w1"}
 			saved := maps.Clone(opt)
 			bmh := NewBaremetalhost("bmh", "ns", metal3api.StateAvailable).SetAnnotations(opt).Build()
-			annot := rebootDomain + "/test"
+			annot := metal3api.RebootAnnotationPrefix + "/test"
 			hostClaim := NewHostclaim(HostclaimName).SetAnnotations(map[string]string{annot: "v0"}).SetAssociatedBMH("ns", "bmh").Build()
 			b := syncReboot(hostClaim.Annotations, bmh.Annotations)
 			Expect(bmh.Annotations[annot]).To(Equal("v0"), "reboot propagated")
@@ -552,16 +552,77 @@ var _ = Describe("HostClaim manager", func() {
 			b = syncReboot(hostClaim.Annotations, bmh.Annotations)
 			Expect(b).To(BeFalse(), "idempotent")
 			// Set transient reboot.
-			hostClaim.Annotations[rebootDomain] = "v1"
+			hostClaim.Annotations[metal3api.RebootAnnotationPrefix] = "v1"
 			b = syncReboot(hostClaim.Annotations, bmh.Annotations)
 			Expect(b).To(BeTrue(), "transient reboot propagated")
 			// Check reboot propagated to save
 			if saved == nil {
 				saved = map[string]string{}
 			}
-			saved[rebootDomain] = "v1"
+			saved[metal3api.RebootAnnotationPrefix] = "v1"
 			Expect(maps.Equal(bmh.Annotations, saved)).To(BeTrue())
 		},
+	)
+
+	type testCaseSyncDetach struct {
+		AcceptHostClaimNs string
+		InHostClaimAnnot  string
+		InBmhAnnot        string
+		OutHostClaimAnnot string
+		OutBmhAnnot       string
+		Updated           bool
+	}
+
+	DescribeTable("test syncDetach",
+		func(tc testCaseSyncDetach) {
+			ctx := context.TODO()
+			ns := NewNamespace(HostclaimNamespace).Build()
+
+			annotHc := map[string]string{}
+			annotBmh := map[string]string{}
+			if tc.InHostClaimAnnot != "" {
+				annotHc = map[string]string{metal3api.DetachedAnnotation: tc.InHostClaimAnnot}
+			}
+			if tc.InBmhAnnot != "" {
+				annotBmh = map[string]string{metal3api.DetachedAnnotation: tc.InBmhAnnot}
+			}
+
+			bmh := NewBaremetalhost("bmh", "ns", metal3api.StateAvailable).SetAnnotations(annotBmh).SetConsumerRef(defaultConsumerRef).Build()
+			hostClaim := NewHostclaim(HostclaimName).SetAssociatedBMH("ns", "bmh").SetAnnotations(annotHc).Build()
+			hdp := NewHostdeploypolicy("hdp", "ns").AcceptNames([]string{tc.AcceptHostClaimNs}).AllowsDetachedMode().Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(setupScheme()).WithObjects(bmh, hostClaim, ns, hdp).Build()
+			hostMgr, err := NewHostManager(fakeClient, GinkgoLogr, hostClaim, fakeClient)
+			Expect(err).NotTo(HaveOccurred())
+			updated, err := hostMgr.syncDetached(ctx, "ns", hostClaim.Annotations, bmh.Annotations)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated).To(Equal(tc.Updated))
+			outBmhAnnot := ""
+			if bmh.Annotations != nil {
+				outBmhAnnot = bmh.Annotations[metal3api.DetachedAnnotation]
+			}
+			Expect(outBmhAnnot).To(Equal(tc.OutBmhAnnot))
+		},
+		Entry("not allowed", testCaseSyncDetach{AcceptHostClaimNs: "other", InHostClaimAnnot: "{}", OutBmhAnnot: ""}),
+		Entry("allowed",
+			testCaseSyncDetach{
+				AcceptHostClaimNs: HostclaimNamespace, InHostClaimAnnot: "{}", OutBmhAnnot: "{}", Updated: true}),
+		Entry("sanitize",
+			testCaseSyncDetach{
+				AcceptHostClaimNs: HostclaimNamespace,
+				InHostClaimAnnot:  "{\"deleteAction\": \"delay\", \"manager\": true}",
+				OutBmhAnnot:       "{\"deleteAction\":\"delay\"}",
+				Updated:           true}),
+		Entry("no override",
+			testCaseSyncDetach{AcceptHostClaimNs: HostclaimNamespace, InHostClaimAnnot: "{}",
+				InBmhAnnot: "zzz", OutBmhAnnot: "zzz"}),
+		Entry("delete",
+			testCaseSyncDetach{
+				AcceptHostClaimNs: HostclaimNamespace, InHostClaimAnnot: "",
+				InBmhAnnot: "{}", OutBmhAnnot: "", Updated: true}),
+		Entry("no delete",
+			testCaseSyncDetach{
+				AcceptHostClaimNs: HostclaimNamespace, InHostClaimAnnot: "",
+				InBmhAnnot: "{\"manager\": true}", OutBmhAnnot: "{\"manager\": true}"}),
 	)
 
 	type testCaseUpdate struct {

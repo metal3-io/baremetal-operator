@@ -713,6 +713,12 @@ type DetachedAnnotationArguments struct {
 	// Force indicates if detaching should be forced regardless of the host's state
 	// +optional
 	Force bool `json:"force,omitempty"`
+
+	// SetByHostClaim is an informal flag that tells that the annotation was set by the
+	// HostClaim controller. HostClaim controller will never delete an annotation without
+	// SetByHostClaim set to true
+	// +optional
+	SetByHostClaim bool `json:"setByHostClaim,omitempty"`
 }
 
 // Match compares the saved status information with the name and

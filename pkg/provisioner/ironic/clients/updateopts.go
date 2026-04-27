@@ -73,6 +73,9 @@ func deref(v any) any {
 }
 
 func sanitisedValue(data any) any {
+	if data == nil {
+		return nil
+	}
 	dataType := reflect.TypeOf(data)
 	if dataType.Kind() != reflect.Map ||
 		dataType.Key().Kind() != reflect.String {
@@ -84,7 +87,7 @@ func sanitisedValue(data any) any {
 
 	for _, k := range value.MapKeys() {
 		safeDatumValue := value.MapIndex(k)
-		if strings.Contains(k.String(), "password") {
+		if strings.Contains(k.String(), "password") || strings.Contains(k.String(), "secret") {
 			safeDatumValue = reflect.ValueOf("<redacted>")
 		}
 		safeValue.SetMapIndex(k, safeDatumValue)
@@ -93,19 +96,31 @@ func sanitisedValue(data any) any {
 	return safeValue.Interface()
 }
 
+func isSensitiveOption(name string) bool {
+	return strings.Contains(name, "password") || strings.Contains(name, "secret")
+}
+
 func getUpdateOperation(name string, currentData map[string]any, desiredValue any, path string, log logr.Logger) *nodes.UpdateOperation {
 	current, present := currentData[name]
 
 	desiredValue = deref(desiredValue)
 	if desiredValue != nil {
 		if !(present && optionValueEqual(deref(current), desiredValue)) {
+			logValue := sanitisedValue(desiredValue)
+			if isSensitiveOption(name) {
+				logValue = "<redacted>"
+			}
 			if present {
+				oldLogValue := sanitisedValue(current)
+				if isSensitiveOption(name) {
+					oldLogValue = "<redacted>"
+				}
 				log.Info("updating option data",
-					"value", sanitisedValue(desiredValue),
-					"oldValue", current)
+					"value", logValue,
+					"oldValue", oldLogValue)
 			} else {
 				log.Info("adding option data",
-					"value", sanitisedValue(desiredValue))
+					"value", logValue)
 			}
 			return &nodes.UpdateOperation{
 				Op:    nodes.AddOp, // Add also does replace

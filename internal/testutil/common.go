@@ -261,7 +261,7 @@ func (hb *HostClaimBuilder) SetMetaData(mdata string) *HostClaimBuilder {
 	return hb
 }
 
-func (hb *HostClaimBuilder) SetNetworData(ndata string) *HostClaimBuilder {
+func (hb *HostClaimBuilder) SetNetworkData(ndata string) *HostClaimBuilder {
 	hb.hostClaim.Spec.NetworkData = &corev1.SecretReference{Name: ndata}
 	return hb
 }
@@ -358,5 +358,10 @@ func (hb *HostDeployPolicyBuilder) AcceptRegexp(re string) *HostDeployPolicyBuil
 		spec.HostClaimNamespaces = &metal3api.HostClaimNamespaces{}
 	}
 	spec.HostClaimNamespaces.NameMatches = re
+	return hb
+}
+
+func (hb *HostDeployPolicyBuilder) AllowsDetachedMode() *HostDeployPolicyBuilder {
+	hb.hostDeployPolicy.Spec.AllowsDetachedMode = true
 	return hb
 }

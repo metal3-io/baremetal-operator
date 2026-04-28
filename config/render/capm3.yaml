@@ -2248,6 +2248,11 @@ spec:
           spec:
             description: HostDeployPolicySpec defines the desired state of HostDeployPolicy.
             properties:
+              allowsDetachedMode:
+                description: |-
+                  AllowsDetachedMode is a boolean flag specifying if the hostClaim can set the
+                  detached annotation of the BareMetalHost.
+                type: boolean
               hostClaimNamespaces:
                 description: |-
                   HostClaimNamespaces constrains the namespaces of the HostClaims allowed

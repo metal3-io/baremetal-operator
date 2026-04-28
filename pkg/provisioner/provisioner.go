@@ -189,10 +189,12 @@ type Provisioner interface {
 	Delete(ctx context.Context) (result Result, err error)
 
 	// Detach removes the host from the provisioning system.
-	// Similar to Delete, but ensures non-interruptive behavior
-	// for the target system.  It may be called multiple times,
-	// and should return true for its dirty  flag until the
-	// deletion operation is completed.
+	// With force set to false, it ensures non-interruptive behavior
+	// for the target system. When force is set to true, provisioning
+	// processes may be interrupted to speed up the removal. Otherwise,
+	// the provisioner must wait for a stable state before the removal.
+	// This method may be called multiple times, and should return true
+	// for its dirty flag until the detachment operation is completed.
 	Detach(ctx context.Context, force bool) (result Result, err error)
 
 	// PowerOn ensures the server is powered on independently of any image

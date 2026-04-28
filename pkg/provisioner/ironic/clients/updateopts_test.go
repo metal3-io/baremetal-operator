@@ -448,6 +448,8 @@ func TestInstanceInfoUpdateOpts(t *testing.T) {
 }
 
 func TestSanitisedValue(t *testing.T) {
+	assert.Nil(t, sanitisedValue(nil))
+
 	unchanged := []any{
 		"foo",
 		42,
@@ -463,14 +465,16 @@ func TestSanitisedValue(t *testing.T) {
 	}
 
 	unsafe := map[string]any{
-		"foo":           "bar",
-		"password":      "secret",
-		"ipmi_password": "secret",
+		"foo":               "bar",
+		"password":          "secret",
+		"ipmi_password":     "secret",
+		"image_pull_secret": "dXNlcjpwYXNz",
 	}
 	safe := map[string]any{
-		"foo":           "bar",
-		"password":      "<redacted>",
-		"ipmi_password": "<redacted>",
+		"foo":               "bar",
+		"password":          "<redacted>",
+		"ipmi_password":     "<redacted>",
+		"image_pull_secret": "<redacted>",
 	}
 	assert.Exactly(t, safe, sanitisedValue(unsafe))
 }

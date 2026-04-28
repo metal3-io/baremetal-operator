@@ -39,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -66,6 +67,7 @@ type BareMetalHostReconciler struct {
 	Log                logr.Logger
 	ProvisionerFactory provisioner.Factory
 	APIReader          client.Reader
+	Recorder           record.EventRecorder
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -1321,6 +1323,12 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		image = *info.host.Spec.Image.DeepCopy()
 	}
 
+	// Extract OCI auth secret credentials if needed
+	authSecret, err := r.getImageAuthSecret(ctx, info.host, &image)
+	if err != nil {
+		return recordActionFailure(info, metal3api.ProvisioningError, err.Error())
+	}
+
 	provResult, err := prov.Provision(ctx, provisioner.ProvisionData{
 		Image:           image,
 		CustomDeploy:    info.host.Spec.CustomDeploy.DeepCopy(),
@@ -1328,6 +1336,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		BootMode:        info.host.Status.Provisioning.BootMode,
 		HardwareProfile: hwProf,
 		RootDeviceHints: info.host.Status.Provisioning.RootDeviceHints.DeepCopy(),
+		ImagePullSecret: authSecret,
 	}, forceReboot)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
@@ -2407,6 +2416,23 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, r
 	return bmcCredsSecret, nil
 }
 
+// getImageAuthSecret validates and extracts the OCI registry credentials for the image.
+// It returns the base64-encoded credentials in the format expected by Ironic, or an empty
+// string if no auth secret is configured.
+func (r *BareMetalHostReconciler) getImageAuthSecret(ctx context.Context, host *metal3api.BareMetalHost, image *metal3api.Image) (string, error) {
+	if image == nil || !image.IsOCI() {
+		return "", nil
+	}
+
+	if image.OCIAuthSecretName == nil || *image.OCIAuthSecretName == "" {
+		return "", nil
+	}
+
+	secretManager := r.secretManager(ctx, r.Log)
+	validator := NewImageAuthValidator(r.Recorder)
+	return validator.Validate(ctx, host, secretManager)
+}
+
 func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
 	// We trim surrounding whitespace because those characters are
 	// unlikely to be part of the username or password and it is
@@ -2492,6 +2518,8 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 
 // SetupWithManager registers the reconciler to be run by the manager.
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgEnable bool, maxConcurrentReconcile int) error {
+	r.Recorder = mgr.GetEventRecorderFor("baremetalhost-controller")
+
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.BareMetalHost{}).
 		WithEventFilter(

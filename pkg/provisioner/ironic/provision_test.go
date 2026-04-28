@@ -1607,6 +1607,139 @@ func TestGetUpdateOptsForNodeSecureBoot(t *testing.T) {
 	}
 }
 
+func TestGetUpdateOptsForNodeOCIWithPullSecret(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHost()
+	host.Spec.Image.URL = "oci://quay.io/test/image:latest"
+	host.Spec.Image.Checksum = ""
+	host.Spec.Image.ChecksumType = ""
+
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher, "https://ironic.test", auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{}
+
+	provData := provisioner.ProvisionData{
+		Image:           *host.Spec.Image,
+		BootMode:        metal3api.DefaultBootMode,
+		ImagePullSecret: "dXNlcjpwYXNz",
+	}
+	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	expected := []struct {
+		Path  string
+		Value any
+	}{
+		{
+			Path:  "/instance_info/image_source",
+			Value: "oci://quay.io/test/image:latest",
+		},
+		{
+			Path:  "/instance_info/image_pull_secret",
+			Value: "dXNlcjpwYXNz",
+		},
+	}
+
+	for _, e := range expected {
+		t.Run(e.Path, func(t *testing.T) {
+			var update nodes.UpdateOperation
+			for _, patch := range patches {
+				u, ok := patch.(nodes.UpdateOperation)
+				require.True(t, ok, "expected patch to be UpdateOperation")
+				if u.Path == e.Path {
+					update = u
+					break
+				}
+			}
+			if update.Path != e.Path {
+				t.Errorf("did not find %q in updates", e.Path)
+				return
+			}
+			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
+		})
+	}
+}
+
+func TestGetUpdateOptsForNodeOCIWithoutPullSecret(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHost()
+	host.Spec.Image.URL = "oci://quay.io/test/image:latest"
+	host.Spec.Image.Checksum = ""
+	host.Spec.Image.ChecksumType = ""
+
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher, "https://ironic.test", auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{}
+
+	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
+		BootMode: metal3api.DefaultBootMode,
+	}
+	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	found := false
+	for _, patch := range patches {
+		update, ok := patch.(nodes.UpdateOperation)
+		require.True(t, ok, "expected patch to be UpdateOperation")
+		if update.Path == "/instance_info/image_pull_secret" {
+			assert.Nil(t, update.Value, "image_pull_secret should be nil when no secret is provided")
+			found = true
+		}
+	}
+	assert.False(t, found, "image_pull_secret patch should not be present when no secret is provided")
+}
+
+func TestGetUpdateOptsForNodeOCIClearPullSecret(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHost()
+	host.Spec.Image.URL = "oci://quay.io/test/image:latest"
+	host.Spec.Image.Checksum = ""
+	host.Spec.Image.ChecksumType = ""
+
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher, "https://ironic.test", auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{
+		InstanceInfo: map[string]any{
+			"image_source":      "oci://quay.io/test/old-image:v1",
+			"image_pull_secret": "b2xkLXNlY3JldA==",
+		},
+	}
+
+	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
+		BootMode: metal3api.DefaultBootMode,
+	}
+	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	found := false
+	for _, patch := range patches {
+		update, ok := patch.(nodes.UpdateOperation)
+		require.True(t, ok, "expected patch to be UpdateOperation")
+		if update.Path == "/instance_info/image_pull_secret" {
+			assert.Equal(t, nodes.RemoveOp, update.Op, "image_pull_secret should be removed")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected a RemoveOp patch for image_pull_secret")
+}
+
 func TestBuildCleanStepsForUpdateFirmware(t *testing.T) {
 	nodeUUID := "eec38659-4c68-7431-9535-d10766f07a58"
 	cases := []struct {

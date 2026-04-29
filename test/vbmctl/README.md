@@ -17,7 +17,7 @@ This tool is under active development.
 | `vbmctl create bml` / `vbmctl delete bml` | ✅ Implemented |
 | `vbmctl status` | ✅ Implemented (basic) |
 | Configurable volumes |  ✅ Implemented |
-| Network management | ⚠️ Partially implemented (only libvirt networks) |
+| Network management | ⚠️ Partially implemented (container networking missing) |
 | BMC emulator support | ❌ TODO |
 | Image server | ✅ Implemented (basic) |
 | State management (persistent state) | ❌ TODO |
@@ -31,6 +31,8 @@ This tool is under active development.
 - **Library Support**: Can be imported as a Go module for programmatic use
 - **Libvirt network management**: create and delete libvirt networks
 - **Image Server Management**: Create, delete, list image server
+- **Creating/deleting veth pairs**: create and delete veth-pairs to connect
+  virtual networks. Works only with config file.
 
 ## Build Tags
 
@@ -168,6 +170,11 @@ spec:
   imageServer:
     dataDir: "/tmp"
     port: 80
+  vethPairs:
+  - master1: metal3
+    master2: kind-bridge
+    veth1: metalend
+    veth2: kindend
 ```
 
 The `spec.vms` section defines the VMs that will be created when you run `vbmctl

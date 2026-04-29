@@ -34,3 +34,8 @@ spec:
     bridge: metal3
     address: 192.168.222.1
     netmask: 255.255.255.0
+  vethPairs:
+  - master1: metal3
+    master2: kind-bridge
+    veth1: metalend
+    veth2: kindend

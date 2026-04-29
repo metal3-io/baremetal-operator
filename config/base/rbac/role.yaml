@@ -69,6 +69,7 @@ rules:
   - metal3.io
   resources:
   - baremetalhosts/status
+  - baremetalswitches/status
   - bmceventsubscriptions/status
   - dataimages/status
   - firmwareschemas/status
@@ -83,6 +84,7 @@ rules:
 - apiGroups:
   - metal3.io
   resources:
+  - baremetalswitches
   - hostdeploypolicies
   verbs:
   - get

@@ -49,6 +49,28 @@
 //	    ContainerPort:     80,
 //	})
 //
+// # BMC Emulator Management
+//
+// A BMC emulator container can be provisioned using
+// CreateBMCEmulatorInstance:
+//
+// For the "vbmc" type, only the Image field is required.
+//
+//	err := containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
+//	    Type:          "vbmc",
+//	    Image:         "my-vbmc:latest",
+//	})
+//
+// For the "sushy-tools" type, ConfigFile must point to a configuration file
+// that already exists on the host. That file will be bind-mounted into the
+// container.
+//
+//	err := containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
+//	    Type:          "sushy-tools",
+//	    Image:         "my-sushy-tools:latest",
+//	    ConfigFile:    "/path/to/existing/config/file",
+//	})
+//
 // # Error Handling
 //
 // All operations return standard Go errors that can be inspected for specific

@@ -49,6 +49,10 @@ spec:
     dataDir: "/var/lib/vbmctl/images-test"
     containerDataDir: "/usr/share/nginx/html"
     containerName: "vbmctl-image-server-test"
+  bmcEmulator:
+    type: "sushy-tools"
+    configFile: "vbmc-emulator-file"
+    image: "test/bmc-emulator:latest"
 `)
 
 	cfg, err := Parse(yamlData)
@@ -103,6 +107,22 @@ spec:
 	if cfg.Spec.ImageServer.ContainerName != "vbmctl-image-server-test" {
 		t.Errorf("expected image server container name 'vbmctl-image-server-test', got %s", cfg.Spec.ImageServer.ContainerName)
 	}
+
+	if cfg.Spec.BMCEmulator == nil {
+		t.Fatal("expected BMC emulator config, got nil")
+	}
+
+	if cfg.Spec.BMCEmulator.Type != "sushy-tools" {
+		t.Errorf("expected BMC emulator type 'sushy-tools', got %s", cfg.Spec.BMCEmulator.Type)
+	}
+
+	if cfg.Spec.BMCEmulator.ConfigFile != "vbmc-emulator-file" {
+		t.Errorf("expected BMC emulator config file 'vbmc-emulator-file', got %s", cfg.Spec.BMCEmulator.ConfigFile)
+	}
+
+	if cfg.Spec.BMCEmulator.Image != "test/bmc-emulator:latest" {
+		t.Errorf("expected BMC emulator image 'test/bmc-emulator:latest', got %s", cfg.Spec.BMCEmulator.Image)
+	}
 }
 
 func TestLoadAndSave(t *testing.T) {
@@ -121,6 +141,11 @@ func TestLoadAndSave(t *testing.T) {
 		DataDir:          "/var/lib/vbmctl/images-test",
 		ContainerDataDir: "/usr/share/nginx/html",
 		ContainerName:    "vbmctl-image-server",
+	}
+	cfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+		Type:       BMCEmulatorTypeSushyTools,
+		ConfigFile: "vbmc-emulator-file",
+		Image:      "test/bmc-emulator:latest",
 	}
 
 	// Save it
@@ -173,6 +198,22 @@ func TestLoadAndSave(t *testing.T) {
 
 	if loadedCfg.Spec.ImageServer.ContainerPort != 8081 {
 		t.Errorf("expected image server container port %d, got %d", 8081, loadedCfg.Spec.ImageServer.ContainerPort)
+	}
+
+	if loadedCfg.Spec.BMCEmulator == nil {
+		t.Fatal("expected BMC emulator config, got nil")
+	}
+
+	if loadedCfg.Spec.BMCEmulator.Type != BMCEmulatorTypeSushyTools {
+		t.Errorf("expected BMC emulator type '%s', got %s", BMCEmulatorTypeSushyTools, loadedCfg.Spec.BMCEmulator.Type)
+	}
+
+	if loadedCfg.Spec.BMCEmulator.ConfigFile != "vbmc-emulator-file" {
+		t.Errorf("expected BMC emulator config file 'vbmc-emulator-file', got %s", loadedCfg.Spec.BMCEmulator.ConfigFile)
+	}
+
+	if loadedCfg.Spec.BMCEmulator.Image != "test/bmc-emulator:latest" {
+		t.Errorf("expected BMC emulator image 'test/bmc-emulator:latest', got %s", loadedCfg.Spec.BMCEmulator.Image)
 	}
 }
 
@@ -329,6 +370,58 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "valid BMC emulator config (sushy-tools)",
+			modify: func(c *Config) {
+				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+					Type:       BMCEmulatorTypeSushyTools,
+					ConfigFile: "vbmc-emulator-file",
+					Image:      "test/bmc-emulator:latest",
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid BMC emulator config (vbmc)",
+			modify: func(c *Config) {
+				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+					Type:  BMCEmulatorTypeVBMC,
+					Image: "test/bmc-emulator:latest",
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid BMC emulator config - missing type",
+			modify: func(c *Config) {
+				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+					ConfigFile: "vbmc-emulator-file",
+					Image:      "test/bmc-emulator:latest",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid BMC emulator config - missing config file",
+			modify: func(c *Config) {
+				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+					Type:  BMCEmulatorTypeSushyTools,
+					Image: "test/bmc-emulator:latest",
+				}
+			},
+			wantErr: true,
+		},
+
+		{
+			name: "invalid BMC emulator config - missing image",
+			modify: func(c *Config) {
+				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+					Type:       BMCEmulatorTypeVBMC,
+					ConfigFile: "vbmc-emulator-file",
+				}
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -345,6 +438,7 @@ func TestValidate(t *testing.T) {
 
 func TestApplyDefaults(t *testing.T) {
 	cfg := &Config{}
+	cfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{}
 	cfg.ApplyDefaults()
 
 	if cfg.Spec.Libvirt.URI != DefaultLibvirtURI {
@@ -353,6 +447,43 @@ func TestApplyDefaults(t *testing.T) {
 
 	if cfg.Spec.Pool.Name != DefaultPoolName {
 		t.Errorf("expected Pool Name %s, got %s", DefaultPoolName, cfg.Spec.Pool.Name)
+	}
+
+	if cfg.Spec.BMCEmulator.Type != DefaultBMCEmulatorType {
+		t.Errorf("expected BMC Emulator Type %s, got %s", DefaultBMCEmulatorType, cfg.Spec.BMCEmulator.Type)
+	}
+
+	// If type is unknown, image default should not be applied
+	unknownCfg := &Config{}
+	unknownCfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+		Type: "unknown-type",
+	}
+	unknownCfg.ApplyDefaults()
+	if unknownCfg.Spec.BMCEmulator.Image != "" {
+		t.Errorf("expected BMC Emulator Image <empty>, got %s", unknownCfg.Spec.BMCEmulator.Image)
+	}
+
+	// If type is vbmc, vbmc image default should be applied
+	vbmcCfg := &Config{}
+	vbmcCfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+		Type: BMCEmulatorTypeVBMC,
+	}
+	vbmcCfg.ApplyDefaults()
+	if vbmcCfg.Spec.BMCEmulator.Image != DefaultBMCEmulatorVBMCImage {
+		t.Errorf("expected BMC Emulator Image %s, got %s", DefaultBMCEmulatorVBMCImage, vbmcCfg.Spec.BMCEmulator.Image)
+	}
+
+	// Config file default is only applied for sushy-tools type. Also verify that the image default for sushy-tools is applied.
+	sushyCfg := &Config{}
+	sushyCfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
+		Type: BMCEmulatorTypeSushyTools,
+	}
+	sushyCfg.ApplyDefaults()
+	if sushyCfg.Spec.BMCEmulator.ConfigFile != DefaultBMCEmulatorSushyToolsConfigFile {
+		t.Errorf("expected BMC Emulator Config File %s, got %s", DefaultBMCEmulatorSushyToolsConfigFile, sushyCfg.Spec.BMCEmulator.ConfigFile)
+	}
+	if sushyCfg.Spec.BMCEmulator.Image != DefaultBMCEmulatorSushyToolsImage {
+		t.Errorf("expected BMC Emulator Image %s, got %s", DefaultBMCEmulatorSushyToolsImage, sushyCfg.Spec.BMCEmulator.Image)
 	}
 }
 

@@ -52,7 +52,6 @@ variables:
   SSH_PORT: "22"
   SSH_PRIV_KEY: "./images/ssh_testkey"
   SSH_PUB_KEY: "./images/ssh_testkey.pub"
-  FORCE_DETACH_WAIT_PROVISIONING: "true"
   FETCH_IRONIC_NODES: "true"
   IRONIC_USERNAME: "changeme"
   IRONIC_PASSWORD: "changeme"
@@ -81,7 +80,8 @@ intervals:
   default/wait-bmh-deleted: ["6m", "10s"]
   default/wait-detached: ["20s", "10ms"]
   # NOTE(dtantsur) since provisionRequeueDelay is 10s, 20s may not be enough for forced detachment on real Ironic.
-  default/wait-force-detached: ["40s", "1s"]
+  force-detach/wait-detached: ["40s", "1s"]
+  force-detach/wait-ironic-state: ["2m", "2s"]
   default/wait-secret-deletion: ["1m", "1s"]
   default/wait-connect-ssh: ["2m", "10s"]
   default/wait-externally-provisioned: ["1m", "10ms"]

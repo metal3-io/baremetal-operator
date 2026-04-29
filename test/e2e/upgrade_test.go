@@ -310,6 +310,10 @@ var _ = Describe("Upgrade", Ordered, Label("optional", "upgrade"), func() {
 	)
 
 	AfterEach(func() {
+		// Stop all deployment log watchers so they can be recreated fresh for
+		// the next upgrade test case (which reuses the same deployment names).
+		logWatchers.StopAll()
+
 		CollectSerialLogs(bmc.Name, testArtifactFolder)
 		upgradeIronicIP := ""
 		if e2eConfig.HasVariable("UPGRADE_IRONIC_PROVISIONING_IP") {

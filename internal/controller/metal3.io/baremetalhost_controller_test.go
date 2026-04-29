@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -2691,6 +2692,80 @@ func TestGetPreprovImageBeingDeleted(t *testing.T) {
 	// because it has a DeletionTimestamp
 	imgData, err := r.getPreprovImage(t.Context(), i, acceptFormats)
 	require.NoError(t, err)
+	assert.Nil(t, imgData)
+}
+
+func TestGetPreprovImageForbiddenDuringDeprovisioning(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Status.Provisioning.State = metal3api.StateDeprovisioning
+
+	c := fakeclient.NewClientBuilder().
+		WithRuntimeObjects(host).
+		WithStatusSubresource(host).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				if _, ok := obj.(*metal3api.PreprovisioningImage); ok {
+					return k8serrors.NewForbidden(
+						metal3api.GroupVersion.WithResource("preprovisioningimages").GroupResource(),
+						host.Name,
+						fmt.Errorf("unable to create new content in namespace %s because it is being terminated", host.Namespace),
+					)
+				}
+				return client.Create(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
+	_ = c.Create(t.Context(), bmcSecret)
+
+	r := &BareMetalHostReconciler{
+		Client:             c,
+		ProvisionerFactory: &fixture.Fixture{},
+		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		APIReader:          c,
+	}
+	i := makeReconcileInfo(host)
+
+	imgData, err := r.getPreprovImage(t.Context(), i, []metal3api.ImageFormat{metal3api.ImageFormatISO})
+	require.NoError(t, err)
+	assert.Nil(t, imgData)
+}
+
+func TestGetPreprovImageForbiddenNotDeprovisioning(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Status.Provisioning.State = metal3api.StateInspecting
+
+	c := fakeclient.NewClientBuilder().
+		WithRuntimeObjects(host).
+		WithStatusSubresource(host).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				if _, ok := obj.(*metal3api.PreprovisioningImage); ok {
+					return k8serrors.NewForbidden(
+						metal3api.GroupVersion.WithResource("preprovisioningimages").GroupResource(),
+						host.Name,
+						fmt.Errorf("unable to create new content in namespace %s because it is being terminated", host.Namespace),
+					)
+				}
+				return client.Create(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	bmcSecret := newBMCCredsSecret(defaultSecretName, "User", "Pass")
+	_ = c.Create(t.Context(), bmcSecret)
+
+	r := &BareMetalHostReconciler{
+		Client:             c,
+		ProvisionerFactory: &fixture.Fixture{},
+		Log:                ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
+		APIReader:          c,
+	}
+	i := makeReconcileInfo(host)
+
+	// When not deprovisioning, the Forbidden error should still be returned
+	imgData, err := r.getPreprovImage(t.Context(), i, []metal3api.ImageFormat{metal3api.ImageFormatISO})
+	require.Error(t, err)
+	assert.True(t, k8serrors.IsForbidden(err))
 	assert.Nil(t, imgData)
 }
 

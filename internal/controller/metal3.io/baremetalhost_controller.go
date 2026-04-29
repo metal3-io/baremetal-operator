@@ -772,6 +772,10 @@ func (r *BareMetalHostReconciler) getPreprovImage(ctx context.Context, info *rec
 		}
 
 		err = r.Create(ctx, &preprovImage)
+		if k8serrors.IsForbidden(err) && info.host.Status.Provisioning.State == metal3api.StateDeprovisioning {
+			info.log.Info("skipping PreprovisioningImage creation during deprovisioning, namespace may be terminating")
+			return nil, nil //nolint:nilnil
+		}
 		return nil, err
 	}
 	if err != nil {
@@ -851,7 +855,9 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		}
 	case metal3api.StateDeprovisioning:
 		// PreprovisioningImage is not required for deprovisioning when cleaning is disabled
-		if info.host.Spec.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
+		// or when the host is being deleted (e.g. namespace is terminating)
+		if info.host.Spec.AutomatedCleaningMode == metal3api.CleaningModeDisabled ||
+			!info.host.DeletionTimestamp.IsZero() {
 			preprovImgFormats = nil
 		}
 	default:
@@ -875,11 +881,18 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return recordActionFailure(info, metal3api.RegistrationError, "failed to read preprovisioningNetworkData")
 	}
 
+	automatedCleaningMode := info.host.Spec.AutomatedCleaningMode
+	if info.host.Status.Provisioning.State == metal3api.StateDeprovisioning && !info.host.DeletionTimestamp.IsZero() {
+		// Skip cleaning when the host is being deleted (e.g. namespace is terminating),
+		// since we cannot create the required PreprovisioningImage.
+		automatedCleaningMode = metal3api.CleaningModeDisabled
+	}
+
 	provResult, provID, err := prov.Register(
 		ctx,
 		provisioner.ManagementAccessData{
 			BootMode:                   info.host.Status.Provisioning.BootMode,
-			AutomatedCleaningMode:      info.host.Spec.AutomatedCleaningMode,
+			AutomatedCleaningMode:      automatedCleaningMode,
 			State:                      info.host.Status.Provisioning.State,
 			OperationalStatus:          info.host.Status.OperationalStatus,
 			CurrentImage:               getCurrentImage(info.host),
@@ -1418,10 +1431,17 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 
 	info.log.Info("deprovisioning")
 
+	automatedCleaningMode := info.host.Spec.AutomatedCleaningMode
+	if !info.host.DeletionTimestamp.IsZero() {
+		// Skip cleaning when the host is being deleted (e.g. namespace is terminating),
+		// since we cannot create the required PreprovisioningImage.
+		automatedCleaningMode = metal3api.CleaningModeDisabled
+	}
+
 	provResult, err := prov.Deprovision(
 		ctx,
 		info.host.Status.ErrorType == metal3api.ProvisioningError,
-		info.host.Spec.AutomatedCleaningMode)
+		automatedCleaningMode)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to deprovision: %w", err)}
 	}

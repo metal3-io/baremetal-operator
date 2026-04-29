@@ -46,3 +46,24 @@ webhooks:
     resources:
     - bmceventsubscriptions
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-metal3-io-v1alpha1-hostclaim
+  failurePolicy: Fail
+  name: hostclaim.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hostclaims
+  sideEffects: None

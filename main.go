@@ -123,6 +123,11 @@ func setupWebhooks(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
 		os.Exit(1)
 	}
+
+	if err := (&webhooks.HostClaimWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HostClaim")
+		os.Exit(1)
+	}
 }
 
 func main() {

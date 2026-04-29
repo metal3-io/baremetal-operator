@@ -1,0 +1,69 @@
+/*
+Copyright 2026 The Metal3 Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package webhooks
+
+import (
+	"context"
+	"errors"
+
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+)
+
+// hostclaimlog is for logging in this webhook.
+var hostclaimlog = logf.Log.WithName("webhooks").WithName("HostClaim")
+
+func (webhook *HostClaimWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, &metal3api.HostClaim{}).
+		WithValidator(webhook).
+		Complete()
+}
+
+//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-hostclaim,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta1,groups=metal3.io,resources=hostclaims,versions=v1alpha1,name=hostclaim.metal3.io
+
+type HostClaimWebhook struct{}
+
+var _ admission.Validator[*metal3api.HostClaim] = &HostClaimWebhook{}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
+func (webhook *HostClaimWebhook) ValidateCreate(_ context.Context, hc *metal3api.HostClaim) (admission.Warnings, error) {
+	if hc == nil {
+		hostclaimlog.Error(errors.New("object is nil"), "validate create error")
+		return nil, nil
+	}
+
+	hostclaimlog.Info("validate create", "name", hc.Name, "namespace", hc.Namespace)
+	return nil, kerrors.NewAggregate(webhook.validateHostClaim(hc))
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
+func (webhook *HostClaimWebhook) ValidateUpdate(_ context.Context, _, newHc *metal3api.HostClaim) (admission.Warnings, error) {
+	if newHc == nil {
+		hostclaimlog.Error(errors.New("object is nil"), "validate update error")
+		return nil, nil
+	}
+	hostclaimlog.Info("validate update", "name", newHc.Name, "namespace", newHc.Namespace)
+	return nil, kerrors.NewAggregate(webhook.validateHostClaim(newHc))
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
+func (webhook *HostClaimWebhook) ValidateDelete(_ context.Context, _ *metal3api.HostClaim) (admission.Warnings, error) {
+	return nil, nil
+}

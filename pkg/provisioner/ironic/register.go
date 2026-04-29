@@ -18,7 +18,9 @@ import (
 )
 
 const (
-	defaultInspectInterface = "agent"
+	defaultInspectInterface         = "agent"
+	redfishInspectInterface         = "redfish"
+	initialRedfishInspectionDoneKey = "initial_redfish_inspection_done"
 )
 
 func bmcAddressMatches(ironicNode *nodes.Node, driverInfo map[string]any) bool {
@@ -38,6 +40,13 @@ func bmcAddressMatches(ironicNode *nodes.Node, driverInfo map[string]any) bool {
 		}
 	}
 	return reflect.DeepEqual(newAddress, ironicAddress)
+}
+
+// isRedfishBMC checks if the BMC access details indicate a Redfish-based driver.
+// This is used to determine if we should use Redfish inspection first to discover ports.
+func isRedfishBMC(bmcAccess bmc.AccessDetails) bool {
+	driver := bmcAccess.Driver()
+	return driver == "redfish" || driver == "idrac-redfish"
 }
 
 // Register registers the host in the internal database if it does not
@@ -250,6 +259,15 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 }
 
 func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails, driverInfo map[string]any) (ironicNode *nodes.Node, retry bool, err error) {
+	// For Redfish-based BMCs, use redfish inspection first to discover and create ports,
+	// then switch to agent inspection. This avoids the race condition where agent inspection
+	// fails on first attempt because ports don't exist yet for lookup.
+	inspectInterface := defaultInspectInterface
+	if isRedfishBMC(bmcAccess) {
+		inspectInterface = redfishInspectInterface
+		p.log.Info("Using redfish inspect interface for initial enrollment to discover ports")
+	}
+
 	nodeCreateOpts := nodes.CreateOpts{
 		Driver:              bmcAccess.Driver(),
 		BIOSInterface:       bmcAccess.BIOSInterface(),
@@ -258,7 +276,7 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 		DriverInfo:          driverInfo,
 		FirmwareInterface:   bmcAccess.FirmwareInterface(),
 		DeployInterface:     p.deployInterface(data),
-		InspectInterface:    defaultInspectInterface,
+		InspectInterface:    inspectInterface,
 		ManagementInterface: bmcAccess.ManagementInterface(),
 		PowerInterface:      bmcAccess.PowerInterface(),
 		RAIDInterface:       bmcAccess.RAIDInterface(),

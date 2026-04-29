@@ -132,6 +132,48 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 	p.log.Info("inspection finished successfully", "data", response.Body)
 
 	details = hardwaredetails.GetHardwareDetails(introData, p.log)
+
+	// Check if this was the initial redfish inspection and we need to switch to agent
+	if ironicNode.InspectInterface == redfishInspectInterface {
+		// Check if we've already completed the initial redfish inspection
+		dii := ironicNode.DriverInternalInfo
+		if dii == nil {
+			dii = make(map[string]interface{})
+		}
+
+		initialRedfishDone, exists := dii[initialRedfishInspectionDoneKey].(bool)
+		if !exists || !initialRedfishDone {
+			// Mark initial redfish inspection as complete and switch to agent
+			p.log.Info("Initial redfish inspection completed, switching to agent inspection")
+
+			updater := clients.UpdateOptsBuilder(p.log)
+			updater.SetTopLevelOpt("inspect_interface", defaultInspectInterface, ironicNode.InspectInterface)
+
+			// Mark that initial redfish inspection is done
+			dii[initialRedfishInspectionDoneKey] = true
+			updater.SetTopLevelOpt("driver_internal_info", dii, ironicNode.DriverInternalInfo)
+
+			_, success, updateResult, updateErr := p.tryUpdateNode(ctx, ironicNode, updater)
+			if !success {
+				p.log.Info("Failed to update inspect interface, will retry", "error", updateErr)
+				return updateResult, started, details, updateErr
+			}
+
+			// Refresh the node to get updated state
+			ironicNode, err = p.getNode(ctx)
+			if err != nil {
+				result, err = transientError(err)
+				return result, started, details, err
+			}
+
+			// Trigger agent inspection immediately
+			p.log.Info("Starting agent inspection after successful redfish inspection")
+			p.publisher("InspectionComplete", "Initial Redfish inspection completed, starting agent inspection")
+			result, started, err = p.startInspection(ctx, data, ironicNode)
+			return result, started, details, err
+		}
+	}
+
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 	result, err = operationComplete()
 	return result, started, details, err

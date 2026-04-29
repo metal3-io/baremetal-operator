@@ -6,8 +6,8 @@ package e2e
 import (
 	"context"
 	"path"
-	"time"
 
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -94,12 +94,15 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				State:  metal3api.StateProvisioning,
 			}, e2eConfig.GetIntervals(specName, "wait-provisioning")...)
 
-			if e2eConfig.GetVariable("FORCE_DETACH_WAIT_PROVISIONING") == "true" {
-				By("Waiting for the status in Ironic to catch up")
-				// NOTE(dtantsur): tests have no access to the state of the Ironic Node object.
-				// Wait a bit more to make sure it has actually transitioned away from "available".
-				// FIXME: this won't be needed when substates are added to the BMH API.
-				time.Sleep(2 * time.Second)
+			if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+				By("Waiting for the Ironic node to start deploying")
+				ironicClient := CreateIronicClient(e2eConfig)
+				ironicNodeName := IronicNodeName(namespace.Name, bmhName)
+				WaitForIronicNodeProvisionState(ctx, WaitForIronicNodeProvisionStateInput{
+					Client:   ironicClient,
+					NodeName: ironicNodeName,
+					States:   []nodes.ProvisionState{nodes.DeployWait},
+				}, e2eConfig.GetIntervals(specName, "wait-ironic-state")...)
 			}
 
 			By("Retrieving the latest BMH object")
@@ -120,7 +123,7 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				UndesiredStates: []metal3api.OperationalStatus{
 					metal3api.OperationalStatusError,
 				},
-			}, e2eConfig.GetIntervals(specName, "wait-force-detached")...)
+			}, e2eConfig.GetIntervals(specName, "wait-detached")...)
 
 			By("Retrieving and checking the latest BMH object")
 			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
@@ -147,7 +150,7 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 		})
 
 		It("starts provisioning, forces detachment, re-attaches and finishes provisioning", func() {
-			if e2eConfig.GetVariable("FORCE_DETACH_WAIT_PROVISIONING") == "false" {
+			if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
 				Skip("Test on provisioning after detachment relies on provisioning taking non-zero time")
 			}
 
@@ -218,11 +221,14 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				State:  metal3api.StateProvisioning,
 			}, e2eConfig.GetIntervals(specName, "wait-provisioning")...)
 
-			By("Waiting for the status in Ironic to catch up")
-			// NOTE(dtantsur): tests have no access to the state of the Ironic Node object.
-			// Wait a bit more to make sure it has actually transitioned away from "available".
-			// FIXME: this won't be needed when substates are added to the BMH API.
-			time.Sleep(2 * time.Second)
+			By("Waiting for the Ironic node to start deploying")
+			ironicClient := CreateIronicClient(e2eConfig)
+			ironicNodeName := IronicNodeName(namespace.Name, bmhName)
+			WaitForIronicNodeProvisionState(ctx, WaitForIronicNodeProvisionStateInput{
+				Client:   ironicClient,
+				NodeName: ironicNodeName,
+				States:   []nodes.ProvisionState{nodes.DeployWait},
+			}, e2eConfig.GetIntervals(specName, "wait-ironic-state")...)
 
 			By("Retrieving the latest BMH object")
 			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
@@ -242,7 +248,7 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				UndesiredStates: []metal3api.OperationalStatus{
 					metal3api.OperationalStatusError,
 				},
-			}, e2eConfig.GetIntervals(specName, "wait-force-detached")...)
+			}, e2eConfig.GetIntervals(specName, "wait-detached")...)
 
 			By("Retrieving and checking the latest BMH object")
 			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{

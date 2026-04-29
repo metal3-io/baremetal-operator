@@ -248,3 +248,10 @@ func (c *Config) GetBoolVariable(varName string) bool {
 	}
 	return true
 }
+
+// GetDurationVariable returns a variable from environment variables or from the e2e config file as Duration.
+func (c *Config) GetDurationVariable(varName string) time.Duration {
+	converted, err := time.ParseDuration(c.GetVariable(varName))
+	Expect(err).NotTo(HaveOccurred())
+	return converted
+}

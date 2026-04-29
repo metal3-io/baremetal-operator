@@ -24,6 +24,127 @@ func TestDetach(t *testing.T) {
 	deleteTest(t, true)
 }
 
+func TestForceDetach(t *testing.T) {
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+
+	cases := []struct {
+		name              string
+		ironic            *testserver.IronicMock
+		maxVersion        int
+		expectedDirty     bool
+		expectedRequeue   time.Duration
+		expectedProvState nodes.TargetProvisionState
+	}{
+		{
+			name: "deploywait-abort",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.DeployWait),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			maxVersion:        110,
+			expectedDirty:     true,
+			expectedRequeue:   provisionRequeueDelay,
+			expectedProvState: nodes.TargetAbort,
+		},
+		{
+			name: "deploywait-no-abort-api",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.DeployWait),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			maxVersion:        95,
+			expectedDirty:     true,
+			expectedRequeue:   provisionRequeueDelay,
+			expectedProvState: nodes.TargetDeleted,
+		},
+		{
+			name: "inspectwait-abort",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.InspectWait),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			expectedDirty:     true,
+			expectedRequeue:   provisionRequeueDelay,
+			expectedProvState: nodes.TargetAbort,
+		},
+		{
+			name: "cleanwait-abort",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.CleanWait),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			expectedDirty:     true,
+			expectedRequeue:   provisionRequeueDelay,
+			expectedProvState: nodes.TargetAbort,
+		},
+		{
+			name: "servicewait-abort",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.ServiceWait),
+			}).WithNodeStatesProvisionUpdate(nodeUUID),
+			expectedDirty:     true,
+			expectedRequeue:   provisionRequeueDelay,
+			expectedProvState: nodes.TargetAbort,
+		},
+		{
+			name: "deploying-waits",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.Deploying),
+			}),
+			expectedDirty:   true,
+			expectedRequeue: provisionRequeueDelay,
+		},
+		{
+			name: "cleaning-waits",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.Cleaning),
+			}),
+			expectedDirty:   true,
+			expectedRequeue: provisionRequeueDelay,
+		},
+		{
+			name: "inspecting-waits",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.Inspecting),
+			}),
+			expectedDirty:   true,
+			expectedRequeue: provisionRequeueDelay,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.ironic.Start()
+			defer tc.ironic.Stop()
+
+			host := makeHost()
+			host.Status.Provisioning.ID = nodeUUID
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, tc.ironic.Endpoint(), auth)
+			require.NoError(t, err)
+
+			if tc.maxVersion > 0 {
+				prov.availableFeatures = clients.AvailableFeatures{MaxVersion: tc.maxVersion}
+			}
+
+			result, err := prov.Detach(t.Context(), true)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedDirty, result.Dirty)
+			assert.Equal(t, tc.expectedRequeue, result.RequeueAfter)
+
+			if tc.expectedProvState != "" {
+				update := tc.ironic.GetLastNodeStatesProvisionUpdateRequestFor(nodeUUID)
+				assert.Equal(t, tc.expectedProvState, update.Target)
+			}
+		})
+	}
+}
+
 func deleteTest(t *testing.T, detach bool) {
 	t.Helper()
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
@@ -217,7 +338,7 @@ func deleteTest(t *testing.T, detach bool) {
 
 			var result provisioner.Result
 			if detach {
-				result, err = prov.Detach(t.Context())
+				result, err = prov.Detach(t.Context(), false)
 			} else {
 				result, err = prov.Delete(t.Context())
 			}

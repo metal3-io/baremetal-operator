@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -226,6 +225,17 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		return false
 	}
 
+	if hsm.NextState != metal3api.StateDeleting && hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
+		if delayDeleteForDetachedHost(hsm.Host) {
+			log.Info("delaying detached host deletion")
+			deleteDelayedForDetached.Inc()
+			return false
+		}
+		log.Info("requested deletion of a detached host, skipping power off and deprovisioning", "currentState", hsm.NextState)
+		hsm.NextState = metal3api.StateDeleting
+		return true
+	}
+
 	switch hsm.NextState {
 	default:
 		hsm.NextState = metal3api.StatePoweringOffBeforeDelete
@@ -233,29 +243,7 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		// Skip the power off before delete
 		hsm.NextState = metal3api.StateDeleting
 	case metal3api.StateProvisioning, metal3api.StateProvisioned:
-		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
-			if delayDeleteForDetachedHost(hsm.Host) {
-				log.Info("Delaying detached host deletion")
-				deleteDelayedForDetached.Inc()
-				return false
-			}
-			// We cannot power off a detached host.  Skip to delete.
-			hsm.NextState = metal3api.StateDeleting
-		} else {
-			hsm.NextState = metal3api.StateDeprovisioning
-		}
-	case metal3api.StateExternallyProvisioned:
-		if hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
-			if delayDeleteForDetachedHost(hsm.Host) {
-				log.Info("Delaying detached host deletion")
-				deleteDelayedForDetached.Inc()
-				return false
-			}
-			// We cannot power off a detached host.  Skip to delete.
-			hsm.NextState = metal3api.StateDeleting
-		} else {
-			hsm.NextState = metal3api.StatePoweringOffBeforeDelete
-		}
+		hsm.NextState = metal3api.StateDeprovisioning
 	case metal3api.StateDeprovisioning:
 		if hsm.Host.Status.ErrorType == metal3api.RegistrationError && hsm.Host.Status.ErrorCount > 3 {
 			hsm.NextState = metal3api.StateDeleting
@@ -275,17 +263,6 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		return false
 	}
 	return true
-}
-
-// hasDetachedAnnotation checks for existence of baremetalhost.metal3.io/detached.
-func hasDetachedAnnotation(host *metal3api.BareMetalHost) bool {
-	annotations := host.GetAnnotations()
-	if annotations != nil {
-		if _, ok := annotations[metal3api.DetachedAnnotation]; ok {
-			return true
-		}
-	}
-	return false
 }
 
 // skipReconcileSubresource checks if the applied annotations and status
@@ -311,37 +288,29 @@ func skipReconcileSubresource(host *metal3api.BareMetalHost, logger logr.Logger)
 	return false
 }
 
-func delayDeleteForDetachedHost(host *metal3api.BareMetalHost) bool {
-	annotations := host.GetAnnotations()
-	args := metal3api.DetachedAnnotationArguments{}
-	val, present := annotations[metal3api.DetachedAnnotation]
-
-	// if the host is detached, but missing the annotation, also delay delete
-	// to allow for the host to be re-attached
-	if !present && host.OperationalStatus() == metal3api.OperationalStatusDetached {
-		return true
-	}
-
-	if present {
-		if err := json.Unmarshal([]byte(val), &args); err != nil {
-			// default behavior if these are missing or not json is to not delay
-			return false
-		}
-	}
-
-	return args.DeleteAction == metal3api.DetachedDeleteActionDelay
-}
-
 func (hsm *hostStateMachine) checkDetachedHost(ctx context.Context, info *reconcileInfo) (result actionResult) {
 	// If the detached annotation is set we remove any host from the
 	// provisioner and take no further action
 	// Note this doesn't change the current state, only the OperationalStatus
 	if hasDetachedAnnotation(hsm.Host) {
-		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states
+		// Only allow detaching hosts in Provisioned/ExternallyProvisioned/Ready/Available states unless forced
 		switch info.host.Status.Provisioning.State {
 		case metal3api.StateProvisioned, metal3api.StateExternallyProvisioned, metal3api.StateReady, metal3api.StateAvailable:
-			return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info)
+			return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info, false)
+		case metal3api.StateDeleting:
+			// No point in detaching a host that is being deleted already
 		default:
+			annotation, err := getDetachedAnnotation(hsm.Host)
+			if err != nil {
+				// FIXME(dtantsur): ignoring errors is not great and can cause a lot of confusion.
+				// However, we even document (in https://book.metal3.io/bmo/detached_annotation.html)
+				// that the value can be anything, so starting failing is a breaking change.
+				info.log.Error(err, "ignoring detached annotation value")
+			}
+			if annotation != nil && annotation.Force {
+				info.log.Info("forcing detach of host", "provisioningState", info.host.Status.Provisioning.State)
+				return hsm.Reconciler.detachHost(ctx, hsm.Provisioner, info, true)
+			}
 			info.log.Info("host cannot be detached yet, waiting for the current operation to finish", "provisioningState", info.host.Status.Provisioning.State)
 		}
 	}

@@ -624,8 +624,8 @@ func hasCustomDeploy(host *metal3api.BareMetalHost) bool {
 }
 
 // detachHost() detaches the host from the Provisioner.
-func (r *BareMetalHostReconciler) detachHost(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
-	provResult, err := prov.Detach(ctx)
+func (r *BareMetalHostReconciler) detachHost(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, force bool) actionResult {
+	provResult, err := prov.Detach(ctx, force)
 	if err != nil {
 		return actionError{fmt.Errorf("failed to detach: %w", err)}
 	}

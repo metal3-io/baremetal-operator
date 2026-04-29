@@ -818,6 +818,27 @@ type BareMetalHostStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
+// StepState defines the current state of a provisioning step.
+type StepState string
+
+const (
+	// StepStateInProgress indicates the step is currently executing.
+	StepStateInProgress StepState = "in progress"
+	// StepStateCompleted indicates the step has finished executing.
+	StepStateCompleted StepState = "completed"
+	// StepStateFailed indicates the step failed during execution.
+	StepStateFailed StepState = "failed"
+)
+
+// ProvisioningStep represents a single step in the provisioning or deprovisioning process.
+type ProvisioningStep struct {
+	// The name of the provisioning step (e.g. write_image).
+	Name string `json:"name"`
+
+	// The state of the step (in progress, completed, failed).
+	State StepState `json:"state"`
+}
+
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
 	// An indicator for what the provisioner is doing with the host.
@@ -846,6 +867,18 @@ type ProvisionStatus struct {
 
 	// Custom deploy procedure applied to the host.
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
+
+	// An indicator of what action is being executed by the provisioner.
+	// +optional
+	CurrentActivity string `json:"currentActivity,omitempty"`
+
+	// A string representing the progress of the current operation (e.g., "3/5 Steps Completed").
+	// +optional
+	Progress string `json:"progress,omitempty"`
+
+	// The detailed history of operations performed
+	// +optional
+	Steps []ProvisioningStep `json:"steps,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

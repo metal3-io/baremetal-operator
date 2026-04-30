@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/cert-manager/cert-manager v1.20.2
+	github.com/gophercloud/gophercloud/v2 v2.12.0
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/metal3-io/ironic-standalone-operator/api v0.8.1

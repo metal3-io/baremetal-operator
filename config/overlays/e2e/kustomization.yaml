@@ -6,6 +6,7 @@ resources:
 - ./basic-ops
 - ./external-inspection
 - ./externally-provisioned
+- ./force-detach
 - ./inspection
 - ./live-iso-ops
 - ./provisioning-ops

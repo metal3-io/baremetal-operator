@@ -1,0 +1,70 @@
+---
+# zizmor configuration — see https://docs.zizmor.sh/configuration/
+#
+# Fork-only workflow that builds and publishes the Starlark-branch image
+# to GHCR. Kept intentionally lightweight; excluded from zizmor wholesale
+# here so any future additions don't tangle with upstream audit policy.
+rules:
+  unpinned-uses:
+    ignore:
+    - build-fork-image.yml
+  template-injection:
+    ignore:
+    - build-fork-image.yml
+  artipacked:
+    ignore:
+    - build-fork-image.yml
+  excessive-permissions:
+    ignore:
+    - build-fork-image.yml
+  github-env:
+    ignore:
+    - build-fork-image.yml
+  cache-poisoning:
+    ignore:
+    - build-fork-image.yml
+  unredacted-secrets:
+    ignore:
+    - build-fork-image.yml
+  dangerous-triggers:
+    ignore:
+    - build-fork-image.yml
+  secrets-inherit:
+    ignore:
+    - build-fork-image.yml
+  overprovisioned-secrets:
+    ignore:
+    - build-fork-image.yml
+  hardcoded-container-credentials:
+    ignore:
+    - build-fork-image.yml
+  ref-confusion:
+    ignore:
+    - build-fork-image.yml
+  impostor-commit:
+    ignore:
+    - build-fork-image.yml
+  known-vulnerable-actions:
+    ignore:
+    - build-fork-image.yml
+  bot-conditions:
+    ignore:
+    - build-fork-image.yml
+  self-hosted-runner:
+    ignore:
+    - build-fork-image.yml
+  unsound-contains:
+    ignore:
+    - build-fork-image.yml
+  forbidden-uses:
+    ignore:
+    - build-fork-image.yml
+  anonymous-definition:
+    ignore:
+    - build-fork-image.yml
+  stale-action-refs:
+    ignore:
+    - build-fork-image.yml
+  obfuscation:
+    ignore:
+    - build-fork-image.yml

@@ -1112,13 +1112,14 @@ func (image *Image) GetChecksum() (checksum, checksumType string, err error) {
 		return "", "", errors.New("image is not provided")
 	}
 
-	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
-		// Checksum is not required for live-iso
+	if image.IsOCI() {
+		if image.Checksum != "" {
+			return "", "", errors.New("spec.image.checksum must be empty for OCI images (oci:// images have embedded checksums)")
+		}
 		return "", "", nil
 	}
 
-	// Checksum is not required for OCI images as they have embedded checksums
-	if image.IsOCI() && image.Checksum == "" {
+	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
 		return "", "", nil
 	}
 

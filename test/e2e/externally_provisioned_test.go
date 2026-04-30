@@ -6,7 +6,6 @@ package e2e
 import (
 	"context"
 	"path"
-	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,7 +37,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			})
 		})
 
-		It("provisions a BMH as externally provisioned, validates state immutability, then deprovisions", func() {
+		It("provisions a BMH as externally provisioned, then removes the flag to deprovision", func() {
 			testSecretName := secretName + "-external"
 			By("Creating a secret with BMH credentials")
 			bmcCredentialsData := map[string]string{
@@ -85,7 +84,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			Expect(bmh.Status.OperationHistory.Inspect.Start.IsZero()).To(BeTrue())
 			Expect(bmh.Status.OperationHistory.Provision.Start.IsZero()).To(BeTrue())
 
-			By("Attempting to set ExternallyProvisioned to false (should be blocked by webhook)")
+			By("Setting ExternallyProvisioned to false to trigger deprovisioning")
 			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 				Name:      bmh.Name,
 				Namespace: bmh.Namespace,
@@ -95,22 +94,21 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			patch := client.MergeFrom(bmh.DeepCopy())
 			bmh.Spec.ExternallyProvisioned = false
 			err = clusterProxy.GetClient().Patch(ctx, &bmh, patch)
-			Expect(err).To(HaveOccurred(), "Webhook should reject transition from true to false")
-			Expect(err.Error()).To(ContainSubstring("externallyProvisioned can not be changed from true to false"))
+			Expect(err).NotTo(HaveOccurred())
 
-			By("Verifying BMH remains in ExternallyProvisioned state")
+			By("Waiting for the BMH to reach Available state after deprovisioning")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.StateAvailable,
+			}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+			By("Cleaning up the BMH")
 			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
 				Name:      bmh.Name,
 				Namespace: bmh.Namespace,
 			}, &bmh)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(bmh.Spec.ExternallyProvisioned).To(BeTrue(), "ExternallyProvisioned should still be true")
-			Expect(bmh.Status.Provisioning.State).To(Equal(metal3api.StateExternallyProvisioned))
-
-			By("Deleting the BMH")
-			// Wait for 2 seconds to allow time to confirm annotation is set
-			// TODO: fix this so we do not need the sleep
-			time.Sleep(2 * time.Second)
 
 			err = clusterProxy.GetClient().Delete(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
@@ -120,12 +118,6 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 				Client:    clusterProxy.GetClient(),
 				BmhName:   bmh.Name,
 				Namespace: bmh.Namespace,
-				UndesiredStates: []metal3api.ProvisioningState{
-					metal3api.StateProvisioning,
-					metal3api.StateRegistering,
-					metal3api.StateDeprovisioning,
-					metal3api.StateInspecting,
-				},
 			}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 
 			By("Waiting for the secret to be deleted")

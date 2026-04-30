@@ -74,16 +74,17 @@ type PreprovisioningImage struct {
 }
 
 type ManagementAccessData struct {
-	BootMode                   metal3api.BootMode
-	AutomatedCleaningMode      metal3api.AutomatedCleaningMode
-	State                      metal3api.ProvisioningState
-	OperationalStatus          metal3api.OperationalStatus
-	CurrentImage               *metal3api.Image
-	PreprovisioningImage       *PreprovisioningImage
-	PreprovisioningNetworkData string
-	HasCustomDeploy            bool
-	DisablePowerOff            bool
-	CPUArchitecture            string
+	BootMode                         metal3api.BootMode
+	AutomatedCleaningMode            metal3api.AutomatedCleaningMode
+	State                            metal3api.ProvisioningState
+	OperationalStatus                metal3api.OperationalStatus
+	CurrentImage                     *metal3api.Image
+	PreprovisioningImage             *PreprovisioningImage
+	PreprovisioningNetworkData       string
+	PreprovisioningExtraKernelParams string
+	HasCustomDeploy                  bool
+	DisablePowerOff                  bool
+	CPUArchitecture                  string
 }
 
 type AdoptData struct {

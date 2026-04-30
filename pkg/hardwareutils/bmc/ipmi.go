@@ -71,13 +71,14 @@ func (a *ipmiAccessDetails) DisableCertificateVerification() bool {
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
+func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials, preProvExtraKernParams string) map[string]interface{} {
 	result := map[string]interface{}{
-		"ipmi_port":       a.portNum,
-		"ipmi_username":   bmcCreds.Username,
-		"ipmi_password":   bmcCreds.Password,
-		"ipmi_address":    a.hostname,
-		"ipmi_priv_level": a.privilegelevel,
+		"ipmi_port":            a.portNum,
+		"ipmi_username":        bmcCreds.Username,
+		"ipmi_password":        bmcCreds.Password,
+		"ipmi_address":         a.hostname,
+		"ipmi_priv_level":      a.privilegelevel,
+		"kernel_append_params": preProvExtraKernParams,
 	}
 
 	if a.disableCertificateVerification {

@@ -10,7 +10,7 @@ require (
 	github.com/moby/moby/api v1.54.2
 	github.com/moby/moby/client v0.4.1
 	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.1
+	github.com/onsi/gomega v1.40.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.50.0
 	gopkg.in/yaml.v2 v2.4.0

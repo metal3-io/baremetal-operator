@@ -769,6 +769,72 @@ func TestInspectionDisabled(t *testing.T) {
 	}
 }
 
+func TestEffectiveCleaningMode(t *testing.T) {
+	now := metav1.Now()
+	for _, tc := range []struct {
+		Scenario          string
+		CleaningMode      AutomatedCleaningMode
+		CleaningPhase     AutomatedCleaningPhase
+		DeletionTimestamp *metav1.Time
+		Expected          AutomatedCleaningMode
+	}{
+		{
+			Scenario:      "default phase, not deleting",
+			CleaningMode:  CleaningModeMetadata,
+			CleaningPhase: CleaningPhaseDeprovisioning,
+			Expected:      CleaningModeMetadata,
+		},
+		{
+			Scenario:          "default phase, deleting",
+			CleaningMode:      CleaningModeMetadata,
+			CleaningPhase:     CleaningPhaseDeprovisioning,
+			DeletionTimestamp: &now,
+			Expected:          CleaningModeMetadata,
+		},
+		{
+			Scenario:      "reprovisioning phase, not deleting",
+			CleaningMode:  CleaningModeMetadata,
+			CleaningPhase: CleaningPhaseReprovisioning,
+			Expected:      CleaningModeMetadata,
+		},
+		{
+			Scenario:          "reprovisioning phase, deleting",
+			CleaningMode:      CleaningModeMetadata,
+			CleaningPhase:     CleaningPhaseReprovisioning,
+			DeletionTimestamp: &now,
+			Expected:          CleaningModeDisabled,
+		},
+		{
+			Scenario:          "cleaning disabled, deleting",
+			CleaningMode:      CleaningModeDisabled,
+			CleaningPhase:     CleaningPhaseDeprovisioning,
+			DeletionTimestamp: &now,
+			Expected:          CleaningModeDisabled,
+		},
+		{
+			Scenario:          "zero value phase, deleting",
+			CleaningMode:      CleaningModeMetadata,
+			CleaningPhase:     "",
+			DeletionTimestamp: &now,
+			Expected:          CleaningModeMetadata,
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: tc.DeletionTimestamp,
+				},
+				Spec: BareMetalHostSpec{
+					AutomatedCleaningMode:  tc.CleaningMode,
+					AutomatedCleaningPhase: tc.CleaningPhase,
+				},
+			}
+			actual := host.EffectiveCleaningMode()
+			assert.Equal(t, tc.Expected, actual)
+		})
+	}
+}
+
 func TestIsOCI(t *testing.T) {
 	for _, tc := range []struct {
 		Scenario string

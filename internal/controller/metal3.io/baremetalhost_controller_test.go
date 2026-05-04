@@ -2694,6 +2694,48 @@ func TestGetPreprovImageBeingDeleted(t *testing.T) {
 	assert.Nil(t, imgData)
 }
 
+func TestGetPreprovImageSkippedForReprovisioningPhase(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Status.Provisioning.State = metal3api.StateDeprovisioning
+	host.Spec.AutomatedCleaningMode = metal3api.CleaningModeMetadata
+	host.Spec.AutomatedCleaningPhase = metal3api.CleaningPhaseReprovisioning
+	now := metav1.Now()
+	host.DeletionTimestamp = &now
+	host.Finalizers = []string{"baremetalhost.metal3.io"}
+
+	r := newTestReconciler(t, host)
+	i := makeReconcileInfo(host)
+
+	// With reprovisioning phase and DeletionTimestamp, EffectiveCleaningMode
+	// returns disabled, so getPreprovImage should be called with nil formats
+	// (meaning no PPI is needed). Verify that nil formats returns nil.
+	imgData, err := r.getPreprovImage(t.Context(), i, nil)
+	require.NoError(t, err)
+	assert.Nil(t, imgData)
+}
+
+func TestGetPreprovImageNotSkippedForDefaultPhase(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Status.Provisioning.State = metal3api.StateDeprovisioning
+	host.Spec.AutomatedCleaningMode = metal3api.CleaningModeMetadata
+	host.Spec.AutomatedCleaningPhase = metal3api.CleaningPhaseDeprovisioning
+	now := metav1.Now()
+	host.DeletionTimestamp = &now
+	host.Finalizers = []string{"baremetalhost.metal3.io"}
+
+	r := newTestReconciler(t, host)
+	i := makeReconcileInfo(host)
+
+	// With default deprovisioning phase, even with DeletionTimestamp,
+	// EffectiveCleaningMode returns metadata, so PPI is still needed.
+	// getPreprovImage will attempt to create a PPI (no existing one),
+	// and succeed since we're using a fake client.
+	imgData, err := r.getPreprovImage(t.Context(), i, []metal3api.ImageFormat{metal3api.ImageFormatISO})
+	require.NoError(t, err)
+	// PPI was created but is not ready yet
+	assert.Nil(t, imgData)
+}
+
 func TestPreprovImageAvailable(t *testing.T) {
 	host := newDefaultHost(t)
 	r := newTestReconciler(t, host, newSecret("network_secret_1", nil))

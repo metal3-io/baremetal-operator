@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -68,6 +69,28 @@ func TestBMCEventSubscriptionValidateCreate(t *testing.T) {
 			},
 			oldS:      nil,
 			wantedErr: "hostname-only destination must have a trailing slash",
+		},
+		{
+			name: "httpHeadersRef valid",
+			newS: &BMCEventSubscription{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BMCEventSubscriptionSpec{HostName: "worker-01", Destination: "http://localhost/abc/abc.php",
+					HTTPHeadersRef: &corev1.SecretReference{Namespace: om.Namespace, Name: "headers"}},
+			},
+			oldS:      nil,
+			wantedErr: "",
+		},
+		{
+			name: "httpHeadersRef in different namespace",
+			newS: &BMCEventSubscription{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: BMCEventSubscriptionSpec{HostName: "worker-01", Destination: "http://localhost/abc/abc.php",
+					HTTPHeadersRef: &corev1.SecretReference{Namespace: "different", Name: "headers"}},
+			},
+			oldS:      nil,
+			wantedErr: "httpHeadersRef secret must be in the same namespace as the BMCEventSubscription",
 		},
 	}
 

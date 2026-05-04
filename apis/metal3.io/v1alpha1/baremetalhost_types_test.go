@@ -492,7 +492,25 @@ func TestGetImageChecksum(t *testing.T) {
 					},
 				},
 			},
-			Expected:     true,
+			Expected:     false,
+			ExpectedType: "",
+		},
+		{
+			Scenario: "OCI image with live-iso format and checksum",
+			Host: BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myhost",
+					Namespace: "myns",
+				},
+				Spec: BareMetalHostSpec{
+					Image: &Image{
+						URL:        "oci://example.com/image:latest",
+						Checksum:   "sha256hash",
+						DiskFormat: ptr.To("live-iso"),
+					},
+				},
+			},
+			Expected:     false,
 			ExpectedType: "",
 		},
 		{

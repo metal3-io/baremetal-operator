@@ -296,10 +296,18 @@ func (p *ironicProvisioner) findExistingHost(ctx context.Context, bootMACAddress
 	return nil, nil //nolint:nilnil
 }
 
-func (p *ironicProvisioner) createPXEEnabledNodePort(ctx context.Context, uuid, macAddress string) error {
-	p.log.Info("creating PXE enabled ironic port for node", "NodeUUID", uuid, "MAC", macAddress)
+func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, macAddress string, pxe bool) error {
+	p.log.Info("creating ironic port for node", "NodeUUID", uuid, "MAC", macAddress, "PXE status", pxe)
 
-	enable := true
+	portsList, errPortList := p.listAllPorts(ctx, macAddress)
+	if errPortList != nil {
+		p.log.Info("failed to look for existing ports in Ironic", "MAC", macAddress)
+		return errPortList
+	}
+	if len(portsList) > 0 {
+		p.log.Info("port with address %s already exists in Ironic", macAddress)
+		return nil
+	}
 
 	_, err := ports.Create(
 		ctx,
@@ -307,7 +315,7 @@ func (p *ironicProvisioner) createPXEEnabledNodePort(ctx context.Context, uuid, 
 		ports.CreateOpts{
 			NodeUUID:   uuid,
 			Address:    macAddress,
-			PXEEnabled: &enable,
+			PXEEnabled: &pxe,
 		}).Extract()
 	if err != nil {
 		return fmt.Errorf("failed to create ironic port for node %s, MAC: %s: %w", uuid, macAddress, err)

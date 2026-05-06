@@ -341,7 +341,9 @@ func (p *ironicProvisioner) createPortsFromHardwareData(ctx context.Context, iro
 		if p.bootMACAddress != "" && nic.MAC == p.bootMACAddress {
 			continue
 		}
-		macs[nic.MAC] = nic.PXE
+		if nic.MAC != "" {
+			macs[nic.MAC] = nic.PXE
+		}
 	}
 
 	for mac, pxe := range macs {

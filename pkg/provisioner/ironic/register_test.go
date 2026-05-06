@@ -2,6 +2,8 @@ package ironic
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -1466,4 +1468,441 @@ func TestRegisterDeprovisioningCleaningDisabledNoPreprovisioningImage(t *testing
 
 	require.NoError(t, err)
 	assert.Empty(t, result.ErrorMessage)
+}
+
+// TestRegisterExistingNodeWithHardwareData ensures ports are created from HardwareData
+// when re-registering a host that already exists in Ironic.
+func TestRegisterExistingNodeWithHardwareData(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+	host.Status.Provisioning.ID = "node-uuid"
+
+	existingNode := nodes.Node{
+		Name: host.Namespace + nameSeparator + host.Name,
+		UUID: "node-uuid",
+	}
+
+	// Create HardwareData with NIC information
+	hardwareData := &metal3api.HardwareData{
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{
+				NIC: []metal3api.NIC{
+					{
+						MAC: "aa:bb:cc:dd:ee:ff",
+						PXE: true,
+					},
+					{
+						MAC: "11:22:33:44:55:66",
+						PXE: false,
+					},
+					{
+						MAC: "77:88:99:aa:bb:cc",
+						PXE: false,
+					},
+				},
+			},
+		},
+	}
+
+	// Track created ports
+	createdPorts := []ports.Port{}
+
+	ironic := testserver.NewIronic(t).Node(existingNode).NodeUpdate(nodes.Node{
+		UUID: "node-uuid",
+	})
+
+	// Set up handler to capture port creation
+	ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HardwareData: hardwareData,
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.Equal(t, "node-uuid", provID)
+
+	// Verify that all three ports were created
+	assert.Len(t, createdPorts, 3, "Expected 3 ports to be created from HardwareData")
+
+	// Verify port details
+	portMACs := make(map[string]bool)
+	for _, port := range createdPorts {
+		portMACs[port.Address] = port.PXEEnabled
+		assert.Equal(t, "node-uuid", port.NodeUUID, "Port should be associated with the correct node")
+	}
+
+	// Check that all expected MACs were created with correct PXE settings
+	assert.True(t, portMACs["aa:bb:cc:dd:ee:ff"], "Boot MAC should have PXE enabled")
+	assert.False(t, portMACs["11:22:33:44:55:66"], "Second NIC should have PXE disabled")
+	assert.False(t, portMACs["77:88:99:aa:bb:cc"], "Third NIC should have PXE disabled")
+}
+
+// TestRegisterExistingNodeWithoutHardwareData ensures registration works normally
+// when HardwareData is not provided (backward compatibility).
+func TestRegisterExistingNodeWithoutHardwareData(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = "node-uuid"
+
+	existingNode := nodes.Node{
+		Name: host.Namespace + nameSeparator + host.Name,
+		UUID: "node-uuid",
+	}
+
+	portCreationAttempted := false
+
+	ironic := testserver.NewIronic(t).Node(existingNode).NodeUpdate(nodes.Node{
+		UUID: "node-uuid",
+	})
+
+	// Set up handler to detect if port creation is attempted
+	ironic.Handler("/v1/ports", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			portCreationAttempted = true
+			http.Error(w, "Unexpected port creation", http.StatusInternalServerError)
+			return
+		}
+	})
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HardwareData: nil, // No HardwareData provided
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.Equal(t, "node-uuid", provID)
+	assert.False(t, portCreationAttempted, "No ports should be created when HardwareData is nil")
+}
+
+// TestRegisterExistingNodeWithEmptyHardwareData ensures registration works when
+// HardwareData exists but has no NIC information.
+func TestRegisterExistingNodeWithEmptyHardwareData(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = "node-uuid"
+
+	existingNode := nodes.Node{
+		Name: host.Namespace + nameSeparator + host.Name,
+		UUID: "node-uuid",
+	}
+
+	// Create HardwareData with no NICs
+	hardwareData := &metal3api.HardwareData{
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{
+				NIC: []metal3api.NIC{},
+			},
+		},
+	}
+
+	portCreationAttempted := false
+
+	ironic := testserver.NewIronic(t).Node(existingNode).NodeUpdate(nodes.Node{
+		UUID: "node-uuid",
+	})
+
+	// Set up handler to detect if port creation is attempted
+	ironic.Handler("/v1/ports", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			portCreationAttempted = true
+			http.Error(w, "Unexpected port creation", http.StatusInternalServerError)
+			return
+		}
+	})
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HardwareData: hardwareData,
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.Equal(t, "node-uuid", provID)
+	assert.False(t, portCreationAttempted, "No ports should be created when HardwareData has no NICs")
+}
+
+// setupPortHandler is a helper function that creates a port handler for test servers.
+// It captures port creation in the provided createdPorts slice.
+func setupPortHandler(createdPorts *[]ports.Port) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			// Return empty list of ports for GET requests
+			response := map[string][]ports.Port{
+				"ports": {},
+			}
+			responseData, _ := json.Marshal(response)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseData)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var port ports.Port
+		if err := json.Unmarshal(body, &port); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		port.UUID = "port-uuid-" + port.Address
+		*createdPorts = append(*createdPorts, port)
+
+		response, _ := json.Marshal(port)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write(response)
+	}
+}
+
+// TestRegisterNewNodeWithHardwareData tests the scenario where the Ironic DB is dropped
+// (node not found) and re-enrollment happens via the ironicNode == nil path.
+// This ensures ports are recreated from HardwareData even when the node doesn't exist.
+func TestRegisterNewNodeWithHardwareData(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+	// Clear Provisioning.ID - simulating a host that was inspected but node was lost
+	host.Status.Provisioning.ID = ""
+
+	// Create HardwareData with NIC information from previous inspection
+	hardwareData := &metal3api.HardwareData{
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{
+				NIC: []metal3api.NIC{
+					{
+						MAC: "aa:bb:cc:dd:ee:ff",
+						PXE: true,
+					},
+					{
+						MAC: "11:22:33:44:55:66",
+						PXE: false,
+					},
+					{
+						MAC: "77:88:99:aa:bb:cc",
+						PXE: false,
+					},
+				},
+			},
+		},
+	}
+
+	// Track created ports
+	createdPorts := []ports.Port{}
+	var nodeCreated *nodes.Node
+
+	ironic := testserver.NewIronic(t)
+
+	// Return 404 for node lookups (simulating DB drop)
+	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
+	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
+	// Return OK for PATCH on the new node
+	ironic.AddDefaultResponse("/v1/nodes/new-node-uuid", "PATCH", http.StatusOK, "{\"uuid\": \"new-node-uuid\"}")
+
+	// Set up handler for node creation (POST)
+	ironic.Handler("/v1/nodes", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var node nodes.Node
+		if err := json.Unmarshal(body, &node); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		node.UUID = "new-node-uuid"
+		nodeCreated = &node
+
+		response, _ := json.Marshal(node)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write(response)
+	})
+
+	// Set up handler to capture port creation
+	ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HardwareData: hardwareData,
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.Equal(t, "new-node-uuid", provID)
+	assert.NotNil(t, nodeCreated, "Node should have been created")
+
+	// Verify that all three ports were created:
+	// - Boot MAC is created during enrollNode
+	// - Other two MACs are created by createPortsFromHardwareData
+	assert.Len(t, createdPorts, 3, "Expected 3 ports to be created: 1 boot MAC + 2 from HardwareData")
+
+	// Verify port details
+	portMACs := make(map[string]bool)
+	for _, port := range createdPorts {
+		portMACs[port.Address] = port.PXEEnabled
+		assert.Equal(t, "new-node-uuid", port.NodeUUID, "Port should be associated with the new node")
+	}
+
+	// Check that all expected MACs were created with correct PXE settings
+	assert.True(t, portMACs["aa:bb:cc:dd:ee:ff"], "Boot MAC should have PXE enabled")
+	assert.False(t, portMACs["11:22:33:44:55:66"], "Second NIC should have PXE disabled")
+	assert.False(t, portMACs["77:88:99:aa:bb:cc"], "Third NIC should have PXE disabled")
+}
+
+// TestRegisterNewNodeWithoutBootMACButWithHardwareData tests re-enrollment when:
+// - Ironic DB is dropped (node not found)
+// - No boot MAC is configured
+// - But HardwareData is present with inspection data
+// This ensures all ports from HardwareData are created during enrollment.
+func TestRegisterNewNodeWithoutBootMACButWithHardwareData(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = ""    // No boot MAC configured
+	host.Status.Provisioning.ID = "" // Clear Provisioning.ID - simulating DB drop
+
+	// Create HardwareData with NIC information from previous inspection
+	hardwareData := &metal3api.HardwareData{
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{
+				NIC: []metal3api.NIC{
+					{
+						MAC: "11:22:33:44:55:66",
+						PXE: true,
+					},
+					{
+						MAC: "77:88:99:aa:bb:cc",
+						PXE: false,
+					},
+				},
+			},
+		},
+	}
+
+	// Track created ports
+	createdPorts := []ports.Port{}
+	var nodeCreated *nodes.Node
+
+	ironic := testserver.NewIronic(t)
+
+	// Return 404 for node lookups (simulating DB drop)
+	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
+	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
+	// Return OK for PATCH on the new node
+	ironic.AddDefaultResponse("/v1/nodes/new-node-uuid", "PATCH", http.StatusOK, "{\"uuid\": \"new-node-uuid\"}")
+
+	// Set up handler for node creation (POST)
+	ironic.Handler("/v1/nodes", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var node nodes.Node
+		if err := json.Unmarshal(body, &node); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		node.UUID = "new-node-uuid"
+		nodeCreated = &node
+
+		response, _ := json.Marshal(node)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write(response)
+	})
+
+	// Set up handler to capture port creation
+	ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HardwareData: hardwareData,
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.Equal(t, "new-node-uuid", provID)
+	assert.NotNil(t, nodeCreated, "Node should have been created")
+
+	// Verify that both ports were created from HardwareData
+	// Since no boot MAC is configured, enrollNode doesn't create any ports
+	// All ports come from createPortsFromHardwareData
+	assert.Len(t, createdPorts, 2, "Expected 2 ports to be created from HardwareData")
+
+	// Verify port details
+	portMACs := make(map[string]bool)
+	for _, port := range createdPorts {
+		portMACs[port.Address] = port.PXEEnabled
+		assert.Equal(t, "new-node-uuid", port.NodeUUID, "Port should be associated with the new node")
+	}
+
+	// Check that all expected MACs were created with correct PXE settings
+	assert.True(t, portMACs["11:22:33:44:55:66"], "First NIC should have PXE enabled")
+	assert.False(t, portMACs["77:88:99:aa:bb:cc"], "Second NIC should have PXE disabled")
 }

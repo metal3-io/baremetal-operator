@@ -121,6 +121,13 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// Store the ID so other methods can assume it is set and so
 		// we can find the node again later.
 		provID = ironicNode.UUID
+
+		// Try to create ports from HardwareData when re-registering
+		err = p.createPortsFromHardwareData(ctx, ironicNode, data.HardwareData)
+		if err != nil {
+			result, err = transientError(err)
+			return result, provID, err
+		}
 	} else {
 		// FIXME(dhellmann): At this point we have found an existing
 		// node in ironic by looking it up. We need to check its
@@ -130,7 +137,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 
 		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
 
-		// When node exists but has no assigned port to it by Ironic and actuall address (MAC) is present
+		// When node exists but has no assigned port to it by Ironic and actual address (MAC) is present
 		// in host config and is not allocated to different node lets try to create port for this node.
 		if p.bootMACAddress != "" {
 			err = p.ensurePort(ctx, ironicNode)
@@ -138,6 +145,13 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 				result, err = transientError(err)
 				return result, provID, err
 			}
+		}
+
+		// Try to create ports from HardwareData when re-registering
+		err = p.createPortsFromHardwareData(ctx, ironicNode, data.HardwareData)
+		if err != nil {
+			result, err = transientError(err)
+			return result, provID, err
 		}
 
 		bmcAddressChanged := !bmcAddressMatches(ironicNode, driverInfo)
@@ -283,7 +297,7 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 	// If we know the MAC, create a port. Otherwise we will have
 	// to do this after we run the introspection step.
 	if p.bootMACAddress != "" {
-		err = p.createPXEEnabledNodePort(ctx, ironicNode.UUID, p.bootMACAddress)
+		err = p.createNodePort(ctx, ironicNode.UUID, p.bootMACAddress, true)
 		if err != nil {
 			return nil, true, err
 		}
@@ -305,10 +319,35 @@ func (p *ironicProvisioner) ensurePort(ctx context.Context, ironicNode *nodes.No
 		}
 
 		if !addressIsAllocatedToPort {
-			err = p.createPXEEnabledNodePort(ctx, ironicNode.UUID, p.bootMACAddress)
+			err = p.createNodePort(ctx, ironicNode.UUID, p.bootMACAddress, true)
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func (p *ironicProvisioner) createPortsFromHardwareData(ctx context.Context, ironicNode *nodes.Node, hardwareData *metal3api.HardwareData) error {
+	var nics []metal3api.NIC
+	macs := map[string]bool{}
+
+	if hardwareData != nil && hardwareData.Spec.HardwareDetails != nil {
+		nics = hardwareData.Spec.HardwareDetails.NIC
+	}
+
+	for _, nic := range nics {
+		if p.bootMACAddress != "" && nic.MAC == p.bootMACAddress {
+			continue
+		}
+		macs[nic.MAC] = nic.PXE
+	}
+
+	for mac, pxe := range macs {
+		err := p.createNodePort(ctx, ironicNode.UUID, mac, pxe)
+		if err != nil {
+			return err
 		}
 	}
 

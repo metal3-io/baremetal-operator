@@ -84,6 +84,7 @@ type ManagementAccessData struct {
 	HasCustomDeploy            bool
 	DisablePowerOff            bool
 	CPUArchitecture            string
+	HardwareData               *metal3api.HardwareData
 }
 
 type AdoptData struct {

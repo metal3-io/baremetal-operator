@@ -117,10 +117,7 @@ IP_ADDRESS="192.168.222.1"
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   # Start VBMC
-  docker start vbmc || docker run --name vbmc --network host -d \
-    -v /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock \
-    -v /var/run/libvirt/libvirt-sock-ro:/var/run/libvirt/libvirt-sock-ro \
-    quay.io/metal3-io/vbmc
+  ./bin/vbmctl create bmc-emulator --emulator-type "vbmc" --image "quay.io/metal3-io/vbmc"
 
   readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
   for bmc in "${BMCS[@]}"; do
@@ -134,12 +131,7 @@ elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
   # Start sushy-tools
-  docker start sushy-tools || docker run --name sushy-tools -d --network host \
-    -v "${SUSHY_EMULATOR_FILE}":/etc/sushy/sushy-emulator.conf:Z \
-    -v /var/run/libvirt:/var/run/libvirt:Z \
-    -e SUSHY_EMULATOR_CONFIG=/etc/sushy/sushy-emulator.conf \
-    quay.io/metal3-io/sushy-tools:latest sushy-emulator
-
+  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "quay.io/metal3-io/sushy-tools:latest" --config-file "${SUSHY_EMULATOR_FILE}"
 else
   echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1

@@ -50,6 +50,41 @@ type ImageServerConfig struct {
 	ContainerName string `json:"containerName" yaml:"containerName"`
 }
 
+// VolumeMount represents a single host-to-container volume binding.
+type VolumeMount struct {
+	// HostPath is the path on the host to mount.
+	HostPath string
+
+	// BindSpec is the container-side bind specification, e.g.
+	// "/container/path" or "/container/path:Z".
+	BindSpec string
+}
+
+// BMCEmulatorConfig represents the configuration for the BMC emulator.
+type BMCEmulatorConfig struct {
+	// BMC Emulator type
+	Type string `json:"type" yaml:"type"`
+
+	// ConfigFile is the path to the sushy-tools config file and is only
+	// applicable/required when Type is "sushy-tools".
+	ConfigFile string `json:"configFile" yaml:"configFile"`
+
+	// Image is the container image to use for the BMC emulator.
+	Image string `json:"image" yaml:"image"`
+
+	// Cmd is an internal runtime command for the BMC emulator container.
+	Cmd []string `json:"-" yaml:"-"`
+
+	// Env contains internal runtime environment variables for the emulator container.
+	Env map[string]string `json:"-" yaml:"-"`
+
+	// ContainerName is an internal runtime container name for the BMC emulator.
+	ContainerName string `json:"-" yaml:"-"`
+
+	// VolumeMounts is an internal runtime list of host-to-container volume bindings.
+	VolumeMounts []VolumeMount `json:"-" yaml:"-"`
+}
+
 // NetworkAttachment represents a network interface attached to a VM.
 type NetworkAttachment struct {
 	// Network is the name of the libvirt network to attach to.

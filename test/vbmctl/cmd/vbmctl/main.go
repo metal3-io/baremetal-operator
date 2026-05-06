@@ -45,9 +45,10 @@ for testing and development purposes. It currently provides functionality for:
   - Creating and managing libvirt networks
   - Image server for provisioning
   - Reserving IP addresses for VMs via DHCP on existing libvirt networks
+  - BMC emulator support (sushy-tools, vbmc)
 
 Planned features (not yet implemented):
-  - BMC emulator support (sushy-tools, vbmc)
+  - Support multiple named environments
 
 vbmctl is designed to be as simple to use as 'kind' for creating
 test environments for the Bare Metal Operator (BMO) and CAPM3.`,
@@ -88,6 +89,7 @@ func newCreateCmd() *cobra.Command {
 	cmd.AddCommand(newCreateBMLCmd())
 	cmd.AddCommand(newCreateNetworkCmd())
 	cmd.AddCommand(newCreateImageServerCmd())
+	cmd.AddCommand(newCreateBMCEmulatorCmd())
 	return cmd
 }
 
@@ -209,8 +211,12 @@ Example configuration:
       port: 8080
       containerPort: 8080
       dataDir: "/var/lib/vbmctl/images"
-      containerDataDir: "/usr/share/nginx/html",
-      containerName: "vbmctl-image-server"`,
+      containerDataDir: "/usr/share/nginx/html"
+      containerName: "vbmctl-image-server"
+    bmcEmulator:
+      type: "sushy-tools"
+      configFile: "vbmc-emulator-file"
+      image: "bmc-emulator:latest"`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx, cancel := contextWithSignal()
 			defer cancel()
@@ -232,6 +238,16 @@ Example configuration:
 			} else {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Println("No image server configuration found in the config file.")
+			}
+
+			if cfg.Spec.BMCEmulator != nil {
+				err = containers.CreateBMCEmulatorInstance(ctx, cfg.Spec.BMCEmulator)
+				if err != nil {
+					return err
+				}
+			} else {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("No BMC emulator configuration found in the config file.")
 			}
 
 			conn, err := libvirtgo.NewConnect(cfg.Spec.Libvirt.URI)
@@ -420,6 +436,80 @@ func newCreateImageServerCmd() *cobra.Command {
 	return cmd
 }
 
+func newCreateBMCEmulatorCmd() *cobra.Command {
+	var (
+		emulatorType string
+		image        string
+		configFile   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "bmc-emulator",
+		Short: "Create a BMC emulator instance",
+		Long:  "Create a BMC emulator instance to be used for testing.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+
+			// Resolve effective BMC emulator config: config file values as base,
+			// command-line flags take precedence over both.
+			effective := &vbmctlapi.BMCEmulatorConfig{}
+			if cfg.Spec.BMCEmulator != nil {
+				effective = cfg.Spec.BMCEmulator
+			}
+
+			// Resolve type: flag > config > default.
+			if emulatorType == "" {
+				if effective.Type != "" {
+					emulatorType = effective.Type
+				} else {
+					emulatorType = config.DefaultBMCEmulatorType
+				}
+			}
+
+			// Resolve image: flag > config > correct default for the resolved type.
+			if image == "" {
+				if effective.Image != "" {
+					image = effective.Image
+				} else if emulatorType == config.BMCEmulatorTypeSushyTools {
+					image = config.DefaultBMCEmulatorSushyToolsImage
+				} else {
+					image = config.DefaultBMCEmulatorVBMCImage
+				}
+			}
+
+			// Resolve config file: flag > config > default.
+			if configFile == "" {
+				if effective.ConfigFile != "" {
+					configFile = effective.ConfigFile
+				} else {
+					// Note that the config file is only applicable for sushy-tools,
+					// but we'll set it regardless of the type since it's not harmful
+					// for vbmc and simplifies the logic.
+					configFile = config.DefaultBMCEmulatorSushyToolsConfigFile
+				}
+			}
+
+			return containers.CreateBMCEmulatorInstance(ctx, &vbmctlapi.BMCEmulatorConfig{
+				Type:       emulatorType,
+				Image:      image,
+				ConfigFile: configFile,
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&emulatorType, "emulator-type", "", "type of the BMC emulator (vbmc or sushy-tools, default is "+config.DefaultBMCEmulatorType+" if not set in config file)")
+	cmd.Flags().StringVar(&image, "image", "", "container image to use for the BMC emulator (default is "+config.DefaultBMCEmulatorVBMCImage+" or "+config.DefaultBMCEmulatorSushyToolsImage+" if not set in config file)")
+	cmd.Flags().StringVar(&configFile, "config-file", "", "configuration file to use for the BMC emulator in case of sushy-tools (default is "+config.DefaultBMCEmulatorSushyToolsConfigFile+" if not set in config file)")
+
+	return cmd
+}
+
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
@@ -431,6 +521,7 @@ func newDeleteCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteBMLCmd())
 	cmd.AddCommand(newDeleteNetworkCmd())
 	cmd.AddCommand(newDeleteImageServerCmd())
+	cmd.AddCommand(newDeleteBMCEmulatorCmd())
 	return cmd
 }
 
@@ -565,6 +656,18 @@ func newDeleteBMLCmd() *cobra.Command {
 				fmt.Println("No image server configuration found in the config file.")
 			}
 
+			if cfg.Spec.BMCEmulator != nil {
+				err := containers.DeleteBMCEmulatorInstance(ctx, cfg.Spec.BMCEmulator.Type)
+				// don't fail the whole command if BMC emulator deletion fails, just log the error
+				if err != nil {
+					//nolint:forbidigo // CLI output is intentional
+					fmt.Printf("%v\n", err)
+				}
+			} else {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("No BMC emulator configuration found in the config file.")
+			}
+
 			return nil
 		},
 	}
@@ -646,8 +749,43 @@ func newDeleteImageServerCmd() *cobra.Command {
 	return cmd
 }
 
+func newDeleteBMCEmulatorCmd() *cobra.Command {
+	var emulatorType string
+
+	cmd := &cobra.Command{
+		Use:   "bmc-emulator",
+		Short: "Delete the BMC emulator instance",
+		Long:  "Delete the BMC emulator instance used for provisioning.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+
+			// command-line flag takes precedence over config file value
+			if emulatorType == "" {
+				if cfg.Spec.BMCEmulator != nil {
+					emulatorType = cfg.Spec.BMCEmulator.Type
+				} else {
+					emulatorType = config.DefaultBMCEmulatorType
+				}
+			}
+
+			return containers.DeleteBMCEmulatorInstance(ctx, emulatorType)
+		},
+	}
+
+	cmd.Flags().StringVar(&emulatorType, "emulator-type", "", "type of the BMC emulator container to delete (default is "+config.DefaultBMCEmulatorType+" if not set in config file)")
+
+	return cmd
+}
+
 func newStatusCmd() *cobra.Command {
 	var containerName string
+	var emulatorType string
 
 	cmd := &cobra.Command{
 		Use:   "status",
@@ -695,8 +833,24 @@ func newStatusCmd() *cobra.Command {
 				return err
 			}
 
+			// command-line flag takes precedence over config file value
+			if emulatorType == "" {
+				if cfg.Spec.BMCEmulator != nil {
+					emulatorType = cfg.Spec.BMCEmulator.Type
+				} else {
+					emulatorType = config.DefaultBMCEmulatorType
+				}
+			}
+			// check if the bmc emulator is present
+			emulatorInfo, err := containers.GetBMCEmulatorInfo(ctx, emulatorType)
+			if err != nil {
+				return err
+			}
+
 			//nolint:forbidigo // CLI output is intentional
 			fmt.Printf("Image Server container: %s\n", containerInfo)
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Printf("BMC Emulator container: %s\n", emulatorInfo)
 			//nolint:forbidigo // CLI output is intentional
 			fmt.Println("Virtual Machines:")
 			//nolint:forbidigo // CLI output is intentional
@@ -712,6 +866,7 @@ func newStatusCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&containerName, "name", "", "name of the image server container (default is "+config.DefaultImageServerContainerName+" if not set in config file)")
+	cmd.Flags().StringVar(&emulatorType, "emulator-type", "", "type of the BMC emulator container to check for (default is "+config.DefaultBMCEmulatorType+" if not set in config file)")
 
 	return cmd
 }
@@ -791,6 +946,14 @@ func newConfigViewCmd() *cobra.Command {
 					cfg.Spec.ImageServer.ContainerPort,
 					cfg.Spec.ImageServer.DataDir,
 					cfg.Spec.ImageServer.ContainerName)
+			}
+
+			if cfg.Spec.BMCEmulator != nil {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("BMC Emulator:\n  Emulator Type: %s\n  Config File: %s\n  Image: %s\n",
+					cfg.Spec.BMCEmulator.Type,
+					cfg.Spec.BMCEmulator.ConfigFile,
+					cfg.Spec.BMCEmulator.Image)
 			}
 
 			return nil

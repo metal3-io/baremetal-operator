@@ -14,11 +14,11 @@ updates:
   ## group all action bumps into single PR
   groups:
     github-actions:
-      patterns: ["*"]
+      patterns: [ "*" ]
   ignore:
   # Ignore major bumps in main, as it breaks the group bump process
   - dependency-name: "*"
-    update-types: ["version-update:semver-major"]
+    update-types: [ "version-update:semver-major" ]
   cooldown:
     default-days: 7
   commit-message:
@@ -40,40 +40,40 @@ updates:
   target-branch: main
   groups:
     kubernetes:
-      patterns: ["k8s.io/*"]
+      patterns: [ "k8s.io/*" ]
     capi:
-      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test" ]
   ignore:
   # Ignore controller-runtime major and minor bumps as its upgraded manually.
   - dependency-name: "sigs.k8s.io/controller-runtime"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   # Ignore k8s major and minor bumps and its transitives modules
   - dependency-name: "k8s.io/*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   - dependency-name: "sigs.k8s.io/controller-tools"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   commit-message:
     prefix: ":seedling:"
   labels:
   - "ok-to-test"
 ## Main branch config ends here
 
-## release-0.12 branch config starts here
+## release-0.13 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
     day: "sunday"
     time: "03:30" # 3.30am utc
-  target-branch: release-0.12
+  target-branch: release-0.13
   ## group all action bumps into single PR
   groups:
     github-actions:
-      patterns: ["*"]
+      patterns: [ "*" ]
   ignore:
   # Ignore major and minor bumps for release branch
   - dependency-name: "*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   cooldown:
     default-days: 7
   commit-message:
@@ -92,41 +92,41 @@ updates:
     interval: "weekly"
     day: "sunday"
     time: "04:00" # 4am utc
-  target-branch: release-0.12
+  target-branch: release-0.13
   groups:
     kubernetes:
-      patterns: ["k8s.io/*"]
+      patterns: [ "k8s.io/*" ]
     capi:
-      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test" ]
   ignore:
   # golang.org/x/* only releases minors no patches, so minors have to be allowed
   - dependency-name: "golang.org/x/*"
-    update-types: ["version-update:semver-major"]
+    update-types: [ "version-update:semver-major" ]
   - dependency-name: "*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   commit-message:
     prefix: ":seedling:"
   labels:
   - "ok-to-test"
 
-## release-0.12 branch config ends here
+## release-0.13 branch config ends here
 
-## release-0.11 branch config starts here
+## release-0.12 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
     day: "sunday"
     time: "04:30" # 4.30am utc
-  target-branch: release-0.11
+  target-branch: release-0.12
   ## group all action bumps into single PR
   groups:
     github-actions:
-      patterns: ["*"]
+      patterns: [ "*" ]
   ignore:
   # Ignore major and minor bumps for release branch
   - dependency-name: "*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   cooldown:
     default-days: 7
   commit-message:
@@ -145,21 +145,21 @@ updates:
     interval: "weekly"
     day: "sunday"
     time: "05:00" # 5am utc
-  target-branch: release-0.11
+  target-branch: release-0.12
   groups:
     kubernetes:
-      patterns: ["k8s.io/*"]
+      patterns: [ "k8s.io/*" ]
     capi:
-      patterns: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"]
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test" ]
   ignore:
   # golang.org/x/* only releases minors no patches, so minors have to be allowed
   - dependency-name: "golang.org/x/*"
-    update-types: ["version-update:semver-major"]
+    update-types: [ "version-update:semver-major" ]
   - dependency-name: "*"
-    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   commit-message:
     prefix: ":seedling:"
   labels:
   - "ok-to-test"
 
-## release-0.11 branch config ends here
+## release-0.12 branch config ends here

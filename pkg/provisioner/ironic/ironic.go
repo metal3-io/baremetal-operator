@@ -305,7 +305,7 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 		return errPortList
 	}
 	if len(portsList) > 0 {
-		p.log.Info("port with address %s already exists in Ironic", macAddress)
+		p.log.Info("port already exists in Ironic", "MAC", macAddress)
 		return nil
 	}
 

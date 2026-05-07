@@ -299,14 +299,32 @@ func (p *ironicProvisioner) findExistingHost(ctx context.Context, bootMACAddress
 func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, macAddress string, pxe bool) error {
 	p.log.Info("creating ironic port for node", "NodeUUID", uuid, "MAC", macAddress, "PXE status", pxe)
 
+	// checking if port already exists in Ironic
 	portsList, errPortList := p.listAllPorts(ctx, macAddress)
 	if errPortList != nil {
 		p.log.Info("failed to look for existing ports in Ironic", "MAC", macAddress)
 		return errPortList
 	}
-	if len(portsList) > 0 {
-		p.log.Info("port already exists in Ironic", "MAC", macAddress)
-		return nil
+	for _, port := range portsList {
+		if port.NodeUUID != uuid {
+			p.log.Info(
+				"the port is assigned to another node, deleting and recreating",
+				"MAC", macAddress,
+				"old NodeUUID", port.NodeUUID,
+				"current NodeUUID", macAddress,
+			)
+			result := ports.Delete(
+				ctx,
+				p.client,
+				port.UUID,
+			)
+			if result.Err != nil {
+				return fmt.Errorf("failed to delete ironic port for node %s, MAC: %s: %w", uuid, macAddress, result.Err)
+			}
+		} else {
+			p.log.Info("port already exists in Ironic", "NodeUUID", uuid, "MAC", macAddress)
+			return nil
+		}
 	}
 
 	_, err := ports.Create(

@@ -121,12 +121,20 @@ jobs:
         curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/releasenotes/${RELEASE_TAG}.md" \
         -o "${RELEASE_TAG}.md"
     - name: Release
-      uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0 # zizmor: ignore[superfluous-actions]
-      with:
-        draft: true
-        files: out/*
-        body_path: ${{ env.RELEASE_TAG }}.md
-        tag_name: ${{ env.RELEASE_TAG }}
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_REPO: ${{ github.repository }}
+        PRERELEASE_FLAG: ${{ contains(needs.push_release_tags.outputs.release_tag, '-') && '--prerelease' || '' }}
+      run: |
+        # NOTE: No quotes around PRERELEASE_FLAG so that it expands to either `--prerelease` or an empty string,
+        # rather than an empty argument.
+        gh release create "${RELEASE_TAG}" \
+          --draft \
+          --verify-tag \
+          ${PRERELEASE_FLAG} \
+          --title "${RELEASE_TAG}" \
+          --notes-file "${RELEASE_TAG}.md" \
+          out/*
   build_bmo:
     permissions:
       contents: read

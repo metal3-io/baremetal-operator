@@ -125,6 +125,9 @@ type Spec struct {
 
 	// BMCEmulator contains configuration for the BMC emulator.
 	BMCEmulator *vbmctlapi.BMCEmulatorConfig `json:"bmcEmulator,omitempty" yaml:"bmcEmulator,omitempty"`
+
+	// VethPairs is a list of interfaces that should be connected with a veth-pair.
+	VethPairs []vbmctlapi.VethPair `json:"vethPairs,omitempty" yaml:"vethPairs,omitempty"`
 }
 
 // LibvirtConfig contains libvirt connection settings.

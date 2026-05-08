@@ -72,24 +72,6 @@ sudo sysctl fs.inotify.max_user_instances=8192
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
 
-
-# We need to create veth pair to connect metal3 net (defined above with vbmctl)
-# and kind docker subnet. Let us start by creating a docker network with
-# pre-defined name for bridge, so that we can configure the veth pair
-# correctly. Also assume that if kind net exists, it is created by us.
-if ! docker network list | grep kind; then
-    # These options are used by kind itself. It uses docker default mtu and
-    # generates ipv6 subnet ULA, but we can fix the ULA. Only addition to kind
-    # options is the network bridge name.
-    docker network create -d=bridge \
-        -o com.docker.network.bridge.enable_ip_masquerade=true \
-        -o com.docker.network.driver.mtu=1500 \
-        -o com.docker.network.bridge.name="kind-bridge" \
-        --ipv6 --subnet "fc00:f853:ccd:e793::/64" \
-        kind
-fi
-docker network list
-
 # Build vbmctl
 make build-vbmctl
 sudo setcap cap_net_admin+epi ./bin/vbmctl

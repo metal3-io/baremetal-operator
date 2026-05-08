@@ -4,10 +4,13 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
+	"golang.org/x/sys/unix"
 	"gopkg.in/yaml.v2"
 )
 
@@ -117,7 +120,7 @@ type Spec struct {
 	// VMs is a list of VM configurations to create.
 	VMs []vbmctlapi.VMConfig `json:"vms,omitempty" yaml:"vms,omitempty"`
 
-	// Networks is a list of network configurations to create.
+	// Networks is a list of libvirt network configurations to create.
 	Networks []vbmctlapi.NetworkConfig `json:"networks,omitempty" yaml:"networks,omitempty"`
 
 	// ImageServer contains configuration for the image server.
@@ -128,6 +131,9 @@ type Spec struct {
 
 	// VethPairs is a list of interfaces that should be connected with a veth-pair.
 	VethPairs []vbmctlapi.VethPair `json:"vethPairs,omitempty" yaml:"vethPairs,omitempty"`
+
+	// DockerNetworks is a list of docker network that should be present
+	DockerNetworks []vbmctlapi.DockerBridgeNetwork `json:"dockerNetworks,omitempty" yaml:"dockerNetworks,omitempty"`
 }
 
 // LibvirtConfig contains libvirt connection settings.
@@ -296,6 +302,65 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate libvirt network config
+	for _, network := range c.Spec.Networks {
+		if network.Name == "" {
+			return errors.New("name is required for libvirt network")
+		}
+
+		if network.Bridge != "" {
+			if len(network.Bridge) > unix.IFNAMSIZ-1 {
+				return fmt.Errorf("too long bridgename for libvirt network %s", network.Name)
+			}
+		}
+
+		if network.Address != "" {
+			addr, err := netip.ParseAddr(network.Address)
+			if err != nil {
+				return fmt.Errorf("malformed libvirt network address: %w", err)
+			}
+			if !addr.Is4() {
+				return fmt.Errorf("libvirt network address must be an IPv4 address: %s", network.Address)
+			}
+		}
+
+		if network.Netmask != "" {
+			ip := net.ParseIP(network.Netmask)
+			if ip == nil {
+				return fmt.Errorf("malformed libvirt netmask: %s", ip)
+			}
+			m := net.IPMask(ip.To4())
+			ones, zeros := m.Size()
+			if ones == 0 && zeros == 0 {
+				return fmt.Errorf("malformed libvirt netmask: %s", ip)
+			}
+		}
+	}
+
+	// Validate Docker network configs
+	for _, network := range c.Spec.DockerNetworks {
+		if network.Name == "" {
+			return errors.New("name is required for Docker network")
+		}
+
+		if network.BridgeName == "" {
+			return errors.New("BridgeName is required for Docker network")
+		}
+		if len(network.BridgeName) > unix.IFNAMSIZ-1 {
+			return fmt.Errorf("too long bridgename for Docker network %s", network.Name)
+		}
+
+		if network.Subnet == "" {
+			return errors.New("subnet is required for Docker network")
+		}
+		if network.Subnet != "" {
+			_, _, err := net.ParseCIDR(network.Subnet)
+			if err != nil {
+				return errors.New("malformed docker subnet")
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -358,6 +423,18 @@ func (c *Config) ApplyDefaults() {
 		}
 		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools && c.Spec.BMCEmulator.ConfigFile == "" {
 			c.Spec.BMCEmulator.ConfigFile = DefaultBMCEmulatorSushyToolsConfigFile
+		}
+	}
+
+	if len(c.Spec.Networks) > 0 {
+		for i, net := range c.Spec.Networks {
+			c.Spec.Networks[i] = net.Defaults()
+		}
+	}
+
+	if len(c.Spec.DockerNetworks) > 0 {
+		for i, net := range c.Spec.DockerNetworks {
+			c.Spec.DockerNetworks[i] = net.Defaults()
 		}
 	}
 }

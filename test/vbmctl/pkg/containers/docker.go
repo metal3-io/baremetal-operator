@@ -5,13 +5,18 @@ package containers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 )
+
+var ErrNetworkExists = errors.New("cannot create network, it already exists")
+var ErrNetworkNotFound = errors.New("given network was not found")
 
 func ensureVbmctlPrefix(name string) string {
 	if !strings.HasPrefix(name, "vbmctl-") {
@@ -117,4 +122,72 @@ func GetContainerInfo(ctx context.Context, containerName string) (info string, e
 		containerInfo = fmt.Sprintf("'%s' (id: %s)", status, containerID[:12])
 	}
 	return fmt.Sprintf("%s %s", containerName, containerInfo), nil
+}
+
+// CreateNetwork creates a new Docker network with the given name and options.
+// If the network already exists, the network ID will be returned with error
+// ErrNetworkExists.
+func CreateNetwork(ctx context.Context, name string, opts *client.NetworkCreateOptions) (string, error) {
+	apiClient, err := client.New(client.FromEnv, client.WithUserAgent("vbmctl/"+config.Version))
+	if err != nil {
+		return "", err
+	}
+	defer apiClient.Close()
+
+	networkID, err := GetNetworkByName(ctx, name)
+	if !errors.Is(err, ErrNetworkNotFound) {
+		return "", err
+	}
+	if networkID != "" {
+		return networkID, ErrNetworkExists
+	}
+
+	createdNet, err := apiClient.NetworkCreate(ctx, name, *opts)
+	if err != nil {
+		return "", fmt.Errorf("failed to create network %s: %w", name, err)
+	}
+	return createdNet.ID, nil
+}
+
+// GetNetworkByName finds the network with given name. If multiple networks
+// is found, the first match will be returned.
+func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
+	apiClient, err := client.New(client.FromEnv, client.WithUserAgent("vbmctl/"+config.Version))
+	if err != nil {
+		return "", err
+	}
+	defer apiClient.Close()
+
+	filters := client.Filters{}
+	filters.Add("name", networkName)
+	networks, err := apiClient.NetworkList(ctx, client.NetworkListOptions{
+		Filters: filters,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to look for Docker network with name %s: %w", networkName, err)
+	}
+	if len(networks.Items) == 0 {
+		return "", ErrNetworkNotFound
+	}
+	if len(networks.Items) > 1 {
+		log.Printf("Warning: found %d networks with name %s", len(networks.Items), networkName)
+	}
+	return networks.Items[0].Network.ID, nil
+}
+
+// DeleteNetwork deletes network with given ID. An error is returned if the network
+// could not be deleted.
+func DeleteNetwork(ctx context.Context, networkID string, opts *client.NetworkRemoveOptions) error {
+	apiClient, err := client.New(client.FromEnv, client.WithUserAgent("vbmctl/"+config.Version))
+	if err != nil {
+		return err
+	}
+	defer apiClient.Close()
+
+	_, err = apiClient.NetworkRemove(ctx, networkID, *opts)
+	if err != nil {
+		return fmt.Errorf("failed to remove Docker network %s: %w", networkID, err)
+	}
+
+	return nil
 }

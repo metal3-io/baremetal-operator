@@ -12,7 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	github.com/spf13/cobra v1.10.2
-	github.com/vishvananda/netlink v1.3.0
+	github.com/vishvananda/netlink v1.3.1
 	golang.org/x/crypto v0.50.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.35.4

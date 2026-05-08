@@ -1,10 +1,11 @@
-name: Periodic E2E Test release-0.10
+name: Periodic E2E Test release-0.13
 
 on:
   schedule:
   # Run every day at 02:50 UTC (it is recommended to avoid running at the start of the hour)
   - cron: '50 2 * * *'
   workflow_dispatch:
+
 
 permissions: {}
 
@@ -21,6 +22,6 @@ jobs:
     uses: ./.github/workflows/e2e-test.yml
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}
-      ref: release-0.10
+      ref: release-0.13
     permissions:
       contents: read

@@ -5,11 +5,11 @@ images:
 # - name: quay.io/metal3-io/ironic:local
 #   loadBehavior: tryLoad
 # Save some time and network by using cached images if available
-- name: quay.io/metal3-io/baremetal-operator:release-0.10
-  loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.11
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.12
+  loadBehavior: tryLoad
+- name: quay.io/metal3-io/baremetal-operator:release-0.13
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.19.2
   loadBehavior: tryLoad
@@ -19,7 +19,7 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-standalone-operator:v0.5.3
   loadBehavior: tryLoad
-- name: quay.io/metal3-io/ironic-standalone-operator:v0.7.1
+- name: quay.io/metal3-io/ironic-standalone-operator:v0.7.2
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-ipa-downloader:main
   loadBehavior: tryLoad
@@ -63,25 +63,25 @@ variables:
   NAMESPACE_SCOPED: "true"
 
 intervals:
-  inspection/wait-unmanaged: ["1m", "5s"]
-  default/wait-registering: ["1m", "5s"]
-  inspection/wait-registration-error: ["1m", "5s"]
-  external-inspection/wait-available: ["1m", "1s"]
-  default/wait-inspecting: ["2m", "2s"]
-  default/wait-available: ["10m", "1s"]
-  default/wait-deployment: ["10m", "1s"]
-  default/wait-namespace-deleted: ["10m", "1s"]
-  ironic/wait-deployment: ["15m", "2s"]
-  default/wait-power-state: ["10m", "100ms"]
-  default/wait-provisioning: ["1m", "1s"]
-  default/wait-provisioned: ["10m", "1s"]
-  default/wait-deprovisioning: ["1m", "10ms"]
-  default/wait-deleted: ["20s", "10ms"]
-  default/wait-bmh-deleted: ["6m", "10s"]
-  default/wait-detached: ["20s", "10ms"]
-  default/wait-secret-deletion: ["1m", "1s"]
-  default/wait-connect-ssh: ["2m", "10s"]
-  default/wait-externally-provisioned: ["1m", "10ms"]
+  inspection/wait-unmanaged: [ "1m", "5s" ]
+  default/wait-registering: [ "1m", "5s" ]
+  inspection/wait-registration-error: [ "1m", "5s" ]
+  external-inspection/wait-available: [ "1m", "1s" ]
+  default/wait-inspecting: [ "2m", "2s" ]
+  default/wait-available: [ "10m", "1s" ]
+  default/wait-deployment: [ "10m", "1s" ]
+  default/wait-namespace-deleted: [ "10m", "1s" ]
+  ironic/wait-deployment: [ "15m", "2s" ]
+  default/wait-power-state: [ "10m", "100ms" ]
+  default/wait-provisioning: [ "1m", "1s" ]
+  default/wait-provisioned: [ "10m", "1s" ]
+  default/wait-deprovisioning: [ "1m", "10ms" ]
+  default/wait-deleted: [ "20s", "10ms" ]
+  default/wait-bmh-deleted: [ "6m", "10s" ]
+  default/wait-detached: [ "20s", "10ms" ]
+  default/wait-secret-deletion: [ "1m", "1s" ]
+  default/wait-connect-ssh: [ "2m", "10s" ]
+  default/wait-externally-provisioned: [ "1m", "10ms" ]
 
 kindExtraPortMappings:
 # Expose Ironic ports so they are reachable outside of kind
@@ -94,17 +94,7 @@ kindExtraPortMappings:
   listenAddress: "0.0.0.0"
   protocol: TCP
 
-
-
 bmoIronicUpgradeSpecs:
-# Upgrade BMO 0.10 -> main
-- deployIronic: true
-  deployBMO: true
-  initBMOKustomization: "../../config/overlays/e2e-release-0.10"
-  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
-  upgradeEntityName: "bmo"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
 # Upgrade BMO 0.11 -> main
 - deployIronic: true
   deployBMO: true
@@ -121,22 +111,14 @@ bmoIronicUpgradeSpecs:
   upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
   upgradeEntityName: "bmo"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
-# Upgrade Ironic 28.0 -> latest | BMO 0.10
+# Upgrade BMO 0.13 -> main
 - deployIronic: true
   deployBMO: true
-  initBMOKustomization: "../../config/overlays/e2e-release-0.10"
-  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-28.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-29.0"
-  upgradeEntityName: "ironic"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.5"
-# Upgrade Ironic 29.0 -> latest | BMO 0.10
-# Broken. See https://github.com/metal3-io/baremetal-operator/issues/2909
-# - deployIronic: true
-#   deployBMO: true
-#   initBMOKustomization: "../../config/overlays/e2e-release-0.10"
-#   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-29.0"
-#   upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-#   upgradeEntityName: "ironic"
+  initBMOKustomization: "../../config/overlays/e2e-release-0.13"
+  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
+  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
+  upgradeEntityName: "bmo"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
 # Upgrade Ironic 30.0 -> latest | BMO 0.11
 - deployIronic: true
   deployBMO: true
@@ -166,6 +148,14 @@ bmoIronicUpgradeSpecs:
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.12"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-33.0"
+  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
+  upgradeEntityName: "ironic"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
+# Upgrade Ironic 35.0 -> latest | BMO 0.13
+- deployIronic: true
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/e2e-release-0.13"
+  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-35.0"
   upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeEntityName: "ironic"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"

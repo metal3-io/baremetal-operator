@@ -26,6 +26,7 @@ import (
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/apps/v1"
@@ -996,4 +997,14 @@ func ConfigureProvisioningNetwork(ctx context.Context, clusterName string, provi
 	} else {
 		Logf("Provisioning network configured successfully")
 	}
+}
+
+// ContainCondition is a Gomega matcher for Kubernetes conditions.
+func ContainCondition(conditionType string, conditionStatus metav1.ConditionStatus) gomegatypes.GomegaMatcher {
+	return ContainElement(
+		And(
+			HaveField("Type", conditionType),
+			HaveField("Status", conditionStatus),
+		),
+	)
 }

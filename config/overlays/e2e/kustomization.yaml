@@ -6,6 +6,7 @@ resources:
 - ./basic-ops
 - ./external-inspection
 - ./externally-provisioned
+- ./firmware-settings
 - ./inspection
 - ./live-iso-ops
 - ./provisioning-ops

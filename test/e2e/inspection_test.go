@@ -161,6 +161,13 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			State:  metal3api.StateAvailable,
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
+		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+			By("verifying IPA booted from the expected Ironic-managed boot source")
+			VerifyIronicManagedBoot(e2eConfig, bmc.Address, bmc.IPAddress)
+		} else {
+			Logf("WARNING: Skipping boot source verification since SSH_CHECK_PROVISIONED != true")
+		}
+
 		By("Delete BMH")
 		err = clusterProxy.GetClient().Delete(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())

@@ -21,12 +21,17 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/gophercloud/gophercloud/v2"
+	ironicClient "github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
+	ironicPort "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
+	"go.etcd.io/etcd/client/pkg/v3/transport"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/apps/v1"
@@ -37,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
@@ -1115,6 +1121,46 @@ func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder stri
 	}
 }
 
+func getIronicClient(e2eConfig *Config) (*gophercloud.ServiceClient, error) {
+	ironicProvisioningPort := e2eConfig.GetVariable("IRONIC_PROVISIONING_PORT")
+	ironicProvisioningIP := e2eConfig.GetVariable("IRONIC_PROVISIONING_IP")
+	username := e2eConfig.GetVariable("IRONIC_USERNAME")
+	password := e2eConfig.GetVariable("IRONIC_PASSWORD")
+	ironicURL := "https://" + net.JoinHostPort(ironicProvisioningIP, ironicProvisioningPort)
+	const tlsTimeout = 30 * time.Second
+	client, err := ironicClient.NewBareMetalHTTPBasic(ironicClient.EndpointOpts{
+		IronicEndpoint:     ironicURL,
+		IronicUser:         username,
+		IronicUserPassword: password,
+	})
+	transport, errTransport := transport.NewTransport(
+		transport.TLSInfo{InsecureSkipVerify: true},
+		tlsTimeout,
+	)
+	if errTransport != nil {
+		return nil, err
+	}
+	client.HTTPClient = http.Client{
+		Transport: transport,
+	}
+	return client, err
+}
+
+func getIronicPorts(ctx context.Context, e2eConfig *Config) (ports []ironicPort.Port, err error) {
+	client, err := getIronicClient(e2eConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	portsPager, err := ironicPort.List(client, ironicPort.ListOpts{}).AllPages(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ironicPort.ExtractPorts(portsPager)
+}
+
 // WaitForIronicReady waits until the given Ironic resource has Ready condition = True.
 func WaitForIronicReady(ctx context.Context, input WaitForIronicInput) {
 	Logf("Waiting for Ironic %q to be Ready", input.Name)
@@ -1138,6 +1184,46 @@ func WaitForIronicReady(ctx context.Context, input WaitForIronicInput) {
 	}, input.Intervals...).Should(Succeed())
 
 	Logf("Ironic %q is Ready", input.Name)
+}
+
+// WaitForIronicRedeploy waits for Ironic deployment to scale down and up and get ready.
+func WaitForIronicRedeploy(ctx context.Context, input WaitForIronicInput) {
+	Logf("Waiting for Ironic %q to be redeployed", input.Name)
+
+	var targetReplicas int32
+	updateReplica := true
+
+	Eventually(func(g Gomega) {
+		ironicDeployment := &v1.Deployment{}
+		err := input.Client.Get(ctx, client.ObjectKey{
+			Namespace: input.Namespace,
+			Name:      input.Name,
+		}, ironicDeployment)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		if updateReplica {
+			Logf("Updating deployment %s with replicas %d", input.Name, targetReplicas)
+			ironicDeployment.Spec.Replicas = ptr.To(targetReplicas)
+			err := input.Client.Update(ctx, ironicDeployment)
+			g.Expect(err).ToNot(HaveOccurred())
+			if targetReplicas == 1 {
+				updateReplica = false
+			}
+			targetReplicas = 1
+		}
+
+		checkReady := func() bool {
+			if ironicDeployment.Status.ReadyReplicas == ptr.Deref(ironicDeployment.Spec.Replicas, 0) &&
+				ironicDeployment.Status.ReadyReplicas == targetReplicas {
+				return true
+			}
+			return false
+		}
+
+		g.Expect(checkReady()).To(BeTrue(), "Ironic deployment %q is not Ready yet", input.Name)
+	}, input.Intervals...).Should(Succeed())
+
+	Logf("Ironic deployment %q is Ready", input.Name)
 }
 
 // WaitForIronicInput bundles the parameters for WaitForIronicReady.

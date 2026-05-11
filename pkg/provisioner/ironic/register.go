@@ -122,11 +122,14 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// we can find the node again later.
 		provID = ironicNode.UUID
 
-		// Try to create ports from HardwareData when re-registering
-		err = p.createPortsFromHardwareData(ctx, ironicNode, data.HardwareData)
-		if err != nil {
-			result, err = transientError(err)
-			return result, provID, err
+		// Try to create ports from HardwareData after enrollment
+		// whenever inspection data is available.
+		if data.HardwareData != nil {
+			err = p.createPortsFromHardwareData(ctx, ironicNode, data.HardwareData)
+			if err != nil {
+				result, err = transientError(err)
+				return result, provID, err
+			}
 		}
 	} else {
 		// FIXME(dhellmann): At this point we have found an existing
@@ -148,6 +151,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		}
 
 		// Try to create ports from HardwareData when re-registering
+		// whenever inspection data is available.
 		err = p.createPortsFromHardwareData(ctx, ironicNode, data.HardwareData)
 		if err != nil {
 			result, err = transientError(err)

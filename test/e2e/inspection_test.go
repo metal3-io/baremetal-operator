@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 
+	ironicPort "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -150,6 +151,38 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			VerifyIronicManagedBoot(e2eConfig, bmc.Address, bmc.IPAddress)
 		} else {
 			Logf("WARNING: Skipping boot source verification since SSH_CHECK_PROVISIONED != true")
+		}
+
+		if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+			getMacList := func(ports []ironicPort.Port) []string {
+				macs := make([]string, 0, len(ports))
+				for _, port := range ports {
+					macs = append(macs, port.Address)
+				}
+				return macs
+			}
+
+			By("Get ports in Ironic before dropping the database")
+			portsBefore, errPortsBefore := getIronicPorts(ctx, e2eConfig)
+			Expect(errPortsBefore).NotTo(HaveOccurred())
+			Expect(portsBefore).To(Not(BeEmpty()))
+
+			By("Redeploy Ironic deployment to drop it's database")
+			WaitForIronicRedeploy(ctx, WaitForIronicInput{
+				Client:    clusterProxy.GetClient(),
+				Name:      "ironic-service",
+				Namespace: "baremetal-operator-system",
+				Intervals: e2eConfig.GetIntervals("default", "wait-deployment"),
+			})
+
+			By("Waiting for BMH to be reconciled")
+			WaitForBmhReconciled(ctx, clusterProxy.GetClient(), bmh,
+				e2eConfig.GetIntervals("default", "wait-deployment")...)
+
+			By("Get ports in Ironic after dropping the database and reconciling and check if they are the same")
+			portsAfter, errPotrsAfter := getIronicPorts(ctx, e2eConfig)
+			Expect(errPotrsAfter).NotTo(HaveOccurred())
+			Expect(getMacList(portsAfter)).To(BeIdenticalTo(getMacList(portsBefore)))
 		}
 	})
 

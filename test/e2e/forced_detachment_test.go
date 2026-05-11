@@ -28,6 +28,11 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 		)
 
 		BeforeEach(func() {
+			// NOTE(dtantsur): these tests are racy on fixtures
+			if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+				Skip("Tests on forced detachment rely on using Ironic and processes that take non-zero time")
+			}
+
 			namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 				Creator:             clusterProxy.GetClient(),
 				ClientSet:           clusterProxy.GetClientSet(),
@@ -35,6 +40,99 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				LogFolder:           artifactFolder,
 				IgnoreAlreadyExists: true,
 			})
+		})
+
+		It("starts inspection, forces detachment, removes the host", func() {
+			bmhName := specName + "-inspect"
+			secretName := bmhName + "-bmc-creds"
+
+			By("Creating a secret with BMH credentials")
+			bmcCredentialsData := map[string]string{
+				"username": bmc.User,
+				"password": bmc.Password,
+			}
+			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+
+			By("Creating a BMH")
+			bmh := metal3api.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmhName,
+					Namespace: namespace.Name,
+				},
+				Spec: metal3api.BareMetalHostSpec{
+					Online: true,
+					BMC: metal3api.BMCDetails{
+						Address:                        bmc.Address,
+						CredentialsName:                secretName,
+						DisableCertificateVerification: bmc.DisableCertificateVerification,
+					},
+					BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
+					BootMACAddress: bmc.BootMacAddress,
+				},
+			}
+			err := clusterProxy.GetClient().Create(ctx, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Waiting for the BMH to be in inspecting state")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.StateInspecting,
+			}, e2eConfig.GetIntervals(specName, "wait-inspecting")...)
+
+			if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+				By("Waiting for the Ironic node to start inspection")
+				ironicClient := CreateIronicClient(e2eConfig)
+				ironicNodeName := IronicNodeName(namespace.Name, bmhName)
+				WaitForIronicNodeProvisionState(ctx, WaitForIronicNodeProvisionStateInput{
+					Client:   ironicClient,
+					NodeName: ironicNodeName,
+					States:   []nodes.ProvisionState{nodes.InspectWait},
+				}, e2eConfig.GetIntervals(specName, "wait-ironic-state")...)
+			}
+
+			By("Retrieving the latest BMH object")
+			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmh.Name,
+				Namespace: bmh.Namespace,
+			}, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Adding the detached annotation")
+			AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.DetachedAnnotation, forceTrue)
+
+			By("Waiting for the BMH to be detached")
+			WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.OperationalStatusDetached,
+				UndesiredStates: []metal3api.OperationalStatus{
+					metal3api.OperationalStatusError,
+				},
+			}, e2eConfig.GetIntervals(specName, "wait-detached")...)
+
+			By("Retrieving and checking the latest BMH object")
+			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmh.Name,
+				Namespace: bmh.Namespace,
+			}, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(bmh.Status.Provisioning.State).To(Equal(metal3api.StateInspecting))
+
+			By("Deleting the BMH")
+			err = clusterProxy.GetClient().Delete(ctx, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Waiting for the BMH to be deleted")
+			WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+				Client:    clusterProxy.GetClient(),
+				BmhName:   bmh.Name,
+				Namespace: bmh.Namespace,
+				UndesiredStates: []metal3api.ProvisioningState{
+					metal3api.StateDeprovisioning,
+					metal3api.StatePoweringOffBeforeDelete,
+				},
+			}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 		})
 
 		It("starts provisioning, forces detachment, removes the host", func() {
@@ -150,10 +248,6 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 		})
 
 		It("starts provisioning, forces detachment, re-attaches and finishes provisioning", func() {
-			if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
-				Skip("Test on provisioning after detachment relies on provisioning taking non-zero time")
-			}
-
 			bmhName := specName + "-finish"
 			secretName := specName + "-bmc-creds"
 

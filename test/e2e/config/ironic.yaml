@@ -82,6 +82,7 @@ intervals:
   default/wait-secret-deletion: [ "1m", "1s" ]
   default/wait-connect-ssh: [ "2m", "10s" ]
   default/wait-externally-provisioned: [ "1m", "10ms" ]
+  default/wait-servicing: [ "1m", "100ms" ]
   default/wait-firmware-settings: [ "15m", "1s" ]
   default/wait-reconcile: [ "1s", "10ms" ]
 

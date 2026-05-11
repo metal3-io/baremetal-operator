@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
@@ -27,6 +28,8 @@ const (
 	hfsTestOrigValue1 = "Enabled"
 	hfsTestNewValue1  = "Disabled"
 	hfsTestKey2       = "QuietBoot"
+	hfsTestOrigValue2 = "true"
+	hfsTestNewValue2  = "false"
 )
 
 var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func() {
@@ -169,6 +172,187 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 		Expect(hfs.Status.Settings).To(HaveKeyWithValue(hfsTestKey1, hfsTestOrigValue1))
 		Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsValid), metav1.ConditionTrue))
 		Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsChangeDetected), metav1.ConditionFalse))
+
+		By("Deleting the BMH")
+		Expect(clusterProxy.GetClient().Delete(ctx, &bmh)).To(Succeed())
+
+		By("Waiting for the BMH to be deleted")
+		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+			Client:    clusterProxy.GetClient(),
+			BmhName:   bmhName,
+			Namespace: namespace.Name,
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
+
+		By("Making sure HFS was deleted too")
+		Eventually(func() bool {
+			return k8serrors.IsNotFound(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			}, hfs))
+		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...).Should(BeTrue())
+	})
+
+	It("should update firmware settings on a provisioned host via servicing", func() {
+		bmhName := specName + "-servicing"
+		secretName := bmhName + "-bmc"
+
+		By("Creating a secret with BMH credentials")
+		bmcCredentialsData := map[string]string{
+			"username": bmc.User,
+			"password": bmc.Password,
+		}
+		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+
+		By("Creating a BMH with inspection and cleaning disabled")
+		bmh := metal3api.BareMetalHost{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			},
+			Spec: metal3api.BareMetalHostSpec{
+				Online: true,
+				BMC: metal3api.BMCDetails{
+					Address:                        bmc.Address,
+					CredentialsName:                secretName,
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
+				},
+				BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
+				BootMACAddress:        bmc.BootMacAddress,
+				AutomatedCleaningMode: metal3api.CleaningModeDisabled,
+				InspectionMode:        metal3api.InspectionModeDisabled,
+			},
+		}
+		Expect(clusterProxy.GetClient().Create(ctx, &bmh)).To(Succeed())
+
+		By("Waiting for the BMH to become available")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateAvailable,
+		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("Checking the original value of the parameter")
+		origHFS := &metal3api.HostFirmwareSettings{}
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, origHFS)).To(Succeed())
+		Expect(origHFS.Status.Settings).To(HaveKeyWithValue(hfsTestKey2, hfsTestOrigValue2))
+
+		By("Checking firmware schema")
+		fSchema := &metal3api.FirmwareSchema{}
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      origHFS.Status.FirmwareSchema.Name,
+			Namespace: origHFS.Status.FirmwareSchema.Namespace,
+		}, fSchema)).To(Succeed())
+		Expect(fSchema.Spec.Schema).To(HaveKey(hfsTestKey1))
+		Expect(fSchema.Spec.Schema).To(HaveKey(hfsTestKey2))
+
+		By("Provisioning the BMH")
+		var userDataSecret *corev1.SecretReference
+		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+			userDataSecretName := "user-data"
+			sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
+			createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+			userDataSecret = &corev1.SecretReference{
+				Name:      userDataSecretName,
+				Namespace: namespace.Name,
+			}
+		}
+		Expect(PatchBMHForProvisioning(ctx, PatchBMHForProvisioningInput{
+			client:         clusterProxy.GetClient(),
+			bmh:            &bmh,
+			bmc:            bmc,
+			e2eConfig:      e2eConfig,
+			namespace:      namespace.Name,
+			userDataSecret: userDataSecret,
+		})).To(Succeed())
+
+		By("Waiting for the BMH to be provisioned")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateProvisioned,
+		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
+
+		By("Creating a HostUpdatePolicy to allow firmware changes on reboot")
+		hup := &metal3api.HostUpdatePolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			},
+			Spec: metal3api.HostUpdatePolicySpec{
+				FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+			},
+		}
+		Expect(clusterProxy.GetClient().Create(ctx, hup)).To(Succeed())
+
+		By("Updating HostFirmwareSettings with a new value")
+		hfs := &metal3api.HostFirmwareSettings{}
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, hfs)).To(Succeed())
+
+		helper, err := patch.NewHelper(hfs, clusterProxy.GetClient())
+		Expect(err).NotTo(HaveOccurred())
+		hfs.Spec.Settings = metal3api.DesiredSettingsMap{
+			hfsTestKey2: intstr.FromString(hfsTestNewValue2),
+		}
+		Expect(helper.Patch(ctx, hfs)).To(Succeed())
+
+		By("Verifying the conditions on firmware setting")
+		Eventually(func(g Gomega) {
+			g.Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			}, hfs)).To(Succeed())
+			g.Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsValid), metav1.ConditionTrue))
+			g.Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsChangeDetected), metav1.ConditionTrue))
+		}, e2eConfig.GetIntervals(specName, "wait-reconcile")...).Should(Succeed())
+
+		By("Triggering a reboot via annotation")
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, &bmh)).To(Succeed())
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.RebootAnnotationPrefix, ptr.To(""))
+
+		By("Waiting for the BMH to enter servicing")
+		WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.OperationalStatusServicing,
+			UndesiredStates: []metal3api.OperationalStatus{
+				metal3api.OperationalStatusError,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-servicing")...)
+
+		By("Waiting for servicing to complete")
+		WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.OperationalStatusOK,
+			UndesiredStates: []metal3api.OperationalStatus{
+				metal3api.OperationalStatusError,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-firmware-settings")...)
+
+		By("Verifying the firmware setting was applied in HFS status")
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, hfs)).To(Succeed())
+		Expect(hfs.Status.Settings).To(HaveKeyWithValue(hfsTestKey2, hfsTestNewValue2))
+		Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsValid), metav1.ConditionTrue))
+		Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsChangeDetected), metav1.ConditionFalse))
+
+		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+			By("Verifying the instance is still accessible via SSH")
+			PerformSSHBootCheck(e2eConfig, "disk", bmc.IPAddress)
+		} else {
+			Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
+		}
 
 		By("Deleting the BMH")
 		Expect(clusterProxy.GetClient().Delete(ctx, &bmh)).To(Succeed())

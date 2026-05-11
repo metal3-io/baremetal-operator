@@ -147,7 +147,10 @@ func (p *ironicProvisioner) listAllPorts(ctx context.Context, address string) ([
 	var allPorts []ports.Port
 
 	opts := ports.ListOpts{
-		Fields: []string{"node_uuid"},
+		Fields: []string{
+			"node_uuid",
+			"uuid",
+		},
 	}
 
 	if address != "" {
@@ -307,19 +310,25 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 	}
 	for _, port := range portsList {
 		if port.NodeUUID != uuid {
-			p.log.Info(
-				"the port is assigned to another node, deleting and recreating",
-				"MAC", macAddress,
-				"old NodeUUID", port.NodeUUID,
-				"current NodeUUID", macAddress,
-			)
-			result := ports.Delete(
-				ctx,
-				p.client,
-				port.UUID,
-			)
-			if result.Err != nil {
-				return fmt.Errorf("failed to delete ironic port for node %s, MAC: %s: %w", uuid, macAddress, result.Err)
+			// try to check if the node exists or the port is orphaned
+			_, err := nodes.Get(ctx, p.client, port.NodeUUID).Extract()
+			if err == nil {
+				p.log.Info(
+					"the port is orphaned, deleting and recreating",
+					"MAC", macAddress,
+					"old NodeUUID", port.NodeUUID,
+					"current NodeUUID", uuid,
+				)
+				err = ports.Delete(
+					ctx,
+					p.client,
+					port.UUID,
+				).ExtractErr()
+				if err != nil {
+					return fmt.Errorf("failed to delete ironic port for node %s, MAC: %s: %w", uuid, macAddress, err)
+				}
+			} else {
+				return fmt.Errorf("port belongs to another node %s, MAC: %s can't register for node %s", port.NodeUUID, macAddress, uuid)
 			}
 		} else {
 			p.log.Info("port already exists in Ironic", "NodeUUID", uuid, "MAC", macAddress)

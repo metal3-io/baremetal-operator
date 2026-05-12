@@ -167,7 +167,7 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			Expect(errPortsBefore).NotTo(HaveOccurred())
 			Expect(portsBefore).To(Not(BeEmpty()))
 
-			By("Redeploy Ironic deployment to drop it's database")
+			By("Redeploy Ironic deployment to drop its database")
 			WaitForIronicRedeploy(ctx, WaitForIronicInput{
 				Client:    clusterProxy.GetClient(),
 				Name:      "ironic-service",
@@ -180,9 +180,11 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 				e2eConfig.GetIntervals("default", "wait-deployment")...)
 
 			By("Get ports in Ironic after dropping the database and reconciling and check if they are the same")
-			portsAfter, errPotrsAfter := getIronicPorts(ctx, e2eConfig)
-			Expect(errPotrsAfter).NotTo(HaveOccurred())
-			Expect(getMacList(portsAfter)).To(BeIdenticalTo(getMacList(portsBefore)))
+			Eventually(func(g Gomega) {
+				portsAfter, errPotrsAfter := getIronicPorts(ctx, e2eConfig)
+				g.Expect(errPotrsAfter).NotTo(HaveOccurred())
+				g.Expect(getMacList(portsAfter)).To(ConsistOf(getMacList(portsBefore)))
+			}, e2eConfig.GetIntervals("default", "wait-deployment")...).Should(Succeed())
 		}
 	})
 

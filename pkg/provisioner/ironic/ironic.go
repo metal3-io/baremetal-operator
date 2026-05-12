@@ -312,7 +312,7 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 		if port.NodeUUID != uuid {
 			// try to check if the node exists or the port is orphaned
 			_, err := nodes.Get(ctx, p.client, port.NodeUUID).Extract()
-			if err == nil {
+			if err != nil {
 				p.log.Info(
 					"the port is orphaned, deleting and recreating",
 					"MAC", macAddress,

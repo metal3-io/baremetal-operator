@@ -16,19 +16,22 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/test/framework"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 	var (
 		specName      = "re-inspection"
-		secretName    = "bmc-credentials"
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
+		toCleanup     []client.Object
 	)
 	const (
 		wrongHostName = "wrongHostName"
 	)
 	BeforeEach(func() {
+		toCleanup = nil
+
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:             clusterProxy.GetClient(),
 			ClientSet:           clusterProxy.GetClientSet(),
@@ -44,7 +47,8 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials", bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
 
 		By("creating a BMH with inspection disabled and hardware details added with wrong HostName")
 		newHardwareDetails := strings.Replace(hardwareDetails, "localhost.localdomain", wrongHostName, 1)
@@ -69,6 +73,7 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
+		toCleanup = append(toCleanup, &bmh)
 
 		By("waiting for the BMH to become available")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -108,24 +113,13 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		// We are just checking that it changed from wrongHostName to something else.
 		Expect(bmh.Status.HardwareDetails.Hostname).To(Not(Equal(wrongHostName)))
 
-		By("Delete BMH")
-		err = clusterProxy.GetClient().Delete(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for the BMH to be deleted")
-		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-			Client:    clusterProxy.GetClient(),
-			BmhName:   bmh.Name,
-			Namespace: bmh.Namespace,
-		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	AfterEach(func() {
 		CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
-			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, toCleanup)
 		}
 	})
 })

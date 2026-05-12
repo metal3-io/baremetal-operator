@@ -6,13 +6,11 @@ package e2e
 import (
 	"context"
 	"path"
-	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -23,12 +21,13 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 	func() {
 		var (
 			specName      = "externally-provisioned"
-			secretName    = "bmc-credentials"
 			namespace     *corev1.Namespace
 			cancelWatches context.CancelFunc
+			toCleanup     []client.Object
 		)
 
 		BeforeEach(func() {
+			toCleanup = nil
 			namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 				Creator:             clusterProxy.GetClient(),
 				ClientSet:           clusterProxy.GetClientSet(),
@@ -39,13 +38,14 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 		})
 
 		It("provisions a BMH as externally provisioned, validates state immutability, then deprovisions", func() {
-			testSecretName := secretName + "-external"
+			secretName := "bmc-credentials-external"
 			By("Creating a secret with BMH credentials")
 			bmcCredentialsData := map[string]string{
 				"username": bmc.User,
 				"password": bmc.Password,
 			}
-			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, testSecretName, bmcCredentialsData)
+			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			toCleanup = append(toCleanup, secret)
 
 			By("Creating a BMH as externally provisioned")
 			bmh := metal3api.BareMetalHost{
@@ -57,7 +57,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 					Online: true,
 					BMC: metal3api.BMCDetails{
 						Address:                        bmc.Address,
-						CredentialsName:                testSecretName,
+						CredentialsName:                secretName,
 						DisableCertificateVerification: bmc.DisableCertificateVerification,
 					},
 					BootMACAddress:        bmc.BootMacAddress,
@@ -66,6 +66,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			}
 			err := clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
 
 			By("Waiting for the BMH to become externally provisioned")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -107,45 +108,17 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			Expect(bmh.Spec.ExternallyProvisioned).To(BeTrue(), "ExternallyProvisioned should still be true")
 			Expect(bmh.Status.Provisioning.State).To(Equal(metal3api.StateExternallyProvisioned))
 
-			By("Deleting the BMH")
-			// Wait for 2 seconds to allow time to confirm annotation is set
-			// TODO: fix this so we do not need the sleep
-			time.Sleep(2 * time.Second)
-
-			err = clusterProxy.GetClient().Delete(ctx, &bmh)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Waiting for the BMH to be deleted")
-			WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-				Client:    clusterProxy.GetClient(),
-				BmhName:   bmh.Name,
-				Namespace: bmh.Namespace,
-				UndesiredStates: []metal3api.ProvisioningState{
-					metal3api.StateProvisioning,
-					metal3api.StateRegistering,
-					metal3api.StateDeprovisioning,
-					metal3api.StateInspecting,
-				},
-			}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
-
-			By("Waiting for the secret to be deleted")
-			Eventually(func() bool {
-				err := clusterProxy.GetClient().Get(ctx, types.NamespacedName{
-					Name:      testSecretName,
-					Namespace: namespace.Name,
-				}, &corev1.Secret{})
-				return k8serrors.IsNotFound(err)
-			}, e2eConfig.GetIntervals(specName, "wait-secret-deletion")...).Should(BeTrue())
 		})
 
 		It("transitions from Available to ExternallyProvisioned", func() {
-			testSecretName := secretName + "-available-to-ext"
+			secretName := "bmc-credentials-available-to-ext"
 			By("Creating a secret with BMH credentials")
 			bmcCredentialsData := map[string]string{
 				"username": bmc.User,
 				"password": bmc.Password,
 			}
-			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, testSecretName, bmcCredentialsData)
+			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			toCleanup = append(toCleanup, secret)
 
 			By("Creating a BMH without ExternallyProvisioned to allow inspection")
 			bmh := metal3api.BareMetalHost{
@@ -156,7 +129,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 				Spec: metal3api.BareMetalHostSpec{
 					BMC: metal3api.BMCDetails{
 						Address:                        bmc.Address,
-						CredentialsName:                testSecretName,
+						CredentialsName:                secretName,
 						DisableCertificateVerification: bmc.DisableCertificateVerification,
 					},
 					BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
@@ -166,6 +139,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			}
 			err := clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
 
 			By("waiting for the BMH to be in inspecting state")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -213,32 +187,13 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			Expect(err).NotTo(HaveOccurred())
 			Expect(bmh.Status.OperationHistory.Provision.Start.IsZero()).To(BeTrue(), "BMO provisioning should not have occurred")
 
-			By("Cleaning up the BMH")
-			err = clusterProxy.GetClient().Delete(ctx, &bmh)
-			Expect(err).NotTo(HaveOccurred())
-
-			WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-				Client:    clusterProxy.GetClient(),
-				BmhName:   bmh.Name,
-				Namespace: bmh.Namespace,
-			}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
-
-			By("Waiting for the secret to be deleted")
-			Eventually(func() bool {
-				err := clusterProxy.GetClient().Get(ctx, types.NamespacedName{
-					Name:      testSecretName,
-					Namespace: namespace.Name,
-				}, &corev1.Secret{})
-				return k8serrors.IsNotFound(err)
-			}, e2eConfig.GetIntervals(specName, "wait-secret-deletion")...).Should(BeTrue())
 		})
 
 		AfterEach(func() {
 			CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 			DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 			if !skipCleanup {
-				isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
-				Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+				Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, toCleanup)
 			}
 		})
 	})

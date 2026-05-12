@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const hardwareDetails = `
@@ -177,8 +178,10 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 		specName      = "external-inspection"
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
+		toCleanup     []client.Object
 	)
 	BeforeEach(func() {
+		toCleanup = nil
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:             clusterProxy.GetClient(),
 			ClientSet:           clusterProxy.GetClientSet(),
@@ -189,12 +192,14 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 	})
 
 	It("should skip inspection and become available when a BMH has annotations with hardware details and inspection disabled", func() {
+		secretName := "bmc-credentials-annotation"
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials-annotation", bmcCredentialsData)
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
 
 		By("creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
@@ -209,7 +214,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
 					Address:                        bmc.Address,
-					CredentialsName:                "bmc-credentials-annotation",
+					CredentialsName:                secretName,
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
@@ -218,6 +223,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
+		toCleanup = append(toCleanup, &bmh)
 
 		By("waiting for the BMH to become available")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -235,26 +241,17 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 		hwStatusJSON, err := json.Marshal(bmh.Status.HardwareDetails)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(hwStatusJSON).To(MatchJSON(hardwareDetails))
-
-		By("Delete BMH")
-		err = clusterProxy.GetClient().Delete(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for the BMH to be deleted")
-		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-			Client:    clusterProxy.GetClient(),
-			BmhName:   bmh.Name,
-			Namespace: bmh.Namespace,
-		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	It("should skip inspection and become available when HardwareData exists and BMH has inspection disabled", func() {
+		secretName := "bmc-credentials-hardware-data"
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials-hardware-data", bmcCredentialsData)
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
 
 		By("pre-creating a hardware data")
 		hwdata := metal3api.HardwareData{
@@ -280,7 +277,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 			Spec: metal3api.BareMetalHostSpec{
 				BMC: metal3api.BMCDetails{
 					Address:                        bmc.Address,
-					CredentialsName:                "bmc-credentials-hardware-data",
+					CredentialsName:                secretName,
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
@@ -290,6 +287,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 		}
 		err = clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
+		toCleanup = append(toCleanup, &bmh)
 
 		By("waiting for the BMH to become available")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -308,25 +306,13 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 		hwStatusJSON, err := json.Marshal(bmh.Status.HardwareDetails)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(hwStatusJSON).To(MatchJSON(hardwareDetails))
-
-		By("Delete BMH")
-		err = clusterProxy.GetClient().Delete(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for the BMH to be deleted")
-		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-			Client:    clusterProxy.GetClient(),
-			BmhName:   bmh.Name,
-			Namespace: bmh.Namespace,
-		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	AfterEach(func() {
 		CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
-			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, toCleanup)
 		}
 	})
 })

@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Start provisioning, force detachment, delete and recreate, provision, detach again and delete", Label("required", "provision", "detach", "force-detach"),
@@ -25,9 +26,12 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 			namespace     *corev1.Namespace
 			cancelWatches context.CancelFunc
 			forceTrue     = ptr.To("{\"force\": true}")
+			toCleanup     []client.Object
 		)
 
 		BeforeEach(func() {
+			toCleanup = nil
+
 			// NOTE(dtantsur): these tests are racy on fixtures
 			if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
 				Skip("Tests on forced detachment rely on using Ironic and processes that take non-zero time")
@@ -51,7 +55,8 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				"username": bmc.User,
 				"password": bmc.Password,
 			}
-			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			toCleanup = append(toCleanup, secret)
 
 			By("Creating a BMH")
 			bmh := metal3api.BareMetalHost{
@@ -144,7 +149,8 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				"username": bmc.User,
 				"password": bmc.Password,
 			}
-			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			toCleanup = append(toCleanup, secret)
 
 			By("Creating a BMH with inspection and cleaning disabled")
 			bmh := metal3api.BareMetalHost{
@@ -256,7 +262,8 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 				"username": bmc.User,
 				"password": bmc.Password,
 			}
-			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			toCleanup = append(toCleanup, secret)
 
 			By("Creating a BMH with inspection and cleaning disabled")
 			bmh := metal3api.BareMetalHost{
@@ -407,8 +414,7 @@ var _ = Describe("Start provisioning, force detachment, delete and recreate, pro
 			CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 			DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 			if !skipCleanup {
-				isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
-				Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+				Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, toCleanup)
 			}
 		})
 	})

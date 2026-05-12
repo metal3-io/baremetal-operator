@@ -371,15 +371,21 @@ func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager, maxC
 		Complete(r)
 }
 
+// updateEventHander ensures no reconciliation happens for unimportant changes like finalizers or annotations.
 func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent) bool {
-	r.Log.Info("hostfirmwaresettings in event handler")
-
 	// If the update increased the resource Generation then let's process it
 	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
-		r.Log.Info("returning true as generation changed from event handler")
 		return true
 	}
 
+	// NOTE(dtantsur): the only realistic case of a changed owner reference is when pre-created HFS is adopted by a BMH that was created later.
+	// In this case, it's reasonable to reconcile the resource using the information from the new BMH.
+	if !reflect.DeepEqual(e.ObjectNew.GetOwnerReferences(), e.ObjectOld.GetOwnerReferences()) {
+		r.Log.Info("processing event for changed owner reference", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
+		return true
+	}
+
+	r.Log.V(1).Info("ignoring event that did not change generation or owners", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
 	return false
 }
 

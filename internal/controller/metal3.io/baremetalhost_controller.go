@@ -951,7 +951,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		} else {
 			if err = r.createHostFirmwareSettings(ctx, info); err != nil {
 				info.log.Info("failed creating hostfirmwaresettings")
-				return actionError{fmt.Errorf("failed to validate BMC access: %w", err)}
+				return actionError{fmt.Errorf("failed to create or update hostFirmwareSettings: %w", err)}
 			}
 			if supportsFirmwareComponents {
 				if err = r.createHostFirmwareComponents(ctx, info); err != nil {
@@ -2100,6 +2100,17 @@ func (r *BareMetalHostReconciler) createHostFirmwareSettings(ctx context.Context
 			// Error reading the object
 			return fmt.Errorf("could not load hostFirmwareSettings resource: %w", err)
 		}
+	}
+
+	if !ownerReferenceExists(info.host, hfs) {
+		if err := controllerutil.SetOwnerReference(info.host, hfs, r.Scheme()); err != nil {
+			return fmt.Errorf("could not set bmh as owner for hostFirmwareSettings: %w", err)
+		}
+		if err := r.Update(ctx, hfs); err != nil {
+			return fmt.Errorf("failure updating hostFirmwareSettings resource: %w", err)
+		}
+
+		return nil
 	}
 
 	return nil

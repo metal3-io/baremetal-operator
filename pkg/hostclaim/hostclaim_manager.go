@@ -351,7 +351,7 @@ func (m *HostManager) synchronizeDataSecret(
 	secretManager secretutils.SecretManager,
 	bmh *metal3api.BareMetalHost,
 	role string,
-	sourceRef *corev1.SecretReference,
+	sourceRef *metal3api.SecretReference,
 	namespace string,
 	hostName string,
 ) (*corev1.SecretReference, error) {
@@ -359,7 +359,7 @@ func (m *HostManager) synchronizeDataSecret(
 		if sourceRef == nil {
 			return nil, ErrNoSecret
 		}
-		return sourceRef.DeepCopy(), nil
+		return &corev1.SecretReference{Name: sourceRef.Name, Namespace: bmh.Namespace}, nil
 	}
 	log := m.Log.WithValues("hostclaimName", hostName, "hostclaimNamespace", namespace, "secret-type", role)
 	secretName := bmh.Name + "-hc-" + role

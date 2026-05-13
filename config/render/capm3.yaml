@@ -2074,15 +2074,10 @@ spec:
                   (e.g. meta_data.json) which is passed to the Config Drive.
                 properties:
                   name:
-                    description: name is unique within a namespace to reference a
+                    description: Name is unique within a namespace to reference a
                       secret resource.
                     type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
                 type: object
-                x-kubernetes-map-type: atomic
               networkData:
                 description: |-
                   NetworkData holds the reference to the Secret containing network
@@ -2090,15 +2085,10 @@ spec:
                   by the first boot software such as cloud-init.
                 properties:
                   name:
-                    description: name is unique within a namespace to reference a
+                    description: Name is unique within a namespace to reference a
                       secret resource.
                     type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
                 type: object
-                x-kubernetes-map-type: atomic
               poweredOn:
                 description: |-
                   Should the compute resource be powered on? Changing this value will trigger
@@ -2112,15 +2102,10 @@ spec:
                   specific to the first-boot software.
                 properties:
                   name:
-                    description: name is unique within a namespace to reference a
+                    description: Name is unique within a namespace to reference a
                       secret resource.
                     type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
                 type: object
-                x-kubernetes-map-type: atomic
             required:
             - poweredOn
             type: object

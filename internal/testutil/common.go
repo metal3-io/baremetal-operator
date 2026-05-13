@@ -257,17 +257,17 @@ func (hb *HostClaimBuilder) SetConsumerRef(cref corev1.ObjectReference) *HostCla
 }
 
 func (hb *HostClaimBuilder) SetUserData(udata string) *HostClaimBuilder {
-	hb.hostClaim.Spec.UserData = &corev1.SecretReference{Name: udata}
+	hb.hostClaim.Spec.UserData = &metal3api.SecretReference{Name: udata}
 	return hb
 }
 
 func (hb *HostClaimBuilder) SetMetaData(mdata string) *HostClaimBuilder {
-	hb.hostClaim.Spec.MetaData = &corev1.SecretReference{Name: mdata}
+	hb.hostClaim.Spec.MetaData = &metal3api.SecretReference{Name: mdata}
 	return hb
 }
 
 func (hb *HostClaimBuilder) SetNetworkData(ndata string) *HostClaimBuilder {
-	hb.hostClaim.Spec.NetworkData = &corev1.SecretReference{Name: ndata}
+	hb.hostClaim.Spec.NetworkData = &metal3api.SecretReference{Name: ndata}
 	return hb
 }
 

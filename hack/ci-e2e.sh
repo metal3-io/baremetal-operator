@@ -116,7 +116,7 @@ elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
   # Start sushy-tools
-  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "quay.io/metal3-io/sushy-tools:latest" --config-file "${SUSHY_EMULATOR_FILE}"
+  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "quay.io/dtantsur/sushy-tools:bios-pending-settings" --config-file "${SUSHY_EMULATOR_FILE}"
 else
   echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1

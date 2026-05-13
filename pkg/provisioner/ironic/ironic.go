@@ -143,31 +143,6 @@ func (p *ironicProvisioner) validateNode(ctx context.Context, ironicNode *nodes.
 	return "", nil
 }
 
-func (p *ironicProvisioner) listAllPorts(ctx context.Context, address string) ([]ports.Port, error) {
-	var allPorts []ports.Port
-
-	opts := ports.ListOpts{
-		Fields: []string{
-			"node_uuid",
-			"uuid",
-		},
-	}
-
-	if address != "" {
-		opts.Address = address
-	}
-
-	pager := ports.List(p.client, opts)
-
-	allPages, err := pager.AllPages(ctx)
-
-	if err != nil {
-		return allPorts, err
-	}
-
-	return ports.ExtractPorts(allPages)
-}
-
 func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 	if p.nodeID == "" {
 		return nil, provisioner.ErrNeedsRegistration
@@ -188,48 +163,28 @@ func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 	return nil, fmt.Errorf("failed to find node by ID %s: %w", p.nodeID, err)
 }
 
-// Verifies that node has port assigned by Ironic.
-func (p *ironicProvisioner) nodeHasAssignedPort(ctx context.Context, ironicNode *nodes.Node) (bool, error) {
+// get ports in Ironic with address or node uuid filter.
+func (p *ironicProvisioner) getPorts(ctx context.Context, nodeUUID string, macAdress string) ([]ports.Port, error) {
 	opts := ports.ListOpts{
-		Fields:   []string{"node_uuid"},
-		NodeUUID: ironicNode.UUID,
+		Fields: []string{
+			"node_uuid",
+			"uuid",
+			"address",
+		},
+	}
+	if nodeUUID != "" {
+		opts.NodeUUID = nodeUUID
+	}
+	if macAdress != "" {
+		opts.Address = macAdress
 	}
 
-	pager := ports.List(p.client, opts)
-
-	allPages, err := pager.AllPages(ctx)
+	allPages, err := ports.List(p.client, opts).AllPages(ctx)
 	if err != nil {
-		return false, fmt.Errorf("failed to page over list of ports: %w", err)
+		return nil, fmt.Errorf("failed to page over list of ports: %w", err)
 	}
 
-	empty, err := allPages.IsEmpty()
-	if err != nil {
-		return false, fmt.Errorf("failed to check port list status: %w", err)
-	}
-
-	if empty {
-		p.debugLog.Info("node has no assigned port", "node", ironicNode.UUID)
-		return false, nil
-	}
-
-	p.debugLog.Info("node has assigned port", "node", ironicNode.UUID)
-	return true, nil
-}
-
-// Verify that MAC is already allocated to some node port.
-func (p *ironicProvisioner) isAddressAllocatedToPort(ctx context.Context, address string) (bool, error) {
-	allPorts, err := p.listAllPorts(ctx, address)
-	if err != nil {
-		return false, fmt.Errorf("failed to list ports for %s: %w", address, err)
-	}
-
-	if len(allPorts) == 0 {
-		p.debugLog.Info("address does not have allocated ports", "address", address)
-		return false, nil
-	}
-
-	p.debugLog.Info("address is allocated to port", "address", address, "node", allPorts[0].NodeUUID)
-	return true, nil
+	return ports.ExtractPorts(allPages)
 }
 
 // Look for an existing registration for the host in Ironic.
@@ -266,7 +221,7 @@ func (p *ironicProvisioner) findExistingHost(ctx context.Context, bootMACAddress
 	// Skip MAC-based lookup if bootMACAddress is empty to avoid false conflicts
 	if bootMACAddress != "" {
 		p.log.Info("looking for existing node by MAC", "MAC", bootMACAddress)
-		allPorts, err := p.listAllPorts(ctx, bootMACAddress)
+		allPorts, err := p.getPorts(ctx, "", bootMACAddress)
 
 		if err != nil {
 			p.log.Info("failed to find an existing port with address", "MAC", bootMACAddress)
@@ -303,7 +258,7 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 	p.log.Info("creating ironic port for node", "NodeUUID", uuid, "MAC", macAddress, "PXE status", pxe)
 
 	// checking if port already exists in Ironic
-	portsList, errPortList := p.listAllPorts(ctx, macAddress)
+	portsList, errPortList := p.getPorts(ctx, "", macAddress)
 	if errPortList != nil {
 		p.log.Info("failed to look for existing ports in Ironic", "MAC", macAddress)
 		return errPortList
@@ -312,7 +267,7 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 		if port.NodeUUID != uuid {
 			// try to check if the node exists or the port is orphaned
 			_, err := nodes.Get(ctx, p.client, port.NodeUUID).Extract()
-			if err != nil {
+			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
 				p.log.Info(
 					"the port is orphaned, deleting and recreating",
 					"MAC", macAddress,
@@ -328,6 +283,9 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 					return fmt.Errorf("failed to delete ironic port for node %s, MAC: %s: %w", uuid, macAddress, err)
 				}
 			} else {
+				if err != nil {
+					return err
+				}
 				return fmt.Errorf("port belongs to another node %s, MAC: %s can't register for node %s", port.NodeUUID, macAddress, uuid)
 			}
 		} else {

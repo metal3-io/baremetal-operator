@@ -358,6 +358,7 @@ var _ = Describe("Upgrade", Label("optional", "upgrade"), func() {
 		testArtifactFolder     string
 	)
 
+	entries = make([]TableEntry, 0, len(e2eConfig.BMOIronicUpgradeSpecs))
 	for i := range e2eConfig.BMOIronicUpgradeSpecs {
 		entries = append(entries, Entry(nil, ctx, &e2eConfig.BMOIronicUpgradeSpecs[i]))
 	}

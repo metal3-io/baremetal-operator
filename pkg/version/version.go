@@ -1,4 +1,6 @@
 // Package version includes the version information.
+//
+//revive:disable:var-naming
 package version
 
 var (

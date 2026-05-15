@@ -70,17 +70,18 @@ type Template struct {
 	BMCAddress                     string
 	DisableCertificateVerification bool
 	Username                       string
-	Password                       string
-	HardwareProfile                string
-	BootMacAddress                 string
-	BootMode                       string
-	Consumer                       string
-	ConsumerNamespace              string
-	AutomatedCleaningMode          string
-	ImageURL                       string
-	ImageChecksum                  string
-	ImageChecksumType              string
-	ImageFormat                    string
+	// #nosec G117 -- field name matches generated Secret data and CLI/template API.
+	Password              string
+	HardwareProfile       string
+	BootMacAddress        string
+	BootMode              string
+	Consumer              string
+	ConsumerNamespace     string
+	AutomatedCleaningMode string
+	ImageURL              string
+	ImageChecksum         string
+	ImageChecksumType     string
+	ImageFormat           string
 }
 
 // EncodedUsername returns the username in the format needed to store

@@ -23,6 +23,7 @@ const (
 type AuthConfig struct {
 	Type     AuthType
 	Username string
+	// #nosec G117 -- field is required for HTTP Basic Auth configuration.
 	Password string
 }
 

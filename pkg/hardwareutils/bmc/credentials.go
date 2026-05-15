@@ -3,6 +3,7 @@ package bmc
 // Credentials holds the information for authenticating with the BMC.
 type Credentials struct {
 	Username string
+	// #nosec G117 -- exported field is required for BMC credential wiring.
 	Password string
 }
 

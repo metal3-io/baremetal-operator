@@ -18,4 +18,4 @@ patches:
     name: controller-manager
 images:
 - name: quay.io/metal3-io/baremetal-operator
-  newTag: release-0.10
+  newTag: release-0.13

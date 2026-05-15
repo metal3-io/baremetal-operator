@@ -21,6 +21,8 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-standalone-operator:v0.7.2
   loadBehavior: tryLoad
+- name: quay.io/metal3-io/ironic-standalone-operator:v0.9.0
+  loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-ipa-downloader:main
   loadBehavior: tryLoad
 
@@ -30,7 +32,7 @@ variables:
   DEPLOY_IRONIC: "true"
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
-  IRSO_KUSTOMIZATION: "data/ironic-standalone-operator/operator/irso-v0.7"
+  IRSO_KUSTOMIZATION: "data/ironic-standalone-operator/operator/irso-v0.9"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "data/ironic-standalone-operator/ironic/overlays/e2e"
 
@@ -118,7 +120,7 @@ bmoIronicUpgradeSpecs:
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
   upgradeEntityName: "bmo"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.9"
 # Upgrade Ironic 30.0 -> latest | BMO 0.11
 - deployIronic: true
   deployBMO: true
@@ -158,4 +160,4 @@ bmoIronicUpgradeSpecs:
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-35.0"
   upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeEntityName: "ironic"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.9"

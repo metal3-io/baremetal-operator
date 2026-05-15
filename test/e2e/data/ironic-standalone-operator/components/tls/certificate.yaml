@@ -34,6 +34,9 @@ metadata:
   name: ironic-cert
   namespace: baremetal-operator-system
 spec:
+  secretTemplate:
+    labels:
+      environment.metal3.io/ironic-standalone-operator: "true"
   commonName: ironic-cert
   ipAddresses:
   - 192.168.222.2

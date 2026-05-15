@@ -2631,6 +2631,11 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 func updateBMHSteps(host *metal3api.BareMetalHost, provResult provisioner.Result, log logr.Logger) bool {
 	changed := false
 
+	// Capture previous values before mutating so the log below reflects the
+	// actual prior step/activity data rather than the freshly assigned values.
+	previousProgress := host.Status.Provisioning.Progress
+	previousCurrentActivity := host.Status.Provisioning.CurrentActivity
+
 	if host.Status.Provisioning.CurrentActivity != provResult.CurrentActivity {
 		host.Status.Provisioning.CurrentActivity = provResult.CurrentActivity
 		changed = true
@@ -2645,8 +2650,8 @@ func updateBMHSteps(host *metal3api.BareMetalHost, provResult provisioner.Result
 		// log before clearing to preserve previous step information for debugging.
 		if len(host.Status.Provisioning.Steps) > 0 {
 			log.Info("Clearing provisioning steps",
-				"previousProgress", host.Status.Provisioning.Progress,
-				"previousCurrentActivity", host.Status.Provisioning.CurrentActivity,
+				"previousProgress", previousProgress,
+				"previousCurrentActivity", previousCurrentActivity,
 				"previousSteps", host.Status.Provisioning.Steps,
 			)
 			host.Status.Provisioning.Steps = nil

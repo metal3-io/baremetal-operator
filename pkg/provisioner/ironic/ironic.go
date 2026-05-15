@@ -201,13 +201,14 @@ func parseSubStates(node *nodes.Node) (activity string, progress string, current
 			}
 		}
 
+		// Default to the provision state so that callers see a useful value
+		// even when DeployStep is nil or doesn't contain a parseable step key.
+		activity = node.ProvisionState
 		if node.DeployStep != nil {
 			if name, ok := node.DeployStep["step"].(string); ok {
 				interfaceName, _ := node.DeployStep["interface"].(string)
 				activity = fmt.Sprintf("%s.%s", interfaceName, name)
 			}
-		} else {
-			activity = node.ProvisionState
 		}
 
 		if len(allSteps) > 0 {
@@ -246,6 +247,9 @@ func parseSubStates(node *nodes.Node) (activity string, progress string, current
 			}
 		}
 
+		// Default to the provision state so that callers see a useful value
+		// even when CleanStep is nil or doesn't contain parseable fields.
+		activity = node.ProvisionState
 		if node.CleanStep != nil {
 			interfaceName, _ := node.CleanStep["interface"].(string)
 			stepName, _ := node.CleanStep["step"].(string)
@@ -257,8 +261,6 @@ func parseSubStates(node *nodes.Node) (activity string, progress string, current
 			} else if interfaceName != "" {
 				activity = interfaceName
 			}
-		} else {
-			activity = node.ProvisionState
 		}
 
 		if len(allSteps) > 0 {

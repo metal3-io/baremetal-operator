@@ -192,9 +192,11 @@ func parseSubStates(node *nodes.Node) (activity string, progress string, current
 							}
 						}
 
+						name := fmt.Sprintf("%s.%s", stepInterface, stepName)
 						allSteps = append(allSteps, metal3api.ProvisioningStep{
-							Name:  fmt.Sprintf("%s.%s", stepInterface, stepName),
-							State: stepState,
+							Name:        name,
+							State:       stepState,
+							Description: describeStep(name),
 						})
 					}
 				}
@@ -238,9 +240,11 @@ func parseSubStates(node *nodes.Node) (activity string, progress string, current
 							}
 						}
 
+						name := fmt.Sprintf("%s.%s", stepInterface, stepName)
 						allSteps = append(allSteps, metal3api.ProvisioningStep{
-							Name:  fmt.Sprintf("%s.%s", stepInterface, stepName),
-							State: stepState,
+							Name:        name,
+							State:       stepState,
+							Description: describeStep(name),
 						})
 					}
 				}

@@ -1345,6 +1345,10 @@ spec:
                       description: ProvisioningStep represents a single step in the
                         provisioning or deprovisioning process.
                       properties:
+                        description:
+                          description: A short human-readable description of what
+                            the step does.
+                          type: string
                         name:
                           description: The name of the provisioning step (e.g. write_image).
                           type: string

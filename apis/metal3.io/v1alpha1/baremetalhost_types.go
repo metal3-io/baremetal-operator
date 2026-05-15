@@ -837,6 +837,10 @@ type ProvisioningStep struct {
 
 	// The state of the step (in progress, completed, failed).
 	State StepState `json:"state"`
+
+	// A short human-readable description of what the step does.
+	// +optional
+	Description string `json:"description,omitempty"`
 }
 
 // ProvisionStatus holds the state information for a single target.

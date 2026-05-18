@@ -3,11 +3,11 @@ images:
 - name: quay.io/metal3-io/baremetal-operator:e2e
   loadBehavior: tryLoad
 # Save some time and network by using cached images if available
-- name: quay.io/metal3-io/baremetal-operator:release-0.9
-  loadBehavior: tryLoad
-- name: quay.io/metal3-io/baremetal-operator:release-0.10
-  loadBehavior: tryLoad
 - name: quay.io/metal3-io/baremetal-operator:release-0.11
+  loadBehavior: tryLoad
+- name: quay.io/metal3-io/baremetal-operator:release-0.12
+  loadBehavior: tryLoad
+- name: quay.io/metal3-io/baremetal-operator:release-0.13
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-cainjector:v1.19.2
   loadBehavior: tryLoad
@@ -42,27 +42,27 @@ variables:
   NAMESPACE_SCOPED: "false"
 
 intervals:
-  inspection/wait-unmanaged: ["1m", "10ms"]
-  inspection/wait-registering: ["5s", "10ms"]
-  inspection/wait-registration-error: ["5s", "10ms"]
-  inspection/wait-inspecting: ["5s", "10ms"]
-  inspection/wait-available: ["1m", "1s"]
-  external-inspection/wait-available: ["5s", "1ms"]
-  default/wait-deployment: ["5m", "1s"]
-  default/wait-namespace-deleted: ["2m", "1s"]
-  ironic/wait-deployment: ["10m", "2s"]
-  default/wait-registration: ["5s", "5ms"]
-  default/wait-provisioning: ["1m", "10ms"]
-  default/wait-provisioned: ["5m", "1s"]
-  default/wait-deprovisioning: ["5s", "10ms"]
-  default/wait-available: ["5m", "1s"]
-  default/wait-deleting: ["5s", "10ms"]
-  default/wait-bmh-deleted: ["60s", "1s"]
-  default/wait-deleted: ["5s", "10ms"]
-  default/wait-detached: ["1s", "10ms"]
-  default/wait-secret-deletion: ["5s", "10ms"]
-  default/wait-power-state: ["5s", "10ms"]
-  default/wait-externally-provisioned: ["1m", "10ms"]
+  inspection/wait-unmanaged: [ "1m", "10ms" ]
+  inspection/wait-registering: [ "5s", "10ms" ]
+  inspection/wait-registration-error: [ "5s", "10ms" ]
+  inspection/wait-inspecting: [ "5s", "10ms" ]
+  inspection/wait-available: [ "1m", "1s" ]
+  external-inspection/wait-available: [ "5s", "1ms" ]
+  default/wait-deployment: [ "5m", "1s" ]
+  default/wait-namespace-deleted: [ "2m", "1s" ]
+  ironic/wait-deployment: [ "10m", "2s" ]
+  default/wait-registration: [ "5s", "5ms" ]
+  default/wait-provisioning: [ "1m", "10ms" ]
+  default/wait-provisioned: [ "5m", "1s" ]
+  default/wait-deprovisioning: [ "5s", "10ms" ]
+  default/wait-available: [ "5m", "1s" ]
+  default/wait-deleting: [ "5s", "10ms" ]
+  default/wait-bmh-deleted: [ "60s", "1s" ]
+  default/wait-deleted: [ "5s", "10ms" ]
+  default/wait-detached: [ "1s", "10ms" ]
+  default/wait-secret-deletion: [ "5s", "10ms" ]
+  default/wait-power-state: [ "5s", "10ms" ]
+  default/wait-externally-provisioned: [ "1m", "10ms" ]
 
 bmoIronicUpgradeSpecs:
 - deployIronic: false
@@ -78,5 +78,10 @@ bmoIronicUpgradeSpecs:
 - deployIronic: false
   deployBMO: true
   initBMOKustomization: "../../config/overlays/fixture-release-0.12"
+  upgradeEntityKustomization: "../../config/overlays/fixture"
+  upgradeEntityName: "bmo"
+- deployIronic: false
+  deployBMO: true
+  initBMOKustomization: "../../config/overlays/fixture-release-0.13"
   upgradeEntityKustomization: "../../config/overlays/fixture"
   upgradeEntityName: "bmo"

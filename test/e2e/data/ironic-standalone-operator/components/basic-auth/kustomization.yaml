@@ -6,6 +6,8 @@ patches:
 
 generatorOptions:
   disableNameSuffixHash: true
+  labels:
+    environment.metal3.io/ironic-standalone-operator: "true"
 
 # NOTE: These credentials are generated automatically in hack/ci-e2e.sh
 secretGenerator:

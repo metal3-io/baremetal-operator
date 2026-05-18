@@ -10,6 +10,7 @@ resources:
 - ./force-detach
 - ./inspection
 - ./live-iso-ops
+- ./pp-network-data
 - ./provisioning-ops
 - ./re-inspection
 - ./upgrade-bmo

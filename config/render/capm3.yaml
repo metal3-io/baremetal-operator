@@ -514,7 +514,7 @@ spec:
                         rootVolume:
                           description: |-
                             Setting this to true, causes installer to consider this volume as root device for installation.
-                            Only can be set for one of the volumes.
+                            This can only be set for one of the volumes.
                           type: boolean
                         sizeGibibytes:
                           description: |-
@@ -1269,7 +1269,7 @@ spec:
                             rootVolume:
                               description: |-
                                 Setting this to true, causes installer to consider this volume as root device for installation.
-                                Only can be set for one of the volumes.
+                                This can only be set for one of the volumes.
                               type: boolean
                             sizeGibibytes:
                               description: |-

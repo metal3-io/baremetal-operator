@@ -405,7 +405,7 @@ type HardwareRAIDVolume struct {
 // SoftwareRAIDVolume defines the desired configuration of volume in software RAID.
 type SoftwareRAIDVolume struct {
 	// Setting this to true, causes installer to consider this volume as root device for installation.
-	// Only can be set for one of the volumes.
+	// This can only be set for one of the volumes.
 	RootVolume *bool `json:"rootVolume,omitempty"`
 
 	// Size of the logical disk to be created in GiB.

@@ -36,14 +36,6 @@ func setTargetRAIDCfg(ctx context.Context, p *ironicProvisioner, raidInterface s
 		return provisioner.Result{}, nil
 	}
 
-	// set root volume
-	if data.RootDeviceHints == nil {
-		logicalDisks[0].IsRootVolume = new(bool)
-		*logicalDisks[0].IsRootVolume = true
-	} else {
-		p.log.Info("rootDeviceHints is used, the first volume of raid will not be set to root")
-	}
-
 	updater := clients.UpdateOptsBuilder(p.log)
 	updater.SetTopLevelOpt("raid_interface", targetRaidInterface, ironicNode.RAIDInterface)
 	ironicNode, success, result, err := p.tryUpdateNode(ctx, ironicNode, updater)

@@ -167,7 +167,7 @@ func TestRAIDValidate(t *testing.T) {
 					},
 				}},
 			}},
-			wantedErr: "isRootVolume can only be set for one software RAID volume, set in volumes [0 1]",
+			wantedErr: "softwareRAIDVolumes[*].rootVolume or hardwareRAIDVolumes[*].rootVolume can only be set once",
 		},
 		{
 			name: "valid-no-root-volume-with-rootDeviceHints",
@@ -188,23 +188,6 @@ func TestRAIDValidate(t *testing.T) {
 			wantedErr: "",
 		},
 		{
-			name: "invalid-no-root-volume-no-rootDeviceHints",
-			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
-				Kind:       "BareMetalHost",
-				APIVersion: "metal3.io/v1alpha1",
-			}, ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: "test-namespace",
-			}, Spec: metal3api.BareMetalHostSpec{
-				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
-					{
-						Level: "1",
-					},
-				}},
-			}},
-			wantedErr: "no root software RAID volume specified: set one softwareRAIDVolumes[*].rootVolume to true or provide rootDeviceHints",
-		},
-		{
 			name: "invalid-set-both-root-volume-and-rootDeviceHints",
 			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
 				Kind:       "BareMetalHost",
@@ -221,7 +204,7 @@ func TestRAIDValidate(t *testing.T) {
 					},
 				}},
 			}},
-			wantedErr: "set one softwareRAIDVolumes[*].rootVolume to true or provide rootDeviceHints",
+			wantedErr: "softwareRAIDVolumes[*].rootVolume or hardwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time",
 		},
 	}
 

@@ -36,6 +36,15 @@ func setTargetRAIDCfg(ctx context.Context, p *ironicProvisioner, raidInterface s
 		return provisioner.Result{}, nil
 	}
 
+	// set root volume in case there is no rootDeviceHint or RAID root volume
+	rootCount := data.TargetRAIDConfig.GetRootVolumeCount()
+	if data.RootDeviceHints == nil && rootCount == 0 {
+		logicalDisks[0].IsRootVolume = new(bool)
+		*logicalDisks[0].IsRootVolume = true
+	} else {
+		p.log.Info("rootDeviceHints is used, the first volume of raid will not be set to root")
+	}
+
 	updater := clients.UpdateOptsBuilder(p.log)
 	updater.SetTopLevelOpt("raid_interface", targetRaidInterface, ironicNode.RAIDInterface)
 	ironicNode, success, result, err := p.tryUpdateNode(ctx, ironicNode, updater)
@@ -128,6 +137,7 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 			VolumeName:    volume.Name,
 			Controller:    volume.Controller,
 			PhysicalDisks: physicalDisks,
+			IsRootVolume:  volume.RootVolume,
 		}
 		if volume.Rotational != nil {
 			if *volume.Rotational {

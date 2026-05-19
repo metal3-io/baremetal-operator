@@ -206,6 +206,10 @@ func validateRAID(host *metal3api.BareMetalHost) []error {
 	if rootCount > 1 {
 		errs = append(errs, fmt.Errorf("isRootVolume can only be set for one software RAID volume, set in volumes %v", rootIndices))
 	}
+	if rootCount == 1 && host.Spec.RootDeviceHints != nil {
+		errs = append(errs, errors.New("set one softwareRAIDVolumes[*].rootVolume to true or provide rootDeviceHints"))
+	}
+
 	if rootCount == 0 && host.Spec.RootDeviceHints == nil {
 		errs = append(errs, errors.New("no root software RAID volume specified: set one softwareRAIDVolumes[*].rootVolume to true or provide rootDeviceHints"))
 	}

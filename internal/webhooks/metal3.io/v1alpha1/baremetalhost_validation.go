@@ -54,7 +54,7 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 
 	errs = append(errs, webhook.validateCrossNamespaceSecretReferences(host)...)
 
-	if raidErrors := validateRAID(host.Spec.RAID); raidErrors != nil {
+	if raidErrors := validateRAID(host); raidErrors != nil {
 		errs = append(errs, raidErrors...)
 	}
 
@@ -166,8 +166,9 @@ func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetail
 	return errs
 }
 
-func validateRAID(r *metal3api.RAIDConfig) []error {
+func validateRAID(host *metal3api.BareMetalHost) []error {
 	var errs []error
+	r := host.Spec.RAID
 
 	if r == nil {
 		return nil
@@ -193,16 +194,20 @@ func validateRAID(r *metal3api.RAIDConfig) []error {
 		}
 	}
 
-	// check IsRootVolume only set for one of the software raid volumes
-	hasIsRootVolume := false
-	for _, volume := range r.SoftwareRAIDVolumes {
+	// check RootVolume only set for one of the software raid volumes
+	rootCount := 0
+	rootIndices := []int{}
+	for i, volume := range r.SoftwareRAIDVolumes {
 		if volume.RootVolume != nil && *volume.RootVolume {
-			if hasIsRootVolume {
-				errs = append(errs, errors.New("only one volume can have isRootVolume"))
-				break
-			}
-			hasIsRootVolume = true
+			rootCount++
+			rootIndices = append(rootIndices, i)
 		}
+	}
+	if rootCount > 1 {
+		errs = append(errs, fmt.Errorf("isRootVolume can only be set for one software RAID volume, set in volumes %v", rootIndices))
+	}
+	if rootCount == 0 && host.Spec.RootDeviceHints == nil {
+		errs = append(errs, errors.New("no root software RAID volume specified: set one softwareRAIDVolumes[*].rootVolume to true or provide rootDeviceHints"))
 	}
 
 	return errs

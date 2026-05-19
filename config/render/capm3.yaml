@@ -511,6 +511,11 @@ spec:
                             type: object
                           minItems: 2
                           type: array
+                        rootVolume:
+                          description: |-
+                            Setting this to true, causes installer to consider this volume as root device for installation.
+                            Only can be set for one of the volumes.
+                          type: boolean
                         sizeGibibytes:
                           description: |-
                             Size of the logical disk to be created in GiB.
@@ -1261,6 +1266,11 @@ spec:
                                 type: object
                               minItems: 2
                               type: array
+                            rootVolume:
+                              description: |-
+                                Setting this to true, causes installer to consider this volume as root device for installation.
+                                Only can be set for one of the volumes.
+                              type: boolean
                             sizeGibibytes:
                               description: |-
                                 Size of the logical disk to be created in GiB.

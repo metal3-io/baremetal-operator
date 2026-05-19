@@ -170,9 +170,10 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 	for _, volume := range volumes {
 		// Build logicalDisk
 		logicalDisk = nodes.LogicalDisk{
-			SizeGB:     volume.SizeGibibytes,
-			RAIDLevel:  nodes.RAIDLevel(volume.Level),
-			Controller: "software",
+			SizeGB:       volume.SizeGibibytes,
+			RAIDLevel:    nodes.RAIDLevel(volume.Level),
+			Controller:   "software",
+			IsRootVolume: volume.RootVolume,
 		}
 		// Build physical disks hint
 		for i := range volume.PhysicalDisks {

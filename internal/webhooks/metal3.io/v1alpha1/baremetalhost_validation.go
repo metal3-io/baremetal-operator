@@ -193,6 +193,18 @@ func validateRAID(r *metal3api.RAIDConfig) []error {
 		}
 	}
 
+	// check IsRootVolume only set for one of the software raid volumes
+	hasIsRootVolume := false
+	for _, volume := range r.SoftwareRAIDVolumes {
+		if volume.RootVolume != nil && *volume.RootVolume {
+			if hasIsRootVolume {
+				errs = append(errs, errors.New("only one volume can have isRootVolume"))
+				break
+			}
+			hasIsRootVolume = true
+		}
+	}
+
 	return errs
 }
 

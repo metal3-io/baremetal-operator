@@ -39,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -73,12 +74,13 @@ type BareMetalHostReconciler struct {
 // Instead of passing a zillion arguments to the action of a phase,
 // hold them in a struct.
 type reconcileInfo struct {
-	log               logr.Logger
-	host              *metal3api.BareMetalHost
-	request           ctrl.Request
-	bmcCredsSecret    *corev1.Secret
-	events            []corev1.Event
-	postSaveCallbacks []func()
+	log                              logr.Logger
+	host                             *metal3api.BareMetalHost
+	request                          ctrl.Request
+	bmcCredsSecret                   *corev1.Secret
+	preprovisioningNetworkDataSecret *corev1.Secret
+	events                           []corev1.Event
+	postSaveCallbacks                []func()
 }
 
 // match the provisioner.EventPublisher interface.
@@ -207,12 +209,27 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		}
 	}
 
+	var preprovisioningNetworkDataSecret *corev1.Secret
+	if host.Spec.PreprovisioningNetworkDataName != "" &&
+		host.Status.Provisioning.State != metal3api.StateNone &&
+		host.Status.Provisioning.State != metal3api.StateUnmanaged {
+		preprovisioningNetworkDataSecret, err = r.acquirePreprovisioningNetworkDataSecret(ctx, host)
+		if err != nil {
+			if !host.DeletionTimestamp.IsZero() {
+				preprovisioningNetworkDataSecret = &corev1.Secret{}
+			} else {
+				reqLogger.Info("failed to acquire preprovisioning network data secret", "error", err)
+			}
+		}
+	}
+
 	initialState := host.Status.Provisioning.State
 	info := &reconcileInfo{
-		log:            reqLogger.WithValues("provisioningState", initialState),
-		host:           host,
-		request:        request,
-		bmcCredsSecret: bmcCredsSecret,
+		log:                              reqLogger.WithValues("provisioningState", initialState),
+		host:                             host,
+		request:                          request,
+		bmcCredsSecret:                   bmcCredsSecret,
+		preprovisioningNetworkDataSecret: preprovisioningNetworkDataSecret,
 	}
 
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
@@ -572,6 +589,13 @@ func (r *BareMetalHostReconciler) actionDeleting(ctx context.Context, prov provi
 	err = secretManager.ReleaseSecret(ctx, info.bmcCredsSecret)
 	if err != nil {
 		return actionError{err}
+	}
+
+	if info.preprovisioningNetworkDataSecret != nil && info.preprovisioningNetworkDataSecret.Name != "" {
+		err = secretManager.ReleaseSecret(ctx, info.preprovisioningNetworkDataSecret)
+		if err != nil {
+			return actionError{err}
+		}
 	}
 
 	if controllerutil.RemoveFinalizer(info.host, metal3api.BareMetalHostFinalizer) {
@@ -2423,6 +2447,22 @@ func (r *BareMetalHostReconciler) getBMCSecretAndSetOwner(ctx context.Context, r
 	}
 
 	return bmcCredsSecret, nil
+}
+
+// acquirePreprovisioningNetworkDataSecret claims the Secret referenced by
+// spec.preprovisioningNetworkDataName with a finalizer so it is not removed
+// before the host finishes deletion. Callers must ensure
+// spec.preprovisioningNetworkDataName is set.
+func (r *BareMetalHostReconciler) acquirePreprovisioningNetworkDataSecret(ctx context.Context, host *metal3api.BareMetalHost) (*corev1.Secret, error) {
+	secretManager := r.secretManager(ctx, r.Log.WithValues(
+		"baremetalhost", types.NamespacedName{Namespace: host.Namespace, Name: host.Name},
+	))
+	key := types.NamespacedName{
+		Name:      host.Spec.PreprovisioningNetworkDataName,
+		Namespace: host.Namespace,
+	}
+
+	return secretManager.ObtainSecretWithFinalizer(ctx, key, host.Status.Provisioning.State != metal3api.StateDeleting)
 }
 
 // getImageAuthSecret validates and extracts the OCI registry credentials for the image.

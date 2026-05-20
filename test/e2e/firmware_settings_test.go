@@ -27,9 +27,9 @@ const (
 	hfsTestKey1       = "ProcTurboMode"
 	hfsTestOrigValue1 = "Enabled"
 	hfsTestNewValue1  = "Disabled"
-	hfsTestKey2       = "QuietBoot"
-	hfsTestOrigValue2 = "true"
-	hfsTestNewValue2  = "false"
+	hfsTestKey2       = "EmbeddedSata"
+	hfsTestOrigValue2 = "Raid"
+	hfsTestNewValue2  = "Ata"
 )
 
 var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func() {

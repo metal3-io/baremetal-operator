@@ -59,6 +59,7 @@ variables:
   IRONIC_PASSWORD: "changeme"
   IRONIC_PROVISIONING_IP: "192.168.222.2"
   IRONIC_PROVISIONING_PORT: "6385"
+  IRONIC_CLIENT_TIMEOUT: "15s"
   # Boot mode can be legacy, UEFI or UEFISecureBoot
   BOOT_MODE: "UEFI"
 
@@ -81,6 +82,7 @@ intervals:
   default/wait-deleted: [ "20s", "10ms" ]
   default/wait-bmh-deleted: [ "6m", "10s" ]
   default/wait-detached: [ "20s", "10ms" ]
+  force-detach/wait-ironic-state: [ "2m", "2s" ]
   default/wait-secret-deletion: [ "1m", "1s" ]
   default/wait-connect-ssh: [ "2m", "10s" ]
   default/wait-externally-provisioned: [ "1m", "10ms" ]

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
@@ -89,24 +90,44 @@ func getVBMCEmulatorInfo(ctx context.Context) (info string, err error) {
 }
 
 func createSushyToolsEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorConfig) error {
-	// Validate that the config file exists and is a file
-	info, err := os.Stat(cfg.ConfigFile)
-	if err != nil {
-		return fmt.Errorf("failed to access sushy-tools config file %q: %w", cfg.ConfigFile, err)
-	} else if info.IsDir() {
-		return fmt.Errorf("sushy-tools config file %q is a directory", cfg.ConfigFile)
+	// Validate that the config file if it is specified exists and is a file
+	if cfg.ConfigFile != "" {
+		info, err := os.Stat(cfg.ConfigFile)
+		if err != nil {
+			return fmt.Errorf("failed to access sushy-tools config file %q: %w", cfg.ConfigFile, err)
+		} else if info.IsDir() {
+			return fmt.Errorf("sushy-tools config file %q is a directory", cfg.ConfigFile)
+		}
 	}
 
 	// Fill in configuration
 	cfg.ContainerName = ensureVbmctlPrefix(config.BMCEmulatorTypeSushyTools)
 	cfg.VolumeMounts = []vbmctlapi.VolumeMount{
-		{HostPath: cfg.ConfigFile, BindSpec: "/etc/sushy/sushy-emulator.conf:Z"},
 		{HostPath: "/var/run/libvirt", BindSpec: "/var/run/libvirt:Z"},
 	}
-	cfg.Env = map[string]string{
-		"SUSHY_EMULATOR_CONFIG": "/etc/sushy/sushy-emulator.conf",
-	}
+	cfg.Env = map[string]string{}
 	cfg.Cmd = []string{"sushy-emulator"}
+
+	// If a config file is specified, set the environment variable and volume mount for it.
+	// We use ":Z" in the bind spec to ensure proper SELinux labeling in case the host is
+	// running with SELinux enabled.
+	if cfg.ConfigFile != "" {
+		cfg.Env["SUSHY_EMULATOR_CONFIG"] = "/etc/sushy/sushy-emulator.conf"
+		cfg.VolumeMounts = append(cfg.VolumeMounts, vbmctlapi.VolumeMount{HostPath: cfg.ConfigFile, BindSpec: "/etc/sushy/sushy-emulator.conf:Z"})
+	}
+
+	// Set command-line arguments for the emulator based on the provided configuration.
+	if cfg.ListenAddress != "" {
+		cfg.Cmd = append(cfg.Cmd, "--interface", cfg.ListenAddress)
+	}
+
+	if cfg.ListenPort != 0 {
+		cfg.Cmd = append(cfg.Cmd, "--port", strconv.FormatUint(uint64(cfg.ListenPort), 10))
+	}
+
+	// Overwrite specific configuration with values provided by vbmctl
+	cfg.Cmd = append(cfg.Cmd, "--storage-pool", cfg.StoragePool)
+	cfg.Cmd = append(cfg.Cmd, "--libvirt-uri", cfg.LibvirtURI)
 
 	return createEmulatorInstance(ctx, cfg)
 }

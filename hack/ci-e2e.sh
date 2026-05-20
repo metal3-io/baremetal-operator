@@ -37,6 +37,7 @@ export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yam
 
 VBMC_IMAGE="${VBMC_IMAGE:-quay.io/metal3-io/vbmc}"
 SUSHY_EMULATOR_IMAGE="${SUSHY_EMULATOR_IMAGE:-quay.io/metal3-io/sushy-tools:latest}"
+SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
 
 # make test-e2e runs the fixture tests by default and skips some tests
 # that don't make sense in that context. We need to override.
@@ -98,10 +99,8 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   done
 
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
-  # Sushy-tools variables
-  SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
   # Start sushy-tools
-  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "${SUSHY_EMULATOR_IMAGE}" --config-file "${SUSHY_EMULATOR_FILE}"
+  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "${SUSHY_EMULATOR_IMAGE}" --listen-address "${IP_ADDRESS}" --listen-port "${SUSHY_EMULATOR_PORT}"
 else
   echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1

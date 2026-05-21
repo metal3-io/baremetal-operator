@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: baremetal-operator-system/baremetal-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: baremetalhosts.metal3.io
 spec:
   group: metal3.io
@@ -3208,7 +3208,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: baremetalswitches.metal3.io
 spec:
   group: metal3.io
@@ -3399,7 +3399,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: bmceventsubscriptions.metal3.io
 spec:
   group: metal3.io
@@ -3488,7 +3488,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: dataimages.metal3.io
 spec:
   group: metal3.io
@@ -3569,7 +3569,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: firmwareschemas.metal3.io
 spec:
   group: metal3.io
@@ -3663,7 +3663,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hardwaredata.metal3.io
 spec:
   group: metal3.io
@@ -4167,7 +4167,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hostclaims.metal3.io
 spec:
   group: metal3.io
@@ -4526,7 +4526,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hostdeploypolicies.metal3.io
 spec:
   group: metal3.io
@@ -4613,7 +4613,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hostfirmwarecomponents.metal3.io
 spec:
   group: metal3.io
@@ -4791,7 +4791,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hostfirmwaresettings.metal3.io
 spec:
   group: metal3.io
@@ -4947,7 +4947,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hostnetworkattachments.metal3.io
 spec:
   group: metal3.io
@@ -5046,7 +5046,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hostupdatepolicies.metal3.io
 spec:
   group: metal3.io
@@ -5106,7 +5106,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: preprovisioningimages.metal3.io
 spec:
   group: metal3.io
@@ -5676,6 +5676,10 @@ webhooks:
       namespace: baremetal-operator-system
       path: /validate-metal3-io-v1alpha1-baremetalhost
   failurePolicy: Fail
+  matchConditions:
+  - expression: request.operation == 'CREATE' || object.?spec.orValue({}) != oldObject.?spec.orValue({})
+      || object.metadata.?annotations.orValue({}) != oldObject.metadata.?annotations.orValue({})
+    name: spec-or-annotations-changed
   name: baremetalhost.metal3.io
   rules:
   - apiGroups:

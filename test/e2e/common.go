@@ -538,6 +538,114 @@ func PerformSSHBootCheck(e2eConfig *Config, expectedBootMode string, ipAddress s
 	Expect(isExpectedBootMode).To(BeTrue(), fmt.Sprintf("Expected booting from %s, but found different mode", expectedBootMode))
 }
 
+// UsesIPXE returns true if the given BMC address uses iPXE boot
+// (as opposed to virtual media boot). Virtual media addresses contain
+// "virtualmedia" in the protocol prefix.
+func UsesIPXE(bmcAddress string) bool {
+	return !strings.Contains(bmcAddress, "virtualmedia")
+}
+
+// VerifyIronicManagedBoot SSHes into IPA during inspection and checks
+// /proc/cmdline to verify that IPA was booted by an Ironic-managed process
+// (per-node iPXE config or virtual media ISO), not the inspector.ipxe fallback.
+//
+// For iPXE BMCs (IPMI, Redfish), this verifies that the per-node iPXE config
+// (rendered from ipxe_config.template) was used instead of the fallback. The
+// per-node template hardcodes "selinux=0" in the kernel command line, which
+// inspector.ipxe does not include.
+//
+// For virtual media BMCs (Redfish-VirtualMedia), this verifies that IPA
+// booted from the Ironic-managed virtual media ISO by checking for
+// "boot_method=vmedia" in the kernel command line. This parameter is set by
+// Ironic's redfish boot module and is the same signal IPA uses internally
+// to determine it was booted from virtual media.
+//
+// The detection relies on kernel parameters from Ironic's kernel_append_params
+// configuration (e.g. "nofb") which are included in both per-node iPXE configs
+// and virtual media ISOs, but NOT in inspector.ipxe. Additionally, "selinux=0"
+// is hardcoded in the iPXE per-node template but not in kernel_append_params,
+// so its presence confirms iPXE boot and its absence (combined with "nofb")
+// confirms virtual media boot.
+func VerifyIronicManagedBoot(e2eConfig *Config, bmcAddress, ipAddress string) {
+	Logf("Verifying IPA boot source by SSHing into IPA at %s", ipAddress)
+
+	client := EstablishSSHConnection(e2eConfig, ipAddress)
+	defer func() {
+		if client != nil {
+			client.Close()
+		}
+	}()
+
+	output, err := executeSSHCommand(client, "cat /proc/cmdline")
+	Expect(err).NotTo(HaveOccurred(), "Failed to read /proc/cmdline from IPA via SSH")
+
+	cmdline := strings.TrimSpace(output)
+	Logf("IPA kernel command line: %s", cmdline)
+
+	// Sanity check: verify that the custom marker we set in
+	// Ironic.spec.deployRamdisk.extraKernelParams actually made it into
+	// the kernel command line. This confirms that Ironic's kernel parameter
+	// pipeline (extraKernelParams -> IRONIC_KERNEL_PARAMS -> kernel cmdline)
+	// is working correctly. Note that this marker appears in ALL boot paths
+	// (including inspector.ipxe), so it does NOT distinguish managed from
+	// fallback boot — the checks below do that.
+	Expect(cmdline).To(ContainSubstring("bmo-e2e-kernel-params-ok"),
+		"Kernel command line does not contain the custom marker "+
+			"'bmo-e2e-kernel-params-ok' that was set in "+
+			"Ironic.spec.deployRamdisk.extraKernelParams. "+
+			"This indicates a problem with Ironic's kernel parameter pipeline. "+
+			"Full cmdline: %s", cmdline)
+
+	// All Ironic-managed boots (both iPXE per-node config and virtual media ISO)
+	// include kernel parameters from kernel_append_params, which contains "nofb".
+	// The inspector.ipxe fallback does NOT use kernel_append_params, so "nofb" is
+	// absent when IPA boots from the fallback.
+	Expect(cmdline).To(ContainSubstring("nofb"),
+		"Kernel command line does not contain 'nofb'. "+
+			"IPA appears to have booted from the inspector.ipxe fallback "+
+			"instead of an Ironic-managed boot (per-node iPXE or virtual media). "+
+			"Full cmdline: %s", cmdline)
+
+	if UsesIPXE(bmcAddress) {
+		// The per-node iPXE config template (ipxe_config.template) hardcodes
+		// "selinux=0" in the kernel line. This is NOT in kernel_append_params,
+		// so it only appears in iPXE per-node boots.
+		Expect(cmdline).To(ContainSubstring("selinux=0"),
+			"Kernel command line does not contain 'selinux=0'. "+
+				"For an iPXE BMC, IPA should boot from the per-node iPXE config "+
+				"which hardcodes 'selinux=0'. This may indicate a broken "+
+				"ipxe_config.template rendering "+
+				"(see https://github.com/metal3-io/ironic-image/issues/971). "+
+				"Full cmdline: %s", cmdline)
+		Logf("Confirmed: IPA booted from the Ironic per-node iPXE script")
+	} else {
+		// For virtual media, Ironic sets "boot_method=vmedia" in the kernel
+		// command line of the ISO. This is the authoritative signal that IPA
+		// uses to determine it was booted from virtual media (see
+		// ironic_python_agent/utils.py:_booted_from_vmedia()).
+		Expect(cmdline).To(ContainSubstring("boot_method=vmedia"),
+			"kernel command line does not contain 'boot_method=vmedia'. "+
+				"For a virtual media BMC, Ironic should set this parameter "+
+				"in the virtual media ISO kernel command line. "+
+				"This may indicate the machine PXE booted instead of booting "+
+				"from the Ironic-managed virtual media ISO. "+
+				"Full cmdline: %s", cmdline)
+
+		// Additionally, "selinux=0" should NOT be present since it is
+		// only hardcoded in the iPXE per-node template. If it IS present,
+		// it means IPA PXE booted (using someone else's per-node config or
+		// some other iPXE path) instead of booting from the virtual media ISO.
+		Expect(cmdline).NotTo(ContainSubstring("selinux=0"),
+			"Kernel command line contains 'selinux=0' which is only present in "+
+				"the iPXE per-node config template. For a virtual media BMC, "+
+				"IPA should boot from the Ironic-managed virtual media ISO, not "+
+				"from iPXE. This may indicate the machine PXE booted before "+
+				"Ironic attached the virtual media. "+
+				"Full cmdline: %s", cmdline)
+		Logf("Confirmed: IPA booted from the Ironic virtual media ISO")
+	}
+}
+
 // BuildAndApplyKustomizationInput provides input for BuildAndApplyKustomize().
 // If WaitForDeployment and/or WatchDeploymentLogs is set to true, then DeploymentName
 // and DeploymentNamespace are expected.

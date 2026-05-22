@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 )
@@ -76,7 +76,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 				},
 				Image: &metal3api.Image{
 					URL:        imageURL,
-					DiskFormat: pointer.String("live-iso"),
+					DiskFormat: ptr.To("live-iso"),
 				},
 				BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress:        bmc.BootMacAddress,

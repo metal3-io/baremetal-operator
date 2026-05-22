@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 )
 
@@ -76,7 +76,7 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
 		By("setting the reboot annotation and checking that the BMH was rebooted")
-		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, rebootAnnotation, pointer.String("{\"force\": true}"))
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, rebootAnnotation, ptr.To("{\"force\": true}"))
 
 		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
 			Client: clusterProxy.GetClient(),
@@ -91,7 +91,7 @@ var _ = Describe("basic", Label("required", "basic"), func() {
 		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
 
 		By("setting the power off annotation on the BMH and checking that it worked")
-		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, pointer.String("{\"force\": true}"))
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, poweroffAnnotation, ptr.To("{\"force\": true}"))
 
 		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
 			Client: clusterProxy.GetClient(),

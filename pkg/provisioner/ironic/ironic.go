@@ -164,7 +164,7 @@ func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 }
 
 // get ports in Ironic with address or node uuid filter.
-func (p *ironicProvisioner) getPorts(ctx context.Context, nodeUUID string, macAdress string) ([]ports.Port, error) {
+func (p *ironicProvisioner) getPorts(ctx context.Context, nodeUUID string, macAddress string) ([]ports.Port, error) {
 	opts := ports.ListOpts{
 		Fields: []string{
 			"node_uuid",
@@ -175,8 +175,8 @@ func (p *ironicProvisioner) getPorts(ctx context.Context, nodeUUID string, macAd
 	if nodeUUID != "" {
 		opts.NodeUUID = nodeUUID
 	}
-	if macAdress != "" {
-		opts.Address = macAdress
+	if macAddress != "" {
+		opts.Address = macAddress
 	}
 
 	allPages, err := ports.List(p.client, opts).AllPages(ctx)

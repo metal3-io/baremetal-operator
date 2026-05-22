@@ -184,8 +184,8 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 
 			By("Get ports in Ironic after dropping the database and reconciling and check if they are the same")
 			Eventually(func(g Gomega) {
-				portsAfter, errPotrsAfter := getIronicPorts(ctx, e2eConfig)
-				g.Expect(errPotrsAfter).NotTo(HaveOccurred())
+				portsAfter, errPortsAfter := getIronicPorts(ctx, e2eConfig)
+				g.Expect(errPortsAfter).NotTo(HaveOccurred())
 				g.Expect(getMacList(portsAfter)).To(ConsistOf(getMacList(portsBefore)))
 			}, e2eConfig.GetIntervals("default", "wait-deployment")...).Should(Succeed())
 		}

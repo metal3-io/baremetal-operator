@@ -21,17 +21,13 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/gophercloud/gophercloud/v2"
-	ironicClient "github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
 	ironicPort "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
-	"go.etcd.io/etcd/client/pkg/v3/transport"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/apps/v1"
@@ -1121,39 +1117,8 @@ func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder stri
 	}
 }
 
-func getIronicClient(e2eConfig *Config) (*gophercloud.ServiceClient, error) {
-	ironicProvisioningPort := e2eConfig.GetVariable("IRONIC_PROVISIONING_PORT")
-	ironicProvisioningIP := e2eConfig.GetVariable("IRONIC_PROVISIONING_IP")
-	username := e2eConfig.GetVariable("IRONIC_USERNAME")
-	password := e2eConfig.GetVariable("IRONIC_PASSWORD")
-	ironicURL := "https://" + net.JoinHostPort(ironicProvisioningIP, ironicProvisioningPort)
-	const tlsTimeout = 30 * time.Second
-	client, err := ironicClient.NewBareMetalHTTPBasic(ironicClient.EndpointOpts{
-		IronicEndpoint:     ironicURL,
-		IronicUser:         username,
-		IronicUserPassword: password,
-	})
-	if err != nil {
-		return nil, err
-	}
-	transport, errTransport := transport.NewTransport(
-		transport.TLSInfo{InsecureSkipVerify: true},
-		tlsTimeout,
-	)
-	if errTransport != nil {
-		return nil, errTransport
-	}
-	client.HTTPClient = http.Client{
-		Transport: transport,
-	}
-	return client, err
-}
-
 func getIronicPorts(ctx context.Context, e2eConfig *Config) (ports []ironicPort.Port, err error) {
-	client, err := getIronicClient(e2eConfig)
-	if err != nil {
-		return nil, err
-	}
+	client := CreateIronicClient(e2eConfig)
 
 	portsPager, err := ironicPort.List(client, ironicPort.ListOpts{}).AllPages(ctx)
 

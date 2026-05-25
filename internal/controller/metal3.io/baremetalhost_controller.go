@@ -1455,6 +1455,51 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 	return actionComplete{}
 }
 
+// hostFirmwareSpecsExist reports whether firmware servicing specs are still present
+// on the host or related HFS/HFC objects. Used by the ServicingError recovery fast-path
+// before calling getHostFirmwareSettings/Components, which block on generation mismatch.
+// Only NotFound errors from Get are treated as absent resources; other errors are returned.
+func (r *BareMetalHostReconciler) hostFirmwareSpecsExist(
+	ctx context.Context,
+	info *reconcileInfo,
+	liveFirmwareSettingsAllowed, liveFirmwareUpdatesAllowed bool,
+) (bool, error) {
+	specsExist := false
+
+	if liveFirmwareSettingsAllowed {
+		if !reflect.DeepEqual(info.host.Status.Provisioning.Firmware, info.host.Spec.Firmware) &&
+			info.host.Spec.Firmware != nil {
+			specsExist = true
+		}
+
+		if !specsExist {
+			hfsCheck := &metal3api.HostFirmwareSettings{}
+			err := r.Get(ctx, info.request.NamespacedName, hfsCheck)
+			if err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return false, fmt.Errorf("could not load host firmware settings: %w", err)
+				}
+			} else if len(hfsCheck.Spec.Settings) > 0 {
+				specsExist = true
+			}
+		}
+	}
+
+	if liveFirmwareUpdatesAllowed {
+		hfcCheck := &metal3api.HostFirmwareComponents{}
+		err := r.Get(ctx, info.request.NamespacedName, hfcCheck)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return false, fmt.Errorf("could not load host firmware components: %w", err)
+			}
+		} else if len(hfcCheck.Spec.Updates) > 0 {
+			specsExist = true
+		}
+	}
+
+	return specsExist, nil
+}
+
 func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) (result actionResult) {
 	servicingData := provisioner.ServicingData{}
 
@@ -1476,19 +1521,11 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 	// cleared before calling getHostFirmwareSettings/Components. Those
 	// functions fail on generation mismatch (sub-controller hasn't reconciled
 	// yet), which would block the abort/recovery path indefinitely.
-	if info.host.Status.ErrorType == metal3api.ServicingError {
-		specsExist := false
-		if liveFirmwareSettingsAllowed {
-			hfsCheck := &metal3api.HostFirmwareSettings{}
-			if err := r.Get(ctx, info.request.NamespacedName, hfsCheck); err == nil && len(hfsCheck.Spec.Settings) > 0 {
-				specsExist = true
-			}
-		}
-		if liveFirmwareUpdatesAllowed && !specsExist {
-			hfcCheck := &metal3api.HostFirmwareComponents{}
-			if err := r.Get(ctx, info.request.NamespacedName, hfcCheck); err == nil && len(hfcCheck.Spec.Updates) > 0 {
-				specsExist = true
-			}
+	if info.host.Status.ErrorType == metal3api.ServicingError &&
+		(liveFirmwareSettingsAllowed || liveFirmwareUpdatesAllowed) {
+		specsExist, err := r.hostFirmwareSpecsExist(ctx, info, liveFirmwareSettingsAllowed, liveFirmwareUpdatesAllowed)
+		if err != nil {
+			return actionError{fmt.Errorf("could not determine if firmware specs exist: %w", err)}
 		}
 		if !specsExist {
 			info.log.Info("specs cleared while in servicing error state, attempting abort")
@@ -1503,7 +1540,9 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 				return actionContinue{provResult.RequeueAfter}
 			}
 			info.log.Info("successfully recovered from servicing error")
-			clearErrorWithStatus(info.host, metal3api.OperationalStatusOK)
+			if clearErrorWithStatus(info.host, metal3api.OperationalStatusOK) {
+				return actionUpdate{}
+			}
 			return actionComplete{}
 		}
 	}
@@ -2584,6 +2623,7 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 	// Watch HFC/HFS for spec changes (generation bumps) so that the BMH
 	// controller reconciles promptly when a user clears firmware specs,
 	// rather than waiting for error-state exponential backoff to expire.
+	// HFS and HFC use the same name and namespace as their BareMetalHost.
 	firmwareEventHandler := handler.EnqueueRequestsFromMapFunc(
 		func(_ context.Context, obj client.Object) []ctrl.Request {
 			return []ctrl.Request{{NamespacedName: client.ObjectKey{

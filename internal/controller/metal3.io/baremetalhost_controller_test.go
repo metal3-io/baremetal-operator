@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -3097,6 +3098,107 @@ func TestHostFirmwareSettings(t *testing.T) {
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
 		})
 	}
+}
+
+func TestHostFirmwareSpecsExist(t *testing.T) {
+	var trueVal = true
+	var falseVal = false
+
+	host := newDefaultHost(t)
+	info := makeReconcileInfo(host)
+	info.request = newRequest(host)
+
+	t.Run("legacy firmware spec pending", func(t *testing.T) {
+		hostWithFW := host.DeepCopy()
+		hostWithFW.Status.Provisioning.Firmware = &metal3api.FirmwareConfig{
+			VirtualizationEnabled: &falseVal,
+		}
+		hostWithFW.Spec.Firmware = &metal3api.FirmwareConfig{
+			VirtualizationEnabled: &trueVal,
+		}
+		fwInfo := makeReconcileInfo(hostWithFW)
+		fwInfo.request = newRequest(hostWithFW)
+		r := newTestReconciler(t, hostWithFW)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), fwInfo, true, false)
+		require.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("HFS with settings", func(t *testing.T) {
+		hfs := newHostFirmwareSettings(host, nil)
+		r := newTestReconciler(t, host, hfs)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("HFS not found and no legacy spec", func(t *testing.T) {
+		r := newTestReconciler(t, host)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("HFS empty settings", func(t *testing.T) {
+		hfs := newHostFirmwareSettings(host, nil)
+		hfs.Spec.Settings = nil
+		r := newTestReconciler(t, host, hfs)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("HFC with updates", func(t *testing.T) {
+		hfc := &metal3api.HostFirmwareComponents{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      host.Name,
+				Namespace: host.Namespace,
+			},
+			Spec: metal3api.HostFirmwareComponentsSpec{
+				Updates: []metal3api.FirmwareUpdate{
+					{Component: "bmc", URL: "http://example.com/bmc"},
+				},
+			},
+		}
+		r := newTestReconciler(t, host, hfc)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, false, true)
+		require.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("neither HFS nor HFC when both paths enabled", func(t *testing.T) {
+		r := newTestReconciler(t, host)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, true)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("Get error is propagated", func(t *testing.T) {
+		r := newTestReconciler(t, host)
+		r.Client = &getErrorClient{Client: r.Client, err: errors.New("apiserver unavailable")}
+
+		_, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "could not load host firmware settings")
+	})
+}
+
+type getErrorClient struct {
+	client.Client
+	err error
+}
+
+func (c *getErrorClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if c.err != nil {
+		return c.err
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
 }
 
 func TestBMHTransitionToPreparing(t *testing.T) {

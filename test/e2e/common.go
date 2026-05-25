@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gophercloud/gophercloud/v2"
+	ironicNode "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	ironicPort "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -38,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	testexec "sigs.k8s.io/cluster-api/test/framework/exec"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
@@ -1117,12 +1118,24 @@ func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder stri
 	}
 }
 
-func getIronicPorts(ctx context.Context, e2eConfig *Config) (ports []ironicPort.Port, err error) {
+func getIronicNodePorts(ctx context.Context, e2eConfig *Config, nodeName string) (ports []ironicPort.Port, err error) {
 	client := CreateIronicClient(e2eConfig)
 
-	portsPager, err := ironicPort.List(client, ironicPort.ListOpts{}).AllPages(ctx)
+	node, errNode := ironicNode.Get(ctx, client, nodeName).Extract()
+	if errNode != nil {
+		if gophercloud.ResponseCodeIs(errNode, http.StatusNotFound) {
+			Logf("Ironic node %s not found, skipping ports retrieval", nodeName)
+			return nil, nil
+		}
+	}
+	Logf("Found node with name %s with uuid %s, checking ports", nodeName, node.UUID)
+
+	portsPager, err := ironicPort.List(client, ironicPort.ListOpts{Node: nodeName}).AllPages(ctx)
 
 	if err != nil {
+		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -1152,47 +1165,6 @@ func WaitForIronicReady(ctx context.Context, input WaitForIronicInput) {
 	}, input.Intervals...).Should(Succeed())
 
 	Logf("Ironic %q is Ready", input.Name)
-}
-
-// WaitForIronicRedeploy waits for Ironic deployment to scale down and up and get ready.
-func WaitForIronicRedeploy(ctx context.Context, input WaitForIronicInput) {
-	Logf("Waiting for Ironic %q to be redeployed", input.Name)
-
-	updateReplica := true
-	targetReplicas := int32(0)
-
-	Eventually(func(g Gomega) {
-		ironicDeployment := &v1.Deployment{}
-		err := input.Client.Get(ctx, client.ObjectKey{
-			Namespace: input.Namespace,
-			Name:      input.Name,
-		}, ironicDeployment)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		if updateReplica {
-			Logf("Updating deployment %s with replicas %d", input.Name, targetReplicas)
-			ironicDeployment.Spec.Replicas = ptr.To(targetReplicas)
-			err := input.Client.Update(ctx, ironicDeployment)
-			g.Expect(err).ToNot(HaveOccurred())
-			updateReplica = false
-		}
-
-		checkReady := func() bool {
-			if ironicDeployment.Status.ReadyReplicas == targetReplicas {
-				if targetReplicas == 0 {
-					targetReplicas = 1
-					updateReplica = true
-				} else {
-					return true
-				}
-			}
-			return false
-		}
-
-		g.Expect(checkReady()).To(BeTrue(), "Ironic deployment %q is not Ready yet", input.Name)
-	}, input.Intervals...).Should(Succeed())
-
-	Logf("Ironic deployment %q is Ready", input.Name)
 }
 
 // WaitForIronicInput bundles the parameters for WaitForIronicReady.

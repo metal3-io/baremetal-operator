@@ -37,7 +37,7 @@ func (webhook *BMCEventSubscription) SetupWebhookWithManager(mgr ctrl.Manager) e
 		Complete()
 }
 
-//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-bmceventsubscription,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1;v1beta,groups=metal3.io,resources=bmceventsubscriptions,versions=v1alpha1,name=bmceventsubscription.metal3.io
+//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-bmceventsubscription,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,groups=metal3.io,resources=bmceventsubscriptions,versions=v1alpha1,name=bmceventsubscription.metal3.io
 
 // BMCEventSubscription implements a validation and defaulting webhook for BMCEventSubscription.
 type BMCEventSubscription struct{}

@@ -2,6 +2,8 @@
 // bare metal environments.
 package vbmctlapi
 
+import "k8s.io/utils/ptr"
+
 // VMConfig represents the configuration for a virtual machine.
 type VMConfig struct {
 	// Name is the name of the virtual machine.
@@ -101,12 +103,12 @@ type NetworkAttachment struct {
 // Network represents libvirt network.
 type NetworkConfig struct {
 	// Name is the name of the libvirt network.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// Bridge is the name of the bridge interface for the network.
 	Bridge string `json:"bridge,omitempty" yaml:"bridge,omitempty"`
 
-	// Address is the address of the bridge interface.
+	// Address is the address of the bridge interface. Address is expected to be IPv4.
 	Address string `json:"address,omitempty" yaml:"address,omitempty"`
 
 	// Netmask is the netmask for the network.
@@ -198,6 +200,26 @@ type Pool struct {
 	Available uint64 `json:"available,omitempty" yaml:"available,omitempty"`
 }
 
+type DockerBridgeNetwork struct {
+	// Name is the name of the docker network
+	Name string `json:"name" yaml:"name"`
+
+	// BridgeName is the name for the network bridge that is to be created
+	BridgeName string `json:"bridgeName" yaml:"bridgeName"`
+
+	// IPv4 is a boolean for enabling IPv4, true by default
+	IPv4 *bool `json:"ipv4,omitempty" yaml:"ipv4,omitempty"`
+
+	// IPv6 is a boolean for enabling IPv6, false by default
+	IPv6 *bool `json:"ipv6,omitempty" yaml:"ipv6,omitempty"`
+
+	// Subnet is the subnet to be used
+	Subnet string `json:"subnet" yaml:"subnet"`
+
+	// DriverMtu is the maximum transmission unit for the network
+	DriverMtu uint64 `json:"driverMtu,omitempty" yaml:"driverMtu,omitempty"`
+}
+
 // Defaults returns a copy of VMConfig with default values applied.
 func (c VMConfig) Defaults() VMConfig {
 	cfg := c
@@ -222,9 +244,6 @@ func (c VolumeConfig) Defaults() VolumeConfig {
 // Defaults returns a copy of NetworkConfig with default values applied.
 func (c NetworkConfig) Defaults() NetworkConfig {
 	cfg := c
-	if cfg.Name == "" {
-		cfg.Name = "baremetal-e2e"
-	}
 	if cfg.Bridge == "" {
 		cfg.Bridge = "metal3"
 	}
@@ -233,6 +252,17 @@ func (c NetworkConfig) Defaults() NetworkConfig {
 	}
 	if cfg.Netmask == "" {
 		cfg.Netmask = "255.255.255.0"
+	}
+	return cfg
+}
+
+func (c DockerBridgeNetwork) Defaults() DockerBridgeNetwork {
+	cfg := c
+	if cfg.IPv4 == nil {
+		cfg.IPv4 = ptr.To(true)
+	}
+	if cfg.IPv6 == nil {
+		cfg.IPv6 = ptr.To(false)
 	}
 	return cfg
 }

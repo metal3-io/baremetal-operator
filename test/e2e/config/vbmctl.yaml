@@ -39,3 +39,9 @@ spec:
     link2: kind-bridge
     veth1: metalend
     veth2: kindend
+  dockerNetworks:
+  - name: "kind"
+    bridgeName: "kind-bridge"
+    subnet: "fc00:f853:ccd:e793::/64"
+    driverMtu: 1500
+    ipv6: true

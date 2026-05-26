@@ -222,7 +222,13 @@ Example configuration:
       - link1: "metal3"
         link2: "kind-bridge"
         veth1: "metalend"
-        veth2: "kindend"`,
+        veth2: "kindend"
+    dockerNetworks:
+	  - name: "kind"
+	    bridgeName: "kind-bridge"
+	    subnet: "fc00:f853:ccd:e793::/64"
+	    driverMtu: 1500
+        ipv6: true`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx, cancel := contextWithSignal()
 			defer cancel()
@@ -272,10 +278,21 @@ Example configuration:
 				return err
 			}
 			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("\nCreated networks:")
+			fmt.Println("Created networks:")
 			for _, network := range networks {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Printf("  - %s (UUID: %s)\n", network.Name, network.UUID)
+			}
+
+			networkIDs, err := containers.CreateBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
+			if err != nil {
+				return err
+			}
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Println("Created Docker networks:")
+			for _, id := range networkIDs {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("  - ID: %s\n", id)
 			}
 
 			// Connect the specified networks
@@ -284,7 +301,7 @@ Example configuration:
 				return fmt.Errorf("failed to create veth pairs: %w", err)
 			}
 			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("\nCreated veth pairs:")
+			fmt.Println("Created veth pairs:")
 			for _, pair := range cfg.Spec.VethPairs {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Printf("  - between %s and %s\n", pair.Link1, pair.Link2)
@@ -666,8 +683,10 @@ func newDeleteBMLCmd() *cobra.Command {
 			//nolint:forbidigo // CLI output is intentional
 			fmt.Printf("Deleting libvirt networks (%d networks)...\n", len(networks))
 
-			if err := networkManager.DeleteNetworks(ctx, networks); err != nil {
-				return err
+			if err = networkManager.DeleteNetworks(ctx, networks); err != nil {
+				// Don't fail whole command if network deletion fails
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("Warning: failed to delete network: %v\n", err)
 			}
 
 			//nolint:forbidigo // CLI output is intentional
@@ -675,6 +694,19 @@ func newDeleteBMLCmd() *cobra.Command {
 			for _, name := range networks {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Printf("  - %s\n", name)
+			}
+
+			err = containers.DeleteBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
+			if err != nil {
+				// Don't fail whole command if network deletion fails
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("Warning: failed to delete Docker network: %v\n", err)
+			}
+			//nolint:forbidigo // CLI output is intentional
+			fmt.Println("Deleted Docker networks:")
+			for _, net := range cfg.Spec.DockerNetworks {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("  - name: %s\n", net.Name)
 			}
 
 			if cfg.Spec.ImageServer != nil {

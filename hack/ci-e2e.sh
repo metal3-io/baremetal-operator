@@ -35,6 +35,9 @@ echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
 export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
+VBMC_IMAGE="${VBMC_IMAGE:-quay.io/metal3-io/vbmc}"
+SUSHY_EMULATOR_IMAGE="${SUSHY_EMULATOR_IMAGE:-quay.io/metal3-io/sushy-tools:latest}"
+
 # make test-e2e runs the fixture tests by default and skips some tests
 # that don't make sense in that context. We need to override.
 export GINKGO_SKIP_LABELS="${GINKGO_SKIP_LABELS:-}"
@@ -84,7 +87,7 @@ IP_ADDRESS="192.168.222.1"
 
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   # Start VBMC
-  ./bin/vbmctl create bmc-emulator --emulator-type "vbmc" --image "quay.io/metal3-io/vbmc"
+  ./bin/vbmctl create bmc-emulator --emulator-type "vbmc" --image "${VBMC_IMAGE}"
 
   readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
   for bmc in "${BMCS[@]}"; do
@@ -98,7 +101,7 @@ elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
   # Sushy-tools variables
   SUSHY_EMULATOR_FILE="${REPO_ROOT}"/test/e2e/sushy-tools/sushy-emulator.conf
   # Start sushy-tools
-  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "quay.io/metal3-io/sushy-tools:latest" --config-file "${SUSHY_EMULATOR_FILE}"
+  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "${SUSHY_EMULATOR_IMAGE}" --config-file "${SUSHY_EMULATOR_FILE}"
 else
   echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1

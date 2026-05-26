@@ -68,8 +68,23 @@ type BMCEmulatorConfig struct {
 	Type string `json:"type" yaml:"type"`
 
 	// ConfigFile is the path to the sushy-tools config file and is only
-	// applicable/required when Type is "sushy-tools".
+	// applicable when Type is "sushy-tools".
 	ConfigFile string `json:"configFile" yaml:"configFile"`
+
+	// ListenAddress is the address that the BMC emulator listens on to
+	// use for sushy-tools when not using a config file.
+	ListenAddress string `json:"listenAddress" yaml:"listenAddress"`
+
+	// ListenPort is the port that the BMC emulator listens on to
+	// use for sushy-tools when not using a config file.
+	ListenPort uint16 `json:"listenPort" yaml:"listenPort"`
+
+	// StoragePool is the name of the libvirt storage pool to use for
+	// sushy-tools.
+	StoragePool string `json:"storagePool" yaml:"storagePool"`
+
+	// LibvirtURI is the libvirt URI that sushy-tools should connect to.
+	LibvirtURI string `json:"libvirtURI" yaml:"libvirtUri"`
 
 	// Image is the container image to use for the BMC emulator.
 	Image string `json:"image" yaml:"image"`

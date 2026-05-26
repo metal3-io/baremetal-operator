@@ -473,9 +473,11 @@ func newCreateImageServerCmd() *cobra.Command {
 
 func newCreateBMCEmulatorCmd() *cobra.Command {
 	var (
-		emulatorType string
-		image        string
-		configFile   string
+		emulatorType  string
+		image         string
+		configFile    string
+		listenAddress string
+		listenPort    uint16
 	)
 
 	cmd := &cobra.Command{
@@ -518,29 +520,58 @@ func newCreateBMCEmulatorCmd() *cobra.Command {
 				}
 			}
 
-			// Resolve config file: flag > config > default.
-			if configFile == "" {
-				if effective.ConfigFile != "" {
+			if emulatorType == config.BMCEmulatorTypeSushyTools {
+				if configFile == "" {
+					// There is no default config file for sushy-tools, so no
+					// need to check if the value from config file is empty
+					// before using it.
 					configFile = effective.ConfigFile
-				} else {
-					// Note that the config file is only applicable for sushy-tools,
-					// but we'll set it regardless of the type since it's not harmful
-					// for vbmc and simplifies the logic.
-					configFile = config.DefaultBMCEmulatorSushyToolsConfigFile
 				}
+
+				// If using command line arguments to configure sushy-tools, apply the
+				// defaults for listen address and listen port if they are not
+				// explicitly set. In case a sushy-tools config file is specified,
+				// defaults are not applied.
+				if listenAddress == "" {
+					if effective.ListenAddress != "" {
+						listenAddress = effective.ListenAddress
+					} else if configFile == "" {
+						listenAddress = config.DefaultNetworkAddress
+					}
+				}
+				if listenPort == 0 {
+					if effective.ListenPort != 0 {
+						listenPort = effective.ListenPort
+					} else if configFile == "" {
+						listenPort = config.DefaultBMCEmulatorSushyToolsListenPort
+					}
+				}
+
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("Using storage pool '%s' and libvirt URI '%s' for sushy-tools BMC emulator\n", cfg.Spec.Pool.Name, cfg.Spec.Libvirt.URI)
 			}
 
+			// Note that storage pool and libvirt URI are only relevant for sushy-tools,
+			// but we set them for vbmc as well since they don't cause any issues and
+			// it simplifies the logic by not having to conditionally set them based
+			// on the emulator type.
 			return containers.CreateBMCEmulatorInstance(ctx, &vbmctlapi.BMCEmulatorConfig{
-				Type:       emulatorType,
-				Image:      image,
-				ConfigFile: configFile,
+				Type:          emulatorType,
+				Image:         image,
+				ConfigFile:    configFile,
+				StoragePool:   cfg.Spec.Pool.Name,
+				ListenAddress: listenAddress,
+				ListenPort:    listenPort,
+				LibvirtURI:    cfg.Spec.Libvirt.URI,
 			})
 		},
 	}
 
 	cmd.Flags().StringVar(&emulatorType, "emulator-type", "", "type of the BMC emulator (vbmc or sushy-tools, default is "+config.DefaultBMCEmulatorType+" if not set in config file)")
 	cmd.Flags().StringVar(&image, "image", "", "container image to use for the BMC emulator (default is "+config.DefaultBMCEmulatorVBMCImage+" or "+config.DefaultBMCEmulatorSushyToolsImage+" if not set in config file)")
-	cmd.Flags().StringVar(&configFile, "config-file", "", "configuration file to use for the BMC emulator in case of sushy-tools (default is "+config.DefaultBMCEmulatorSushyToolsConfigFile+" if not set in config file)")
+	cmd.Flags().StringVar(&configFile, "config-file", "", "configuration file to use for the BMC emulator in case of sushy-tools (default is none)")
+	cmd.Flags().StringVar(&listenAddress, "listen-address", "", "address for the BMC emulator to listen on for incoming connections (only applicable for sushy-tools, default is "+config.DefaultNetworkAddress+" if not set in config file and no config file is used)")
+	cmd.Flags().Uint16Var(&listenPort, "listen-port", 0, "port for the BMC emulator to listen on for incoming connections (only applicable for sushy-tools, default is "+strconv.Itoa(int(config.DefaultBMCEmulatorSushyToolsListenPort))+" if not set in config file and no config file is used)")
 
 	return cmd
 }
@@ -1015,10 +1046,12 @@ func newConfigViewCmd() *cobra.Command {
 
 			if cfg.Spec.BMCEmulator != nil {
 				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("BMC Emulator:\n  Emulator Type: %s\n  Config File: %s\n  Image: %s\n",
+				fmt.Printf("BMC Emulator:\n  Emulator Type: %s\n  Config File: %s\n  Image: %s\n  Listen Address: %s\n  Listen Port: %d\n",
 					cfg.Spec.BMCEmulator.Type,
 					cfg.Spec.BMCEmulator.ConfigFile,
-					cfg.Spec.BMCEmulator.Image)
+					cfg.Spec.BMCEmulator.Image,
+					cfg.Spec.BMCEmulator.ListenAddress,
+					cfg.Spec.BMCEmulator.ListenPort)
 			}
 
 			return nil

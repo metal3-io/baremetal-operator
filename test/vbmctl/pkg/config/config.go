@@ -78,14 +78,14 @@ const (
 	// DefaultBMCEmulatorType is the default BMC emulator type.
 	DefaultBMCEmulatorType = BMCEmulatorTypeVBMC
 
-	// DefaultBMCEmulatorSushyToolsConfigFile is the default BMC emulator config file (used for sushy-tools).
-	DefaultBMCEmulatorSushyToolsConfigFile = "sushy-emulator.conf"
-
 	// DefaultBMCEmulatorVBMCImage is the default container image for the VBMC BMC emulator.
 	DefaultBMCEmulatorVBMCImage = "quay.io/metal3-io/vbmc"
 
 	// DefaultBMCEmulatorSushyToolsImage is the default container image for the sushy-tools BMC emulator.
 	DefaultBMCEmulatorSushyToolsImage = "quay.io/metal3-io/sushy-tools:latest"
+
+	// DefaultBMCEmulatorSushyToolsListenPort is the default listen port for the sushy-tools BMC emulator.
+	DefaultBMCEmulatorSushyToolsListenPort = 8000
 )
 
 // BMC emulator types.
@@ -297,8 +297,13 @@ func (c *Config) Validate() error {
 		if c.Spec.BMCEmulator.Image == "" {
 			return errors.New("BMC emulator container image is required")
 		}
-		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools && c.Spec.BMCEmulator.ConfigFile == "" {
-			return fmt.Errorf("BMC emulator config file is required for %s type", BMCEmulatorTypeSushyTools)
+		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools {
+			if c.Spec.BMCEmulator.ListenAddress == "" && c.Spec.BMCEmulator.ConfigFile == "" {
+				return errors.New("either listen address or config file must be specified for sushy-tools BMC emulator")
+			}
+			if c.Spec.BMCEmulator.ListenPort == 0 && c.Spec.BMCEmulator.ConfigFile == "" {
+				return errors.New("either listen port or config file must be specified for sushy-tools BMC emulator")
+			}
 		}
 	}
 
@@ -421,8 +426,13 @@ func (c *Config) ApplyDefaults() {
 				// If the type is unrecognized, we won't set a default image.
 			}
 		}
-		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools && c.Spec.BMCEmulator.ConfigFile == "" {
-			c.Spec.BMCEmulator.ConfigFile = DefaultBMCEmulatorSushyToolsConfigFile
+		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools {
+			if c.Spec.BMCEmulator.ListenPort == 0 && c.Spec.BMCEmulator.ConfigFile == "" {
+				c.Spec.BMCEmulator.ListenPort = DefaultBMCEmulatorSushyToolsListenPort
+			}
+			if c.Spec.BMCEmulator.ListenAddress == "" && c.Spec.BMCEmulator.ConfigFile == "" {
+				c.Spec.BMCEmulator.ListenAddress = DefaultNetworkAddress
+			}
 		}
 	}
 

@@ -61,15 +61,35 @@
 //	    Image:         "my-vbmc:latest",
 //	})
 //
-// For the "sushy-tools" type, ConfigFile must point to a configuration file
-// that already exists on the host. That file will be bind-mounted into the
-// container.
+// For the "sushy-tools" type, ConfigFile must point to a Sushy-tools configuration
+// file that already exists on the host in which case the configuration file will be
+// bind-mounted into the container.
 //
 //	err := containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
 //	    Type:          "sushy-tools",
 //	    Image:         "my-sushy-tools:latest",
 //	    ConfigFile:    "/path/to/existing/config/file",
 //	})
+//
+// Alternatively, if ConfigFile is not specified for the "sushy-tools" type, the
+// ListenAddress and ListenPort fields can be used for configuration.
+//
+//	err := containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
+//	    Type:          "sushy-tools",
+//	    Image:         "my-sushy-tools:latest",
+//	    ListenAddress: "1.2.3.4",
+//	    ListenPort:    1234,
+//	})
+//
+// It should be noted that if using command line arguments to configure
+// sushy-tools, the listen address and listen port defaults will be applied if
+// they are not explicitly set. However, default values for listen address and
+// listen port will only be applied if no configuration file is provided. In addition,
+// if both configuration file and command line arguments are provided, the command
+// line arguments will take precedence.
+//
+// Storage pool and libvirt URI are also relevant for sushy-tools and they are set
+// according to the values specified in the vbmctl config.
 //
 // # Container network management
 //

@@ -14,7 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 )
 
@@ -86,7 +86,7 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.HardwareDetailsAnnotation, nil)
 
 		By("adding InspectAnnotation to re-inspect")
-		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.InspectAnnotationPrefix, pointer.String(""))
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.InspectAnnotationPrefix, ptr.To(""))
 
 		By("waiting for the BMH to be in inspecting state after inspection annotaion")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{

@@ -28,9 +28,6 @@ const (
 	// TryLoadImage causes any errors that occur when loading an image to be
 	// ignored.
 	TryLoadImage LoadImageBehavior = "tryLoad"
-
-	bmoString    string = "bmo"
-	ironicString string = "ironic"
 )
 
 // ContainerImage describes an image to load into a cluster.
@@ -45,25 +42,33 @@ type ContainerImage struct {
 	LoadBehavior clusterctl.LoadImageBehavior `yaml:"loadBehavior,omitempty"`
 }
 
-type BMOIronicUpgradeInput struct {
+type BMOUpgradeSpec struct {
 	// DeployIronic determines if Ironic should be installed at the beginning of the test.
-	// This should be generally set to `true`, but can be `false` in case Ironic is either pre-installed
-	// or not required (for e.g. in `fixture` setup)
 	DeployIronic bool `yaml:"deployIronic,omitempty"`
 	// DeployBMO determines if BMO should be installed at the beginning of the test.
-	// This should be generally set to `true`, but can be `false` in case BMO is pre-installed
 	DeployBMO bool `yaml:"deployBMO,omitempty"`
 	// Path to the Ironic kustomization that should be installed at the beginning of the test.
-	// Not used if DeployIronic is false
 	InitIronicKustomization string `yaml:"initIronicKustomization,omitempty"`
 	// Path to the BMO kustomization that should be installed at the beginning of the test.
-	// Not used if DeployBMO is false
 	InitBMOKustomization string `yaml:"initBMOKustomization,omitempty"`
-	// Name of the entity that should be upgraded and tested. It should be either `bmo` or `ironic`.
-	UpgradeEntityName string `yaml:"upgradeEntityName,omitempty"`
-	// Path to the kustomization of the entity that should be used in upgrading.
-	UpgradeEntityKustomization string `yaml:"upgradeEntityKustomization,omitempty"`
-	// Path to the Irso kustomization.
+	// Path to the BMO kustomization to upgrade to.
+	UpgradeBMOKustomization string `yaml:"upgradeBMOKustomization,omitempty"`
+	// Path to the IrSO kustomization.
+	IrsoKustomization string `yaml:"irsoKustomization,omitempty"`
+}
+
+type IronicUpgradeSpec struct {
+	// DeployIronic determines if Ironic should be installed at the beginning of the test.
+	DeployIronic bool `yaml:"deployIronic,omitempty"`
+	// DeployBMO determines if BMO should be installed at the beginning of the test.
+	DeployBMO bool `yaml:"deployBMO,omitempty"`
+	// Path to the Ironic kustomization that should be installed at the beginning of the test.
+	InitIronicKustomization string `yaml:"initIronicKustomization,omitempty"`
+	// Path to the BMO kustomization that should be installed at the beginning of the test.
+	InitBMOKustomization string `yaml:"initBMOKustomization,omitempty"`
+	// Path to the Ironic kustomization to upgrade to.
+	UpgradeIronicKustomization string `yaml:"upgradeIronicKustomization,omitempty"`
+	// Path to the IrSO kustomization.
 	IrsoKustomization string `yaml:"irsoKustomization,omitempty"`
 }
 
@@ -80,8 +85,11 @@ type Config struct {
 	// Intervals to be used for long operations during tests.
 	Intervals map[string][]string `yaml:"intervals,omitempty"`
 
-	// BMOIronicUpgradeSpecs
-	BMOIronicUpgradeSpecs []BMOIronicUpgradeInput `yaml:"bmoIronicUpgradeSpecs,omitempty"`
+	// BMOUpgradeSpecs defines the specs for BMO upgrade tests.
+	BMOUpgradeSpecs []BMOUpgradeSpec `yaml:"bmoUpgradeSpecs,omitempty"`
+
+	// IronicUpgradeSpecs defines the specs for Ironic upgrade tests.
+	IronicUpgradeSpecs []IronicUpgradeSpec `yaml:"ironicUpgradeSpecs,omitempty"`
 
 	// Extra port mappings for the kind cluster
 	KindExtraPortMappings []v1alpha4.PortMapping `yaml:"kindExtraPortMappings,omitempty"`
@@ -131,10 +139,12 @@ func (c *Config) GetClusterctlImages() []clusterctl.ContainerImage {
 // Validate validates the configuration. More specifically:
 // - Image should have name and loadBehavior be one of [mustload, tryload].
 // - Intervals should be valid ginkgo intervals.
-// - BMOIronicUpgradeSpecs should have valid InitIronicKustomization field if DeployIronic is true.
-// - BMOIronicUpgradeSpecs should have valid InitBMOKustomization field if DeployBMO is true.
-// - BMOIronicUpgradeSpecs' UpgradeEntityName should be either 'bmo' or 'ironic'.
-// - BMOIronicUpgradeSpecs should have valid UpgradeEntityKustomization.
+// - BMOUpgradeSpecs should have valid InitIronicKustomization field if DeployIronic is true.
+// - BMOUpgradeSpecs should have valid InitBMOKustomization field if DeployBMO is true.
+// - BMOUpgradeSpecs should have valid UpgradeBMOKustomization.
+// - IronicUpgradeSpecs should have valid InitIronicKustomization field if DeployIronic is true.
+// - IronicUpgradeSpecs should have valid InitBMOKustomization field if DeployBMO is true.
+// - IronicUpgradeSpecs should have valid UpgradeIronicKustomization.
 func (c *Config) Validate() error {
 	// Image should have name and loadBehavior be one of [mustload, tryload].
 	for i, containerImage := range c.Images {
@@ -165,34 +175,53 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	for _, spec := range c.BMOIronicUpgradeSpecs {
+	for _, spec := range c.BMOUpgradeSpecs {
 		if spec.DeployIronic {
 			if spec.InitIronicKustomization == "" {
-				return errors.New("ironic kustomization should be provided")
+				return errors.New("BMOUpgradeSpecs: ironic kustomization should be provided")
 			}
 			if _, err := os.Stat(spec.InitIronicKustomization); err != nil {
-				return fmt.Errorf("ironic kustomization file not found: %s. Error %w", spec.InitIronicKustomization, err)
+				return fmt.Errorf("BMOUpgradeSpecs: ironic kustomization file not found: %s. Error %w", spec.InitIronicKustomization, err)
 			}
 		}
-
 		if spec.DeployBMO {
 			if spec.InitBMOKustomization == "" {
-				return errors.New("BMO kustomization should be provided")
+				return errors.New("BMOUpgradeSpecs: BMO kustomization should be provided")
 			}
 			if _, err := os.Stat(spec.InitBMOKustomization); err != nil {
-				return fmt.Errorf("BMO kustomization file not found: %s. Error %w", spec.InitBMOKustomization, err)
+				return fmt.Errorf("BMOUpgradeSpecs: BMO kustomization file not found: %s. Error %w", spec.InitBMOKustomization, err)
 			}
 		}
-
-		if spec.UpgradeEntityName != bmoString && spec.UpgradeEntityName != "ironic" {
-			return errors.New("UpgradeEntityName should be either 'bmo' or 'ironic'")
+		if spec.UpgradeBMOKustomization == "" {
+			return errors.New("BMOUpgradeSpecs: UpgradeBMOKustomization should be provided")
 		}
-
-		if spec.UpgradeEntityKustomization == "" {
-			return errors.New("UpgradeEntityKustomization should be provided")
+		if _, err := os.Stat(spec.UpgradeBMOKustomization); err != nil {
+			return fmt.Errorf("BMOUpgradeSpecs: UpgradeBMOKustomization file not found: %s. Error %w", spec.UpgradeBMOKustomization, err)
 		}
-		if _, err := os.Stat(spec.UpgradeEntityKustomization); err != nil {
-			return fmt.Errorf("UpgradeEntityKustomization file not found: %s. Error %w", spec.UpgradeEntityKustomization, err)
+	}
+
+	for _, spec := range c.IronicUpgradeSpecs {
+		if spec.DeployIronic {
+			if spec.InitIronicKustomization == "" {
+				return errors.New("IronicUpgradeSpecs: ironic kustomization should be provided")
+			}
+			if _, err := os.Stat(spec.InitIronicKustomization); err != nil {
+				return fmt.Errorf("IronicUpgradeSpecs: ironic kustomization file not found: %s. Error %w", spec.InitIronicKustomization, err)
+			}
+		}
+		if spec.DeployBMO {
+			if spec.InitBMOKustomization == "" {
+				return errors.New("IronicUpgradeSpecs: BMO kustomization should be provided")
+			}
+			if _, err := os.Stat(spec.InitBMOKustomization); err != nil {
+				return fmt.Errorf("IronicUpgradeSpecs: BMO kustomization file not found: %s. Error %w", spec.InitBMOKustomization, err)
+			}
+		}
+		if spec.UpgradeIronicKustomization == "" {
+			return errors.New("IronicUpgradeSpecs: UpgradeIronicKustomization should be provided")
+		}
+		if _, err := os.Stat(spec.UpgradeIronicKustomization); err != nil {
+			return fmt.Errorf("IronicUpgradeSpecs: UpgradeIronicKustomization file not found: %s. Error %w", spec.UpgradeIronicKustomization, err)
 		}
 	}
 

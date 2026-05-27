@@ -45,3 +45,12 @@ spec:
     subnet: "fc00:f853:ccd:e793::/64"
     driverMtu: 1500
     ipv6: true
+  bmcEmulator:
+    type: "${BMO_E2E_EMULATOR}"
+    image: "${BMO_E2E_IMAGE}"
+    listenAddress: "${IP_ADDRESS}"
+    listenPort: ${BMO_E2E_LISTEN_PORT}
+  imageServer:
+    port: 80
+    dataDir: "${IMAGE_DIR}"
+    containerName: "vbmctl-image-server-e2e"

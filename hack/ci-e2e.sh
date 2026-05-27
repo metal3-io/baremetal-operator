@@ -21,9 +21,9 @@ cd "${REPO_ROOT}" || exit 1
 
 BMC_PROTOCOL="${BMC_PROTOCOL:-"redfish-virtualmedia"}"
 if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "redfish-virtualmedia" ]]; then
-  BMO_E2E_EMULATOR="sushy-tools"
+  export BMO_E2E_EMULATOR="sushy-tools"
 elif [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
-  BMO_E2E_EMULATOR="vbmc"
+  export BMO_E2E_EMULATOR="vbmc"
 else
   echo "FATAL: Invalid BMC protocol specified: ${BMC_PROTOCOL}"
   exit 1
@@ -79,28 +79,18 @@ IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
 # Build vbmctl
 make build-vbmctl
 sudo setcap cap_net_admin+epi ./bin/vbmctl
-# Create VMs to act as BMHs in the tests and the libvirt network
-./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 
 # This IP is defined by the network we created above. It is sushy-tools / image
 # server endpoint, not ironic.
-IP_ADDRESS="192.168.222.1"
+export IP_ADDRESS="192.168.222.1"
 
+# E2E emulator configuration variables
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
-  # Start VBMC
-  ./bin/vbmctl create bmc-emulator --emulator-type "vbmc" --image "${VBMC_IMAGE}"
-
-  readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
-  for bmc in "${BMCS[@]}"; do
-    address=$(echo "${bmc}" | jq -r '.address')
-    hostName=$(echo "${bmc}" | jq -r '.name')
-    vbmc_port="${address##*:}"
-    "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}" "${IP_ADDRESS}"
-  done
-
+  export BMO_E2E_IMAGE="${VBMC_IMAGE}"
+  export BMO_E2E_LISTEN_PORT="0"
 elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
-  # Start sushy-tools
-  ./bin/vbmctl create bmc-emulator --emulator-type "sushy-tools" --image "${SUSHY_EMULATOR_IMAGE}" --listen-address "${IP_ADDRESS}" --listen-port "${SUSHY_EMULATOR_PORT}"
+  export BMO_E2E_IMAGE="${SUSHY_EMULATOR_IMAGE}"
+  export BMO_E2E_LISTEN_PORT="${SUSHY_EMULATOR_PORT}"
 else
   echo "FATAL: Invalid e2e emulator specified: ${BMO_E2E_EMULATOR}"
   exit 1
@@ -111,7 +101,7 @@ CIRROS_VERSION="0.6.2"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
-IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
+export IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 mkdir -p "${IMAGE_DIR}"
 
 ## Download disk images
@@ -130,8 +120,25 @@ if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
     wget --quiet -P "${IMAGE_DIR}/" "${IPA_BASEURI}/${IPA_FILE}"
 fi
 
-## Start the image server
-./bin/vbmctl create image-server --host-port 80 --image-dir "${IMAGE_DIR}" --name "vbmctl-image-server-e2e"
+# shellcheck disable=SC2016
+envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
+  "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
+  "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
+
+# Create VMs to act as BMHs in the tests and the libvirt network. Create
+# also image server and E2E emulator containers.
+./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
+
+# Need to do some extra setup for the vbmc emulator
+if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
+  readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
+  for bmc in "${BMCS[@]}"; do
+    address=$(echo "${bmc}" | jq -r '.address')
+    hostName=$(echo "${bmc}" | jq -r '.name')
+    vbmc_port="${address##*:}"
+    "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}" "${IP_ADDRESS}"
+  done
+fi
 
 # Generate ssh key pair for verifying provisioned BMHs
 if [[ ! -f "${IMAGE_DIR}/ssh_testkey" ]]; then

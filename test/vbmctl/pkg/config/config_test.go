@@ -751,6 +751,12 @@ func TestApplyDefaults(t *testing.T) {
 	if sushyCfg.Spec.BMCEmulator.ListenPort != DefaultBMCEmulatorSushyToolsListenPort {
 		t.Errorf("expected BMC Emulator Listen Port %d, got %d", DefaultBMCEmulatorSushyToolsListenPort, sushyCfg.Spec.BMCEmulator.ListenPort)
 	}
+	if sushyCfg.Spec.BMCEmulator.StoragePool != DefaultPoolName {
+		t.Errorf("expected BMC Emulator Storage Pool %s, got %s", DefaultPoolName, sushyCfg.Spec.BMCEmulator.StoragePool)
+	}
+	if sushyCfg.Spec.BMCEmulator.LibvirtURI != DefaultLibvirtURI {
+		t.Errorf("expected BMC Emulator Libvirt URI %s, got %s", DefaultLibvirtURI, sushyCfg.Spec.BMCEmulator.LibvirtURI)
+	}
 
 	// However, if a config file is specified for sushy-tools, the listen address and listen port defaults should not be applied.
 	sushyWithConfigFileCfg := &Config{}

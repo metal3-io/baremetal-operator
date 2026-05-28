@@ -119,7 +119,7 @@ var _ = Describe("Create as externally provisioned, deprovision", Label("require
 			By("Creating a BMH as externally provisioned with image")
 			bmh := metal3api.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      specName + "-external",
+					Name:      specName + "-stay-provisioned",
 					Namespace: namespace.Name,
 				},
 				Spec: metal3api.BareMetalHostSpec{

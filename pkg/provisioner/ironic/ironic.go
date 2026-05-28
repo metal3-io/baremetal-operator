@@ -104,6 +104,8 @@ type ironicProvisioner struct {
 	publisher provisioner.EventPublisher
 	// available API features
 	availableFeatures clients.AvailableFeatures
+	// node cache for the duration of reconcile
+	cachedNode *nodes.Node
 }
 
 // FIXME(hroyrh) : move this to gophercloud when implementing
@@ -152,8 +154,14 @@ func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 		return nil, provisioner.ErrNeedsRegistration
 	}
 
+	if p.cachedNode != nil {
+		p.debugLog.Info("reusing a cached Node object")
+		return p.cachedNode, nil
+	}
+
 	ironicNode, err := nodes.Get(ctx, p.client, p.nodeID).Extract()
 	if err == nil {
+		p.cachedNode = ironicNode
 		p.debugLog.Info("found existing node by ID")
 		return ironicNode, nil
 	}
@@ -481,6 +489,7 @@ func (p *ironicProvisioner) tryUpdateNode(ctx context.Context, ironicNode *nodes
 	updatedNode, err = nodes.Update(ctx, p.client, ironicNode.UUID, updater.Updates).Extract()
 	if err == nil {
 		success = true
+		p.cachedNode = updatedNode
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not update node settings in ironic, busy or update cannot be applied in the current state")
 		result, err = retryAfterDelay(shortRetryDelay)
@@ -522,6 +531,7 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ctx context.Context, iro
 		return success, result, err
 	}
 
+	p.cachedNode = nil
 	result, err = operationContinuing(shortRetryDelay)
 	return success, result, err
 }
@@ -1347,6 +1357,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ctx context.Context, ironicNode *
 
 	if err == nil {
 		result, err = operationContinuing(0)
+		p.cachedNode = nil
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not update maintenance in ironic, busy")
 		result, err = retryAfterDelay(shortRetryDelay)
@@ -1374,11 +1385,12 @@ func (p *ironicProvisioner) syncAutomatedClean(ctx context.Context, ironicNode *
 	updater := clients.UpdateOptsBuilder(p.log)
 	updater.SetTopLevelOpt("automated_clean", desiredAutomatedClean, ironicNode.AutomatedClean)
 
-	_, err = nodes.Update(ctx, p.client, ironicNode.UUID, updater.Updates).Extract()
+	updatedNode, err := nodes.Update(ctx, p.client, ironicNode.UUID, updater.Updates).Extract()
 	if err != nil {
 		return false, fmt.Errorf("failed to update automatedClean: %w", err)
 	}
 
+	p.cachedNode = updatedNode
 	return true, nil
 }
 
@@ -1595,6 +1607,7 @@ func (p *ironicProvisioner) realDelete(ctx context.Context, ironicNode *nodes.No
 	err = nodes.Delete(ctx, p.client, ironicNode.UUID).ExtractErr()
 	if err == nil {
 		p.log.Info("removed")
+		p.cachedNode = nil
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not remove host, busy")
 		return retryAfterDelay(shortRetryDelay)
@@ -1681,6 +1694,7 @@ func (p *ironicProvisioner) changePower(ctx context.Context, ironicNode *nodes.N
 			nodes.SoftPowerOff: {Event: "PowerOff", Reason: "Host soft powered off"},
 		}[target]
 		p.publisher(event.Event, event.Reason)
+		p.cachedNode = nil
 		return operationContinuing(0)
 	} else if gophercloud.ResponseCodeIs(changeResult.Err, http.StatusConflict) {
 		p.log.Info("host is locked, trying again after delay", "delay", shortRetryDelay)
@@ -2028,9 +2042,6 @@ func (p *ironicProvisioner) HasPowerFailure(ctx context.Context) bool {
 	return node.Fault == "power failure"
 }
 
-// TODO(jacobanders): GetHealth calls getNode() which makes an additional HTTP
-// request to Ironic on every reconcile. Consider passing the node object through
-// computeConditions or caching it per reconcile cycle to avoid redundant calls.
 func (p *ironicProvisioner) GetHealth(ctx context.Context) string {
 	node, err := p.getNode(ctx)
 	if err != nil {

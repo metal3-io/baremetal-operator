@@ -1139,12 +1139,12 @@ func TestValidateUpdate(t *testing.T) {
 			wantedErr: "address invalid-mac: invalid MAC address",
 		},
 		{
-			name: "rejectDisablingExternallyProvisioned",
+			name: "allowDisablingExternallyProvisioned",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: false}},
 			oldBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm, ObjectMeta: om, Spec: metal3api.BareMetalHostSpec{ExternallyProvisioned: true}},
-			wantedErr: "externallyProvisioned can not be changed from true to false",
+			wantedErr: "",
 		},
 		{
 			name: "rejectEnablingExternallyProvisionedWhenNotInAvailable",

@@ -137,7 +137,6 @@ func buildTargetHardwareRAIDCfg(volumes []metal3api.HardwareRAIDVolume) (logical
 			VolumeName:    volume.Name,
 			Controller:    volume.Controller,
 			PhysicalDisks: physicalDisks,
-			IsRootVolume:  volume.RootVolume,
 		}
 		if volume.Rotational != nil {
 			if *volume.Rotational {

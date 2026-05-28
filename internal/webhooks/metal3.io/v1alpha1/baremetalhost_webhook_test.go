@@ -167,7 +167,7 @@ func TestRAIDValidate(t *testing.T) {
 					},
 				}},
 			}},
-			wantedErr: "softwareRAIDVolumes[*].rootVolume or hardwareRAIDVolumes[*].rootVolume can only be set once",
+			wantedErr: "softwareRAIDVolumes[*].rootVolume or can only be set once",
 		},
 		{
 			name: "valid-no-root-volume-with-rootDeviceHints",
@@ -204,7 +204,7 @@ func TestRAIDValidate(t *testing.T) {
 					},
 				}},
 			}},
-			wantedErr: "softwareRAIDVolumes[*].rootVolume or hardwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time",
+			wantedErr: "softwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time",
 		},
 	}
 

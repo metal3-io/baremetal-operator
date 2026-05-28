@@ -31,6 +31,9 @@ const (
 	hfsTestKey2       = "EmbeddedSata"
 	hfsTestOrigValue2 = "Raid"
 	hfsTestNewValue2  = "Ata"
+	hfsTestKey3       = "SerialNumber"
+	hfsTestOrigValue3 = "QPX12345"
+	hfsTestNewValue3  = "ABCDEF"
 )
 
 var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func() {
@@ -428,6 +431,139 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 				Namespace: namespace.Name,
 			}, hfs))
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...).Should(BeTrue())
+	})
+
+	It("should update firmware settings on an externally provisioned host via servicing", func() {
+		bmhName := specName + "-ext-servicing"
+		secretName := bmhName + "-bmc"
+
+		By("Creating a secret with BMH credentials")
+		bmcCredentialsData := map[string]string{
+			"username": bmc.User,
+			"password": bmc.Password,
+		}
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
+
+		By("Creating a BMH with externally provisioned flag")
+		bmh := metal3api.BareMetalHost{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			},
+			Spec: metal3api.BareMetalHostSpec{
+				Online: true,
+				BMC: metal3api.BMCDetails{
+					Address:                        bmc.Address,
+					CredentialsName:                secretName,
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
+				},
+				BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
+				BootMACAddress:        bmc.BootMacAddress,
+				ExternallyProvisioned: true,
+			},
+		}
+		Expect(clusterProxy.GetClient().Create(ctx, &bmh)).To(Succeed())
+		toCleanup = append(toCleanup, &bmh)
+
+		By("Waiting for the BMH to become externally provisioned")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateExternallyProvisioned,
+		}, e2eConfig.GetIntervals(specName, "wait-externally-provisioned")...)
+
+		By("Checking the original value of the parameter")
+		origHFS := &metal3api.HostFirmwareSettings{}
+		Eventually(func(g Gomega) {
+			g.Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			}, origHFS)).To(Succeed())
+			g.Expect(origHFS.Status.Settings).To(HaveKeyWithValue(hfsTestKey3, hfsTestOrigValue3))
+		}, e2eConfig.GetIntervals(specName, "wait-reconcile")...).Should(Succeed())
+
+		By("Checking firmware schema")
+		fSchema := &metal3api.FirmwareSchema{}
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      origHFS.Status.FirmwareSchema.Name,
+			Namespace: origHFS.Status.FirmwareSchema.Namespace,
+		}, fSchema)).To(Succeed())
+		Expect(fSchema.Spec.Schema).To(HaveKey(hfsTestKey1))
+		Expect(fSchema.Spec.Schema).To(HaveKey(hfsTestKey2))
+		Expect(fSchema.Spec.Schema).To(HaveKey(hfsTestKey3))
+
+		By("Creating a HostUpdatePolicy to allow firmware changes on reboot")
+		hup := &metal3api.HostUpdatePolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			},
+			Spec: metal3api.HostUpdatePolicySpec{
+				FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+			},
+		}
+		Expect(clusterProxy.GetClient().Create(ctx, hup)).To(Succeed())
+
+		By("Updating HostFirmwareSettings with a new value")
+		hfs := &metal3api.HostFirmwareSettings{}
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, hfs)).To(Succeed())
+
+		helper, err := patch.NewHelper(hfs, clusterProxy.GetClient())
+		Expect(err).NotTo(HaveOccurred())
+		hfs.Spec.Settings = metal3api.DesiredSettingsMap{
+			hfsTestKey3: intstr.FromString(hfsTestNewValue3),
+		}
+		Expect(helper.Patch(ctx, hfs)).To(Succeed())
+
+		By("Verifying the conditions on firmware setting")
+		Eventually(func(g Gomega) {
+			g.Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			}, hfs)).To(Succeed())
+			g.Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsValid), metav1.ConditionTrue))
+			g.Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsChangeDetected), metav1.ConditionTrue))
+		}, e2eConfig.GetIntervals(specName, "wait-reconcile")...).Should(Succeed())
+
+		By("Triggering a reboot via annotation")
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, &bmh)).To(Succeed())
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.RebootAnnotationPrefix, ptr.To(""))
+
+		By("Waiting for the BMH to enter servicing")
+		WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.OperationalStatusServicing,
+			UndesiredStates: []metal3api.OperationalStatus{
+				metal3api.OperationalStatusError,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-servicing")...)
+
+		By("Waiting for servicing to complete")
+		WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.OperationalStatusOK,
+			UndesiredStates: []metal3api.OperationalStatus{
+				metal3api.OperationalStatusError,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-firmware-settings")...)
+
+		By("Verifying the firmware setting was applied in HFS status")
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, hfs)).To(Succeed())
+		Expect(hfs.Status.Settings).To(HaveKeyWithValue(hfsTestKey3, hfsTestNewValue3))
+		Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsValid), metav1.ConditionTrue))
+		Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsChangeDetected), metav1.ConditionFalse))
 	})
 
 	AfterEach(func() {

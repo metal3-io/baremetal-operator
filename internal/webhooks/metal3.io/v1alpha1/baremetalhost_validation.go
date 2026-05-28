@@ -197,10 +197,10 @@ func validateRAID(host *metal3api.BareMetalHost) []error {
 	// check rootVolume only set for one of the software raid volumes
 	rootCount := r.GetRootVolumeCount()
 	if rootCount > 1 {
-		errs = append(errs, errors.New("softwareRAIDVolumes[*].rootVolume or hardwareRAIDVolumes[*].rootVolume can only be set once"))
+		errs = append(errs, errors.New("softwareRAIDVolumes[*].rootVolume or can only be set once"))
 	}
 	if rootCount == 1 && host.Spec.RootDeviceHints != nil {
-		errs = append(errs, errors.New("softwareRAIDVolumes[*].rootVolume or hardwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time"))
+		errs = append(errs, errors.New("softwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time"))
 	}
 
 	return errs

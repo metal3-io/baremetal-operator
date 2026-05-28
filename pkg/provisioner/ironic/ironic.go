@@ -100,6 +100,8 @@ type ironicProvisioner struct {
 	publisher provisioner.EventPublisher
 	// available API features
 	availableFeatures clients.AvailableFeatures
+	// node cache for the duration of reconcile
+	cachedNode *nodes.Node
 }
 
 // FIXME(hroyrh) : move this to gophercloud when implementing
@@ -170,8 +172,13 @@ func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 		return nil, provisioner.ErrNeedsRegistration
 	}
 
+	if p.cachedNode != nil {
+		return p.cachedNode, nil
+	}
+
 	ironicNode, err := nodes.Get(ctx, p.client, p.nodeID).Extract()
 	if err == nil {
+		p.cachedNode = ironicNode
 		p.debugLog.Info("found existing node by ID")
 		return ironicNode, nil
 	}

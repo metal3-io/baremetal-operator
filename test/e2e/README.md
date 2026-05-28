@@ -157,5 +157,5 @@ both redfish and ipmi protocols in CI.
 
 - Bare Metal Operator upgrade: Check that an older version of the Bare Metal
   Operator works by creating a BareMetalHost with external inspection. Then
-  upgrade the Bare Metal Operator and check the the BareMetalHost can be
+  upgrade the Bare Metal Operator and check the BareMetalHost can be
   provisioned with the upgraded version.

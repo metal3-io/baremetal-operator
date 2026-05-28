@@ -289,6 +289,47 @@ func DeleteBmhsInNamespace(ctx context.Context, deleter client.Client, namespace
 	Expect(err).NotTo(HaveOccurred(), "Unable to delete BMHs")
 }
 
+// CleanupBMH deletes the given BMH and waits for it to be fully removed.
+// If the BMH has no name set (i.e. it was never created), it is a no-op.
+// This function is safe to use when tests run in parallel and share a namespace,
+// because it only deletes the specific BMH that belongs to the current test.
+func CleanupBMH(ctx context.Context, cl client.Client, bmh *metal3api.BareMetalHost, intervals ...interface{}) {
+	if bmh.Name == "" {
+		return
+	}
+	Logf("Cleaning up BMH %s/%s", bmh.Namespace, bmh.Name)
+	err := cl.Delete(ctx, bmh)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		Expect(err).NotTo(HaveOccurred(), "Unable to delete BMH %s/%s", bmh.Namespace, bmh.Name)
+	}
+	WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
+		Client:    cl,
+		BmhName:   bmh.Name,
+		Namespace: bmh.Namespace,
+	}, intervals...)
+}
+
+// DeleteSecretIfExists deletes the named secret from the given namespace if it exists.
+// If the secret does not exist, this is a no-op. It is used to clean up BMC
+// credentials secrets in namespace-scoped runs where the namespace is reused
+// between test runs, to prevent CreateSecret from failing on the next run.
+func DeleteSecretIfExists(ctx context.Context, cl client.Client, namespace, name string) {
+	if name == "" {
+		return
+	}
+	secret := &corev1.Secret{}
+	err := cl.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, secret)
+	if k8serrors.IsNotFound(err) {
+		return
+	}
+	Expect(err).NotTo(HaveOccurred(), "Unable to look up secret %s/%s", namespace, name)
+	err = cl.Delete(ctx, secret)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		Expect(err).NotTo(HaveOccurred(), "Unable to delete secret %s/%s", namespace, name)
+	}
+	Logf("Deleted secret %s/%s", namespace, name)
+}
+
 // WaitForBmhDeletedInput is the input for WaitForBmhDeleted.
 type WaitForBmhDeletedInput struct {
 	Client          client.Client
@@ -338,9 +379,22 @@ func WaitForNamespaceDeleted(ctx context.Context, input WaitForNamespaceDeletedI
 	}, intervals...).Should(BeTrue())
 }
 
-func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, isNamespaced bool, intervals ...interface{}) {
-	// Due to limitation in controller runtime watched namespaces cannot be deleted
-	if !isNamespaced {
+// Cleanup cleans up resources created by a test. It should only be called when
+// skipCleanup is false. For cluster-scoped BMO (NAMESPACE_SCOPED=false), the entire
+// namespace is deleted, which implicitly removes all resources including BMHs and
+// secrets. For namespace-scoped BMO (NAMESPACE_SCOPED=true), the namespace is shared
+// across tests and must not be deleted; instead, we delete the objects in toCleanup
+// so that subsequent runs can start clean.
+// cancelWatches stops the namespace event watcher in both cases.
+func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, cfg *Config, toCleanup []client.Object) {
+	if namespace == nil {
+		// The test was likely skipped before the namespace was created.
+		return
+	}
+
+	if !cfg.GetBoolVariable("NAMESPACE_SCOPED") {
+		// When not namespace-scoped, we can delete the whole namespace which
+		// takes care of all remaining resources.
 		// Trigger deletion of BMHs before deleting the namespace.
 		// This way there should be no risk of BMO getting stuck trying to progress
 		// and create HardwareDetails or similar, while the namespace is terminating.
@@ -352,9 +406,23 @@ func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace
 		WaitForNamespaceDeleted(ctx, WaitForNamespaceDeletedInput{
 			Getter:    clusterProxy.GetClient(),
 			Namespace: *namespace,
-		}, intervals...)
+		}, cfg.GetIntervals("default", "wait-namespace-deleted")...)
+	} else {
+		// When namespace-scoped, the namespace is reused between tests; clean up
+		// individual resources to allow the next run to start clean.
+		for _, obj := range toCleanup {
+			if bmh, ok := obj.(*metal3api.BareMetalHost); ok {
+				CleanupBMH(ctx, clusterProxy.GetClient(), bmh, cfg.GetIntervals("default", "wait-bmh-deleted")...)
+			} else {
+				if err := clusterProxy.GetClient().Delete(ctx, obj); err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).NotTo(HaveOccurred(), "Unable to delete %T %s/%s", obj, obj.GetNamespace(), obj.GetName())
+				}
+			}
+		}
 	}
-	cancelWatches()
+	if cancelWatches != nil {
+		cancelWatches()
+	}
 }
 
 type WaitForBmhInPowerStateInput struct {
@@ -382,8 +450,8 @@ func BuildKustomizeManifest(source string) ([]byte, error) {
 	return resources.AsYaml()
 }
 
-func CreateSecret(ctx context.Context, client client.Client, secretNamespace, secretName string, data map[string]string) {
-	secret := corev1.Secret{
+func CreateSecret(ctx context.Context, cl client.Client, secretNamespace, secretName string, data map[string]string) *corev1.Secret {
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: secretNamespace,
@@ -391,7 +459,8 @@ func CreateSecret(ctx context.Context, client client.Client, secretNamespace, se
 		StringData: data,
 	}
 
-	Expect(client.Create(ctx, &secret)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to create secret '%s/%s'", secretNamespace, secretName))
+	Expect(cl.Create(ctx, secret)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to create secret '%s/%s'", secretNamespace, secretName))
+	return secret
 }
 
 func executeSSHCommand(client *ssh.Client, command string) (string, error) {

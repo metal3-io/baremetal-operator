@@ -19,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // These example keys and values are hardcoded in sushy-tools.
@@ -37,6 +38,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 		specName      = "firmware-settings"
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
+		toCleanup     []client.Object
 	)
 
 	BeforeEach(func() {
@@ -45,6 +47,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			Skip("HFS tests require a real Ironic and a host with Redfish")
 		}
 
+		toCleanup = nil
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:             clusterProxy.GetClient(),
 			ClientSet:           clusterProxy.GetClientSet(),
@@ -63,7 +66,8 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
 
 		By("Creating a HostFirmwareSettings with modified value before BMH")
 		hfs := &metal3api.HostFirmwareSettings{
@@ -99,6 +103,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			},
 		}
 		Expect(clusterProxy.GetClient().Create(ctx, &bmh)).To(Succeed())
+		toCleanup = append(toCleanup, &bmh)
 
 		By("Waiting for the BMH to start preparing")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -251,7 +256,8 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
 
 		By("Creating a BMH with inspection and cleaning disabled")
 		bmh := metal3api.BareMetalHost{
@@ -273,6 +279,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			},
 		}
 		Expect(clusterProxy.GetClient().Create(ctx, &bmh)).To(Succeed())
+		toCleanup = append(toCleanup, &bmh)
 
 		By("Waiting for the BMH to become available")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -427,8 +434,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 		CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
-			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, toCleanup)
 		}
 	})
 })

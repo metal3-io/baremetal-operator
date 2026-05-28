@@ -114,6 +114,8 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 		"password": bmc.Password,
 	}
 	secretName := "bmc-credentials"
+	// Delete any leftover secret from a previous run (namespace may be reused with IgnoreAlreadyExists).
+	DeleteSecretIfExists(ctx, upgradeClusterProxy.GetClient(), namespace.Name, secretName)
 	CreateSecret(ctx, upgradeClusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 	By("Creating a BMH with inspection disabled and hardware details added")
@@ -318,6 +320,9 @@ var _ = Describe("Upgrade", Ordered, Label("optional", "upgrade"), func() {
 		DumpResources(ctx, e2eConfig, upgradeClusterProxy, testArtifactFolder, upgradeIronicIP)
 		if !skipCleanup {
 			if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
+				if namespace == nil {
+					return
+				}
 				// Trigger deletion of BMHs before deleting the namespace.
 				// This way there should be no risk of BMO getting stuck trying to progress
 				// and create HardwareDetails or similar, while the namespace is terminating.

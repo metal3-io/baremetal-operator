@@ -17,18 +17,20 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Provision, detach, recreate from status and deprovision", Label("required", "provision", "detach", "status", "deprovision"),
 	func() {
 		var (
 			specName      = "provisioning-ops"
-			secretName    = "bmc-credentials"
 			namespace     *corev1.Namespace
 			cancelWatches context.CancelFunc
+			toCleanup     []client.Object
 		)
 
 		BeforeEach(func() {
+			toCleanup = nil
 			namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 				Creator:             clusterProxy.GetClient(),
 				ClientSet:           clusterProxy.GetClientSet(),
@@ -44,7 +46,8 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 				"username": bmc.User,
 				"password": bmc.Password,
 			}
-			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials", bmcCredentialsData)
+			toCleanup = append(toCleanup, secret)
 
 			By("Creating a BMH with inspection disabled and hardware details added")
 			bmh := metal3api.BareMetalHost{
@@ -70,6 +73,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			}
 			err := clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
 
 			By("Waiting for the BMH to become available")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -190,7 +194,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 				"username": bmc.User,
 				"password": bmc.Password,
 			}
-			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+			CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials", bmcCredentialsData)
 
 			By("Recreating the BMH with the previously saved status in the status annotation")
 			bmh = metal3api.BareMetalHost{
@@ -221,6 +225,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 
 			err = clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
 
 			By("Checking that the BMH goes directly to 'provisioned' state")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -255,24 +260,13 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 				State:  metal3api.StateAvailable,
 			}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
-			By("Delete BMH")
-			err = clusterProxy.GetClient().Delete(ctx, &bmh)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Waiting for the BMH to be deleted")
-			WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-				Client:    clusterProxy.GetClient(),
-				BmhName:   bmh.Name,
-				Namespace: bmh.Namespace,
-			}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 		})
 
 		AfterEach(func() {
 			CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 			DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 			if !skipCleanup {
-				isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
-				Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+				Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, toCleanup)
 			}
 		})
 	})

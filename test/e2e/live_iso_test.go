@@ -16,18 +16,21 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 	var (
 		specName      = "live-iso-ops"
-		secretName    = "bmc-credentials"
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
 		imageURL      string
+		toCleanup     []client.Object
 	)
 
 	BeforeEach(func() {
+		toCleanup = nil
+
 		// Check what kind of BMC we are dealing with
 		// It may be *possible* to boot a live-ISO over (i)PXE, but there are severe limitations.
 		// Therefore we skip the test if it doesn't support ISO preprovisioning images.
@@ -55,7 +58,8 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 			"username": bmc.User,
 			"password": bmc.Password,
 		}
-		CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials", bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
 
 		By("Creating a BMH with inspection disabled and hardware details added")
 		bmh := metal3api.BareMetalHost{
@@ -71,7 +75,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 				Online: true,
 				BMC: metal3api.BMCDetails{
 					Address:                        bmc.Address,
-					CredentialsName:                secretName,
+					CredentialsName:                "bmc-credentials",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
 				Image: &metal3api.Image{
@@ -85,6 +89,7 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())
+		toCleanup = append(toCleanup, &bmh)
 
 		By("Waiting for the BMH to be in provisioning state")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -131,24 +136,13 @@ var _ = Describe("Live-ISO", Label("required", "live-iso"), func() {
 			State:  metal3api.StateAvailable,
 		}, e2eConfig.GetIntervals(specName, "wait-available")...)
 
-		By("Delete BMH")
-		err = clusterProxy.GetClient().Delete(ctx, &bmh)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for the BMH to be deleted")
-		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-			Client:    clusterProxy.GetClient(),
-			BmhName:   bmh.Name,
-			Namespace: bmh.Namespace,
-		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	AfterEach(func() {
 		CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			isNamespaced := e2eConfig.GetBoolVariable("NAMESPACE_SCOPED")
-			Cleanup(ctx, clusterProxy, namespace, cancelWatches, isNamespaced, e2eConfig.GetIntervals("default", "wait-namespace-deleted")...)
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, toCleanup)
 		}
 	})
 })

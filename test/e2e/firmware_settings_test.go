@@ -373,7 +373,10 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			Name:      bmhName,
 			Namespace: namespace.Name,
 		}, &bmh)).To(Succeed())
-		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.RebootAnnotationPrefix, ptr.To(""))
+		// Use hard reboot to avoid wasting time on soft power off.
+		// CirrOS may not reliably handle ACPI shutdown events, causing Ironic to
+		// wait up to 180s before falling back to hard power off anyway.
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.RebootAnnotationPrefix, ptr.To(`{"mode": "hard"}`))
 
 		By("Waiting for the BMH to enter servicing")
 		WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{

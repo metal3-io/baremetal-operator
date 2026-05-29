@@ -101,68 +101,62 @@ kindExtraPortMappings:
   listenAddress: "0.0.0.0"
   protocol: TCP
 
-bmoIronicUpgradeSpecs:
+bmoUpgradeSpecs:
 # Upgrade BMO 0.11 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
-  upgradeEntityName: "bmo"
+  upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
 # Upgrade BMO 0.12 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.12"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
-  upgradeEntityName: "bmo"
+  upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
 # Upgrade BMO 0.13 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.13"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityKustomization: "../../config/overlays/e2e-upgrade"
-  upgradeEntityName: "bmo"
+  upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.9"
+
+ironicUpgradeSpecs:
 # Upgrade Ironic 30.0 -> latest | BMO 0.11
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-30.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityName: "ironic"
+  upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.5"
 # Upgrade Ironic 31.0 -> latest | BMO 0.11
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-31.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityName: "ironic"
+  upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
 # Upgrade Ironic 32.0 -> latest | BMO 0.11
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-32.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityName: "ironic"
+  upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
 # Upgrade Ironic 33.0 -> latest | BMO 0.12
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.12"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-33.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityName: "ironic"
+  upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
 # Upgrade Ironic 35.0 -> latest | BMO 0.13
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.13"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-35.0"
-  upgradeEntityKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
-  upgradeEntityName: "ironic"
+  upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.9"

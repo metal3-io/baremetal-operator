@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - ../basic-auth_tls
 - ./automated-cleaning
+- ./baremetalswitch
 - ./basic-ops
 - ./external-inspection
 - ./externally-provisioned

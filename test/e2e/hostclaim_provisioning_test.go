@@ -191,6 +191,19 @@ var _ = Describe("Associate a hostclaim to a BMH and delete the claim.", Label("
 				ChecksumType: metal3api.AutoChecksum,
 			}
 
+			var userDataSecretRef *corev1.SecretReference
+			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+				By("Creating user-data secret")
+				userDataSecretName := "user-data"
+				sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
+				userDataSecret := createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespaceClaim.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+				toCleanupClaim = append(toCleanupClaim, userDataSecret)
+				userDataSecretRef = &corev1.SecretReference{
+					Name:      userDataSecretName,
+					Namespace: namespaceClaim.Name,
+				}
+			}
+			hostClaim.Spec.UserData = userDataSecretRef
 			hostClaim.Spec.PoweredOn = true
 			Expect(helper.Patch(ctx, hostClaim)).To(Succeed())
 
@@ -213,6 +226,14 @@ var _ = Describe("Associate a hostclaim to a BMH and delete the claim.", Label("
 				Bmh:    *bmh,
 				State:  PoweredOn,
 			}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
+			// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
+			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
+				By("Verifying the node booting from disk")
+				PerformSSHBootCheck(e2eConfig, "disk", bmc.IPAddress)
+			} else {
+				Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
+			}
 
 			By("Deleting the hostclaim")
 			err = clusterProxy.GetClient().Delete(ctx, hostClaim)

@@ -6,6 +6,7 @@ resources:
 - ./basic-ops
 - ./external-inspection
 - ./externally-provisioned
+- ./firmware-components
 - ./firmware-settings
 - ./force-detach
 - ./inspection

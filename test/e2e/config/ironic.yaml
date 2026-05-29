@@ -88,6 +88,7 @@ intervals:
   default/wait-externally-provisioned: [ "1m", "10ms" ]
   default/wait-servicing: [ "1m", "100ms" ]
   default/wait-firmware-settings: [ "15m", "1s" ]
+  default/wait-firmware-components: [ "15m", "1s" ]
   default/wait-reconcile: [ "1s", "10ms" ]
 
 kindExtraPortMappings:

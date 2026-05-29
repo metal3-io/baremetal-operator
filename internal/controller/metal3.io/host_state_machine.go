@@ -110,6 +110,11 @@ func (hsm *hostStateMachine) updateHostStateFrom(ctx context.Context, initialSta
 			if actionRes := hsm.ensureCapacity(ctx, info, hsm.NextState); actionRes != nil {
 				return actionRes
 			}
+
+			// Clear old Provisioning step history when starting a new active operation
+			hsm.Host.Status.Provisioning.CurrentActivity = ""
+			hsm.Host.Status.Provisioning.Progress = ""
+			hsm.Host.Status.Provisioning.Steps = nil
 		default:
 		}
 

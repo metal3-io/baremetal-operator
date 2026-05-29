@@ -995,6 +995,7 @@ func TestSetDeployImage(t *testing.T) {
 		Config             ironicConfig
 		Driver             bmc.AccessDetails
 		Image              *provisioner.PreprovisioningImage
+		Data               provisioner.ManagementAccessData
 		ExpectBuild        bool
 		ExpectISO          bool
 		ExpectPXE          bool
@@ -1021,10 +1022,11 @@ func TestSetDeployImage(t *testing.T) {
 				deployKernelURL:       localKernel,
 				deployRamdiskURL:      localRamdisk,
 			},
-			Driver:      isoDriver,
-			ExpectBuild: false,
-			ExpectISO:   false,
-			ExpectPXE:   true,
+			Driver:             isoDriver,
+			ExpectBuild:        false,
+			ExpectISO:          false,
+			ExpectPXE:          true,
+			ExpectKernelParams: true,
 		},
 		{
 			Scenario: "pxe no imgbuilder",
@@ -1034,10 +1036,11 @@ func TestSetDeployImage(t *testing.T) {
 				deployRamdiskURL:      localRamdisk,
 				deployISOURL:          localIso,
 			},
-			Driver:      pxeDriver,
-			ExpectBuild: false,
-			ExpectISO:   false,
-			ExpectPXE:   true,
+			Driver:             pxeDriver,
+			ExpectBuild:        false,
+			ExpectISO:          false,
+			ExpectPXE:          true,
+			ExpectKernelParams: true,
 		},
 		{
 			Scenario: "iso no build",
@@ -1085,9 +1088,10 @@ func TestSetDeployImage(t *testing.T) {
 				},
 				Format: metal3api.ImageFormatInitRD,
 			},
-			ExpectBuild: true,
-			ExpectISO:   false,
-			ExpectPXE:   true,
+			ExpectBuild:        true,
+			ExpectISO:          false,
+			ExpectPXE:          true,
+			ExpectKernelParams: true,
 		},
 		{
 			Scenario: "pxe build with new kernel and kernel params",
@@ -1102,7 +1106,7 @@ func TestSetDeployImage(t *testing.T) {
 				GeneratedImage: imageprovider.GeneratedImage{
 					ImageURL:          buildRamdisk,
 					KernelURL:         buildKernel,
-					ExtraKernelParams: kernelParams,
+					ExtraKernelParams: "whatever",
 				},
 				Format: metal3api.ImageFormatInitRD,
 			},
@@ -1211,7 +1215,9 @@ func TestSetDeployImage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			opts := setDeployImage(tc.Config, tc.Driver, tc.Image)
+			tc.Data.PreprovisioningExtraKernelParams = kernelParams
+			tc.Data.PreprovisioningImage = tc.Image
+			opts := setDeployImage(tc.Config, tc.Driver, tc.Data)
 
 			switch {
 			case tc.ExpectISO:

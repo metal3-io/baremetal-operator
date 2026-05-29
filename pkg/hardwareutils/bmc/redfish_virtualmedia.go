@@ -49,8 +49,8 @@ func (a *redfishVirtualMediaAccessDetails) DisableCertificateVerification() bool
 // pre-populated with the access information, and the caller is
 // expected to add any other information that might be needed (such as
 // the kernel and ramdisk locations).
-func (a *redfishVirtualMediaAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
-	return a.redfishAccessDetails.DriverInfo(bmcCreds)
+func (a *redfishVirtualMediaAccessDetails) DriverInfo(bmcCreds Credentials, preProvExtraKernParams string) map[string]interface{} {
+	return a.redfishAccessDetails.DriverInfo(bmcCreds, preProvExtraKernParams)
 }
 
 func (a *redfishVirtualMediaAccessDetails) BIOSInterface() string {

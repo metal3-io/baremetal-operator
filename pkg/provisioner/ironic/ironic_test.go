@@ -137,3 +137,51 @@ func TestNewNoBMCDetails(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, prov)
 }
+
+func TestFmtPreprovExtraKernParams(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty params",
+			input:    "",
+			expected: defaultKernelParam,
+		},
+		{
+			name:     "whitespace only",
+			input:    "   \t\n  ",
+			expected: defaultKernelParam,
+		},
+		{
+			name:     "single param",
+			input:    "console=ttyS0",
+			expected: defaultKernelParam + " console=ttyS0",
+		},
+		{
+			name:     "multiple params",
+			input:    "console=ttyS0,115200 debug=1",
+			expected: defaultKernelParam + " console=ttyS0,115200 debug=1",
+		},
+		{
+			name:     "params with leading/trailing spaces",
+			input:    "  console=ttyS0 debug=1  ",
+			expected: defaultKernelParam + " console=ttyS0 debug=1",
+		},
+		{
+			name:     "complex kernel params",
+			input:    "console=ttyS0,115200n8 intel_iommu=on iommu=pt systemd.unified_cgroup_hierarchy=0",
+			expected: defaultKernelParam + " console=ttyS0,115200n8 intel_iommu=on iommu=pt systemd.unified_cgroup_hierarchy=0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := fmtPreprovExtraKernParams(tt.input)
+			if result != tt.expected {
+				t.Errorf("expected %+v, got %+v", tt.expected, result)
+			}
+		})
+	}
+}

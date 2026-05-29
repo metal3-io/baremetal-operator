@@ -296,3 +296,108 @@ func TestGetFirmwareDetails(t *testing.T) {
 
 	assert.Equal(t, "foobar", firmware.BIOS.Vendor)
 }
+
+func TestGetDiskType(t *testing.T) {
+	assert.Equal(t, metal3api.HDD, getDiskType(inventory.RootDiskType{Rotational: true}))
+	assert.Equal(t, metal3api.NVME, getDiskType(inventory.RootDiskType{Name: "/dev/nvme0n1"}))
+	assert.Equal(t, metal3api.NVME, getDiskType(inventory.RootDiskType{Name: "/dev/nvme0n1p1"}))
+	assert.Equal(t, metal3api.SSD, getDiskType(inventory.RootDiskType{Name: "/dev/sda"}))
+	// Rotational takes precedence over NVMe name
+	assert.Equal(t, metal3api.HDD, getDiskType(inventory.RootDiskType{Rotational: true, Name: "/dev/nvme0n1"}))
+	// Empty name, non-rotational
+	assert.Equal(t, metal3api.SSD, getDiskType(inventory.RootDiskType{}))
+}
+
+func TestGetStorageDetails(t *testing.T) {
+	disks := []inventory.RootDiskType{
+		{
+			Name:               "/dev/sda",
+			Rotational:         true,
+			Size:               500000000000,
+			Vendor:             "ATA",
+			Model:              "VBOX HARDDISK",
+			Serial:             "VB12345678",
+			Wwn:                "0x5000c123",
+			WwnVendorExtension: "0x1234",
+			WwnWithExtension:   "0x5000c1231234",
+			Hctl:               "0:0:0:0",
+		},
+		{
+			Name:   "/dev/nvme0n1",
+			ByPath: "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1",
+			Size:   256000000000,
+			Vendor: "Samsung",
+			Model:  "SSD 970 EVO",
+		},
+	}
+
+	storage := getStorageDetails(disks)
+	assert.Len(t, storage, 2)
+
+	// First disk: rotational, no ByPath — Name stays as device name
+	assert.Equal(t, "/dev/sda", storage[0].Name)
+	assert.Equal(t, []string{"/dev/sda"}, storage[0].AlternateNames)
+	assert.True(t, storage[0].Rotational)
+	assert.Equal(t, metal3api.HDD, storage[0].Type)
+	assert.Equal(t, metal3api.Capacity(500000000000), storage[0].SizeBytes)
+	assert.Equal(t, "ATA", storage[0].Vendor)
+	assert.Equal(t, "VBOX HARDDISK", storage[0].Model)
+	assert.Equal(t, "VB12345678", storage[0].SerialNumber)
+	assert.Equal(t, "0x5000c123", storage[0].WWN)
+	assert.Equal(t, "0x1234", storage[0].WWNVendorExtension)
+	assert.Equal(t, "0x5000c1231234", storage[0].WWNWithExtension)
+	assert.Equal(t, "0:0:0:0", storage[0].HCTL)
+
+	// Second disk: NVMe with ByPath — Name becomes ByPath
+	assert.Equal(t, "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1", storage[1].Name)
+	assert.Equal(t, []string{"/dev/nvme0n1", "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1"}, storage[1].AlternateNames)
+	assert.False(t, storage[1].Rotational)
+	assert.Equal(t, metal3api.NVME, storage[1].Type)
+	assert.Equal(t, metal3api.Capacity(256000000000), storage[1].SizeBytes)
+}
+
+func TestGetStorageDetailsEmpty(t *testing.T) {
+	storage := getStorageDetails([]inventory.RootDiskType{})
+	assert.Empty(t, storage)
+}
+
+func TestGetCPUDetails(t *testing.T) {
+	cpu := getCPUDetails(&inventory.CPUType{
+		Architecture: "x86_64",
+		ModelName:    "Intel(R) Core(TM) i7-8650U",
+		Frequency:    "1900.0000",
+		Count:        8,
+		Flags:        []string{"vmx", "avx", "aes"},
+	})
+	assert.Equal(t, "x86_64", cpu.Arch)
+	assert.Equal(t, "Intel(R) Core(TM) i7-8650U", cpu.Model)
+	assert.Equal(t, metal3api.ClockSpeed(1900)*metal3api.MegaHertz, cpu.ClockMegahertz)
+	assert.Equal(t, 8, cpu.Count)
+	// Flags should be sorted
+	assert.Equal(t, []string{"aes", "avx", "vmx"}, cpu.Flags)
+}
+
+func TestGetCPUDetailsRounding(t *testing.T) {
+	cpu := getCPUDetails(&inventory.CPUType{
+		Frequency: "2499.998",
+	})
+	assert.Equal(t, metal3api.ClockSpeed(2500)*metal3api.MegaHertz, cpu.ClockMegahertz)
+}
+
+func TestGetSystemVendorDetails(t *testing.T) {
+	vendor := getSystemVendorDetails(inventory.SystemVendorType{
+		Manufacturer: "Dell Inc.",
+		ProductName:  "PowerEdge R640",
+		SerialNumber: "ABC1234",
+	})
+	assert.Equal(t, "Dell Inc.", vendor.Manufacturer)
+	assert.Equal(t, "PowerEdge R640", vendor.ProductName)
+	assert.Equal(t, "ABC1234", vendor.SerialNumber)
+}
+
+func TestGetSystemVendorDetailsEmpty(t *testing.T) {
+	vendor := getSystemVendorDetails(inventory.SystemVendorType{})
+	assert.Empty(t, vendor.Manufacturer)
+	assert.Empty(t, vendor.ProductName)
+	assert.Empty(t, vendor.SerialNumber)
+}

@@ -81,16 +81,16 @@ type HostClaimSpec struct {
 	// which is passed to the Config Drive and interpreted by the
 	// first-boot software such as cloud-init. The format of user data is
 	// specific to the first-boot software.
-	UserData *corev1.SecretReference `json:"userData,omitempty"`
+	UserData *SecretReference `json:"userData,omitempty"`
 
 	// NetworkData holds the reference to the Secret containing network
 	// configuration which is passed to the Config Drive and interpreted
 	// by the first boot software such as cloud-init.
-	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
+	NetworkData *SecretReference `json:"networkData,omitempty"`
 
 	// MetaData holds the reference to the Secret containing host metadata
 	// (e.g. meta_data.json) which is passed to the Config Drive.
-	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
+	MetaData *SecretReference `json:"metaData,omitempty"`
 
 	// A custom deploy procedure. This is an advanced feature that allows
 	// using a custom deploy step provided by a site-specific deployment
@@ -117,6 +117,12 @@ type HostClaimSpec struct {
 	// infrastructure.cluster.x-k8s.io/failure-domain set to the value of
 	// the field.
 	FailureDomain string `json:"failureDomain,omitempty"`
+}
+
+// SecretReference represents a Secret Reference in the same namespace as the resource.
+type SecretReference struct {
+	// Name is unique within a namespace to reference a secret resource.
+	Name string `json:"name,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.

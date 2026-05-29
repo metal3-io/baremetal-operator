@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -80,6 +81,15 @@ func TestLabelSecrets(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "preprovisioning-network-data",
+			getter: func(hcd *hostConfigData) (string, error) {
+				return hcd.PreprovisioningNetworkData(t.Context())
+			},
+			hostSpec: &metal3api.BareMetalHostSpec{
+				PreprovisioningNetworkDataName: "preprovisioning-network-data",
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -105,6 +115,54 @@ func TestLabelSecrets(t *testing.T) {
 			assert.Equal(t, "baremetal", actualSecret.Labels["environment.metal3.io"])
 		})
 	}
+}
+
+func TestAcquirePreprovisioningNetworkSecret(t *testing.T) {
+	host := newHost("host", &metal3api.BareMetalHostSpec{
+		PreprovisioningNetworkDataName: "preprov-net-data",
+	})
+	host.Status.Provisioning.State = metal3api.StateRegistering
+
+	secret := newSecret("preprov-net-data", map[string]string{"networkData": "key: value"})
+	c := fakeclient.NewClientBuilder().WithObjects(host, secret).Build()
+	baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
+	hcd := &hostConfigData{
+		host:          host,
+		log:           baselog.WithName("host_config_data"),
+		secretManager: secretutils.NewSecretManager(baselog, c, c),
+	}
+
+	_, err := hcd.PreprovisioningNetworkData(t.Context())
+	require.NoError(t, err)
+
+	actualSecret := &corev1.Secret{}
+	err = c.Get(t.Context(), types.NamespacedName{Name: "preprov-net-data", Namespace: namespace}, actualSecret)
+	require.NoError(t, err)
+	assert.Equal(t, secretutils.LabelEnvironmentValue, actualSecret.Labels[secretutils.LabelEnvironmentName])
+	assert.Contains(t, actualSecret.Finalizers, secretutils.SecretsFinalizer)
+	assert.Empty(t, actualSecret.OwnerReferences)
+}
+
+func TestPreprovisioningNetworkSecretNotFoundDuringDeletion(t *testing.T) {
+	host := newHost("host", &metal3api.BareMetalHostSpec{
+		PreprovisioningNetworkDataName: "missing-preprov-net",
+	})
+	host.Status.Provisioning.State = metal3api.StatePoweringOffBeforeDelete
+	now := metav1.Now()
+	host.DeletionTimestamp = &now
+	host.Finalizers = []string{metal3api.BareMetalHostFinalizer}
+
+	c := fakeclient.NewClientBuilder().WithObjects(host).Build()
+	baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
+	hcd := &hostConfigData{
+		host:          host,
+		log:           baselog.WithName("host_config_data"),
+		secretManager: secretutils.NewSecretManager(baselog, c, c),
+	}
+
+	data, err := hcd.PreprovisioningNetworkData(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, data)
 }
 
 func TestProvisionWithHostConfig(t *testing.T) {

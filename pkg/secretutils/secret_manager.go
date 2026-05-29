@@ -146,6 +146,13 @@ func (sm *SecretManager) ObtainSecret(ctx context.Context, key types.NamespacedN
 	return sm.obtainSecretForOwner(ctx, key, nil, false)
 }
 
+// ObtainSecretWithFinalizer retrieves a Secret and ensures that it has a label
+// that will ensure it is present in the cache, and optionally adds the secrets
+// manager finalizer without setting an owner reference.
+func (sm *SecretManager) ObtainSecretWithFinalizer(ctx context.Context, key types.NamespacedName, addFinalizer bool) (*corev1.Secret, error) {
+	return sm.obtainSecretForOwner(ctx, key, nil, addFinalizer)
+}
+
 // ReleaseSecret removes secrets manager finalizer from specified secret when needed.
 func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secret) error {
 	if !slices.Contains(secret.Finalizers, SecretsFinalizer) {

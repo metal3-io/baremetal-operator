@@ -23,6 +23,7 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func errorContains(out error, want string) bool {
@@ -114,6 +115,105 @@ func TestBareMetalHostUpdate(t *testing.T) {
 			ctx := t.Context()
 			if _, err := webhook.ValidateUpdate(ctx, tt.old, tt.bmh); !errorContains(err, tt.wantedErr) {
 				t.Errorf("BareMetalHost.ValidateUpdate() error = %v, wantErr %v", err, tt.wantedErr)
+			}
+		})
+	}
+}
+
+func TestRAIDValidate(t *testing.T) {
+	tests := []struct {
+		name      string
+		bmh       *metal3api.BareMetalHost
+		wantedErr string
+	}{
+		{
+			name: "valid-one-root-volume",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level:      "1",
+						RootVolume: ptr.To(true),
+					},
+					{
+						Level: "1",
+					},
+				}},
+			}},
+			wantedErr: "",
+		},
+		{
+			name: "invalid-two-root-volume",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level:      "1",
+						RootVolume: ptr.To(true),
+					},
+					{
+						Level:      "1",
+						RootVolume: ptr.To(true),
+					},
+				}},
+			}},
+			wantedErr: "softwareRAIDVolumes[*].rootVolume or can only be set once",
+		},
+		{
+			name: "valid-no-root-volume-with-rootDeviceHints",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				RootDeviceHints: &metal3api.RootDeviceHints{DeviceName: "/dev/sda"},
+				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+				}},
+			}},
+			wantedErr: "",
+		},
+		{
+			name: "invalid-set-both-root-volume-and-rootDeviceHints",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				RootDeviceHints: &metal3api.RootDeviceHints{DeviceName: "/dev/sda"},
+				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level:      "1",
+						RootVolume: ptr.To(true),
+					},
+				}},
+			}},
+			wantedErr: "softwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			webhook := &BareMetalHost{}
+			ctx := t.Context()
+			if _, err := webhook.ValidateCreate(ctx, tt.bmh); !errorContains(err, tt.wantedErr) {
+				t.Errorf("BareMetalHost.ValidateCreate() error = %v, wantErr %v", err, tt.wantedErr)
 			}
 		})
 	}

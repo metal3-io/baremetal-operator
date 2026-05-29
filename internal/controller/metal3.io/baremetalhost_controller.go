@@ -872,7 +872,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 	}
 	preprovisioningNetworkData, err := hostConf.PreprovisioningNetworkData(ctx)
 	if err != nil {
-		return recordActionFailure(info, metal3api.RegistrationError, "failed to read preprovisioningNetworkData")
+		return recordActionFailure(info, metal3api.RegistrationError, fmt.Sprintf("failed to read preprovisioningNetworkData: %v", err))
 	}
 
 	provResult, provID, err := prov.Register(

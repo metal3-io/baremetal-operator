@@ -3,12 +3,10 @@ package controllers
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -33,16 +31,13 @@ type hostConfigData struct {
 	host          *metal3api.BareMetalHost
 	log           logr.Logger
 	secretManager secretutils.SecretManager
+	hostClaim     *metal3api.HostClaim
 }
 
 // Generic method for data extraction from a Secret. Function uses dataKey
 // parameter to detirmine which data to return in case secret contins multiple
 // keys.
 func (hcd *hostConfigData) getSecretData(ctx context.Context, name, namespace, dataKey string, addFinalizer bool) (string, error) {
-	if namespace != hcd.host.Namespace {
-		return "", fmt.Errorf("%s secret must be in same namespace as host %s/%s", dataKey, hcd.host.Namespace, hcd.host.Name)
-	}
-
 	key := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
@@ -69,17 +64,27 @@ func (hcd *hostConfigData) getSecretData(ctx context.Context, name, namespace, d
 
 // UserData get Operating System configuration data.
 func (hcd *hostConfigData) UserData(ctx context.Context) (string, error) {
-	if hcd.host.Spec.UserData == nil {
-		hcd.log.Info("UserData is not set return empty string")
-		return "", nil
-	}
-	namespace := hcd.host.Spec.UserData.Namespace
-	if namespace == "" {
+	var name, namespace string
+	if hcd.hostClaim != nil {
+		userData := hcd.hostClaim.Spec.UserData
+		if userData == nil {
+			hcd.log.Info("UserData is not set return empty string")
+			return "", nil
+		}
+		name = userData.Name
+		namespace = hcd.hostClaim.Namespace
+	} else {
+		userData := hcd.host.Spec.UserData
+		if userData == nil {
+			hcd.log.Info("UserData is not set return empty string")
+			return "", nil
+		}
+		name = userData.Name
 		namespace = hcd.host.Namespace
 	}
 	return hcd.getSecretData(
 		ctx,
-		hcd.host.Spec.UserData.Name,
+		name,
 		namespace,
 		"userData",
 		false,
@@ -88,23 +93,29 @@ func (hcd *hostConfigData) UserData(ctx context.Context) (string, error) {
 
 // NetworkData get network configuration.
 func (hcd *hostConfigData) NetworkData(ctx context.Context) (string, error) {
-	networkData := hcd.host.Spec.NetworkData
-	if networkData == nil && hcd.host.Spec.PreprovisioningNetworkDataName != "" {
-		networkData = &corev1.SecretReference{
-			Name: hcd.host.Spec.PreprovisioningNetworkDataName,
+	var name, namespace string
+	if hcd.hostClaim != nil {
+		networkData := hcd.hostClaim.Spec.NetworkData
+		if networkData == nil {
+			return "", nil
 		}
-	}
-	if networkData == nil {
-		hcd.log.Info("NetworkData is not set, returning empty data")
-		return "", nil
-	}
-	namespace := networkData.Namespace
-	if namespace == "" {
+		namespace = hcd.hostClaim.Namespace
+		name = networkData.Name
+	} else {
+		networkData := hcd.host.Spec.NetworkData
 		namespace = hcd.host.Namespace
+		if networkData == nil {
+			if hcd.host.Spec.PreprovisioningNetworkDataName == "" {
+				return "", nil
+			}
+			name = hcd.host.Spec.PreprovisioningNetworkDataName
+		} else {
+			name = networkData.Name
+		}
 	}
 	networkDataRaw, err := hcd.getSecretData(
 		ctx,
-		networkData.Name,
+		name,
 		namespace,
 		"networkData",
 		false,
@@ -148,17 +159,25 @@ func (hcd *hostConfigData) PreprovisioningNetworkData(ctx context.Context) (stri
 
 // MetaData get host metatdata.
 func (hcd *hostConfigData) MetaData(ctx context.Context) (string, error) {
-	if hcd.host.Spec.MetaData == nil {
-		hcd.log.Info("MetaData is not set returning empty(nil) data")
-		return "", nil
-	}
-	namespace := hcd.host.Spec.MetaData.Namespace
-	if namespace == "" {
+	var name, namespace string
+	if hcd.hostClaim != nil {
+		if hcd.hostClaim.Spec.MetaData == nil {
+			hcd.log.Info("MetaData is not set returning empty(nil) data")
+			return "", nil
+		}
+		name = hcd.hostClaim.Spec.MetaData.Name
+		namespace = hcd.hostClaim.Namespace
+	} else {
+		if hcd.host.Spec.MetaData == nil {
+			hcd.log.Info("MetaData is not set returning empty(nil) data")
+			return "", nil
+		}
 		namespace = hcd.host.Namespace
+		name = hcd.host.Spec.MetaData.Name
 	}
 	return hcd.getSecretData(
 		ctx,
-		hcd.host.Spec.MetaData.Name,
+		name,
 		namespace,
 		"metaData",
 		false,

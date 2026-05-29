@@ -1,0 +1,12 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validating-webhook-configuration
+webhooks:
+- name: baremetalhost.metal3.io
+  matchConditions:
+  - name: "spec-or-annotations-changed"
+    expression: >-
+      request.operation == 'CREATE' ||
+      object.spec != oldObject.spec ||
+      object.metadata.?annotations.orValue({}) != oldObject.metadata.?annotations.orValue({})

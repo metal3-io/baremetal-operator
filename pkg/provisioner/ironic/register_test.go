@@ -1467,3 +1467,133 @@ func TestRegisterDeprovisioningCleaningDisabledNoPreprovisioningImage(t *testing
 	require.NoError(t, err)
 	assert.Empty(t, result.ErrorMessage)
 }
+
+func TestRegisterCreateNodeWithVendorAnnotation(t *testing.T) {
+	// Test that the vendor annotation is applied when creating a new node
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Spec.Image = nil
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		Vendor: "ami",
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
+	assert.Equal(t, createdNode.UUID, provID)
+
+	// Verify that the vendor property was set
+	assert.Equal(t, "ami", createdNode.Properties["vendor"])
+}
+
+func TestRegisterCreateNodeWithoutVendorAnnotation(t *testing.T) {
+	// Test that no vendor property is set when annotation is not provided
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Spec.Image = nil
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
+	assert.Equal(t, createdNode.UUID, provID)
+
+	// Verify that the vendor property was NOT set
+	_, exists := createdNode.Properties["vendor"]
+	assert.False(t, exists, "vendor property should not be set when annotation is absent")
+}
+
+func TestRegisterExistingNodeWithVendorAnnotation(t *testing.T) {
+	// Test that the vendor annotation is applied when updating an existing node
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = "uuid"
+
+	ironic := testserver.NewIronic(t).
+		Node(nodes.Node{
+			Name:           host.Namespace + nameSeparator + host.Name,
+			UUID:           "uuid",
+			ProvisionState: string(nodes.Manageable),
+			DriverInfo: map[string]any{
+				"deploy_kernel":  "http://deploy.test/ipa.kernel",
+				"deploy_ramdisk": "http://deploy.test/ipa.initramfs",
+				"test_address":   "test.bmc",
+				"test_username":  "",
+				"test_password":  "******",
+				"test_port":      "42",
+			},
+			Properties: map[string]any{"capabilities": ""},
+		}).NodeUpdate(nodes.Node{
+		UUID: "uuid",
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		Vendor: "ami",
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+
+	// Verify that the vendor property was included in the update
+	updates := ironic.GetLastNodeUpdateRequestFor("uuid")
+	require.NotEmpty(t, updates, "expected node updates")
+
+	// Check that vendor was added to properties
+	foundVendorUpdate := false
+	for _, update := range updates {
+		if update.Path == "/properties/vendor" && update.Value == "ami" {
+			foundVendorUpdate = true
+			break
+		}
+	}
+	assert.True(t, foundVendorUpdate, "vendor property should be in /properties/vendor update; got updates: %+v", updates)
+}

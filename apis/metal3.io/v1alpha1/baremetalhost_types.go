@@ -64,6 +64,11 @@ const (
 	// is disabled.
 	HardwareDetailsAnnotation = InspectAnnotationPrefix + "/hardwaredetails"
 
+	// VendorAnnotation is the annotation that allows users to override the
+	// vendor property on the provisioner's host representation (e.g., Ironic
+	// node properties).
+	VendorAnnotation = "ironic.provisioners.metal3.io/vendor"
+
 	// InspectAnnotationValueDisabled is a constant string="disabled"
 	// This is particularly useful to check if inspect annotation is disabled
 	// inspect.metal3.io=disabled.

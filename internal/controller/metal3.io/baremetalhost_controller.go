@@ -888,6 +888,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 			HasCustomDeploy:            hasCustomDeploy(info.host),
 			DisablePowerOff:            info.host.Spec.DisablePowerOff,
 			CPUArchitecture:            getHostArchitecture(info.host),
+			Vendor:                     info.host.GetAnnotations()[metal3api.VendorAnnotation],
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)

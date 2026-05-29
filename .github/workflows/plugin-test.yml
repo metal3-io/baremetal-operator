@@ -1,0 +1,45 @@
+name: Out-of-tree plugin compatibility test
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+    branches:
+    - 'main'
+    - 'release-*'
+    paths:
+    - 'Dockerfile.plugin-test'
+    - 'Makefile'
+    - 'cmd/plugin-load-test/**'
+    - 'hack/plugin-test/**'
+    - 'pkg/provisioner/**'
+    - 'go.mod'
+    - 'go.sum'
+    - 'apis/go.mod'
+    - 'apis/go.sum'
+    - 'pkg/hardwareutils/go.mod'
+    - 'pkg/hardwareutils/go.sum'
+    - '.github/workflows/plugin-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-test:
+    name: Plugin compat ${{ matrix.arch }}
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch:
+        - amd64
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      with:
+        persist-credentials: false
+
+    - name: Build plugin-test image
+      run: ARCH=${{ matrix.arch }} make docker-build-plugin-test
+      env:
+        IMG_NAME: baremetal-operator
+        IMG_TAG: pr-test

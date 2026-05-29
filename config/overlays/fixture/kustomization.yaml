@@ -7,10 +7,10 @@ resources:
 
 patches:
 - patch: |
-    # Enable test mode (fixture provider instead of ironic)
+    # Use the fixture provisioner (compiled into the manager) instead of ironic
     - op: add
       path: /spec/template/spec/containers/0/args/-
-      value: --test-mode
+      value: --provisioner=fixture
     # Don't try to pull again the pre-loaded image
     - op: replace
       path: /spec/template/spec/containers/0/imagePullPolicy

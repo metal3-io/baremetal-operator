@@ -123,9 +123,12 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 					CredentialsName:                "bmc-credentials",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
-				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
-				BootMACAddress: bmc.BootMacAddress,
+				BootMode: metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 			},
+		}
+		// BootMacAddress is optional for redfish-virtualmedia
+		if bmc.AccessDetails.NeedsMAC() {
+			bmh.Spec.BootMACAddress = bmc.BootMacAddress
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)
 		Expect(err).NotTo(HaveOccurred())

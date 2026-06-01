@@ -23,7 +23,6 @@ import (
 )
 
 // These example keys and values are hardcoded in sushy-tools.
-// Warning: be careful when updating or reusing any keys: updated values will be persisted in the emulator between tests!
 const (
 	hfsTestKey1       = "ProcTurboMode"
 	hfsTestOrigValue1 = "Enabled"
@@ -46,6 +45,9 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 		if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") || !strings.Contains(bmc.Address, "redfish") {
 			Skip("HFS tests require a real Ironic and a host with Redfish")
 		}
+
+		// Ensure that tests don't conflict with each other
+		RedfishResetBios(ctx, bmc)
 
 		toCleanup = nil
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{

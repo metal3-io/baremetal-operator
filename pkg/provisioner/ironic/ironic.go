@@ -1972,7 +1972,7 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(ctx context.Contex
 	err = nodes.DeleteSubscription(ctx, p.client, p.nodeID, method, opts).ExtractErr()
 
 	if err != nil {
-		return provisioner.Result{RequeueAfter: shortRetryDelay}, err
+		return transientError(err)
 	}
 	return operationComplete()
 }

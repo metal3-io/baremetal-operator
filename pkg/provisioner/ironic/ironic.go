@@ -263,35 +263,14 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 		p.log.Info("failed to look for existing ports in Ironic", "MAC", macAddress)
 		return errPortList
 	}
-	for _, port := range portsList {
-		if port.NodeUUID != uuid {
-			// try to check if the node exists or the port is orphaned
-			_, err := nodes.Get(ctx, p.client, port.NodeUUID).Extract()
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				p.log.Info(
-					"the port is orphaned, deleting and recreating",
-					"MAC", macAddress,
-					"old NodeUUID", port.NodeUUID,
-					"current NodeUUID", uuid,
-				)
-				err = ports.Delete(
-					ctx,
-					p.client,
-					port.UUID,
-				).ExtractErr()
-				if err != nil {
-					return fmt.Errorf("failed to delete ironic port for node %s, MAC: %s: %w", uuid, macAddress, err)
-				}
-			} else {
-				if err != nil {
-					return err
-				}
+	if portsList != nil {
+		for _, port := range portsList {
+			if port.NodeUUID != uuid {
 				return fmt.Errorf("port belongs to another node %s, MAC: %s can't register for node %s", port.NodeUUID, macAddress, uuid)
 			}
-		} else {
-			p.log.Info("port already exists in Ironic", "NodeUUID", uuid, "MAC", macAddress)
-			return nil
 		}
+		p.log.Info("port already exists in Ironic", "NodeUUID", uuid, "MAC", macAddress)
+		return nil
 	}
 
 	_, err := ports.Create(

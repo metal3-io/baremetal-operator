@@ -22,9 +22,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gophercloud/gophercloud/v2"
-	ironicNode "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
-	ironicPort "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	irsov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -1116,30 +1113,6 @@ func dumpIronicNodes(ctx context.Context, e2eConfig *Config, artifactFolder stri
 	if _, err = file.Write(logOutput.Bytes()); err != nil {
 		Logf("Error writing ironic nodes JSON to file: %v", err)
 	}
-}
-
-func getIronicNodePorts(ctx context.Context, e2eConfig *Config, nodeName string) (ports []ironicPort.Port, err error) {
-	client := CreateIronicClient(e2eConfig)
-
-	node, errNode := ironicNode.Get(ctx, client, nodeName).Extract()
-	if errNode != nil {
-		if gophercloud.ResponseCodeIs(errNode, http.StatusNotFound) {
-			Logf("Ironic node %s not found, skipping ports retrieval", nodeName)
-			return nil, nil
-		}
-	}
-	Logf("Found node with name %s with uuid %s, checking ports", nodeName, node.UUID)
-
-	portsPager, err := ironicPort.List(client, ironicPort.ListOpts{Node: nodeName}).AllPages(ctx)
-
-	if err != nil {
-		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return ironicPort.ExtractPorts(portsPager)
 }
 
 // WaitForIronicReady waits until the given Ironic resource has Ready condition = True.

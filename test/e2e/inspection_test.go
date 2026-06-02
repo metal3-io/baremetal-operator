@@ -193,11 +193,6 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			}, &bmh)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Get ports in Ironic after detachment and check if all the ports are removed")
-			portsAfterDetach, errPortsAfterDetach := getIronicNodePorts(ctx, e2eConfig, ironicNodeName)
-			Expect(errPortsAfterDetach).NotTo(HaveOccurred())
-			Expect(portsAfterDetach).To(BeEmpty())
-
 			By("Removing the detached annotation")
 			AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.DetachedAnnotation, nil)
 
@@ -215,19 +210,10 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 				},
 			}, e2eConfig.GetIntervals(specName, "wait-deployment")...)
 
-			By("Retrieving the latest BMH object")
-			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
-				Name:      bmh.Name,
-				Namespace: bmh.Namespace,
-			}, &bmh)
-			Expect(err).NotTo(HaveOccurred())
-
 			By("Get ports in Ironic after re-attachment and check if they are the same")
-			Eventually(func(g Gomega) {
-				portsAfter, errPortsAfter := getIronicNodePorts(ctx, e2eConfig, ironicNodeName)
-				g.Expect(errPortsAfter).NotTo(HaveOccurred())
-				g.Expect(getMacList(portsAfter)).To(ConsistOf(getMacList(portsBefore)))
-			}, e2eConfig.GetIntervals("default", "wait-deployment")...).Should(Succeed())
+			portsAfter, errPortsAfter := getIronicNodePorts(ctx, e2eConfig, ironicNodeName)
+			Expect(errPortsAfter).NotTo(HaveOccurred())
+			Expect(getMacList(portsAfter)).To(ConsistOf(getMacList(portsBefore)))
 		}
 	})
 

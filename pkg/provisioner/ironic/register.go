@@ -10,6 +10,7 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -288,39 +289,36 @@ func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *
 		return nil
 	}
 
-	macs := map[string]bool{}
+	// Mac/PXE status map
+	portMacsToCreate := map[string]bool{}
 	var nics []metal3api.NIC
 	if hardwareData != nil && hardwareData.Spec.HardwareDetails != nil {
 		nics = hardwareData.Spec.HardwareDetails.NIC
 	}
 
-	nodeAssignedPorts, err := p.getPorts(ctx, ironicNode.UUID, "")
+	ironicNodePorts, err := p.getPorts(ctx, ironicNode.UUID, "")
 	if err != nil {
 		return err
 	}
 
-	isInAssignedPorts := func(address string) bool {
-		for _, nodePort := range nodeAssignedPorts {
-			if nodePort.Address == address {
-				return true
-			}
-		}
-		return false
+	ironicNodePortsList := map[string]ports.Port{}
+	for _, port := range ironicNodePorts {
+		ironicNodePortsList[port.Address] = port
 	}
 
 	for _, nic := range nics {
-		if nic.MAC != "" && !isInAssignedPorts(nic.MAC) {
-			macs[nic.MAC] = nic.PXE
+		if _, ok := ironicNodePortsList[nic.MAC]; nic.MAC != "" && !ok {
+			portMacsToCreate[nic.MAC] = nic.PXE
 		}
 	}
 
-	if p.bootMACAddress != "" && !isInAssignedPorts(p.bootMACAddress) {
-		macs[p.bootMACAddress] = true
+	if _, ok := ironicNodePortsList[p.bootMACAddress]; p.bootMACAddress != "" && !ok {
+		portMacsToCreate[p.bootMACAddress] = true
 	}
 
-	p.log.Info("creating ports for node", "nodeUUID", ironicNode.UUID, "MACs", macs)
+	p.log.Info("creating ports for node", "nodeUUID", ironicNode.UUID, "MACs", portMacsToCreate)
 
-	for mac, pxe := range macs {
+	for mac, pxe := range portMacsToCreate {
 		err := p.createNodePort(ctx, ironicNode.UUID, mac, pxe)
 		if err != nil {
 			return err

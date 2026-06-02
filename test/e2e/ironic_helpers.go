@@ -16,6 +16,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	. "github.com/onsi/gomega"
 )
 
@@ -92,4 +93,28 @@ func RedfishResetBios(ctx context.Context, bmc BMC) {
 	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 	Expect(resp.StatusCode).To(Equal(http.StatusNoContent))
+}
+
+func getIronicNodePorts(ctx context.Context, e2eConfig *Config, nodeName string) ([]ports.Port, error) {
+	client := CreateIronicClient(e2eConfig)
+
+	node, errNode := nodes.Get(ctx, client, nodeName).Extract()
+	if errNode != nil {
+		if gophercloud.ResponseCodeIs(errNode, http.StatusNotFound) {
+			Logf("Ironic node %s not found, skipping ports retrieval", nodeName)
+			return nil, nil
+		}
+	}
+	Logf("Found node with name %s with uuid %s, checking ports", nodeName, node.UUID)
+
+	portsPager, err := ports.List(client, ports.ListOpts{Node: nodeName}).AllPages(ctx)
+
+	if err != nil {
+		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return ports.ExtractPorts(portsPager)
 }

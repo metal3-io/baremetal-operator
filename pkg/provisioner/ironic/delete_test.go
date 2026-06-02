@@ -43,7 +43,7 @@ func TestForceDetach(t *testing.T) {
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			maxVersion:        110,
 			expectedDirty:     true,
-			expectedRequeue:   provisionRequeueDelay,
+			expectedRequeue:   shortRetryDelay,
 			expectedProvState: nodes.TargetAbort,
 		},
 		{
@@ -54,7 +54,7 @@ func TestForceDetach(t *testing.T) {
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			maxVersion:        95,
 			expectedDirty:     true,
-			expectedRequeue:   provisionRequeueDelay,
+			expectedRequeue:   shortRetryDelay,
 			expectedProvState: nodes.TargetDeleted,
 		},
 		{
@@ -64,7 +64,7 @@ func TestForceDetach(t *testing.T) {
 				ProvisionState: string(nodes.InspectWait),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			expectedDirty:     true,
-			expectedRequeue:   provisionRequeueDelay,
+			expectedRequeue:   shortRetryDelay,
 			expectedProvState: nodes.TargetAbort,
 		},
 		{
@@ -74,7 +74,7 @@ func TestForceDetach(t *testing.T) {
 				ProvisionState: string(nodes.CleanWait),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			expectedDirty:     true,
-			expectedRequeue:   provisionRequeueDelay,
+			expectedRequeue:   shortRetryDelay,
 			expectedProvState: nodes.TargetAbort,
 		},
 		{
@@ -84,7 +84,7 @@ func TestForceDetach(t *testing.T) {
 				ProvisionState: string(nodes.ServiceWait),
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			expectedDirty:     true,
-			expectedRequeue:   provisionRequeueDelay,
+			expectedRequeue:   shortRetryDelay,
 			expectedProvState: nodes.TargetAbort,
 		},
 		{
@@ -94,7 +94,7 @@ func TestForceDetach(t *testing.T) {
 				ProvisionState: string(nodes.Deploying),
 			}),
 			expectedDirty:   true,
-			expectedRequeue: provisionRequeueDelay,
+			expectedRequeue: longRetryDelay,
 		},
 		{
 			name: "cleaning-waits",
@@ -103,7 +103,7 @@ func TestForceDetach(t *testing.T) {
 				ProvisionState: string(nodes.Cleaning),
 			}),
 			expectedDirty:   true,
-			expectedRequeue: provisionRequeueDelay,
+			expectedRequeue: longRetryDelay,
 		},
 		{
 			name: "inspecting-waits",
@@ -112,7 +112,7 @@ func TestForceDetach(t *testing.T) {
 				ProvisionState: string(nodes.Inspecting),
 			}),
 			expectedDirty:   true,
-			expectedRequeue: provisionRequeueDelay,
+			expectedRequeue: longRetryDelay,
 		},
 	}
 
@@ -181,7 +181,7 @@ func deleteTest(t *testing.T, detach bool) {
 				},
 			).DeleteError(nodeUUID, http.StatusConflict),
 			expectedDirty:        true,
-			expectedRequestAfter: provisionRequeueDelay,
+			expectedRequestAfter: shortRetryDelay,
 		},
 		{
 			name: "delete-host-not-found",
@@ -272,7 +272,7 @@ func deleteTest(t *testing.T, detach bool) {
 			).NodeMaintenanceError(nodeUUID, http.StatusConflict),
 
 			expectedDirty:        true,
-			expectedRequestAfter: provisionRequeueDelay,
+			expectedRequestAfter: shortRetryDelay,
 		},
 		{
 			name: "not-in-maintenance-update",
@@ -299,7 +299,7 @@ func deleteTest(t *testing.T, detach bool) {
 			),
 			// Should wait for verification to complete, not try to set maintenance
 			expectedDirty:        true,
-			expectedRequestAfter: provisionRequeueDelay,
+			expectedRequestAfter: shortRetryDelay,
 		},
 		{
 			name: "enroll-node-deletes-directly",

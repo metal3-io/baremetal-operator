@@ -42,7 +42,7 @@ func TestAdopt(t *testing.T) {
 			}),
 
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "node-in-adopting",
@@ -52,7 +52,7 @@ func TestAdopt(t *testing.T) {
 			}),
 
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "node-in-verifying",
@@ -82,7 +82,7 @@ func TestAdopt(t *testing.T) {
 			}),
 
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			force:                true,
 		},
 		{

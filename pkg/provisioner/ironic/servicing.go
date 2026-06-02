@@ -141,7 +141,7 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 		p.log.Info("waiting for host to finish servicing",
 			"state", ironicNode.ProvisionState,
 			"serviceStep", ironicNode.ServiceStep)
-		result, err = operationContinuing(provisionRequeueDelay)
+		result, err = operationContinuing(longRetryDelay)
 
 	case nodes.ServiceWait:
 		// If user removed all firmware specs while in ServiceWait, abort
@@ -152,7 +152,7 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 		p.log.Info("waiting for host to become active",
 			"state", ironicNode.ProvisionState,
 			"serviceStep", ironicNode.ServiceStep)
-		result, err = operationContinuing(provisionRequeueDelay)
+		result, err = operationContinuing(longRetryDelay)
 
 	default:
 		result, err = transientError(fmt.Errorf("have unexpected ironic node state %s", ironicNode.ProvisionState))

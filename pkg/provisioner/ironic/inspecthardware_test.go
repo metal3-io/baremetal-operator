@@ -45,7 +45,7 @@ func TestInspectHardware(t *testing.T) {
 
 			expectedStarted:      false,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "introspection-status-start-new-hardware-inspection",
@@ -56,7 +56,7 @@ func TestInspectHardware(t *testing.T) {
 
 			expectedStarted:      true,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
@@ -74,7 +74,7 @@ func TestInspectHardware(t *testing.T) {
 
 			expectedStarted:      true,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
@@ -94,7 +94,7 @@ func TestInspectHardware(t *testing.T) {
 			}),
 
 			expectedDirty:        true,
-			expectedRequestAfter: 15,
+			expectedRequestAfter: 10,
 		},
 		{
 			name: "introspection-status-retry-on-inspecting",
@@ -104,7 +104,7 @@ func TestInspectHardware(t *testing.T) {
 			}),
 
 			expectedDirty:        true,
-			expectedRequestAfter: 15,
+			expectedRequestAfter: 10,
 		},
 		{
 			name: "introspection-failed",
@@ -129,7 +129,7 @@ func TestInspectHardware(t *testing.T) {
 
 			expectedStarted:      true,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
@@ -142,7 +142,7 @@ func TestInspectHardware(t *testing.T) {
 
 			expectedStarted:      true,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "inspection-failed",
@@ -166,7 +166,7 @@ func TestInspectHardware(t *testing.T) {
 
 			expectedStarted:      true,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedPublish:      "InspectionStarted Hardware inspection started",
 		},
 		{
@@ -179,7 +179,7 @@ func TestInspectHardware(t *testing.T) {
 
 			expectedStarted:      true,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "inspection-complete",

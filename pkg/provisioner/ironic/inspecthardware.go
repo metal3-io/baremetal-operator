@@ -89,7 +89,7 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 		fallthrough
 	case nodes.Inspecting:
 		p.log.Info("inspection in progress")
-		result, err = operationContinuing(introspectionRequeueDelay)
+		result, err = operationContinuing(longRetryDelay)
 		return result, started, details, err
 	case nodes.InspectFail:
 		if !restartOnFailure {

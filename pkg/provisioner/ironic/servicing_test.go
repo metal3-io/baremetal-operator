@@ -73,7 +73,7 @@ func TestService(t *testing.T) {
 			}),
 			unprepared:           true,
 			expectedStarted:      true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -94,7 +94,7 @@ func TestService(t *testing.T) {
 			}),
 			skipConfig:           true,
 			expectedStarted:      true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -105,7 +105,7 @@ func TestService(t *testing.T) {
 			}),
 			unprepared:           true,
 			expectedStarted:      true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -149,7 +149,7 @@ func TestService(t *testing.T) {
 			}),
 			skipConfig:           true,
 			expectedStarted:      true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{

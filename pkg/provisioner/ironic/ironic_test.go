@@ -3,6 +3,7 @@ package ironic
 import (
 	"context"
 	"testing"
+	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -21,6 +22,8 @@ import (
 
 func init() {
 	logf.SetLogger(logz.New(logz.UseDevMode(true)))
+	// Disable jitter in tests for deterministic assertions
+	jitter = func(d time.Duration) time.Duration { return d }
 }
 
 func newTestProvisionerFactory() ironicProvisionerFactory {

@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
+	"strings"
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
@@ -74,4 +76,20 @@ func WaitForIronicNodeProvisionState(ctx context.Context, input WaitForIronicNod
 		g.Expect(slices.Contains(input.States, currentState)).To(BeTrue(),
 			"Ironic node %s is in state %s, expected one of %v", input.NodeName, currentState, input.States)
 	}, intervals...).Should(Succeed())
+}
+
+// RedfishResetBios resets BIOS in sushy-tools (or similar implementation).
+func RedfishResetBios(ctx context.Context, bmc BMC) {
+	address, err := url.Parse(bmc.Address)
+	Expect(err).NotTo(HaveOccurred())
+	if schemeParts := strings.Split(address.Scheme, "+"); len(schemeParts) > 1 {
+		address.Scheme = schemeParts[1]
+	}
+	endpoint := address.String() + "/BIOS/Actions/Bios.ResetBios"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, http.NoBody)
+	Expect(err).NotTo(HaveOccurred())
+	resp, err := http.DefaultClient.Do(req)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+	Expect(resp.StatusCode).To(Equal(http.StatusNoContent))
 }

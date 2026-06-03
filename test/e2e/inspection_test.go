@@ -123,8 +123,7 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 					CredentialsName:                "bmc-credentials",
 					DisableCertificateVerification: bmc.DisableCertificateVerification,
 				},
-				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
-				BootMACAddress: bmc.BootMacAddress,
+				BootMode: metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 			},
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)

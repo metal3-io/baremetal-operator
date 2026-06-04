@@ -46,7 +46,7 @@ func CreateBridgeNetworks(ctx context.Context, networks []vbmctlapi.DockerBridge
 		createdID, err := CreateNetwork(ctx, net.Name, &networkOpts)
 		// Don't fail if the network exists
 		if errors.Is(err, ErrNetworkExists) {
-			log.Printf("Warning: network %s already exists, continuing.", net.Name)
+			log.Printf("Warning: Docker network %s already exists, continuing.", net.Name)
 		} else if err != nil {
 			// Clean up previously created networks
 			log.Printf("Failed to create network %s, cleaning up %d previously created Docker networks", net.Name, len(createdNetworks))

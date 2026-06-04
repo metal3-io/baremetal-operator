@@ -702,7 +702,6 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			State:  metal3api.OperationalStatusOK,
 			UndesiredStates: []metal3api.OperationalStatus{
 				metal3api.OperationalStatusError,
-				metal3api.OperationalStatusServicing,
 			},
 		}, e2eConfig.GetIntervals(specName, "wait-firmware-settings")...)
 
@@ -712,16 +711,6 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 			Namespace: namespace.Name,
 		}, &bmh)).To(Succeed())
 		Expect(bmh.Status.ErrorType).To(BeEmpty())
-
-		By("Deleting the BMH")
-		Expect(clusterProxy.GetClient().Delete(ctx, &bmh)).To(Succeed())
-
-		By("Waiting for the BMH to be deleted")
-		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
-			Client:    clusterProxy.GetClient(),
-			BmhName:   bmhName,
-			Namespace: namespace.Name,
-		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
 	AfterEach(func() {

@@ -135,7 +135,7 @@ func CreateNetwork(ctx context.Context, name string, opts *client.NetworkCreateO
 	defer apiClient.Close()
 
 	networkID, err := GetNetworkByName(ctx, name)
-	if !errors.Is(err, ErrNetworkNotFound) {
+	if err != nil && !errors.Is(err, ErrNetworkNotFound) {
 		return "", err
 	}
 	if networkID != "" {

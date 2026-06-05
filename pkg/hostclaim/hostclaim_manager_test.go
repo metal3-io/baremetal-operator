@@ -20,8 +20,6 @@ import (
 	"context"
 	"errors"
 	"maps"
-	"reflect"
-	"strings"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -370,12 +368,6 @@ var _ = Describe("HostClaim manager", func() {
 	)
 
 	type testCaseSetBMHSpec struct {
-		UserData        *corev1.Secret
-		NetworkData     *corev1.Secret
-		MetaData        *corev1.Secret
-		BMHUserData     *corev1.Secret
-		BMHNetworkData  *corev1.Secret
-		BMHMetaData     *corev1.Secret
 		SetImage        bool
 		SetCustomDeploy bool
 		SetPoweredOn    bool
@@ -385,30 +377,6 @@ var _ = Describe("HostClaim manager", func() {
 	DescribeTable("Test setBMHspec",
 		func(tc testCaseSetBMHSpec) {
 			hcBuilder := NewHostclaim(HostclaimName)
-			ctx := context.TODO()
-			objects := []client.Object{}
-			numSecrets := 0
-			if tc.UserData != nil {
-				hcBuilder = hcBuilder.SetUserData(tc.UserData.Name)
-				if !strings.HasPrefix(tc.UserData.Name, "removed") {
-					objects = append(objects, tc.UserData)
-					numSecrets++
-				}
-			}
-			if tc.MetaData != nil {
-				hcBuilder = hcBuilder.SetMetaData(tc.MetaData.Name)
-				if !strings.HasPrefix(tc.MetaData.Name, "removed") {
-					objects = append(objects, tc.MetaData)
-					numSecrets++
-				}
-			}
-			if tc.NetworkData != nil {
-				hcBuilder = hcBuilder.SetNetworkData(tc.NetworkData.Name)
-				if !strings.HasPrefix(tc.NetworkData.Name, "removed") {
-					objects = append(objects, tc.NetworkData)
-					numSecrets++
-				}
-			}
 			if tc.SetImage {
 				hcBuilder = hcBuilder.SetImage(defaultImage)
 			}
@@ -417,53 +385,10 @@ var _ = Describe("HostClaim manager", func() {
 			}
 			hostClaim := hcBuilder.Build()
 			bmhBuilder := NewBaremetalhost("bmh", "ns", metal3api.StateAvailable)
-			if tc.BMHUserData != nil {
-				bmhBuilder = bmhBuilder.SetUserData(tc.BMHUserData.Name)
-				objects = append(objects, tc.BMHUserData)
-			}
-			if tc.BMHMetaData != nil {
-				bmhBuilder = bmhBuilder.SetMetaData(tc.BMHMetaData.Name)
-				objects = append(objects, tc.BMHMetaData)
-			}
-			if tc.BMHNetworkData != nil {
-				bmhBuilder = bmhBuilder.SetNetworkData(tc.BMHNetworkData.Name)
-				objects = append(objects, tc.BMHNetworkData)
-			}
 			bmh := bmhBuilder.Build()
-			objects = append(objects, hostClaim, bmh)
-			// Add secrets if they exist
-			fakeClient := fake.NewClientBuilder().WithScheme(setupScheme()).WithObjects(objects...).Build()
-			hostMgr, err := NewHostManager(fakeClient, GinkgoLogr, hostClaim, fakeClient)
+			hostMgr, err := NewHostManager(nil, GinkgoLogr, hostClaim, nil)
 			Expect(err).NotTo(HaveOccurred())
-			updated, err := hostMgr.setBmhSpec(ctx, bmh)
-			errorExpected := false
-			var checkSecret = func(ref *corev1.SecretReference, source *corev1.Secret, message string) {
-				if source == nil {
-					Expect(ref).To(BeNil(), message)
-				} else if strings.HasPrefix(source.Name, "removed") {
-					Expect(ref).To(BeNil(), message)
-					errorExpected = true
-				} else {
-					Expect(ref).NotTo(BeNil(), message)
-					sec := &corev1.Secret{}
-					key := client.ObjectKey{Name: ref.Name, Namespace: "ns"}
-					err = fakeClient.Get(ctx, key, sec)
-					Expect(err).NotTo(HaveOccurred(), message)
-					Expect(reflect.DeepEqual(sec.Data, source.Data)).To(BeTrue(), message)
-				}
-			}
-			checkSecret(bmh.Spec.UserData, tc.UserData, "userdata coherence")
-			checkSecret(bmh.Spec.MetaData, tc.MetaData, "metadata coherence")
-			checkSecret(bmh.Spec.NetworkData, tc.NetworkData, "networkdata coherence")
-			if errorExpected {
-				Expect(err).To(HaveOccurred())
-			} else {
-				Expect(err).NotTo(HaveOccurred())
-			}
-			secrets := &corev1.SecretList{}
-			err = fakeClient.List(ctx, secrets, client.InNamespace("ns"))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(secrets.Items).To(HaveLen(numSecrets))
+			updated := hostMgr.setBmhSpec(bmh)
 			if tc.SetImage {
 				Expect(bmh.Spec.Image).NotTo(BeNil())
 				Expect(*bmh.Spec.Image).To(Equal(defaultImage))
@@ -472,44 +397,10 @@ var _ = Describe("HostClaim manager", func() {
 				Expect(bmh.Spec.CustomDeploy).NotTo(BeNil())
 				Expect(bmh.Spec.CustomDeploy.Method).To(Equal("custom"))
 			}
-			if !errorExpected {
-				Expect(updated).To(Equal(tc.Updated))
-				updated, _ = hostMgr.setBmhSpec(ctx, bmh)
-				Expect(updated).To(BeFalse())
-			}
+			Expect(updated).To(Equal(tc.Updated))
+			updated = hostMgr.setBmhSpec(bmh)
+			Expect(updated).To(BeFalse())
 		},
-		Entry("set user-data (initialize)", testCaseSetBMHSpec{
-			UserData: NewSecret("s1", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("udt")}).Build(),
-			Updated:  true,
-		}),
-		Entry("set user-data (override)", testCaseSetBMHSpec{
-			UserData:    NewSecret("s1", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("udt")}).Build(),
-			BMHUserData: NewSecret("bmh-hc-userdata", "ns").SetLabels(map[string]string{HostClaimSecretLabel: "userdata"}).SetData(map[string][]byte{"f": []byte("other")}).Build(),
-		}),
-		Entry("reset user-data (override)", testCaseSetBMHSpec{
-			BMHUserData: NewSecret("bmh-hc-userdata", "ns").SetLabels(map[string]string{HostClaimSecretLabel: "userdata"}).SetData(map[string][]byte{"f": []byte("other")}).Build(),
-			Updated:     true,
-		}),
-		Entry("set meta-data/network-data (initialize)", testCaseSetBMHSpec{
-			MetaData:    NewSecret("s1", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("mdt")}).Build(),
-			NetworkData: NewSecret("s2", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("nwdt")}).Build(),
-			Updated:     true,
-		}),
-		Entry("set meta-data/network-data (override)", testCaseSetBMHSpec{
-			MetaData:       NewSecret("s1", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("mdt")}).Build(),
-			NetworkData:    NewSecret("s2", HostclaimNamespace).SetData(map[string][]byte{"f": []byte("nwdt")}).Build(),
-			BMHMetaData:    NewSecret("bmh-hc-metadata", "ns").SetLabels(map[string]string{HostClaimSecretLabel: "metadata"}).SetData(map[string][]byte{"f": []byte("other")}).Build(),
-			BMHNetworkData: NewSecret("bmh-hc-networkdata", "ns").SetLabels(map[string]string{HostClaimSecretLabel: "networkdata"}).SetData(map[string][]byte{"f": []byte("other")}).Build(),
-		}),
-		Entry("reset meta-data/network-data (override)", testCaseSetBMHSpec{
-			BMHMetaData:    NewSecret("bmh-hc-metadata", "ns").SetLabels(map[string]string{HostClaimSecretLabel: "metadata"}).SetData(map[string][]byte{"f": []byte("other")}).Build(),
-			BMHNetworkData: NewSecret("bmh-hc-networkdata", "ns").SetLabels(map[string]string{HostClaimSecretLabel: "networkdata"}).SetData(map[string][]byte{"f": []byte("other")}).Build(),
-			Updated:        true,
-		}),
-		Entry("set meta-data (initialize/not yet available)", testCaseSetBMHSpec{
-			MetaData: NewSecret("removed-secret", HostclaimNamespace).Build(),
-			Updated:  true,
-		}),
 		Entry("set image", testCaseSetBMHSpec{
 			SetImage: true,
 			Updated:  true,

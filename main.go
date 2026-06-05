@@ -222,6 +222,9 @@ func main() {
 		hostFeatures = append(hostFeatures, provisioner.FeaturePreprovisioningImage)
 	}
 
+	// Default namespace for the provisioner, overridable by the plugin.
+	provisionerNamespace := cmp.Or(os.Getenv("POD_NAMESPACE"), watchNamespace)
+
 	// Open the plugin before any K8s I/O so a bad path fails fast.
 	var provisionerPlugin *provisioner.Plugin
 	var pluginRequirements provisioner.HostRequirements
@@ -244,8 +247,9 @@ func main() {
 			"name", provisionerPlugin.Name(), "path", provisionerPlugin.Path())
 
 		pluginRequirements, err = provisionerPlugin.HostConfigure(provisioner.HostConfigureInput{
-			Logger:   setupLog,
-			Features: hostFeatures,
+			Logger:               setupLog,
+			Features:             hostFeatures,
+			ProvisionerNamespace: provisionerNamespace,
 		})
 		if err != nil {
 			setupLog.Error(err, "plugin HostConfigure failed",
@@ -362,10 +366,11 @@ func main() {
 	} else {
 		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
 		provisionerFactory, err = provisionerPlugin.NewFactory(provisioner.PluginConfig{
-			Logger:    provLog,
-			Features:  hostFeatures,
-			K8sClient: mgr.GetClient(),
-			APIReader: mgr.GetAPIReader(),
+			Logger:               provLog,
+			Features:             hostFeatures,
+			K8sClient:            mgr.GetClient(),
+			APIReader:            mgr.GetAPIReader(),
+			ProvisionerNamespace: provisionerNamespace,
 		})
 		if err != nil {
 			setupLog.Error(err, "cannot initialize provisioner plugin", "path", provisionerPlugin.Path())

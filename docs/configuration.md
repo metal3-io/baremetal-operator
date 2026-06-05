@@ -4,6 +4,10 @@ Configuration Settings
 The operator supports several configuration options for controlling
 its interaction with Ironic.
 
+The provisioner itself is loaded at runtime from a plugin; see
+[Provisioner plugins](plugin-provisioners.md) for selecting and
+authoring plugins.
+
 `DEPLOY_RAMDISK_URL` -- The URL for the ramdisk of the image
 containing the Ironic agent.
 

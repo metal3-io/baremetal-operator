@@ -74,6 +74,7 @@ WORKDIR /
 COPY --from=tilt-helper /start.sh .
 COPY --from=tilt-helper /restart.sh .
 COPY manager .
+COPY ironic-provisioner.so /plugins/ironic-provisioner.so
 """
 
 # Configures a provider by doing the following:
@@ -97,9 +98,11 @@ def enable_provider(name):
 
     # Set up a local_resource build of the provider's manager binary. The provider is expected to have a main.go in
     # manager_build_path or the main.go must be provided via go_main option. The binary is written to .tiltbuild/manager.
+    # CGO and dynamic linking are required for the manager to load provisioner plugins.
     local_resource(
         name + "_manager",
-        cmd = "cd " + context + ';mkdir -p .tiltbuild;CGO_ENABLED=0 go build -ldflags \'-extldflags "-static"\' -o .tiltbuild/manager ' + go_main,
+        cmd = "cd " + context + ";mkdir -p .tiltbuild;CGO_ENABLED=1 go build -o .tiltbuild/manager " + go_main +
+            " && CGO_ENABLED=1 go build -buildmode=plugin -o .tiltbuild/ironic-provisioner.so ./pkg/provisioner/ironic/plugin/",
         deps = live_reload_deps,
     )
 
@@ -126,9 +129,10 @@ def enable_provider(name):
         dockerfile_contents = dockerfile_contents,
         target = "tilt",
         entrypoint = entrypoint,
-        only = "manager",
+        only = ["manager", "ironic-provisioner.so"],
         live_update = [
             sync(context + "/.tiltbuild/manager", "/manager"),
+            sync(context + "/.tiltbuild/ironic-provisioner.so", "/plugins/ironic-provisioner.so"),
             run("sh /restart.sh"),
         ],
     )

@@ -84,6 +84,8 @@ The host passes initialization data through `provisioner.PluginConfig`:
 - `K8sClient` and `APIReader` — the manager's controller-runtime client and
    uncached reader, populated only after the manager has been built. Don't
    call into them from `init()`.
+- `ProvisionerNamespace` — host-resolved default namespace for the
+   provisioner (`POD_NAMESPACE`, falling back to the watch namespace).
 
 Plugins read their own external config (env vars, files, etc.) directly. The
 host stays generic.
@@ -98,7 +100,8 @@ manager is built:
 func HostConfigure(input provisioner.HostConfigureInput) (provisioner.HostRequirements, error)
 ```
 
-`HostRequirements` carries:
+`HostConfigureInput` carries `Logger`, `Features`, and `ProvisionerNamespace`,
+like `PluginConfig`. `HostRequirements` carries:
 
 - `AddToScheme func(*runtime.Scheme) error` — added to the host's scheme.
 - `CacheByObject map[client.Object]cache.ByObject` — merged into the
@@ -106,8 +109,9 @@ func HostConfigure(input provisioner.HostConfigureInput) (provisioner.HostRequir
 
 Plugins that don't need either omit the symbol; the host then proceeds with
 zero requirements. The ironic plugin uses `HostConfigure` to register
-`ironicv1alpha1` and (when `IRONIC_NAME`/`IRONIC_NAMESPACE` are set) to
-namespace-scope the Ironic CR informer.
+`ironicv1alpha1` and (when `IRONIC_NAME` is set and a namespace resolves from
+`IRONIC_NAMESPACE` or the host default) to namespace-scope the Ironic CR
+informer.
 
 ## Process-wide globals and init() side effects
 

@@ -43,6 +43,8 @@ type PluginConfig struct {
 	Features  []HostFeature
 	K8sClient client.Client
 	APIReader client.Reader
+	// ProvisionerNamespace is the host-resolved default namespace for the provisioner.
+	ProvisionerNamespace string
 }
 
 // HasFeature reports whether the host enabled the given feature.
@@ -54,6 +56,8 @@ func (c PluginConfig) HasFeature(f HostFeature) bool {
 type HostConfigureInput struct {
 	Logger   logr.Logger
 	Features []HostFeature
+	// ProvisionerNamespace is the host-resolved default namespace for the provisioner.
+	ProvisionerNamespace string
 }
 
 // HostRequirements is returned by HostConfigure with all fields optional.

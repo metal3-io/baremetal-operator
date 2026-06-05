@@ -31,23 +31,22 @@ const pluginName = "ironic"
 const (
 	envIronicName      = "IRONIC_NAME"
 	envIronicNamespace = "IRONIC_NAMESPACE"
-	envPodNamespace    = "POD_NAMESPACE"
 )
 
 // PluginName is advertised to the host via plugin.Lookup.
 func PluginName() string { return pluginName }
 
 // HostConfigure registers the Ironic CRD scheme and scopes the cache to the
-// Ironic CR namespace. IRONIC_NAMESPACE falls back to POD_NAMESPACE.
+// Ironic CR namespace.
 //
 //nolint:unparam // signature dictated by the plugin contract
-func HostConfigure(_ provisioner.HostConfigureInput) (provisioner.HostRequirements, error) {
+func HostConfigure(input provisioner.HostConfigureInput) (provisioner.HostRequirements, error) {
 	reqs := provisioner.HostRequirements{
 		AddToScheme: ironicv1alpha1.AddToScheme,
 	}
 
 	ironicName := os.Getenv(envIronicName)
-	ironicNamespace := cmp.Or(os.Getenv(envIronicNamespace), os.Getenv(envPodNamespace))
+	ironicNamespace := cmp.Or(os.Getenv(envIronicNamespace), input.ProvisionerNamespace)
 	if ironicName != "" && ironicNamespace != "" {
 		reqs.CacheByObject = map[client.Object]cache.ByObject{
 			&ironicv1alpha1.Ironic{}: {
@@ -67,7 +66,7 @@ func NewProvisionerFactory(config provisioner.PluginConfig) (provisioner.Factory
 	havePreprovImgBuilder := config.HasFeature(provisioner.FeaturePreprovisioningImage)
 
 	ironicName := os.Getenv(envIronicName)
-	ironicNamespace := cmp.Or(os.Getenv(envIronicNamespace), os.Getenv(envPodNamespace))
+	ironicNamespace := cmp.Or(os.Getenv(envIronicNamespace), config.ProvisionerNamespace)
 
 	if config.K8sClient != nil && ironicName != "" && ironicNamespace != "" {
 		return ironic.NewProvisionerFactoryWithClient(

@@ -34,7 +34,7 @@ import (
 
 const newBodySrc = `package demo
 
-func _() {
+func _() string {
 	thread := &starlark.Thread{Name: "health"}
 	val, err := starlark.Eval(thread, "health.star", ` + "`\"healthy\"`" + `, nil)
 	if err != nil {

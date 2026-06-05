@@ -318,7 +318,7 @@ docker-debug: generate manifests ## Build the docker image with debug info
 	--build-arg ARCH=$(ARCH) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
-	--build-arg LDFLAGS="-extldflags=-static" \
+	--build-arg LDFLAGS="" \
 	. -t ${IMG}-$(ARCH):${IMG_TAG}
 
 ## --------------------------------------

@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
-	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -30,7 +29,6 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type HostManager struct {
@@ -68,9 +65,6 @@ const (
 	FailureDomainLabelName = "infrastructure.cluster.x-k8s.io/failure-domain"
 	// HostClaimKind is the name of the kind.
 	HostClaimKind = "HostClaim"
-	// HostClaimSecretLabel is a label used to prevent deleting/modifying secrets not set by the
-	// HostClaim controller.
-	HostClaimSecretLabel = "metal3.io/hostclaim-secret"
 )
 
 var (
@@ -188,10 +182,7 @@ func (m *HostManager) Update(ctx context.Context) error {
 	}
 
 	// ensure that the BMH specs are correctly set.
-	updated, err := m.setBmhSpec(ctx, bmh)
-	if err != nil {
-		return err
-	}
+	updated := m.setBmhSpec(bmh)
 
 	if bmh.Annotations == nil {
 		bmh.Annotations = map[string]string{}
@@ -217,7 +208,7 @@ func (m *HostManager) Update(ctx context.Context) error {
 				metal3api.SynchronizedCondition, metal3api.BareMetalHostNotSynchronizedReason,
 				"Failed to update BareMetalHost")
 		}
-		m.Log.Error(err, "Error while patching the BareMetalHost")
+		m.Log.Error(err, "Error while updating the BareMetalHost")
 		return sanitizedErr
 	}
 
@@ -272,42 +263,8 @@ func hideConflictError(err error) error {
 
 // setBmhSpec will ensure the host's Spec is set according to the hostclaim's
 // details.
-func (m *HostManager) setBmhSpec(ctx context.Context, bmh *metal3api.BareMetalHost) (bool, error) {
+func (m *HostManager) setBmhSpec(bmh *metal3api.BareMetalHost) bool {
 	updated := false
-	secretManager := secretutils.NewSecretManager(m.Log, m.client, m.APIReader)
-	ref, err := m.synchronizeDataSecret(ctx, secretManager, bmh, "userdata", m.HostClaim.Spec.UserData, m.HostClaim.Namespace, m.HostClaim.Name)
-	if err != nil && !errors.Is(err, ErrNoSecret) {
-		m.SetConditionHostToFalse(
-			metal3api.SynchronizedCondition, metal3api.BadUserDataSecretReason, err.Error(),
-		)
-		return false, err
-	}
-	if !reflect.DeepEqual(bmh.Spec.UserData, ref) {
-		bmh.Spec.UserData = ref
-		updated = true
-	}
-	ref, err = m.synchronizeDataSecret(ctx, secretManager, bmh, "metadata", m.HostClaim.Spec.MetaData, m.HostClaim.Namespace, m.HostClaim.Name)
-	if err != nil && !errors.Is(err, ErrNoSecret) {
-		m.SetConditionHostToFalse(
-			metal3api.SynchronizedCondition, metal3api.BadMetaDataSecretReason, err.Error(),
-		)
-		return false, err
-	}
-	if !reflect.DeepEqual(bmh.Spec.MetaData, ref) {
-		bmh.Spec.MetaData = ref
-		updated = true
-	}
-	ref, err = m.synchronizeDataSecret(ctx, secretManager, bmh, "networkdata", m.HostClaim.Spec.NetworkData, m.HostClaim.Namespace, m.HostClaim.Name)
-	if err != nil && !errors.Is(err, ErrNoSecret) {
-		m.SetConditionHostToFalse(
-			metal3api.SynchronizedCondition, metal3api.BadNetworkDataSecretReason, err.Error(),
-		)
-		return false, err
-	}
-	if !reflect.DeepEqual(bmh.Spec.NetworkData, ref) {
-		bmh.Spec.NetworkData = ref
-		updated = true
-	}
 	// A host with an existing image is already provisioned and
 	// upgrades are not supported at this time. To re-provision a
 	// host, we must fully deprovision it and then provision it again.
@@ -343,88 +300,7 @@ func (m *HostManager) setBmhSpec(ctx context.Context, bmh *metal3api.BareMetalHo
 	}
 
 	m.SetConditionHostToTrue(metal3api.SynchronizedCondition, metal3api.ConfigurationSyncedReason)
-	return updated, nil
-}
-
-func (m *HostManager) synchronizeDataSecret(
-	ctx context.Context,
-	secretManager secretutils.SecretManager,
-	bmh *metal3api.BareMetalHost,
-	role string,
-	sourceRef *corev1.SecretReference,
-	namespace string,
-	hostName string,
-) (*corev1.SecretReference, error) {
-	if namespace == bmh.Namespace {
-		if sourceRef == nil {
-			return nil, ErrNoSecret
-		}
-		return sourceRef.DeepCopy(), nil
-	}
-	log := m.Log.WithValues("hostclaimName", hostName, "hostclaimNamespace", namespace, "secret-type", role)
-	secretName := bmh.Name + "-hc-" + role
-	if sourceRef == nil {
-		key := client.ObjectKey{Name: secretName, Namespace: bmh.Namespace}
-		targetSecret := corev1.Secret{}
-		err := m.client.Get(ctx, key, &targetSecret)
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				log.Error(err, "Failed to access secret associated to BareMetalHost", "secretName", secretName, "namespace", bmh.Namespace)
-				return nil, err
-			}
-			return nil, ErrNoSecret
-		}
-		if targetSecret.Labels == nil || targetSecret.Labels[HostClaimSecretLabel] != role {
-			return nil, errors.New("cannot delete secret not created by HostClaim")
-		}
-		log.V(1).Info("no configuration secret in hostclaim: destroying in bmh")
-		err = m.client.Delete(ctx, &targetSecret)
-		if err != nil {
-			log.Error(err, "Failed to delete secret associated to BareMetalHost", "secretName", secretName, "namespace", bmh.Namespace)
-		}
-		return nil, err
-	}
-	// For the same reason as bmh, we ignore namespace value in the ref.
-	sourceKey := client.ObjectKey{Name: sourceRef.Name, Namespace: namespace}
-	sourceSecret, err := secretManager.AcquireSecret(ctx, sourceKey, m.HostClaim, false)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			log.Error(err, "Missing source Secret for synchronization from claim to BMH", "source", sourceKey)
-			return nil, RequeueAfterError{RequeueAfter: HostClaimRequeueDelay}
-		}
-		log.Error(err, "Cannot get source Secret for synchronization from claim to BMH", "source", sourceKey)
-		return nil, err
-	}
-	log.V(1).Info("Updating bmh secret with hostclaim secret content")
-	targetSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: bmh.Namespace,
-		},
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, m.client, &targetSecret,
-		func() error {
-			if targetSecret.Labels == nil {
-				targetSecret.Labels = map[string]string{}
-			}
-			if targetSecret.CreationTimestamp.IsZero() {
-				targetSecret.Labels[HostClaimSecretLabel] = role
-			} else if targetSecret.Labels[HostClaimSecretLabel] != role {
-				return errors.New("cannot update a secret not associated to HostClaim")
-			}
-			targetSecret.Labels[secretutils.LabelEnvironmentName] = secretutils.LabelEnvironmentValue
-			if err = controllerutil.SetOwnerReference(bmh, &targetSecret, m.client.Scheme()); err != nil {
-				return err
-			}
-			targetSecret.Data = sourceSecret.DeepCopy().Data
-			return nil
-		},
-	)
-	if err != nil {
-		log.Error(err, "cannot copy/update secret", "source", sourceKey, "target", secretName)
-		return nil, err
-	}
-	return &corev1.SecretReference{Name: secretName, Namespace: bmh.Namespace}, nil
+	return updated
 }
 
 // consumerRefMatches returns a boolean based on whether the consumer

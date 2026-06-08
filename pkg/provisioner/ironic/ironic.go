@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -169,6 +170,9 @@ func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 	if p.nodeID == "" {
 		return nil, provisioner.ErrNeedsRegistration
 	}
+
+	p.log.Info("****** getNode called ******")
+	debug.PrintStack()
 
 	ironicNode, err := nodes.Get(ctx, p.client, p.nodeID).Extract()
 	if err == nil {

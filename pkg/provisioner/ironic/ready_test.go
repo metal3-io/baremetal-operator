@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
@@ -64,10 +65,7 @@ func TestProvisionerIsReady(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			ready, err := prov.TryInit(t.Context())
-			if err != nil {
-				t.Fatalf("could not determine ready state: %s", err)
-			}
+			err = prov.init(t.Context())
 
 			if tc.ironic != nil {
 				assert.Equal(t, tc.expectedIronicCalls, tc.ironic.Requests, "ironic calls")
@@ -75,9 +73,10 @@ func TestProvisionerIsReady(t *testing.T) {
 
 			if tc.expectedError != "" {
 				assert.Regexp(t, tc.expectedError, err, "error message")
-			} else {
+			} else if tc.expectedIsReady {
 				require.NoError(t, err)
-				assert.Equal(t, tc.expectedIsReady, ready, "ready flag")
+			} else {
+				assert.ErrorIs(t, err, provisioner.ErrNotReady)
 			}
 		})
 	}

@@ -1358,7 +1358,8 @@ func TestRegisterDisablePowerOff(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	prov.TryInit(t.Context())
+	prov.availableFeatures.MaxVersion = 95
+
 	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)
@@ -1371,7 +1372,7 @@ func TestRegisterDisablePowerOffNotAvail(t *testing.T) {
 	host := makeHost()
 
 	// Set up ironic server to return the node
-	ironic := testserver.NewIronic(t).WithVersion("1.87").
+	ironic := testserver.NewIronic(t).
 		Node(nodes.Node{
 			UUID: host.Status.Provisioning.ID,
 		}).NodeUpdate(nodes.Node{
@@ -1386,7 +1387,8 @@ func TestRegisterDisablePowerOffNotAvail(t *testing.T) {
 		t.Fatalf("could not create provisioner: %s", err)
 	}
 
-	prov.TryInit(t.Context())
+	prov.availableFeatures.MaxVersion = 89
+
 	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisablePowerOff: true}, false, false)
 	if err != nil {
 		t.Fatalf("error from Register: %s", err)

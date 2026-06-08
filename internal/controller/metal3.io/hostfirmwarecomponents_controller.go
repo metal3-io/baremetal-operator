@@ -130,19 +130,11 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 	info := &rhfcInfo{log: reqLogger, hfc: hfc, bmh: bmh}
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
-	}
-
-	ready, err := prov.TryInit(ctx)
-	if err != nil || !ready {
-		var msg string
-		if err == nil {
-			msg = "not ready"
-		} else {
-			msg = err.Error()
+		if errors.Is(err, provisioner.ErrNotReady) {
+			reqLogger.Info("provisioner is not ready", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
+			return ctrl.Result{RequeueAfter: provisionerRetryDelay}, nil
 		}
-		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerRetryDelay)
-		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
+		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
 	info.log.V(1).Info("retrieving firmware components and saving to resource", "Node", bmh.Status.Provisioning.ID)

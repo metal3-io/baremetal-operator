@@ -2,20 +2,22 @@ package ironic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/v2/pagination"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
-// TryInit checks if the provisioning backend is available.
-func (p *ironicProvisioner) TryInit(ctx context.Context) (ready bool, err error) {
+func (p *ironicProvisioner) init(ctx context.Context) error {
 	p.debugLog.Info("verifying ironic provisioner dependencies")
 
+	var err error
 	p.availableFeatures, err = clients.GetAvailableFeatures(ctx, p.client)
 	if err != nil {
 		p.log.Info("error caught while checking endpoint, will retry", "endpoint", p.client.Endpoint, "error", err)
-		return false, nil
+		return fmt.Errorf("%w: cannot reach ironic endpoint", provisioner.ErrNotReady)
 	}
 
 	p.client.Microversion = p.availableFeatures.ChooseMicroversion()
@@ -24,14 +26,12 @@ func (p *ironicProvisioner) TryInit(ctx context.Context) (ready bool, err error)
 	return p.checkIronicConductor(ctx)
 }
 
-func (p *ironicProvisioner) checkIronicConductor(ctx context.Context) (ready bool, err error) {
+func (p *ironicProvisioner) checkIronicConductor(ctx context.Context) error {
 	pager := drivers.ListDrivers(p.client, drivers.ListDriversOpts{
 		Detail: false,
 	})
-	err = pager.Err
-
-	if err != nil {
-		return ready, err
+	if pager.Err != nil {
+		return pager.Err
 	}
 
 	driverCount := 0
@@ -44,8 +44,9 @@ func (p *ironicProvisioner) checkIronicConductor(ctx context.Context) (ready boo
 		return true, nil
 	})
 
-	// If we have any drivers, conductor is up.
-	ready = driverCount > 0
+	if driverCount == 0 {
+		return fmt.Errorf("%w: no drivers loaded in ironic", provisioner.ErrNotReady)
+	}
 
-	return ready, err
+	return nil
 }

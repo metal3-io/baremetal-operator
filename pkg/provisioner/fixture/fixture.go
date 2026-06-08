@@ -108,7 +108,15 @@ type Fixture struct {
 }
 
 // NewProvisioner returns a new Fixture Provisioner.
+// Returns provisioner.ErrNotReady if BecomeReadyCounter has not reached 0.
 func (f *Fixture) NewProvisioner(_ context.Context, hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
+	if f.BecomeReadyCounter > 0 {
+		f.BecomeReadyCounter--
+	}
+	if f.BecomeReadyCounter != 0 {
+		return nil, provisioner.ErrNotReady
+	}
+
 	p := &fixtureProvisioner{
 		provID:    hostData.ProvisionerID,
 		bmcCreds:  hostData.BMCCredentials,
@@ -391,17 +399,6 @@ func (p *fixtureProvisioner) PowerOff(_ context.Context, _ metal3api.RebootMode,
 	}
 
 	return result, nil
-}
-
-// TryInit returns the current availability status of the provisioner.
-func (p *fixtureProvisioner) TryInit(_ context.Context) (result bool, err error) {
-	p.log.Info("checking provisioner status")
-
-	if p.state.BecomeReadyCounter > 0 {
-		p.state.BecomeReadyCounter--
-	}
-
-	return p.state.BecomeReadyCounter == 0, nil
 }
 
 func (p *fixtureProvisioner) GetFirmwareSettings(_ context.Context, _ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {

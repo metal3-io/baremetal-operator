@@ -99,17 +99,13 @@ func (r *BMCEventSubscriptionReconciler) Reconcile(ctx context.Context, request 
 		return ctrl.Result{}, fmt.Errorf("failed add finalizer: %w", err)
 	}
 
-	prov, ready, err := r.getProvisioner(ctx, request, host)
-
-	if err != nil || !ready {
-		var msg string
-		if err == nil {
-			msg = NotReady
-		} else {
-			msg = err.Error()
+	prov, err := r.getProvisioner(ctx, request, host)
+	if err != nil {
+		if errors.Is(err, provisioner.ErrNotReady) {
+			reqLogger.Info("provisioner is not ready", "Error", err.Error(), "RequeueAfter", provisionerNotReadyRetryDelay)
+			return ctrl.Result{RequeueAfter: provisionerNotReadyRetryDelay}, nil
 		}
-		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerNotReadyRetryDelay)
-		return ctrl.Result{RequeueAfter: provisionerNotReadyRetryDelay}, nil
+		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
 	if subscription.DeletionTimestamp.IsZero() {
@@ -214,27 +210,8 @@ func (r *BMCEventSubscriptionReconciler) deleteSubscription(ctx context.Context,
 	return nil
 }
 
-func (r *BMCEventSubscriptionReconciler) getProvisioner(ctx context.Context, request ctrl.Request, host *metal3api.BareMetalHost) (prov provisioner.Provisioner, ready bool, err error) {
-	reqLogger := r.Log.WithValues("bmceventsubscription", request.NamespacedName)
-
-	prov, err = r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*host), nil)
-	if err != nil {
-		return prov, ready, fmt.Errorf("failed to create provisioner: %w", err)
-	}
-
-	ready, err = prov.TryInit(ctx)
-	if err != nil || !ready {
-		var msg string
-		if err == nil {
-			msg = NotReady
-		} else {
-			msg = err.Error()
-		}
-		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerNotReadyRetryDelay)
-		return prov, ready, nil
-	}
-
-	return prov, ready, nil
+func (r *BMCEventSubscriptionReconciler) getProvisioner(ctx context.Context, _ ctrl.Request, host *metal3api.BareMetalHost) (provisioner.Provisioner, error) {
+	return r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*host), nil)
 }
 
 func (r *BMCEventSubscriptionReconciler) getHTTPHeaders(ctx context.Context, subscription metal3api.BMCEventSubscription) ([]map[string]string, error) {

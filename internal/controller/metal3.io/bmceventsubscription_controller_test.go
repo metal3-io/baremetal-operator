@@ -118,26 +118,23 @@ func TestBMCGetProvisioner(t *testing.T) {
 	for _, tc := range []struct {
 		Scenario string
 		Host     *metal3api.BareMetalHost
-		Expected bool
 	}{
 		{
 			Scenario: "No provisioning id is provided",
 			Host:     host,
-			Expected: true,
 		},
 		{
 			Scenario: "Provisioning id is provided",
 			Host:     HostWithProvisioningID(t, host),
-			Expected: true,
 		},
 	} {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			prov, actual, err := r.getProvisioner(t.Context(), request, tc.Host)
+			prov, err := r.getProvisioner(t.Context(), request, tc.Host)
 			if err != nil {
 				t.Error(err)
 			}
 			t.Log("Provisioner Details:", prov)
-			if tc.Expected && !actual {
+			if prov == nil {
 				t.Error("Expected a ready provisioner")
 			}
 		})

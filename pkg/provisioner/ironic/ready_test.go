@@ -29,7 +29,7 @@ func TestProvisionerIsReady(t *testing.T) {
 		},
 		{
 			name:                "NoDriversLoaded",
-			ironic:              testserver.NewIronic(t),
+			ironic:              testserver.NewIronic(t).WithNoDrivers(),
 			expectedIronicCalls: "/v1/;/v1/drivers;",
 		},
 		{

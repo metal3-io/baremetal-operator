@@ -35,7 +35,7 @@ func (p *ironicProvisioner) checkIronicConductor(ctx context.Context) error {
 	}
 
 	driverCount := 0
-	_ = pager.EachPage(ctx, func(_ context.Context, page pagination.Page) (bool, error) {
+	err := pager.EachPage(ctx, func(_ context.Context, page pagination.Page) (bool, error) {
 		actual, driverErr := drivers.ExtractDrivers(page)
 		if driverErr != nil {
 			return false, driverErr
@@ -43,6 +43,10 @@ func (p *ironicProvisioner) checkIronicConductor(ctx context.Context) error {
 		driverCount += len(actual)
 		return true, nil
 	})
+	if err != nil {
+		p.log.Error(err, "Unexpected error from the drivers API, still initializing?")
+		return fmt.Errorf("%w: unexpected error from the drivers API", provisioner.ErrNotReady)
+	}
 
 	if driverCount == 0 {
 		return fmt.Errorf("%w: no drivers loaded in ironic", provisioner.ErrNotReady)

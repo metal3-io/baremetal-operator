@@ -112,6 +112,16 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 	return m
 }
 
+// WithNoDrivers configures the server so /v1/drivers returns an empty list.
+func (m *IronicMock) WithNoDrivers() *IronicMock {
+	m.ResponseWithCode("/v1/drivers", `
+	{
+		"drivers": []
+	}
+	`, http.StatusOK)
+	return m
+}
+
 func (m *IronicMock) buildURL(url string, method string) string {
 	return fmt.Sprintf("%s:%s", url, method)
 }

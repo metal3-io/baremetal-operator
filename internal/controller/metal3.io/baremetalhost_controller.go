@@ -939,21 +939,24 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return actionUpdate{}
 	}
 
-	// Check if the host can support firmware components before creating the resource
-	_, errGetFirmwareComponents := prov.GetFirmwareComponents(ctx)
-	supportsFirmwareComponents := !errors.Is(errGetFirmwareComponents, provisioner.ErrFirmwareUpdateUnsupported)
-
 	// Create the hostFirmwareSettings resource with same host name/namespace if it doesn't exist
 	// Create the hostFirmwareComponents resource with same host name/namespace if it doesn't exist
 	if info.host.Name != "" {
 		if !info.host.DeletionTimestamp.IsZero() {
 			info.log.Info("will not attempt to create new hostFirmwareSettings and hostFirmwareComponents in " + info.host.Namespace)
 		} else {
+			// Check if the host can support firmware components before creating the resource
+			firmwareComponents, errGetFirmwareComponents := prov.GetFirmwareComponents(ctx)
+			if errGetFirmwareComponents != nil {
+				info.log.V(1).Error(errGetFirmwareComponents, "failed to retrieve firmware components; deferring HostFirmwareComponents creation")
+				firmwareComponents = nil
+			}
+
 			if err = r.createHostFirmwareSettings(ctx, info); err != nil {
 				info.log.Info("failed creating hostfirmwaresettings")
 				return actionError{fmt.Errorf("failed to create or update hostFirmwareSettings: %w", err)}
 			}
-			if supportsFirmwareComponents {
+			if len(firmwareComponents) > 0 {
 				if err = r.createHostFirmwareComponents(ctx, info); err != nil {
 					info.log.Info("failed creating hostfirmwarecomponents")
 					return actionError{fmt.Errorf("failed creating hostFirmwareComponents: %w", err)}

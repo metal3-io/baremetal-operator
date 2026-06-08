@@ -19,6 +19,18 @@ patches:
     kind: Deployment
     name: controller-manager
 
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- name: ironic
+  behavior: merge
+  literals:
+  - IRONIC_NETWORKING_ENABLED=true
+  - IRONIC_SWITCH_CONFIGS_SECRET=metal3-switch-configs
+  - IRONIC_SWITCH_CREDENTIALS_SECRET=metal3-switch-credentials
+  - IRONIC_SWITCH_CREDENTIALS_PATH=/etc/ironic/switch-credentials
+
 images:
 - name: quay.io/metal3-io/baremetal-operator
   newTag: e2e

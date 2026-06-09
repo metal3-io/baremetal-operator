@@ -66,7 +66,7 @@ func TestProvision(t *testing.T) {
 			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
-			expectedErrorMessage: "Image provisioning failed: no work today",
+			expectedErrorMessage: "Image provisioning failed (url: http://test-image, checksum: abcd): no work today",
 		},
 		{
 			name: "cleanFail state",

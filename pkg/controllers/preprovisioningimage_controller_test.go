@@ -7,7 +7,14 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 type mockImageProvider struct {
@@ -201,4 +208,83 @@ func TestConfigChanged(t *testing.T) {
 			assert.Equal(t, tc.expectedHasChanged, result)
 		})
 	}
+}
+
+func newPPITestReconciler(t *testing.T, initObjs ...runtime.Object) *PreprovisioningImageReconciler {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, metal3api.AddToScheme(scheme))
+	c := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithRuntimeObjects(initObjs...).
+		WithStatusSubresource(&metal3api.PreprovisioningImage{}).
+		Build()
+	return &PreprovisioningImageReconciler{
+		Client:        c,
+		Log:           ctrl.Log.WithName("test"),
+		Scheme:        scheme,
+		ImageProvider: &mockImageProvider{supportedFormats: map[metal3api.ImageFormat]bool{metal3api.ImageFormatISO: true}},
+	}
+}
+
+func TestReconcileDeleteWaitsForOtherFinalizers(t *testing.T) {
+	now := metav1.Now()
+	img := &metal3api.PreprovisioningImage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-host",
+			Namespace:         "test-namespace",
+			DeletionTimestamp: &now,
+			Finalizers: []string{
+				metal3api.PreprovisioningImageFinalizer,
+				metal3api.BareMetalHostFinalizer + "/preprovisioningImage",
+			},
+		},
+		Status: metal3api.PreprovisioningImageStatus{
+			Format:   metal3api.ImageFormatISO,
+			ImageUrl: "http://example.test/image.iso",
+		},
+	}
+	r := newPPITestReconciler(t, img)
+
+	result, err := r.Reconcile(t.Context(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "test-host", Namespace: "test-namespace"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+
+	// Verify both finalizers are still present (PPI controller should wait)
+	updated := &metal3api.PreprovisioningImage{}
+	require.NoError(t, r.Client.Get(t.Context(), client.ObjectKey{Name: "test-host", Namespace: "test-namespace"}, updated))
+	assert.Contains(t, updated.Finalizers, metal3api.PreprovisioningImageFinalizer)
+	assert.Contains(t, updated.Finalizers, metal3api.BareMetalHostFinalizer+"/preprovisioningImage")
+}
+
+func TestReconcileDeleteProceedsWithOnlyOwnFinalizer(t *testing.T) {
+	now := metav1.Now()
+	img := &metal3api.PreprovisioningImage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-host",
+			Namespace:         "test-namespace",
+			DeletionTimestamp: &now,
+			Finalizers: []string{
+				metal3api.PreprovisioningImageFinalizer,
+			},
+		},
+		Status: metal3api.PreprovisioningImageStatus{
+			Format:   metal3api.ImageFormatISO,
+			ImageUrl: "http://example.test/image.iso",
+		},
+	}
+	r := newPPITestReconciler(t, img)
+
+	result, err := r.Reconcile(t.Context(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "test-host", Namespace: "test-namespace"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+
+	// With the finalizer removed and DeletionTimestamp set, the object is deleted
+	updated := &metal3api.PreprovisioningImage{}
+	err = r.Client.Get(t.Context(), client.ObjectKey{Name: "test-host", Namespace: "test-namespace"}, updated)
+	assert.True(t, k8serrors.IsNotFound(err), "expected PPI to be deleted after finalizer removal")
 }

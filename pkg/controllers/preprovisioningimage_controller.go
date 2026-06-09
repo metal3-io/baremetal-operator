@@ -83,6 +83,18 @@ func (r *PreprovisioningImageReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if !img.DeletionTimestamp.IsZero() {
+		hasOtherFinalizers := false
+		for _, f := range img.Finalizers {
+			if f != metal3api.PreprovisioningImageFinalizer {
+				hasOtherFinalizers = true
+				break
+			}
+		}
+		if hasOtherFinalizers {
+			log.Info("waiting for other finalizers to be removed before cleanup",
+				"finalizers", img.Finalizers)
+			return ctrl.Result{}, nil
+		}
 		log.Info("cleaning up deleted resource")
 		if err = r.discardExistingImage(&img, log); err != nil {
 			return ctrl.Result{}, err

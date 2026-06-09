@@ -1138,6 +1138,10 @@ func WaitForIronicReady(ctx context.Context, input WaitForIronicInput) {
 	}, input.Intervals...).Should(Succeed())
 
 	Logf("Ironic %q is Ready", input.Name)
+
+	if input.SecurityConfig != nil {
+		VerifyIronicSecurityConfig(ctx, *input.SecurityConfig)
+	}
 }
 
 // WaitForIronicInput bundles the parameters for WaitForIronicReady.
@@ -1146,6 +1150,9 @@ type WaitForIronicInput struct {
 	Name      string
 	Namespace string
 	Intervals []interface{} // e.g. []interface{}{time.Minute * 15, time.Second * 5}
+	// SecurityConfig is optional. When non-nil, TLS and basic-auth security
+	// configuration of the Ironic API endpoint will also be verified.
+	SecurityConfig *IronicSecurityConfig
 }
 
 // ConfigureProvisioningNetwork adds the provisioning IP with /24 netmask to the kind cluster node.

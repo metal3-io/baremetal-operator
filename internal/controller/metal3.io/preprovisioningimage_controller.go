@@ -140,49 +140,69 @@ func configChanged(img *metal3api.PreprovisioningImage, format metal3api.ImageFo
 		img.Status.NetworkData == networkDataStatus)
 }
 
+// findOwnerBMH checks if the owner of a PreProvisioningImage is a BMH and
+// in case the owner is a BMH then the BMH will be returned.
+func (r *PreprovisioningImageReconciler) findOwnerBMH(ctx context.Context, ppi *metal3api.PreprovisioningImage) (*metal3api.BareMetalHost, error) {
+	ownerRef := metav1.GetControllerOf(ppi)
+	if ownerRef == nil {
+		return nil, fmt.Errorf("no controller owner found for PreprovisioningImage %s", ppi.Name)
+	}
+
+	if ownerRef.Kind != "BareMetalHost" {
+		return nil, fmt.Errorf("controller owner is not a BareMetalHost, got %s", ownerRef.Kind)
+	}
+	bmh := &metal3api.BareMetalHost{}
+	key := client.ObjectKey{
+		Name:      ownerRef.Name,
+		Namespace: ppi.Namespace,
+	}
+	err := r.Get(ctx, key, bmh)
+	return bmh, err
+}
+
 // update updates the PreprovisioningImage resource with the latest image information.
 // It checks if the image configuration has changed since the last update, and if so,
 // it discards the existing image, sets up the new image data, and triggers a new
 // image build. If the image configuration has not changed, it simply updates the
 // image status with the latest information.
-func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3api.PreprovisioningImage, log logr.Logger) (bool, error) {
-	generation := img.GetGeneration()
+func (r *PreprovisioningImageReconciler) update(ctx context.Context, ppi *metal3api.PreprovisioningImage, log logr.Logger) (bool, error) {
+	generation := ppi.GetGeneration()
 
-	if !r.ImageProvider.SupportsArchitecture(img.Spec.Architecture) {
-		log.Info("image architecture not supported", "architecture", img.Spec.Architecture)
-		return setError(generation, &img.Status, reasonImageConfigurationError, "Architecture not supported"), nil
+	if !r.ImageProvider.SupportsArchitecture(ppi.Spec.Architecture) {
+		log.Info("image architecture not supported", "architecture", ppi.Spec.Architecture)
+		return setError(generation, &ppi.Status, reasonImageConfigurationError, "Architecture not supported"), nil
 	}
 
-	format := r.getImageFormat(img.Spec, log)
+	format := r.getImageFormat(ppi.Spec, log)
 	if format == "" {
-		return setError(generation, &img.Status, reasonImageConfigurationError, "No acceptable image format supported"), nil
+		return setError(generation, &ppi.Status, reasonImageConfigurationError, "No acceptable image format supported"), nil
 	}
 
 	secretManager := secretutils.NewSecretManager(log, r.Client, r.APIReader)
-	networkData, secretStatus, err := getNetworkData(ctx, secretManager, img)
+	networkData, secretStatus, err := getNetworkData(ctx, secretManager, ppi)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.Info("network data Secret does not exist")
-			return setError(generation, &img.Status, reasonImageMissingNetworkData, "NetworkData secret not found"), err
+			return setError(generation, &ppi.Status, reasonImageMissingNetworkData, "NetworkData secret not found"), err
 		}
 		return false, err
 	}
 
-	if configChanged(img, format, secretStatus) {
+	if configChanged(ppi, format, secretStatus) {
 		reason := "Config changed"
-		if meta.IsStatusConditionTrue(img.Status.Conditions, string(metal3api.ConditionImageReady)) {
+		if meta.IsStatusConditionTrue(ppi.Status.Conditions, string(metal3api.ConditionImageReady)) {
 			// Ensure we mark the status as not ready before we remove the build
 			// from the image cache.
-			setUnready(generation, &img.Status, reason)
+			setUnready(generation, &ppi.Status, reason)
 		} else {
-			if err = r.discardExistingImage(img, log); err != nil {
+			if err = r.discardExistingImage(ppi, log); err != nil {
 				return false, err
 			}
 			// Set up all the data before building the image and adding the URL,
 			// so that even if we fail to write the built image status and the
 			// config subsequently changes, the image cache cannot leak.
-			setImage(generation, &img.Status, imageprovider.GeneratedImage{},
-				format, secretStatus, img.Spec.Architecture,
+			setImage(generation, &ppi.Status, imageprovider.GeneratedImage{},
+				format, secretStatus, ppi.Spec.Architecture,
 				reason)
 		}
 		return true, nil
@@ -193,23 +213,34 @@ func (r *PreprovisioningImageReconciler) update(ctx context.Context, img *metal3
 		networkDataContent = networkData.Data
 	}
 	image, err := r.ImageProvider.BuildImage(imageprovider.ImageData{
-		ImageMetadata:     img.ObjectMeta.DeepCopy(),
+		ImageMetadata:     ppi.ObjectMeta.DeepCopy(),
 		Format:            format,
-		Architecture:      img.Spec.Architecture,
+		Architecture:      ppi.Spec.Architecture,
 		NetworkDataStatus: secretStatus,
 	}, networkDataContent, log)
 	if err != nil {
 		failure := imageprovider.ImageBuildInvalidError{}
 		if errors.As(err, &failure) {
-			log.Info("image build failed", "error", "err")
-			return setError(generation, &img.Status, reasonImageBuildInvalid, failure.Error()), nil
+			log.Info("image build failed", "error", failure)
+			return setError(generation, &ppi.Status, reasonImageBuildInvalid, failure.Error()), nil
 		}
 		return false, err
 	}
+
+	if format == metal3api.ImageFormatInitRD {
+		// Potentially might be other PPI owners in the future when
+		// multi tenancy support is fully implemented
+		bmh, err := r.findOwnerBMH(ctx, ppi)
+		if err != nil {
+			return false, fmt.Errorf("failed to find BareMetalHost: %w", err)
+		}
+		image.ExtraKernelParams = bmh.Spec.PreprovisioningExtraKernelParams
+		log.Info("extra kernel parameters added to PPI", "params", image.ExtraKernelParams)
+	}
 	log.Info("image URL available", "url", image, "format", format)
 
-	return setImage(generation, &img.Status, image, format,
-		secretStatus, img.Spec.Architecture,
+	return setImage(generation, &ppi.Status, image, format,
+		secretStatus, ppi.Spec.Architecture,
 		"Generated image"), nil
 }
 
@@ -227,16 +258,16 @@ func (r *PreprovisioningImageReconciler) getImageFormat(spec metal3api.Preprovis
 	return
 }
 
-func (r *PreprovisioningImageReconciler) discardExistingImage(img *metal3api.PreprovisioningImage, log logr.Logger) error {
-	if img.Status.Format == "" {
+func (r *PreprovisioningImageReconciler) discardExistingImage(ppi *metal3api.PreprovisioningImage, log logr.Logger) error {
+	if ppi.Status.Format == "" {
 		return nil
 	}
-	log.Info("discarding existing image", "image_url", img.Status.ImageUrl)
+	log.Info("discarding existing image", "image_url", ppi.Status.ImageUrl)
 	return r.ImageProvider.DiscardImage(imageprovider.ImageData{
-		ImageMetadata:     img.ObjectMeta.DeepCopy(),
-		Format:            img.Status.Format,
-		Architecture:      img.Status.Architecture,
-		NetworkDataStatus: img.Status.NetworkData,
+		ImageMetadata:     ppi.ObjectMeta.DeepCopy(),
+		Format:            ppi.Status.Format,
+		Architecture:      ppi.Status.Architecture,
+		NetworkDataStatus: ppi.Status.NetworkData,
 	})
 }
 
@@ -255,17 +286,17 @@ func getErrorRetryDelay(status metal3api.PreprovisioningImageStatus) time.Durati
 	return delay
 }
 
-func getNetworkData(ctx context.Context, secretManager secretutils.SecretManager, img *metal3api.PreprovisioningImage) (*corev1.Secret, metal3api.SecretStatus, error) {
-	networkDataSecret := img.Spec.NetworkDataName
+func getNetworkData(ctx context.Context, secretManager secretutils.SecretManager, ppi *metal3api.PreprovisioningImage) (*corev1.Secret, metal3api.SecretStatus, error) {
+	networkDataSecret := ppi.Spec.NetworkDataName
 	if networkDataSecret == "" {
 		return nil, metal3api.SecretStatus{}, nil
 	}
 
 	secretKey := client.ObjectKey{
 		Name:      networkDataSecret,
-		Namespace: img.ObjectMeta.Namespace,
+		Namespace: ppi.ObjectMeta.Namespace,
 	}
-	secret, err := secretManager.AcquireSecret(ctx, secretKey, img, false)
+	secret, err := secretManager.AcquireSecret(ctx, secretKey, ppi, false)
 	if err != nil {
 		return nil, metal3api.SecretStatus{}, err
 	}

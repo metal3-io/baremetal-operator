@@ -102,7 +102,8 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		return result, "", err
 	}
 
-	driverInfo := bmcAccess.DriverInfo(p.bmcCreds)
+	finalPreprovKernParams := fmtPreprovExtraKernParams(data.PreprovisioningExtraKernelParams)
+	driverInfo := bmcAccess.DriverInfo(p.bmcCreds, finalPreprovKernParams)
 	driverInfo = setExternalURL(p, driverInfo)
 
 	// If we have not found a node yet, we need to create one
@@ -148,6 +149,9 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// function.
 		if credentialsChanged || bmcAddressChanged {
 			p.log.Info("Updating driver info because the credentials and/or the BMC address changed")
+			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
+		} else if fmtPreprovExtraKernParams("") != finalPreprovKernParams {
+			p.log.Info("Updating driver info because extra preprovisioning kernel arguments are in use!")
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
 		}
 

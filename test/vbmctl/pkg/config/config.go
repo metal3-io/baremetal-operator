@@ -423,7 +423,7 @@ func (c *Config) ApplyDefaults() {
 			case BMCEmulatorTypeSushyTools:
 				c.Spec.BMCEmulator.Image = DefaultBMCEmulatorSushyToolsImage
 			default:
-				// If the type is unrecognized, we won't set a default image.
+				// If the type is unrecognized, we won't set a default image
 			}
 		}
 		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools {
@@ -434,6 +434,9 @@ func (c *Config) ApplyDefaults() {
 				c.Spec.BMCEmulator.ListenAddress = DefaultNetworkAddress
 			}
 		}
+		// Set storage pool and libvirt URI for BMC emulator to match the main config
+		c.Spec.BMCEmulator.StoragePool = c.Spec.Pool.Name
+		c.Spec.BMCEmulator.LibvirtURI = c.Spec.Libvirt.URI
 	}
 
 	if len(c.Spec.Networks) > 0 {

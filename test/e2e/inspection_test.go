@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"path"
 
+	ironicPort "github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,6 +27,7 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
 		toCleanup     []client.Object
+		forceTrue     = ptr.To("{\"force\": true}")
 	)
 	BeforeEach(func() {
 		toCleanup = nil
@@ -153,6 +156,64 @@ var _ = Describe("Inspection", Label("required", "inspection"), func() {
 			VerifyIronicManagedBoot(e2eConfig, bmc.Address, bmc.IPAddress)
 		} else {
 			Logf("WARNING: Skipping boot source verification since SSH_CHECK_PROVISIONED != true")
+		}
+
+		if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+			getMacList := func(ports []ironicPort.Port) []string {
+				macs := make([]string, 0, len(ports))
+				for _, port := range ports {
+					macs = append(macs, port.Address)
+				}
+				return macs
+			}
+			ironicNodeName := IronicNodeName(bmh.Namespace, bmh.Name)
+
+			By("Get ports in Ironic before detachment and check if they are not empty")
+			portsBefore, errPortsBefore := getIronicNodePorts(ctx, e2eConfig, ironicNodeName)
+			Expect(errPortsBefore).NotTo(HaveOccurred())
+			Expect(portsBefore).To(Not(BeEmpty()))
+
+			By("Adding the detached annotation")
+			AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.DetachedAnnotation, forceTrue)
+
+			By("Waiting for the BMH to be detached")
+			WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.OperationalStatusDetached,
+				UndesiredStates: []metal3api.OperationalStatus{
+					metal3api.OperationalStatusError,
+				},
+			}, e2eConfig.GetIntervals(specName, "wait-detached")...)
+
+			By("Retrieving the latest BMH object")
+			err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmh.Name,
+				Namespace: bmh.Namespace,
+			}, &bmh)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Removing the detached annotation")
+			AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.DetachedAnnotation, nil)
+
+			By("Waiting for BMH to be reconciled")
+			WaitForBmhReconciled(ctx, clusterProxy.GetClient(), bmh,
+				e2eConfig.GetIntervals("default", "wait-deployment")...)
+
+			By("Waiting for the BMH to be OK")
+			WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    bmh,
+				State:  metal3api.OperationalStatusOK,
+				UndesiredStates: []metal3api.OperationalStatus{
+					metal3api.OperationalStatusError,
+				},
+			}, e2eConfig.GetIntervals(specName, "wait-deployment")...)
+
+			By("Get ports in Ironic after re-attachment and check if they are the same")
+			portsAfter, errPortsAfter := getIronicNodePorts(ctx, e2eConfig, ironicNodeName)
+			Expect(errPortsAfter).NotTo(HaveOccurred())
+			Expect(getMacList(portsAfter)).To(ConsistOf(getMacList(portsBefore)))
 		}
 	})
 

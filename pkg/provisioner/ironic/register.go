@@ -10,6 +10,7 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -130,16 +131,6 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 
 		updater.SetTopLevelOpt("name", ironicNodeName(p.objectMeta), ironicNode.Name)
 
-		// When node exists but has no assigned port to it by Ironic and actuall address (MAC) is present
-		// in host config and is not allocated to different node lets try to create port for this node.
-		if p.bootMACAddress != "" {
-			err = p.ensurePort(ctx, ironicNode)
-			if err != nil {
-				result, err = transientError(err)
-				return result, provID, err
-			}
-		}
-
 		bmcAddressChanged := !bmcAddressMatches(ironicNode, driverInfo)
 
 		// The actual password is not returned from ironic, so we want to
@@ -166,6 +157,15 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// We don't return here because we also have to set the
 		// target provision state to manageable, which happens
 		// below.
+	}
+
+	// Try to create ports from two sources
+	// bootMACAddress if available
+	// HardwareData whenever inspection data is available.
+	err = p.createPortsForNode(ctx, ironicNode, data.HardwareData)
+	if err != nil {
+		result, err = transientError(err)
+		return result, provID, err
 	}
 
 	// If no PreprovisioningImage builder is enabled we set the Node network_data
@@ -280,35 +280,48 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 		return nil, true, fmt.Errorf("failed to register host in ironic: %w", err)
 	}
 
-	// If we know the MAC, create a port. Otherwise we will have
-	// to do this after we run the introspection step.
-	if p.bootMACAddress != "" {
-		err = p.createPXEEnabledNodePort(ctx, ironicNode.UUID, p.bootMACAddress)
-		if err != nil {
-			return nil, true, err
-		}
-	}
-
 	return ironicNode, false, nil
 }
 
-func (p *ironicProvisioner) ensurePort(ctx context.Context, ironicNode *nodes.Node) error {
-	nodeHasAssignedPort, err := p.nodeHasAssignedPort(ctx, ironicNode)
+func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *nodes.Node, hardwareData *metal3api.HardwareData) error {
+	if p.bootMACAddress == "" && (hardwareData == nil || hardwareData.Spec.HardwareDetails == nil) {
+		// we don't have anything to process, gracefully returning
+		return nil
+	}
+
+	// Mac/PXE status map
+	portMacsToCreate := map[string]bool{}
+	var nics []metal3api.NIC
+	if hardwareData != nil && hardwareData.Spec.HardwareDetails != nil {
+		nics = hardwareData.Spec.HardwareDetails.NIC
+	}
+
+	ironicNodePorts, err := p.getPorts(ctx, ironicNode.UUID, "")
 	if err != nil {
 		return err
 	}
 
-	if !nodeHasAssignedPort {
-		addressIsAllocatedToPort, err := p.isAddressAllocatedToPort(ctx, p.bootMACAddress)
+	ironicNodePortsList := map[string]ports.Port{}
+	for _, port := range ironicNodePorts {
+		ironicNodePortsList[port.Address] = port
+	}
+
+	for _, nic := range nics {
+		if _, ok := ironicNodePortsList[nic.MAC]; nic.MAC != "" && !ok {
+			portMacsToCreate[nic.MAC] = nic.PXE
+		}
+	}
+
+	if _, ok := ironicNodePortsList[p.bootMACAddress]; p.bootMACAddress != "" && !ok {
+		portMacsToCreate[p.bootMACAddress] = true
+	}
+
+	p.log.Info("creating ports for node", "nodeUUID", ironicNode.UUID, "MACs", portMacsToCreate)
+
+	for mac, pxe := range portMacsToCreate {
+		err := p.createNodePort(ctx, ironicNode.UUID, mac, pxe)
 		if err != nil {
 			return err
-		}
-
-		if !addressIsAllocatedToPort {
-			err = p.createPXEEnabledNodePort(ctx, ironicNode.UUID, p.bootMACAddress)
-			if err != nil {
-				return err
-			}
 		}
 	}
 

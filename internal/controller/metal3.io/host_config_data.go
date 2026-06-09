@@ -9,8 +9,23 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+// hostInDeletionFlow reports whether the host is being removed. During this
+// window a missing preprovisioning network Secret should not block progress.
+func hostInDeletionFlow(host *metal3api.BareMetalHost) bool {
+	if !host.DeletionTimestamp.IsZero() {
+		return true
+	}
+	switch host.Status.Provisioning.State {
+	case metal3api.StateDeleting, metal3api.StatePoweringOffBeforeDelete:
+		return true
+	default:
+		return false
+	}
+}
 
 // hostConfigData is an implementation of host configuration data interface.
 // Object is able to retrieve data from secrets referenced in a host spec.
@@ -23,7 +38,7 @@ type hostConfigData struct {
 // Generic method for data extraction from a Secret. Function uses dataKey
 // parameter to detirmine which data to return in case secret contins multiple
 // keys.
-func (hcd *hostConfigData) getSecretData(ctx context.Context, name, namespace, dataKey string) (string, error) {
+func (hcd *hostConfigData) getSecretData(ctx context.Context, name, namespace, dataKey string, addFinalizer bool) (string, error) {
 	if namespace != hcd.host.Namespace {
 		return "", fmt.Errorf("%s secret must be in same namespace as host %s/%s", dataKey, hcd.host.Namespace, hcd.host.Name)
 	}
@@ -33,7 +48,7 @@ func (hcd *hostConfigData) getSecretData(ctx context.Context, name, namespace, d
 		Namespace: namespace,
 	}
 
-	secret, err := hcd.secretManager.ObtainSecret(ctx, key)
+	secret, err := hcd.secretManager.ObtainSecretWithFinalizer(ctx, key, addFinalizer)
 	if err != nil {
 		return "", err
 	}
@@ -67,6 +82,7 @@ func (hcd *hostConfigData) UserData(ctx context.Context) (string, error) {
 		hcd.host.Spec.UserData.Name,
 		namespace,
 		"userData",
+		false,
 	)
 }
 
@@ -91,6 +107,7 @@ func (hcd *hostConfigData) NetworkData(ctx context.Context) (string, error) {
 		networkData.Name,
 		namespace,
 		"networkData",
+		false,
 	)
 	if err != nil {
 		var noDataErr NoDataInSecretError
@@ -107,16 +124,22 @@ func (hcd *hostConfigData) PreprovisioningNetworkData(ctx context.Context) (stri
 	if hcd.host.Spec.PreprovisioningNetworkDataName == "" {
 		return "", nil
 	}
+	addFinalizer := !hostInDeletionFlow(hcd.host)
 	networkDataRaw, err := hcd.getSecretData(
 		ctx,
 		hcd.host.Spec.PreprovisioningNetworkDataName,
 		hcd.host.Namespace,
 		"networkData",
+		addFinalizer,
 	)
 	if err != nil {
 		var noDataErr NoDataInSecretError
 		if errors.As(err, &noDataErr) {
 			hcd.log.Info("PreprovisioningNetworkData networkData key is not set, returning empty data")
+			return "", nil
+		}
+		if k8serrors.IsNotFound(err) && hostInDeletionFlow(hcd.host) {
+			hcd.log.Info("PreprovisioningNetworkData secret not found during host deletion, returning empty data")
 			return "", nil
 		}
 	}
@@ -138,5 +161,6 @@ func (hcd *hostConfigData) MetaData(ctx context.Context) (string, error) {
 		hcd.host.Spec.MetaData.Name,
 		namespace,
 		"metaData",
+		false,
 	)
 }

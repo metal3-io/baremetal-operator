@@ -6,7 +6,6 @@ package e2e
 import (
 	"context"
 	"path"
-	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -45,7 +44,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware"), func()
 
 	BeforeEach(func() {
 		// FIXME(dtantsur): find a more elegant way to check for this feature
-		if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") || !strings.Contains(bmc.Address, "redfish") {
+		if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") || bmc.AccessDetails.Driver() != "redfish" {
 			Skip("HFS tests require a real Ironic and a host with Redfish")
 		}
 

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	bmclib "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"gopkg.in/yaml.v2"
 )
 
@@ -32,6 +33,8 @@ type BMC struct {
 	IPAddress string `yaml:"ipAddress,omitempty"`
 	// RootDeviceHints provides guidance for where to write the disk image.
 	RootDeviceHints metal3api.RootDeviceHints `yaml:"rootDeviceHints,omitempty"`
+	// AccessDetails is a parsed version of Address.
+	AccessDetails bmclib.AccessDetails
 }
 
 func LoadBMCConfig(configPath string) ([]BMC, error) {
@@ -43,5 +46,14 @@ func LoadBMCConfig(configPath string) ([]BMC, error) {
 	if err := yaml.Unmarshal(configData, &bmcs); err != nil {
 		return nil, err
 	}
-	return bmcs, nil
+	result := make([]BMC, 0, len(bmcs))
+	for _, bmc := range bmcs {
+		accessDetails, err := bmclib.NewAccessDetails(bmc.Address, bmc.DisableCertificateVerification)
+		if err != nil {
+			return nil, err
+		}
+		bmc.AccessDetails = accessDetails
+		result = append(result, bmc)
+	}
+	return result, nil
 }

@@ -114,9 +114,11 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		client := EstablishSSHConnection(e2eConfig, bmc.IPAddress)
 
 		By("Check that the mount point exists")
-		output, err := executeSSHCommand(client, "lsblk -o NAME,MOUNTPOINT | grep vdb")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(output).To(ContainSubstring("/mnt/data"), "Mount point /mnt/data should exist")
+		Eventually(func(g Gomega) {
+			output, sshErr := executeSSHCommand(client, "lsblk -o NAME,MOUNTPOINT | grep vdb")
+			g.Expect(sshErr).NotTo(HaveOccurred())
+			g.Expect(output).To(ContainSubstring("/mnt/data"), "Mount point /mnt/data should exist")
+		}, e2eConfig.GetIntervals(specName, "wait-user-data")...).Should(Succeed())
 
 		By("Checking that the disks have the test file")
 		_, err = executeSSHCommand(client, "ls -la /test_file_vda.txt")
@@ -183,7 +185,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 		defer client.Close()
 
 		By("Checking that the first disk has been cleaned")
-		output, err = executeSSHCommand(client, "ls -la /test_file_vda.txt 2>/dev/null || echo 'file not found'")
+		output, err := executeSSHCommand(client, "ls -la /test_file_vda.txt 2>/dev/null || echo 'file not found'")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("file not found"), "Test file /test_file_vda.txt should have been cleaned")
 

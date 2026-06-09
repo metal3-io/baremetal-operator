@@ -463,9 +463,13 @@ func (m *IronicMock) BIOSDetailSettings(nodeUUID string) *IronicMock {
 	return m
 }
 
-// NoBIOS configures the server so /v1/node/<node>/bios returns a 404.
+// NoBIOS configures the server so /v1/nodes/<node>/bios returns a 404.
 func (m *IronicMock) NoBIOS(nodeUUID string) *IronicMock {
-	return m.NodeError(nodeUUID, http.StatusNotFound)
+	m.ErrorResponse(v1node+nodeUUID+"/bios", http.StatusNotFound)
+	m.AddDefaultResponseJSON(v1node+nodeUUID, "", http.StatusOK, nodes.Node{
+		UUID: nodeUUID,
+	})
+	return m
 }
 
 // WithInventory configures the server with a valid response for /v1/nodes/<node>/inventory.

@@ -22,6 +22,7 @@ func TestGetFirmwareSettings(t *testing.T) {
 
 	cases := []struct {
 		name                string
+		nodeUUID            string
 		expectedSettingsMap metal3api.SettingsMap
 		expectedSchemaMap   map[string]metal3api.SettingSchema
 		includeSchema       bool
@@ -29,7 +30,8 @@ func TestGetFirmwareSettings(t *testing.T) {
 		expectedError       string
 	}{
 		{
-			name: "no-schema",
+			name:     "no-schema",
+			nodeUUID: nodeUUID,
 			expectedSettingsMap: metal3api.SettingsMap{
 				"L2Cache":            "10x256 KB",
 				"NumCores":           "10",
@@ -41,7 +43,8 @@ func TestGetFirmwareSettings(t *testing.T) {
 			expectedError:     "",
 		},
 		{
-			name: "include-schema",
+			name:     "include-schema",
+			nodeUUID: nodeUUID,
 			expectedSettingsMap: metal3api.SettingsMap{
 				"L2Cache":            "10x256 KB",
 				"NumCores":           "10",
@@ -85,11 +88,20 @@ func TestGetFirmwareSettings(t *testing.T) {
 		},
 		{
 			name:                "error404",
+			nodeUUID:            nodeUUID,
 			expectedSettingsMap: metal3api.SettingsMap(nil),
 			expectedSchemaMap:   map[string]metal3api.SettingSchema(nil),
 			ironic:              testserver.NewIronic(t).NoBIOS(nodeUUID),
 			includeSchema:       false,
-			expectedError:       "could not get node for BIOS settings: host not registered",
+			expectedError:       "could not get BIOS settings for node .* got 404 instead.*",
+		},
+		{
+			name:                "not-registered",
+			expectedSettingsMap: metal3api.SettingsMap(nil),
+			expectedSchemaMap:   map[string]metal3api.SettingSchema(nil),
+			ironic:              testserver.NewIronic(t).NoBIOS(nodeUUID),
+			includeSchema:       false,
+			expectedError:       "could not get BIOS settings: host not registered",
 		},
 	}
 
@@ -100,7 +112,7 @@ func TestGetFirmwareSettings(t *testing.T) {
 
 			host := makeHost()
 			host.Name = "node-1"
-			host.Status.Provisioning.ID = nodeUUID
+			host.Status.Provisioning.ID = tc.nodeUUID
 
 			auth := clients.AuthConfig{Type: clients.NoAuth}
 

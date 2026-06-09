@@ -733,9 +733,8 @@ func (p *ironicProvisioner) getInstanceUpdateOpts(ironicNode *nodes.Node, data p
 
 // GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps.
 func (p *ironicProvisioner) GetFirmwareSettings(ctx context.Context, includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
-	ironicNode, err := p.getNode(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not get node for BIOS settings: %w", err)
+	if p.nodeID == "" {
+		return nil, nil, fmt.Errorf("could not get BIOS settings: %w", provisioner.ErrNeedsRegistration)
 	}
 
 	// Get the settings from Ironic via Gophercloud
@@ -743,14 +742,14 @@ func (p *ironicProvisioner) GetFirmwareSettings(ctx context.Context, includeSche
 	var biosListErr error
 	if includeSchema {
 		opts := nodes.ListBIOSSettingsOpts{Detail: true}
-		settingsList, biosListErr = nodes.ListBIOSSettings(ctx, p.client, ironicNode.UUID, opts).Extract()
+		settingsList, biosListErr = nodes.ListBIOSSettings(ctx, p.client, p.nodeID, opts).Extract()
 	} else {
-		settingsList, biosListErr = nodes.ListBIOSSettings(ctx, p.client, ironicNode.UUID, nil).Extract()
+		settingsList, biosListErr = nodes.ListBIOSSettings(ctx, p.client, p.nodeID, nil).Extract()
 	}
 	if biosListErr != nil {
-		return nil, nil, fmt.Errorf("could not get BIOS settings for node %s: %w", ironicNode.UUID, biosListErr)
+		return nil, nil, fmt.Errorf("could not get BIOS settings for node %s: %w", p.nodeID, biosListErr)
 	}
-	p.log.Info("retrieved BIOS settings for node", "node", ironicNode.UUID, "size", len(settingsList))
+	p.log.Info("retrieved BIOS settings for node", "node", p.nodeID, "size", len(settingsList))
 
 	settings = make(map[string]string)
 	schema = make(map[string]metal3api.SettingSchema)

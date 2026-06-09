@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -150,9 +149,6 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 	components, err := prov.GetFirmwareComponents(ctx)
 
 	if err != nil {
-		if errors.Is(err, provisioner.ErrFirmwareUpdateUnsupported) {
-			return ctrl.Result{}, nil
-		}
 		reqLogger.Info("provisioner returns error", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}

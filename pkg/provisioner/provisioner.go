@@ -278,9 +278,6 @@ var ErrNeedsRegistration = errors.New("host not registered")
 // required.
 var ErrNeedsPreprovisioningImage = errors.New("no suitable Preprovisioning image available")
 
-// ErrFirmwareUpdateUnsupported is returned if the host can't execute firmware updates.
-var ErrFirmwareUpdateUnsupported = errors.New("host does not support Firmware Updates")
-
 // ErrNodeIsBusy is returned when the node is busy due to being reserved for another
 // task.
 var ErrNodeIsBusy = errors.New("node is busy")

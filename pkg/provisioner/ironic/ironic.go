@@ -778,28 +778,23 @@ func (p *ironicProvisioner) GetFirmwareSettings(ctx context.Context, includeSche
 
 // GetFirmwareComponents gets all available firmware components for a node and return a list.
 func (p *ironicProvisioner) GetFirmwareComponents(ctx context.Context) ([]metal3api.FirmwareComponentStatus, error) {
-	ironicNode, err := p.getNode(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("could not get node to retrieve firmware components: %w", err)
+	if p.nodeID == "" {
+		return nil, fmt.Errorf("could not retrieve firmware components: %w", provisioner.ErrNeedsRegistration)
 	}
 
 	// We support bmc, bios, and multiple NICs components. Starting with 3 slots.
 	componentsInfo := make([]metal3api.FirmwareComponentStatus, 0, 3) //nolint:mnd
 
-	if ironicNode.FirmwareInterface == "no-firmware" {
-		return componentsInfo, provisioner.ErrFirmwareUpdateUnsupported
-	}
 	// Get the components from Ironic via Gophercloud
-	componentList, componentListErr := nodes.ListFirmware(ctx, p.client, ironicNode.UUID).Extract()
-
-	if componentListErr != nil {
-		return nil, fmt.Errorf("could not get firmware components for node %s: %w", ironicNode.UUID, componentListErr)
+	componentList, err := nodes.ListFirmware(ctx, p.client, p.nodeID).Extract()
+	if err != nil {
+		return nil, fmt.Errorf("could not get firmware components for node %s: %w", p.nodeID, err)
 	}
 
 	// Iterate over the list of components to extract their information and update the list.
 	for _, fwc := range componentList {
 		if fwc.Component != "bios" && fwc.Component != "bmc" && !strings.HasPrefix(fwc.Component, metal3api.NICComponentPrefix) {
-			p.log.Info("ignoring firmware component for node", "component", fwc.Component, "node", ironicNode.UUID)
+			p.log.Info("ignoring firmware component for node", "component", fwc.Component, "node", p.nodeID)
 			continue
 		}
 		component := metal3api.FirmwareComponentStatus{
@@ -815,10 +810,10 @@ func (p *ironicProvisioner) GetFirmwareComponents(ctx context.Context) ([]metal3
 			}
 		}
 		componentsInfo = append(componentsInfo, component)
-		p.log.V(1).Info("firmware component found for node", "component", fwc.Component, "node", ironicNode.UUID)
+		p.log.V(1).Info("firmware component found for node", "component", fwc.Component, "node", p.nodeID)
 	}
 
-	return componentsInfo, componentListErr
+	return componentsInfo, err
 }
 
 func (p *ironicProvisioner) setUpForProvisioning(ctx context.Context, ironicNode *nodes.Node, data provisioner.ProvisionData) (result provisioner.Result, err error) {

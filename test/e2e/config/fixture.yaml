@@ -65,19 +65,16 @@ intervals:
   default/wait-externally-provisioned: [ "1m", "10ms" ]
   baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
 
-bmoIronicUpgradeSpecs:
+bmoUpgradeSpecs:
 - deployIronic: false
   deployBMO: true
   initBMOKustomization: "../../config/overlays/fixture-release-0.11"
-  upgradeEntityKustomization: "../../config/overlays/fixture"
-  upgradeEntityName: "bmo"
+  upgradeBMOKustomization: "../../config/overlays/fixture"
 - deployIronic: false
   deployBMO: true
   initBMOKustomization: "../../config/overlays/fixture-release-0.12"
-  upgradeEntityKustomization: "../../config/overlays/fixture"
-  upgradeEntityName: "bmo"
+  upgradeBMOKustomization: "../../config/overlays/fixture"
 - deployIronic: false
   deployBMO: true
   initBMOKustomization: "../../config/overlays/fixture-release-0.13"
-  upgradeEntityKustomization: "../../config/overlays/fixture"
-  upgradeEntityName: "bmo"
+  upgradeBMOKustomization: "../../config/overlays/fixture"

@@ -72,7 +72,7 @@ func TestPrepare(t *testing.T) {
 			unprepared:           true,
 			existRaidConfig:      true,
 			expectedStarted:      true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -95,7 +95,7 @@ func TestPrepare(t *testing.T) {
 			unprepared:           true,
 			existRaidConfig:      true,
 			expectedStarted:      false,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -117,7 +117,7 @@ func TestPrepare(t *testing.T) {
 			unprepared:           true,
 			existRaidConfig:      true,
 			expectedStarted:      false,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{

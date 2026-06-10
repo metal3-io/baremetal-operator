@@ -12,8 +12,8 @@ import (
 )
 
 var log = logz.New().WithName("provisioner").WithName("fixture")
-var deprovisionRequeueDelay = time.Second * 10
-var provisionRequeueDelay = time.Second * 10
+var shortRetryDelay = time.Second * 3
+var longRetryDelay = time.Second * 10
 var inspectionRequeueDelay = time.Second * 2
 
 const (
@@ -266,7 +266,7 @@ func (p *fixtureProvisioner) Adopt(_ context.Context, _ provisioner.AdoptData, _
 	if !p.state.adopted {
 		p.state.adopted = true
 		result.Dirty = true
-		result.RequeueAfter = provisionRequeueDelay
+		result.RequeueAfter = shortRetryDelay
 	}
 	return
 }
@@ -282,7 +282,7 @@ func (p *fixtureProvisioner) Provision(_ context.Context, data provisioner.Provi
 		p.log.Info("moving to done")
 		p.state.customDeploy = data.CustomDeploy.DeepCopy()
 		result.Dirty = true
-		result.RequeueAfter = provisionRequeueDelay
+		result.RequeueAfter = longRetryDelay
 		return result, nil
 	}
 
@@ -291,7 +291,7 @@ func (p *fixtureProvisioner) Provision(_ context.Context, data provisioner.Provi
 		p.log.Info("moving to done")
 		p.state.image = data.Image
 		result.Dirty = true
-		result.RequeueAfter = provisionRequeueDelay
+		result.RequeueAfter = longRetryDelay
 	}
 
 	return result, nil
@@ -303,7 +303,7 @@ func (p *fixtureProvisioner) Provision(_ context.Context, data provisioner.Provi
 func (p *fixtureProvisioner) Deprovision(_ context.Context, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is deprovisioned")
 
-	result.RequeueAfter = deprovisionRequeueDelay
+	result.RequeueAfter = longRetryDelay
 
 	// NOTE(dhellmann): In order to simulate a multi-step process,
 	// modify some of the status data structures. This is likely not

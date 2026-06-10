@@ -42,7 +42,7 @@ func TestPowerOn(t *testing.T) {
 				UUID:             nodeUUID,
 			}),
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "power-on normal",
@@ -62,7 +62,7 @@ func TestPowerOn(t *testing.T) {
 				TargetProvisionState: string(nodes.TargetDeleted),
 				UUID:                 nodeUUID,
 			}),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -73,7 +73,7 @@ func TestPowerOn(t *testing.T) {
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -166,7 +166,7 @@ func TestPowerOff(t *testing.T) {
 				UUID:             nodeUUID,
 			}),
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "power-off normal",
@@ -197,7 +197,7 @@ func TestPowerOff(t *testing.T) {
 				TargetProvisionState: string(nodes.TargetDeleted),
 				UUID:                 nodeUUID,
 			}),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -207,7 +207,7 @@ func TestPowerOff(t *testing.T) {
 				TargetProvisionState: "",
 				UUID:                 nodeUUID,
 			}).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -257,7 +257,7 @@ func TestPowerOff(t *testing.T) {
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			rebootMode:           metal3api.RebootModeHard,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "power-off while in Inspecting",
@@ -281,7 +281,7 @@ func TestPowerOff(t *testing.T) {
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			rebootMode:           metal3api.RebootModeHard,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			name: "power-off while in CleanWait - automated cleaning disabled",
@@ -294,7 +294,7 @@ func TestPowerOff(t *testing.T) {
 			automatedCleaningMode: metal3api.CleaningModeDisabled,
 			rebootMode:            metal3api.RebootModeHard,
 			expectedDirty:         true,
-			expectedRequestAfter:  10,
+			expectedRequestAfter:  3,
 		},
 		{
 			name: "power-off while in CleanWait - automated cleaning enabled",
@@ -360,7 +360,7 @@ func TestPowerOff(t *testing.T) {
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
 			rebootMode:           metal3api.RebootModeHard,
 			expectedDirty:        true,
-			expectedRequestAfter: 10,
+			expectedRequestAfter: 3,
 		},
 		{
 			// When InspectFail with TargetProvisionState clear and abort error,

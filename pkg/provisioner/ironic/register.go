@@ -116,7 +116,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 			return result, "", err
 		}
 		if retry {
-			result, err = retryAfterDelay(provisionRequeueDelay)
+			result, err = retryAfterDelay(shortRetryDelay)
 			return result, "", err
 		}
 		// Store the ID so other methods can assume it is set and so
@@ -211,7 +211,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		if ironicNode.TargetProvisionState == string(nodes.TargetManage) {
 			// We have already tried to manage the node and did not
 			// get an error, so do nothing and keep trying.
-			result, err = operationContinuing(provisionRequeueDelay)
+			result, err = operationContinuing(shortRetryDelay)
 			return result, provID, err
 		}
 
@@ -226,7 +226,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// If we're still waiting for the state to change in Ironic,
 		// return true to indicate that we're dirty and need to be
 		// reconciled again.
-		result, err = operationContinuing(provisionRequeueDelay)
+		result, err = operationContinuing(shortRetryDelay)
 		return result, provID, err
 
 	case nodes.CleanWait,

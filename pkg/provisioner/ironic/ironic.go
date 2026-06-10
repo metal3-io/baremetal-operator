@@ -24,12 +24,16 @@ import (
 )
 
 var (
-	deprovisionRequeueDelay   = time.Second * 10
-	provisionRequeueDelay     = time.Second * 10
-	powerRequeueDelay         = time.Second * 10
-	subscriptionRequeueDelay  = time.Second * 10
-	introspectionRequeueDelay = time.Second * 15
-	softPowerOffTimeout       = time.Second * 180
+	// shortRetryDelay is used for operations that are expected to complete
+	// within a few seconds: manage, provide (without cleaning), abort,
+	// locked node retries, power state changes.
+	shortRetryDelay = time.Second * 3
+
+	// longRetryDelay is used for operations that involve booting a ramdisk
+	// or performing lengthy tasks: inspecting, cleaning, servicing, deploying.
+	longRetryDelay = time.Second * 10
+
+	softPowerOffTimeout = time.Second * 180
 )
 
 const (
@@ -479,7 +483,7 @@ func (p *ironicProvisioner) tryUpdateNode(ctx context.Context, ironicNode *nodes
 		success = true
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not update node settings in ironic, busy or update cannot be applied in the current state")
-		result, err = retryAfterDelay(provisionRequeueDelay)
+		result, err = retryAfterDelay(shortRetryDelay)
 	} else {
 		result, err = transientError(fmt.Errorf("failed to update host settings in ironic: %w", err))
 	}
@@ -497,7 +501,7 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ctx context.Context, iro
 	// Changing provision state in maintenance mode will not work.
 	if ironicNode.Fault != "" {
 		p.log.Info("node has a fault, will retry", "fault", ironicNode.Fault, "reason", ironicNode.MaintenanceReason)
-		result, err = retryAfterDelay(provisionRequeueDelay)
+		result, err = retryAfterDelay(longRetryDelay)
 		return success, result, err
 	}
 	if ironicNode.Maintenance {
@@ -511,14 +515,14 @@ func (p *ironicProvisioner) tryChangeNodeProvisionState(ctx context.Context, iro
 		success = true
 	} else if gophercloud.ResponseCodeIs(changeResult.Err, http.StatusConflict) {
 		p.log.Info("could not change state of host, busy")
-		result, err = retryAfterDelay(provisionRequeueDelay)
+		result, err = retryAfterDelay(shortRetryDelay)
 		return success, result, err
 	} else {
 		result, err = transientError(fmt.Errorf("failed to change provisioning state to %q: %w", opts.Target, changeResult.Err))
 		return success, result, err
 	}
 
-	result, err = operationContinuing(provisionRequeueDelay)
+	result, err = operationContinuing(shortRetryDelay)
 	return success, result, err
 }
 
@@ -799,7 +803,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ctx context.Context, ironicNode
 	errorMessage, err := p.validateNode(ctx, ironicNode)
 	if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not validate host during registration, busy")
-		return retryAfterDelay(provisionRequeueDelay)
+		return retryAfterDelay(shortRetryDelay)
 	} else if err != nil {
 		return transientError(fmt.Errorf("failed to validate host during registration: %w", err))
 	}
@@ -858,7 +862,7 @@ func (p *ironicProvisioner) Adopt(ctx context.Context, data provisioner.AdoptDat
 			},
 		)
 	case nodes.Adopting:
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(shortRetryDelay)
 	case nodes.AdoptFail:
 		if restartOnFailure {
 			return p.changeNodeProvisionState(ctx, ironicNode,
@@ -1137,7 +1141,7 @@ func (p *ironicProvisioner) Prepare(ctx context.Context, data provisioner.Prepar
 		p.log.Info("waiting for host to become manageable",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep)
-		result, err = operationContinuing(provisionRequeueDelay)
+		result, err = operationContinuing(longRetryDelay)
 
 	default:
 		result, err = transientError(fmt.Errorf("have unexpected ironic node state %s", ironicNode.ProvisionState))
@@ -1329,7 +1333,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 		p.log.Info("waiting for host to become active or available",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep, "clean step", ironicNode.CleanStep)
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 	}
 }
 
@@ -1345,7 +1349,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ctx context.Context, ironicNode *
 		result, err = operationContinuing(0)
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not update maintenance in ironic, busy")
-		result, err = retryAfterDelay(provisionRequeueDelay)
+		result, err = retryAfterDelay(shortRetryDelay)
 	} else {
 		err = fmt.Errorf("failed to set host maintenance flag to %v (%w)", value, err)
 		result, err = transientError(err)
@@ -1448,21 +1452,21 @@ func (p *ironicProvisioner) Deprovision(ctx context.Context, restartOnFailure bo
 	case nodes.Deleting:
 		p.log.Info("deleting")
 		// Transitions to Cleaning upon completion
-		return operationContinuing(deprovisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
 		// Transitions to Available upon completion
-		return operationContinuing(deprovisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 
 	case nodes.CleanWait:
 		p.log.Info("cleaning")
-		return operationContinuing(deprovisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 
 	case nodes.Deploying:
 		p.log.Info("previous deploy running")
 		// Deploying cannot be stopped, wait for DeployWait or Active
-		return operationContinuing(deprovisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 
 	case nodes.Active, nodes.DeployFail, nodes.DeployWait:
 		// Before starting deprovisioning, ensure Ironic's automated_clean matches the BMH spec.
@@ -1520,7 +1524,7 @@ func (p *ironicProvisioner) realDelete(ctx context.Context, ironicNode *nodes.No
 		// verification, so we can't set maintenance mode or delete until it completes.
 		// Just wait for the verification to finish (success or timeout).
 		p.log.Info("node is verifying, waiting for verification to complete before deletion")
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(shortRetryDelay)
 
 	case nodes.Enroll:
 		// For enroll state, the node can be deleted directly without maintenance mode
@@ -1543,7 +1547,7 @@ func (p *ironicProvisioner) realDelete(ctx context.Context, ironicNode *nodes.No
 
 	case nodes.Deploying, nodes.Cleaning, nodes.Inspecting, nodes.Servicing, nodes.Deleting:
 		p.log.Info("node is in state that does not allow deletion, waiting", "currentState", currentProvState)
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 
 	case nodes.DeployWait:
 		if force && !p.availableFeatures.HasDeploymentAbort() {
@@ -1567,7 +1571,7 @@ func (p *ironicProvisioner) realDelete(ctx context.Context, ironicNode *nodes.No
 
 		// Normal deletion won't work in these states, so wait
 		p.log.Info("node is in state that does not allow deletion, waiting", "currentState", currentProvState)
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 
 	default:
 		if !ironicNode.Maintenance {
@@ -1593,7 +1597,7 @@ func (p *ironicProvisioner) realDelete(ctx context.Context, ironicNode *nodes.No
 		p.log.Info("removed")
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not remove host, busy")
-		return retryAfterDelay(provisionRequeueDelay)
+		return retryAfterDelay(shortRetryDelay)
 	} else if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
 		p.log.Info("did not find host to delete, OK")
 	} else {
@@ -1653,7 +1657,7 @@ func (p *ironicProvisioner) changePower(ctx context.Context, ironicNode *nodes.N
 			"state", ironicNode.ProvisionState,
 			"target state", ironicNode.TargetProvisionState,
 		)
-		return operationContinuing(powerRequeueDelay)
+		return operationContinuing(shortRetryDelay)
 	}
 
 	powerStateOpts := nodes.PowerStateOpts{
@@ -1679,8 +1683,8 @@ func (p *ironicProvisioner) changePower(ctx context.Context, ironicNode *nodes.N
 		p.publisher(event.Event, event.Reason)
 		return operationContinuing(0)
 	} else if gophercloud.ResponseCodeIs(changeResult.Err, http.StatusConflict) {
-		p.log.Info("host is locked, trying again after delay", "delay", powerRequeueDelay)
-		return retryAfterDelay(powerRequeueDelay)
+		p.log.Info("host is locked, trying again after delay", "delay", shortRetryDelay)
+		return retryAfterDelay(shortRetryDelay)
 	} else if gophercloud.ResponseCodeIs(changeResult.Err, http.StatusBadRequest) {
 		// Error 400 Bad Request means target power state is not supported by vendor driver
 		if target == nodes.SoftPowerOff {
@@ -1707,7 +1711,7 @@ func (p *ironicProvisioner) PowerOn(ctx context.Context, force bool) (result pro
 	if ironicNode.PowerState != powerOn {
 		if ironicNode.TargetPowerState == powerOn {
 			p.log.Info("waiting for power status to change")
-			return operationContinuing(powerRequeueDelay)
+			return operationContinuing(shortRetryDelay)
 		}
 		if ironicNode.LastError != "" && !force {
 			p.log.Info("PowerOn operation failed", "msg", ironicNode.LastError)
@@ -1734,7 +1738,7 @@ func (p *ironicProvisioner) abortInspectionOrCleaning(ctx context.Context, ironi
 		)
 	case nodes.Inspecting:
 		p.log.Info("inspection in progress, waiting for it to reach inspect wait state")
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 	case nodes.InspectFail:
 		// After aborting inspection, node transitions to InspectFail but Ironic does not
 		// automatically clear TargetProvisionState. We need to explicitly transition to
@@ -1765,7 +1769,7 @@ func (p *ironicProvisioner) abortInspectionOrCleaning(ctx context.Context, ironi
 		}
 		// Automated cleaning is enabled - let it finish
 		p.log.Info("automated cleaning in progress, waiting for it to complete")
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 	case nodes.Cleaning:
 		// Check if it's manual cleaning or automated cleaning that's been disabled
 		if ironicNode.TargetProvisionState == string(nodes.TargetClean) ||
@@ -1774,7 +1778,7 @@ func (p *ironicProvisioner) abortInspectionOrCleaning(ctx context.Context, ironi
 		} else {
 			p.log.Info("automated cleaning in progress, waiting for it to complete")
 		}
-		return operationContinuing(provisionRequeueDelay)
+		return operationContinuing(longRetryDelay)
 	default:
 		// Node is not in a state that needs aborting
 		return operationComplete()
@@ -1804,7 +1808,7 @@ func (p *ironicProvisioner) PowerOff(ctx context.Context, rebootMode metal3api.R
 		// If the target state is either powerOff or softPowerOff, then we should wait
 		if targetState == powerOff || targetState == softPowerOff {
 			p.log.Info("waiting for power status to change")
-			return operationContinuing(powerRequeueDelay)
+			return operationContinuing(shortRetryDelay)
 		}
 		// If the target state is unset while the last error is set,
 		// then the last execution of power off has failed.
@@ -1935,7 +1939,7 @@ func (p *ironicProvisioner) RemoveBMCEventSubscriptionForNode(ctx context.Contex
 	err = nodes.DeleteSubscription(ctx, p.client, p.nodeID, method, opts).ExtractErr()
 
 	if err != nil {
-		return provisioner.Result{RequeueAfter: subscriptionRequeueDelay}, err
+		return transientError(err)
 	}
 	return operationComplete()
 }

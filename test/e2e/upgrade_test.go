@@ -119,6 +119,7 @@ func RunUpgradeTest(ctx context.Context, input *BMOIronicUpgradeInput, upgradeCl
 	CreateSecret(ctx, upgradeClusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
 
 	By("Creating a BMH with inspection disabled and hardware details added")
+	hardwareDetails := hardwareDetailsFor(&bmc)
 	bmh := metal3api.BareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testCaseName,

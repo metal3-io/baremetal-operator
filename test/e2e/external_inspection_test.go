@@ -4,9 +4,11 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"path"
+	"text/template"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const hardwareDetails = `
+var hardwareDetailsTemplate = template.Must(template.New("hardwareDetails").Parse(`
 {
   "cpu": {
     "arch": "x86_64",
@@ -138,15 +140,15 @@ const hardwareDetails = `
   "hostname": "localhost.localdomain",
   "nics": [
     {
-      "ip": "192.168.222.122",
-      "mac": "00:60:2f:31:81:01",
+      {{ if .IPAddress }}"ip": "{{ .IPAddress }}",{{ end }}
+      "mac": "{{ .BootMacAddress }}",
       "model": "0x1af4 0x0001",
       "name": "enp1s0",
       "pxe": true
     },
     {
       "ip": "fe80::570a:edf2:a3a7:4eb8%enp1s0",
-      "mac": "00:60:2f:31:81:01",
+      "mac": "{{ .BootMacAddress }}",
       "model": "0x1af4 0x0001",
       "name": "enp1s0",
       "pxe": true
@@ -171,7 +173,14 @@ const hardwareDetails = `
     "productName": "Standard PC (Q35 + ICH9, 2009)"
   }
 }
-`
+`))
+
+func hardwareDetailsFor(bmc *BMC) string {
+	buf := new(bytes.Buffer)
+	err := hardwareDetailsTemplate.Execute(buf, bmc)
+	Expect(err).NotTo(HaveOccurred())
+	return buf.String()
+}
 
 var _ = Describe("External Inspection", Label("required", "external-inspection"), func() {
 	var (
@@ -202,6 +211,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 		toCleanup = append(toCleanup, secret)
 
 		By("creating a BMH with inspection disabled and hardware details added")
+		hardwareDetails := hardwareDetailsFor(&bmc)
 		bmh := metal3api.BareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      specName + "-annotation",
@@ -263,6 +273,7 @@ var _ = Describe("External Inspection", Label("required", "external-inspection")
 				HardwareDetails: &metal3api.HardwareDetails{},
 			},
 		}
+		hardwareDetails := hardwareDetailsFor(&bmc)
 		err := json.Unmarshal([]byte(hardwareDetails), hwdata.Spec.HardwareDetails)
 		Expect(err).NotTo(HaveOccurred())
 		err = clusterProxy.GetClient().Create(ctx, &hwdata)

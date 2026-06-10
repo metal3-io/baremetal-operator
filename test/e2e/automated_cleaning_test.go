@@ -50,10 +50,6 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      specName,
 				Namespace: namespace.Name,
-				Annotations: map[string]string{
-					metal3api.InspectAnnotationPrefix:   "disabled",
-					metal3api.HardwareDetailsAnnotation: hardwareDetails,
-				},
 			},
 			Spec: metal3api.BareMetalHostSpec{
 				Online: true,
@@ -65,6 +61,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning"), 
 				BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 				BootMACAddress:        bmc.BootMacAddress,
 				AutomatedCleaningMode: metal3api.CleaningModeMetadata,
+				InspectionMode:        metal3api.InspectionModeDisabled,
 			},
 		}
 		err := clusterProxy.GetClient().Create(ctx, &bmh)

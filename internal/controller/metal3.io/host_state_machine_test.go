@@ -1369,10 +1369,6 @@ func (m *mockProvisioner) PowerOff(_ context.Context, _ metal3api.RebootMode, _ 
 	return m.getNextResultByMethod("PowerOff"), err
 }
 
-func (m *mockProvisioner) TryInit(context.Context) (result bool, err error) {
-	return
-}
-
 func (m *mockProvisioner) GetFirmwareSettings(_ context.Context, _ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	return
 }

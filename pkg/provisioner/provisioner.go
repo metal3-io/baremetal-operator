@@ -16,6 +16,10 @@ import (
 Package provisioning defines the API for talking to the provisioning backend.
 */
 
+// ErrNotReady is returned by NewProvisioner when the provisioning backend
+// is not yet available. Controllers should requeue and retry.
+var ErrNotReady = errors.New("provisioner is not ready")
+
 // EventPublisher is a function type for publishing events associated
 // with provisioning.
 type EventPublisher func(reason, message string)
@@ -209,10 +213,6 @@ type Provisioner interface {
 	// The automatedCleaningMode indicates the user's current intent regarding
 	// automated cleaning, used to determine if cleaning should be aborted during deletion.
 	PowerOff(ctx context.Context, rebootMode metal3api.RebootMode, force bool, automatedCleaningMode metal3api.AutomatedCleaningMode) (result Result, err error)
-
-	// TryInit checks if the provisioning backend is available to accept
-	// all the incoming requests and configures the available features.
-	TryInit(ctx context.Context) (ready bool, err error)
 
 	// HasCapacity checks if the backend has a free (de)provisioning slot for the current host
 	HasCapacity(ctx context.Context) (result bool, err error)

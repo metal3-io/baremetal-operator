@@ -147,19 +147,11 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	// Create a provisioner that can access Ironic API
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
-	}
-
-	ready, err := prov.TryInit(ctx)
-	if err != nil || !ready {
-		var msg string
-		if err == nil {
-			msg = "not ready"
-		} else {
-			msg = err.Error()
+		if errors.Is(err, provisioner.ErrNotReady) {
+			reqLogger.Info("provisioner is not ready", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
+			return ctrl.Result{RequeueAfter: provisionerRetryDelay}, nil
 		}
-		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerRetryDelay)
-		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
+		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
 	info.log.V(1).Info("retrieving firmware settings and saving to resource", "Node", bmh.Status.Provisioning.ID)

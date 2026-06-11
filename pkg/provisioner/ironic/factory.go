@@ -164,8 +164,18 @@ func (f ironicProvisionerFactory) ironicProvisioner(ctx context.Context, hostDat
 
 // NewProvisioner returns a new Ironic Provisioner using the global
 // configuration for finding the Ironic services.
+// Returns provisioner.ErrNotReady if Ironic is not available yet.
 func (f ironicProvisionerFactory) NewProvisioner(ctx context.Context, hostData provisioner.HostData, publisher provisioner.EventPublisher) (provisioner.Provisioner, error) {
-	return f.ironicProvisioner(ctx, hostData, publisher)
+	p, err := f.ironicProvisioner(ctx, hostData, publisher)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.init(ctx); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {

@@ -136,7 +136,7 @@ func TestNewNoBMCDetails(t *testing.T) {
 	host.Spec.BMC = metal3api.BMCDetails{}
 
 	factory := newTestProvisionerFactory()
-	prov, err := factory.NewProvisioner(t.Context(), provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
+	prov, err := factory.ironicProvisioner(t.Context(), provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
 	require.NoError(t, err)
 	assert.NotNil(t, prov)
 }

@@ -238,20 +238,12 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostData(*host, *bmcCreds), info.publishEvent)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
-	}
-
-	ready, err := prov.TryInit(ctx)
-	if err != nil || !ready {
-		var msg string
-		if err == nil {
-			msg = NotReady
-		} else {
-			msg = err.Error()
+		if errors.Is(err, provisioner.ErrNotReady) {
+			provisionerNotReady.Inc()
+			reqLogger.Info("provisioner is not ready", "Error", err.Error(), "RequeueAfter", provisionerNotReadyRetryDelay)
+			return ctrl.Result{RequeueAfter: provisionerNotReadyRetryDelay}, nil
 		}
-		provisionerNotReady.Inc()
-		reqLogger.Info("provisioner is not ready", "Error", msg, "RequeueAfter", provisionerNotReadyRetryDelay)
-		return ctrl.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
+		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
 	stateMachine := newHostStateMachine(host, r, prov, haveCreds)

@@ -306,11 +306,6 @@ func (p *demoProvisioner) PowerOff(_ context.Context, _ metal3api.RebootMode, _ 
 	return result, nil
 }
 
-// TryInit always returns true for the demo provisioner.
-func (p *demoProvisioner) TryInit(_ context.Context) (result bool, err error) {
-	return true, nil
-}
-
 func (p *demoProvisioner) GetFirmwareSettings(_ context.Context, _ bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error) {
 	p.log.Info("getting BIOS settings")
 	return

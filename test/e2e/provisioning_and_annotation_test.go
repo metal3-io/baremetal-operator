@@ -15,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,15 +50,11 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, "bmc-credentials", bmcCredentialsData)
 			toCleanup = append(toCleanup, secret)
 
-			By("Creating a BMH with inspection disabled and hardware details added")
+			By("Creating a BMH with inspection disabled")
 			bmh := metal3api.BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      specName,
 					Namespace: namespace.Name,
-					Annotations: map[string]string{
-						metal3api.InspectAnnotationPrefix:   "disabled",
-						metal3api.HardwareDetailsAnnotation: hardwareDetails,
-					},
 				},
 				Spec: metal3api.BareMetalHostSpec{
 					Online: true,
@@ -68,7 +65,8 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 					},
 					BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
 					BootMACAddress:        bmc.BootMacAddress,
-					AutomatedCleaningMode: "disabled",
+					AutomatedCleaningMode: metal3api.CleaningModeDisabled,
+					InspectionMode:        metal3api.InspectionModeDisabled,
 				},
 			}
 			err := clusterProxy.GetClient().Create(ctx, &bmh)
@@ -137,7 +135,7 @@ var _ = Describe("Provision, detach, recreate from status and deprovision", Labe
 			Expect(err).NotTo(HaveOccurred())
 
 			// Add the detached annotation; "true" is used explicitly to clarify intent.
-			bmh.ObjectMeta.Annotations["baremetalhost.metal3.io/detached"] = "true"
+			AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.DetachedAnnotation, ptr.To("true"))
 
 			Expect(helper.Patch(ctx, &bmh)).To(Succeed())
 

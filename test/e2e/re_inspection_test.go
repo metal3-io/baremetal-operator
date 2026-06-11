@@ -51,6 +51,7 @@ var _ = Describe("Re-Inspection", Label("required", "re-inspection"), func() {
 		toCleanup = append(toCleanup, secret)
 
 		By("creating a BMH with inspection disabled and hardware details added with wrong HostName")
+		hardwareDetails := hardwareDetailsFor(&bmc)
 		newHardwareDetails := strings.Replace(hardwareDetails, "localhost.localdomain", wrongHostName, 1)
 		bmh := metal3api.BareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{

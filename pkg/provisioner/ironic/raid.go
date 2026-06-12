@@ -61,6 +61,7 @@ func setTargetRAIDCfg(ctx context.Context, p *ironicProvisioner, raidInterface s
 	if err != nil {
 		return transientError(err)
 	}
+	p.cachedNode = nil
 	return provisioner.Result{}, nil
 }
 

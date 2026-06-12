@@ -1,7 +1,6 @@
 package ironic
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -26,20 +25,15 @@ func init() {
 	jitter = func(d time.Duration) time.Duration { return d }
 }
 
-func newTestProvisionerFactory() ironicProvisionerFactory {
-	return ironicProvisionerFactory{
-		log: logf.Log,
-		config: ironicConfig{
-			deployKernelURL:  "http://deploy.test/ipa.kernel",
-			deployRamdiskURL: "http://deploy.test/ipa.initramfs",
-			deployISOURL:     "http://deploy.test/ipa.iso",
-			maxBusyHosts:     20,
-		},
-	}
+var testProvisionerConfig = ironicConfig{
+	deployKernelURL:  "http://deploy.test/ipa.kernel",
+	deployRamdiskURL: "http://deploy.test/ipa.initramfs",
+	deployISOURL:     "http://deploy.test/ipa.iso",
+	maxBusyHosts:     20,
 }
 
-// A private function to construct an ironicProvisioner (rather than a
-// Provisioner interface) in a consistent way for tests.
+// Construct an ironicProvisioner directly, bypassing refreshCache.
+// This is used by tests that are testing provisioner operations, not cache behavior.
 func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Credentials, publisher provisioner.EventPublisher, ironicURL string, ironicAuthSettings clients.AuthConfig) (*ironicProvisioner, error) {
 	hostData := provisioner.BuildHostData(host, bmcCreds)
 
@@ -49,9 +43,21 @@ func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Crede
 		return nil, err
 	}
 
-	factory := newTestProvisionerFactory()
-	factory.clientIronic = clientIronic
-	return factory.ironicProvisioner(context.TODO(), hostData, publisher)
+	provisionerLogger := logf.Log.WithValues("host", ironicNodeName(hostData.ObjectMeta))
+	p := &ironicProvisioner{
+		config:                  testProvisionerConfig,
+		objectMeta:              hostData.ObjectMeta,
+		nodeID:                  hostData.ProvisionerID,
+		bmcCreds:                hostData.BMCCredentials,
+		bmcAddress:              hostData.BMCAddress,
+		disableCertVerification: hostData.DisableCertificateVerification,
+		bootMACAddress:          hostData.BootMACAddress,
+		client:                  clientIronic,
+		log:                     provisionerLogger,
+		debugLog:                provisionerLogger.V(1),
+		publisher:               publisher,
+	}
+	return p, nil
 }
 
 func makeHost() metal3api.BareMetalHost {
@@ -135,8 +141,7 @@ func TestNewNoBMCDetails(t *testing.T) {
 	host := makeHost()
 	host.Spec.BMC = metal3api.BMCDetails{}
 
-	factory := newTestProvisionerFactory()
-	prov, err := factory.ironicProvisioner(t.Context(), provisioner.BuildHostData(host, bmc.Credentials{}), nullEventPublisher)
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, "https://ironic.test/v1/", clients.AuthConfig{Type: clients.NoAuth})
 	require.NoError(t, err)
 	assert.NotNil(t, prov)
 }

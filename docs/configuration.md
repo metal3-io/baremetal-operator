@@ -13,8 +13,14 @@ ramdisk.
 `DEPLOY_ISO_URL` -- The URL for the ISO containing the Ironic agent for
 drivers that support ISO boot. Optional if kernel/ramdisk are set.
 
+`IRONIC_NAME` -- The name of the [Ironic resource][IronicCR] to take
+configuration from.
+
+`IRONIC_NAMESPACE` -- The namespace of the Ironic resource. Only used when
+`IRONIC_NAME` is set. Defaults to `WATCH_NAMESPACE`.
+
 `IRONIC_ENDPOINT` -- The URL for the operator to use when talking to
-Ironic.
+Ironic. Not used when `IRONIC_NAME` is set.
 
 `IRONIC_CACERT_FILE` -- The path of the CA certificate file of Ironic, if needed
 
@@ -31,6 +37,9 @@ client certificate authentication (mTLS) to be enabled.
 
 `IRONIC_SKIP_CLIENT_SAN_VERIFY` -- ("True", "False") Whether to skip the ironic
 client certificate SAN validation.
+
+`IRONIC_CLIENT_CACHE_TTL` -- Duration during which an Ironic client and its
+parameters are cached. Defaults to "5s". Set to "0" to disable caching.
 
 `BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
 Operator. Default is the number of CPUs, but no less than 2 and no more than 8.
@@ -49,6 +58,8 @@ used to tell Ironic which IP version it should set on the BMC.
 `PROVISIONING_NETWORK_DISABLED` -- Set to `true` if your deployment does not
 feature a provisioning network. This option disables drivers that require a
 provisioning network (such as IPMI).
+
+[IronicCR]: https://github.com/metal3-io/ironic-standalone-operator/blob/main/docs/api.md#ironic
 
 Kustomization Configuration
 ---------------------------

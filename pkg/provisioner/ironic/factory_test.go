@@ -1,10 +1,18 @@
 package ironic
 
 import (
+	"errors"
+	"net/http"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -341,4 +349,162 @@ func TestLoadTLSConfigFromEnv(t *testing.T) {
 			assert.Equal(t, tc.expectedTLSConfig, result)
 		})
 	}
+}
+
+func newFakeIronicClient(endpoint string) *gophercloud.ServiceClient {
+	client, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
+		IronicEndpoint: endpoint,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return client
+}
+
+func newTestCacheFactory(cacheTTL time.Duration) ironicProvisionerFactory {
+	return ironicProvisionerFactory{
+		log:      logr.Discard(),
+		cache:    new(ironicProvisionerCache),
+		cacheTTL: cacheTTL,
+	}
+}
+
+func TestRefreshCachePopulatesOnFirstCall(t *testing.T) {
+	ironic := testserver.NewIronic(t).WithDrivers()
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(5 * time.Second)
+	client := newFakeIronicClient(ironic.Endpoint())
+
+	ironicClient, features, err := factory.refreshCache(t.Context(), func() (*gophercloud.ServiceClient, error) {
+		return client, nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 95, features.MaxVersion)
+	assert.NotNil(t, ironicClient)
+	assert.True(t, time.Now().Before(factory.cache.expiresAt))
+}
+
+func TestRefreshCacheReturnsCachedValues(t *testing.T) {
+	ironic := testserver.NewIronic(t).WithDrivers()
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(5 * time.Second)
+	client := newFakeIronicClient(ironic.Endpoint())
+
+	callCount := 0
+	createClient := func() (*gophercloud.ServiceClient, error) {
+		callCount++
+		return client, nil
+	}
+
+	_, _, err := factory.refreshCache(t.Context(), createClient)
+	require.NoError(t, err)
+	assert.Equal(t, 1, callCount)
+
+	ironicClient, features, err := factory.refreshCache(t.Context(), createClient)
+	require.NoError(t, err)
+	assert.Equal(t, 1, callCount, "createClient should not be called again while cache is fresh")
+	assert.Equal(t, 95, features.MaxVersion)
+	assert.NotNil(t, ironicClient)
+}
+
+func TestRefreshCacheRefreshesAfterExpiry(t *testing.T) {
+	ironic := testserver.NewIronic(t).WithDrivers()
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(1 * time.Millisecond)
+	client := newFakeIronicClient(ironic.Endpoint())
+
+	callCount := 0
+	createClient := func() (*gophercloud.ServiceClient, error) {
+		callCount++
+		return client, nil
+	}
+
+	_, _, err := factory.refreshCache(t.Context(), createClient)
+	require.NoError(t, err)
+	assert.Equal(t, 1, callCount)
+
+	time.Sleep(2 * time.Millisecond)
+
+	_, _, err = factory.refreshCache(t.Context(), createClient)
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount, "createClient should be called again after expiry")
+}
+
+func TestRefreshCacheDoesNotCacheOnError(t *testing.T) {
+	factory := newTestCacheFactory(5 * time.Second)
+
+	callCount := 0
+	createClient := func() (*gophercloud.ServiceClient, error) {
+		callCount++
+		return nil, errors.New("connection refused")
+	}
+
+	_, _, err := factory.refreshCache(t.Context(), createClient)
+	require.Error(t, err)
+	assert.Equal(t, 1, callCount)
+	assert.True(t, factory.cache.expiresAt.IsZero(), "cache expiry should not be set on error")
+
+	_, _, err = factory.refreshCache(t.Context(), createClient)
+	require.Error(t, err)
+	assert.Equal(t, 2, callCount, "should retry after previous failure")
+}
+
+func TestRefreshCacheDoesNotCacheOnIronicFailure(t *testing.T) {
+	ironic := testserver.NewIronic(t).NotReady(http.StatusServiceUnavailable)
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(5 * time.Second)
+	client := newFakeIronicClient(ironic.Endpoint())
+
+	_, _, err := factory.refreshCache(t.Context(), func() (*gophercloud.ServiceClient, error) {
+		return client, nil
+	})
+	require.ErrorIs(t, err, provisioner.ErrNotReady)
+	assert.True(t, factory.cache.expiresAt.IsZero())
+}
+
+func TestRefreshCacheDoesNotCacheOnNoDrivers(t *testing.T) {
+	ironic := testserver.NewIronic(t).WithNoDrivers()
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(5 * time.Second)
+	client := newFakeIronicClient(ironic.Endpoint())
+
+	_, _, err := factory.refreshCache(t.Context(), func() (*gophercloud.ServiceClient, error) {
+		return client, nil
+	})
+	require.ErrorIs(t, err, provisioner.ErrNotReady)
+	assert.True(t, factory.cache.expiresAt.IsZero())
+}
+
+func TestRefreshCacheDisabled(t *testing.T) {
+	ironic := testserver.NewIronic(t).WithDrivers()
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(0)
+	client := newFakeIronicClient(ironic.Endpoint())
+
+	callCount := 0
+	createClient := func() (*gophercloud.ServiceClient, error) {
+		callCount++
+		return client, nil
+	}
+
+	_, features, err := factory.refreshCache(t.Context(), createClient)
+	require.NoError(t, err)
+	assert.Equal(t, 95, features.MaxVersion)
+
+	_, _, err = factory.refreshCache(t.Context(), createClient)
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount, "createClient should always be called when cache is disabled")
+	assert.True(t, factory.cache.expiresAt.IsZero(), "cache should not be populated when disabled")
 }

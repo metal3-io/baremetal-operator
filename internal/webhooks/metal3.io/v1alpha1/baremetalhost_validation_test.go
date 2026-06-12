@@ -1080,7 +1080,10 @@ func TestValidateUpdate(t *testing.T) {
 				ObjectMeta: om,
 				Spec: metal3api.BareMetalHostSpec{
 					BMC: metal3api.BMCDetails{
-						Address: "test-address"}}},
+						Address: "test-address"}},
+				Status: metal3api.BareMetalHostStatus{
+					Provisioning: metal3api.ProvisionStatus{
+						State: metal3api.StateRegistering}}},
 			wantedErr: "",
 		},
 		{
@@ -1098,7 +1101,9 @@ func TestValidateUpdate(t *testing.T) {
 				ObjectMeta: om,
 				Spec: metal3api.BareMetalHostSpec{
 					BMC: metal3api.BMCDetails{
-						Address: "test-address"}}},
+						Address: "test-address"}},
+				Status: metal3api.BareMetalHostStatus{
+					OperationalStatus: metal3api.OperationalStatusDetached}},
 			wantedErr: "",
 		},
 		{

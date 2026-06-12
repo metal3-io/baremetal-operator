@@ -159,13 +159,22 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// below.
 	}
 
-	// Try to create ports from two sources
-	// bootMACAddress if available
-	// HardwareData whenever inspection data is available.
-	err = p.createPortsForNode(ctx, ironicNode, data.HardwareData)
-	if err != nil {
-		result, err = transientError(err)
-		return result, provID, err
+	// NOTE(dtantsur): don't try to create ports in states where it's
+	// either impossible because of a lock or potentially disruptive.
+	switch nodes.ProvisionState(ironicNode.ProvisionState) {
+	case nodes.Enroll, nodes.Manageable, nodes.Available, nodes.Active,
+		// A failure can be caused by wrong ports, so allow creating.
+		// TODO(dtantsur): add Hold states once they're supported by Gophercloud
+		nodes.AdoptFail, nodes.InspectFail, nodes.CleanFail, nodes.DeployFail, nodes.ServiceFail, nodes.Error:
+		// Try to create ports from two sources
+		// bootMACAddress if available
+		// HardwareData whenever inspection data is available.
+		err = p.createPortsForNode(ctx, ironicNode, data.HardwareData)
+		if err != nil {
+			result, err = transientError(err)
+			return result, provID, err
+		}
+	default:
 	}
 
 	// If no PreprovisioningImage builder is enabled we set the Node network_data
@@ -284,16 +293,14 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 }
 
 func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *nodes.Node, hardwareData *metal3api.HardwareData) error {
-	if p.bootMACAddress == "" && (hardwareData == nil || hardwareData.Spec.HardwareDetails == nil) {
-		// we don't have anything to process, gracefully returning
-		return nil
-	}
-
-	// Mac/PXE status map
-	portMacsToCreate := map[string]bool{}
 	var nics []metal3api.NIC
 	if hardwareData != nil && hardwareData.Spec.HardwareDetails != nil {
 		nics = hardwareData.Spec.HardwareDetails.NIC
+	}
+
+	if p.bootMACAddress == "" && len(nics) == 0 {
+		// we don't have anything to process, gracefully returning
+		return nil
 	}
 
 	ironicNodePorts, err := p.getPorts(ctx, ironicNode.UUID, "")
@@ -306,6 +313,8 @@ func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *
 		ironicNodePortsList[port.Address] = port
 	}
 
+	// Mac/PXE status map
+	portMacsToCreate := map[string]bool{}
 	for _, nic := range nics {
 		if _, ok := ironicNodePortsList[nic.MAC]; nic.MAC != "" && !ok {
 			portMacsToCreate[nic.MAC] = nic.PXE

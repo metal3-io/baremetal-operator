@@ -161,6 +161,11 @@ func (bb *BareMetalHostBuilder) SetCleaningMode(cmode metal3api.AutomatedCleanin
 	return bb
 }
 
+func (bb *BareMetalHostBuilder) SetCleaningPhase(phase metal3api.AutomatedCleaningPhase) *BareMetalHostBuilder {
+	bb.bmh.Spec.AutomatedCleaningPhase = phase
+	return bb
+}
+
 func (bb *BareMetalHostBuilder) SetCustomDeploy(cd string) *BareMetalHostBuilder {
 	bb.bmh.Spec.CustomDeploy = &metal3api.CustomDeploy{Method: cd}
 	return bb

@@ -87,6 +87,20 @@ spec:
                 - metadata
                 - disabled
                 type: string
+              automatedCleaningPhase:
+                default: deprovisioning
+                description: |-
+                  Defines the phase of deprovisioning where automated cleaning is
+                  performed. When set to "deprovisioning" (the default), cleaning
+                  runs on every deprovisioning including deletion. When set to
+                  "reprovisioning", cleaning is skipped when the host is being
+                  deleted, and only runs between provisionings.
+                  This field is only relevant when automatedCleaningMode is not
+                  set to "disabled".
+                enum:
+                - deprovisioning
+                - reprovisioning
+                type: string
               bmc:
                 description: |-
                   How do we connect to the BMC (Baseboard Management Controller) on

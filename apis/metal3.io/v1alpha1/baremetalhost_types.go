@@ -575,6 +575,18 @@ type BareMetalHostSpec struct {
 	// +kubebuilder:validation:Optional
 	AutomatedCleaningMode AutomatedCleaningMode `json:"automatedCleaningMode,omitempty"`
 
+	// Defines the phase of deprovisioning where automated cleaning is
+	// performed. When set to "deprovisioning" (the default), cleaning
+	// runs on every deprovisioning including deletion. When set to
+	// "reprovisioning", cleaning is skipped when the host is being
+	// deleted, and only runs between provisionings.
+	// This field is only relevant when automatedCleaningMode is not
+	// set to "disabled".
+	// +optional
+	// +kubebuilder:default:=deprovisioning
+	// +kubebuilder:validation:Optional
+	AutomatedCleaningPhase AutomatedCleaningPhase `json:"automatedCleaningPhase,omitempty"`
+
 	// A custom deploy procedure. This is an advanced feature that allows
 	// using a custom deploy step provided by a site-specific deployment
 	// ramdisk. Most users will want to use "image" instead. Setting this
@@ -608,6 +620,21 @@ type AutomatedCleaningMode string
 const (
 	CleaningModeDisabled AutomatedCleaningMode = "disabled"
 	CleaningModeMetadata AutomatedCleaningMode = "metadata"
+)
+
+// AutomatedCleaningPhase indicates when automated cleaning should be performed.
+// +kubebuilder:validation:Enum:=deprovisioning;reprovisioning
+type AutomatedCleaningPhase string
+
+// Allowed automated cleaning phases.
+const (
+	// CleaningPhaseDeprovisioning means cleaning runs on every
+	// deprovisioning, including when the host is being deleted.
+	CleaningPhaseDeprovisioning AutomatedCleaningPhase = "deprovisioning"
+
+	// CleaningPhaseReprovisioning means cleaning runs only between
+	// provisionings. Cleaning is skipped when the host is being deleted.
+	CleaningPhaseReprovisioning AutomatedCleaningPhase = "reprovisioning"
 )
 
 // ChecksumType holds the algorithm name for the checksum
@@ -937,6 +964,20 @@ func (host *BareMetalHost) CredentialsKey() types.NamespacedName {
 		Name:      host.Spec.BMC.CredentialsName,
 		Namespace: host.ObjectMeta.Namespace,
 	}
+}
+
+// EffectiveCleaningMode returns the effective AutomatedCleaningMode,
+// taking into account AutomatedCleaningPhase and whether the host is
+// being deleted.
+func (host *BareMetalHost) EffectiveCleaningMode() AutomatedCleaningMode {
+	if host.Spec.AutomatedCleaningMode == CleaningModeDisabled {
+		return CleaningModeDisabled
+	}
+	if host.Spec.AutomatedCleaningPhase == CleaningPhaseReprovisioning &&
+		!host.DeletionTimestamp.IsZero() {
+		return CleaningModeDisabled
+	}
+	return host.Spec.AutomatedCleaningMode
 }
 
 // InspectionDisabled returns true if inspection is disabled via either

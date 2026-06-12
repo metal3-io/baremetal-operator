@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -265,7 +264,7 @@ func validateStatusAnnotation(statusAnnotation string) error {
 func validateImage(image *metal3api.Image) []error {
 	var errs []error
 
-	_, err := url.ParseRequestURI(image.URL)
+	err := validateURL(image.URL)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("image URL %s is invalid: %w", image.URL, err))
 	}

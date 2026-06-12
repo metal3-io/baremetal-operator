@@ -36,8 +36,9 @@ func setTargetRAIDCfg(ctx context.Context, p *ironicProvisioner, raidInterface s
 		return provisioner.Result{}, nil
 	}
 
-	// set root volume
-	if data.RootDeviceHints == nil {
+	// set root volume in case there is no rootDeviceHint or RAID root volume
+	rootCount := data.TargetRAIDConfig.GetRootVolumeCount()
+	if data.RootDeviceHints == nil && rootCount == 0 {
 		logicalDisks[0].IsRootVolume = new(bool)
 		*logicalDisks[0].IsRootVolume = true
 	} else {
@@ -171,9 +172,10 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 	for _, volume := range volumes {
 		// Build logicalDisk
 		logicalDisk = nodes.LogicalDisk{
-			SizeGB:     volume.SizeGibibytes,
-			RAIDLevel:  nodes.RAIDLevel(volume.Level),
-			Controller: "software",
+			SizeGB:       volume.SizeGibibytes,
+			RAIDLevel:    nodes.RAIDLevel(volume.Level),
+			Controller:   "software",
+			IsRootVolume: volume.RootVolume,
 		}
 		// Build physical disks hint
 		for i := range volume.PhysicalDisks {

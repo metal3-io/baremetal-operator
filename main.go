@@ -29,6 +29,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/internal/controller/metal3.io"
 	webhooks "github.com/metal3-io/baremetal-operator/internal/webhooks/metal3.io/v1alpha1"
+	ppicontroller "github.com/metal3-io/baremetal-operator/pkg/controllers"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
@@ -358,7 +359,7 @@ func main() {
 	}
 
 	if preprovImgEnable {
-		imgReconciler := metal3iocontroller.PreprovisioningImageReconciler{
+		imgReconciler := ppicontroller.PreprovisioningImageReconciler{
 			Client:        mgr.GetClient(),
 			Log:           ctrl.Log.WithName("controllers").WithName("PreprovisioningImage"),
 			APIReader:     mgr.GetAPIReader(),

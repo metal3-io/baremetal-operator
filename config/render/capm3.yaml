@@ -3456,6 +3456,10 @@ webhooks:
       namespace: baremetal-operator-system
       path: /validate-metal3-io-v1alpha1-baremetalhost
   failurePolicy: Fail
+  matchConditions:
+  - expression: request.operation == 'CREATE' || object.spec != oldObject.spec ||
+      object.metadata.?annotations.orValue({}) != oldObject.metadata.?annotations.orValue({})
+    name: spec-or-annotations-changed
   name: baremetalhost.metal3.io
   rules:
   - apiGroups:

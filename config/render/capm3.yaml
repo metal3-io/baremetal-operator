@@ -3145,6 +3145,7 @@ rules:
   resources:
   - secrets
   verbs:
+  - delete
   - get
   - list
   - update

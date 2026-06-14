@@ -17,9 +17,9 @@ require (
 	golang.org/x/crypto v0.52.0
 	golang.org/x/sys v0.45.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.35.5
-	k8s.io/apiextensions-apiserver v0.35.5
-	k8s.io/apimachinery v0.35.5
+	k8s.io/api v0.35.6
+	k8s.io/apiextensions-apiserver v0.35.6
+	k8s.io/apimachinery v0.35.6
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	libvirt.org/go/libvirt v1.12003.0
@@ -130,10 +130,10 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.35.5 // indirect
-	k8s.io/client-go v0.35.5 // indirect
+	k8s.io/apiserver v0.35.6 // indirect
+	k8s.io/client-go v0.35.6 // indirect
 	k8s.io/cluster-bootstrap v0.35.4 // indirect
-	k8s.io/component-base v0.35.5 // indirect
+	k8s.io/component-base v0.35.6 // indirect
 	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4 // indirect
 	sigs.k8s.io/gateway-api v1.5.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect

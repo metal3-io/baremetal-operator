@@ -16,6 +16,7 @@ resources:
 - bases/metal3.io_hostclaims.yaml
 - bases/metal3.io_hostdeploypolicies.yaml
 - bases/metal3.io_baremetalswitches.yaml
+- bases/metal3.io_hostnetworkattachments.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

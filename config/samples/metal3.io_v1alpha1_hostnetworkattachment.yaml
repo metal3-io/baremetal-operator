@@ -1,0 +1,24 @@
+apiVersion: metal3.io/v1alpha1
+kind: HostNetworkAttachment
+metadata:
+  name: mgmt-access-config
+  namespace: baremetal-operator-system
+  labels:
+    purpose: "management"
+spec:
+  mode: access
+  nativeVLAN: 100
+  mtu: 1500
+---
+apiVersion: metal3.io/v1alpha1
+kind: HostNetworkAttachment
+metadata:
+  name: storage-trunk-config
+  namespace: baremetal-operator-system
+  labels:
+    purpose: "storage"
+spec:
+  mode: trunk
+  nativeVLAN: 200
+  allowedVLANs: [200, 201, 202, 203]
+  mtu: 9000

@@ -1,0 +1,65 @@
+# Dockerfile.plugin-test
+#
+# Emulates an out-of-tree provisioner plugin author flow and verifies the
+# resulting .so still loads into a freshly built BMO binary. The build fails
+# if the plugin cannot be opened or its exported symbols cannot be invoked.
+#
+# Stages:
+#   bmo-builder        builds the BMO binary and the plugin-load-test tool
+#   plugin-author      fresh git repo with its own go.mod, builds demo .so
+#                      against BMO via replace directives (the closest
+#                      reproduction of an external author depending on BMO)
+#   plugin-load-tester runs plugin-load-test against the .so, build fails on
+#                      any error
+ARG BUILD_IMAGE=docker.io/golang:1.25.11@sha256:dd7d32e19b28621cd982082397fc0510d396805b717d5e77466aa2dd692340de
+
+FROM $BUILD_IMAGE AS bmo-builder
+WORKDIR /bmo
+COPY go.mod go.sum ./
+COPY apis/go.mod apis/go.sum apis/
+COPY hack/tools/go.mod hack/tools/go.sum hack/tools/
+COPY pkg/hardwareutils/go.mod pkg/hardwareutils/go.sum pkg/hardwareutils/
+RUN go mod download
+COPY . .
+ENV CGO_ENABLED=1
+ENV GO111MODULE=on
+ARG ARCH=amd64
+ARG LDFLAGS=-s -w
+RUN GOOS=linux GOARCH=${ARCH} \
+    go build -a -ldflags "${LDFLAGS}" -o /out/baremetal-operator main.go && \
+    GOOS=linux GOARCH=${ARCH} \
+    go build -a -ldflags "${LDFLAGS}" -o /out/plugin-load-test ./cmd/plugin-load-test
+
+FROM $BUILD_IMAGE AS plugin-author
+ARG ARCH=amd64
+ARG LDFLAGS=-s -w
+ENV CGO_ENABLED=1
+ENV GO111MODULE=on
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+# Bring in the BMO source so the replace directives below resolve to it. A
+# real consumer would `go get github.com/metal3-io/baremetal-operator@vX.Y.Z`
+# instead of carrying the source.
+COPY . /bmo
+WORKDIR /plugin
+RUN git init -q . && \
+    git config user.email "test@example.com" && \
+    git config user.name "plugin-author"
+RUN cp /bmo/pkg/provisioner/demo/plugin/main.go ./main.go
+# Rewrite GetHealth in /bmo's demo provisioner to use go.starlark.net,
+# proving the plugin can pull in deps outside BMO's go.mod.
+RUN cd /bmo && go run -tags patcher ./hack/plugin-test/patcher ./pkg/provisioner/demo/demo.go
+RUN go mod init github.com/example/demo-provisioner-plugin && \
+    go mod edit -replace github.com/metal3-io/baremetal-operator=/bmo && \
+    go mod edit -replace github.com/metal3-io/baremetal-operator/apis=/bmo/apis && \
+    go mod edit -replace github.com/metal3-io/baremetal-operator/pkg/hardwareutils=/bmo/pkg/hardwareutils && \
+    go mod tidy && \
+    git add -A && git commit -q -m "demo plugin with starlark"
+RUN GOOS=linux GOARCH=${ARCH} \
+    go build -buildmode=plugin -ldflags "${LDFLAGS}" \
+    -o /out/demo-provisioner.so .
+
+FROM $BUILD_IMAGE AS plugin-load-tester
+COPY --from=bmo-builder /out/baremetal-operator /usr/local/bin/baremetal-operator
+COPY --from=bmo-builder /out/plugin-load-test /usr/local/bin/plugin-load-test
+COPY --from=plugin-author /out/demo-provisioner.so /plugins/demo-provisioner.so
+RUN /usr/local/bin/plugin-load-test /plugins/demo-provisioner.so demo healthy

@@ -1,3 +1,4 @@
+grep -n "BMC address hostname/IP\|failed to parse BMC" internal/webhooks/metal3.io/v1alpha1/baremetalhost_validation.go | head -10
 package hardwaredetails
 
 import (

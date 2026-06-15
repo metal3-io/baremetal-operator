@@ -804,6 +804,69 @@ func TestHasRebootAnnotation(t *testing.T) {
 	}
 }
 
+func TestClearRebootAnnotations(t *testing.T) {
+	testCases := []struct {
+		Scenario            string
+		Annotations         map[string]string
+		ExpectedAnnotations map[string]string
+		ExpectedDirty       bool
+	}{
+		{
+			Scenario: "Base reboot annotation",
+			Annotations: map[string]string{
+				metal3api.RebootAnnotationPrefix: "",
+			},
+			ExpectedAnnotations: map[string]string{},
+			ExpectedDirty:       true,
+		},
+		{
+			Scenario: "Suffixed reboot annotation",
+			Annotations: map[string]string{
+				metal3api.RebootAnnotationPrefix + "/foo": "",
+			},
+			ExpectedAnnotations: map[string]string{
+				metal3api.RebootAnnotationPrefix + "/foo": "",
+			},
+			ExpectedDirty: false,
+		},
+		{
+			Scenario: "Base and suffixed reboot annotations",
+			Annotations: map[string]string{
+				metal3api.RebootAnnotationPrefix:          "",
+				metal3api.RebootAnnotationPrefix + "/foo": "",
+				metal3api.RebootAnnotationPrefix + "/bar": "{\"mode\":\"hard\"}",
+			},
+			ExpectedAnnotations: map[string]string{
+				metal3api.RebootAnnotationPrefix + "/foo": "",
+				metal3api.RebootAnnotationPrefix + "/bar": "{\"mode\":\"hard\"}",
+			},
+			ExpectedDirty: true,
+		},
+		{
+			Scenario: "No reboot annotations",
+			Annotations: map[string]string{
+				"example.metal3.io/not-reboot": "true",
+			},
+			ExpectedAnnotations: map[string]string{
+				"example.metal3.io/not-reboot": "true",
+			},
+			ExpectedDirty: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := newDefaultHost(t)
+			host.Annotations = tc.Annotations
+
+			dirty := clearRebootAnnotations(host)
+
+			assert.Equal(t, tc.ExpectedDirty, dirty)
+			assert.Equal(t, tc.ExpectedAnnotations, host.Annotations)
+		})
+	}
+}
+
 // TestRebootWithSuffixlessAnnotation tests full reboot cycle with suffixless
 // annotation which doesn't wait for annotation removal before power on.
 func TestRebootWithSuffixlessAnnotation(t *testing.T) {

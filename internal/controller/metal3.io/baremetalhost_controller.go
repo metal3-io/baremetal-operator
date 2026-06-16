@@ -1022,7 +1022,11 @@ func updateRootDeviceHints(host *metal3api.BareMetalHost, info *reconcileInfo) (
 	if host.Spec.RAID != nil {
 		rootCount := host.Spec.RAID.GetRootVolumeCount()
 		if rootCount > 0 {
-			return
+			if host.Status.Provisioning.RootDeviceHints != nil {
+				host.Status.Provisioning.RootDeviceHints = nil
+				dirty = true
+			}
+			return dirty, nil
 		}
 	}
 
@@ -1039,7 +1043,7 @@ func updateRootDeviceHints(host *metal3api.BareMetalHost, info *reconcileInfo) (
 		host.Status.Provisioning.RootDeviceHints = hintSource.DeepCopy()
 		dirty = true
 	}
-	return
+	return dirty, nil
 }
 
 // Ensure we have the information about the hardware on the host.

@@ -16,11 +16,14 @@ limitations under the License.
 package main
 
 import (
+	"cmp"
 	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -32,12 +35,9 @@ import (
 	ppicontroller "github.com/metal3-io/baremetal-operator/pkg/controllers"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/demo"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
-	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/metal3-io/baremetal-operator/pkg/version"
-	ironicv1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -45,7 +45,6 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -75,11 +74,22 @@ var (
 
 const leaderElectionID = "baremetal-operator"
 
+const (
+	defaultProvisionerName      = "ironic"
+	defaultProvisionerPluginDir = "/plugins"
+	provisionerPluginSuffix     = "-provisioner.so"
+	// provisionerNameFixture is compiled in, so selecting it skips plugin loading.
+	provisionerNameFixture = "fixture"
+)
+
+// provisionerNameRE rejects flag values that would let filepath.Join escape
+// the plugin directory.
+var provisionerNameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = metal3api.AddToScheme(scheme)
-	_ = ironicv1alpha1.AddToScheme(scheme)
 }
 
 func printVersion() {
@@ -138,8 +148,7 @@ func main() {
 	var enableLeaderElection bool
 	var preprovImgEnable bool
 	var devLogging bool
-	var runInTestMode bool
-	var runInDemoMode bool
+	var provisionerName string
 	var webhookPort int
 	var restConfigQPS float64
 	var restConfigBurst int
@@ -161,9 +170,11 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&preprovImgEnable, "build-preprov-image", false, "enable integration with the PreprovisioningImage API")
 	flag.BoolVar(&devLogging, "dev", false, "enable developer logging")
-	flag.BoolVar(&runInTestMode, "test-mode", false, "disable ironic communication")
-	flag.BoolVar(&runInDemoMode, "demo-mode", false,
-		"use the demo provisioner to set host states")
+	flag.StringVar(&provisionerName, "provisioner", defaultProvisionerName,
+		"Name of the provisioner plugin to load. Resolves to "+
+			"$PROVISIONER_PLUGIN_DIR/<name>"+provisionerPluginSuffix+
+			" (default dir "+defaultProvisionerPluginDir+"). "+
+			"Use "+provisionerNameFixture+" for the compiled-in fixture provisioner.")
 	flag.StringVar(&healthAddr, "health-addr", ":9440",
 		"The address the health endpoint binds to.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, //nolint:mnd
@@ -208,6 +219,54 @@ func main() {
 
 	printVersion()
 
+	var hostFeatures []provisioner.HostFeature
+	if preprovImgEnable {
+		hostFeatures = append(hostFeatures, provisioner.FeaturePreprovisioningImage)
+	}
+
+	// Default namespace for the provisioner, overridable by the plugin.
+	provisionerNamespace := cmp.Or(os.Getenv("POD_NAMESPACE"), watchNamespace)
+
+	// Open the plugin before any K8s I/O so a bad path fails fast.
+	var provisionerPlugin *provisioner.Plugin
+	var pluginRequirements provisioner.HostRequirements
+	if provisionerName != provisionerNameFixture {
+		if !provisionerNameRE.MatchString(provisionerName) {
+			setupLog.Error(fmt.Errorf("invalid provisioner name %q", provisionerName),
+				"provisioner name must match "+provisionerNameRE.String())
+			os.Exit(1)
+		}
+		pluginDir := cmp.Or(os.Getenv("PROVISIONER_PLUGIN_DIR"), defaultProvisionerPluginDir)
+		pluginPath := filepath.Join(pluginDir, provisionerName+provisionerPluginSuffix)
+		p, err := provisioner.Open(pluginPath, provisionerName)
+		if err != nil {
+			setupLog.Error(err, "cannot load provisioner plugin",
+				"name", provisionerName, "dir", pluginDir, "path", pluginPath)
+			os.Exit(1)
+		}
+		provisionerPlugin = p
+		setupLog.Info("loaded provisioner plugin",
+			"name", provisionerPlugin.Name(), "path", provisionerPlugin.Path())
+
+		pluginRequirements, err = provisionerPlugin.HostConfigure(provisioner.HostConfigureInput{
+			Logger:               setupLog,
+			Features:             hostFeatures,
+			ProvisionerNamespace: provisionerNamespace,
+		})
+		if err != nil {
+			setupLog.Error(err, "plugin HostConfigure failed",
+				"name", provisionerPlugin.Name(), "path", provisionerPlugin.Path())
+			os.Exit(1)
+		}
+		if pluginRequirements.AddToScheme != nil {
+			if err := pluginRequirements.AddToScheme(scheme); err != nil {
+				setupLog.Error(err, "plugin AddToScheme failed",
+					"name", provisionerPlugin.Name())
+				os.Exit(1)
+			}
+		}
+	}
+
 	enableWebhook := webhookPort != 0
 
 	leaderElectionNamespace := os.Getenv("POD_NAMESPACE")
@@ -238,24 +297,6 @@ func main() {
 		setupLog.Info("Manager set up with cluster scope")
 	}
 
-	// Setup cache options
-	var byObject map[client.Object]cache.ByObject
-
-	ironicName := os.Getenv("IRONIC_NAME")
-	ironicNamespace := os.Getenv("IRONIC_NAMESPACE")
-	if ironicNamespace == "" {
-		ironicNamespace = leaderElectionNamespace
-	}
-	if ironicName != "" && ironicNamespace != "" {
-		byObject = map[client.Object]cache.ByObject{
-			&ironicv1alpha1.Ironic{}: {
-				Namespaces: map[string]cache.Config{
-					ironicNamespace: {},
-				},
-			},
-		}
-	}
-
 	ctrlOpts := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -274,7 +315,7 @@ func main() {
 		LeaderElectionReleaseOnCancel: true,
 		HealthProbeBindAddress:        healthAddr,
 		Cache: cache.Options{
-			ByObject:          secretutils.AddSecretSelector(byObject),
+			ByObject:          secretutils.AddSecretSelector(pluginRequirements.CacheByObject),
 			DefaultNamespaces: watchNamespaces,
 		},
 	}
@@ -321,23 +362,20 @@ func main() {
 	}
 
 	var provisionerFactory provisioner.Factory
-	if runInTestMode {
-		ctrl.Log.Info("using test provisioner")
+	if provisionerName == provisionerNameFixture {
+		ctrl.Log.Info("using fixture provisioner")
 		provisionerFactory = &fixture.Fixture{}
-	} else if runInDemoMode {
-		ctrl.Log.Info("using demo provisioner")
-		provisionerFactory = &demo.Demo{}
 	} else {
 		provLog := zap.New(zap.UseFlagOptions(&logOpts)).WithName("provisioner")
-		// Check if we should use Ironic CR integration
-		if ironicName != "" && ironicNamespace != "" {
-			provisionerFactory, err = ironic.NewProvisionerFactoryWithClient(provLog, preprovImgEnable,
-				mgr.GetClient(), mgr.GetAPIReader(), ironicName, ironicNamespace)
-		} else {
-			provisionerFactory, err = ironic.NewProvisionerFactory(provLog, preprovImgEnable)
-		}
+		provisionerFactory, err = provisionerPlugin.NewFactory(provisioner.PluginConfig{
+			Logger:               provLog,
+			Features:             hostFeatures,
+			K8sClient:            mgr.GetClient(),
+			APIReader:            mgr.GetAPIReader(),
+			ProvisionerNamespace: provisionerNamespace,
+		})
 		if err != nil {
-			setupLog.Error(err, "cannot start ironic provisioner")
+			setupLog.Error(err, "cannot initialize provisioner plugin", "path", provisionerPlugin.Path())
 			os.Exit(1)
 		}
 	}

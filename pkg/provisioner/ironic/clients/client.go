@@ -14,6 +14,9 @@ import (
 
 var tlsConnectionTimeout = time.Second * 30
 
+// DefaultTimeout is the default HTTP client timeout for requests to Ironic.
+const DefaultTimeout = 30 * time.Second
+
 // TLSConfig contains the TLS configuration for the Ironic connection.
 // Using Go default values for this will result in no additional trusted
 // CA certificates and a secure connection.
@@ -27,7 +30,11 @@ type TLSConfig struct {
 	SkipClientSANVerify   bool
 }
 
-func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) error {
+func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig, timeout time.Duration) error {
+	if timeout <= 0 {
+		timeout = DefaultTimeout
+	}
+
 	tlsInfo := transport.TLSInfo{
 		TrustedCAFile:       tlsConf.TrustedCAFile,
 		CertFile:            tlsConf.ClientCertificateFile,
@@ -66,13 +73,14 @@ func updateHTTPClient(client *gophercloud.ServiceClient, tlsConf TLSConfig) erro
 	}
 	c := http.Client{
 		Transport: tlsTransport,
+		Timeout:   timeout,
 	}
 	client.HTTPClient = c
 	return nil
 }
 
 // IronicClient creates a client for Ironic.
-func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client *gophercloud.ServiceClient, err error) {
+func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig, timeout time.Duration) (client *gophercloud.ServiceClient, err error) {
 	switch auth.Type {
 	case NoAuth:
 		client, err = noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
@@ -93,6 +101,6 @@ func IronicClient(ironicEndpoint string, auth AuthConfig, tls TLSConfig) (client
 
 	client.Microversion = baselineVersionString
 
-	err = updateHTTPClient(client, tls)
+	err = updateHTTPClient(client, tls, timeout)
 	return
 }

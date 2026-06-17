@@ -53,6 +53,9 @@ type ironicProvisionerFactory struct {
 	// Information to cache between reconciliations
 	cache    *ironicProvisionerCache
 	cacheTTL time.Duration
+
+	// HTTP client timeout for all requests to Ironic
+	clientTimeout time.Duration
 }
 
 func NewProvisionerFactory(logger logr.Logger, havePreprovImgBuilder bool) (provisioner.Factory, error) {
@@ -92,6 +95,16 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 		}
 	} else {
 		f.cacheTTL = ironicProvisionerCacheDefaultTTL
+	}
+
+	if timeoutString := os.Getenv("IRONIC_CLIENT_TIMEOUT"); timeoutString != "" {
+		f.clientTimeout, err = time.ParseDuration(timeoutString)
+		if err != nil {
+			return fmt.Errorf("invalid IRONIC_CLIENT_TIMEOUT %q: %w", timeoutString, err)
+		}
+		if f.clientTimeout <= 0 {
+			return fmt.Errorf("invalid IRONIC_CLIENT_TIMEOUT %q: must be > 0", timeoutString)
+		}
 	}
 
 	f.config, err = loadConfigFromEnv(havePreprovImgBuilder)
@@ -141,7 +154,7 @@ func (f *ironicProvisionerFactory) init(havePreprovImgBuilder bool) error {
 		"SkipClientSANVerify", tlsConf.SkipClientSANVerify,
 	)
 
-	f.clientIronic, err = clients.IronicClient(ironicEndpoint, ironicAuth, tlsConf)
+	f.clientIronic, err = clients.IronicClient(ironicEndpoint, ironicAuth, tlsConf, f.clientTimeout)
 	if err != nil {
 		return err
 	}
@@ -258,7 +271,7 @@ func (f ironicProvisionerFactory) ironicProvisioner(ctx context.Context, hostDat
 				"CACertFile", tlsConf.TrustedCAFile,
 			)
 
-			ironicClient, err := clients.IronicClient(ironicEndpoint, ironicAuth, tlsConf)
+			ironicClient, err := clients.IronicClient(ironicEndpoint, ironicAuth, tlsConf, f.clientTimeout)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create a client from Ironic resource %s/%s: %w", f.ironicNamespace, f.ironicName, err)
 			}

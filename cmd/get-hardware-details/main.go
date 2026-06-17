@@ -57,7 +57,7 @@ func main() {
 		endpoint = parsedEndpoint.String()
 	}
 
-	ironic, err := clients.IronicClient(endpoint, opts.AuthConfig, tlsConf)
+	ironic, err := clients.IronicClient(endpoint, opts.AuthConfig, tlsConf, clients.DefaultTimeout)
 	if err != nil {
 		log.Fatalf("could not get ironic client: %s", err)
 	}

@@ -3,6 +3,7 @@ package clients
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestIronicClientInvalidAuthType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotClient, err := IronicClient(tt.args.ironicEndpoint, tt.args.auth, tt.args.tls)
+			gotClient, err := IronicClient(tt.args.ironicEndpoint, tt.args.auth, tt.args.tls, 0)
 			require.Error(t, err)
 			assert.Nil(t, gotClient)
 		})
@@ -76,7 +77,7 @@ func TestIronicClientValidAuthType(t *testing.T) {
 			SkipClientSANVerify:   true,
 		},
 	}
-	noAuthClient, _ := IronicClient(noAuthClientArgs.ironicEndpoint, noAuthClientArgs.auth, noAuthClientArgs.tls)
+	noAuthClient, _ := IronicClient(noAuthClientArgs.ironicEndpoint, noAuthClientArgs.auth, noAuthClientArgs.tls, 0)
 
 	noAuthTlsClientArgs := args{
 		ironicEndpoint: "https://localhost",
@@ -93,7 +94,7 @@ func TestIronicClientValidAuthType(t *testing.T) {
 			SkipClientSANVerify:   true,
 		},
 	}
-	noAuthTlsClient, _ := IronicClient(noAuthTlsClientArgs.ironicEndpoint, noAuthTlsClientArgs.auth, noAuthTlsClientArgs.tls)
+	noAuthTlsClient, _ := IronicClient(noAuthTlsClientArgs.ironicEndpoint, noAuthTlsClientArgs.auth, noAuthTlsClientArgs.tls, 0)
 
 	basicAuthClientArgs := args{
 		ironicEndpoint: "http://localhost",
@@ -110,7 +111,7 @@ func TestIronicClientValidAuthType(t *testing.T) {
 			SkipClientSANVerify:   true,
 		},
 	}
-	basicAuthClient, _ := IronicClient(basicAuthClientArgs.ironicEndpoint, basicAuthClientArgs.auth, basicAuthClientArgs.tls)
+	basicAuthClient, _ := IronicClient(basicAuthClientArgs.ironicEndpoint, basicAuthClientArgs.auth, basicAuthClientArgs.tls, 0)
 
 	basicAuthTlsClientArgs := args{
 		ironicEndpoint: "https://localhost",
@@ -127,7 +128,7 @@ func TestIronicClientValidAuthType(t *testing.T) {
 			SkipClientSANVerify:   true,
 		},
 	}
-	basicAuthTlsClient, _ := IronicClient(basicAuthTlsClientArgs.ironicEndpoint, basicAuthTlsClientArgs.auth, basicAuthTlsClientArgs.tls)
+	basicAuthTlsClient, _ := IronicClient(basicAuthTlsClientArgs.ironicEndpoint, basicAuthTlsClientArgs.auth, basicAuthTlsClientArgs.tls, 0)
 
 	tests := []struct {
 		name       string
@@ -157,13 +158,29 @@ func TestIronicClientValidAuthType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotClient, err := IronicClient(tt.args.ironicEndpoint, tt.args.auth, tt.args.tls)
+			gotClient, err := IronicClient(tt.args.ironicEndpoint, tt.args.auth, tt.args.tls, 0)
 			require.NoError(t, err)
 			assert.NotNil(t, gotClient)
 			assert.Equalf(t, gotClient.Endpoint, tt.wantClient.Endpoint, "IronicClient() gotClient = %v, want %v", gotClient.Endpoint, tt.wantClient.Endpoint)
 			assert.Truef(t, reflect.DeepEqual(gotClient.MoreHeaders, tt.wantClient.MoreHeaders), "IronicClient() gotClient = %v, want %v", gotClient.MoreHeaders, tt.wantClient.MoreHeaders)
 		})
 	}
+}
+
+func TestIronicClientCustomTimeout(t *testing.T) {
+	tlsConf := TLSConfig{
+		TrustedCAFile:         "",
+		ClientCertificateFile: "",
+		ClientPrivateKeyFile:  "",
+		InsecureSkipVerify:    true,
+		SkipClientSANVerify:   true,
+	}
+
+	customTimeout := 120 * time.Second
+	gotClient, err := IronicClient("http://localhost", AuthConfig{Type: NoAuth}, tlsConf, customTimeout)
+	require.NoError(t, err)
+	assert.NotNil(t, gotClient)
+	assert.Equal(t, customTimeout, gotClient.HTTPClient.Timeout)
 }
 
 func Test_updateHTTPClient(t *testing.T) {
@@ -201,12 +218,13 @@ func Test_updateHTTPClient(t *testing.T) {
 		Username: "",
 		Password: "",
 	},
-		emptyTlsConfig,
+		emptyTlsConfig, 0,
 	)
 
 	tests := []struct {
-		name string
-		args args
+		name    string
+		args    args
+		timeout time.Duration
 	}{
 		{
 			name: "tls config with empty values does not fail",
@@ -229,11 +247,24 @@ func Test_updateHTTPClient(t *testing.T) {
 				tlsConf: updatedTlsConfig,
 			},
 		},
+		{
+			name: "custom timeout",
+			args: args{
+				client:  emptyClient,
+				tlsConf: emptyTlsConfig,
+			},
+			timeout: 120 * time.Second,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := updateHTTPClient(tt.args.client, tt.args.tlsConf)
+			err := updateHTTPClient(tt.args.client, tt.args.tlsConf, tt.timeout)
 			require.NoError(t, err)
+			expectedTimeout := tt.timeout
+			if expectedTimeout == 0 {
+				expectedTimeout = DefaultTimeout
+			}
+			assert.Equal(t, expectedTimeout, tt.args.client.HTTPClient.Timeout)
 		})
 	}
 }

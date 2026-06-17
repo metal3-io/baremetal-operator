@@ -247,6 +247,14 @@ func (f ironicProvisionerFactory) ironicProvisioner(ctx context.Context, hostDat
 	if f.ironicName != "" && f.ironicNamespace != "" && f.k8sClient != nil {
 		createClient = func() (*gophercloud.ServiceClient, error) {
 			ironicEndpoint, ironicAuth, tlsConf, err := f.loadConfigFromIronicCR(ctx)
+			// NOTE(dtantsur): the file may be created even if an error is returned, so plan deletion before checking err.
+			if tlsConf.TrustedCAFileIsTemporary {
+				defer func() {
+					if rmErr := os.Remove(tlsConf.TrustedCAFile); rmErr != nil && !os.IsNotExist(rmErr) {
+						provisionerLogger.Error(rmErr, "failed to remove temporary CA file", "file", tlsConf.TrustedCAFile)
+					}
+				}()
+			}
 			if err != nil {
 				return nil, fmt.Errorf("failed to load configuration from Ironic resource %s/%s: %w", f.ironicNamespace, f.ironicName, err)
 			}
@@ -435,19 +443,21 @@ func (f *ironicProvisionerFactory) loadConfigFromIronicCR(ctx context.Context) (
 
 	endpoint = fmt.Sprintf("http://%s.%s.svc", f.ironicName, f.ironicNamespace)
 
-	// Handle TLS
+	// Handle authentication
+	auth, err = f.loadAuthConfigFromIronicCR(ctx, &sm, ironicCR)
+	if err != nil {
+		return "", clients.AuthConfig{}, clients.TLSConfig{}, err
+	}
+
+	// Handle TLS.
+	// Do it last because it may create a temporary file that will need to be cleaned up
+	// by the caller even in case of an error.
 	if ironicCR.Spec.TLS.CertificateName != "" {
 		endpoint = fmt.Sprintf("https://%s.%s.svc", f.ironicName, f.ironicNamespace)
 		tlsConfig, err = f.loadTLSConfigFromIronicCR(ctx, &sm, ironicCR)
 		if err != nil {
 			return "", clients.AuthConfig{}, clients.TLSConfig{}, err
 		}
-	}
-
-	// Handle authentication
-	auth, err = f.loadAuthConfigFromIronicCR(ctx, &sm, ironicCR)
-	if err != nil {
-		return "", clients.AuthConfig{}, clients.TLSConfig{}, err
 	}
 
 	return endpoint, auth, tlsConfig, nil
@@ -499,6 +509,7 @@ func (f *ironicProvisionerFactory) loadTLSConfigFromIronicCR(ctx context.Context
 			return clients.TLSConfig{}, fmt.Errorf("failed to write CA certificate: %w", err)
 		}
 		tlsConfig.TrustedCAFile = caFile
+		tlsConfig.TrustedCAFileIsTemporary = true
 	}
 
 	return tlsConfig, nil
@@ -511,10 +522,15 @@ func writeTempFile(prefix string, data []byte) (string, error) {
 	}
 	defer tmpFile.Close()
 
+	name := tmpFile.Name()
 	_, err = tmpFile.Write(data)
 	if err != nil {
+		if rmErr := os.Remove(name); rmErr != nil && !os.IsNotExist(rmErr) { //nolint:gosec // name is from os.CreateTemp, not user input
+			rmErr = fmt.Errorf("failed to delete temporary file during clean-up: %w", rmErr)
+			return "", errors.Join(err, rmErr)
+		}
 		return "", err
 	}
 
-	return tmpFile.Name(), nil
+	return name, nil
 }

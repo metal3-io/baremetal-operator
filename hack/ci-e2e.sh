@@ -99,6 +99,7 @@ fi
 # Image server variables
 CIRROS_VERSION="0.6.2"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
+ISO_FILE="systemrescue-11.00-amd64.iso"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
 export IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
@@ -107,7 +108,9 @@ mkdir -p "${IMAGE_DIR}"
 ## Download disk images
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
     wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
-    wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/systemrescue-11.00-amd64.iso
+fi
+if [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
+    wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/"${ISO_FILE}"
 fi
 
 ## Download IPA (Ironic Python Agent) image
@@ -165,7 +168,7 @@ sysconfig:
         "test@example.com": "${pub_ssh_key}"
 EOF
 
-    ./sysrescue-customize --auto --recipe-dir recipe --source systemrescue-11.00-amd64.iso --dest=sysrescue-out.iso
+    ./sysrescue-customize --auto --recipe-dir recipe --source "${ISO_FILE}" --dest=sysrescue-out.iso
     popd
 fi
 export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"

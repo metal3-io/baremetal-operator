@@ -104,6 +104,7 @@ func getIronicNodePorts(ctx context.Context, e2eConfig *Config, nodeName string)
 			Logf("Ironic node %s not found, skipping ports retrieval", nodeName)
 			return nil, nil
 		}
+		return nil, errNode
 	}
 	Logf("Found node with name %s with uuid %s, checking ports", nodeName, node.UUID)
 

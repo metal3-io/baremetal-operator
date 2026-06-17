@@ -275,7 +275,7 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 		p.log.Info("failed to look for existing ports in Ironic", "MAC", macAddress)
 		return errPortList
 	}
-	if portsList != nil {
+	if len(portsList) > 0 {
 		for _, port := range portsList {
 			if port.NodeUUID != uuid {
 				return fmt.Errorf("port belongs to another node %s, MAC: %s can't register for node %s", port.NodeUUID, macAddress, uuid)

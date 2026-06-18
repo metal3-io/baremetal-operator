@@ -7,7 +7,6 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 IRONIC_IMAGE=${IRONIC_IMAGE:-"quay.io/metal3-io/ironic:main"}
 IRONIC_KEEPALIVED_IMAGE=${IRONIC_KEEPALIVED_IMAGE:-"quay.io/metal3-io/keepalived"}
 IPA_DOWNLOADER_IMAGE=${IPA_DOWNLOADER_IMAGE:-"quay.io/metal3-io/ironic-ipa-downloader:main"}
-MARIADB_IMAGE=${MARIADB_IMAGE:-"quay.io/metal3-io/mariadb:main"}
 
 IPA_BASEURI=${IPA_BASEURI:-}
 IPA_FILENAME=${IPA_FILENAME:-}
@@ -39,10 +38,6 @@ IRONIC_CERT_FILE="${IRONIC_CERT_FILE:-}"
 IRONIC_KEY_FILE="${IRONIC_KEY_FILE:-}"
 IRONIC_TLS_SETUP=${IRONIC_TLS_SETUP:-"true"}
 
-MARIADB_CACERT_FILE="${MARIADB_CACERT_FILE:-}"
-MARIADB_CERT_FILE="${MARIADB_CERT_FILE:-}"
-MARIADB_KEY_FILE="${MARIADB_KEY_FILE:-}"
-
 IPXE_CACERT_FILE="${IPXE_CACERT_FILE:-}"
 IPXE_CERT_FILE="${IPXE_CERT_FILE:-}"
 IPXE_KEY_FILE="${IPXE_KEY_FILE:-}"
@@ -55,12 +50,6 @@ LOCAL_IPA_PATH="${LOCAL_IPA_PATH:-/tmp/dib}"
 HTTP_PROXY="${HTTP_PROXY:-}"
 HTTPS_PROXY="${HTTPS_PROXY:-}"
 NO_PROXY="${NO_PROXY:-}"
-
-# Ensure that the MariaDB key file allow a non-owned user to read.
-if [ -n "${MARIADB_KEY_FILE}" ]
-then
-  chmod 604 "${MARIADB_KEY_FILE}"
-fi
 
 sudo mkdir -p "${IRONIC_DATA_DIR}/auth"
 
@@ -91,7 +80,6 @@ IRONIC_ENDPOINT="${IRONIC_ENDPOINT:-"${IRONIC_BASE_URL}:6385/v1/"}"
 CACHEURL="${CACHEURL:-"http://${PROVISIONING_IP}/images"}"
 IRONIC_FAST_TRACK="${IRONIC_FAST_TRACK:-"true"}"
 IRONIC_REVERSE_PROXY_SETUP=${IRONIC_REVERSE_PROXY_SETUP:-"true"}
-IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB:-"false"}
 if [[ $IRONIC_TLS_SETUP == *false* ]]
 then
      # No reverse proxy for Ironic if TLS is not used
@@ -117,7 +105,6 @@ IRONIC_REVERSE_PROXY_SETUP=${IRONIC_REVERSE_PROXY_SETUP}
 IRONIC_INSPECTOR_VLAN_INTERFACES=${IRONIC_INSPECTOR_VLAN_INTERFACES}
 IPA_BASEURI=${IPA_BASEURI}
 IPA_FILENAME=${IPA_FILENAME}
-IRONIC_USE_MARIADB=${IRONIC_USE_MARIADB}
 HTTP_PROXY=${HTTP_PROXY}
 HTTPS_PROXY=${HTTPS_PROXY}
 NO_PROXY=${NO_PROXY}
@@ -140,9 +127,6 @@ fi
 
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_KEEPALIVED_IMAGE"
-if [ "$IRONIC_USE_MARIADB" = "true" ]; then
-    sudo "${CONTAINER_RUNTIME}" pull "$MARIADB_IMAGE"
-fi
 
 CERTS_MOUNTS=""
 
@@ -156,17 +140,6 @@ fi
 if [ -r "$IRONIC_KEY_FILE" ]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_KEY_FILE}:/certs/ironic/tls.key "
 fi
-
-if [ -r "$MARIADB_CACERT_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_CACERT_FILE}:/certs/ca/mariadb/tls.crt "
-fi
-if [ -r "$MARIADB_CERT_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_CERT_FILE}:/certs/mariadb/tls.crt "
-fi
-if [ -r "$MARIADB_KEY_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${MARIADB_KEY_FILE}:/certs/mariadb/tls.key "
-fi
-
 if [[ -r "${IPXE_CACERT_FILE}" ]]; then
      CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IPXE_CACERT_FILE}:/certs/ca/ipxe/tls.crt "
 fi
@@ -204,15 +177,7 @@ fi
 
 "$SCRIPTDIR/tools/remove_local_ironic.sh"
 
-set +x
-if [ "$IRONIC_USE_MARIADB" = "true" ]; then
-    # set password for mariadb
-    mariadb_password=$(echo "$(date;hostname)"|sha256sum |cut -c-20)
-    IRONIC_MARIADB_PASSWORD="--env MARIADB_PASSWORD=$mariadb_password"
-else
-    IRONIC_MARIADB_PASSWORD=
-fi
-set -x
+IRONIC_MARIADB_PASSWORD=
 
 POD=""
 
@@ -253,14 +218,8 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "${IRONIC_DATA_DIR}:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
-if [ "$IRONIC_USE_MARIADB" = "true" ]; then
-    # https://github.com/metal3-io/mariadb-image/blob/main/runmariadb
-    # shellcheck disable=SC2086
-    sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name mariadb \
-         ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-         -v "$IRONIC_DATA_DIR:/shared" \
-         --env "MARIADB_PASSWORD=$mariadb_password" "${MARIADB_IMAGE}"
-fi
+# For database setup, use MariaDB Operator:
+# https://github.com/mariadb-operator/mariadb-operator
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/runironic

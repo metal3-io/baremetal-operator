@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -199,6 +200,120 @@ func TestValidateHostClaimImageCreate(t *testing.T) {
 			}
 			if err := webhook.validateHostClaim(hostclaim); !errorArrContainsPrefix(err, tt.wantedErr) {
 				t.Errorf("metal3api.HostClaimWebhook Image error = %v, wantErr %v", err, tt.wantedErr)
+			}
+		})
+	}
+}
+
+func TestValidateHostClaimSecretReference(t *testing.T) {
+	tm := metav1.TypeMeta{
+		Kind:       "HostClaim",
+		APIVersion: "metal3.io/v1alpha1",
+	}
+
+	om := metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	tests := []struct {
+		name      string
+		hostClaim *metal3api.HostClaim
+		wantedErr string
+	}{
+		{
+			name: "crossNamespaceUserData",
+			hostClaim: &metal3api.HostClaim{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.HostClaimSpec{
+					UserData: &corev1.SecretReference{
+						Name:      "test-secret",
+						Namespace: "different-namespace", // Different from host's namespace
+					},
+				},
+			},
+			wantedErr: "hostclaims.metal3.io \"test\" is forbidden: userData: cross-namespace Secret references are not allowed",
+		},
+		{
+			name: "crossNamespaceNetworkData",
+			hostClaim: &metal3api.HostClaim{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.HostClaimSpec{
+					NetworkData: &corev1.SecretReference{
+						Name:      "test-secret",
+						Namespace: "different-namespace", // Different from host's namespace
+					},
+				},
+			},
+			wantedErr: "hostclaims.metal3.io \"test\" is forbidden: networkData: cross-namespace Secret references are not allowed",
+		},
+		{
+			name: "crossNamespaceMetaData",
+			hostClaim: &metal3api.HostClaim{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.HostClaimSpec{
+					MetaData: &corev1.SecretReference{
+						Name:      "test-secret",
+						Namespace: "different-namespace", // Different from host's namespace
+					},
+				},
+			},
+			wantedErr: "hostclaims.metal3.io \"test\" is forbidden: metaData: cross-namespace Secret references are not allowed",
+		},
+		{
+			name: "multipleSecretsCrossNamespace",
+			hostClaim: &metal3api.HostClaim{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.HostClaimSpec{
+					UserData: &corev1.SecretReference{
+						Name:      "test-secret1",
+						Namespace: "different-namespace1",
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "test-secret2",
+						Namespace: "different-namespace2",
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "test-secret3",
+						Namespace: "different-namespace3",
+					},
+				},
+			},
+			wantedErr: "hostclaims.metal3.io \"test\" is forbidden: userData: cross-namespace Secret references are not allowed", // Should catch at least one error
+		},
+		{
+			name: "sameNamespaceSecrets",
+			hostClaim: &metal3api.HostClaim{
+				TypeMeta:   tm,
+				ObjectMeta: om, // namespace is "test-namespace"
+				Spec: metal3api.HostClaimSpec{
+					UserData: &corev1.SecretReference{
+						Name:      "test-secret1",
+						Namespace: "test-namespace", // Same as host's namespace
+					},
+					NetworkData: &corev1.SecretReference{
+						Name:      "test-secret2",
+						Namespace: "test-namespace", // Same as host's namespace
+					},
+					MetaData: &corev1.SecretReference{
+						Name:      "test-secret3",
+						Namespace: "test-namespace", // Same as host's namespace
+					},
+				},
+			},
+			wantedErr: "", // Should be valid
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			webhook := &HostClaimWebhook{}
+			if err := webhook.validateHostClaim(tt.hostClaim); !errorArrContains(err, tt.wantedErr) {
+				t.Errorf("metal3api.BareMetalHost.Validatemetal3api.BareMetalHost() error = %v, wantErr %v", err, tt.wantedErr)
 			}
 		})
 	}

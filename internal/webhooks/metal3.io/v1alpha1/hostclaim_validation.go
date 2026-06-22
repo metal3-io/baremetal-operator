@@ -19,6 +19,9 @@ import (
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -26,6 +29,7 @@ import (
 // validateHostClaim validates a HostClaim resource.
 func (webhook *HostClaimWebhook) validateHostClaim(hostclaim *metal3api.HostClaim) []error {
 	var errs []error
+	errs = append(errs, webhook.validateCrossNamespaceSecretReferences(hostclaim)...)
 	for lblKey, lblValue := range hostclaim.Spec.HostSelector.MatchLabels {
 		for _, err := range validation.IsQualifiedName(lblKey) {
 			errs = append(errs, fmt.Errorf("%s=%s: %s", lblKey, lblValue, err))
@@ -100,5 +104,43 @@ func validateHostclaimAnnotations(hostclaim *metal3api.HostClaim) []error {
 		}
 	}
 
+	return errs
+}
+
+// validateHostClaimCrossNamespaceSecretReferences validates that a SecretReference does not refer to a Secret
+// in a different namespace than the hostclaim resource.
+func validateHostClaimCrossNamespaceSecretReferences(
+	hostclaimNamespace, hostclaimName, fieldName string, ref *corev1.SecretReference,
+) error {
+	if ref != nil &&
+		ref.Namespace != "" &&
+		ref.Namespace != hostclaimNamespace {
+		return k8serrors.NewForbidden(
+			schema.GroupResource{
+				Group:    "metal3.io",
+				Resource: "hostclaims",
+			},
+			hostclaimName,
+			fmt.Errorf("%s: cross-namespace Secret references are not allowed", fieldName),
+		)
+	}
+	return nil
+}
+
+// validateCrossNamespaceSecretReferences checks all Secret references in the HostClaim spec
+// to ensure they do not reference Secrets from other namespaces. This includes userData,
+// networkData, and metaData Secret references.
+func (webhook *HostClaimWebhook) validateCrossNamespaceSecretReferences(hostclaim *metal3api.HostClaim) []error {
+	secretRefs := map[*corev1.SecretReference]string{
+		hostclaim.Spec.UserData:    "userData",
+		hostclaim.Spec.NetworkData: "networkData",
+		hostclaim.Spec.MetaData:    "metaData",
+	}
+	errs := []error{}
+	for ref, fieldName := range secretRefs {
+		if err := validateHostClaimCrossNamespaceSecretReferences(hostclaim.Namespace, hostclaim.Name, fieldName, ref); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	return errs
 }

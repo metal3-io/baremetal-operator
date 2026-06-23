@@ -69,6 +69,23 @@ func TestProvision(t *testing.T) {
 			expectedErrorMessage: "Image provisioning failed (url: http://test-image, checksum: abcd): no work today",
 		},
 		{
+			name: "deployFail state - same OCI image",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+				InstanceInfo: map[string]any{
+					"image_source": "oci://quay.io/example/image@sha256:abc123",
+				},
+				LastError: "image not found",
+			}),
+			image: &metal3api.Image{
+				URL: "oci://quay.io/example/image@sha256:abc123",
+			},
+			expectedRequestAfter: 0,
+			expectedDirty:        false,
+			expectedErrorMessage: "Image provisioning failed (url: oci://quay.io/example/image@sha256:abc123): image not found",
+		},
+		{
 			name: "cleanFail state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanFail),

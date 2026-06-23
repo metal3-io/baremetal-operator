@@ -104,7 +104,9 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 
 	if oldObj.Spec.BMC.Address != "" &&
 		newObj.Spec.BMC.Address != oldObj.Spec.BMC.Address &&
+		oldObj.Status.OperationalStatus != metal3api.OperationalStatusDetached &&
 		newObj.Status.OperationalStatus != metal3api.OperationalStatusDetached &&
+		oldObj.Status.Provisioning.State != metal3api.StateRegistering &&
 		newObj.Status.Provisioning.State != metal3api.StateRegistering {
 		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
@@ -115,10 +117,11 @@ func (webhook *BareMetalHost) validateChanges(oldObj *metal3api.BareMetalHost, n
 
 	// Only allow enabling externallyProvisioned from Available state.
 	if !oldObj.Spec.ExternallyProvisioned && newObj.Spec.ExternallyProvisioned &&
+		oldObj.Status.Provisioning.State != metal3api.StateAvailable &&
 		newObj.Status.Provisioning.State != metal3api.StateAvailable {
 		errs = append(errs, fmt.Errorf(
 			"externallyProvisioned can only be enabled when in Available state, currently in %s",
-			newObj.Status.Provisioning.State))
+			oldObj.Status.Provisioning.State))
 	}
 
 	return errs

@@ -113,13 +113,13 @@ func (info *rInfo) publishEvent(reason, message string) {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.6.4/pkg/reconcile
 func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-	reqLogger := r.Log.WithValues("hostfirmwaresettings", req.NamespacedName)
-	reqLogger.Info("start")
+	reqLogger := r.Log.WithValues(LogFieldHostFirmwareSettings, req.NamespacedName)
+	reqLogger.V(VerbosityLevelTrace).Info("reconciliation started")
 
 	// Get the corresponding baremetalhost in this namespace, if one doesn't exist don't continue processing
 	bmh := &metal3api.BareMetalHost{}
 	if err = r.Get(ctx, req.NamespacedName, bmh); err != nil {
-		reqLogger.Info("could not get baremetalhost, not running reconciler")
+		reqLogger.V(VerbosityLevelDebug).Info("could not get baremetalhost, not running reconciler")
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
@@ -137,7 +137,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	if err = r.Get(ctx, req.NamespacedName, hfs); err != nil {
 		// The HFS resource may have been deleted
 		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("hostFirmwareSettings not found")
+			reqLogger.V(VerbosityLevelDebug).Info("hostFirmwareSettings not found")
 			return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -148,18 +148,23 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	prov, err := r.ProvisionerFactory.NewProvisioner(ctx, provisioner.BuildHostDataNoBMC(*bmh), info.publishEvent)
 	if err != nil {
 		if errors.Is(err, provisioner.ErrNotReady) {
-			reqLogger.Info("provisioner is not ready", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
+			reqLogger.Info("provisioner is not ready",
+				LogFieldError, err.Error(),
+				LogFieldRequeueAfter, provisionerRetryDelay)
 			return ctrl.Result{RequeueAfter: provisionerRetryDelay}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
-	info.log.V(1).Info("retrieving firmware settings and saving to resource", "Node", bmh.Status.Provisioning.ID)
+	info.log.V(VerbosityLevelDebug).Info("retrieving firmware settings and saving to resource",
+		LogFieldNode, bmh.Status.Provisioning.ID)
 
 	// Get the current settings and schema, retry if provisioner returns error
 	currentSettings, schema, err := prov.GetFirmwareSettings(ctx, true)
 	if err != nil {
-		reqLogger.Info("provisioner returns error", "Error", err.Error(), "RequeueAfter", provisionerRetryDelay)
+		reqLogger.Info("provisioner returns error",
+			LogFieldError, err.Error(),
+			LogFieldRequeueAfter, provisionerRetryDelay)
 		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
 	}
 
@@ -223,7 +228,10 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 	for k, v := range info.hfs.Spec.Settings {
 		if statusVal, ok := newStatus.Settings[k]; ok {
 			if v.String() != statusVal {
-				info.log.Info("spec value different than status", "name", k, "specvalue", v.String(), "statusvalue", statusVal)
+				info.log.V(VerbosityLevelDebug).Info("spec value different than status",
+					"name", k,
+					"specValue", v.String(),
+					"statusValue", statusVal)
 				specMismatch = true
 				break
 			}
@@ -273,7 +281,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 
 	// Update Status if it has changed
 	if dirty {
-		info.log.Info("Status has changed")
+		info.log.V(VerbosityLevelDebug).Info("status has changed")
 		info.hfs.Status = *newStatus.DeepCopy()
 
 		t := metav1.Now()
@@ -285,7 +293,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 
 // Get a firmware schema that matches the host vendor or create one if it doesn't exist.
 func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(ctx context.Context, info *rInfo, schema map[string]metal3api.SettingSchema) (fSchema *metal3api.FirmwareSchema, err error) {
-	info.log.V(1).Info("getting firmwareSchema")
+	info.log.V(VerbosityLevelTrace).Info("getting firmwareSchema")
 
 	schemaName := GetSchemaName(schema)
 	firmwareSchema := &metal3api.FirmwareSchema{}
@@ -293,7 +301,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(ctx context.C
 	// If a schema exists that matches, use that, otherwise create a new one
 	if err = r.Get(ctx, client.ObjectKey{Namespace: info.hfs.ObjectMeta.Namespace, Name: schemaName},
 		firmwareSchema); err == nil {
-		info.log.V(1).Info("found existing firmwareSchema resource")
+		info.log.V(VerbosityLevelDebug).Info("found existing firmwareSchema resource")
 
 		// Add hfs as owner so can be garbage collected on delete, if already an owner it will just be overwritten
 		if err = controllerutil.SetOwnerReference(info.hfs, firmwareSchema, r.Scheme()); err != nil {
@@ -345,7 +353,7 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(ctx context.C
 		return nil, err
 	}
 
-	info.log.Info("created new firmwareSchema resource")
+	info.log.V(VerbosityLevelDebug).Info("created new firmwareSchema resource")
 
 	return firmwareSchema, nil
 }
@@ -365,8 +373,11 @@ func (r *HostFirmwareSettingsReconciler) SetupWithManager(mgr ctrl.Manager, maxC
 
 // updateEventHandler ensures no reconciliation happens for unimportant changes like finalizers or annotations.
 func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent) bool {
+	r.Log.V(VerbosityLevelTrace).Info("hostfirmwaresettings in event handler")
+
 	// If the update increased the resource Generation then let's process it
 	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+		r.Log.V(VerbosityLevelDebug).Info("returning true as generation changed from event handler")
 		return true
 	}
 

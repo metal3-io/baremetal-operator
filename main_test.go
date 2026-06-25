@@ -42,7 +42,9 @@ func TestTLSInsecureCiperSuite(t *testing.T) {
 		klog.LogToStderr(false) // this is important, because klog by default logs to stderr only
 		_, err := GetTLSOptionOverrideFuncs(tlsMockOptions)
 		g.Expect(err).ShouldNot(HaveOccurred())
-		g.Expect(bufWriter.String()).Should(ContainSubstring("use of insecure cipher 'TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256' detected."))
+		// Check for structured log format: key=value pairs
+		g.Expect(bufWriter.String()).Should(ContainSubstring("use of insecure cipher detected"))
+		g.Expect(bufWriter.String()).Should(ContainSubstring("TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256"))
 	})
 }
 

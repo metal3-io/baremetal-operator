@@ -478,10 +478,14 @@ func isRebootAnnotation(annotation string) bool {
 	return strings.HasPrefix(annotation, metal3api.RebootAnnotationPrefix+"/") || annotation == metal3api.RebootAnnotationPrefix
 }
 
-// clearRebootAnnotations deletes all reboot annotations exist on the provided host.
+func isBaseRebootAnnotation(annotation string) bool {
+	return annotation == metal3api.RebootAnnotationPrefix
+}
+
+// clearRebootAnnotations deletes the base reboot annotation if it exists on the provided host.
 func clearRebootAnnotations(host *metal3api.BareMetalHost) (dirty bool) {
 	for annotation := range host.Annotations {
-		if isRebootAnnotation(annotation) {
+		if isBaseRebootAnnotation(annotation) {
 			delete(host.Annotations, annotation)
 			dirty = true
 		}

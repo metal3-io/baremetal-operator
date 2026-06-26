@@ -252,7 +252,7 @@ const (
 )
 
 // OperationalStatusAllowed represents the allowed values of OperationalStatus.
-var OperationalStatusAllowed = []string{"", string(OperationalStatusOK), string(OperationalStatusDiscovered), string(OperationalStatusError), string(OperationalStatusDelayed), string(OperationalStatusDetached)}
+var OperationalStatusAllowed = []string{"", string(OperationalStatusOK), string(OperationalStatusDiscovered), string(OperationalStatusError), string(OperationalStatusDelayed), string(OperationalStatusDetached), string(OperationalStatusServicing)}
 
 // ErrorType indicates the class of problem that has caused the Host resource
 // to enter an error state.
@@ -287,7 +287,7 @@ const (
 )
 
 // ErrorTypeAllowed represents the allowed values of ErrorType.
-var ErrorTypeAllowed = []string{"", string(ProvisionedRegistrationError), string(RegistrationError), string(InspectionError), string(PreparationError), string(ProvisioningError), string(PowerManagementError)}
+var ErrorTypeAllowed = []string{"", string(ProvisionedRegistrationError), string(RegistrationError), string(InspectionError), string(PreparationError), string(ProvisioningError), string(PowerManagementError), string(DetachError), string(ServicingError)}
 
 // ProvisioningState defines the states the provisioner will report
 // the host has having.
@@ -769,7 +769,7 @@ type BareMetalHostStatus struct {
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
-	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error;servicing error
+	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error;detach error;servicing error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// LastUpdated identifies when this status was last observed.

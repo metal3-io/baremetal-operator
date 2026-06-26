@@ -4,7 +4,7 @@
   <currentMemory unit='KiB'>{{ .Memory }}</currentMemory>
   <vcpu placement='static'>{{ .VCPUs }}</vcpu>
   <os firmware="efi">
-    <type arch='x86_64' machine='pc-q35-6.2'>hvm</type>
+    <type arch='x86_64' machine='q35'>hvm</type>
     <firmware>
       <feature enabled="no" name="secure-boot"/>
     </firmware>
@@ -18,7 +18,6 @@
   <cpu mode='host-passthrough' check='none' migratable='on'/>
   <clock offset='utc'/>
   <devices>
-    <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='cdrom'>
       <driver name='qemu' type='raw'/>
       <target dev='sdb' bus='sata'/>
@@ -96,7 +95,7 @@
     </graphics>
     <audio id='1' type='none'/>
     <video>
-      <model type='cirrus' vram='16384' heads='1' primary='yes'/>
+      <model type='virtio' heads='1' primary='yes'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x0'/>
     </video>
     <memballoon model='virtio'>

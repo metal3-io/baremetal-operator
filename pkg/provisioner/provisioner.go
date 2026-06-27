@@ -89,6 +89,7 @@ type ManagementAccessData struct {
 	DisablePowerOff            bool
 	CPUArchitecture            string
 	HardwareData               *metal3api.HardwareData
+	DisableInspection          bool
 }
 
 type AdoptData struct {

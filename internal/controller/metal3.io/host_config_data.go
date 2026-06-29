@@ -36,9 +36,10 @@ type hostConfigData struct {
 }
 
 // Generic method for data extraction from a Secret. Function uses dataKey
-// parameter to detirmine which data to return in case secret contins multiple
-// keys.
-func (hcd *hostConfigData) getSecretData(ctx context.Context, name, namespace, dataKey string, addFinalizer bool) (string, error) {
+// parameter to determine which data to return in case secret contains multiple
+// keys. The addFinalizer parameter indicates whether or not a finalizer will be
+// added to the secret.
+func (hcd *hostConfigData) getSecretDataWithFinalizer(ctx context.Context, name, namespace, dataKey string, addFinalizer bool) (string, error) {
 	if namespace != hcd.host.Namespace {
 		return "", fmt.Errorf("%s secret must be in same namespace as host %s/%s", dataKey, hcd.host.Namespace, hcd.host.Name)
 	}
@@ -77,7 +78,7 @@ func (hcd *hostConfigData) UserData(ctx context.Context) (string, error) {
 	if namespace == "" {
 		namespace = hcd.host.Namespace
 	}
-	return hcd.getSecretData(
+	return hcd.getSecretDataWithFinalizer(
 		ctx,
 		hcd.host.Spec.UserData.Name,
 		namespace,
@@ -102,7 +103,7 @@ func (hcd *hostConfigData) NetworkData(ctx context.Context) (string, error) {
 	if namespace == "" {
 		namespace = hcd.host.Namespace
 	}
-	networkDataRaw, err := hcd.getSecretData(
+	networkDataRaw, err := hcd.getSecretDataWithFinalizer(
 		ctx,
 		networkData.Name,
 		namespace,
@@ -125,7 +126,7 @@ func (hcd *hostConfigData) PreprovisioningNetworkData(ctx context.Context) (stri
 		return "", nil
 	}
 	addFinalizer := !hostInDeletionFlow(hcd.host)
-	networkDataRaw, err := hcd.getSecretData(
+	networkDataRaw, err := hcd.getSecretDataWithFinalizer(
 		ctx,
 		hcd.host.Spec.PreprovisioningNetworkDataName,
 		hcd.host.Namespace,
@@ -156,7 +157,7 @@ func (hcd *hostConfigData) MetaData(ctx context.Context) (string, error) {
 	if namespace == "" {
 		namespace = hcd.host.Namespace
 	}
-	return hcd.getSecretData(
+	return hcd.getSecretDataWithFinalizer(
 		ctx,
 		hcd.host.Spec.MetaData.Name,
 		namespace,

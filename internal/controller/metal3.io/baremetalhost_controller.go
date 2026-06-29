@@ -30,6 +30,7 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hostclaim"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -39,8 +40,10 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -48,7 +51,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -77,6 +82,7 @@ type BareMetalHostReconciler struct {
 type reconcileInfo struct {
 	log                              logr.Logger
 	host                             *metal3api.BareMetalHost
+	hostclaim                        *metal3api.HostClaim
 	hardwareData                     *metal3api.HardwareData
 	request                          ctrl.Request
 	bmcCredsSecret                   *corev1.Secret
@@ -228,9 +234,14 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	}
 
 	initialState := host.Status.Provisioning.State
+	hostclaim, err := r.getHostClaimIfExists(ctx, host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("temporary failure while accessing hostclaim: %w", err)
+	}
 	info := &reconcileInfo{
 		log:                              reqLogger.WithValues(LogFieldProvisioningState, initialState),
 		host:                             host,
+		hostclaim:                        hostclaim,
 		hardwareData:                     hardwareData,
 		request:                          request,
 		bmcCredsSecret:                   bmcCredsSecret,
@@ -936,6 +947,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		host:          info.host,
 		log:           info.log.WithName("host_config_data"),
 		secretManager: r.secretManager(ctx, info.log),
+		hostClaim:     info.hostclaim,
 	}
 	preprovisioningNetworkData, err := hostConf.PreprovisioningNetworkData(ctx)
 	if err != nil {
@@ -1382,6 +1394,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		host:          info.host,
 		log:           info.log.WithName("host_config_data"),
 		secretManager: r.secretManager(ctx, info.log),
+		hostClaim:     info.hostclaim,
 	}
 
 	hwProf, err := profile.GetProfile(info.host.HardwareProfile())
@@ -2645,6 +2658,43 @@ func (r *BareMetalHostReconciler) updateEventHandler(e event.UpdateEvent) bool {
 	return true
 }
 
+func queueBareMetalHostFromHostClaim(obj client.Object, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	hostClaim, ok := obj.(*metal3api.HostClaim)
+	if !ok {
+		return
+	}
+	bmh := hostClaim.Status.BareMetalHost
+	if bmh == nil {
+		return
+	}
+	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: bmh.Namespace, Name: bmh.Name}})
+}
+
+var hostClaimEventHandler = handler.TypedFuncs[client.Object, reconcile.Request]{
+	CreateFunc: func(_ context.Context, e event.TypedCreateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+		queueBareMetalHostFromHostClaim(e.Object, q)
+	},
+	UpdateFunc: func(_ context.Context, e event.TypedUpdateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+		objectNew, ok1 := e.ObjectNew.(*metal3api.HostClaim)
+		objectOld, ok2 := e.ObjectOld.(*metal3api.HostClaim)
+		if !ok1 || !ok2 {
+			return
+		}
+		if reflect.DeepEqual(objectNew.Spec.UserData, objectOld.Spec.UserData) &&
+			reflect.DeepEqual(objectNew.Spec.NetworkData, objectOld.Spec.NetworkData) &&
+			reflect.DeepEqual(objectNew.Spec.MetaData, objectOld.Spec.MetaData) {
+			return
+		}
+		queueBareMetalHostFromHostClaim(e.ObjectNew, q)
+	},
+	DeleteFunc: func(_ context.Context, e event.TypedDeleteEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+		queueBareMetalHostFromHostClaim(e.Object, q)
+	},
+	GenericFunc: func(_ context.Context, e event.TypedGenericEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+		queueBareMetalHostFromHostClaim(e.Object, q)
+	},
+}
+
 // SetupWithManager registers the reconciler to be run by the manager.
 func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgEnable bool, maxConcurrentReconcile int) error {
 	r.Recorder = mgr.GetEventRecorderFor("baremetalhost-controller")
@@ -2656,6 +2706,7 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 				UpdateFunc: r.updateEventHandler,
 			}).
 		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
+		Watches(&metal3api.HostClaim{}, hostClaimEventHandler).
 		Owns(&corev1.Secret{}, builder.MatchEveryOwner)
 
 	if preprovImgEnable {
@@ -2745,4 +2796,35 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 		return ctrl.Result{Requeue: true}, hardwareData, nil
 	}
 	return ctrl.Result{}, hardwareData, nil
+}
+
+// getHostClaimIfExists gives back a pointer to a HostClaim if the BareMetalHost is associated to it and HostClaim has correct backpointer in status.
+// Any error encountered during the check of the consumerRef is ignored.
+func (r *BareMetalHostReconciler) getHostClaimIfExists(ctx context.Context, host *metal3api.BareMetalHost) (hc *metal3api.HostClaim, err error) {
+	consumer := host.Spec.ConsumerRef
+	if consumer == nil {
+		return
+	}
+	gv, err := schema.ParseGroupVersion(consumer.APIVersion)
+	if err != nil || gv.Group != metal3api.GroupVersion.Group {
+		return
+	}
+	if consumer.Kind != hostclaim.HostClaimKind {
+		return
+	}
+	hostclaim := &metal3api.HostClaim{}
+	key := client.ObjectKey{Namespace: consumer.Namespace, Name: consumer.Name}
+	if err = r.Get(ctx, key, hostclaim); err != nil {
+		return
+	}
+	if hostclaim.Status.BareMetalHost == nil {
+		err = errors.New("no back link on hostclaim - no hostclaim for initialization data")
+		return
+	}
+	if hostclaim.Status.BareMetalHost.Name != host.Name || hostclaim.Status.BareMetalHost.Namespace != host.Namespace {
+		err = errors.New("bad back link to baremetalhost - no hostclaim for initialization data")
+		return
+	}
+	hc = hostclaim
+	return
 }

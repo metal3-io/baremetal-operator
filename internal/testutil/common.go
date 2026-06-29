@@ -88,6 +88,11 @@ func (sb *SecretBuilder) SetData(data map[string][]byte) *SecretBuilder {
 	return sb
 }
 
+func (sb *SecretBuilder) SetLabels(labels map[string]string) *SecretBuilder {
+	sb.secret.Labels = labels
+	return sb
+}
+
 type BareMetalHostBuilder struct {
 	bmh metal3api.BareMetalHost
 }
@@ -137,17 +142,17 @@ func (bb *BareMetalHostBuilder) SetConsumerRef(cref corev1.ObjectReference) *Bar
 }
 
 func (bb *BareMetalHostBuilder) SetUserData(udata string) *BareMetalHostBuilder {
-	bb.bmh.Spec.UserData = &corev1.SecretReference{Name: udata}
+	bb.bmh.Spec.UserData = &corev1.SecretReference{Name: udata, Namespace: bb.bmh.Namespace}
 	return bb
 }
 
 func (bb *BareMetalHostBuilder) SetMetaData(mdata string) *BareMetalHostBuilder {
-	bb.bmh.Spec.MetaData = &corev1.SecretReference{Name: mdata}
+	bb.bmh.Spec.MetaData = &corev1.SecretReference{Name: mdata, Namespace: bb.bmh.Namespace}
 	return bb
 }
 
 func (bb *BareMetalHostBuilder) SetNetworkData(ndata string) *BareMetalHostBuilder {
-	bb.bmh.Spec.NetworkData = &corev1.SecretReference{Name: ndata}
+	bb.bmh.Spec.NetworkData = &corev1.SecretReference{Name: ndata, Namespace: bb.bmh.Namespace}
 	return bb
 }
 
@@ -261,7 +266,7 @@ func (hb *HostClaimBuilder) SetMetaData(mdata string) *HostClaimBuilder {
 	return hb
 }
 
-func (hb *HostClaimBuilder) SetNetworData(ndata string) *HostClaimBuilder {
+func (hb *HostClaimBuilder) SetNetworkData(ndata string) *HostClaimBuilder {
 	hb.hostClaim.Spec.NetworkData = &corev1.SecretReference{Name: ndata}
 	return hb
 }
@@ -358,5 +363,10 @@ func (hb *HostDeployPolicyBuilder) AcceptRegexp(re string) *HostDeployPolicyBuil
 		spec.HostClaimNamespaces = &metal3api.HostClaimNamespaces{}
 	}
 	spec.HostClaimNamespaces.NameMatches = re
+	return hb
+}
+
+func (hb *HostDeployPolicyBuilder) AllowsDetaching() *HostDeployPolicyBuilder {
+	hb.hostDeployPolicy.Spec.AllowsDetaching = true
 	return hb
 }

@@ -33,7 +33,7 @@ CONTAINER_RUNTIME = docker
 SOURCE_GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 BUILD_VERSION ?= $(shell git describe --always --abbrev=40 --dirty)
 VERSION_URI = "github.com/metal3-io/baremetal-operator/pkg/version"
-export LDFLAGS="-X $(VERSION_URI).Raw=${BUILD_VERSION} \
+LDFLAGS = "-X $(VERSION_URI).Raw=${BUILD_VERSION} \
                 -X $(VERSION_URI).Commit=${SOURCE_GIT_COMMIT} \
                 -X $(VERSION_URI).BuildTime=$(shell date +%Y-%m-%dT%H:%M:%S%z)"
 

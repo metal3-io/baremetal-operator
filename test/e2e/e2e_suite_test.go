@@ -214,7 +214,9 @@ var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	// After all ParallelNodes.
 
-	cancelWatches()
+	if cancelWatches != nil {
+		cancelWatches()
+	}
 
 	By("Tearing down the management cluster")
 	if !skipCleanup {

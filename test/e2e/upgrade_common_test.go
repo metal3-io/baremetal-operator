@@ -77,6 +77,17 @@ func cleanupUpgradeTest(ctx context.Context, upgradeClusterProxy framework.Clust
 	DumpResources(ctx, e2eConfig, upgradeClusterProxy, testArtifactFolder, upgradeIronicIP)
 	if !skipCleanup {
 		if e2eConfig.GetBoolVariable("UPGRADE_USE_EXISTING_CLUSTER") {
+			if namespace == nil {
+				// Namespace is only set after CreateNamespaceAndWatchEvents succeeds.
+				// If the test failed before that, there's nothing to clean up here.
+				if cancelWatches != nil {
+					cancelWatches()
+				}
+				if upgradeClusterProxy != nil {
+					upgradeClusterProxy.Dispose(ctx)
+				}
+				return
+			}
 			// Trigger deletion of BMHs before deleting the namespace.
 			// This way there should be no risk of BMO getting stuck trying to progress
 			// and create HardwareDetails or similar, while the namespace is terminating.
@@ -101,8 +112,12 @@ func cleanupUpgradeTest(ctx context.Context, upgradeClusterProxy framework.Clust
 			// We are using a kind cluster for the upgrade tests, so we just delete the cluster.
 			upgradeClusterProvider.Dispose(ctx)
 		}
-		cancelWatches()
-		upgradeClusterProxy.Dispose(ctx)
+		if cancelWatches != nil {
+			cancelWatches()
+		}
+		if upgradeClusterProxy != nil {
+			upgradeClusterProxy.Dispose(ctx)
+		}
 	}
 }
 

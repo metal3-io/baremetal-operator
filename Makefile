@@ -427,7 +427,7 @@ kind-reset: ## Destroys the "bmo" kind cluster.
 ## Go module Targets
 ## --------------------------------------
 
-.PHONY:
+.PHONY: mod
 mod: ## Clean up go module settings
 	go mod tidy
 	go mod verify

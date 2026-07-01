@@ -190,6 +190,9 @@ linters:
       text: should not use dot imports
     - path: (test|e2e)/.*.go
       text: should not use dot imports
+    # Dot imports of logging utils is a convenience.
+    - source: '. "github.com/metal3-io/baremetal-operator/pkg/logging"'
+      text: should not use dot imports
     # Exclude deprecated packages of CAPI still used in the codebase.
     - linters:
       - staticcheck

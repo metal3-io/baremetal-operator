@@ -23,7 +23,6 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 func errorContains(out error, want string) bool {
@@ -138,7 +137,7 @@ func TestRAIDValidate(t *testing.T) {
 				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level:      "1",
-						RootVolume: ptr.To(true),
+						RootVolume: true,
 					},
 					{
 						Level: "1",
@@ -159,11 +158,11 @@ func TestRAIDValidate(t *testing.T) {
 				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level:      "1",
-						RootVolume: ptr.To(true),
+						RootVolume: true,
 					},
 					{
 						Level:      "1",
-						RootVolume: ptr.To(true),
+						RootVolume: true,
 					},
 				}},
 			}},
@@ -188,6 +187,28 @@ func TestRAIDValidate(t *testing.T) {
 			wantedErr: "",
 		},
 		{
+			name: "invalid-root-volume-non-raid1",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level:      "1",
+						RootVolume: false,
+					},
+					{
+						Level:      "0",
+						RootVolume: true,
+					},
+				}},
+			}},
+			wantedErr: "softwareRAIDVolumes[1] with rootVolume set must use RAID level 1",
+		},
+		{
 			name: "invalid-set-both-root-volume-and-rootDeviceHints",
 			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
 				Kind:       "BareMetalHost",
@@ -200,7 +221,7 @@ func TestRAIDValidate(t *testing.T) {
 				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
 					{
 						Level:      "1",
-						RootVolume: ptr.To(true),
+						RootVolume: true,
 					},
 				}},
 			}},

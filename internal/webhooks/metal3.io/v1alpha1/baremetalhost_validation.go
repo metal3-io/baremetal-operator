@@ -203,6 +203,15 @@ func validateRAID(host *metal3api.BareMetalHost) []error {
 		errs = append(errs, errors.New("softwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time"))
 	}
 
+	// enforce RAID-1 for any volume designated as root, matching the policy in
+	// the API types: the deployment device must be RAID-1 to avoid a non-booting
+	// host on disk failure.
+	for index, volume := range r.SoftwareRAIDVolumes {
+		if volume.RootVolume && volume.Level != "1" {
+			errs = append(errs, fmt.Errorf("softwareRAIDVolumes[%d] with rootVolume set must use RAID level 1", index))
+		}
+	}
+
 	return errs
 }
 

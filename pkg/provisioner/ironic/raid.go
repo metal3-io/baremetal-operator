@@ -11,6 +11,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -162,7 +163,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 	)
 
 	if len(volumes) == 0 {
-		return
+		return logicalDisks, nil
 	}
 
 	if nodes.RAIDLevel(volumes[0].Level) != nodes.RAID1 {
@@ -175,7 +176,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 			SizeGB:       volume.SizeGibibytes,
 			RAIDLevel:    nodes.RAIDLevel(volume.Level),
 			Controller:   "software",
-			IsRootVolume: volume.RootVolume,
+			IsRootVolume: ptr.To(volume.RootVolume),
 		}
 		// Build physical disks hint
 		for i := range volume.PhysicalDisks {
@@ -185,7 +186,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 		logicalDisks = append(logicalDisks, logicalDisk)
 	}
 
-	return
+	return logicalDisks, nil
 }
 
 // BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec.

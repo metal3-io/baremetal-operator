@@ -698,6 +698,51 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "invalid operationalStatus 'NotOK' in the baremetalhost.metal3.io/status annotation",
 		},
 		{
+			name: "validStatusAnnotationServicing",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.StatusAnnotation: `{"operationalStatus": "servicing"}`,
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "validStatusAnnotationDetachError",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.StatusAnnotation: `{"errorType":"detach error"}`,
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
+			name: "validStatusAnnotationServicingError",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.StatusAnnotation: `{"errorType":"servicing error"}`,
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
 			name: "invalidErrtypeStatusAnnotation",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm,

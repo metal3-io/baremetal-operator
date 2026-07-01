@@ -140,6 +140,16 @@ func setupWebhooks(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HostClaim")
 		os.Exit(1)
 	}
+
+	if err := (&webhooks.DataImage{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DataImage")
+		os.Exit(1)
+	}
+
+	if err := (&webhooks.HostFirmwareComponents{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HostFirmwareComponents")
+		os.Exit(1)
+	}
 }
 
 func main() {

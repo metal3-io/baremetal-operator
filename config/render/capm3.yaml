@@ -3495,6 +3495,26 @@ webhooks:
     service:
       name: baremetal-operator-webhook-service
       namespace: baremetal-operator-system
+      path: /validate-metal3-io-v1alpha1-dataimage
+  failurePolicy: Fail
+  name: dataimage.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dataimages
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: baremetal-operator-webhook-service
+      namespace: baremetal-operator-system
       path: /validate-metal3-io-v1alpha1-hostclaim
   failurePolicy: Fail
   name: hostclaim.metal3.io
@@ -3508,4 +3528,24 @@ webhooks:
     - UPDATE
     resources:
     - hostclaims
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: baremetal-operator-webhook-service
+      namespace: baremetal-operator-system
+      path: /validate-metal3-io-v1alpha1-hostfirmwarecomponents
+  failurePolicy: Fail
+  name: hostfirmwarecomponents.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hostfirmwarecomponents
   sideEffects: None

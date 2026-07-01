@@ -56,16 +56,39 @@ case "${GINKGO_FOCUS,,}" in
     ;;
 esac
 
+# Set CI_E2E_SKIP_INSTALLATION/CI_E2E_SKIP_BUILDING/CI_E2E_SKIP_SETUP to "true"
+# (case-insensitive) to skip that stage when re-running this script.
+CI_E2E_SKIP_INSTALLATION="${CI_E2E_SKIP_INSTALLATION:-false}"
+CI_E2E_SKIP_BUILDING="${CI_E2E_SKIP_BUILDING:-false}"
+CI_E2E_SKIP_SETUP="${CI_E2E_SKIP_SETUP:-false}"
+
+# Ensure common requirements are installed before proceeding with the setup and tests
+ensure_requirements() {
+  "${REPO_ROOT}/hack/e2e/ensure_go.sh"
+  "${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
+  # CAPI test framework uses kubectl in the background
+  "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
+  "${REPO_ROOT}/hack/e2e/ensure_yq.sh"
+
+  sudo apt-get update
+  sudo apt-get install -y libvirt-dev pkg-config gettext-base
+}
+
+# Build binaries required for the tests
+build_binaries() {
+  # Build the container image with e2e tag (used in tests)
+  IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
+
+  # Build vbmctl
+  make build-vbmctl
+  sudo setcap cap_net_admin+epi ./bin/vbmctl
+}
+
 # Ensure requirements are installed
 export PATH="/usr/local/go/bin:${PATH}"
-"${REPO_ROOT}/hack/e2e/ensure_go.sh"
-"${REPO_ROOT}/hack/e2e/ensure_htpasswd.sh"
-# CAPI test framework uses kubectl in the background
-"${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
-"${REPO_ROOT}/hack/e2e/ensure_yq.sh"
-
-sudo apt-get update
-sudo apt-get install -y libvirt-dev pkg-config gettext-base
+if [[ "${CI_E2E_SKIP_INSTALLATION,,}" != "true" ]]; then
+  ensure_requirements
+fi
 
 # Increase inotify limits to prevent "too many open files" errors.
 # Kind nodes (Docker containers running systemd) consume inotify resources heavily.
@@ -73,12 +96,10 @@ sudo apt-get install -y libvirt-dev pkg-config gettext-base
 sudo sysctl fs.inotify.max_user_watches=1048576
 sudo sysctl fs.inotify.max_user_instances=8192
 
-# Build the container image with e2e tag (used in tests)
-IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
-
-# Build vbmctl
-make build-vbmctl
-sudo setcap cap_net_admin+epi ./bin/vbmctl
+# Build binaries required for the tests
+if [[ "${CI_E2E_SKIP_BUILDING,,}" != "true" ]]; then
+  build_binaries
+fi
 
 # This IP is defined by the network we created above. It is sushy-tools / image
 # server endpoint, not ironic.
@@ -107,10 +128,10 @@ mkdir -p "${IMAGE_DIR}"
 
 ## Download disk images
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
-    wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
+  wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
 fi
 if [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
-    wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/"${ISO_FILE}"
+  wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/"${ISO_FILE}"
 fi
 
 ## Download IPA (Ironic Python Agent) image
@@ -120,20 +141,22 @@ fi
 IPA_FILE="ipa-centos9-master.tar.gz"
 IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote/ironic-python-agent/dib/
 if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
-    wget --quiet -P "${IMAGE_DIR}/" "${IPA_BASEURI}/${IPA_FILE}"
+  wget --quiet -P "${IMAGE_DIR}/" "${IPA_BASEURI}/${IPA_FILE}"
 fi
 
-# shellcheck disable=SC2016
-envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
-  "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
-  "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
+if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
+  # shellcheck disable=SC2016
+  envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
+    "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
+    "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
 
-# Create VMs to act as BMHs in the tests and the libvirt network. Create
-# also image server and E2E emulator containers.
-./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
+  # Create VMs to act as BMHs in the tests and the libvirt network. Create
+  # also image server and E2E emulator containers.
+  ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
+fi
 
 # Need to do some extra setup for the vbmc emulator
-if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
+if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]] && [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
   readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
   for bmc in "${BMCS[@]}"; do
     address=$(echo "${bmc}" | jq -r '.address')
@@ -145,7 +168,7 @@ fi
 
 # Generate ssh key pair for verifying provisioned BMHs
 if [[ ! -f "${IMAGE_DIR}/ssh_testkey" ]]; then
-    ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
+  ssh-keygen -t ed25519 -f "${IMAGE_DIR}/ssh_testkey" -q -N ""
 fi
 pub_ssh_key=$(cut -d " " -f "1,2" "${IMAGE_DIR}/ssh_testkey.pub")
 
@@ -153,13 +176,13 @@ pub_ssh_key=$(cut -d " " -f "1,2" "${IMAGE_DIR}/ssh_testkey.pub")
 # See https://www.system-rescue.org/scripts/sysrescue-customize/
 # We use the systemrescue ISO and their script for customizing it.
 if [[ ! -f "${IMAGE_DIR}/sysrescue-out.iso" ]];then
-    pushd "${IMAGE_DIR}"
-    wget -O sysrescue-customize https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false
-    chmod +x sysrescue-customize
+  pushd "${IMAGE_DIR}"
+  wget -O sysrescue-customize "https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false"
+  chmod +x sysrescue-customize
 
-    mkdir -p recipe/iso_add/sysrescue.d
-    # Reference: https://www.system-rescue.org/manual/Configuring_SystemRescue/
-    cat << EOF > recipe/iso_add/sysrescue.d/90-config.yaml
+  mkdir -p recipe/iso_add/sysrescue.d
+  # Reference: https://www.system-rescue.org/manual/Configuring_SystemRescue/
+  cat << EOF > recipe/iso_add/sysrescue.d/90-config.yaml
 ---
 global:
     nofirewall: true
@@ -168,8 +191,8 @@ sysconfig:
         "test@example.com": "${pub_ssh_key}"
 EOF
 
-    ./sysrescue-customize --auto --recipe-dir recipe --source "${ISO_FILE}" --dest=sysrescue-out.iso
-    popd
+  ./sysrescue-customize --auto --recipe-dir recipe --source "${ISO_FILE}" --dest=sysrescue-out.iso
+  popd
 fi
 export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
 
@@ -197,10 +220,12 @@ IRSO_IRONIC_AUTH_DIR="${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/comp
 echo "${IRONIC_USERNAME}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-username"
 echo "${IRONIC_PASSWORD}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-password"
 
-# shellcheck disable=SC2016
-SSH_PUB_KEY_CONTENT="${pub_ssh_key}" envsubst '${SSH_PUB_KEY_CONTENT}' < \
-  "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml.tmpl" > \
-  "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml"
+if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
+  # shellcheck disable=SC2016
+  SSH_PUB_KEY_CONTENT="${pub_ssh_key}" envsubst '${SSH_PUB_KEY_CONTENT}' < \
+    "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml.tmpl" > \
+    "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml"
+fi
 
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e

@@ -255,11 +255,11 @@ func (r *HostFirmwareComponentsReconciler) updateEventHandler(e event.UpdateEven
 	// NOTE(dtantsur): the only realistic case of a changed owner reference is when pre-created HFC is adopted by a BMH that was created later.
 	// In this case, it's reasonable to reconcile the resource using the information from the new BMH.
 	if !reflect.DeepEqual(e.ObjectNew.GetOwnerReferences(), e.ObjectOld.GetOwnerReferences()) {
-		r.Log.Info("processing event for changed owner reference", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
+		r.Log.V(VerbosityLevelDebug).Info("processing event for changed owner reference", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
 		return true
 	}
 
-	r.Log.V(1).Info("ignoring event that did not change generation or owners", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
+	r.Log.V(VerbosityLevelDebug).Info("ignoring event that did not change generation or owners", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
 	return false
 }
 
@@ -281,10 +281,9 @@ func (r *HostFirmwareComponentsReconciler) publishEvent(ctx context.Context, req
 		"message", event.Message)
 	err := r.Create(ctx, &event)
 	if err != nil {
-		reqLogger.V(VerbosityLevelDebug).Info("failed to record event, ignoring",
+		reqLogger.Error(err, "failed to record event, ignoring",
 			LogFieldReason, event.Reason,
-			"message", event.Message,
-			LogFieldError, err)
+			"message", event.Message)
 	}
 }
 

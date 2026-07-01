@@ -229,7 +229,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 	for k, v := range info.hfs.Spec.Settings {
 		if statusVal, ok := newStatus.Settings[k]; ok {
 			if v.String() != statusVal {
-				info.log.V(VerbosityLevelDebug).Info("spec value different than status",
+				info.log.Info("spec value different than status",
 					"name", k,
 					"specValue", v.String(),
 					"statusValue", statusVal)
@@ -385,11 +385,11 @@ func (r *HostFirmwareSettingsReconciler) updateEventHandler(e event.UpdateEvent)
 	// NOTE(dtantsur): the only realistic case of a changed owner reference is when pre-created HFS is adopted by a BMH that was created later.
 	// In this case, it's reasonable to reconcile the resource using the information from the new BMH.
 	if !reflect.DeepEqual(e.ObjectNew.GetOwnerReferences(), e.ObjectOld.GetOwnerReferences()) {
-		r.Log.Info("processing event for changed owner reference", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
+		r.Log.V(VerbosityLevelDebug).Info("processing event for changed owner reference", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
 		return true
 	}
 
-	r.Log.V(1).Info("ignoring event that did not change generation or owners", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
+	r.Log.V(VerbosityLevelDebug).Info("ignoring event that did not change generation or owners", "namespace", e.ObjectNew.GetNamespace(), "name", e.ObjectNew.GetName())
 	return false
 }
 

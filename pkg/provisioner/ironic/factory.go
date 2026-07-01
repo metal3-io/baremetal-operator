@@ -15,6 +15,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/v2/pagination"
+	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -160,9 +161,9 @@ func (f ironicProvisionerFactory) refreshCache(ctx context.Context, createClient
 			return f.cache.clientIronic, f.cache.availableFeatures, nil // cache is up-to-date
 		}
 
-		f.log.Info("client cache expired, refreshing", "TTL", f.cacheTTL, "HasGlobalClient", f.ironicName == "")
+		f.log.V(VerbosityLevelDebug).Info("client cache expired, refreshing", "TTL", f.cacheTTL, "HasGlobalClient", f.ironicName == "")
 	} else {
-		f.log.V(1).Info("creating and verifying a client (cache disabled)", "HasGlobalClient", f.ironicName == "")
+		f.log.V(VerbosityLevelDebug).Info("creating and verifying a client (cache disabled)", "HasGlobalClient", f.ironicName == "")
 	}
 
 	newClient, err := createClient()

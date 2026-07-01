@@ -1,20 +1,35 @@
 package ironic
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"math/big"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/testserver"
+	ironicv1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type EnvFixture struct {
@@ -507,4 +522,128 @@ func TestRefreshCacheDisabled(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, callCount, "createClient should always be called when cache is disabled")
 	assert.True(t, factory.cache.expiresAt.IsZero(), "cache should not be populated when disabled")
+}
+
+func generateTestCACert(t *testing.T) []byte {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	require.NoError(t, err)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+}
+
+func TestIronicProvisionerFromCR_CleansTempCAFile(t *testing.T) {
+	env := EnvFixture{}
+	defer env.TearDown()
+	env.SetUp()
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, ironicv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	ironicCR := &ironicv1alpha1.Ironic{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-ironic",
+			Namespace:  "test-ns",
+			Generation: 1,
+		},
+		Spec: ironicv1alpha1.IronicSpec{
+			TLS: ironicv1alpha1.TLS{
+				CertificateName: "ironic-tls-cert",
+			},
+			APICredentialsName: "ironic-auth",
+		},
+		Status: ironicv1alpha1.IronicStatus{
+			Conditions: []metav1.Condition{
+				{
+					Type:               string(ironicv1alpha1.IronicStatusReady),
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 1,
+				},
+			},
+		},
+	}
+
+	tlsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ironic-tls-cert",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{
+			"tls.crt": generateTestCACert(t),
+		},
+	}
+
+	authSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ironic-auth",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{
+			"username": []byte("admin"),
+			"password": []byte("password"),
+		},
+	}
+
+	k8sClient := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithRuntimeObjects(ironicCR, tlsSecret, authSecret).
+		WithStatusSubresource(ironicCR).
+		Build()
+
+	factory := ironicProvisionerFactory{
+		log:             logf.Log,
+		config:          ironicConfig{maxBusyHosts: 20},
+		cache:           new(ironicProvisionerCache),
+		cacheTTL:        5 * time.Second,
+		k8sClient:       k8sClient,
+		apiReader:       k8sClient,
+		ironicName:      "test-ironic",
+		ironicNamespace: "test-ns",
+	}
+
+	host := metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-host",
+			Namespace: "test-ns",
+			UID:       "test-uid",
+		},
+		Spec: metal3api.BareMetalHostSpec{
+			BMC: metal3api.BMCDetails{
+				Address: "test://test.bmc/",
+			},
+		},
+	}
+	hostData := provisioner.BuildHostData(host, bmc.Credentials{})
+
+	tempDir := t.TempDir()
+	t.Setenv("TMPDIR", tempDir)
+
+	getTempCAFiles := func() (result []string) {
+		files, err := os.ReadDir(tempDir)
+		require.NoError(t, err)
+		for _, f := range files {
+			if strings.HasPrefix(f.Name(), "ironic-ca-") {
+				result = append(result, f.Name())
+			}
+		}
+		return
+	}
+
+	require.Empty(t, getTempCAFiles())
+
+	// ironicProvisioner will fail because the Ironic CR endpoint is not
+	// reachable, but the createClient closure must still clean up the
+	// temp CA file via defer.
+	_, err := factory.ironicProvisioner(t.Context(), hostData, nullEventPublisher)
+	require.Error(t, err)
+	// ErrNotReady means the client was created successfully (the CA file
+	// was read and the TLS transport configured), but Ironic is unreachable.
+	require.ErrorIs(t, err, provisioner.ErrNotReady)
+
+	assert.Empty(t, getTempCAFiles(), "temp CA file was not cleaned up")
 }

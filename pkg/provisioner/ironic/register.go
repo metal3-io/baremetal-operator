@@ -94,9 +94,12 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		return result, "", err
 	}
 
-	// Some BMC types require a MAC address, so ensure we have one
-	// when we need it. If not, place the host in an error state.
-	if bmcAccess.NeedsMAC() && p.bootMACAddress == "" {
+	// Some BMC types require a MAC address regardless of inspection (for
+	// example VirtualBMC), and any host requires one when inspection is
+	// disabled because the MAC cannot be discovered. Ensure we have one when
+	// we need it; if not, place the host in an error state. This mirrors the
+	// combined rule enforced by the validating webhook.
+	if (bmcAccess.NeedsMAC() || data.DisableInspection) && p.bootMACAddress == "" {
 		msg := fmt.Sprintf("BMC driver %s requires a BootMACAddress value", bmcAccess.Type())
 		p.log.Info(msg)
 		result, err = operationFailed(msg)

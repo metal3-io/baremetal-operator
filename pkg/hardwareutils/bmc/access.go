@@ -55,8 +55,12 @@ type AccessDetails interface {
 	// will be used to communicate with it.
 	Type() string
 
-	// NeedsMAC returns true when the host is going to need a separate
-	// port created rather than having it discovered.
+	// NeedsMAC returns true when the driver requires a BootMACAddress to be
+	// populated regardless of whether inspection is enabled, for example
+	// VirtualBMC where the MAC cannot be discovered. Drivers whose MAC can be
+	// discovered during inspection return false; for those, a MAC is only
+	// required when inspection is disabled, which the callers enforce
+	// separately via host.InspectionDisabled().
 	NeedsMAC() bool
 
 	// The name of the driver to instantiate the BMC with. This may differ

@@ -75,6 +75,31 @@ func TestRegisterMACOptional(t *testing.T) {
 	assert.Empty(t, result.ErrorMessage)
 }
 
+func TestRegisterNoMACInspectionDisabled(t *testing.T) {
+	// Create a host whose BMC driver does not inherently require a MAC and
+	// without a bootMACAddress, but with inspection disabled. A MAC is then
+	// required because it cannot be discovered through inspection.
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+	ironic := testserver.NewIronic(t).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisableInspection: true}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Contains(t, result.ErrorMessage, "requires a BootMACAddress")
+}
+
 func TestRegisterCreateNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -113,7 +114,7 @@ func (hsm *hostStateMachine) updateHostStateFrom(ctx context.Context, initialSta
 		default:
 		}
 
-		info.log.V(VerbosityLevelDebug).Info("changing provisioning state",
+		info.log.Info("changing provisioning state",
 			"old", initialState,
 			"new", hsm.NextState)
 		now := metav1.Now()
@@ -357,7 +358,7 @@ func (hsm *hostStateMachine) ensureRegistered(ctx context.Context, info *reconci
 	default:
 		if hsm.Host.Status.ErrorType == metal3api.RegistrationError ||
 			!hsm.Host.Status.GoodCredentials.Match(*info.bmcCredsSecret) {
-			info.log.V(VerbosityLevelDebug).Info("retrying registration",
+			info.log.Info("retrying registration",
 				"lastError", hsm.Host.Status.ErrorMessage)
 			recordStateBegin(hsm.Host, metal3api.StateRegistering, metav1.Now())
 		}

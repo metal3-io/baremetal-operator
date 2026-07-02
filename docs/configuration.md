@@ -45,6 +45,9 @@ client certificate SAN validation.
 `IRONIC_CLIENT_CACHE_TTL` -- Duration during which an Ironic client and its
 parameters are cached. Defaults to "5s". Set to "0" to disable caching.
 
+`IRONIC_CLIENT_TIMEOUT` -- Timeout for HTTP requests to the Ironic API.
+Must be positive. Defaults to "30s".
+
 `BMO_CONCURRENCY` -- The number of concurrent reconciles performed by the
 Operator. Default is the number of CPUs, but no less than 2 and no more than 8.
 

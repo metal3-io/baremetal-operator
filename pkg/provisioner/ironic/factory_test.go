@@ -485,6 +485,73 @@ func TestRefreshCacheDoesNotCacheOnNoDrivers(t *testing.T) {
 	assert.True(t, factory.cache.expiresAt.IsZero())
 }
 
+func TestInitClientTimeout(t *testing.T) {
+	cases := []struct {
+		name            string
+		envValue        string
+		expectedTimeout time.Duration
+		expectedError   string
+	}{
+		{
+			name:            "not set uses zero (default)",
+			envValue:        "",
+			expectedTimeout: 0,
+		},
+		{
+			name:            "valid timeout",
+			envValue:        "60s",
+			expectedTimeout: 60 * time.Second,
+		},
+		{
+			name:            "valid timeout in minutes",
+			envValue:        "2m",
+			expectedTimeout: 2 * time.Minute,
+		},
+		{
+			name:          "invalid format",
+			envValue:      "not-a-duration",
+			expectedError: "invalid IRONIC_CLIENT_TIMEOUT",
+		},
+		{
+			name:          "zero is not allowed",
+			envValue:      "0s",
+			expectedError: "must be > 0",
+		},
+		{
+			name:          "negative is not allowed",
+			envValue:      "-1s",
+			expectedError: "must be > 0",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := EnvFixture{
+				ironicEndpoint: "http://ironic.test",
+				kernelURL:      "http://kernel",
+				ramdiskURL:     "http://ramdisk",
+			}
+			env.SetUp()
+			defer env.TearDown()
+
+			t.Setenv("IRONIC_CLIENT_TIMEOUT", tc.envValue)
+
+			factory := ironicProvisionerFactory{
+				log:   logr.Discard(),
+				cache: new(ironicProvisionerCache),
+			}
+			err := factory.init(false)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expectedTimeout, factory.clientTimeout)
+			}
+		})
+	}
+}
+
 func TestRefreshCacheDisabled(t *testing.T) {
 	ironic := testserver.NewIronic(t).WithDrivers()
 	ironic.Start()

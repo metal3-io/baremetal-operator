@@ -38,7 +38,7 @@ func newProvisionerWithSettings(host metal3api.BareMetalHost, bmcCreds bmc.Crede
 	hostData := provisioner.BuildHostData(host, bmcCreds)
 
 	tlsConf := clients.TLSConfig{}
-	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings, tlsConf)
+	clientIronic, err := clients.IronicClient(ironicURL, ironicAuthSettings, tlsConf, 0)
 	if err != nil {
 		return nil, err
 	}

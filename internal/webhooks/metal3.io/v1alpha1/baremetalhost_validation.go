@@ -54,7 +54,7 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 
 	errs = append(errs, webhook.validateCrossNamespaceSecretReferences(host)...)
 
-	if raidErrors := validateRAID(host.Spec.RAID); raidErrors != nil {
+	if raidErrors := validateRAID(host); raidErrors != nil {
 		errs = append(errs, raidErrors...)
 	}
 
@@ -169,8 +169,9 @@ func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetail
 	return errs
 }
 
-func validateRAID(r *metal3api.RAIDConfig) []error {
+func validateRAID(host *metal3api.BareMetalHost) []error {
 	var errs []error
+	r := host.Spec.RAID
 
 	if r == nil {
 		return nil
@@ -193,6 +194,24 @@ func validateRAID(r *metal3api.RAIDConfig) []error {
 			if *volume.NumberOfPhysicalDisks != len(volume.PhysicalDisks) {
 				errs = append(errs, fmt.Errorf("the 'numberOfPhysicalDisks'[%d] and number of 'physicalDisks'[%d] is not same for volume %d", *volume.NumberOfPhysicalDisks, len(volume.PhysicalDisks), index))
 			}
+		}
+	}
+
+	// check rootVolume only set for one of the software raid volumes
+	rootCount := r.GetRootVolumeCount()
+	if rootCount > 1 {
+		errs = append(errs, errors.New("softwareRAIDVolumes[*].rootVolume can only be set once"))
+	}
+	if rootCount == 1 && host.Spec.RootDeviceHints != nil {
+		errs = append(errs, errors.New("softwareRAIDVolumes[*].rootVolume and rootDeviceHints can not be set at the same time"))
+	}
+
+	// enforce RAID-1 for any volume designated as root, matching the policy in
+	// the API types: the deployment device must be RAID-1 to avoid a non-booting
+	// host on disk failure.
+	for index, volume := range r.SoftwareRAIDVolumes {
+		if volume.RootVolume && volume.Level != "1" {
+			errs = append(errs, fmt.Errorf("softwareRAIDVolumes[%d] with rootVolume set must use RAID level 1", index))
 		}
 	}
 

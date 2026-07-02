@@ -11,6 +11,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/devicehints"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -36,12 +37,13 @@ func setTargetRAIDCfg(ctx context.Context, p *ironicProvisioner, raidInterface s
 		return provisioner.Result{}, nil
 	}
 
-	// set root volume
-	if data.RootDeviceHints == nil {
+	// set root volume in case there is no rootDeviceHint or RAID root volume
+	rootCount := data.TargetRAIDConfig.GetRootVolumeCount()
+	if data.RootDeviceHints == nil && rootCount == 0 {
 		logicalDisks[0].IsRootVolume = new(bool)
 		*logicalDisks[0].IsRootVolume = true
 	} else {
-		p.log.Info("rootDeviceHints is used, the first volume of raid will not be set to root")
+		p.log.Info("the root volume will be determined by rootDeviceHints or RAID volume settings")
 	}
 
 	updater := clients.UpdateOptsBuilder(p.log)
@@ -161,7 +163,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 	)
 
 	if len(volumes) == 0 {
-		return
+		return logicalDisks, nil
 	}
 
 	if nodes.RAIDLevel(volumes[0].Level) != nodes.RAID1 {
@@ -171,9 +173,10 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 	for _, volume := range volumes {
 		// Build logicalDisk
 		logicalDisk = nodes.LogicalDisk{
-			SizeGB:     volume.SizeGibibytes,
-			RAIDLevel:  nodes.RAIDLevel(volume.Level),
-			Controller: "software",
+			SizeGB:       volume.SizeGibibytes,
+			RAIDLevel:    nodes.RAIDLevel(volume.Level),
+			Controller:   "software",
+			IsRootVolume: ptr.To(volume.RootVolume),
 		}
 		// Build physical disks hint
 		for i := range volume.PhysicalDisks {
@@ -183,7 +186,7 @@ func buildTargetSoftwareRAIDCfg(volumes []metal3api.SoftwareRAIDVolume) (logical
 		logicalDisks = append(logicalDisks, logicalDisk)
 	}
 
-	return
+	return logicalDisks, nil
 }
 
 // BuildRAIDCleanSteps build the clean steps for RAID configuration from BaremetalHost spec.

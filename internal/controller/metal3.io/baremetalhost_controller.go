@@ -1064,8 +1064,20 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 func updateRootDeviceHints(host *metal3api.BareMetalHost, info *reconcileInfo) (dirty bool, err error) {
 	// Ensure the root device hints we're going to use are stored.
 	//
-	// If the user has provided explicit root device hints, they take
-	// precedence. Otherwise use the values from the hardware profile.
+	// If the user has provided explicit root device hints or
+	// there are raid volumes defined, they take precedence.
+	// Otherwise use the values from the hardware profile.
+	if host.Spec.RAID != nil {
+		rootCount := host.Spec.RAID.GetRootVolumeCount()
+		if rootCount > 0 {
+			if host.Status.Provisioning.RootDeviceHints != nil {
+				host.Status.Provisioning.RootDeviceHints = nil
+				dirty = true
+			}
+			return dirty, nil
+		}
+	}
+
 	hintSource := host.Spec.RootDeviceHints
 	if hintSource == nil {
 		hwProf, err := profile.GetProfile(host.HardwareProfile())
@@ -1079,7 +1091,7 @@ func updateRootDeviceHints(host *metal3api.BareMetalHost, info *reconcileInfo) (
 		host.Status.Provisioning.RootDeviceHints = hintSource.DeepCopy()
 		dirty = true
 	}
-	return
+	return dirty, nil
 }
 
 // Ensure we have the information about the hardware on the host.

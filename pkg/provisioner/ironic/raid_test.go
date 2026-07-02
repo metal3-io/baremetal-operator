@@ -8,6 +8,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/utils/ptr"
 )
 
 func TestBuildTargetRAIDCfg(t *testing.T) {
@@ -160,8 +161,9 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 			},
 			expected: []nodes.LogicalDisk{
 				{
-					RAIDLevel:  "1",
-					Controller: "software",
+					RAIDLevel:    "1",
+					Controller:   "software",
+					IsRootVolume: ptr.To(false),
 					PhysicalDisks: []any{
 						map[string]string{
 							"size": ">= 100",
@@ -172,8 +174,35 @@ func TestBuildTargetRAIDCfg(t *testing.T) {
 					},
 				},
 				{
-					RAIDLevel:  "1",
-					Controller: "software",
+					RAIDLevel:    "1",
+					Controller:   "software",
+					IsRootVolume: ptr.To(false),
+				},
+			},
+		},
+		{
+			name: "software raid with root volume set, no root device hints",
+			raid: &metal3api.RAIDConfig{
+				SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level:      "1",
+						RootVolume: true,
+					},
+					{
+						Level: "1",
+					},
+				},
+			},
+			expected: []nodes.LogicalDisk{
+				{
+					RAIDLevel:    "1",
+					Controller:   "software",
+					IsRootVolume: ptr.To(true),
+				},
+				{
+					RAIDLevel:    "1",
+					Controller:   "software",
+					IsRootVolume: ptr.To(false),
 				},
 			},
 		},

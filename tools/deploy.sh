@@ -11,6 +11,16 @@ function usage {
     echo "       -n: deploy without authentication"
     echo "       -k: deploy with keepalived"
     echo "       -m: deploy with mariadb (requires TLS enabled)"
+    echo ""
+    echo "Environment variables:"
+    echo "  BMO_IMAGE_TAG: Override the BMO container image tag (default: auto-detect from git tag, or 'latest')"
+    echo ""
+    echo "Examples:"
+    echo "  # Deploy with auto-detected image tag from git"
+    echo "  ./tools/deploy.sh -b"
+    echo ""
+    echo "  # Deploy with specific image tag"
+    echo "  BMO_IMAGE_TAG=v0.6.0 ./tools/deploy.sh -b"
 }
 
 DEPLOY_BMO=false
@@ -99,6 +109,20 @@ MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
 export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
+
+# Determine the image tag to use
+# Priority: BMO_IMAGE_TAG env var > git tag > "latest"
+if [ -n "${BMO_IMAGE_TAG:-}" ]; then
+    IMAGE_TAG="${BMO_IMAGE_TAG}"
+else
+    # Try to get the current git tag
+    IMAGE_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+    if [ -z "${IMAGE_TAG}" ]; then
+        echo "WARNING: Not on a tagged commit, using 'latest' image tag"
+        IMAGE_TAG="latest"
+    fi
+fi
+echo "Using BMO image tag: ${IMAGE_TAG}"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
@@ -211,6 +235,9 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     if [[ "${DEPLOY_TLS}" == "true" ]]; then
         ${KUSTOMIZE} edit add component ../../components/tls
     fi
+
+    # Set the image tag
+    ${KUSTOMIZE} edit set image quay.io/metal3-io/baremetal-operator=quay.io/metal3-io/baremetal-operator:"${IMAGE_TAG}"
     popd
 fi
 

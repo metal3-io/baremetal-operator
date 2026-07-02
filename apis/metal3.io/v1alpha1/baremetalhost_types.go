@@ -458,6 +458,46 @@ type FirmwareConfig struct {
 	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
 }
 
+// SwitchPort defines the attributes required to identify a switch port.
+type SwitchPort struct {
+	// SwitchID is expected to be the management MAC address of the switch
+	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
+	SwitchID string `json:"switchID"`
+
+	// PortID is expected to be the configuration name of the port in the
+	// switch management system.
+	PortID string `json:"portID"`
+}
+
+// NetworkInterface defines the network configuration for a specific interface.
+type NetworkInterface struct {
+	// Name of the network interface (e.g., "eth0", "ens1f0")
+	// This must match the name of a NIC in status.hardware.nics.
+	// If MACAddress is set then this field is ignored.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._-]+$`
+	Name string `json:"name,omitempty"`
+
+	// MAC address of the network interface.  This must match the MAC address
+	// of the network interface in status.hardware.nics.
+	// +optional
+	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
+	MACAddress string `json:"macAddress,omitempty"`
+
+	// HostNetworkAttachment references the HostNetworkAttachment for this interface
+	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment,omitempty"`
+
+	// SwitchPort defines the switch port on which this interface is attached.
+	// This is intended to be a replacement for LLDP information if
+	// LLDP is not enabled on the neighboring switches or if inspection is not
+	// used on the BMH.  If LLDP information is acquired during inspection and
+	// this field is provided then it will override the LLDP provided
+	// information; therefore, caution must be exercised when supplying this
+	// value.
+	// +optional
+	SwitchPort *SwitchPort `json:"switchPort,omitempty"`
+}
+
 // BareMetalHostSpec defines the desired state of BareMetalHost.
 type BareMetalHostSpec struct {
 	// Important: Run "make generate manifests" to regenerate code
@@ -598,6 +638,16 @@ type BareMetalHostSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=disabled;agent
 	InspectionMode InspectionMode `json:"inspectionMode,omitempty"`
+
+	// NetworkInterfaces defines the network configuration for each interface.
+	// This will be used to configure switch ports for the host.  Interface
+	// names must correspond to actual NICs discovered in hardware details by
+	// the hardware inspection process.  They are referenced by either the name
+	// or MAC address of the NIC.
+	// This field is immutable unless the host is in early lifecycle states
+	// (registering, inspecting, preparing, available).
+	// +optional
+	NetworkInterfaces []NetworkInterface `json:"networkInterfaces,omitempty"`
 }
 
 // AutomatedCleaningMode is the interface to enable/disable automated cleaning
@@ -1139,6 +1189,19 @@ func (image *Image) GetChecksum() (checksum, checksumType string, err error) {
 
 	checksum = image.Checksum
 	return checksum, checksumType, nil
+}
+
+// IsValid returns true if the network interface is valid.
+func (iface *NetworkInterface) IsValid() bool {
+	return iface.Name != "" || iface.MACAddress != ""
+}
+
+// GetKey returns the key to use for the network interface.
+func (iface *NetworkInterface) GetKey() string {
+	if iface.MACAddress != "" {
+		return iface.MACAddress
+	}
+	return iface.Name
 }
 
 // +kubebuilder:object:root=true

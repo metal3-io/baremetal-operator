@@ -17,6 +17,7 @@ package main
 
 import (
 	"cmp"
+	"context"
 	"crypto/tls"
 	"errors"
 	"flag"
@@ -125,7 +126,7 @@ func setupWebhookReadinessCheck(mgr ctrl.Manager) {
 	}
 }
 
-func setupWebhooks(mgr ctrl.Manager) {
+func setupWebhooks(ctx context.Context, mgr ctrl.Manager) {
 	if err := (&webhooks.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost")
 		os.Exit(1)
@@ -138,6 +139,11 @@ func setupWebhooks(mgr ctrl.Manager) {
 
 	if err := (&webhooks.HostClaimWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HostClaim")
+		os.Exit(1)
+	}
+
+	if err := (&webhooks.HostNetworkAttachment{}).SetupWebhookWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HostNetworkAttachment")
 		os.Exit(1)
 	}
 }
@@ -496,13 +502,15 @@ func main() {
 
 	setupChecks(mgr)
 
+	ctx := ctrl.SetupSignalHandler()
+
 	if enableWebhook {
 		setupWebhookReadinessCheck(mgr)
-		setupWebhooks(mgr)
+		setupWebhooks(ctx, mgr)
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

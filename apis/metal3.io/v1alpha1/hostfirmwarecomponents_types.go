@@ -36,6 +36,12 @@ type FirmwareComponentStatus struct {
 	CurrentVersion     string      `json:"currentVersion,omitempty"`
 	LastVersionFlashed string      `json:"lastVersionFlashed,omitempty"`
 	UpdatedAt          metav1.Time `json:"updatedAt,omitempty"`
+	// +optional
+	Vendor string `json:"vendor,omitempty"`
+	// +optional
+	Model string `json:"model,omitempty"`
+	// +optional
+	SerialNumber string `json:"serialNumber,omitempty"`
 }
 
 type UpdatesConditionType string

@@ -459,8 +459,11 @@ $(RELEASE_NOTES_DIR):
 	mkdir -p $(RELEASE_NOTES_DIR)/
 
 .PHONY: release-notes
-release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
-	cd hack/tools && $(GO) run release/notes.go  --releaseTag=$(RELEASE_TAG) > $(realpath $(RELEASE_NOTES_DIR))/$(RELEASE_TAG).md
+release-notes: $(RELEASE_NOTES_DIR) $(TOOLS_DIR)/go.mod ## Generates release notes for the given tag
+	@echo "Generating release notes for $(RELEASE_TAG)..."
+	@cd $(TOOLS_DIR) && $(GO) build -tags=tools -o $(BIN_DIR)/release ./release
+	@$(TOOLS_BIN_DIR)/release --releaseTag="$(RELEASE_TAG)" --githubToken="$${GITHUB_TOKEN}" > $(RELEASE_NOTES_DIR)/$(RELEASE_TAG).md
+	@echo "Release notes written to $(realpath $(RELEASE_NOTES_DIR))/$(RELEASE_TAG).md"
 
 .PHONY: release-manifests
 release-manifests: $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release

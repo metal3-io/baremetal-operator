@@ -214,6 +214,11 @@ mkdir -p "${LOGS_DIR}/qemu"
 sudo sh -c "cp -r /var/log/libvirt/qemu/* ${LOGS_DIR}/qemu/"
 sudo chown -R "${USER}:${USER}" "${LOGS_DIR}/qemu"
 
+# Collect BMC emulator logs, if present (not run against real hardware).
+emulator_container="vbmctl-${BMO_E2E_EMULATOR}"
+docker inspect "${emulator_container}" &>/dev/null &&
+  docker logs "${emulator_container}" > "${LOGS_DIR}/${emulator_container}.log" 2>&1
+
 # Collect all artifacts
 tar --directory test/e2e/ -czf "artifacts-e2e-${BMO_E2E_EMULATOR}-${BMC_PROTOCOL}.tar.gz" _artifacts
 
